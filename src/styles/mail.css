@@ -1,0 +1,326 @@
+/**
+ * Mail — a scoped visual trial, independent of the shared AgentOS design
+ * tokens in `agentos.css`. Every rule is namespaced under `.mail-*`, so
+ * nothing here can leak into another screen. If this style is adopted more
+ * broadly later, that is a deliberate follow-up step, not a side effect of
+ * this file existing.
+ *
+ * Fonts are pulled in with `@import`, the same convention `agentos.css` and
+ * `App.css` already use for Fontsource packages — never a JS-side import.
+ */
+
+@import "@fontsource-variable/inter-tight";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/latin-700.css";
+
+:root {
+  --mail-sandy-desk: #e1d7c2;
+  --mail-paper-white: #ffffff;
+  --mail-cream-paper: #fdfdf8;
+  --mail-soft-linen: #eeefe9;
+  --mail-pale-stone: #e5e7e0;
+  --mail-deep-moss: #23251d;
+  --mail-olive-char: #4d4f46;
+  --mail-sage-gray: #65675e;
+  --mail-ash-green: #9ea096;
+  --mail-warm-mist: #bfc1b7;
+  --mail-amber-glow: #eb9d2a;
+  --mail-dark-amber: #cd8407;
+  --mail-burnished-gold: #b17816;
+  --mail-marigold: #f1a82c;
+  --mail-flame-orange: #f54e00;
+  --mail-moss-green: #6aa84f;
+  --mail-font-heading: "Inter Tight Variable", "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --mail-font-ui: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --mail-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mail-stage {
+  background: var(--mail-sandy-desk);
+  color: var(--mail-deep-moss);
+  font-family: var(--mail-font-ui);
+  min-height: 100%;
+  padding: 28px 32px 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.mail-window {
+  width: 100%;
+  max-width: 860px;
+  height: fit-content;
+  background: var(--mail-paper-white);
+  border: 1px solid var(--mail-warm-mist);
+  border-radius: 6px;
+}
+
+.mail-titlebar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-bottom: 1px solid var(--mail-warm-mist);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px 6px 0 0;
+}
+
+.mail-titlebar-dots {
+  position: absolute;
+  left: 14px;
+  display: flex;
+  gap: 6px;
+}
+
+.mail-titlebar-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--mail-warm-mist);
+  display: block;
+}
+
+.mail-titlebar-filename {
+  font-family: var(--mail-font-mono);
+  font-size: 12.5px;
+  color: var(--mail-sage-gray);
+}
+
+.mail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  gap: 12px;
+}
+
+.mail-title {
+  font-family: var(--mail-font-heading);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.mail-meta {
+  font-size: 13px;
+  color: var(--mail-sage-gray);
+  margin-top: 2px;
+}
+
+.mail-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mail-btn-amber {
+  background: var(--mail-amber-glow);
+  color: var(--mail-deep-moss);
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: var(--mail-font-ui);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.mail-btn-amber:hover {
+  background: var(--mail-dark-amber);
+  color: #fff;
+}
+
+.mail-btn-amber:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.mail-btn-ghost {
+  background: transparent;
+  color: var(--mail-burnished-gold);
+  border: 1.5px solid var(--mail-burnished-gold);
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: var(--mail-font-ui);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.mail-btn-ghost:hover {
+  background: var(--mail-soft-linen);
+}
+
+.mail-content {
+  padding: 4px 24px 24px;
+}
+
+.mail-bucket {
+  margin-bottom: 22px;
+}
+
+.mail-bucket-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mail-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  color: var(--mail-sage-gray);
+}
+
+.mail-bucket-label--needs {
+  color: var(--mail-flame-orange);
+}
+
+.mail-bucket-count {
+  background: var(--mail-ash-green);
+  color: #fff;
+  border-radius: 9999px;
+  padding: 1px 8px;
+  font-size: 11px;
+}
+
+.mail-bucket-label--needs .mail-bucket-count {
+  background: var(--mail-flame-orange);
+}
+
+.mail-thread {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--mail-cream-paper);
+  border: 1px solid var(--mail-warm-mist);
+  border-radius: 4px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.mail-thread--needs {
+  border-left: 3px solid var(--mail-flame-orange);
+}
+
+.mail-thread--low {
+  opacity: 0.72;
+}
+
+.mail-thread-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mail-font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--mail-soft-linen);
+  color: var(--mail-olive-char);
+}
+
+.mail-thread-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mail-thread-sender {
+  font-family: var(--mail-font-heading);
+  font-weight: 700;
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+}
+
+.mail-thread-snippet {
+  font-size: 13px;
+  color: var(--mail-sage-gray);
+  margin-top: 1px;
+}
+
+.mail-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+
+.mail-tag {
+  font-family: var(--mail-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border-radius: 9999px;
+  padding: 2px 9px;
+}
+
+.mail-tag--client {
+  background: var(--mail-flame-orange);
+  color: #fff;
+}
+
+.mail-tag--finance {
+  background: var(--mail-marigold);
+  color: var(--mail-deep-moss);
+}
+
+.mail-tag--reply {
+  background: transparent;
+  color: var(--mail-burnished-gold);
+  border: 1.3px solid var(--mail-burnished-gold);
+}
+
+.mail-tag--noreply {
+  background: var(--mail-moss-green);
+  color: #fff;
+}
+
+.mail-tag--muted {
+  background: var(--mail-pale-stone);
+  color: var(--mail-sage-gray);
+}
+
+.mail-thread-expanded-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--mail-warm-mist);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--mail-olive-char);
+  white-space: pre-wrap;
+}
+
+.mail-thread-when {
+  font-family: var(--mail-font-mono);
+  font-size: 11.5px;
+  color: var(--mail-ash-green);
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.mail-empty {
+  padding: 40px 8px;
+  text-align: left;
+}
+
+.mail-empty-title {
+  font-family: var(--mail-font-heading);
+  font-weight: 700;
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+
+.mail-empty-description {
+  font-size: 14px;
+  color: var(--mail-sage-gray);
+  max-width: 52ch;
+  margin: 0 0 16px;
+}
