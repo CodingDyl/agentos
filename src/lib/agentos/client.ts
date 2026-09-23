@@ -163,6 +163,15 @@ import {
   type ValidationTask,
   ValidationTaskResponseSchema,
 } from "@shared/validation-sprint-types";
+import {
+  MailDataSchema,
+  MailStatusSchema,
+  MailSyncResultSchema,
+  MailThreadBodySchema,
+  type MailData,
+  type MailStatus,
+  type MailSyncResult,
+} from "@shared/mail-types";
 
 /**
  * Talks to the local AgentOS data adapter.
@@ -251,6 +260,40 @@ export function getDashboard(): Promise<DashboardData> {
   return readVault("/api/dashboard", (value) =>
     DashboardDataSchema.safeParse(value),
   );
+}
+
+/**
+ * Mail's whole state: pre-bucketed, pre-sorted. Never triggers a Gmail or
+ * Jev call — that only happens from `syncMail`.
+ */
+export function getMail(): Promise<MailData> {
+  return readVault("/api/mail", (value) => MailDataSchema.safeParse(value));
+}
+
+export function getMailStatus(): Promise<MailStatus> {
+  return readVault("/api/mail/status", (value) => MailStatusSchema.safeParse(value));
+}
+
+/** A specific thread's full plain-text body, read only when it is opened. */
+export function getMailThreadBody(threadId: string): Promise<{ body: string }> {
+  return readVault(`/api/mail/${encodeURIComponent(threadId)}/body`, (value) =>
+    MailThreadBodySchema.safeParse(value),
+  );
+}
+
+export function syncMail(): Promise<MailSyncResult> {
+  return workerRequest("/api/mail/sync", { method: "POST" }, (value) =>
+    MailSyncResultSchema.safeParse(value),
+  );
+}
+
+export function disconnectMail(): Promise<unknown> {
+  return workerRequest("/api/mail/disconnect", { method: "POST" });
+}
+
+/** Not a fetch — a real navigation, since it hands the browser to Google's own consent screen. */
+export function mailConnectUrl(): string {
+  return "/api/mail/connect";
 }
 
 export function getProjects(): Promise<ProjectsResponse> {
