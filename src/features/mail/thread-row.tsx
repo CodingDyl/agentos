@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import type { MailThread } from "@shared/mail-types";
 import { formatRelativeTime } from "@/lib/format";
-import { useMailThreadBody } from "@/lib/agentos/queries";
+import { useMailThreadBody, useRemoveMailThread } from "@/lib/agentos/queries";
 import { threadInitial, threadSender, threadTags } from "./mail-model";
 import type { MailBucketTone } from "./bucket-section";
 
@@ -10,12 +10,42 @@ interface ThreadRowProps {
   tone: MailBucketTone;
 }
 
+/** How long a first click on Remove stays armed before it quietly stands down. */
+const REMOVE_CONFIRM_WINDOW_MS = 4000;
+
 /** One thread. Clicking it expands the row in place to fetch and show the full body. */
 export function ThreadRow({ thread, tone }: ThreadRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const body = useMailThreadBody(thread.threadId, expanded);
+  const removeThread = useRemoveMailThread();
 
-  const toggle = () => setExpanded((value) => !value);
+  useEffect(() => () => clearTimeout(confirmTimer.current), []);
+
+  const toggle = () => {
+    // A click anywhere else on the row while Remove is armed stands it down
+    // instead of also expanding the thread.
+    if (confirmingRemove) {
+      clearTimeout(confirmTimer.current);
+      setConfirmingRemove(false);
+      return;
+    }
+    setExpanded((value) => !value);
+  };
+
+  const handleRemoveClick = (event: MouseEvent) => {
+    event.stopPropagation();
+
+    if (!confirmingRemove) {
+      setConfirmingRemove(true);
+      confirmTimer.current = setTimeout(() => setConfirmingRemove(false), REMOVE_CONFIRM_WINDOW_MS);
+      return;
+    }
+
+    clearTimeout(confirmTimer.current);
+    removeThread.mutate(thread.threadId);
+  };
 
   return (
     <div
@@ -52,7 +82,19 @@ export function ThreadRow({ thread, tone }: ThreadRowProps) {
           </div>
         ) : null}
       </div>
-      <div className="mail-thread-when">{formatRelativeTime(thread.messageDate)}</div>
+      <div className="mail-thread-actions">
+        <div className="mail-thread-when">{formatRelativeTime(thread.messageDate)}</div>
+        <button
+          type="button"
+          className={`mail-remove-btn${confirmingRemove ? " mail-remove-btn--confirm" : ""}`}
+          onClick={handleRemoveClick}
+          disabled={removeThread.isPending}
+          aria-label={confirmingRemove ? "Click again to remove this thread" : "Remove thread from Mail"}
+          title={confirmingRemove ? "Click again to remove" : "Remove from Mail"}
+        >
+          {confirmingRemove ? "Remove?" : "×"}
+        </button>
+      </div>
     </div>
   );
 }

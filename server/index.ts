@@ -239,7 +239,7 @@ import {
 import { getThreadBody, GmailError } from "./mail/gmail-client";
 import { isJevConfigured, JevError } from "./mail/jev-client";
 import { runMailSync } from "./mail/sync";
-import { lastSyncedAt, readMailData, threadCount } from "./mail/store";
+import { lastSyncedAt, readMailData, removeThread, threadCount } from "./mail/store";
 import {
   getRun,
   openRunEvents,
@@ -386,6 +386,20 @@ app.get("/api/mail", (_request, response) => {
   } catch (error) {
     console.error("[agentos] mail read failed:", error);
     response.status(500).json({ error: "Unable to read mail" });
+  }
+});
+
+/**
+ * Removes a thread from the Mail view. Local only — access is
+ * `gmail.readonly`, so the underlying Gmail message is never touched.
+ */
+app.post("/api/mail/:threadId/remove", (request, response) => {
+  try {
+    removeThread(request.params.threadId);
+    response.json({ ok: true });
+  } catch (error) {
+    console.error("[agentos] mail remove failed:", error);
+    response.status(500).json({ error: "Unable to remove that thread" });
   }
 });
 

@@ -43,6 +43,9 @@ const MIGRATIONS: readonly string[] = [
 
   CREATE INDEX IF NOT EXISTS idx_mail_threads_date ON mail_threads(message_date);
   `,
+  `
+  ALTER TABLE mail_threads ADD COLUMN removed INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

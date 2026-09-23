@@ -47,6 +47,7 @@ interface MailThreadRow {
   financial: number | null;
   action_required: number | null;
   classified_at: string | null;
+  removed: number;
 }
 
 function toMailThread(row: MailThreadRow): MailThread {
@@ -104,10 +105,10 @@ export function existingThreadIds(): Set<string> {
   return new Set(rows.map((row) => row.thread_id));
 }
 
-/** Threads with no successful Jev classification yet — new, or previously failed. */
+/** Threads with no successful Jev classification yet — new, or previously failed. Removed threads are never (re)classified. */
 export function listUnclassifiedThreadIds(): string[] {
   const rows = mailDatabase()
-    .prepare("SELECT thread_id FROM mail_threads WHERE classified = 0")
+    .prepare("SELECT thread_id FROM mail_threads WHERE classified = 0 AND removed = 0")
     .all() as unknown as { thread_id: string }[];
 
   return rows.map((row) => row.thread_id);
@@ -163,6 +164,18 @@ export function storeClassification(threadId: string, result: ClassificationInpu
     );
 }
 
+/**
+ * Removes a thread from the Mail view.
+ *
+ * Local only, and permanent for that thread: Gmail access is read-only, so
+ * the underlying message is never touched. The row stays in the table
+ * (not deleted) so the next sync's diff against Gmail's thread list still
+ * recognizes it as known and never re-adds it.
+ */
+export function removeThread(threadId: string): void {
+  mailDatabase().prepare("UPDATE mail_threads SET removed = 1 WHERE thread_id = ?").run(threadId);
+}
+
 export function threadCount(): number {
   const rows = mailDatabase()
     .prepare("SELECT COUNT(*) as count FROM mail_threads")
@@ -179,10 +192,10 @@ export function lastSyncedAt(): string | undefined {
   return rows[0]?.latest ?? undefined;
 }
 
-/** The bucketed view the Mail page reads. Never a live Gmail or Jev call. */
+/** The bucketed view the Mail page reads. Never a live Gmail or Jev call. Removed threads are excluded. */
 export function readMailData(): MailData {
   const rows = mailDatabase()
-    .prepare("SELECT * FROM mail_threads ORDER BY message_date DESC")
+    .prepare("SELECT * FROM mail_threads WHERE removed = 0 ORDER BY message_date DESC")
     .all() as unknown as MailThreadRow[];
 
   const threads = rows.map(toMailThread);

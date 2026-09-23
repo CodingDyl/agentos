@@ -21,7 +21,7 @@ import {
   type MilestoneAction,
 } from "./client";
 import { retryWorkerJob } from "./client";
-import { disconnectMail, getMail, getMailStatus, getMailThreadBody, syncMail } from "./client";
+import { disconnectMail, getMail, getMailStatus, getMailThreadBody, removeMailThread, syncMail } from "./client";
 import {
   createProjectDocument,
   getProjectDocument,
@@ -333,6 +333,20 @@ export function useDisconnectMail() {
     mutationFn: disconnectMail,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Hides one thread from the Mail view. Local only — never touches the Gmail message. */
+export function useRemoveMailThread() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: removeMailThread,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mail() });
     },
     networkMode: "always",
     retry: 0,

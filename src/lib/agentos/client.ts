@@ -291,6 +291,11 @@ export function disconnectMail(): Promise<unknown> {
   return workerRequest("/api/mail/disconnect", { method: "POST" });
 }
 
+/** Hides a thread from the Mail view. Local only — the Gmail message itself is never touched. */
+export function removeMailThread(threadId: string): Promise<unknown> {
+  return workerRequest(`/api/mail/${encodeURIComponent(threadId)}/remove`, { method: "POST" });
+}
+
 /** Not a fetch — a real navigation, since it hands the browser to Google's own consent screen. */
 export function mailConnectUrl(): string {
   return "/api/mail/connect";

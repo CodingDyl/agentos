@@ -14,6 +14,7 @@ const {
   listUnclassifiedThreadIds,
   readMailData,
   readThreadSummary,
+  removeThread,
   storeClassification,
   threadCount,
 } = await import("../store");
@@ -97,5 +98,32 @@ describe("readMailData", () => {
 
     assert.ok(pending);
     assert.equal(pending?.classified, false);
+  });
+});
+
+describe("removeThread", () => {
+  it("drops a classified thread from readMailData but keeps it in existingThreadIds", () => {
+    removeThread("t1");
+
+    const data = readMailData();
+    assert.equal(
+      [...data.needsYou, ...data.fyi, ...data.lowPriority].some((thread) => thread.threadId === "t1"),
+      false,
+    );
+    assert.ok(existingThreadIds().has("t1"), "removed threads must stay known so a sync never re-adds them");
+  });
+
+  it("takes a never-classified thread out of the unclassified queue too", () => {
+    insertThreadIfNew({
+      threadId: "t3",
+      subject: "Also pending",
+      snippet: "Removed before Jev ever saw it",
+      messageDate: "2026-09-23T11:00:00.000Z",
+    });
+
+    removeThread("t3");
+
+    assert.equal(listUnclassifiedThreadIds().includes("t3"), false);
+    assert.equal(readMailData().fyi.some((thread) => thread.threadId === "t3"), false);
   });
 });
