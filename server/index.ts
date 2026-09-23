@@ -229,6 +229,18 @@ import { getAutomation, getAutomations } from "./hermes/automations";
 import { getCapabilities } from "./hermes/capabilities";
 import { getHermesStatus, HermesError, sendToHermes } from "./hermes/client";
 import {
+  buildConsentUrl,
+  completeGmailConnection,
+  disconnectGmail,
+  GmailAuthError,
+  isGmailConfigured,
+  isGmailConnected,
+} from "./mail/gmail-auth";
+import { getThreadBody, GmailError } from "./mail/gmail-client";
+import { isJevConfigured, JevError } from "./mail/jev-client";
+import { runMailSync } from "./mail/sync";
+import { lastSyncedAt, readMailData, threadCount } from "./mail/store";
+import {
   getRun,
   openRunEvents,
   startRun,
@@ -294,6 +306,101 @@ app.get("/api/dashboard", async (_request, response) => {
   } catch (error) {
     console.error("[agentos] dashboard read failed:", error);
     response.status(500).json({ error: "Unable to load AgentOS dashboard" });
+  }
+});
+
+/**
+ * Mail: Gmail, read-only, classified by Jev.
+ *
+ * Opening the page never calls Gmail or Jev — every route here except
+ * `/sync` reads from `mail.db`. Access is `gmail.readonly` only; nothing in
+ * this file can send, label, or delete anything in the connected account.
+ */
+app.get("/api/mail/status", async (_request, response) => {
+  try {
+    const configured = isGmailConfigured() && isJevConfigured();
+    const connected = configured && (await isGmailConnected());
+
+    response.json({
+      configured,
+      connected,
+      lastSyncedAt: lastSyncedAt(),
+      threadCount: threadCount(),
+    });
+  } catch (error) {
+    console.error("[agentos] mail status failed:", error);
+    response.status(500).json({ error: "Unable to read mail status" });
+  }
+});
+
+app.get("/api/mail/connect", (_request, response) => {
+  try {
+    response.redirect(buildConsentUrl());
+  } catch (error) {
+    response.status(409).json({
+      error: error instanceof Error ? error.message : "Gmail is not configured.",
+    });
+  }
+});
+
+/** Where Google sends the browser back after consent. Never called by the frontend directly. */
+app.get("/api/mail/oauth/callback", async (request, response) => {
+  const code = typeof request.query.code === "string" ? request.query.code : undefined;
+
+  if (!code) {
+    response.status(400).send("Missing authorization code.");
+    return;
+  }
+
+  try {
+    await completeGmailConnection(code);
+    response.redirect(`${process.env.AGENTOS_WEB_ORIGIN ?? "http://127.0.0.1:1420"}/mail`);
+  } catch (error) {
+    console.error("[agentos] gmail connection failed:", error);
+    response.status(502).send("Could not complete the Gmail connection. Return to AgentOS and try again.");
+  }
+});
+
+app.post("/api/mail/disconnect", async (_request, response) => {
+  await disconnectGmail();
+  response.json({ ok: true });
+});
+
+/** A manual sync: fetches new INBOX threads and classifies anything unclassified. */
+app.post("/api/mail/sync", async (_request, response) => {
+  try {
+    response.json(await runMailSync());
+  } catch (error) {
+    if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof JevError) {
+      response.status(409).json({ error: error.message, reason: error.reason });
+      return;
+    }
+    console.error("[agentos] mail sync failed:", error);
+    response.status(500).json({ error: "Unable to sync mail" });
+  }
+});
+
+app.get("/api/mail", (_request, response) => {
+  try {
+    response.json(readMailData());
+  } catch (error) {
+    console.error("[agentos] mail read failed:", error);
+    response.status(500).json({ error: "Unable to read mail" });
+  }
+});
+
+/** One thread's full plain-text body — fetched only when a person opens it, never stored. */
+app.get("/api/mail/:threadId/body", async (request, response) => {
+  try {
+    const body = await getThreadBody(request.params.threadId);
+    response.json({ body });
+  } catch (error) {
+    if (error instanceof GmailAuthError || error instanceof GmailError) {
+      response.status(409).json({ error: error.message, reason: error.reason });
+      return;
+    }
+    console.error("[agentos] mail body read failed:", error);
+    response.status(500).json({ error: "Unable to read that message" });
   }
 });
 
