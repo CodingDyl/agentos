@@ -7,6 +7,7 @@ import {
   AutomationDetailPage,
   AutomationsPage,
 } from "@/features/automations";
+import { MailPage } from "@/features/mail";
 import { MissionControlPage } from "@/features/mission-control";
 import { AgentDetailPage, OperationsPage } from "@/features/operations";
 import {
@@ -38,6 +39,7 @@ function App() {
               sitting beside it: two screens both answering "what should I do
               now?" is two screens nobody fully trusts. */}
           <Route path="/" element={<MissionControlPage />} />
+          <Route path="/mail" element={<MailPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:slug" element={<ProjectDetailPage />} />
           <Route path="/agent" element={<AgentPage />} />
