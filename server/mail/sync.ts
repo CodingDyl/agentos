@@ -57,7 +57,8 @@ export async function runMailSync(deps: MailSyncDeps = defaultDeps): Promise<Mai
       });
       storeClassification(threadId, result);
       classified += 1;
-    } catch {
+    } catch (error) {
+      console.error(`[agentos] Jev classification failed for thread ${threadId}:`, error);
       failed += 1;
     }
   }
