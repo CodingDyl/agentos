@@ -1,0 +1,232 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+
+  /* AgentOS canvas and surfaces */
+  --os-background: #041c1c;
+  --os-surface: #062322;
+  --os-surface-raised: #082827;
+  --os-surface-active: #0a2b2a;
+
+  /* AgentOS text */
+  --os-foreground: #ffe6cb;
+  --os-muted-foreground: #a7b7b1;
+  --os-subtle-foreground: #7a8f8a;
+
+  /* AgentOS structure */
+  --os-border: rgb(255 230 203 / 12%);
+  --os-border-strong: rgb(255 230 203 / 22%);
+
+  /* AgentOS semantic signals */
+  --os-amber: #ffbd38;
+  --os-success: #8fc89a;
+  --os-warning: #ffbd38;
+  --os-danger: #d96b5f;
+
+  /* AgentOS geometry */
+  --os-radius-sm: 4px;
+  --os-radius-input: 6px;
+  --os-radius-md: 8px;
+  --os-radius-lg: 12px;
+
+  /* AgentOS spacing */
+  --os-space-1: 4px;
+  --os-space-2: 8px;
+  --os-space-3: 12px;
+  --os-space-4: 16px;
+  --os-space-5: 20px;
+  --os-space-6: 24px;
+  --os-space-8: 32px;
+  --os-space-10: 40px;
+  --os-space-12: 48px;
+  --os-space-16: 64px;
+
+  /* AgentOS typography */
+  --os-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --os-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --os-text-display: clamp(2.5rem, 5vw, 4rem);
+  --os-text-page: 2rem;
+  --os-text-section: 1.375rem;
+  --os-text-card: 1rem;
+  --os-text-body: 0.9375rem;
+  --os-text-small: 0.8125rem;
+  --os-text-meta: 0.6875rem;
+
+  /* shadcn theme mapping */
+  --background: var(--os-background);
+  --foreground: var(--os-foreground);
+  --card: var(--os-surface);
+  --card-foreground: var(--os-foreground);
+  --popover: var(--os-surface-raised);
+  --popover-foreground: var(--os-foreground);
+  --primary: var(--os-foreground);
+  --primary-foreground: var(--os-background);
+  --secondary: var(--os-surface-active);
+  --secondary-foreground: var(--os-foreground);
+  --muted: #092625;
+  --muted-foreground: var(--os-muted-foreground);
+  --accent: #103432;
+  --accent-foreground: var(--os-foreground);
+  --destructive: var(--os-danger);
+  --border: var(--os-border);
+  --input: rgb(255 230 203 / 16%);
+  --ring: var(--os-amber);
+  --radius: var(--os-radius-md);
+  --sidebar: var(--os-surface);
+  --sidebar-foreground: var(--os-foreground);
+  --sidebar-primary: var(--os-foreground);
+  --sidebar-primary-foreground: var(--os-background);
+  --sidebar-accent: var(--os-surface-active);
+  --sidebar-accent-foreground: var(--os-foreground);
+  --sidebar-border: var(--os-border);
+  --sidebar-ring: var(--os-amber);
+  --chart-1: var(--os-amber);
+  --chart-2: var(--os-success);
+  --chart-3: var(--os-muted-foreground);
+  --chart-4: var(--os-danger);
+  --chart-5: var(--os-subtle-foreground);
+}
+
+@theme inline {
+  --font-sans: var(--os-font-sans);
+  --font-mono: var(--os-font-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-os-background: var(--os-background);
+  --color-os-surface: var(--os-surface);
+  --color-os-surface-raised: var(--os-surface-raised);
+  --color-os-surface-active: var(--os-surface-active);
+  --color-os-foreground: var(--os-foreground);
+  --color-os-muted: var(--os-muted-foreground);
+  --color-os-subtle: var(--os-subtle-foreground);
+  --color-os-border: var(--os-border);
+  --color-os-border-strong: var(--os-border-strong);
+  --color-os-amber: var(--os-amber);
+  --color-os-success: var(--os-success);
+  --color-os-warning: var(--os-warning);
+  --color-os-danger: var(--os-danger);
+
+  --radius-sm: var(--os-radius-sm);
+  --radius-md: var(--os-radius-input);
+  --radius-lg: var(--os-radius-md);
+  --radius-xl: var(--os-radius-lg);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  body {
+    @apply m-0 min-w-80 bg-background text-foreground;
+    min-height: 100vh;
+    font-size: var(--os-text-body);
+    line-height: 1.5;
+  }
+
+  button,
+  a,
+  input,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    color: var(--os-background);
+    background: var(--os-amber);
+  }
+}
+
+@layer utilities {
+  .os-environment {
+    background-color: var(--os-background);
+    background-image:
+      radial-gradient(circle at 58% -10%, rgb(255 189 56 / 7%), transparent 30%),
+      linear-gradient(rgb(255 230 203 / 1.6%) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 230 203 / 1.6%) 1px, transparent 1px);
+    background-size: auto, 32px 32px, 32px 32px;
+  }
+
+  .os-meta {
+    font-family: var(--os-font-mono);
+    font-size: var(--os-text-meta);
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .os-focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .os-navigation-drawer {
+    transform: translateX(-100%);
+  }
+
+  .os-navigation-drawer[data-open="true"] {
+    transform: translateX(0);
+  }
+}
+
+@media (min-width: 768px) {
+  .os-navigation-drawer {
+    position: static;
+    width: auto;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

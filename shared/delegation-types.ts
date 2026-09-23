@@ -1,0 +1,153 @@
+import { z } from "zod";
+import { VisualAcceptanceContextSchema } from "./visual-verification-types";
+import {
+  WorkerPerformanceSchema,
+  WorkerRoutingDecisionSchema,
+  WorkerTaskTypeSchema,
+} from "./worker-routing-types";
+import { WorkerJobStatusSchema } from "./worker-types";
+
+/**
+ * Handing a project task to a worker.
+ *
+ * This is the join between the two halves of the system: the vault, which is
+ * hand-written and is the project's own account of itself, and the worker
+ * pipeline, which is machinery. The rules that keep them from corrupting each
+ * other are in the shapes here.
+ *
+ * - **A plan is proposed, never executed.** Scoping produces a `DelegationPlan`
+ *   and stops. What turns it into work is a person reading it and saying yes.
+ * - **The vault does not learn about jobs.** The task-to-job mapping lives in
+ *   AgentOS's own state. `TASKS.md` is the project's file, and an execution id
+ *   is not something the project knows or should have to carry.
+ * - **A task closes on integration, not on a claim.** Nothing here can mark a
+ *   task done; the furthest it goes is saying a task is ready to be closed.
+ */
+
+/**
+ * What Hermes scoped the task into.
+ *
+ * The same fields a worker job takes, which is the point: this is the brief,
+ * written before anyone has committed to running it, in a form an operator can
+ * read and correct.
+ */
+export const DelegationPlanSchema = z.object({
+  taskId: z.string(),
+  project: z.string(),
+  objective: z.string().min(1),
+  contextFiles: z.array(z.string()),
+  constraints: z.array(z.string()),
+  acceptanceCriteria: z.array(z.string()),
+  validationCommands: z.array(z.string()),
+  suggestedTaskType: WorkerTaskTypeSchema.optional(),
+  /**
+   * What the finished work is supposed to look like, when looking matters.
+   *
+   * Part of the plan rather than something asked for afterwards, because this
+   * is the only moment a person is reading the terms of the work. By the time
+   * an implementation exists, the brief that motivated it and the board it was
+   * drawn from have to be found again — and a reviewer made to reconstruct
+   * them will reconstruct them wrong.
+   */
+  visualAcceptance: VisualAcceptanceContextSchema.optional(),
+  /** Said out loud when Hermes could not scope it and this is a fallback. */
+  scopedBy: z.enum(["hermes", "agentos"]),
+});
+
+/** What the console asks for when the operator clicks Delegate. */
+export const TaskDelegationRequestSchema = z.object({
+  requestedWorker: z
+    .union([z.enum(["grok", "claude", "mock"]), z.literal("auto")])
+    .default("auto"),
+});
+
+/**
+ * A prepared delegation, before anything runs.
+ *
+ * Both halves are shown together because they are decided together: what the
+ * work is, and who would do it. Approving one without seeing the other would
+ * be approving half a decision.
+ */
+export const TaskDelegationPreviewSchema = z.object({
+  plan: DelegationPlanSchema,
+  routing: WorkerRoutingDecisionSchema.optional(),
+  candidates: z.array(WorkerPerformanceSchema).optional(),
+  /** Why no worker could be recommended, when none could. */
+  routingError: z.string().optional(),
+});
+
+/** What the console sends back once a person has approved a plan. */
+export const TaskDelegationApprovalSchema = z.object({
+  plan: DelegationPlanSchema,
+  worker: z.union([z.enum(["grok", "claude", "mock"]), z.literal("auto")]),
+  routing: WorkerRoutingDecisionSchema.optional(),
+  repoPath: z.string().optional(),
+});
+
+/**
+ * What AgentOS remembers about a task it delegated.
+ *
+ * Deliberately thin. The job is the record of the work; this only says which
+ * job belongs to which task, and when that was decided.
+ */
+export const TaskJobLinkSchema = z.object({
+  project: z.string(),
+  taskId: z.string(),
+  jobId: z.string(),
+  delegatedAt: z.string(),
+  /** Set when a person has closed the task off the back of this job. */
+  completedAt: z.string().optional(),
+});
+
+/**
+ * A task's delegation, as the project screen needs it.
+ *
+ * Carries the job's live status so a task row can say what is happening to it
+ * without the screen having to know how jobs work.
+ */
+export const TaskDelegationStateSchema = TaskJobLinkSchema.extend({
+  status: WorkerJobStatusSchema.optional(),
+  worker: z.string().optional(),
+  reviewVerdict: z.enum(["pass", "changes_required", "blocked"]).optional(),
+  /** True while a job is still running, which is what blocks a second one. */
+  active: z.boolean(),
+});
+
+export const TaskDelegationsResponseSchema = z.object({
+  delegations: z.array(TaskDelegationStateSchema),
+});
+
+/**
+ * The change Hermes proposes to `TASKS.md`, once work has been integrated.
+ *
+ * Shown as before-and-after rather than applied. Every other write in this
+ * system is AgentOS's own state; this one edits a file a person wrote, so it
+ * is the one that most needs a person to agree to it.
+ */
+export const TaskCompletionProposalSchema = z.object({
+  project: z.string(),
+  taskId: z.string(),
+  /** The line as it stands in the file today. */
+  before: z.string(),
+  /** The line as it would be written. */
+  after: z.string(),
+  jobId: z.string(),
+  /** Why it is not ready, when it is not. */
+  blockedReason: z.string().optional(),
+  ready: z.boolean(),
+});
+
+export type DelegationPlan = z.infer<typeof DelegationPlanSchema>;
+export type TaskDelegationRequest = z.infer<typeof TaskDelegationRequestSchema>;
+export type TaskDelegationPreview = z.infer<typeof TaskDelegationPreviewSchema>;
+export type TaskDelegationApproval = z.infer<
+  typeof TaskDelegationApprovalSchema
+>;
+export type TaskJobLink = z.infer<typeof TaskJobLinkSchema>;
+export type TaskDelegationState = z.infer<typeof TaskDelegationStateSchema>;
+export type TaskDelegationsResponse = z.infer<
+  typeof TaskDelegationsResponseSchema
+>;
+export type TaskCompletionProposal = z.infer<
+  typeof TaskCompletionProposalSchema
+>;
