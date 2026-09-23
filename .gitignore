@@ -30,3 +30,6 @@ dist-ssr
 
 # Playwright MCP scratch artifacts
 .playwright-mcp
+
+# Brainstorming visual companion mockups
+.superpowers/
