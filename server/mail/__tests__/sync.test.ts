@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
-import type { ClassificationResult, ClassifyThreadInput } from "../jev-client";
+import type { ClassificationResult } from "../jev-client";
 import type { GmailThreadSummary } from "../gmail-client";
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-mail-sync-"));
@@ -47,7 +47,7 @@ describe("runMailSync", () => {
     const result = await runMailSync({
       listInboxThreadIds: async () => ["t1", "t2"],
       getThreadSummary: async (id: string) => fakeSummary(id),
-      classifyThread: async (_input: ClassifyThreadInput) => alwaysNeedsReply,
+      classifyThread: async () => alwaysNeedsReply,
     });
 
     assert.deepEqual(result, { added: 2, classified: 2, failed: 0 });
@@ -64,7 +64,7 @@ describe("runMailSync", () => {
         summaryCalls += 1;
         return fakeSummary(id);
       },
-      classifyThread: async (_input: ClassifyThreadInput) => alwaysNeedsReply,
+      classifyThread: async () => alwaysNeedsReply,
     });
 
     // Both threads were already classified in the previous test, so nothing
