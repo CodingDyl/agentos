@@ -21,6 +21,7 @@ import {
   type MilestoneAction,
 } from "./client";
 import { retryWorkerJob } from "./client";
+import { disconnectMail, getMail, getMailStatus, getMailThreadBody, syncMail } from "./client";
 import {
   createProjectDocument,
   getProjectDocument,
@@ -161,6 +162,9 @@ import type { TaskDelegationApproval } from "@shared/delegation-types";
 export const agentosKeys = {
   all: ["agentos"] as const,
   dashboard: () => [...agentosKeys.all, "dashboard"] as const,
+  mail: () => [...agentosKeys.all, "mail"] as const,
+  mailStatus: () => [...agentosKeys.all, "mail-status"] as const,
+  mailBody: (threadId: string) => [...agentosKeys.all, "mail-body", threadId] as const,
   missionControl: () => [...agentosKeys.all, "mission-control"] as const,
   projects: () => [...agentosKeys.all, "projects"] as const,
   project: (slug: string) => [...agentosKeys.all, "project", slug] as const,
@@ -271,6 +275,67 @@ export function useDashboard() {
     retry: 1,
     // Loopback read: never gate it on internet connectivity.
     networkMode: "always",
+  });
+}
+
+/** Mail's stored, bucketed state. Cheap and safe to poll — never a Gmail/Jev call. */
+export function useMailStatus() {
+  return useQuery({
+    queryKey: agentosKeys.mailStatus(),
+    queryFn: getMailStatus,
+    staleTime: 15_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+export function useMail() {
+  return useQuery({
+    queryKey: agentosKeys.mail(),
+    queryFn: getMail,
+    staleTime: 15_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+/** A thread's full body — only fetched once the row is actually expanded. */
+export function useMailThreadBody(threadId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: agentosKeys.mailBody(threadId),
+    queryFn: () => getMailThreadBody(threadId),
+    enabled,
+    staleTime: 60_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+/** The only thing that ever triggers a live Gmail + Jev call. */
+export function useSyncMail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: syncMail,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mail() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useDisconnectMail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: disconnectMail,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
   });
 }
 
