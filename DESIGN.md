@@ -851,8 +851,8 @@ Declared in `src/styles/agentos.css` as `--paper-*` and exposed to Tailwind as `
 
 | Role | Token | Value |
 |------|-------|-------|
-| Desk (canvas) | `paper-desk` | `#e1d7c2` |
-| Window / card | `paper-white` | `#ffffff` |
+| Desk (Mail's canvas behind its window) | `paper-desk` | `#e1d7c2` |
+| Page / card | `paper-white` | `#ffffff` |
 | Secondary surface, hover | `paper-cream` / `paper-linen` / `paper-stone` | `#fdfdf8` / `#eeefe9` / `#e5e7e0` |
 | Text: primary / body / muted | `paper-moss` / `paper-char` / `paper-sage` | `#23251d` / `#4d4f46` / `#65675e` |
 | Decorative only (fails AA as text) | `paper-ash` | `#9ea096` |
@@ -867,7 +867,7 @@ Faces: `font-paper-display` is Inter Tight Variable (headings and numerals), sta
 
 ### Rules
 
-- Every screen is a **window**: white, 1px `paper-mist` border, 6px corners, and a 36px title bar with three dots and a filename (`operations.ledger`). Cards, inputs and buttons use 4px corners. Pills are for tags only.
+- A moved screen is **the page itself**: white edge to edge beside the dark shell, with content held to the same 1400px measure as other pages. Operations dropped the framed window and title bar (2026-09-24); Mail still uses the window as its trial did. Cards, inputs and buttons use 4px corners. Pills are for tags only.
 - **No shadows.** Elevation comes from the surface stack (desk → linen → cream → white) and hairlines. Cards are never nested inside cards.
 - One **amber** primary action per view. Secondary actions are outlined in gold with dark labels.
 - Tabs: sage when idle; active is signal blue with a 2px underline sitting on a 1px inset hairline.
@@ -876,7 +876,7 @@ Faces: `font-paper-display` is Inter Tight Variable (headings and numerals), sta
 
 ### Components (`src/features/operations/paper.tsx`)
 
-`PaperStage`, `PaperWindow`, `PaperSection`, `PaperCard`, `PaperButton` (amber / ghost / quiet), `Tag`, `SegmentedControl`, `PaperTabs`, `Meter` (a single share), `StackedMeter` (parts of a whole with a legend, used instead of a pie), `RadialMeter` (a beaded track with a solid arc, number and word), `Sparkline`, `PaperSwitch`, `PAPER_INPUT`, `FieldLabel`.
+`PaperStage` (the full white page), `PaperSection`, `PaperCard`, `PaperButton` (amber / ghost / quiet), `Tag`, `SegmentedControl`, `PaperTabs`, `Meter` (a single share), `StackedMeter` (parts of a whole with a legend, used instead of a pie), `RadialMeter` (a beaded track with a solid arc, number and word), `Sparkline`, `PaperSwitch`, `PAPER_INPUT`, `FieldLabel`.
 
 ### Motion
 

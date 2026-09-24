@@ -4,8 +4,7 @@ import { cn } from "@/lib/utils";
 /**
  * The paper world's primitives, as Operations uses them.
  *
- * A sandy desk, a white application window on it, hairline warm borders, 4px
- * corners, and no shadows — the same world Mail trialled, drawn here from the
+ * A white page, hairline warm borders, 4px corners, and no shadows — the same world Mail trialled, drawn here from the
  * shared `paper-*` tokens so the next screen to move over can reuse them.
  *
  * The one piece of authored motion is the meters filling in: every meter,
@@ -30,36 +29,15 @@ function useArrived(): boolean {
   return arrived;
 }
 
+/**
+ * The page itself is the sheet of paper: white, edge to edge, content held to
+ * the same 1400px measure the other AgentOS pages use so a wide screen does
+ * not stretch the cards thin.
+ */
 export function PaperStage({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-full bg-paper-desk px-4 py-6 font-paper-ui text-paper-moss sm:px-8 sm:py-8">
-      {children}
-    </div>
-  );
-}
-
-/** A document opened on the desk: title bar with the three dots and a filename. */
-export function PaperWindow({
-  filename,
-  meta,
-  children,
-}: {
-  filename: string;
-  meta?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div className="mx-auto w-full max-w-[1180px] rounded-[6px] border border-paper-mist bg-paper-white">
-      <div className="relative flex h-9 items-center justify-center rounded-t-[6px] border-b border-paper-mist bg-paper-white/80 px-4 backdrop-blur-sm">
-        <div className="absolute left-3.5 flex gap-1.5" aria-hidden="true">
-          <span className="size-[9px] rounded-full bg-paper-mist" />
-          <span className="size-[9px] rounded-full bg-paper-mist" />
-          <span className="size-[9px] rounded-full bg-paper-mist" />
-        </div>
-        <span className="font-mono text-[12.5px] text-paper-sage">{filename}</span>
-        {meta ? <span className="absolute right-4 hidden text-[12px] text-paper-sage sm:block">{meta}</span> : null}
-      </div>
-      {children}
+    <div className="min-h-full bg-paper-white font-paper-ui text-paper-moss">
+      <div className="mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10">{children}</div>
     </div>
   );
 }

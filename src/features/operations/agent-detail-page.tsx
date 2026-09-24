@@ -7,11 +7,11 @@ import { useAgentDetail } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { Breakdown, Figure, TotalFigures } from "./figures";
 import { formatCost } from "./operations-model";
-import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, PaperWindow, RadialMeter, Tag } from "./paper";
+import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, RadialMeter, Tag } from "./paper";
 import { RecentJobs } from "./usage-tab";
 
 /**
- * One agent, in full — a second document opened from the same ledger.
+ * One agent, in full — a second page of the same ledger.
  *
  * What turns a worker list into worker management. A roster says a worker
  * exists; this says how it is configured, what it has cost this month, how
@@ -32,14 +32,13 @@ export function AgentDetailPage() {
   return (
     <AppShell navigationItems={navigationItems} pageId="operations-agent" activeHref="/operations" modelLabel="Model / AgentOS V1">
       <PaperStage>
-        <PaperWindow filename={`agents/${id || "agent"}.ledger`}>
           {isPending ? (
-            <div className="px-6 py-8" aria-busy="true" aria-label="Reading the agent">
+            <div aria-busy="true" aria-label="Reading the agent">
               <div className="h-8 w-48 rounded-[4px] bg-paper-linen motion-safe:animate-pulse" />
               <div className="mt-6 h-40 rounded-[4px] border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
             </div>
           ) : !data ? (
-            <div className="px-6 py-10">
+            <div className="py-4">
               <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">That agent has no record.</h1>
               <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "Nothing was returned for this agent."}</p>
               <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
@@ -49,7 +48,6 @@ export function AgentDetailPage() {
           ) : (
             <Agent agent={data} />
           )}
-        </PaperWindow>
       </PaperStage>
     </AppShell>
   );
@@ -59,7 +57,7 @@ function Agent({ agent }: { agent: AgentDetail }) {
   const isHermes = agent.agent === "hermes";
 
   return (
-    <div className="px-4 pt-5 pb-8 sm:px-6">
+    <div>
       <Link
         to="/operations?tab=agents"
         className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}

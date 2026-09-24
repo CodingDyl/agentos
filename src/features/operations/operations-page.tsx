@@ -8,7 +8,7 @@ import { AiStackTab } from "./ai-stack-tab";
 import { Breakdown } from "./figures";
 import { Glance, PlansPanel } from "./glance";
 import { MoneyTab } from "./money-tab";
-import { PaperButton, PaperStage, PaperTabs, PaperWindow, SegmentedControl } from "./paper";
+import { PaperButton, PaperStage, PaperTabs, SegmentedControl } from "./paper";
 import { UsageTab } from "./usage-tab";
 
 /**
@@ -22,8 +22,8 @@ import { UsageTab } from "./usage-tab";
  * OPERATIONS        how is my AI workforce performing, and what does it cost?
  * ```
  *
- * The first screen built on the shared paper world (Mail trialled it): a
- * ledger opened on the desk. The glance answers the page's question before any
+ * The first screen built on the shared paper world (Mail trialled it): the
+ * whole page is the ledger. The glance answers the page's question before any
  * tab is touched — what this range cost, what the month's bill is, whether the
  * work is landing, and which plans sit underneath it.
  *
@@ -86,14 +86,10 @@ export function OperationsPage() {
       modelLabel="Model / AgentOS V1"
     >
       <PaperStage>
-        <PaperWindow
-          filename="operations.ledger"
-          meta={data ? `Read ${new Date(data.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : undefined}
-        >
           {isPending ? (
             <LoadingSheet />
           ) : !data ? (
-            <div className="px-6 py-10">
+            <div className="py-4">
               <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Usage could not be read.</h1>
               <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
                 {error?.message ?? "The ledger did not answer."} Operations reads the local usage ledger; check that the AgentOS server is running.
@@ -111,7 +107,6 @@ export function OperationsPage() {
               onRange={(next) => setParam("range", next, "month")}
             />
           )}
-        </PaperWindow>
       </PaperStage>
     </AppShell>
   );
@@ -139,12 +134,13 @@ function Operations({
   const month = new Date(data.generatedAt).toLocaleString("en-GB", { month: "long", timeZone: "UTC" });
 
   return (
-    <div className="px-4 pt-6 pb-8 sm:px-6">
+    <div>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-balance text-paper-moss sm:text-[34px]">{glanceTitle(data)}</h1>
           <p className="mt-1 text-[13px] text-paper-sage" aria-live="polite">
-            {data.jobs} {data.jobs === 1 ? "job" : "jobs"} · {data.period.records} recorded {data.period.records === 1 ? "run" : "runs"}
+            {data.jobs} {data.jobs === 1 ? "job" : "jobs"} · {data.period.records} recorded {data.period.records === 1 ? "run" : "runs"} · Read{" "}
+            {new Date(data.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
             {refreshing ? " · Updating…" : ""}
           </p>
         </div>
@@ -190,7 +186,7 @@ function Operations({
 /** The page's own shape, drawn empty while the ledger is read. */
 function LoadingSheet() {
   return (
-    <div className="px-4 pt-6 pb-8 sm:px-6" aria-busy="true" aria-label="Reading the ledger">
+    <div aria-busy="true" aria-label="Reading the ledger">
       <div className="h-8 w-64 rounded-[4px] bg-paper-linen motion-safe:animate-pulse" />
       <div className="mt-3 h-4 w-40 rounded-[4px] bg-paper-linen motion-safe:animate-pulse" />
       <div className="mt-6 grid gap-3 md:grid-cols-[1.45fr_1fr_1fr]">
