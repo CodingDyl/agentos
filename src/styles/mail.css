@@ -37,62 +37,41 @@
   --mail-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/*
+ * The page itself is the sheet: white edge to edge beside the dark shell, with
+ * the inbox held to the same 1400px measure as Operations. No window frame.
+ */
 .mail-stage {
-  background: var(--mail-sandy-desk);
+  background: var(--mail-paper-white);
   color: var(--mail-deep-moss);
   font-family: var(--mail-font-ui);
   min-height: 100%;
-  padding: 28px 32px 40px;
-  display: flex;
-  justify-content: center;
 }
 
 .mail-window {
   width: 100%;
-  max-width: 860px;
-  height: fit-content;
-  background: var(--mail-paper-white);
-  border: 1px solid var(--mail-warm-mist);
-  border-radius: 6px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 20px 40px;
 }
 
-.mail-titlebar {
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  border-bottom: 1px solid var(--mail-warm-mist);
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 6px 6px 0 0;
+@media (min-width: 640px) {
+  .mail-window {
+    padding: 32px 32px 40px;
+  }
 }
 
-.mail-titlebar-dots {
-  position: absolute;
-  left: 14px;
-  display: flex;
-  gap: 6px;
-}
-
-.mail-titlebar-dots span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--mail-warm-mist);
-  display: block;
-}
-
-.mail-titlebar-filename {
-  font-family: var(--mail-font-mono);
-  font-size: 12.5px;
-  color: var(--mail-sage-gray);
+@media (min-width: 1024px) {
+  .mail-window {
+    padding: 40px 48px;
+  }
 }
 
 .mail-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 16px;
+  padding: 0 0 16px;
   gap: 12px;
 }
 
@@ -157,7 +136,7 @@
 }
 
 .mail-content {
-  padding: 4px 24px 24px;
+  padding: 4px 0 0;
 }
 
 .mail-bucket {
@@ -244,6 +223,8 @@
   font-size: 13px;
   color: var(--mail-sage-gray);
   margin-top: 1px;
+  /* Rows now span the page; keep preview lines to a readable measure. */
+  max-width: 90ch;
 }
 
 .mail-tags {
@@ -296,6 +277,7 @@
   line-height: 1.6;
   color: var(--mail-olive-char);
   white-space: pre-wrap;
+  max-width: 75ch;
 }
 
 .mail-thread-actions {

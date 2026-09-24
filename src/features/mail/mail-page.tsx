@@ -28,15 +28,6 @@ export function MailPage() {
     <AppShell navigationItems={navigationItems} pageId="mail" activeHref="/mail">
       <div className="mail-stage">
         <div className="mail-window">
-          <div className="mail-titlebar">
-            <div className="mail-titlebar-dots">
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="mail-titlebar-filename">mail.inbox</div>
-          </div>
-
           <div className="mail-toolbar">
             <div>
               <h1 className="mail-title">Mail</h1>
