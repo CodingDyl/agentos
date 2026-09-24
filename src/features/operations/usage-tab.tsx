@@ -1,16 +1,9 @@
 import { Link } from "react-router-dom";
 import type { JobUsage, OperationsData } from "@shared/usage-types";
-import { HairlineCard, SectionLabel } from "@/components/os";
 import { cn } from "@/lib/utils";
 import { Breakdown } from "./figures";
-import {
-  formatDuration,
-  formatTokens,
-  measuredCost,
-  measuredTokens,
-  measurementTone,
-  UNKNOWN,
-} from "./operations-model";
+import { formatDuration, formatTokens, measuredCost, measuredTokens, paperTone, UNKNOWN } from "./operations-model";
+import { PAPER_FOCUS, PaperCard, PaperSection, Tag } from "./paper";
 
 /**
  * What is using the tokens.
@@ -21,21 +14,15 @@ import {
  * is loading. Every row here is an agent *and* an operation for that reason.
  */
 export function UsageTab({ data }: { data: OperationsData }) {
+  const scope = data.window.label.toLowerCase();
+
   return (
     <div className="space-y-12">
       {data.anomalies.length > 0 ? <Anomalies data={data} /> : null}
 
-      <Breakdown
-        rows={data.tokenSources}
-        label="What is using my tokens"
-        empty="Nothing has been recorded this month yet."
-      />
+      <Breakdown rows={data.tokenSources} label="What is using my tokens" empty={`Nothing has been recorded ${scope === "today" ? "today" : `in ${scope}`} yet.`} />
 
-      <Breakdown
-        rows={data.operations}
-        label="By operation"
-        empty="No operations recorded."
-      />
+      <Breakdown rows={data.operations} label="By operation" empty="No operations recorded." />
 
       <RecentJobs jobs={data.recentJobs} />
     </div>
@@ -51,52 +38,44 @@ export function UsageTab({ data }: { data: OperationsData }) {
  */
 function Anomalies({ data }: { data: OperationsData }) {
   return (
-    <section>
-      <SectionLabel>Unusual usage</SectionLabel>
+    <PaperSection label="Unusual usage" count={data.anomalies.length}>
+      <ul className="space-y-2">
+        {data.anomalies.map((anomaly) => {
+          const ratio = anomaly.typicalTokens > 0 ? anomaly.tokens / anomaly.typicalTokens : undefined;
 
-      <ul className="mt-4 space-y-3">
-        {data.anomalies.map((anomaly) => (
-          <li key={anomaly.id}>
-            <HairlineCard className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 border-os-warning/30 p-4">
-              <div className="min-w-0">
-                <p className="text-[15px] leading-6 text-foreground">
-                  {anomaly.label}
-                </p>
-                <p className="os-meta mt-1.5 text-os-subtle">
-                  {anomaly.project ? `${anomaly.project} · ` : ""}
-                  from {anomaly.sampleSize} similar run
-                  {anomaly.sampleSize === 1 ? "" : "s"}
-                </p>
-              </div>
+          return (
+            <li key={anomaly.id}>
+              <PaperCard className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 bg-paper-cream">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Tag tone="flame">{ratio ? `${ratio.toFixed(1)}× typical` : "Unusual"}</Tag>
+                    <p className="truncate text-[14.5px] text-paper-moss">{anomaly.label}</p>
+                  </div>
+                  <p className="mt-1.5 text-[12.5px] text-paper-sage">
+                    {anomaly.project ? `${anomaly.project} · ` : ""}compared with {anomaly.sampleSize} similar run{anomaly.sampleSize === 1 ? "" : "s"}
+                  </p>
+                </div>
 
-              <div className="flex shrink-0 items-baseline gap-8">
-                <span className="text-right">
-                  <span className="block tabular-nums text-[18px] text-os-warning">
-                    {formatTokens(anomaly.tokens)}
-                  </span>
-                  <span className="os-meta mt-1 block text-os-subtle">
-                    This run
-                  </span>
-                </span>
-                <span className="text-right">
-                  <span className="block tabular-nums text-[18px] text-os-muted">
-                    {formatTokens(anomaly.typicalTokens)}
-                  </span>
-                  <span className="os-meta mt-1 block text-os-subtle">
-                    Typical
-                  </span>
-                </span>
-              </div>
-            </HairlineCard>
-          </li>
-        ))}
+                <dl className="flex shrink-0 gap-8 text-right">
+                  <div>
+                    <dt className="text-[12px] text-paper-sage">This run</dt>
+                    <dd className="font-paper-display text-[18px] font-bold text-paper-flame-deep tabular-nums">{formatTokens(anomaly.tokens)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[12px] text-paper-sage">Typical</dt>
+                    <dd className="font-paper-display text-[18px] font-bold text-paper-char tabular-nums">{formatTokens(anomaly.typicalTokens)}</dd>
+                  </div>
+                </dl>
+              </PaperCard>
+            </li>
+          );
+        })}
       </ul>
-    </section>
+    </PaperSection>
   );
 }
 
-const JOB_COLUMNS =
-  "grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_4rem_3rem_4.5rem] gap-x-4";
+const JOB_COLUMNS = "grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_4.5rem_3rem_4.5rem] gap-x-4";
 
 /**
  * Recent jobs, priced.
@@ -105,27 +84,23 @@ const JOB_COLUMNS =
  * is only meaningful next to what it bought — a cheap run that needed three
  * attempts and a review is not the cheap option, and this is the table where
  * that becomes obvious.
+ *
+ * Exported: the agent page shows the same table for one worker.
  */
-/** Exported: the agent page shows the same table for one worker. */
 export function RecentJobs({ jobs }: { jobs: readonly JobUsage[] }) {
   if (jobs.length === 0) {
     return (
-      <section>
-        <SectionLabel>Recent jobs</SectionLabel>
-        <p className="mt-4 text-[15px] leading-6 text-os-muted">
-          No jobs have run this month.
-        </p>
-      </section>
+      <PaperSection label="Recent jobs">
+        <p className="text-[14px] leading-6 text-paper-sage">No jobs have run in this window.</p>
+      </PaperSection>
     );
   }
 
   return (
-    <section>
-      <SectionLabel>Recent jobs</SectionLabel>
-
-      <div className="mt-4 min-w-0 overflow-x-auto">
+    <PaperSection label="Recent jobs" count={jobs.length}>
+      <div className="min-w-0 overflow-x-auto rounded-[4px] border border-paper-mist">
         <div className="min-w-[46rem]">
-          <div className={cn(JOB_COLUMNS, "os-meta pb-3 text-os-subtle")}>
+          <div className={cn(JOB_COLUMNS, "border-b border-paper-mist bg-paper-linen px-4 py-2 text-[12px] font-medium text-paper-char")}>
             <span>Job</span>
             <span>Agent</span>
             <span className="text-right">Tokens</span>
@@ -134,66 +109,41 @@ export function RecentJobs({ jobs }: { jobs: readonly JobUsage[] }) {
             <span className="text-right">Duration</span>
           </div>
 
-          <ul className="border-t border-os-border">
+          <ul className="divide-y divide-paper-stone">
             {jobs.map((job) => {
               const tokens = measuredTokens(job.total);
               const cost = measuredCost(job.total);
 
               return (
-                <li
-                  key={job.jobId}
-                  className={cn(
-                    JOB_COLUMNS,
-                    "items-baseline border-b border-os-border py-3 text-[14px] leading-5",
-                  )}
-                >
+                <li key={job.jobId} className={cn(JOB_COLUMNS, "items-baseline px-4 py-3 text-[13.5px] leading-5 transition-colors duration-150 hover:bg-paper-cream")}>
                   <span className="min-w-0">
                     <Link
                       to={`/workers/jobs/${job.jobId}`}
-                      className="os-focus-ring block truncate rounded-md text-foreground transition-colors duration-150 hover:text-os-amber"
+                      className={cn(
+                        "block truncate rounded-[2px] text-paper-moss underline decoration-paper-mist decoration-[1.5px] underline-offset-[3px] transition-colors duration-150 hover:text-paper-blue hover:decoration-paper-blue",
+                        PAPER_FOCUS,
+                      )}
                     >
                       {job.taskId ? `${job.taskId} · ` : ""}
                       {job.objective}
                     </Link>
-                    <span className="os-meta mt-1 block truncate text-os-subtle">
+                    <span className="mt-1 block truncate text-[12px] text-paper-sage">
                       {job.project ?? ""}
-                      {job.reviewVerdict
-                        ? ` · ${job.reviewVerdict.replace(/_/g, " ")}`
-                        : ""}
+                      {job.reviewVerdict ? ` · ${job.reviewVerdict.replace(/_/g, " ")}` : ""}
                     </span>
                   </span>
 
-                  <span className="os-meta truncate text-os-muted">
-                    {job.agent ?? UNKNOWN}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-right tabular-nums",
-                      measurementTone(tokens.measurement),
-                    )}
-                  >
-                    {tokens.text}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-right tabular-nums",
-                      measurementTone(cost.measurement),
-                    )}
-                  >
-                    {cost.text}
-                  </span>
-                  <span className="text-right tabular-nums text-os-muted">
-                    {job.revisions ?? UNKNOWN}
-                  </span>
-                  <span className="text-right tabular-nums text-os-subtle">
-                    {formatDuration(job.durationMs)}
-                  </span>
+                  <span className="truncate text-paper-char capitalize">{job.agent ?? UNKNOWN}</span>
+                  <span className={cn("text-right tabular-nums", paperTone(tokens.measurement))}>{tokens.text}</span>
+                  <span className={cn("text-right tabular-nums", paperTone(cost.measurement))}>{cost.text}</span>
+                  <span className="text-right text-paper-char tabular-nums">{job.revisions ?? UNKNOWN}</span>
+                  <span className="text-right text-paper-sage tabular-nums">{formatDuration(job.durationMs)}</span>
                 </li>
               );
             })}
           </ul>
         </div>
       </div>
-    </section>
+    </PaperSection>
   );
 }

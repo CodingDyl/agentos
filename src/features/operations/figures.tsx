@@ -1,15 +1,17 @@
 import type { UsageBreakdownRow, UsageTotal } from "@shared/usage-types";
-import { SectionLabel } from "@/components/os";
 import { cn } from "@/lib/utils";
 import {
   coverageNote,
   formatPercent,
+  formatTokens,
+  formatCost,
   measuredCost,
   measuredTokens,
-  measurementTone,
+  paperTone,
   UNKNOWN,
   type Measured,
 } from "./operations-model";
+import { Meter, PAPER_FOCUS, PaperSection, StackedMeter } from "./paper";
 
 /**
  * The pieces every Operations view is built from.
@@ -20,7 +22,7 @@ import {
  * as its least careful section.
  */
 
-/** One headline number. The figure leads; the label explains it. */
+/** One number. The figure leads; the label explains it. */
 export function Figure({
   value,
   label,
@@ -34,21 +36,17 @@ export function Figure({
 }) {
   return (
     <div className="min-w-0">
+      <p className="text-[12.5px] font-medium text-paper-char">{label}</p>
       <p
         className={cn(
-          "tabular-nums",
-          size === "large"
-            ? "text-[clamp(1.5rem,3vw,2rem)] leading-[1.05] tracking-[-0.02em]"
-            : "text-[22px] leading-[1.15]",
-          measurementTone(value.measurement),
+          "mt-1 font-paper-display font-extrabold tracking-[-0.02em] tabular-nums",
+          size === "large" ? "text-[28px] leading-[1.1]" : "text-[20px] leading-7",
+          paperTone(value.measurement),
         )}
       >
         {value.text}
       </p>
-      <p className="os-meta mt-2 text-os-subtle">{label}</p>
-      {detail ? (
-        <p className="mt-1.5 text-[13px] leading-5 text-os-subtle">{detail}</p>
-      ) : null}
+      {detail ? <p className="mt-1 text-[12.5px] leading-5 text-paper-sage">{detail}</p> : null}
     </div>
   );
 }
@@ -69,27 +67,23 @@ export function TotalFigures({
   tokenLabel?: string;
   costLabel?: string;
 }) {
-  const note = coverageNote(total);
-
   return (
     <div className="flex flex-wrap gap-x-12 gap-y-6">
       <Figure value={measuredTokens(total)} label={tokenLabel} size="small" />
-      <Figure
-        value={measuredCost(total)}
-        label={costLabel}
-        size="small"
-        detail={note}
-      />
+      <Figure value={measuredCost(total)} label={costLabel} size="small" detail={coverageNote(total)} />
     </div>
   );
 }
 
+/** How many rows get their own ink before the rest fold into "Everything else". */
+const STACK_LIMIT = 5;
+
 /**
- * A ranked breakdown.
+ * A ranked breakdown: one stacked bar for the shape of the whole, then each row
+ * with its own meter.
  *
- * The bar is a share of the *measured* whole, and it simply does not draw when
- * the share is unknown — a full-width bar behind an em dash would read as
- * "all of it", which is the opposite of what an absence means.
+ * Each bar is a share of the *measured* whole, and simply does not draw when
+ * the share is unknown.
  */
 export function Breakdown({
   rows,
@@ -97,28 +91,40 @@ export function Breakdown({
   by = "tokens",
   empty = "Nothing recorded yet.",
   onSelect,
+  overview = true,
 }: {
   rows: readonly UsageBreakdownRow[];
   label: string;
-  /** Which figure the bar and the ranking are about. */
+  /** Which figure the bars and the ranking are about. */
   by?: "tokens" | "cost";
   empty?: string;
   onSelect?: (key: string) => void;
+  /** The stacked bar above the rows. Off where one row would make it pointless. */
+  overview?: boolean;
 }) {
   if (rows.length === 0) {
     return (
-      <section>
-        <SectionLabel>{label}</SectionLabel>
-        <p className="mt-4 text-[15px] leading-6 text-os-muted">{empty}</p>
-      </section>
+      <PaperSection label={label}>
+        <p className="text-[14px] leading-6 text-paper-sage">{empty}</p>
+      </PaperSection>
     );
   }
 
-  return (
-    <section>
-      <SectionLabel>{label}</SectionLabel>
+  const valueOf = (row: UsageBreakdownRow) => (by === "cost" ? row.total.costUsd : row.total.tokens) ?? 0;
+  const head = rows.slice(0, STACK_LIMIT).map((row) => ({ key: row.key, label: row.label, value: valueOf(row) }));
+  const rest = rows.slice(STACK_LIMIT).reduce((sum, row) => sum + valueOf(row), 0);
+  const segments = rest > 0 ? [...head, { key: "rest", label: "Everything else", value: rest }] : head;
+  const format = by === "cost" ? (value: number) => formatCost(value) : (value: number) => formatTokens(value);
 
-      <ul className="mt-4">
+  return (
+    <PaperSection label={label} count={rows.length}>
+      {overview && rows.length > 1 ? (
+        <div className="mb-5">
+          <StackedMeter segments={segments.filter((segment) => segment.value > 0)} format={format} label={label} />
+        </div>
+      ) : null}
+
+      <ul className="divide-y divide-paper-stone border-y border-paper-stone">
         {rows.map((row) => {
           const share = by === "cost" ? row.costShare : row.tokenShare;
           const tokens = measuredTokens(row.total);
@@ -127,52 +133,26 @@ export function Breakdown({
           const content = (
             <>
               <div className="flex min-w-0 items-baseline justify-between gap-4">
-                <span className="min-w-0 truncate text-[15px] leading-6 text-foreground">
-                  {row.label}
-                </span>
-                <span className="flex shrink-0 items-baseline gap-5">
-                  <span
-                    className={cn(
-                      "tabular-nums text-[14px]",
-                      measurementTone(tokens.measurement),
-                    )}
-                  >
-                    {tokens.text}
-                  </span>
-                  <span
-                    className={cn(
-                      "w-16 text-right tabular-nums text-[14px]",
-                      measurementTone(cost.measurement),
-                    )}
-                  >
-                    {cost.text}
-                  </span>
-                  <span className="os-meta w-9 text-right text-os-subtle">
-                    {share === undefined ? UNKNOWN : formatPercent(share)}
-                  </span>
+                <span className="min-w-0 truncate text-[14.5px] leading-6 text-paper-moss">{row.label}</span>
+                <span className="flex shrink-0 items-baseline gap-5 text-[13.5px] tabular-nums">
+                  <span className={paperTone(tokens.measurement)}>{tokens.text}</span>
+                  <span className={cn("w-16 text-right", paperTone(cost.measurement))}>{cost.text}</span>
+                  <span className="w-10 text-right text-paper-sage">{share === undefined ? UNKNOWN : formatPercent(share)}</span>
                 </span>
               </div>
-
-              {/* Only ever drawn over a share that is actually known. */}
-              <div className="mt-2 h-px w-full bg-os-border">
-                {share === undefined ? null : (
-                  <div
-                    className="h-px bg-os-amber/60"
-                    style={{ width: `${Math.min(share * 100, 100)}%` }}
-                    aria-hidden="true"
-                  />
-                )}
+              <div className="mt-2">
+                <Meter value={share} label={`${row.label}, share of ${by}`} tone={by === "cost" ? "amber" : "ink"} />
               </div>
             </>
           );
 
           return (
-            <li key={row.key} className="border-b border-os-border/60 py-3.5">
+            <li key={row.key} className="py-3">
               {onSelect ? (
                 <button
                   type="button"
                   onClick={() => onSelect(row.key)}
-                  className="os-focus-ring block w-full cursor-pointer rounded-md text-left"
+                  className={cn("block w-full cursor-pointer rounded-[4px] text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                 >
                   {content}
                 </button>
@@ -183,6 +163,6 @@ export function Breakdown({
           );
         })}
       </ul>
-    </section>
+    </PaperSection>
   );
 }

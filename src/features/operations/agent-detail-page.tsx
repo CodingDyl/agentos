@@ -1,21 +1,17 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import type { AgentDetail } from "@shared/usage-types";
-import {
-  AppShell,
-  ErrorState,
-  LoadingState,
-  Section,
-  StatusPill,
-} from "@/components/os";
+import { AppShell } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useAgentDetail } from "@/lib/agentos/queries";
+import { cn } from "@/lib/utils";
 import { Breakdown, Figure, TotalFigures } from "./figures";
-import { formatCost, formatPercent } from "./operations-model";
+import { formatCost } from "./operations-model";
+import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, PaperWindow, RadialMeter, Tag } from "./paper";
 import { RecentJobs } from "./usage-tab";
 
 /**
- * One agent, in full.
+ * One agent, in full — a second document opened from the same ledger.
  *
  * What turns a worker list into worker management. A roster says a worker
  * exists; this says how it is configured, what it has cost this month, how
@@ -28,174 +24,119 @@ import { RecentJobs } from "./usage-tab";
  * not. A schema covering all three would fit none of them, and printing a key
  * would be indefensible.
  */
-
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
-
 export function AgentDetailPage() {
   const navigationItems = useNavigationItems();
   const { id = "" } = useParams();
   const { data, isPending, isFetching, error, refetch } = useAgentDetail(id);
 
   return (
-    <AppShell
-      navigationItems={navigationItems}
-      pageId="operations-agent"
-      activeHref="/operations"
-      modelLabel="Model / AgentOS V1"
-    >
-      <div className={PAGE_PADDING}>
-        {isPending ? (
-          <LoadingState
-            label="Agent"
-            message="Reading the agent…"
-            detail="Operations / agents"
-          />
-        ) : !data ? (
-          <ErrorState
-            label="Agent unavailable"
-            title="That agent has no record."
-            detail={error?.message}
-            onRetry={() => void refetch()}
-            isRetrying={isFetching}
-          />
-        ) : (
-          <Agent agent={data} />
-        )}
-      </div>
+    <AppShell navigationItems={navigationItems} pageId="operations-agent" activeHref="/operations" modelLabel="Model / AgentOS V1">
+      <PaperStage>
+        <PaperWindow filename={`agents/${id || "agent"}.ledger`}>
+          {isPending ? (
+            <div className="px-6 py-8" aria-busy="true" aria-label="Reading the agent">
+              <div className="h-8 w-48 rounded-[4px] bg-paper-linen motion-safe:animate-pulse" />
+              <div className="mt-6 h-40 rounded-[4px] border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
+            </div>
+          ) : !data ? (
+            <div className="px-6 py-10">
+              <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">That agent has no record.</h1>
+              <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "Nothing was returned for this agent."}</p>
+              <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
+                {isFetching ? "Trying again…" : "Try again"}
+              </PaperButton>
+            </div>
+          ) : (
+            <Agent agent={data} />
+          )}
+        </PaperWindow>
+      </PaperStage>
     </AppShell>
   );
 }
 
 function Agent({ agent }: { agent: AgentDetail }) {
+  const isHermes = agent.agent === "hermes";
+
   return (
-    <>
-      <header className="border-b border-os-border pb-8">
-        <Link
-          to="/operations"
-          className="os-focus-ring os-meta -mx-2 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-os-subtle transition-colors duration-150 hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden="true" />
-          Operations
-        </Link>
+    <div className="px-4 pt-5 pb-8 sm:px-6">
+      <Link
+        to="/operations?tab=agents"
+        className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
+      >
+        <ArrowLeft className="size-3.5" aria-hidden="true" />
+        Operations
+      </Link>
 
-        <div className="mt-5 flex flex-wrap items-end justify-between gap-6">
-          <div className="min-w-0">
-            <h1 className="text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.05] font-normal tracking-[-0.03em]">
-              {agent.label}
-            </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-              <StatusPill
-                status={agent.available ? "healthy" : "blocked"}
-                label={agent.available ? "Ready" : "Unavailable"}
-              />
-              {agent.role ? (
-                <span className="os-meta text-os-subtle">{agent.role}</span>
-              ) : null}
-            </div>
+      <header className="mt-3 flex flex-wrap items-end justify-between gap-4 border-b border-paper-mist pb-6">
+        <div className="min-w-0">
+          <h1 className="font-paper-display text-[30px] leading-9 font-extrabold tracking-[-0.015em] text-paper-moss">{agent.label}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Tag tone={agent.available ? "green" : "flame"}>{agent.available ? "Ready" : "Unavailable"}</Tag>
+            {agent.role ? <span className="text-[13px] text-paper-sage">{agent.role}</span> : null}
           </div>
-
-          <span className="os-meta text-os-subtle">{agent.window.label}</span>
         </div>
-
-        {agent.unavailableReason ? (
-          <p className="mt-5 max-w-[72ch] text-[13px] leading-5 text-os-warning">
-            {agent.unavailableReason}
-          </p>
-        ) : null}
+        <span className="text-[13px] text-paper-sage">{agent.window.label}</span>
       </header>
 
-      <div className="mt-10 grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="min-w-0 space-y-12">
-          <section>
-            <TotalFigures total={agent.usage.total} costLabel="Spend" />
+      {agent.unavailableReason ? <p className="mt-4 max-w-[72ch] text-[13.5px] leading-5 text-paper-char">{agent.unavailableReason}</p> : null}
 
-            <div className="mt-8 grid gap-x-10 gap-y-6 sm:grid-cols-4">
+      <div className="mt-8 grid gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <div className="min-w-0 space-y-12">
+          <PaperCard>
+            <div className="flex flex-wrap items-center justify-between gap-6">
+              <TotalFigures total={agent.usage.total} costLabel="Spend" />
+              {!isHermes ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-right text-[12.5px] leading-4 text-paper-sage">
+                    First-pass
+                    <br />
+                    reviews
+                  </span>
+                  <RadialMeter value={agent.usage.firstPassReviewRate} label="First-pass review rate" size={72} />
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-paper-stone pt-4 sm:grid-cols-3">
               <Figure
-                value={{
-                  text: String(agent.usage.runs),
-                  measurement: "exact",
-                }}
-                label={agent.agent === "hermes" ? "Runs" : "Jobs"}
+                value={{ text: String(agent.usage.runs), measurement: "exact" }}
+                label={isHermes ? "Runs" : "Jobs"}
                 size="small"
-                detail={
-                  agent.agent === "hermes"
-                    ? undefined
-                    : `${agent.usage.completed} completed`
-                }
+                detail={isHermes ? undefined : `${agent.usage.completed} completed`}
               />
+              <Figure value={{ text: String(agent.jobsToday), measurement: "exact" }} label={isHermes ? "Runs today" : "Jobs today"} size="small" />
               <Figure
-                value={{
-                  text: String(agent.jobsToday),
-                  measurement: "exact",
-                }}
-                label={agent.agent === "hermes" ? "Runs today" : "Jobs today"}
-                size="small"
-              />
-              <Figure
-                value={{
-                  text: formatPercent(agent.usage.firstPassReviewRate),
-                  measurement:
-                    agent.usage.firstPassReviewRate === undefined
-                      ? "unknown"
-                      : "exact",
-                }}
-                label="First-pass reviews"
-                size="small"
-              />
-              <Figure
-                value={{
-                  text: formatCost(agent.usage.avgSuccessfulCostUsd),
-                  measurement:
-                    agent.usage.avgSuccessfulCostUsd === undefined
-                      ? "unknown"
-                      : "exact",
-                }}
+                value={{ text: formatCost(agent.usage.avgSuccessfulCostUsd), measurement: agent.usage.avgSuccessfulCostUsd === undefined ? "unknown" : "exact" }}
                 label="Cost / success"
                 size="small"
-                detail={
-                  agent.usage.avgRevisions === undefined
-                    ? undefined
-                    : `${agent.usage.avgRevisions.toFixed(1)} revisions avg`
-                }
+                detail={agent.usage.avgRevisions === undefined ? undefined : `${agent.usage.avgRevisions.toFixed(1)} revisions avg`}
               />
             </div>
-          </section>
+          </PaperCard>
 
-          <Breakdown
-            rows={agent.operations}
-            label="By operation"
-            empty="Nothing recorded this month."
-          />
+          <Breakdown rows={agent.operations} label="By operation" empty="Nothing recorded this month." />
 
-          {agent.models.length > 0 ? (
-            <Breakdown rows={agent.models} label="By model" />
-          ) : null}
+          {agent.models.length > 0 ? <Breakdown rows={agent.models} label="By model" /> : null}
 
           <RecentJobs jobs={agent.recentJobs} />
         </div>
 
-        <div className="min-w-0">
-          <Section label="Configuration">
-            <dl className="space-y-4">
+        <PaperSection label="Configuration">
+          {agent.configuration.length === 0 ? (
+            <p className="text-[14px] leading-6 text-paper-sage">Nothing configurable.</p>
+          ) : (
+            <dl className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
               {agent.configuration.map((row) => (
-                <div key={row.label}>
-                  <dt className="os-meta text-os-subtle">{row.label}</dt>
-                  <dd className="mt-1.5 font-mono text-[12px] leading-5 break-words text-os-muted">
-                    {row.value}
-                  </dd>
+                <div key={row.label} className="px-3.5 py-2.5">
+                  <dt className="text-[12.5px] font-medium text-paper-char">{row.label}</dt>
+                  <dd className="mt-1 font-mono text-[12px] leading-5 break-words text-paper-moss">{row.value}</dd>
                 </div>
               ))}
             </dl>
-
-            {agent.configuration.length === 0 ? (
-              <p className="text-[15px] leading-6 text-os-muted">
-                Nothing configurable.
-              </p>
-            ) : null}
-          </Section>
-        </div>
+          )}
+        </PaperSection>
       </div>
-    </>
+    </div>
   );
 }

@@ -838,3 +838,46 @@ The design system is considered ready when:
 > **AgentOS should reduce cognitive load, not display how much information it knows.**
 
 Every screen should make the next useful action obvious.
+
+---
+
+## 27. Paper — the migration world (in progress)
+
+AgentOS is moving, one screen at a time, from Editorial Terminal to **Paper**, a world derived from PostHog's desktop-OS style: a document opened on a sandy desk. Everything above still governs every screen that has not moved. As of 2026-09-24 two screens have moved: **Mail** (scoped trial, `src/styles/mail.css`) and **Operations**, including its agent detail page (shared tokens). The application shell (sidebar, top bar, status bar) stays in Editorial Terminal until the migration reaches it.
+
+### Tokens
+
+Declared in `src/styles/agentos.css` as `--paper-*` and exposed to Tailwind as `paper-*` utilities (`bg-paper-desk`, `text-paper-moss`, `border-paper-mist`, …).
+
+| Role | Token | Value |
+|------|-------|-------|
+| Desk (canvas) | `paper-desk` | `#e1d7c2` |
+| Window / card | `paper-white` | `#ffffff` |
+| Secondary surface, hover | `paper-cream` / `paper-linen` / `paper-stone` | `#fdfdf8` / `#eeefe9` / `#e5e7e0` |
+| Text: primary / body / muted | `paper-moss` / `paper-char` / `paper-sage` | `#23251d` / `#4d4f46` / `#65675e` |
+| Decorative only (fails AA as text) | `paper-ash` | `#9ea096` |
+| Hairline | `paper-mist` | `#bfc1b7` |
+| Primary action (one per view) | `paper-amber` → hover `paper-amber-deep` | `#eb9d2a` → `#cd8407` |
+| Outline-action border | `paper-gold` | `#b17816` (border only; its text fails AA) |
+| Active tab, live links, focus ring | `paper-blue` | `#2f80fa` |
+| Tags and warnings, as text or tag fill | `paper-flame-deep` | `#c43d00` (raw `paper-flame` `#f54e00` for non-text fills only) |
+| Confirmation | `paper-green` | `#6aa84f` (dark text on it, never white) |
+
+Faces: `font-paper-display` is Inter Tight Variable (headings and numerals), standing in for Open Runde. `font-paper-ui` is IBM Plex Sans (UI and body). Mono is used only for filenames and configuration values.
+
+### Rules
+
+- Every screen is a **window**: white, 1px `paper-mist` border, 6px corners, and a 36px title bar with three dots and a filename (`operations.ledger`). Cards, inputs and buttons use 4px corners. Pills are for tags only.
+- **No shadows.** Elevation comes from the surface stack (desk → linen → cream → white) and hairlines. Cards are never nested inside cards.
+- One **amber** primary action per view. Secondary actions are outlined in gold with dark labels.
+- Tabs: sage when idle; active is signal blue with a 2px underline sitting on a 1px inset hairline.
+- Headings: display face, 800 weight, tracking no tighter than -0.015em. Inter Tight's word space collapses below that.
+- Figures keep Operations' honesty rules: an unknown is `—` in sage, an estimate carries `~`, and nothing unpriced is shown as `$0`.
+
+### Components (`src/features/operations/paper.tsx`)
+
+`PaperStage`, `PaperWindow`, `PaperSection`, `PaperCard`, `PaperButton` (amber / ghost / quiet), `Tag`, `SegmentedControl`, `PaperTabs`, `Meter` (a single share), `StackedMeter` (parts of a whole with a legend, used instead of a pie), `RadialMeter` (a beaded track with a solid arc, number and word), `Sparkline`, `PaperSwitch`, `PAPER_INPUT`, `FieldLabel`.
+
+### Motion
+
+There is one authored moment. Meters, rings and the spend line draw from empty on arrival, over 700–1000ms with an ease-out of `cubic-bezier(0.16,1,0.3,1)`, animating transform, stroke-dashoffset or clip-path only. Under reduced motion none of it animates. Hover transitions are 150ms colour changes.

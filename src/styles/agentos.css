@@ -5,8 +5,44 @@
 @import "@fontsource/inter/latin-500.css";
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
+/* The paper world's faces. Browsers only fetch a face when text uses it, so
+   screens still in the dark Editorial Terminal language pay nothing for these. */
+@import "@fontsource-variable/inter-tight";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/*
+ * Paper — the PostHog-derived world AgentOS is moving towards, one screen at
+ * a time. Mail trialled it in its own scoped sheet; Operations is the first
+ * screen built on these shared tokens. A sandy desk, white application
+ * windows, hairline warm borders, 4px corners, no shadows. Colour is rationed:
+ * amber for the one primary action, signal blue for active state and live
+ * links, flame orange for tags and warnings, moss green for confirmation.
+ */
+:root {
+  --paper-desk: #e1d7c2;
+  --paper-white: #ffffff;
+  --paper-cream: #fdfdf8;
+  --paper-linen: #eeefe9;
+  --paper-stone: #e5e7e0;
+  --paper-moss: #23251d;
+  --paper-char: #4d4f46;
+  --paper-sage: #65675e;
+  --paper-ash: #9ea096;
+  --paper-mist: #bfc1b7;
+  --paper-blue: #2f80fa;
+  --paper-amber: #eb9d2a;
+  --paper-amber-deep: #cd8407;
+  --paper-gold: #b17816;
+  --paper-marigold: #f1a82c;
+  --paper-flame: #f54e00;
+  /* Flame for text and filled tags: #f54e00 against white is 3.5:1, this is 5.2:1. */
+  --paper-flame-deep: #c43d00;
+  --paper-green: #6aa84f;
+}
 
 :root {
   color-scheme: dark;
@@ -145,6 +181,28 @@
   --color-os-success: var(--os-success);
   --color-os-warning: var(--os-warning);
   --color-os-danger: var(--os-danger);
+
+  --color-paper-desk: var(--paper-desk);
+  --color-paper-white: var(--paper-white);
+  --color-paper-cream: var(--paper-cream);
+  --color-paper-linen: var(--paper-linen);
+  --color-paper-stone: var(--paper-stone);
+  --color-paper-moss: var(--paper-moss);
+  --color-paper-char: var(--paper-char);
+  --color-paper-sage: var(--paper-sage);
+  --color-paper-ash: var(--paper-ash);
+  --color-paper-mist: var(--paper-mist);
+  --color-paper-blue: var(--paper-blue);
+  --color-paper-amber: var(--paper-amber);
+  --color-paper-amber-deep: var(--paper-amber-deep);
+  --color-paper-gold: var(--paper-gold);
+  --color-paper-marigold: var(--paper-marigold);
+  --color-paper-flame: var(--paper-flame);
+  --color-paper-flame-deep: var(--paper-flame-deep);
+  --color-paper-green: var(--paper-green);
+
+  --font-paper-display: "Inter Tight Variable", "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --font-paper-ui: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: var(--os-radius-sm);
   --radius-md: var(--os-radius-input);

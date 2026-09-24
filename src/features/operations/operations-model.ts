@@ -158,6 +158,26 @@ export function measurementTone(measurement: UsageMeasurement): string {
       : "text-foreground";
 }
 
+/**
+ * The same three tones for the paper world. Unknown is sage rather than the
+ * paler ash: an em dash is still text, and ash on white fails contrast.
+ */
+export function paperTone(measurement: UsageMeasurement): string {
+  return measurement === "unknown"
+    ? "text-paper-sage"
+    : measurement === "estimated"
+      ? "text-paper-char"
+      : "text-paper-moss";
+}
+
+/** A success rate, in a word. The number beside it stays the authority. */
+export function successWord(rate: number | undefined): string | undefined {
+  if (rate === undefined) return undefined;
+  if (rate >= 0.8) return "Healthy";
+  if (rate >= 0.5) return "Mixed";
+  return "Struggling";
+}
+
 const BUDGET_TONE: Record<BudgetState["state"], string> = {
   ok: "bg-os-success",
   warning: "bg-os-warning",
