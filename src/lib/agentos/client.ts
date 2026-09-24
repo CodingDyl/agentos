@@ -123,6 +123,11 @@ import {
   DesignReviewsResponseSchema,
 } from "@shared/design-intelligence-types";
 import {
+  type MilestoneDelegationPreview,
+  MilestoneDelegationPreviewSchema,
+  type MilestoneDelegationResult,
+  MilestoneDelegationResultSchema,
+  type MilestoneTaskApproval,
   type TaskCompletionProposal,
   TaskCompletionProposalSchema,
   type TaskDelegationApproval,
@@ -826,6 +831,45 @@ export function startTaskDelegation(
     },
     (value) => WorkerJobResponseSchema.safeParse(value),
   ).then((response) => response.job);
+}
+
+/**
+ * Scopes every eligible task in a milestone and recommends a worker for each.
+ *
+ * Same shape as `prepareTaskDelegation`, just over the whole milestone at
+ * once: prepares, does not start. Every plan comes back to be read together.
+ */
+export function prepareMilestoneDelegation(
+  slug: string,
+  milestoneId: string,
+  requestedWorker: WorkerJobRequest["worker"],
+): Promise<MilestoneDelegationPreview> {
+  return workerRequest(
+    `/api/projects/${encodeURIComponent(slug)}/milestones/${encodeURIComponent(milestoneId)}/delegate/prepare`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestedWorker }),
+    },
+    (value) => MilestoneDelegationPreviewSchema.safeParse(value),
+  );
+}
+
+/** Starts every task the operator approved out of a prepared milestone batch. */
+export function startMilestoneDelegation(
+  slug: string,
+  milestoneId: string,
+  tasks: MilestoneTaskApproval[],
+): Promise<MilestoneDelegationResult> {
+  return workerRequest(
+    `/api/projects/${encodeURIComponent(slug)}/milestones/${encodeURIComponent(milestoneId)}/delegate/start`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tasks }),
+    },
+    (value) => MilestoneDelegationResultSchema.safeParse(value),
+  );
 }
 
 /** What has been delegated in this project, and where each job has got to. */

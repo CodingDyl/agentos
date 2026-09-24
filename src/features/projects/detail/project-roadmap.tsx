@@ -8,6 +8,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Rocket,
   RotateCcw,
   Sparkles,
   Square,
@@ -51,6 +52,7 @@ import {
 } from "../roadmap-model";
 import { MilestonePlanPanel } from "./milestone-plan";
 import { MilestoneReview } from "./milestone-review";
+import { MilestoneRun } from "./milestone-run";
 
 /**
  * Where the project is going.
@@ -322,6 +324,7 @@ function MilestoneDetail({
   const [editing, setEditing] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [running, setRunning] = useState(false);
 
   const handlers = (label: string) => ({
     onSuccess: (result: { undoId?: string }) => feedback.recordEdit(label, result.undoId),
@@ -339,6 +342,7 @@ function MilestoneDetail({
 
   const busy = act.isPending || remove.isPending || reorder.isPending;
   const canDelete = milestone.taskIds.length === 0 && !milestone.review;
+  const runnableCount = milestone.tasks.filter((task) => task.status === "ready" || task.status === "backlog").length;
   const position = siblings.findIndex((entry) => entry.id === milestone.id);
 
   return (
@@ -449,6 +453,11 @@ function MilestoneDetail({
               <CommandButton variant="secondary" icon={Sparkles} iconPosition="start" onClick={() => setPlanning((value) => !value)}>
                 Plan with Hermes
               </CommandButton>
+              {runnableCount > 0 && milestone.status !== "completed" && milestone.status !== "archived" ? (
+                <CommandButton variant="secondary" icon={Rocket} iconPosition="start" onClick={() => setRunning(true)}>
+                  Run milestone ({runnableCount})
+                </CommandButton>
+              ) : null}
               <CommandButton variant="quiet" icon={MessageSquare} iconPosition="start" onClick={onAsk}>
                 Ask Hermes
               </CommandButton>
@@ -523,6 +532,15 @@ function MilestoneDetail({
           milestone={milestone}
           revision={revision}
           onClose={() => setReviewing(false)}
+          onReload={onReload}
+        />
+      ) : null}
+
+      {running ? (
+        <MilestoneRun
+          slug={slug}
+          milestone={milestone}
+          onClose={() => setRunning(false)}
           onReload={onReload}
         />
       ) : null}

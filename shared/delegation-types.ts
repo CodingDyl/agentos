@@ -137,6 +137,56 @@ export const TaskCompletionProposalSchema = z.object({
   ready: z.boolean(),
 });
 
+/**
+ * Batch-delegating a milestone.
+ *
+ * Same two-phase shape as a single task — prepare, then start — just N times
+ * over, so a milestone with several ready tasks is one review instead of N
+ * trips through the single-task flow. Nothing here starts a job on its own.
+ */
+export const MilestoneTaskPreviewSchema = z.object({
+  taskId: z.string(),
+  taskTitle: z.string(),
+  preview: TaskDelegationPreviewSchema.optional(),
+  /** Why this task's plan could not be prepared, when it could not. */
+  error: z.string().optional(),
+});
+
+export const MilestoneDelegationPreviewSchema = z.object({
+  milestoneId: z.string(),
+  /** Tasks Hermes was asked to scope — each either ready to approve, or its own error. */
+  ready: z.array(MilestoneTaskPreviewSchema),
+  /** Tasks never sent to Hermes at all — already done, blocked, or already running. */
+  skipped: z.array(z.object({ taskId: z.string(), taskTitle: z.string(), reason: z.string() })),
+});
+
+export const MilestoneDelegationRequestSchema = z.object({
+  requestedWorker: z
+    .union([z.enum(["grok", "claude", "mock"]), z.literal("auto")])
+    .default("auto"),
+});
+
+/** One approved task, carrying the plan a person reviewed for it. */
+export const MilestoneTaskApprovalSchema = TaskDelegationApprovalSchema.extend({
+  taskId: z.string(),
+});
+
+export const MilestoneDelegationStartRequestSchema = z.object({
+  tasks: z.array(MilestoneTaskApprovalSchema).min(1),
+});
+
+export const MilestoneDelegationResultSchema = z.object({
+  started: z.array(z.object({ taskId: z.string(), jobId: z.string() })),
+  failed: z.array(z.object({ taskId: z.string(), error: z.string() })),
+});
+
+export type MilestoneTaskPreview = z.infer<typeof MilestoneTaskPreviewSchema>;
+export type MilestoneDelegationPreview = z.infer<typeof MilestoneDelegationPreviewSchema>;
+export type MilestoneDelegationRequest = z.infer<typeof MilestoneDelegationRequestSchema>;
+export type MilestoneTaskApproval = z.infer<typeof MilestoneTaskApprovalSchema>;
+export type MilestoneDelegationStartRequest = z.infer<typeof MilestoneDelegationStartRequestSchema>;
+export type MilestoneDelegationResult = z.infer<typeof MilestoneDelegationResultSchema>;
+
 export type DelegationPlan = z.infer<typeof DelegationPlanSchema>;
 export type TaskDelegationRequest = z.infer<typeof TaskDelegationRequestSchema>;
 export type TaskDelegationPreview = z.infer<typeof TaskDelegationPreviewSchema>;

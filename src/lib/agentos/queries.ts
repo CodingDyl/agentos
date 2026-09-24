@@ -136,8 +136,10 @@ import {
   startDesignReview,
   getTaskCompletion,
   getTaskDelegations,
+  prepareMilestoneDelegation,
   prepareTaskDelegation,
   routeWorkerJob,
+  startMilestoneDelegation,
   startTaskDelegation,
   startWorkerJob,
   steerWorkerJob,
@@ -163,7 +165,7 @@ import {
   verifyWorkerJobVisually,
 } from "./client";
 import type { WorkerJobRequest, WorkerJobStatus } from "@shared/worker-types";
-import type { TaskDelegationApproval } from "@shared/delegation-types";
+import type { MilestoneTaskApproval, TaskDelegationApproval } from "@shared/delegation-types";
 
 /** Query keys for AgentOS vault reads. */
 export const agentosKeys = {
@@ -891,6 +893,45 @@ export function useStartTaskDelegation(slug: string) {
       void client.invalidateQueries({
         queryKey: agentosKeys.taskDelegations(slug),
       });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/**
+ * Scopes every eligible task in a milestone and recommends a worker for
+ * each. Starts nothing — same one-way rule as a single task's delegation.
+ */
+export function usePrepareMilestoneDelegation(slug: string) {
+  return useMutation({
+    mutationFn: ({
+      milestoneId,
+      requestedWorker,
+    }: {
+      milestoneId: string;
+      requestedWorker: WorkerJobRequest["worker"];
+    }) => prepareMilestoneDelegation(slug, milestoneId, requestedWorker),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Starts every task approved out of a prepared milestone batch, and refreshes what the screen shows. */
+export function useStartMilestoneDelegation(slug: string) {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      milestoneId,
+      tasks,
+    }: {
+      milestoneId: string;
+      tasks: MilestoneTaskApproval[];
+    }) => startMilestoneDelegation(slug, milestoneId, tasks),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: agentosKeys.taskDelegations(slug) });
+      void client.invalidateQueries({ queryKey: agentosKeys.roadmap(slug) });
     },
     networkMode: "always",
     retry: 0,

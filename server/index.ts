@@ -179,7 +179,12 @@ import {
 } from "./agentos/task-delegation";
 import { applyCompletion, proposeCompletion } from "./agentos/task-completion";
 import { readTaskLink, saveTaskLink } from "./agentos/task-jobs";
-import { TaskDelegationApprovalSchema } from "../shared/delegation-types";
+import { prepareMilestoneDelegation, startMilestoneDelegation } from "./agentos/milestone-delegation";
+import {
+  MilestoneDelegationRequestSchema,
+  MilestoneDelegationStartRequestSchema,
+  TaskDelegationApprovalSchema,
+} from "../shared/delegation-types";
 import {
   DesignBriefProposalSchema,
   DesignReviewRequestSchema,
@@ -653,6 +658,45 @@ app.get("/api/projects/:slug/task-delegations", async (request, response) => {
   } catch (error) {
     console.error("[agentos] task delegations failed:", error);
     response.status(500).json({ error: "Unable to read task delegations" });
+  }
+});
+
+/**
+ * Delegating a whole milestone: the same prepare-then-start shape as one
+ * task, run over every eligible task in it. See `milestone-delegation.ts`.
+ */
+app.post("/api/projects/:slug/milestones/:id/delegate/prepare", async (request, response) => {
+  const parsed = MilestoneDelegationRequestSchema.safeParse(request.body ?? {});
+  const requested = parsed.success ? parsed.data.requestedWorker : "auto";
+
+  try {
+    const { preview, error } = await prepareMilestoneDelegation(request.params.slug, request.params.id, requested);
+
+    if (!preview) {
+      response.status(404).json({ error });
+      return;
+    }
+
+    response.json(preview);
+  } catch (error) {
+    console.error("[agentos] milestone scoping failed:", error);
+    response.status(500).json({ error: "Unable to scope that milestone" });
+  }
+});
+
+app.post("/api/projects/:slug/milestones/:id/delegate/start", async (request, response) => {
+  const parsed = MilestoneDelegationStartRequestSchema.safeParse(request.body ?? {});
+
+  if (!parsed.success) {
+    response.status(400).json({ error: "No approved tasks to start." });
+    return;
+  }
+
+  try {
+    response.status(201).json(await startMilestoneDelegation(request.params.slug, parsed.data));
+  } catch (error) {
+    console.error("[agentos] milestone delegation failed:", error);
+    response.status(500).json({ error: "Unable to start that milestone" });
   }
 });
 
