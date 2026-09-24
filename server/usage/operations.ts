@@ -5,6 +5,8 @@ import type {
   Subscription,
   UsageBreakdownRow,
   UsageRecord,
+  UsageBucket,
+  UsageRange,
   UsageSummary,
   UsageWindow,
 } from "../../shared/usage-types";
@@ -79,6 +81,67 @@ export function monthWindow(now = new Date()): UsageWindow {
     from: from.toISOString(),
     to: to.toISOString(),
   };
+}
+
+const DAY_MS = 86_400_000;
+const HOUR_MS = 3_600_000;
+
+/**
+ * The window a range reports on.
+ *
+ * `7d` is the last seven calendar days including today, so its first bar is a
+ * whole day rather than whatever fraction of one was 168 hours ago.
+ */
+export function rangeWindow(range: UsageRange, now = new Date()): UsageWindow {
+  if (range === "month") return monthWindow(now);
+
+  const today = startOfDay(now);
+  const to = new Date(today.getTime() + DAY_MS).toISOString();
+
+  if (range === "today") {
+    return { label: "Today", from: today.toISOString(), to };
+  }
+
+  return {
+    label: "Last 7 days",
+    from: new Date(today.getTime() - 6 * DAY_MS).toISOString(),
+    to,
+  };
+}
+
+/**
+ * The spend line: hourly for today, daily otherwise, and never past now.
+ *
+ * A bucket nothing priced keeps its cost absent rather than zero, so the line
+ * can show a gap instead of a confident dip to nothing.
+ */
+export function usageSeries(
+  records: readonly UsageRecord[],
+  window: UsageWindow,
+  range: UsageRange,
+  now = new Date(),
+): UsageBucket[] {
+  const step = range === "today" ? HOUR_MS : DAY_MS;
+  const from = Date.parse(window.from);
+  const until = Math.min(Date.parse(window.to), now.getTime());
+
+  const buckets: UsageBucket[] = [];
+  for (let start = from; start < until; start += step) {
+    buckets.push({ from: new Date(start).toISOString(), tokens: 0 });
+  }
+
+  for (const record of records) {
+    const index = Math.floor((Date.parse(record.timestamp) - from) / step);
+    const bucket = buckets[index];
+    if (!bucket) continue;
+
+    bucket.tokens += record.tokens.total ?? 0;
+    if (typeof record.costUsd === "number") {
+      bucket.costUsd = (bucket.costUsd ?? 0) + record.costUsd;
+    }
+  }
+
+  return buckets;
 }
 
 /**
@@ -211,8 +274,10 @@ async function settle<T>(read: () => Promise<T>): Promise<Settled<T>> {
 /** Everything the Operations screen shows, read once. */
 export async function getOperationsData(
   now = new Date(),
+  range: UsageRange = "month",
 ): Promise<OperationsData> {
-  const window = monthWindow(now);
+  const calendarMonth = monthWindow(now);
+  const window = rangeWindow(range, now);
   const dayStart = startOfDay(now).toISOString();
 
   const [jobs, workers, projects, balance] = await Promise.all([
@@ -222,8 +287,16 @@ export async function getOperationsData(
     settle(() => getOpenRouterBalance()),
   ]);
 
-  const month = readUsage({ from: window.from, to: window.to });
+  const month = readUsage({ from: calendarMonth.from, to: calendarMonth.to });
   const today = month.filter((record) => record.timestamp >= dayStart);
+  // A 7-day window can reach back into last month, so it is read on its own
+  // rather than filtered out of the calendar month.
+  const inRange =
+    range === "month"
+      ? month
+      : range === "today"
+        ? today
+        : readUsage({ from: window.from, to: window.to });
 
   const allJobs = jobs.value ?? [];
 
@@ -233,12 +306,12 @@ export async function getOperationsData(
     (projects.value ?? []).map((project) => [project.slug, project.name]),
   );
 
-  const monthJobs = allJobs.filter(
+  const rangeJobs = allJobs.filter(
     (job) => job.createdAt >= window.from && job.createdAt < window.to,
   );
 
-  const completed = monthJobs.filter((job) => job.status === "completed").length;
-  const settledJobs = monthJobs.filter((job) =>
+  const completed = rangeJobs.filter((job) => job.status === "completed").length;
+  const settledJobs = rangeJobs.filter((job) =>
     ["completed", "rejected", "failed"].includes(job.status),
   ).length;
 
@@ -256,34 +329,38 @@ export async function getOperationsData(
 
   return {
     generatedAt: now.toISOString(),
+    range,
     window,
+    period: total(inRange),
+    series: usageSeries(inRange, window, range, now),
     month: total(month),
     today: total(today),
-    jobsThisMonth: monthJobs.length,
+    jobs: rangeJobs.length,
     // Only over jobs that actually reached an ending. Counting a running job
     // as a failure would make every busy afternoon look like a bad month.
     successRate: settledJobs > 0 ? completed / settledJobs : undefined,
 
-    agents: agentUsage(month, monthJobs),
+    agents: agentUsage(inRange, rangeJobs),
 
-    models: breakdown(month, (record) => record.model).slice(0, BREAKDOWN_LIMIT),
+    models: breakdown(inRange, (record) => record.model).slice(0, BREAKDOWN_LIMIT),
 
     projects: breakdown(
-      month,
+      inRange,
       (record) => record.project,
       (slug) => projectNames.get(slug) ?? slug,
     ).slice(0, BREAKDOWN_LIMIT),
 
     operations: breakdown(
-      month,
+      inRange,
       (record) => record.operation,
       (key) => operationLabel(key as UsageRecord["operation"]),
     ),
 
-    tokenSources: tokenSources(month).slice(0, BREAKDOWN_LIMIT),
+    tokenSources: tokenSources(inRange).slice(0, BREAKDOWN_LIMIT),
 
-    recentJobs: jobUsage(month, monthJobs).slice(0, RECENT_JOBS),
+    recentJobs: jobUsage(inRange, rangeJobs).slice(0, RECENT_JOBS),
 
+    // Live state is about right now, so it reads the calendar month whatever the range.
     live: buildLive(workers.value ?? [], allJobs, month),
 
     subscriptions,

@@ -119,6 +119,7 @@ import {
 import {
   SubscriptionSchema,
   UsageBudgetSchema,
+  UsageRangeSchema,
 } from "../shared/usage-types";
 import {
   reportFriction,
@@ -3074,9 +3075,10 @@ app.post("/api/backups/:id/restore", async (request, response) => {
  * is telemetry rather than truth: every figure could be recomputed from the
  * job store and the providers if the database were thrown away.
  */
-app.get("/api/operations", async (_request, response) => {
+app.get("/api/operations", async (request, response) => {
   try {
-    response.json(await getOperationsData());
+    const range = UsageRangeSchema.safeParse(request.query.range);
+    response.json(await getOperationsData(new Date(), range.success ? range.data : "month"));
   } catch (error) {
     console.error("[agentos] operations read failed:", error);
     response.status(500).json({ error: "Unable to read operations" });

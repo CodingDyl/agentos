@@ -345,13 +345,37 @@ export const UsageWindowSchema = z.object({
   to: z.string(),
 });
 
-/** Everything the Operations screen shows, in one read. */
+/** Which window the Operations screen is reporting on. */
+export const UsageRangeSchema = z.enum(["today", "7d", "month"]);
+
+/** One bar of the spend line: an hour for `today`, a day otherwise. */
+export const UsageBucketSchema = z.object({
+  from: z.string(),
+  tokens: z.number(),
+  /** Absent when nothing in the bucket reported a price — never zero-filled. */
+  costUsd: z.number().optional(),
+});
+
+/**
+ * Everything the Operations screen shows, in one read.
+ *
+ * Two clocks, deliberately. Usage — `period`, the breakdowns, the agents, the
+ * jobs — follows the chosen `range`. Money that is committed by the month —
+ * `month`, `cost`, `budgets`, `subscriptions` — always reads the calendar
+ * month, because a budget measured against seven days is a different number
+ * from the one the operator set.
+ */
 export const OperationsDataSchema = z.object({
   generatedAt: z.string(),
+  range: UsageRangeSchema,
+  /** The chosen range's window. */
   window: UsageWindowSchema,
+  period: UsageTotalSchema,
+  series: z.array(UsageBucketSchema).default([]),
   month: UsageTotalSchema,
   today: UsageTotalSchema,
-  jobsThisMonth: z.number(),
+  /** Jobs created inside the window. */
+  jobs: z.number(),
   successRate: z.number().optional(),
   agents: z.array(AgentUsageSchema).default([]),
   models: z.array(UsageBreakdownRowSchema).default([]),
@@ -443,6 +467,8 @@ export type CostSummary = z.infer<typeof CostSummarySchema>;
 export type LiveAgent = z.infer<typeof LiveAgentSchema>;
 export type UsageWindow = z.infer<typeof UsageWindowSchema>;
 export type OperationsData = z.infer<typeof OperationsDataSchema>;
+export type UsageRange = z.infer<typeof UsageRangeSchema>;
+export type UsageBucket = z.infer<typeof UsageBucketSchema>;
 export type UsageSummary = z.infer<typeof UsageSummarySchema>;
 export type AgentDetail = z.infer<typeof AgentDetailSchema>;
 export type AgentDetailResponse = z.infer<typeof AgentDetailResponseSchema>;

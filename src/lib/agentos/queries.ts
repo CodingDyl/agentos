@@ -93,6 +93,7 @@ import {
 import type {
   Subscription,
   UsageBudget,
+  UsageRange,
 } from "@shared/usage-types";
 import type { RepositoryAction } from "@shared/repository-types";
 import type {
@@ -1409,10 +1410,12 @@ export function useReportFriction() {
  * live (what a worker is doing right now) is already streamed on that job's
  * own page.
  */
-export function useOperations() {
+export function useOperations(range: UsageRange = "month") {
   return useQuery({
-    queryKey: agentosKeys.operations(),
-    queryFn: getOperations,
+    // Under the shared prefix, so every existing invalidation of `operations()` still reaches each range.
+    queryKey: [...agentosKeys.operations(), range],
+    queryFn: () => getOperations(range),
+    placeholderData: (previous) => previous,
     refetchInterval: 60_000,
     staleTime: 30_000,
     networkMode: "always",

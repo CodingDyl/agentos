@@ -154,6 +154,7 @@ import {
   type TaskUsage,
   TaskUsageResponseSchema,
   type UsageBudget,
+  type UsageRange,
   type UsageSummary,
   UsageSummarySchema,
 } from "@shared/usage-types";
@@ -1397,10 +1398,11 @@ export function reportFriction(
  *
  * Reads only. Nothing on this surface can start work, and the two writes it
  * does have — a subscription and a budget — are records of what the operator
- * already pays and already decided, not instructions to any agent.
+ * already pays and already decided, not instructions to any agent. One range
+ * at a time; money committed monthly reads the calendar month regardless.
  */
-export function getOperations(): Promise<OperationsData> {
-  return workerRequest("/api/operations", { method: "GET" }, (value) =>
+export function getOperations(range: UsageRange = "month"): Promise<OperationsData> {
+  return workerRequest(`/api/operations?range=${range}`, { method: "GET" }, (value) =>
     OperationsDataSchema.safeParse(value),
   );
 }
