@@ -37,6 +37,10 @@ import { readHermesUsage } from "./providers/hermes";
 const PROVIDER_BY_AGENT: Record<string, string> = {
   claude: "anthropic",
   grok: "xai",
+  "claude-code": "anthropic",
+  codex: "openai",
+  gemini: "google",
+  "hermes-worker": "hermes",
 };
 
 export interface HermesUsageInput {

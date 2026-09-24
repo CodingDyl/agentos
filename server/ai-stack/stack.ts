@@ -1,11 +1,15 @@
 import type { AiEvidence, AiKind, AiLocalUsage, AiStack, AiStackEntry, AiStatus } from "../../shared/ai-stack-types";
 import { getHermesStatus } from "../hermes/client";
 import { isJevConfigured } from "../mail/jev-client";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { claudeWorker } from "../workers/providers/claude-worker";
+import { claudeCodeWorker, codexWorker, geminiWorker, hermesWorker } from "../workers/providers/cli-workers";
 import { grokWorker } from "../workers/providers/grok-worker";
 import { envKeySet, findApp, findConfig, findOnPath, serverAnswers } from "./detect";
 import { readClaudeCodeUsage, readCodexUsage } from "./local-usage";
-import { isAiEnabled, switchedOffReason } from "./settings";
+import { aiModel, isAiEnabled, OPT_IN, switchedOffReason } from "./settings";
 
 interface Health {
   available: boolean;
@@ -35,25 +39,71 @@ interface CatalogEntry {
   servers?: { label: string; url: string }[];
   health?: () => Promise<Health>;
   localUsage?: (since: number) => Promise<AiLocalUsage | undefined>;
+  /** Set for workers whose model the operator chooses; the value is an example. */
+  modelPlaceholder?: string;
+  /** For AIs AgentOS cannot drive: why not, and what would change that. */
+  connectHint?: string;
+  facts?: () => Promise<{ label: string; value: string }[]>;
+}
+
+/**
+ * How many MCP servers Claude Desktop has, read from its own config.
+ *
+ * Server names are counted, never read out: an MCP entry's `env` routinely
+ * holds tokens, and nothing about this screen needs more than the number.
+ */
+async function claudeDesktopFacts(): Promise<{ label: string; value: string }[]> {
+  const file = path.join(os.homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json");
+
+  try {
+    const config = JSON.parse(await fs.readFile(file, "utf8")) as Record<string, unknown>;
+    const servers = config.mcpServers;
+    const count = servers && typeof servers === "object" && !Array.isArray(servers) ? Object.keys(servers).length : 0;
+    return [{ label: "MCP servers", value: String(count) }];
+  } catch {
+    return [];
+  }
 }
 
 const CATALOG: readonly CatalogEntry[] = [
   {
     id: "claude",
-    name: "Claude",
+    name: "Claude API",
     vendor: "Anthropic",
     kind: "worker",
-    integration: "Runs coding jobs as a worker, through the Agent SDK.",
+    integration: "Runs coding jobs as a worker through the Agent SDK, billed to the API key.",
     ledgerAgent: "claude",
     provider: "anthropic",
-    clis: ["claude"],
-    apps: ["Claude"],
-    configs: [".claude"],
     envKeys: ["ANTHROPIC_API_KEY"],
     // The raw worker, not the registered one: the registered copy reports
     // "switched off", and this needs to know whether it would work if it were on.
     health: () => claudeWorker.healthCheck(),
+  },
+  {
+    id: "claude-code",
+    name: "Claude Code",
+    vendor: "Anthropic",
+    kind: "worker",
+    integration: "Runs coding jobs as a worker on your Claude plan, in an isolated checkout.",
+    ledgerAgent: "claude-code",
+    provider: "anthropic",
+    clis: ["claude"],
+    configs: [".claude"],
+    health: () => claudeCodeWorker.healthCheck(),
     localUsage: readClaudeCodeUsage,
+    modelPlaceholder: "sonnet",
+  },
+  {
+    id: "claude-desktop",
+    name: "Claude Desktop",
+    vendor: "Anthropic",
+    kind: "chat-app",
+    provider: "anthropic",
+    apps: ["Claude"],
+    configs: ["Library/Application Support/Claude"],
+    connectHint:
+      "A chat app with no way for another program to hand it work. Its Claude plan is the one Claude Code uses, so switch that on instead.",
+    facts: claudeDesktopFacts,
   },
   {
     id: "grok",
@@ -75,13 +125,23 @@ const CATALOG: readonly CatalogEntry[] = [
     kind: "orchestrator",
     integration: "Scopes tasks, plans milestones, routes jobs and reviews worker output.",
     ledgerAgent: "hermes",
-    clis: ["hermes"],
     configs: [".hermes"],
     envKeys: ["HERMES_API_KEY"],
     health: async () =>
       getHermesStatus().configured
         ? { available: true }
         : { available: false, reason: "HERMES_API_KEY is not set." },
+  },
+  {
+    id: "hermes-worker",
+    name: "Hermes Agent",
+    vendor: "Local agent",
+    kind: "worker",
+    integration: "Runs coding jobs as a worker with Hermes' own tools, in an isolated checkout.",
+    ledgerAgent: "hermes-worker",
+    clis: ["hermes"],
+    health: () => hermesWorker.healthCheck(),
+    modelPlaceholder: "anthropic/claude-sonnet-4.6",
   },
   {
     id: "jev",
@@ -94,16 +154,44 @@ const CATALOG: readonly CatalogEntry[] = [
       isJevConfigured() ? { available: true } : { available: false, reason: "JEV_API_KEY is not set." },
   },
   {
-    id: "openai",
-    name: "ChatGPT & Codex",
+    id: "codex",
+    name: "Codex",
     vendor: "OpenAI",
-    kind: "coding-tool",
+    kind: "worker",
+    integration: "Runs coding jobs as a worker on your ChatGPT plan, inside Codex's own sandbox.",
+    ledgerAgent: "codex",
     provider: "openai",
     clis: ["codex"],
-    apps: ["ChatGPT", "Codex"],
+    apps: ["Codex"],
     configs: [".codex"],
-    envKeys: ["OPENAI_API_KEY"],
+    health: () => codexWorker.healthCheck(),
     localUsage: readCodexUsage,
+    modelPlaceholder: "gpt-5.6-sol",
+  },
+  {
+    id: "chatgpt",
+    name: "ChatGPT",
+    vendor: "OpenAI",
+    kind: "chat-app",
+    provider: "openai",
+    apps: ["ChatGPT"],
+    envKeys: ["OPENAI_API_KEY"],
+    connectHint: "A chat app with no way for another program to hand it work. Its plan also covers Codex, which can be switched on.",
+  },
+  {
+    id: "gemini",
+    name: "Gemini CLI",
+    vendor: "Google",
+    kind: "worker",
+    integration: "Runs coding jobs as a worker on your Google plan, in an isolated checkout.",
+    ledgerAgent: "gemini",
+    provider: "google",
+    clis: ["gemini"],
+    apps: ["Antigravity"],
+    configs: [".gemini"],
+    envKeys: ["GEMINI_API_KEY"],
+    health: () => geminiWorker.healthCheck(),
+    modelPlaceholder: "gemini-2.5-pro",
   },
   {
     id: "cursor",
@@ -114,17 +202,7 @@ const CATALOG: readonly CatalogEntry[] = [
     clis: ["cursor-agent"],
     apps: ["Cursor"],
     configs: [".cursor"],
-  },
-  {
-    id: "gemini",
-    name: "Gemini & Antigravity",
-    vendor: "Google",
-    kind: "coding-tool",
-    provider: "google",
-    clis: ["gemini"],
-    apps: ["Antigravity"],
-    configs: [".gemini"],
-    envKeys: ["GEMINI_API_KEY"],
+    connectHint: "The editor can't take work from another program. Cursor's cursor-agent CLI could — AgentOS doesn't drive it yet.",
   },
   {
     id: "windsurf",
@@ -133,6 +211,7 @@ const CATALOG: readonly CatalogEntry[] = [
     kind: "coding-tool",
     apps: ["Windsurf"],
     configs: [".codeium/windsurf"],
+    connectHint: "An editor with no headless mode, so there is nothing for AgentOS to hand work to.",
   },
   {
     id: "perplexity",
@@ -140,6 +219,7 @@ const CATALOG: readonly CatalogEntry[] = [
     vendor: "Perplexity",
     kind: "chat-app",
     apps: ["Perplexity"],
+    connectHint: "A chat app with no way for another program to hand it work.",
   },
   {
     id: "ollama",
@@ -166,6 +246,11 @@ const CATALOG: readonly CatalogEntry[] = [
 /** Every AI id that has a switch. Anything else is refused by `PUT /api/ai-stack/:id`. */
 export function isToggleable(id: string): boolean {
   return CATALOG.some((entry) => entry.id === id && entry.health !== undefined);
+}
+
+/** Whether the operator chooses this AI's model here. */
+export function hasConfigurableModel(id: string): boolean {
+  return CATALOG.some((entry) => entry.id === id && entry.modelPlaceholder !== undefined);
 }
 
 /**
@@ -231,10 +316,11 @@ export async function readAiStack(now = new Date()): Promise<AiStack> {
     CATALOG.map(async (entry): Promise<AiStackEntry | undefined> => {
       const integrated = entry.health !== undefined;
 
-      const [evidence, health, localUsage] = await Promise.all([
+      const [evidence, health, localUsage, facts] = await Promise.all([
         gatherEvidence(entry),
         entry.health?.().catch(() => ({ available: false, reason: `${entry.name} could not report its health.` })),
         entry.localUsage?.(since.getTime()).catch(() => undefined),
+        entry.facts?.().catch(() => []),
       ]);
 
       if (!integrated && evidence.length === 0) return undefined;
@@ -257,6 +343,12 @@ export async function readAiStack(now = new Date()): Promise<AiStack> {
         ledgerAgent: entry.ledgerAgent,
         provider: entry.provider,
         localUsage,
+        optIn: OPT_IN.has(entry.id) || undefined,
+        configurableModel: entry.modelPlaceholder !== undefined || undefined,
+        model: entry.modelPlaceholder !== undefined ? aiModel(entry.id) : undefined,
+        modelPlaceholder: entry.modelPlaceholder,
+        connectHint: integrated ? undefined : entry.connectHint,
+        facts: facts && facts.length > 0 ? facts : undefined,
       };
     }),
   );

@@ -246,8 +246,8 @@ import { getThreadBody, GmailError } from "./mail/gmail-client";
 import { isJevConfigured, JevError } from "./mail/jev-client";
 import { runMailSync } from "./mail/sync";
 import { lastSyncedAt, readMailData, removeThread, threadCount } from "./mail/store";
-import { setAiEnabled } from "./ai-stack/settings";
-import { isToggleable, readAiStack } from "./ai-stack/stack";
+import { setAiEnabled, setAiModel } from "./ai-stack/settings";
+import { hasConfigurableModel, isToggleable, readAiStack } from "./ai-stack/stack";
 import { SetAiEnabledRequestSchema } from "../shared/ai-stack-types";
 import { runSeoAudit } from "./seo/audit";
 import { markFindingFiled, readFinding, readProjectSeo } from "./seo/store";
@@ -449,18 +449,27 @@ app.put("/api/ai-stack/:id", (request, response) => {
   const parsed = SetAiEnabledRequestSchema.safeParse(request.body ?? {});
 
   if (!parsed.success) {
-    response.status(400).json({ error: "Say whether it should be enabled." });
+    response.status(400).json({ error: "Say whether it should be enabled, or which model it should use." });
     return;
   }
 
-  if (!isToggleable(request.params.id)) {
+  const { id } = request.params;
+  const { enabled, model } = parsed.data;
+
+  if (!isToggleable(id)) {
     response.status(404).json({ error: "AgentOS has no integration with that AI, so there is nothing to switch." });
     return;
   }
 
+  if (model !== undefined && !hasConfigurableModel(id)) {
+    response.status(400).json({ error: "That AI's model is not chosen here." });
+    return;
+  }
+
   try {
-    setAiEnabled(request.params.id, parsed.data.enabled);
-    response.json({ id: request.params.id, enabled: parsed.data.enabled });
+    if (enabled !== undefined) setAiEnabled(id, enabled);
+    if (model !== undefined) setAiModel(id, model);
+    response.json({ id, enabled, model });
   } catch (error) {
     console.error("[agentos] ai stack switch failed:", error);
     response.status(500).json({ error: "Unable to save that switch" });

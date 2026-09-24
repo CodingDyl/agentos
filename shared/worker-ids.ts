@@ -14,7 +14,13 @@ import { z } from "zod";
  * this file is here.
  */
 
-export const WorkerIdSchema = z.enum(["grok", "claude", "mock"]);
+/**
+ * `claude` is Claude through the Agent SDK on an API key. `claude-code`,
+ * `codex`, `gemini` and `hermes-worker` are the operator's own coding CLIs,
+ * driven headlessly on whatever plan each is signed into; they are off until
+ * switched on in Operations → AI Stack.
+ */
+export const WorkerIdSchema = z.enum(["grok", "claude", "mock", "claude-code", "codex", "gemini", "hermes-worker"]);
 
 /** What a worker is *for*. Routing reads these to rule candidates out. */
 export const WorkerCapabilitySchema = z.enum([

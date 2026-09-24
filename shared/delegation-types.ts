@@ -5,7 +5,7 @@ import {
   WorkerRoutingDecisionSchema,
   WorkerTaskTypeSchema,
 } from "./worker-routing-types";
-import { WorkerJobStatusSchema } from "./worker-types";
+import { WorkerIdSchema, WorkerJobStatusSchema } from "./worker-types";
 
 /**
  * Handing a project task to a worker.
@@ -57,7 +57,7 @@ export const DelegationPlanSchema = z.object({
 /** What the console asks for when the operator clicks Delegate. */
 export const TaskDelegationRequestSchema = z.object({
   requestedWorker: z
-    .union([z.enum(["grok", "claude", "mock"]), z.literal("auto")])
+    .union([WorkerIdSchema, z.literal("auto")])
     .default("auto"),
 });
 
@@ -79,7 +79,7 @@ export const TaskDelegationPreviewSchema = z.object({
 /** What the console sends back once a person has approved a plan. */
 export const TaskDelegationApprovalSchema = z.object({
   plan: DelegationPlanSchema,
-  worker: z.union([z.enum(["grok", "claude", "mock"]), z.literal("auto")]),
+  worker: z.union([WorkerIdSchema, z.literal("auto")]),
   routing: WorkerRoutingDecisionSchema.optional(),
   repoPath: z.string().optional(),
 });
@@ -162,7 +162,7 @@ export const MilestoneDelegationPreviewSchema = z.object({
 
 export const MilestoneDelegationRequestSchema = z.object({
   requestedWorker: z
-    .union([z.enum(["grok", "claude", "mock"]), z.literal("auto")])
+    .union([WorkerIdSchema, z.literal("auto")])
     .default("auto"),
 });
 

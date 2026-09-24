@@ -1,12 +1,12 @@
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { AiStackEntry, AiStatus } from "@shared/ai-stack-types";
 import type { OperationsData } from "@shared/usage-types";
-import { useAiStack, useSetAiEnabled } from "@/lib/agentos/queries";
+import { useAiStack, useSetAiEnabled, useSetAiModel } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { EVIDENCE_LABELS, monthlyPrice, STATUS_LABELS, subscriptionsFor, summarise } from "./ai-stack-model";
 import { Figure } from "./figures";
 import { formatCost, formatTokens } from "./operations-model";
-import { PaperCard, PaperSection, PaperSwitch, Tag } from "./paper";
+import { PAPER_INPUT, PaperCard, PaperSection, PaperSwitch, Tag } from "./paper";
 
 /**
  * The AI stack: every AI on this machine, and which of them AgentOS uses.
@@ -26,8 +26,12 @@ import { PaperCard, PaperSection, PaperSwitch, Tag } from "./paper";
 
 /** What switching each integration off actually stops, said before it is flipped back. */
 const OFF_CONSEQUENCE: Record<string, string> = {
-  claude: "No new coding jobs can go to Claude while this is off.",
+  claude: "No new coding jobs can go to the Claude API while this is off.",
   grok: "No new coding jobs can go to Grok while this is off.",
+  "claude-code": "Off until you switch it on. On, AgentOS can send coding jobs here, and they count against your Claude plan.",
+  codex: "Off until you switch it on. On, AgentOS can send coding jobs here, and they count against your ChatGPT plan.",
+  gemini: "Off until you switch it on. On, AgentOS can send coding jobs here, and they count against your Google plan.",
+  "hermes-worker": "Off until you switch it on. On, Hermes can take coding jobs as well as orchestrate them.",
   hermes: "Task scoping, milestone planning, routing and reviews stop or fall back while this is off.",
   jev: "Mail still syncs, but new threads are not classified while this is off.",
 };
@@ -50,6 +54,7 @@ const STATUS_TEXT: Record<AiStatus, string> = {
 export function AiStackTab({ data }: { data: OperationsData }) {
   const stack = useAiStack();
   const toggle = useSetAiEnabled();
+  const setModel = useSetAiModel();
 
   if (stack.isPending) {
     return <p className="text-[14px] leading-6 text-paper-sage">Looking for AIs on this machine…</p>;
@@ -85,9 +90,9 @@ export function AiStackTab({ data }: { data: OperationsData }) {
         />
       </div>
 
-      {toggle.error ? (
+      {toggle.error || setModel.error ? (
         <p role="alert" className="-mt-6 text-[13px] leading-5 text-paper-moss">
-          {toggle.error.message}
+          {(toggle.error ?? setModel.error)?.message}
         </p>
       ) : null}
 
@@ -100,6 +105,8 @@ export function AiStackTab({ data }: { data: OperationsData }) {
               data={data}
               switching={toggle.isPending && toggle.variables?.id === entry.id}
               onToggle={(enabled) => toggle.mutate({ id: entry.id, enabled })}
+              savingModel={setModel.isPending && setModel.variables?.id === entry.id}
+              onModel={(model) => setModel.mutate({ id: entry.id, model })}
             />
           ))}
         </div>
@@ -108,7 +115,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
       {elsewhere.length > 0 ? (
         <PaperSection label="On this machine" count={elsewhere.length}>
           <p className="-mt-1 mb-4 max-w-[68ch] text-[14px] leading-6 text-paper-char">
-            Found here, but AgentOS has no integration with them yet, so there is nothing to switch on.
+            Found here, but AgentOS can't hand them work, so there is nothing to switch on. Each card says why.
           </p>
           <div className="grid gap-3 lg:grid-cols-2">
             {elsewhere.map((entry) => (
@@ -131,11 +138,15 @@ function AiCard({
   data,
   switching = false,
   onToggle,
+  savingModel = false,
+  onModel,
 }: {
   entry: AiStackEntry;
   data: OperationsData;
   switching?: boolean;
   onToggle?: (enabled: boolean) => void;
+  savingModel?: boolean;
+  onModel?: (model: string) => void;
 }) {
   const agent = entry.ledgerAgent ? data.agents.find((row) => row.agent === entry.ledgerAgent) : undefined;
   const plans = subscriptionsFor(entry, data.subscriptions);
@@ -164,6 +175,15 @@ function AiCard({
 
       {entry.integration ? <p className="mt-3 text-[14px] leading-5 text-paper-char">{entry.integration}</p> : null}
 
+      {entry.connectHint ? (
+        <p className="mt-3 flex items-start gap-2 text-[13px] leading-5 text-paper-char">
+          <Tag tone="muted" className="mt-px shrink-0">
+            Can't connect
+          </Tag>
+          <span>{entry.connectHint}</span>
+        </p>
+      ) : null}
+
       {entry.toggleable && !entry.enabled && OFF_CONSEQUENCE[entry.id] ? (
         <p className="mt-2 flex items-start gap-2 text-[13px] leading-5 text-paper-char">
           <Tag tone="marigold" className="mt-px shrink-0">
@@ -174,6 +194,16 @@ function AiCard({
       ) : null}
 
       <dl className="mt-4 space-y-2 border-t border-paper-stone pt-3.5 text-[13.5px] leading-5">
+        {entry.configurableModel && onModel ? (
+          <ModelField key={entry.model ?? ""} entry={entry} saving={savingModel} onSave={onModel} />
+        ) : null}
+
+        {entry.facts?.map((fact) => (
+          <Readout key={fact.label} label={fact.label}>
+            {fact.value}
+          </Readout>
+        ))}
+
         {entry.ledgerAgent ? (
           <Readout label="In AgentOS">
             {agent && agent.total.records > 0 ? (
@@ -236,6 +266,55 @@ function AiCard({
         <p className="mt-auto pt-4 text-[12.5px] leading-5 text-paper-sage">Not found on this machine.</p>
       )}
     </PaperCard>
+  );
+}
+
+/**
+ * Which model a worker runs. Saved on Enter or when focus leaves, so there is
+ * no separate button to miss; empty means the tool's own default.
+ */
+function ModelField({ entry, saving, onSave }: { entry: AiStackEntry; saving: boolean; onSave: (model: string) => void }) {
+  const id = useId();
+  const saved = entry.model ?? "";
+  const [draft, setDraft] = useState(saved);
+  const dirty = draft.trim() !== saved;
+
+  const commit = () => {
+    if (dirty) onSave(draft.trim());
+  };
+
+  return (
+    <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-x-4">
+      <dt>
+        <label htmlFor={id} className="block pt-1.5 text-[12.5px] font-medium text-paper-sage">
+          Model
+        </label>
+      </dt>
+      <dd className="min-w-0">
+        <input
+          id={id}
+          value={draft}
+          spellCheck={false}
+          autoComplete="off"
+          maxLength={120}
+          placeholder={entry.modelPlaceholder ? `e.g. ${entry.modelPlaceholder}` : "Tool default"}
+          aria-describedby={`${id}-hint`}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+            if (event.key === "Escape") {
+              setDraft(saved);
+              event.currentTarget.blur();
+            }
+          }}
+          className={cn(PAPER_INPUT, "w-full max-w-[22rem] font-mono text-[13px]")}
+        />
+        <p id={`${id}-hint`} aria-live="polite" className="mt-1 text-[12px] leading-4 text-paper-sage">
+          {saving ? "Saving…" : dirty ? "Enter to save · Esc to undo" : saved ? "Used for every job this worker runs" : "Empty uses the tool's own default"}
+        </p>
+      </dd>
+    </div>
   );
 }
 

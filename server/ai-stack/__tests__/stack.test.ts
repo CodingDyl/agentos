@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { deriveStatus, isToggleable, monthStart } from "../stack";
+import { deriveStatus, hasConfigurableModel, isToggleable, monthStart } from "../stack";
 
 describe("deriveStatus", () => {
   it("is not integrated when AgentOS has no integration", () => {
@@ -40,9 +40,24 @@ describe("isToggleable", () => {
     assert.equal(isToggleable("grok"), true);
     assert.equal(isToggleable("hermes"), true);
     assert.equal(isToggleable("jev"), true);
+    assert.equal(isToggleable("claude-code"), true);
+    assert.equal(isToggleable("codex"), true);
+    assert.equal(isToggleable("gemini"), true);
+    assert.equal(isToggleable("hermes-worker"), true);
+    assert.equal(isToggleable("claude-desktop"), false);
+    assert.equal(isToggleable("chatgpt"), false);
     assert.equal(isToggleable("cursor"), false);
-    assert.equal(isToggleable("openai"), false);
     assert.equal(isToggleable("nonsense"), false);
+  });
+});
+
+describe("hasConfigurableModel", () => {
+  it("lets the operator choose a model only for the CLI workers", () => {
+    assert.equal(hasConfigurableModel("claude-code"), true);
+    assert.equal(hasConfigurableModel("codex"), true);
+    assert.equal(hasConfigurableModel("hermes-worker"), true);
+    assert.equal(hasConfigurableModel("grok"), false);
+    assert.equal(hasConfigurableModel("jev"), false);
   });
 });
 

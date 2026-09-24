@@ -22,7 +22,7 @@ import {
 } from "./client";
 import { retryWorkerJob } from "./client";
 import { disconnectMail, getMail, getMailStatus, getMailThreadBody, removeMailThread, syncMail } from "./client";
-import { getAiStack, setAiEnabled } from "./client";
+import { getAiStack, setAiEnabled, setAiModel } from "./client";
 import {
   createTaskFromSeoFinding,
   getProjectSeo,
@@ -378,6 +378,21 @@ export function useSetAiEnabled() {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.aiStack() });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Chooses the model an AI runs. The workers list says the model too, so it refreshes as well. */
+export function useSetAiModel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: setAiModel,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.aiStack() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
     },
     networkMode: "always",
     retry: 0,

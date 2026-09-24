@@ -71,6 +71,23 @@ export const AiStackEntrySchema = z.object({
   /** Matched against a subscription's `provider`, to show what the plan costs. */
   provider: z.string().optional(),
   localUsage: AiLocalUsageSchema.optional(),
+  /**
+   * Off until the operator switches it on. Set for AIs that run on a plan the
+   * operator pays for, where turning one on is a decision rather than a default.
+   */
+  optIn: z.boolean().optional(),
+  /** Which model it runs, for AIs whose model the operator can choose. */
+  configurableModel: z.boolean().optional(),
+  model: z.string().optional(),
+  /** An example model name, shown in the empty input. */
+  modelPlaceholder: z.string().optional(),
+  /**
+   * For AIs AgentOS cannot drive: why, and the one thing that would change it.
+   * Said instead of offering a switch that could never do anything.
+   */
+  connectHint: z.string().optional(),
+  /** Anything else worth knowing, e.g. how many MCP servers Claude Desktop has. */
+  facts: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
 });
 
 export const AiStackSchema = z.object({
@@ -80,9 +97,13 @@ export const AiStackSchema = z.object({
   entries: z.array(AiStackEntrySchema),
 });
 
-export const SetAiEnabledRequestSchema = z.object({
-  enabled: z.boolean(),
-});
+/** A switch, a model, or both. An empty model clears it back to the tool's default. */
+export const SetAiEnabledRequestSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    model: z.string().max(120).optional(),
+  })
+  .refine((body) => body.enabled !== undefined || body.model !== undefined, "Send `enabled`, `model`, or both.");
 
 export type AiKind = z.infer<typeof AiKindSchema>;
 export type AiStatus = z.infer<typeof AiStatusSchema>;

@@ -4,14 +4,9 @@ import type { RoadmapMilestone } from "@shared/agentos-types";
 import type { MilestoneTaskApproval } from "@shared/delegation-types";
 import type { WorkerId } from "@shared/worker-types";
 import { CommandButton, SectionLabel } from "@/components/os";
-import { usePrepareMilestoneDelegation, useStartMilestoneDelegation } from "@/lib/agentos/queries";
+import { usePrepareMilestoneDelegation, useStartMilestoneDelegation, useWorkers } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 
-const WORKERS: readonly { value: WorkerId | "auto"; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "grok", label: "Grok" },
-  { value: "claude", label: "Claude" },
-];
 
 /**
  * Running a whole milestone at once.
@@ -34,6 +29,15 @@ export function MilestoneRun({
   onReload: () => void;
 }) {
   const [requestedWorker, setRequestedWorker] = useState<WorkerId | "auto">("auto");
+  const { data: workersData } = useWorkers();
+  // Only workers that could take the job right now — switched on in AI Stack
+  // and healthy. The simulated worker never does real work, so it is left out.
+  const workerOptions: { value: WorkerId | "auto"; label: string }[] = [
+    { value: "auto", label: "Auto" },
+    ...(workersData?.workers ?? [])
+      .filter((entry) => entry.available && entry.id !== "mock")
+      .map((entry) => ({ value: entry.id, label: entry.name })),
+  ];
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const prepare = usePrepareMilestoneDelegation(slug);
@@ -179,8 +183,8 @@ export function MilestoneRun({
           ) : (
             <div>
               <SectionLabel>Worker</SectionLabel>
-              <div className="mt-3 inline-flex overflow-hidden rounded-md border border-os-border">
-                {WORKERS.map((option) => (
+              <div role="radiogroup" aria-label="Worker" className="mt-3 inline-flex max-w-full flex-wrap overflow-hidden rounded-md border border-os-border">
+                {workerOptions.map((option) => (
                   <button
                     key={option.value}
                     type="button"

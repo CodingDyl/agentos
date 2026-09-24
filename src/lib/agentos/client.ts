@@ -333,6 +333,14 @@ export function setAiEnabled(input: { id: string; enabled: boolean }): Promise<u
   });
 }
 
+/** Chooses the model an AI runs. An empty model clears it back to the tool's own default. */
+export function setAiModel(input: { id: string; model: string }): Promise<unknown> {
+  return workerRequest(`/api/ai-stack/${encodeURIComponent(input.id)}`, {
+    method: "PUT",
+    ...asJson({ model: input.model }),
+  });
+}
+
 /** Every Vercel project the configured token can see, for the "connect a project" picker. */
 export function getVercelProjects(): Promise<{ projects: VercelProjectSummary[] }> {
   return readVault("/api/vercel/projects", (value) => VercelProjectsResponseSchema.safeParse(value));

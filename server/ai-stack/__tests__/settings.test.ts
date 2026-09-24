@@ -9,7 +9,7 @@ import { after, beforeEach, describe, it } from "node:test";
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-ai-stack-"));
 process.env.AGENTOS_UI_DIR = directory;
 
-const { isAiEnabled, resetAiSettingsCache, setAiEnabled } = await import("../settings");
+const { aiModel, isAiEnabled, resetAiSettingsCache, setAiEnabled, setAiModel } = await import("../settings");
 const { getWorker } = await import("../../workers/registry");
 
 beforeEach(() => {
@@ -51,6 +51,45 @@ describe("AI stack switches", () => {
   });
 });
 
+describe("opt-in AIs", () => {
+  it("keeps the operator's own coding CLIs off until switched on", () => {
+    for (const id of ["claude-code", "codex", "gemini", "hermes-worker"]) assert.equal(isAiEnabled(id), false, id);
+  });
+
+  it("switches one on, persistently, without touching the others", () => {
+    setAiEnabled("codex", true);
+    resetAiSettingsCache();
+
+    assert.equal(isAiEnabled("codex"), true);
+    assert.equal(isAiEnabled("claude-code"), false);
+
+    setAiEnabled("codex", false);
+    assert.equal(isAiEnabled("codex"), false);
+  });
+});
+
+describe("models", () => {
+  it("stores a model, trimmed, and clears it when emptied", () => {
+    assert.equal(aiModel("codex"), undefined);
+
+    setAiModel("codex", "  gpt-5-codex ");
+    resetAiSettingsCache();
+    assert.equal(aiModel("codex"), "gpt-5-codex");
+
+    setAiModel("codex", "");
+    assert.equal(aiModel("codex"), undefined);
+  });
+
+  it("keeps switches when a model is saved", () => {
+    setAiEnabled("grok", false);
+    setAiModel("claude-code", "sonnet");
+    resetAiSettingsCache();
+
+    assert.equal(isAiEnabled("grok"), false);
+    assert.equal(aiModel("claude-code"), "sonnet");
+  });
+});
+
 describe("the worker registry honours the switch", () => {
   it("reports a switched-off worker as unavailable, saying where to turn it on", async () => {
     const worker = getWorker("mock");
@@ -61,6 +100,15 @@ describe("the worker registry honours the switch", () => {
     setAiEnabled("mock", false);
     const health = await worker.healthCheck();
 
+    assert.equal(health.available, false);
+    assert.match(health.reason ?? "", /AI Stack/);
+  });
+
+  it("reports an opt-in worker as switched off until it is switched on", async () => {
+    const worker = getWorker("codex");
+    assert.ok(worker);
+
+    const health = await worker.healthCheck();
     assert.equal(health.available, false);
     assert.match(health.reason ?? "", /AI Stack/);
   });

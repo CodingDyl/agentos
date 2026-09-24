@@ -84,7 +84,9 @@ export function TaskPanel({
   className,
 }: TaskPanelProps) {
   const { data: workersData } = useWorkers();
-  const workers = workersData?.workers ?? [];
+  // Only workers that could take the job right now: switched on in AI Stack and healthy.
+  const allWorkers = workersData?.workers ?? [];
+  const workers = allWorkers.filter((entry) => entry.available);
 
   const prepare = usePrepareTaskDelegation(project);
   const start = useStartTaskDelegation(project);
@@ -416,7 +418,7 @@ export function TaskPanel({
                 <RoutingDecision
                   className="mt-5"
                   decision={routing}
-                  workers={workers}
+                  workers={allWorkers}
                   candidates={prepare.data?.candidates}
                   overriddenTo={override}
                 />

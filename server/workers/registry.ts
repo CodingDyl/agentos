@@ -1,6 +1,7 @@
 import type { WorkerId, WorkerSummary } from "../../shared/worker-types";
 import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 import { claudeWorker } from "./providers/claude-worker";
+import { claudeCodeWorker, codexWorker, geminiWorker, hermesWorker } from "./providers/cli-workers";
 import { grokWorker } from "./providers/grok-worker";
 import { mockWorker } from "./providers/mock-worker";
 import type { Worker } from "./worker";
@@ -61,6 +62,18 @@ registerWorker(mockWorker);
 registerWorker(grokWorker);
 
 registerWorker(claudeWorker);
+
+/**
+ * The operator's own coding CLIs. Off until switched on in AI Stack: each one
+ * spends a plan the operator pays for, so using it is their call, not a default.
+ */
+registerWorker(claudeCodeWorker);
+
+registerWorker(codexWorker);
+
+registerWorker(geminiWorker);
+
+registerWorker(hermesWorker);
 
 /** Every worker, with its health, for the workers screen. */
 export async function describeWorkers(): Promise<WorkerSummary[]> {
