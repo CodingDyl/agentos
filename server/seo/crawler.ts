@@ -9,8 +9,9 @@
  * whether that is good SEO happens in `checks.ts`.
  */
 
-const NAVIGATION_TIMEOUT_MS = 30_000;
+const NAVIGATION_TIMEOUT_MS = 45_000;
 const FETCH_TIMEOUT_MS = 8_000;
+const LINK_CHECK_CONCURRENCY = 5;
 
 /**
  * `document`/`window` below belong to the crawled page's browser context,
@@ -68,8 +69,13 @@ export async function crawlPage(targetUrl: string): Promise<CrawledPage> {
     const context = await browser.newContext();
     const page = await context.newPage();
 
+    // `networkidle` — waiting for 500ms of total network silence — almost
+    // never happens on a real production site: analytics beacons, chat
+    // widgets and ad pixels keep polling indefinitely, so it just burns the
+    // whole timeout every time. `load` is what every check here actually
+    // needs (a rendered DOM with its meta tags and headings in place).
     const response = await page.goto(targetUrl, {
-      waitUntil: "networkidle",
+      waitUntil: "load",
       timeout: NAVIGATION_TIMEOUT_MS,
     });
 
@@ -146,18 +152,31 @@ export async function urlReachable(url: string): Promise<boolean> {
   }
 }
 
-/** Checks a bounded sample of internal links for a broken (4xx/5xx/unreachable) response. */
+/**
+ * Checks a bounded sample of internal links for a broken (4xx/5xx/unreachable)
+ * response, a few at a time rather than one after another — sequential would
+ * mean a worst case of `limit * FETCH_TIMEOUT_MS` (160s at the defaults)
+ * stacked on top of the page load that already happened.
+ */
 export async function findBrokenLinks(links: readonly string[], limit = 20): Promise<string[]> {
   const sample = links.slice(0, limit);
   const broken: string[] = [];
 
-  for (const link of sample) {
-    try {
-      const response = await fetch(link, { method: "GET", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-      if (!response.ok) broken.push(link);
-    } catch {
-      broken.push(link);
-    }
+  for (let start = 0; start < sample.length; start += LINK_CHECK_CONCURRENCY) {
+    const batch = sample.slice(start, start + LINK_CHECK_CONCURRENCY);
+
+    const results = await Promise.all(
+      batch.map(async (link) => {
+        try {
+          const response = await fetch(link, { method: "GET", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+          return response.ok ? undefined : link;
+        } catch {
+          return link;
+        }
+      }),
+    );
+
+    for (const link of results) if (link) broken.push(link);
   }
 
   return broken;
