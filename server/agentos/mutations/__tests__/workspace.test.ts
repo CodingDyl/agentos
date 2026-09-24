@@ -179,6 +179,18 @@ describe("project configuration", () => {
 
     assert.equal(merged.defaultBranch, undefined);
   });
+
+  it("links a Vercel project and round-trips it", () => {
+    const merged = mergeConfiguration(parseConfiguration(PROJECT), {
+      vercelProjectId: "prj_abc123",
+      vercelProjectName: "Pantry Pilot",
+    });
+    const next = applyConfiguration(PROJECT, merged);
+
+    assert.match(next, /Vercel project: prj_abc123/);
+    assert.match(next, /Vercel project name: Pantry Pilot/);
+    assert.deepEqual(parseConfiguration(next), merged);
+  });
 });
 
 describe("repository path", () => {

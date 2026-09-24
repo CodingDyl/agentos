@@ -23,6 +23,13 @@ import {
 import { retryWorkerJob } from "./client";
 import { disconnectMail, getMail, getMailStatus, getMailThreadBody, removeMailThread, syncMail } from "./client";
 import {
+  createTaskFromSeoFinding,
+  getProjectSeo,
+  getProjectVercelInfo,
+  getVercelProjects,
+  runProjectSeoAudit,
+} from "./client";
+import {
   createProjectDocument,
   getProjectDocument,
   getProjectDocuments,
@@ -165,6 +172,9 @@ export const agentosKeys = {
   mail: () => [...agentosKeys.all, "mail"] as const,
   mailStatus: () => [...agentosKeys.all, "mail-status"] as const,
   mailBody: (threadId: string) => [...agentosKeys.all, "mail-body", threadId] as const,
+  vercelProjects: () => [...agentosKeys.all, "vercel-projects"] as const,
+  projectVercel: (slug: string) => [...agentosKeys.all, "project-vercel", slug] as const,
+  seo: (slug: string) => [...agentosKeys.all, "seo", slug] as const,
   missionControl: () => [...agentosKeys.all, "mission-control"] as const,
   projects: () => [...agentosKeys.all, "projects"] as const,
   project: (slug: string) => [...agentosKeys.all, "project", slug] as const,
@@ -333,6 +343,70 @@ export function useDisconnectMail() {
     mutationFn: disconnectMail,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Every Vercel project the configured token can see, for the "connect a project" picker. Rarely changes. */
+export function useVercelProjects() {
+  return useQuery({
+    queryKey: agentosKeys.vercelProjects(),
+    queryFn: getVercelProjects,
+    staleTime: 60_000,
+    retry: 0,
+    networkMode: "always",
+  });
+}
+
+/** A linked project's live URL, domains, and recent deployments. Not fetched until the project is actually linked. */
+export function useProjectVercelInfo(slug: string, enabled: boolean) {
+  return useQuery({
+    queryKey: agentosKeys.projectVercel(slug),
+    queryFn: () => getProjectVercelInfo(slug),
+    enabled,
+    staleTime: 30_000,
+    retry: 0,
+    networkMode: "always",
+  });
+}
+
+/** The SEO tab's stored state. Never crawls on its own — only `useRunSeoAudit` does. */
+export function useProjectSeo(slug: string) {
+  return useQuery({
+    queryKey: agentosKeys.seo(slug),
+    queryFn: () => getProjectSeo(slug),
+    staleTime: 15_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+/** The only call in the SEO feature that crawls the live site. */
+export function useRunSeoAudit(slug: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (targetUrl?: string) => runProjectSeoAudit({ slug, targetUrl }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.seo(slug) });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Files one SEO finding as a task on the project's board. */
+export function useFileSeoFindingTask(slug: string) {
+  const refresh = useWorkspaceRefresh(slug);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (findingId: string) => createTaskFromSeoFinding({ slug, findingId }),
+    onSuccess: () => {
+      refresh();
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.seo(slug) });
     },
     networkMode: "always",
     retry: 0,

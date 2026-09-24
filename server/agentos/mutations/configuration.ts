@@ -17,6 +17,8 @@ import { findSection, readSection, setSection } from "./prose-document";
  * Worker preference: auto
  * Visual verification: ui-tasks
  * Design board: Chef Board
+ * Vercel project: prj_abc123
+ * Vercel project name: Chef
  * Validation:
  * - npm test
  * - npm run lint
@@ -42,6 +44,8 @@ const KEYS = {
   workerPreference: "Worker preference",
   visualVerification: "Visual verification",
   designBoard: "Design board",
+  vercelProjectId: "Vercel project",
+  vercelProjectName: "Vercel project name",
   validationCommands: "Validation",
 } as const;
 
@@ -122,6 +126,8 @@ export function parseConfiguration(markdown: string | undefined): ProjectConfigu
       DEFAULT_PROJECT_CONFIGURATION.visualVerification,
     ),
     designBoard: raw.designBoard?.trim() || undefined,
+    vercelProjectId: raw.vercelProjectId?.trim() || undefined,
+    vercelProjectName: raw.vercelProjectName?.trim() || undefined,
     validationCommands: validation.filter((command) => command.length > 0),
   });
 
@@ -134,6 +140,8 @@ export function isDefaultConfiguration(config: ProjectConfiguration): boolean {
     config.taskPrefix === undefined &&
     config.defaultBranch === undefined &&
     config.designBoard === undefined &&
+    config.vercelProjectId === undefined &&
+    config.vercelProjectName === undefined &&
     config.workerPreference === DEFAULT_PROJECT_CONFIGURATION.workerPreference &&
     config.visualVerification === DEFAULT_PROJECT_CONFIGURATION.visualVerification &&
     config.validationCommands.length === 0
@@ -149,6 +157,8 @@ export function renderConfiguration(config: ProjectConfiguration): string {
   lines.push(`${KEYS.workerPreference}: ${config.workerPreference}`);
   lines.push(`${KEYS.visualVerification}: ${config.visualVerification}`);
   if (config.designBoard) lines.push(`${KEYS.designBoard}: ${config.designBoard}`);
+  if (config.vercelProjectId) lines.push(`${KEYS.vercelProjectId}: ${config.vercelProjectId}`);
+  if (config.vercelProjectName) lines.push(`${KEYS.vercelProjectName}: ${config.vercelProjectName}`);
 
   if (config.validationCommands.length > 0) {
     lines.push(`${KEYS.validationCommands}:`);
@@ -168,6 +178,8 @@ export function mergeConfiguration(
   if ("taskPrefix" in patch) next.taskPrefix = patch.taskPrefix || undefined;
   if ("defaultBranch" in patch) next.defaultBranch = patch.defaultBranch?.trim() || undefined;
   if ("designBoard" in patch) next.designBoard = patch.designBoard?.trim() || undefined;
+  if ("vercelProjectId" in patch) next.vercelProjectId = patch.vercelProjectId?.trim() || undefined;
+  if ("vercelProjectName" in patch) next.vercelProjectName = patch.vercelProjectName?.trim() || undefined;
   if (patch.workerPreference) next.workerPreference = patch.workerPreference;
   if (patch.visualVerification) next.visualVerification = patch.visualVerification;
 

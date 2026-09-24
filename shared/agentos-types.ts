@@ -173,6 +173,10 @@ export const ProjectConfigurationSchema = z.object({
   visualVerification: VisualVerificationDefaultSchema,
   /** Name or id of the design board this project's UI work is checked against. */
   designBoard: z.string().optional(),
+  /** The Vercel project this AgentOS project is linked to, if any. */
+  vercelProjectId: z.string().optional(),
+  /** Cached display name, so Settings can show the link without a Vercel call. */
+  vercelProjectName: z.string().optional(),
   validationCommands: z.array(z.string()),
 });
 

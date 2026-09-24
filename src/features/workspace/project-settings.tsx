@@ -14,6 +14,7 @@ import {
   useDesignLibrary,
   usePatchProject,
   useProjectSettings,
+  useVercelProjects,
 } from "@/lib/agentos/queries";
 import { useWorkspaceFeedback } from "./use-workspace-feedback";
 
@@ -55,6 +56,8 @@ interface Draft {
   taskPrefix: string;
   defaultBranch: string;
   designBoard: string;
+  vercelProjectId: string;
+  vercelProjectName: string;
   workerPreference: WorkerPreference;
   visualVerification: VisualVerificationDefault;
   validation: string;
@@ -71,6 +74,8 @@ function toDraft(settings: Settings): Draft {
     taskPrefix: settings.configuration.taskPrefix ?? "",
     defaultBranch: settings.configuration.defaultBranch ?? "",
     designBoard: settings.configuration.designBoard ?? "",
+    vercelProjectId: settings.configuration.vercelProjectId ?? "",
+    vercelProjectName: settings.configuration.vercelProjectName ?? "",
     workerPreference: settings.configuration.workerPreference,
     visualVerification: settings.configuration.visualVerification,
     validation: settings.configuration.validationCommands.join("\n"),
@@ -105,6 +110,10 @@ function toPatch(settings: Settings, draft: Draft): ProjectPatchRequest {
   if (draft.designBoard.trim() !== (current.designBoard ?? "")) {
     configuration.designBoard = draft.designBoard.trim();
   }
+  if (draft.vercelProjectId.trim() !== (current.vercelProjectId ?? "")) {
+    configuration.vercelProjectId = draft.vercelProjectId.trim();
+    configuration.vercelProjectName = draft.vercelProjectName.trim();
+  }
   if (draft.workerPreference !== current.workerPreference) {
     configuration.workerPreference = draft.workerPreference;
   }
@@ -125,6 +134,7 @@ const PREFIX = /^[A-Z][A-Z0-9]{0,7}$/;
 export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () => void }) {
   const settings = useProjectSettings(slug);
   const library = useDesignLibrary();
+  const vercel = useVercelProjects();
   const patch = usePatchProject(slug);
   const archive = useArchiveProject(slug);
   const feedback = useWorkspaceFeedback();
@@ -298,6 +308,44 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
               </Field>
               <Field label="Validation" hint="One command per line. AgentOS runs these after every worker job.">
                 <textarea rows={3} value={form.validation} onChange={(event) => update("validation", event.target.value)} placeholder={"npm test\nnpm run lint"} className={`${INPUT} resize-y font-mono text-[13px]`} />
+              </Field>
+            </Group>
+
+            <Group label="Deployment">
+              <Field
+                label="Vercel project"
+                hint={
+                  !vercel.data
+                    ? "Set VERCEL_API_TOKEN in .env to pick from your Vercel projects."
+                    : "Read-only: lets the SEO tab crawl the live site without a URL typed in by hand."
+                }
+              >
+                {vercel.data && vercel.data.projects.length > 0 ? (
+                  <select
+                    value={form.vercelProjectId}
+                    onChange={(event) => {
+                      const project = vercel.data?.projects.find((entry) => entry.id === event.target.value);
+                      setDraft((current) => ({
+                        ...(current ?? (loaded ? toDraft(loaded) : ({} as Draft))),
+                        vercelProjectId: project?.id ?? "",
+                        vercelProjectName: project?.name ?? "",
+                      }));
+                    }}
+                    className={SELECT}
+                  >
+                    <option value="">Not connected</option>
+                    {vercel.data.projects.map((project) => (
+                      <option key={project.id} value={project.id}>{project.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={form.vercelProjectName}
+                    disabled
+                    placeholder="Not connected"
+                    className={`${INPUT} disabled:opacity-60`}
+                  />
+                )}
               </Field>
             </Group>
 

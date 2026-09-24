@@ -14,18 +14,19 @@ import { ProjectOverview } from "./project-overview";
 import { ProjectRepository } from "./project-repository";
 import { ProjectRoadmap } from "./project-roadmap";
 import { ProjectDocuments } from "./project-documents";
+import { ProjectSeo } from "./project-seo";
 
 /**
  * The project, as the place it is operated from.
  *
- * Nine tabs: what it is, what to do, where it is going, what it looks like,
- * where the code actually is, what was decided, what happened, and who does
- * the work. The header's actions work from any tab —
+ * Ten tabs: what it is, what to do, where it is going, what it looks like,
+ * how it is doing in search, where the code actually is, what was decided,
+ * what happened, and who does the work. The header's actions work from any tab —
  * `+ Task` and `Delegate` switch to Tasks with the right thing open — so the
  * operator never has to go looking for the affordance.
  */
 
-const TAB_VALUES = ["overview", "tasks", "roadmap", "documents", "designs", "repository", "decisions", "activity", "agents"] as const;
+const TAB_VALUES = ["overview", "tasks", "roadmap", "documents", "designs", "seo", "repository", "decisions", "activity", "agents"] as const;
 
 type ProjectTab = (typeof TAB_VALUES)[number];
 
@@ -42,6 +43,7 @@ function buildTabs(project: ProjectDetail): TabOption<ProjectTab>[] {
     { value: "roadmap", label: "Roadmap" },
     { value: "documents", label: "Documents" },
     { value: "designs", label: "Designs" },
+    { value: "seo", label: "SEO" },
     // Uncommitted work is a count worth carrying on the tab: it is the thing
     // that silently blocks an approved job from being applied.
     {
@@ -196,6 +198,12 @@ export function ProjectDetailPage() {
                 <ProjectDocuments project={project} />
               ) : activeTab === "designs" ? (
                 <ProjectDesigns slug={project.slug} designBoard={project.configuration.designBoard} />
+              ) : activeTab === "seo" ? (
+                <ProjectSeo
+                  slug={project.slug}
+                  vercelProjectId={project.configuration.vercelProjectId}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                />
               ) : activeTab === "repository" ? (
                 <ProjectRepository slug={project.slug} />
               ) : activeTab === "decisions" ? (

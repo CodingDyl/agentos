@@ -240,6 +240,10 @@ import { getThreadBody, GmailError } from "./mail/gmail-client";
 import { isJevConfigured, JevError } from "./mail/jev-client";
 import { runMailSync } from "./mail/sync";
 import { lastSyncedAt, readMailData, removeThread, threadCount } from "./mail/store";
+import { runSeoAudit } from "./seo/audit";
+import { markFindingFiled, readFinding, readProjectSeo } from "./seo/store";
+import { getProjectVercelInfo, isVercelConfigured, listVercelProjects, VercelError } from "./vercel/client";
+import { RunSeoAuditRequestSchema } from "../shared/seo-types";
 import {
   getRun,
   openRunEvents,
@@ -415,6 +419,141 @@ app.get("/api/mail/:threadId/body", async (request, response) => {
     }
     console.error("[agentos] mail body read failed:", error);
     response.status(500).json({ error: "Unable to read that message" });
+  }
+});
+
+/**
+ * Vercel, read-only: a project's live URL, domains, and recent deployments,
+ * read from Vercel instead of typed in by hand. Every handler here only ever
+ * issues `GET`s to Vercel — see `server/vercel/client.ts`.
+ */
+app.get("/api/vercel/projects", async (_request, response) => {
+  try {
+    if (!isVercelConfigured()) {
+      response.status(409).json({ error: "VERCEL_API_TOKEN is not set.", reason: "not-configured" });
+      return;
+    }
+    response.json({ projects: await listVercelProjects() });
+  } catch (error) {
+    if (error instanceof VercelError) {
+      response.status(409).json({ error: error.message, reason: error.reason });
+      return;
+    }
+    console.error("[agentos] vercel projects read failed:", error);
+    response.status(500).json({ error: "Unable to read Vercel projects" });
+  }
+});
+
+app.get("/api/projects/:slug/vercel", async (request, response) => {
+  try {
+    const project = await readProjectSource(request.params.slug, "PROJECT.md");
+    const configuration = parseConfiguration(project?.contents);
+
+    if (!configuration.vercelProjectId) {
+      response.status(404).json({ error: "No Vercel project is linked to this project." });
+      return;
+    }
+
+    const info = await getProjectVercelInfo(
+      configuration.vercelProjectId,
+      configuration.vercelProjectName ?? configuration.vercelProjectId,
+    );
+
+    response.json(info);
+  } catch (error) {
+    if (error instanceof VercelError) {
+      response.status(409).json({ error: error.message, reason: error.reason });
+      return;
+    }
+    console.error("[agentos] project vercel info read failed:", error);
+    response.status(500).json({ error: "Unable to read Vercel data for this project" });
+  }
+});
+
+/**
+ * SEO: a mechanical audit of a project's live site.
+ *
+ * `POST .../seo/audit` resolves a target (an explicit URL, or the linked
+ * Vercel project's live domain), crawls it, and persists the result — see
+ * `server/seo/audit.ts`. `GET .../seo` only ever reads what was already
+ * recorded; opening the tab never triggers a crawl on its own.
+ */
+app.post("/api/projects/:slug/seo/audit", async (request, response) => {
+  try {
+    const slug = request.params.slug;
+    const { targetUrl } = RunSeoAuditRequestSchema.parse(request.body ?? {});
+
+    let resolvedUrl = targetUrl;
+
+    if (!resolvedUrl) {
+      const project = await readProjectSource(slug, "PROJECT.md");
+      const configuration = parseConfiguration(project?.contents);
+
+      if (configuration.vercelProjectId) {
+        const info = await getProjectVercelInfo(
+          configuration.vercelProjectId,
+          configuration.vercelProjectName ?? configuration.vercelProjectId,
+        );
+        resolvedUrl = info.liveUrl;
+      }
+    }
+
+    if (!resolvedUrl) {
+      response.status(409).json({
+        error: "No target URL for this project. Link a Vercel project in Settings, or pass a URL.",
+      });
+      return;
+    }
+
+    response.json(await runSeoAudit(slug, resolvedUrl));
+  } catch (error) {
+    if (error instanceof VercelError) {
+      response.status(409).json({ error: error.message, reason: error.reason });
+      return;
+    }
+    mutationFailed(error, response);
+  }
+});
+
+app.get("/api/projects/:slug/seo", (request, response) => {
+  try {
+    response.json(readProjectSeo(request.params.slug));
+  } catch (error) {
+    console.error("[agentos] seo read failed:", error);
+    response.status(500).json({ error: "Unable to read SEO data" });
+  }
+});
+
+app.post("/api/projects/:slug/seo/findings/:findingId/task", async (request, response) => {
+  try {
+    const finding = readFinding(request.params.findingId);
+
+    if (!finding) {
+      response.status(404).json({ error: "No such finding." });
+      return;
+    }
+    if (finding.taskId) {
+      response.status(409).json({ error: "This finding already has a task." });
+      return;
+    }
+
+    const result = await createTask({
+      slug: request.params.slug,
+      title: `SEO: ${finding.title}`,
+    });
+
+    markFindingFiled(finding.id, result.taskId);
+
+    await recordActivity({
+      type: "task.created",
+      description: `${result.taskId}: SEO: ${finding.title}`,
+      project: request.params.slug,
+      metadata: { taskId: result.taskId },
+    });
+
+    response.status(201).json({ ...result, findingId: finding.id });
+  } catch (error) {
+    mutationFailed(error, response);
   }
 });
 

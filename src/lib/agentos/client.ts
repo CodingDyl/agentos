@@ -172,6 +172,18 @@ import {
   type MailStatus,
   type MailSyncResult,
 } from "@shared/mail-types";
+import {
+  ProjectVercelInfoSchema,
+  VercelProjectsResponseSchema,
+  type ProjectVercelInfo,
+  type VercelProjectSummary,
+} from "@shared/vercel-types";
+import {
+  ProjectSeoSchema,
+  SeoAuditRunSchema,
+  type ProjectSeo,
+  type SeoAuditRun,
+} from "@shared/seo-types";
 
 /**
  * Talks to the local AgentOS data adapter.
@@ -299,6 +311,46 @@ export function removeMailThread(threadId: string): Promise<unknown> {
 /** Not a fetch — a real navigation, since it hands the browser to Google's own consent screen. */
 export function mailConnectUrl(): string {
   return "/api/mail/connect";
+}
+
+/** Every Vercel project the configured token can see, for the "connect a project" picker. */
+export function getVercelProjects(): Promise<{ projects: VercelProjectSummary[] }> {
+  return readVault("/api/vercel/projects", (value) => VercelProjectsResponseSchema.safeParse(value));
+}
+
+/** A linked project's live URL, domains, and recent deployments. 404 if nothing is linked yet. */
+export function getProjectVercelInfo(slug: string): Promise<ProjectVercelInfo> {
+  return readVault(
+    `/api/projects/${encodeURIComponent(slug)}/vercel`,
+    (value) => ProjectVercelInfoSchema.safeParse(value),
+    "No Vercel project is linked yet.",
+  );
+}
+
+/** The SEO tab's whole read: the latest audit in full, plus prior runs as history. Never crawls on its own. */
+export function getProjectSeo(slug: string): Promise<ProjectSeo> {
+  return readVault(`/api/projects/${encodeURIComponent(slug)}/seo`, (value) => ProjectSeoSchema.safeParse(value));
+}
+
+/** Crawls the project's live site and records a fresh audit. The only call in this feature that is not a plain read. */
+export function runProjectSeoAudit(input: { slug: string; targetUrl?: string }): Promise<SeoAuditRun> {
+  const { slug, ...body } = input;
+
+  return workerRequest(
+    `/api/projects/${encodeURIComponent(slug)}/seo/audit`,
+    { method: "POST", ...asJson(body) },
+    (value) => SeoAuditRunSchema.safeParse(value),
+  );
+}
+
+/** Files a finding as a task on the project's board. */
+export function createTaskFromSeoFinding(input: {
+  slug: string;
+  findingId: string;
+}): Promise<{ taskId: string; findingId: string }> {
+  return workerRequest(`/api/projects/${encodeURIComponent(input.slug)}/seo/findings/${encodeURIComponent(input.findingId)}/task`, {
+    method: "POST",
+  });
 }
 
 export function getProjects(): Promise<ProjectsResponse> {
