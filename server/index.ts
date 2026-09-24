@@ -245,6 +245,9 @@ import { getThreadBody, GmailError } from "./mail/gmail-client";
 import { isJevConfigured, JevError } from "./mail/jev-client";
 import { runMailSync } from "./mail/sync";
 import { lastSyncedAt, readMailData, removeThread, threadCount } from "./mail/store";
+import { setAiEnabled } from "./ai-stack/settings";
+import { isToggleable, readAiStack } from "./ai-stack/stack";
+import { SetAiEnabledRequestSchema } from "../shared/ai-stack-types";
 import { runSeoAudit } from "./seo/audit";
 import { markFindingFiled, readFinding, readProjectSeo } from "./seo/store";
 import { getProjectVercelInfo, isVercelConfigured, listVercelProjects, VercelError } from "./vercel/client";
@@ -424,6 +427,42 @@ app.get("/api/mail/:threadId/body", async (request, response) => {
     }
     console.error("[agentos] mail body read failed:", error);
     response.status(500).json({ error: "Unable to read that message" });
+  }
+});
+
+/**
+ * The AI stack: what is on this machine, what AgentOS uses, and a switch for
+ * each AI AgentOS integrates. Reading changes nothing; the switch is the only
+ * write, and it refuses any AI AgentOS has no integration with.
+ */
+app.get("/api/ai-stack", async (_request, response) => {
+  try {
+    response.json(await readAiStack());
+  } catch (error) {
+    console.error("[agentos] ai stack read failed:", error);
+    response.status(500).json({ error: "Unable to read the AI stack" });
+  }
+});
+
+app.put("/api/ai-stack/:id", (request, response) => {
+  const parsed = SetAiEnabledRequestSchema.safeParse(request.body ?? {});
+
+  if (!parsed.success) {
+    response.status(400).json({ error: "Say whether it should be enabled." });
+    return;
+  }
+
+  if (!isToggleable(request.params.id)) {
+    response.status(404).json({ error: "AgentOS has no integration with that AI, so there is nothing to switch." });
+    return;
+  }
+
+  try {
+    setAiEnabled(request.params.id, parsed.data.enabled);
+    response.json({ id: request.params.id, enabled: parsed.data.enabled });
+  } catch (error) {
+    console.error("[agentos] ai stack switch failed:", error);
+    response.status(500).json({ error: "Unable to save that switch" });
   }
 });
 

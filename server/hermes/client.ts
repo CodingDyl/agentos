@@ -1,5 +1,6 @@
 import type { AgentFailureReason, AgentStatus } from "../../shared/agentos-types";
 import type { UsageContext, UsageOperation } from "../../shared/usage-types";
+import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 import { collectHermesUsage } from "../usage/collector";
 
 /**
@@ -98,6 +99,14 @@ export async function hermesFetch(
   path: string,
   options: HermesFetchOptions,
 ): Promise<Response> {
+  // Reported as "not configured" deliberately: every caller already degrades
+  // gracefully for that reason (fallback plans, "Hermes unavailable" notices),
+  // so switching Hermes off takes the same, well-trodden path as never having
+  // set it up.
+  if (!isAiEnabled("hermes")) {
+    throw new HermesError(switchedOffReason("Hermes"), "not-configured");
+  }
+
   const apiKey = requireApiKey();
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
 

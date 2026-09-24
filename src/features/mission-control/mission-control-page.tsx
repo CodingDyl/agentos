@@ -3,7 +3,7 @@ import type { MissionControlData } from "@shared/mission-control-types";
 import { AppShell, ErrorState, LoadingState, Section } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatTime, sourceLabel, toneFor } from "@/features/activity";
-import { UsageSummary } from "@/features/operations";
+import { AiStackSummary, UsageSummary } from "@/features/operations";
 import { FrictionButton, SprintScorecard } from "@/features/validation";
 import { useMissionControl, useValidationSprint } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -143,6 +143,12 @@ function MissionControl({ data }: { data: MissionControlData }) {
           something to say. */}
       <div className="mt-12 border-t border-os-border pt-10">
         <UsageSummary />
+      </div>
+
+      {/* Which AIs AgentOS is actually running on right now. A line of dots
+          and a link — the detail lives in Operations → AI Stack. */}
+      <div className="mt-12 border-t border-os-border pt-10">
+        <AiStackSummary />
       </div>
 
       {/* Reflective rather than operational, so it sits below everything that

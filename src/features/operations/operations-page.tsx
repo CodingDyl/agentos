@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { OperationsData } from "@shared/usage-types";
 import {
   AppShell,
@@ -9,6 +9,7 @@ import {
 import { useNavigationItems } from "@/config/use-navigation";
 import { useOperations } from "@/lib/agentos/queries";
 import { AgentsTab } from "./agents-tab";
+import { AiStackTab } from "./ai-stack-tab";
 import { Breakdown, Figure } from "./figures";
 import { MoneyTab } from "./money-tab";
 import {
@@ -43,15 +44,20 @@ import { UsageTab } from "./usage-tab";
 const PAGE_PADDING =
   "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
 
-type Tab = "usage" | "agents" | "models" | "projects" | "money";
+type Tab = "usage" | "stack" | "agents" | "models" | "projects" | "money";
 
 const TABS = [
   { value: "usage" as const, label: "Usage" },
+  { value: "stack" as const, label: "AI Stack" },
   { value: "agents" as const, label: "Agents" },
   { value: "models" as const, label: "Models" },
   { value: "projects" as const, label: "Projects" },
   { value: "money" as const, label: "Cost" },
 ];
+
+function isTab(value: string | null): value is Tab {
+  return TABS.some((tab) => tab.value === value);
+}
 
 export function OperationsPage() {
   const navigationItems = useNavigationItems();
@@ -92,7 +98,22 @@ export function OperationsPage() {
 }
 
 function Operations({ data }: { data: OperationsData }) {
-  const [tab, setTab] = useState<Tab>("usage");
+  // In the URL so Mission Control can link straight to a tab, and a reload
+  // keeps the tab you were on.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get("tab");
+  const tab: Tab = isTab(requested) ? requested : "usage";
+
+  const setTab = (next: Tab) =>
+    setSearchParams(
+      (params) => {
+        const updated = new URLSearchParams(params);
+        if (next === "usage") updated.delete("tab");
+        else updated.set("tab", next);
+        return updated;
+      },
+      { replace: true },
+    );
 
   return (
     <>
@@ -140,6 +161,7 @@ function Operations({ data }: { data: OperationsData }) {
         className="mt-10"
       >
         {tab === "usage" ? <UsageTab data={data} /> : null}
+        {tab === "stack" ? <AiStackTab data={data} /> : null}
         {tab === "agents" ? <AgentsTab data={data} /> : null}
 
         {tab === "models" ? (

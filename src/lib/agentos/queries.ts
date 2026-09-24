@@ -22,6 +22,7 @@ import {
 } from "./client";
 import { retryWorkerJob } from "./client";
 import { disconnectMail, getMail, getMailStatus, getMailThreadBody, removeMailThread, syncMail } from "./client";
+import { getAiStack, setAiEnabled } from "./client";
 import {
   createTaskFromSeoFinding,
   getProjectSeo,
@@ -174,6 +175,7 @@ export const agentosKeys = {
   mail: () => [...agentosKeys.all, "mail"] as const,
   mailStatus: () => [...agentosKeys.all, "mail-status"] as const,
   mailBody: (threadId: string) => [...agentosKeys.all, "mail-body", threadId] as const,
+  aiStack: () => [...agentosKeys.all, "ai-stack"] as const,
   vercelProjects: () => [...agentosKeys.all, "vercel-projects"] as const,
   projectVercel: (slug: string) => [...agentosKeys.all, "project-vercel", slug] as const,
   seo: (slug: string) => [...agentosKeys.all, "seo", slug] as const,
@@ -345,6 +347,36 @@ export function useDisconnectMail() {
     mutationFn: disconnectMail,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Every AI on this machine and which of them AgentOS uses. Detection is cheap after the first read. */
+export function useAiStack() {
+  return useQuery({
+    queryKey: agentosKeys.aiStack(),
+    queryFn: getAiStack,
+    staleTime: 30_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+/**
+ * Switches one AI on or off. Refreshes the workers list too, because a
+ * switched-off worker reads as unavailable there as well.
+ */
+export function useSetAiEnabled() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: setAiEnabled,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.aiStack() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
     },
     networkMode: "always",
     retry: 0,

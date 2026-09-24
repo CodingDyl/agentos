@@ -1,4 +1,5 @@
 import type { WorkerId, WorkerSummary } from "../../shared/worker-types";
+import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 import { claudeWorker } from "./providers/claude-worker";
 import { grokWorker } from "./providers/grok-worker";
 import { mockWorker } from "./providers/mock-worker";
@@ -15,8 +16,23 @@ import type { Worker } from "./worker";
 
 const workers = new Map<WorkerId, Worker>();
 
+/**
+ * Registers a worker behind the operator's AI Stack switch.
+ *
+ * The switch is enforced here, in the health check, because every consumer
+ * already asks health before using a worker — routing, starting a job,
+ * resuming one, the workers screen. A switched-off worker therefore reads as
+ * unavailable everywhere at once, with the reason saying where to turn it
+ * back on, and no call site has to know the switch exists.
+ */
 export function registerWorker(worker: Worker): void {
-  workers.set(worker.id, worker);
+  workers.set(worker.id, {
+    ...worker,
+    healthCheck: async () =>
+      isAiEnabled(worker.id)
+        ? worker.healthCheck()
+        : { available: false, reason: switchedOffReason(worker.name) },
+  });
 }
 
 export function getWorker(id: WorkerId): Worker | undefined {

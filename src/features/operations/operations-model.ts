@@ -48,6 +48,7 @@ export interface Measured {
 export function formatTokens(value: number | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return UNKNOWN;
 
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 10_000) return `${Math.round(value / 1_000)}k`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;

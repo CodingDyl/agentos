@@ -1,6 +1,7 @@
 import type { AgentFailureReason } from "../../shared/agentos-types";
 import type { MailCategory } from "../../shared/mail-types";
 import { getProjects } from "../agentos/projects";
+import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 
 const JEV_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
 const JEV_MODEL = "jev-latest";
@@ -64,6 +65,13 @@ interface JevResponseBody {
 }
 
 async function sendToJev(body: JevRequestBody): Promise<JevResponseBody> {
+  // Gated here, at the call, rather than in `isJevConfigured`: Mail treats an
+  // unconfigured Jev as "Mail is not set up" and hides the inbox. Switching
+  // classification off should stop classification, not the inbox.
+  if (!isAiEnabled("jev")) {
+    throw new JevError(switchedOffReason("Jev"), "not-configured");
+  }
+
   const apiKey = requireApiKey();
 
   let response: Response;

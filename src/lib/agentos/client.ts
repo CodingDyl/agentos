@@ -177,6 +177,7 @@ import {
   type MailStatus,
   type MailSyncResult,
 } from "@shared/mail-types";
+import { AiStackSchema, type AiStack } from "@shared/ai-stack-types";
 import {
   ProjectVercelInfoSchema,
   VercelProjectsResponseSchema,
@@ -316,6 +317,19 @@ export function removeMailThread(threadId: string): Promise<unknown> {
 /** Not a fetch — a real navigation, since it hands the browser to Google's own consent screen. */
 export function mailConnectUrl(): string {
   return "/api/mail/connect";
+}
+
+/** Every AI on this machine, which of them AgentOS uses, and how much. Changes nothing. */
+export function getAiStack(): Promise<AiStack> {
+  return readVault("/api/ai-stack", (value) => AiStackSchema.safeParse(value));
+}
+
+/** Switches one integrated AI on or off for AgentOS. */
+export function setAiEnabled(input: { id: string; enabled: boolean }): Promise<unknown> {
+  return workerRequest(`/api/ai-stack/${encodeURIComponent(input.id)}`, {
+    method: "PUT",
+    ...asJson({ enabled: input.enabled }),
+  });
 }
 
 /** Every Vercel project the configured token can see, for the "connect a project" picker. */
