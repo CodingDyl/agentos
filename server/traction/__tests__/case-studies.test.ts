@@ -25,8 +25,9 @@ describe("buildOpportunities", () => {
     const opportunities = buildOpportunities(
       snapshot({
         projects: [
-          { id: "p1", clientName: "Vaja", projectType: "3D Configurator", status: "completed", amount: 120000 },
           { id: "p2", clientName: "Story Keeper", completion: 100 },
+          { id: "p1", clientName: "Vaja", projectType: "3D Configurator", status: "completed", amount: 120000 },
+          { id: "p6", clientName: "PL Steel", projectType: "Maintenance", status: "completed", amount: 0 },
           { id: "p3", clientName: "Still going", completion: 60, status: "active" },
           { id: "p4", clientName: "Written up", status: "completed" },
           { id: "p5", clientName: "Waved away", status: "completed" },
@@ -45,6 +46,32 @@ describe("buildOpportunities", () => {
       ["virtec:project:p1", "virtec:project:p2", "workspace:pantry-pilot"],
     );
     assert.equal(opportunities[2].workspace, "pantry-pilot");
+  });
+
+  it("leaves out maintenance retainers and never shows R 0", () => {
+    const [only] = buildOpportunities(
+      snapshot({ projects: [{ id: "m", clientName: "PL Steel", projectType: "Maintenance", status: "completed" }, { id: "w", clientName: "Aureya", projectType: "Full Website Build", status: "completed", amount: 0 }] }),
+      [],
+      [],
+      [],
+    );
+    assert.equal(only.source, "virtec:project:w");
+    assert.equal(only.detail.includes("R 0"), false);
+  });
+
+  it("queues one case study a day, and the next one once today's is snoozed", () => {
+    const opportunities = buildOpportunities(
+      snapshot({ projects: [{ id: "a", clientName: "A", status: "completed", amount: 100 }, { id: "b", clientName: "B", status: "completed", amount: 50 }] }),
+      [],
+      [],
+      [],
+    );
+    const items = caseStudyQueueItems(opportunities);
+    assert.deepEqual(buildQueue([], [], "2026-09-28", [], [], items).map((item) => item.id), ["case_study:virtec:project:a"]);
+    assert.deepEqual(
+      buildQueue([], [{ itemId: "case_study:virtec:project:a", until: "2026-09-29" }], "2026-09-28", [], [], items).map((item) => item.id),
+      ["case_study:virtec:project:b"],
+    );
   });
 
   it("puts opportunities in the queue after the money work", () => {

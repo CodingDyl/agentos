@@ -26,6 +26,20 @@ function isFinished(project: VirtecProject): boolean {
 }
 
 /**
+ * Whether a finished project has a story worth telling.
+ *
+ * A maintenance retainer "completes" every cycle but has no before-and-after:
+ * it is ongoing care, not a build. Recognised by its type or its recurring
+ * SKU, since Virtec records maintenance both ways.
+ */
+function isCaseStudyMaterial(project: VirtecProject): boolean {
+  const type = (project.projectType ?? "").toLowerCase();
+  if (type.includes("maintenance") || type.includes("retainer")) return false;
+  if (project.maintenanceFrequency && !project.amount) return false;
+  return true;
+}
+
+/**
  * Finished projects that have earned a case study and do not have one.
  *
  * Two places know a project is finished: Virtec (status completed, or 100%
@@ -42,15 +56,21 @@ export function buildOpportunities(
   const taken = new Set([...studies.map((study) => study.source).filter(Boolean), ...dismissed]);
   const opportunities: CaseStudyOpportunity[] = [];
 
-  for (const project of snapshot?.projects ?? []) {
+  // Biggest builds first: the most substantial work is the strongest evidence.
+  const finished = (snapshot?.projects ?? [])
+    .filter((project) => isFinished(project) && isCaseStudyMaterial(project))
+    .sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
+
+  for (const project of finished) {
     const source = `virtec:project:${project.id}`;
-    if (!isFinished(project) || taken.has(source)) continue;
+    if (taken.has(source)) continue;
     opportunities.push({
       source,
       client: project.clientName ?? "Client",
       title: project.projectType ?? "Project",
       origin: "virtec",
-      detail: [project.projectType, formatRand(project.amount), "completed in Virtec"].filter(Boolean).join(" · "),
+      // No amount is shown rather than "R 0" — zero is almost always "not recorded".
+      detail: [project.projectType, project.amount ? formatRand(project.amount) : undefined, "completed in Virtec"].filter(Boolean).join(" · "),
     });
   }
 
@@ -71,13 +91,23 @@ export function buildOpportunities(
 }
 
 /** Each opportunity as today's work. After warm referrals, before new outreach. */
+/**
+ * Each opportunity as a queue candidate. After warm referrals, before new
+ * outreach — and only `CASE_STUDIES_PER_DAY` of them reach the queue (the
+ * engine applies the cap after snoozes, so snoozing today's pick lets the
+ * next one in). The rest wait in the Case studies tab: a backlog of write-ups
+ * must not crowd out the outreach the queue exists for.
+ */
+export const CASE_STUDIES_PER_DAY = 1;
+
 export function caseStudyQueueItems(opportunities: readonly CaseStudyOpportunity[]): (QueueItem & { rank: number })[] {
+  const waiting = opportunities.length;
   return opportunities.map((opportunity) => ({
     id: `case_study:${opportunity.source}`,
     kind: "case_study",
     caseStudySource: opportunity.source,
     title: `Start a case study — ${opportunity.client}`,
-    detail: [opportunity.detail, "Evidence goes stale — capture it while it is fresh"],
+    detail: [opportunity.detail, waiting > 1 ? `1 of ${waiting} finished projects without one — the rest are in Case studies` : "Evidence goes stale — capture it while it is fresh"],
     rank: 3.3,
   }));
 }

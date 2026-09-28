@@ -1,6 +1,6 @@
 import { Check, Clock, ExternalLink, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { QueueItem, TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import { useQueueAction } from "@/lib/agentos/traction";
@@ -40,6 +40,7 @@ const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "mut
 
 export function TractionQueue({ data, limit }: { data: TractionData; limit?: number }) {
   const action = useQueueAction();
+  const navigate = useNavigate();
   const items = limit ? data.queue.slice(0, limit) : data.queue;
 
   if (data.queue.length === 0) {
@@ -86,7 +87,19 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                 <PaperButton
                   variant="ghost"
                   disabled={pending}
-                  onClick={() => action.mutate({ itemId: item.id, action: { action: "done" } })}
+                  onClick={() =>
+                    action.mutate(
+                      { itemId: item.id, action: { action: "done" } },
+                      {
+                        // Starting a case study opens it: the draft is the next step, not a silent disappearance.
+                        onSuccess: (result) => {
+                          if (item.kind === "case_study" && result.caseStudy) {
+                            navigate(`/traction?tab=case-studies&study=${encodeURIComponent(result.caseStudy.id)}`);
+                          }
+                        },
+                      },
+                    )
+                  }
                   aria-label={item.kind === "case_study" ? item.title : `Done: ${item.title}`}
                 >
                   <Check className="size-3.5" aria-hidden="true" />

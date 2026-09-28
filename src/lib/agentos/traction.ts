@@ -103,7 +103,7 @@ export type VirtecOutcome = { ok: true } | { ok: false; error: string };
 
 export const useQueueAction = () =>
   useTractionMutation(({ itemId, action }: { itemId: string; action: QueueAction }) =>
-    request<{ virtec?: VirtecOutcome }>(`/api/traction/queue/${id(itemId)}`, json("POST", action)),
+    request<{ virtec?: VirtecOutcome; caseStudy?: { id: string } }>(`/api/traction/queue/${id(itemId)}`, json("POST", action)),
   );
 
 export const useSaveIcp = () => useTractionMutation((input: IcpInput) => request("/api/traction/icp", json("PUT", input)));

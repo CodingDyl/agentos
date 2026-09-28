@@ -80,7 +80,8 @@ export function TractionPage() {
             data={data}
             tab={tab}
             prospectId={searchParams.get("prospect") ?? undefined}
-            onTab={(next) => update({ tab: next === "overview" ? undefined : next, prospect: undefined })}
+            studyId={searchParams.get("study") ?? undefined}
+            onTab={(next) => update({ tab: next === "overview" ? undefined : next, prospect: undefined, study: undefined })}
             onProspect={(prospectId) => update({ tab: "prospects", prospect: prospectId })}
           />
         )}
@@ -93,12 +94,14 @@ function Traction({
   data,
   tab,
   prospectId,
+  studyId,
   onTab,
   onProspect,
 }: {
   data: TractionData;
   tab: TractionTab;
   prospectId: string | undefined;
+  studyId: string | undefined;
   onTab: (tab: TractionTab) => void;
   onProspect: (prospectId: string | undefined) => void;
 }) {
@@ -126,7 +129,7 @@ function Traction({
         {tab === "pipeline" ? <TractionPipelineTab data={data} onOpen={(id) => onProspect(id)} /> : null}
         {tab === "waiting" ? <TractionWaitingTab data={data} /> : null}
         {tab === "clients" ? <TractionClientsTab data={data} /> : null}
-        {tab === "case-studies" ? <TractionCaseStudiesTab data={data} /> : null}
+        {tab === "case-studies" ? <TractionCaseStudiesTab key={studyId} data={data} openId={studyId} /> : null}
         {tab === "crm" ? <TractionCrmTab data={data} /> : null}
         {tab === "offers" ? <TractionOffersTab data={data} /> : null}
         {tab === "experiments" ? <TractionExperimentsTab data={data} /> : null}

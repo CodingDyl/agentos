@@ -26,10 +26,10 @@ import { caseStudyMarkdown, optional, toList } from "./traction-model";
 const STATUS_LABEL: Record<CaseStudyStatus, string> = { draft: "Draft", ready: "Ready", published: "Published" };
 const STATUS_TONE: Record<CaseStudyStatus, "muted" | "marigold" | "green"> = { draft: "muted", ready: "marigold", published: "green" };
 
-export function TractionCaseStudiesTab({ data }: { data: TractionData }) {
+export function TractionCaseStudiesTab({ data, openId }: { data: TractionData; openId?: string }) {
   const start = useStartCaseStudy();
   const dismiss = useDismissOpportunity();
-  const [open, setOpen] = useState<string | undefined>(data.caseStudies[0]?.id);
+  const [open, setOpen] = useState<string | undefined>(openId ?? data.caseStudies[0]?.id);
 
   return (
     <div className="space-y-12">

@@ -24,6 +24,7 @@ import type {
   WeeklyReview,
 } from "../../shared/traction-types";
 import { addDays, chaseDate, daysBetween, isoDate, weekStart } from "../../shared/traction-dates";
+import { CASE_STUDIES_PER_DAY } from "./case-studies";
 
 // The date rules are shared with the screen, so both count days the same way.
 export { addDays, chaseDate, daysBetween, isoDate, weekStart, WAITING_CHASE_AFTER_DAYS, WAITING_RECHASE_DAYS } from "../../shared/traction-dates";
@@ -230,8 +231,12 @@ export function buildQueue(
     );
   }
 
+  let caseStudies = 0;
   for (const item of other) {
-    if (!snoozed.has(item.id)) items.push(item);
+    if (snoozed.has(item.id)) continue;
+    // A day's queue holds one write-up at most; the rest wait in their tab.
+    if (item.kind === "case_study" && ++caseStudies > CASE_STUDIES_PER_DAY) continue;
+    items.push(item);
   }
 
   return items
