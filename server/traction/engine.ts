@@ -1,19 +1,32 @@
+import type { MailThread } from "../../shared/mail-types";
 import type {
   Experiment,
   ExperimentProgress,
+  ExperimentReview,
   Icp,
+  LinkedThread,
+  MailLink,
+  MailSuggestion,
   Offer,
   OutreachGap,
   Pipeline,
   Prospect,
   ProspectStage,
   QueueItem,
+  ProspectSource,
   QueueItemKind,
   Snooze,
+  SourceResult,
   TractionAttention,
   TractionEvent,
+  WaitingOn,
   WeekProgress,
+  WeeklyReview,
 } from "../../shared/traction-types";
+import { addDays, chaseDate, daysBetween, isoDate, weekStart } from "../../shared/traction-dates";
+
+// The date rules are shared with the screen, so both count days the same way.
+export { addDays, chaseDate, daysBetween, isoDate, weekStart, WAITING_CHASE_AFTER_DAYS, WAITING_RECHASE_DAYS } from "../../shared/traction-dates";
 
 /**
  * The Traction engine: plain code, no I/O, no model.
@@ -38,38 +51,6 @@ export const DAILY_NEW_CONTACTS = 5;
 export const QUEUE_LIMIT = 10;
 
 const OPEN_STAGES: readonly ProspectStage[] = ["target", "contacted", "conversation", "proposal"];
-
-/** A local calendar date. The operator's "today", not UTC's. */
-export function isoDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-export function addDays(iso: string, days: number): string {
-  const [year, month, day] = iso.split("-").map(Number);
-  return isoDate(new Date(year, month - 1, day + days));
-}
-
-/** Whole calendar days from `from` to `to`. Timestamps are reduced to their local date first. */
-export function daysBetween(from: string, to: string): number {
-  const toDay = (value: string) => {
-    const iso = value.length === 10 ? value : isoDate(new Date(value));
-    const [year, month, day] = iso.split("-").map(Number);
-    return Date.UTC(year, month - 1, day);
-  };
-
-  return Math.round((toDay(to) - toDay(from)) / 86_400_000);
-}
-
-/** Monday of the week containing `today`. */
-export function weekStart(today: string): string {
-  const [year, month, day] = today.split("-").map(Number);
-  const weekday = new Date(year, month - 1, day).getDay();
-  // getDay: Sunday is 0. A week here starts on Monday.
-  return addDays(today, -((weekday + 6) % 7));
-}
 
 function isOpen(prospect: Prospect): boolean {
   return OPEN_STAGES.includes(prospect.stage);
@@ -111,12 +92,13 @@ export function buildQueue(
   prospects: readonly Prospect[],
   snoozes: readonly Snooze[],
   today: string,
+  waiting: readonly WaitingOn[] = [],
 ): QueueItem[] {
   const snoozed = new Set(snoozes.filter((snooze) => snooze.until > today).map((snooze) => snooze.itemId));
   const claimed = new Set<string>();
   const items: (QueueItem & { rank: number })[] = [];
 
-  const push = (kind: QueueItemKind, prospect: Prospect, title: string, detail: string[], rank: number) => {
+  const push = (kind: Exclude<QueueItemKind, "waiting">, prospect: Prospect, title: string, detail: string[], rank: number) => {
     if (claimed.has(prospect.id)) return;
     claimed.add(prospect.id);
 
@@ -144,7 +126,30 @@ export function buildQueue(
     );
   }
 
-  // 2. Follow-ups: quotes and first messages that went quiet.
+  // 2. Things owed to us whose chase date has come. More specific than a
+  // prospect's silence, so it claims the prospect before the follow-up rule.
+  for (const item of chasesDue(waiting, today)) {
+    if (item.prospectId) {
+      if (claimed.has(item.prospectId)) continue;
+      claimed.add(item.prospectId);
+    }
+
+    const id = `waiting:${item.id}`;
+    if (snoozed.has(id)) continue;
+
+    const waited = daysBetween(item.since, today);
+    items.push({
+      id,
+      kind: "waiting",
+      prospectId: item.prospectId,
+      waitingId: item.id,
+      title: `Chase ${item.who} — ${item.what}`,
+      detail: [`Waiting ${waited <= 0 ? "since today" : plural(waited, "day")}`, item.workspace ? `Workspace ${item.workspace}` : "No reply yet"],
+      rank: 1.5,
+    });
+  }
+
+  // 3. Follow-ups: quotes and first messages that went quiet.
   const followUps = prospects
     .filter((prospect) => {
       // A future next action means a person already decided when to return.
@@ -167,7 +172,7 @@ export function buildQueue(
     );
   }
 
-  // 3. Referral asks from clients who would say yes.
+  // 4. Referral asks from clients who would say yes.
   const referrals = prospects.filter(
     (prospect) =>
       prospect.stage === "won" &&
@@ -185,7 +190,7 @@ export function buildQueue(
     );
   }
 
-  // 4. New outreach. Warm leads first, then best fit, then oldest.
+  // 5. New outreach. Warm leads first, then best fit, then oldest.
   const fresh = prospects
     .filter((prospect) => prospect.stage === "target" && !prospect.lastTouchAt)
     .sort((a, b) => {
@@ -210,7 +215,17 @@ export function buildQueue(
   return items
     .sort((a, b) => a.rank - b.rank)
     .slice(0, QUEUE_LIMIT)
-    .map((item): QueueItem => ({ id: item.id, kind: item.kind, prospectId: item.prospectId, title: item.title, detail: item.detail }));
+    .map(({ rank, ...item }) => {
+      void rank;
+      return item;
+    });
+}
+
+/** Open items whose chase date has arrived, the longest-overdue first. */
+export function chasesDue(waiting: readonly WaitingOn[], today: string): WaitingOn[] {
+  return waiting
+    .filter((item) => !item.resolvedAt && chaseDate(item) <= today)
+    .sort((a, b) => chaseDate(a).localeCompare(chaseDate(b)));
 }
 
 const STAGE_WORDS: Record<ProspectStage, string> = {
@@ -277,7 +292,17 @@ export function buildPipeline(prospects: readonly Prospect[]): Pipeline {
  */
 export function buildWeek(events: readonly TractionEvent[], today: string): WeekProgress {
   const monday = weekStart(today);
-  const week: WeekProgress = { weekOf: monday, newProspects: 0, outreach: 0, followUps: 0, conversations: 0, proposals: 0, won: 0 };
+  const week: WeekProgress = {
+    weekOf: monday,
+    newProspects: 0,
+    outreach: 0,
+    followUps: 0,
+    conversations: 0,
+    proposals: 0,
+    won: 0,
+    lost: 0,
+    referralsAsked: 0,
+  };
 
   for (const event of events) {
     const day = isoDate(new Date(event.at));
@@ -286,10 +311,12 @@ export function buildWeek(events: readonly TractionEvent[], today: string): Week
     if (event.kind === "created") week.newProspects += 1;
     else if (event.kind === "contacted") week.outreach += 1;
     else if (event.kind === "followed_up") week.followUps += 1;
+    else if (event.kind === "referral_asked") week.referralsAsked += 1;
     else if (event.kind === "stage_changed") {
       if (event.to === "conversation") week.conversations += 1;
       else if (event.to === "proposal") week.proposals += 1;
       else if (event.to === "won") week.won += 1;
+      else if (event.to === "lost") week.lost += 1;
     }
   }
 
@@ -334,4 +361,178 @@ export function outreachGaps(prospect: Prospect, icp: Icp | undefined, offers: r
   if (!prospect.website) gaps.push("website");
   if (!prospect.observation) gaps.push("observation");
   return gaps;
+}
+
+const REACHED_PROPOSAL: readonly ProspectStage[] = ["proposal", "won"];
+
+/** The share, or undefined when there is nothing to divide by — never a made-up zero. */
+function rate(part: number, whole: number): number | undefined {
+  return whole > 0 ? part / whole : undefined;
+}
+
+/**
+ * The weekly review for the week containing `day`.
+ *
+ * The week's figures come from events. Sources look back four weeks of
+ * leads, because a single week rarely holds enough of any one source to
+ * compare; the best source needs at least two leads before it is named.
+ */
+export function buildReview(
+  events: readonly TractionEvent[],
+  prospects: readonly Prospect[],
+  experiments: readonly Experiment[],
+  day: string,
+): WeeklyReview {
+  const monday = weekStart(day);
+  const sunday = addDays(monday, 6);
+  const week = buildWeek(events, sunday);
+  const windowStart = addDays(monday, -21);
+
+  const bySource = new Map<ProspectSource, SourceResult>();
+  for (const prospect of prospects) {
+    const created = isoDate(new Date(prospect.createdAt));
+    if (created < windowStart || created > sunday) continue;
+
+    const result = bySource.get(prospect.source) ?? { source: prospect.source, leads: 0, conversations: 0, proposals: 0 };
+    result.leads += 1;
+    if (PAST_CONVERSATION.includes(prospect.stage)) result.conversations += 1;
+    if (REACHED_PROPOSAL.includes(prospect.stage)) result.proposals += 1;
+    bySource.set(prospect.source, result);
+  }
+
+  const sources = [...bySource.values()].sort((a, b) => b.leads - a.leads);
+  const best = sources
+    .filter((source) => source.leads >= 2 && source.conversations > 0)
+    .sort((a, b) => b.conversations / b.leads - a.conversations / a.leads || b.leads - a.leads)[0];
+
+  const reviews: ExperimentReview[] = experiments
+    .filter((experiment) => experiment.status !== "planned")
+    .map((experiment) => {
+      const tagged = prospects.filter((prospect) => prospect.experimentId === experiment.id);
+      const contacted = tagged.filter((p) => PAST_CONTACT.includes(p.stage)).length;
+      const conversations = tagged.filter((p) => PAST_CONVERSATION.includes(p.stage)).length;
+      const proposals = tagged.filter((p) => REACHED_PROPOSAL.includes(p.stage)).length;
+      return {
+        experimentId: experiment.id,
+        name: experiment.name,
+        contacted,
+        conversations,
+        proposals,
+        conversationRate: rate(conversations, contacted),
+        proposalRate: rate(proposals, contacted),
+      };
+    });
+
+  return { week, sources, bestSource: best?.source, experiments: reviews };
+}
+
+/**
+ * Domains that say nothing about who someone works for. A match on one of
+ * these would link every Gmail user to every prospect with a Gmail address.
+ */
+const FREE_MAIL = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "yahoo.com",
+  "icloud.com",
+  "me.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "mweb.co.za",
+  "telkomsa.net",
+  "webmail.co.za",
+  "vodamail.co.za",
+  "absamail.co.za",
+]);
+
+function emailDomain(email: string | undefined): string | undefined {
+  const domain = email?.split("@")[1]?.trim().toLowerCase();
+  return domain && !FREE_MAIL.has(domain) ? domain : undefined;
+}
+
+function websiteDomain(website: string | undefined): string | undefined {
+  if (!website) return undefined;
+  try {
+    return new URL(website).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
+/** Stages from which a reply means the conversation has started. */
+const REPLY_MOVES: Partial<Record<ProspectStage, ProspectStage>> = {
+  target: "conversation",
+  contacted: "conversation",
+};
+
+/**
+ * Gmail threads that look like they belong to a prospect.
+ *
+ * Matched on the prospect's own address first, then on their website's
+ * domain (never a free-mail domain). A thread already linked or dismissed is
+ * not suggested again. A stage move is offered only when the thread arrived
+ * after the prospect reached their current stage, so an old thread cannot
+ * suggest undoing progress.
+ */
+export function suggestMailLinks(
+  threads: readonly MailThread[],
+  prospects: readonly Prospect[],
+  links: readonly MailLink[],
+  dismissed: readonly string[],
+): MailSuggestion[] {
+  const settled = new Set([...links.map((link) => link.threadId), ...dismissed]);
+  const open = prospects.filter((prospect) => prospect.stage !== "lost");
+  const suggestions: MailSuggestion[] = [];
+
+  for (const thread of threads) {
+    if (settled.has(thread.threadId) || !thread.fromEmail) continue;
+    const from = thread.fromEmail.trim().toLowerCase();
+    const domain = emailDomain(from);
+
+    const byEmail = open.find((prospect) => prospect.email?.toLowerCase() === from);
+    const byDomain = byEmail ? undefined : domain ? open.find((prospect) => websiteDomain(prospect.website) === domain) : undefined;
+    const prospect = byEmail ?? byDomain;
+    if (!prospect) continue;
+
+    const moveTo = thread.messageDate >= prospect.stageChangedAt ? REPLY_MOVES[prospect.stage] : undefined;
+
+    suggestions.push({
+      threadId: thread.threadId,
+      prospectId: prospect.id,
+      company: prospect.company,
+      subject: thread.subject,
+      fromName: thread.fromName,
+      fromEmail: thread.fromEmail,
+      messageDate: thread.messageDate,
+      match: byEmail ? "email" : "domain",
+      moveFrom: moveTo ? prospect.stage : undefined,
+      moveTo,
+    });
+  }
+
+  return suggestions.sort((a, b) => b.messageDate.localeCompare(a.messageDate));
+}
+
+/** Per prospect, the confirmed threads — newest first, with what the cache still knows about them. */
+export function linkedThreads(links: readonly MailLink[], threads: readonly MailThread[]): Record<string, LinkedThread[]> {
+  const byId = new Map(threads.map((thread) => [thread.threadId, thread]));
+  const result: Record<string, LinkedThread[]> = {};
+
+  for (const link of links) {
+    const thread = byId.get(link.threadId);
+    (result[link.prospectId] ??= []).push({
+      threadId: link.threadId,
+      // A thread removed from the Mail cache is still linked; it just has less to show.
+      subject: thread?.subject ?? "Thread no longer in the Inbox cache",
+      messageDate: thread?.messageDate ?? link.linkedAt,
+      fromName: thread?.fromName,
+    });
+  }
+
+  for (const list of Object.values(result)) list.sort((a, b) => b.messageDate.localeCompare(a.messageDate));
+  return result;
 }

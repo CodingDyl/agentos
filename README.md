@@ -71,6 +71,7 @@ happens only when you send a message or run a command.
 | `server/traction/store.ts` | Prospects, ICP, offers, experiments — the local CRM, outside the vault |
 | `server/traction/engine.ts` | The daily queue, warnings and weekly figures — deterministic, no model |
 | `server/traction/crm-provider.ts` | `CrmProvider`: local today, Virtec later, no UI change |
+| `docs/traction/ROADMAP.md` | What Traction has, what is next, and what is parked |
 | `shared/agentos-types.ts` | The wire contract (zod schemas + derived types) |
 | `src/lib/agentos/` | React client and queries |
 
@@ -167,7 +168,7 @@ to browse everything, so it reads detail for the whole portfolio.
 | Route | Screen |
 | --- | --- |
 | `/` | Mission Control — what matters, what needs you, what is running, what is broken |
-| `/traction` | Customer acquisition: today's queue, prospects, pipeline, offers, experiments |
+| `/traction` | Customer acquisition: today's queue, prospects, pipeline, waiting on, clients & referrals, offers, experiments, weekly review |
 | `/projects` | Portfolio, grouped by state |
 | `/projects/:slug` | Project workspace (Overview, Tasks, Decisions, Sessions, Git) |
 | `/agent` | Hermes operator console |
@@ -233,6 +234,8 @@ to browse everything, so it reads detail for the whole portfolio.
 | `/api/traction/queue/:itemId` | Marks a queue item done or snoozes it (POST) |
 | `/api/traction/icp` · `/targets` | The active ICP and the weekly commitment (PUT) |
 | `/api/traction/offers` · `/experiments` | Adds (POST); `/:id` replaces (PUT) or removes (DELETE) |
+| `/api/traction/waiting` | Adds a Waiting On item (POST); `/:id` replaces (PUT) or removes (DELETE); `/:id/resolve` (POST) |
+| `/api/traction/mail-links` | Confirms a Gmail thread belongs to a prospect, with an optional confirmed stage move (POST); `/dismiss` (POST); `/:threadId` unlinks (DELETE) |
 | `/api/activity` | The unified timeline; `?source=`, `?project=`, `?limit=` |
 | `/api/activity` | Records an outcome only the browser witnessed (POST) |
 | `/api/automations` | Hermes' scheduled jobs, with `cron doctor`'s verdict |

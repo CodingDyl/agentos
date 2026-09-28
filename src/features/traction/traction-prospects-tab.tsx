@@ -3,7 +3,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { SOURCE_LABELS, type Prospect, type ProspectStage, type TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
-import { useDeleteProspect, useUpdateProspect } from "@/lib/agentos/traction";
+import { useDeleteProspect, useUnlinkMailThread, useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { formatShortDate, gapLabels, hermesHref, hermesPrompt, PIPELINE_STAGES, stageLabel } from "./traction-model";
 import { ProspectForm } from "./traction-prospect-form";
@@ -165,6 +165,7 @@ function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospe
   const [editing, setEditing] = useState(false);
   const update = useUpdateProspect();
   const remove = useDeleteProspect();
+  const unlink = useUnlinkMailThread();
   const gaps = data.outreachGaps[prospect.id] ?? [];
   const offer = data.offers.find((entry) => entry.id === prospect.offerId);
   const ask = hermesPrompt({ prospect, icp: data.icp, offers: data.offers, gaps });
@@ -236,6 +237,29 @@ function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospe
           </Fact>
         ) : null}
         {prospect.notes ? <Fact label="Notes"><span className="whitespace-pre-wrap">{prospect.notes}</span></Fact> : null}
+        {(data.mailThreads[prospect.id] ?? []).length > 0 ? (
+          <Fact label="Email">
+            <ul className="space-y-1">
+              {(data.mailThreads[prospect.id] ?? []).slice(0, 5).map((thread) => (
+                <li key={thread.threadId} className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate">{thread.subject}</span>
+                  <span className="flex shrink-0 items-baseline gap-2 text-[12.5px] text-paper-sage">
+                    {formatShortDate(thread.messageDate)}
+                    <button
+                      type="button"
+                      onClick={() => unlink.mutate(thread.threadId)}
+                      disabled={unlink.isPending}
+                      aria-label={`Unlink “${thread.subject}” from ${prospect.company}`}
+                      className={cn("cursor-pointer rounded-[2px] hover:text-paper-moss hover:underline", PAPER_FOCUS)}
+                    >
+                      Unlink
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Fact>
+        ) : null}
       </dl>
 
       {/* The brand guard, stated where the decision to write is made. */}

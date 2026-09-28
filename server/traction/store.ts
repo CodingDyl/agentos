@@ -6,11 +6,14 @@ import {
   DEFAULT_WEEKLY_TARGETS,
   ExperimentSchema,
   IcpSchema,
+  MailLinkSchema,
   OfferSchema,
   ProspectSchema,
   SnoozeSchema,
   TractionEventSchema,
+  WaitingOnSchema,
   WeeklyTargetsSchema,
+  type ConfirmMailLink,
   type Experiment,
   type ExperimentInput,
   type Icp,
@@ -24,10 +27,12 @@ import {
   type QueueItemKind,
   type TractionEvent,
   type TractionEventKind,
+  type WaitingOn,
+  type WaitingOnInput,
   type WeeklyTargets,
 } from "../../shared/traction-types";
 import { uiStateDir } from "../agentos/session-store";
-import { addDays } from "./engine";
+import { addDays, isoDate, WAITING_RECHASE_DAYS } from "./engine";
 
 /**
  * The local Traction store — V1's CRM.
@@ -58,6 +63,10 @@ const StateSchema = z.object({
   experiments: z.array(ExperimentSchema).default([]),
   targets: WeeklyTargetsSchema.default(DEFAULT_WEEKLY_TARGETS),
   snoozes: z.array(SnoozeSchema).default([]),
+  waiting: z.array(WaitingOnSchema).default([]),
+  mailLinks: z.array(MailLinkSchema).default([]),
+  /** Thread ids a person said were not a prospect's. */
+  dismissedMail: z.array(z.string()).default([]),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -75,7 +84,17 @@ function eventsFile(): string {
 }
 
 function emptyState(): TractionState {
-  return { version: 1, offers: [], prospects: [], experiments: [], targets: DEFAULT_WEEKLY_TARGETS, snoozes: [] };
+  return {
+    version: 1,
+    offers: [],
+    prospects: [],
+    experiments: [],
+    targets: DEFAULT_WEEKLY_TARGETS,
+    snoozes: [],
+    waiting: [],
+    mailLinks: [],
+    dismissedMail: [],
+  };
 }
 
 export class TractionNotFoundError extends Error {}
@@ -250,17 +269,26 @@ export function deleteProspect(id: string): Promise<void> {
     findProspect(state, id);
     state.prospects = state.prospects.filter((prospect) => prospect.id !== id);
     state.snoozes = state.snoozes.filter((snooze) => !snooze.itemId.endsWith(`:${id}`));
+    state.mailLinks = state.mailLinks.filter((link) => link.prospectId !== id);
+    // What they owed is still owed; it just stops pointing at a record that is gone.
+    state.waiting = state.waiting.map((item) => (item.prospectId === id ? { ...item, prospectId: undefined } : item));
     return { result: undefined };
   });
 }
 
 // ─── The daily queue ───────────────────────────────────────────────────────
 
-const QUEUE_ITEM = /^(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})$/;
+const QUEUE_ITEM = /^(?:(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64}))$/;
 
-export function parseQueueItemId(itemId: string): { kind: QueueItemKind; prospectId: string } | undefined {
+type ParsedQueueItem =
+  | { kind: Exclude<QueueItemKind, "waiting">; prospectId: string }
+  | { kind: "waiting"; waitingId: string };
+
+export function parseQueueItemId(itemId: string): ParsedQueueItem | undefined {
   const match = QUEUE_ITEM.exec(itemId);
-  return match ? { kind: match[1] as QueueItemKind, prospectId: match[2] } : undefined;
+  if (!match) return undefined;
+  if (match[3]) return { kind: "waiting", waitingId: match[3] };
+  return { kind: match[1] as Exclude<QueueItemKind, "waiting">, prospectId: match[2] };
 }
 
 /**
@@ -273,20 +301,41 @@ export function parseQueueItemId(itemId: string): { kind: QueueItemKind; prospec
  * - `follow_up` → the silence clock restarts.
  * - `due`       → the promised action is cleared, and it counts as first
  *                 contact for a target or a follow-up for anyone further on.
+ * - `waiting`   → they were chased; the next chase is set a few days out.
+ *                 The item stays open until a person marks it resolved.
  * - `referral`  → the ask is recorded, so it is not asked twice.
  *
  * This is the only place the queue changes a stage, and only `target →
  * contacted`, only because the operator said they made contact.
  */
-export function completeQueueItem(itemId: string): Promise<Prospect> {
+export type QueueCompletion = { prospect?: Prospect; waiting?: WaitingOn };
+
+export function completeQueueItem(itemId: string, today: string = isoDate(new Date())): Promise<QueueCompletion> {
   const parsed = parseQueueItemId(itemId);
   if (!parsed) return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
 
-  return mutate((state) => {
-    const prospect = findProspect(state, parsed.prospectId);
+  return mutate<QueueCompletion>((state) => {
     const now = new Date().toISOString();
+    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== itemId);
+
+    if (parsed.kind === "waiting") {
+      const item = findWaiting(state, parsed.waitingId);
+      const next: WaitingOn = { ...item, nextFollowUp: addDays(today, WAITING_RECHASE_DAYS), updatedAt: now };
+      state.waiting[state.waiting.indexOf(item)] = next;
+
+      const chased: TractionEvent = { id: newId("ev"), at: now, prospectId: item.prospectId, waitingId: item.id, kind: "chased", viaQueue: true };
+
+      // Chasing a prospect is also a follow-up with them, and counts as one.
+      const prospect = item.prospectId ? state.prospects.find((entry) => entry.id === item.prospectId) : undefined;
+      if (!prospect) return { result: { waiting: next }, events: [chased] };
+
+      const touched: Prospect = { ...prospect, lastTouchAt: now, updatedAt: now };
+      state.prospects[state.prospects.indexOf(prospect)] = touched;
+      return { result: { waiting: next, prospect: touched }, events: [chased, event(prospect.id, "followed_up")] };
+    }
+
+    const prospect = findProspect(state, parsed.prospectId);
     const next: Prospect = { ...prospect, updatedAt: now };
-    let events: TractionEvent[];
 
     // A due action on a target is first contact; on anyone else it is a follow-up.
     const kind = parsed.kind === "due" ? (prospect.stage === "target" ? "contact" : "follow_up") : parsed.kind;
@@ -295,30 +344,23 @@ export function completeQueueItem(itemId: string): Promise<Prospect> {
       delete next.nextActionDate;
     }
 
-    switch (kind) {
-      case "contact":
-        next.lastTouchAt = now;
-        if (prospect.stage === "target") {
-          next.stage = "contacted";
-          next.stageChangedAt = now;
-          events = stageEvents(next, "target", "contacted", true);
-        } else {
-          events = [event(prospect.id, "followed_up", { viaQueue: true })];
-        }
-        break;
-      case "follow_up":
-        next.lastTouchAt = now;
-        events = [event(prospect.id, "followed_up", { viaQueue: true })];
-        break;
-      case "referral":
-        next.referralAskedAt = now;
-        events = [event(prospect.id, "referral_asked", { viaQueue: true })];
-        break;
+    let events: TractionEvent[];
+
+    if (kind === "referral") {
+      next.referralAskedAt = now;
+      events = [event(prospect.id, "referral_asked", { viaQueue: true })];
+    } else if (kind === "contact" && prospect.stage === "target") {
+      next.lastTouchAt = now;
+      next.stage = "contacted";
+      next.stageChangedAt = now;
+      events = stageEvents(next, "target", "contacted", true);
+    } else {
+      next.lastTouchAt = now;
+      events = [event(prospect.id, "followed_up", { viaQueue: true })];
     }
 
     state.prospects[state.prospects.indexOf(prospect)] = next;
-    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== itemId);
-    return { result: next, events };
+    return { result: { prospect: next }, events };
   });
 }
 
@@ -328,11 +370,119 @@ export function snoozeQueueItem(itemId: string, today: string, days = 1): Promis
   if (!parsed) return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
 
   return mutate((state) => {
-    findProspect(state, parsed.prospectId);
+    if (parsed.kind === "waiting") findWaiting(state, parsed.waitingId);
+    else findProspect(state, parsed.prospectId);
+
     state.snoozes = [
       ...state.snoozes.filter((snooze) => snooze.itemId !== itemId && snooze.until > today),
       { itemId, until: addDays(today, days) },
     ];
+    return { result: undefined };
+  });
+}
+
+// ─── Waiting on ────────────────────────────────────────────────────────────
+
+function findWaiting(state: TractionState, id: string): WaitingOn {
+  const item = state.waiting.find((entry) => entry.id === id);
+  if (!item) throw new TractionNotFoundError(`No waiting item ${id}`);
+  return item;
+}
+
+/** A link to a prospect that does not exist is refused, not stored dangling. */
+function assertProspectLink(state: TractionState, prospectId: string | undefined): void {
+  if (prospectId) findProspect(state, prospectId);
+}
+
+export function createWaiting(input: WaitingOnInput): Promise<WaitingOn> {
+  return mutate((state) => {
+    assertProspectLink(state, input.prospectId);
+    const now = new Date().toISOString();
+    const item = WaitingOnSchema.parse(compact({ ...input, id: newId("wo"), createdAt: now, updatedAt: now }));
+    state.waiting.push(item);
+    return { result: item };
+  });
+}
+
+/** Replaces an item's content. Resolution is its own call, so an edit cannot reopen or close one. */
+export function replaceWaiting(id: string, input: WaitingOnInput): Promise<WaitingOn> {
+  return mutate((state) => {
+    const existing = findWaiting(state, id);
+    assertProspectLink(state, input.prospectId);
+    const next = WaitingOnSchema.parse(
+      compact({ ...input, id, resolvedAt: existing.resolvedAt, createdAt: existing.createdAt, updatedAt: new Date().toISOString() }),
+    );
+    state.waiting[state.waiting.indexOf(existing)] = next;
+    return { result: next };
+  });
+}
+
+/** It landed. Kept, not deleted, so "how long did the deposit take?" stays answerable. */
+export function resolveWaiting(id: string): Promise<WaitingOn> {
+  return mutate((state) => {
+    const existing = findWaiting(state, id);
+    const now = new Date().toISOString();
+    const next: WaitingOn = { ...existing, resolvedAt: existing.resolvedAt ?? now, updatedAt: now };
+    state.waiting[state.waiting.indexOf(existing)] = next;
+    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `waiting:${id}`);
+    return { result: next };
+  });
+}
+
+export function deleteWaiting(id: string): Promise<void> {
+  return mutate((state) => {
+    findWaiting(state, id);
+    state.waiting = state.waiting.filter((entry) => entry.id !== id);
+    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `waiting:${id}`);
+    return { result: undefined };
+  });
+}
+
+// ─── Gmail links ───────────────────────────────────────────────────────────
+
+/**
+ * A person said "yes, this thread is theirs" — and, separately, whether to
+ * move the stage. The move is only ever what they confirmed; this never
+ * infers one.
+ */
+export function confirmMailLink(input: ConfirmMailLink): Promise<Prospect> {
+  return mutate((state) => {
+    const prospect = findProspect(state, input.prospectId);
+    const now = new Date().toISOString();
+
+    state.mailLinks = [
+      ...state.mailLinks.filter((link) => link.threadId !== input.threadId),
+      { threadId: input.threadId, prospectId: prospect.id, linkedAt: now },
+    ];
+    state.dismissedMail = state.dismissedMail.filter((threadId) => threadId !== input.threadId);
+
+    if (!input.moveTo || input.moveTo === prospect.stage) return { result: prospect };
+
+    const next: Prospect = {
+      ...prospect,
+      stage: input.moveTo,
+      stageChangedAt: now,
+      lastTouchAt: prospect.stage === "target" ? now : prospect.lastTouchAt,
+      updatedAt: now,
+    };
+    state.prospects[state.prospects.indexOf(prospect)] = next;
+    return { result: next, events: stageEvents(next, prospect.stage, input.moveTo) };
+  });
+}
+
+/** "Not theirs." Remembered, so the same thread is not suggested again. */
+export function dismissMailSuggestion(threadId: string): Promise<void> {
+  return mutate((state) => {
+    if (!state.dismissedMail.includes(threadId)) state.dismissedMail.push(threadId);
+    // Bounded: old dismissals of threads long gone from the Inbox are worth nothing.
+    state.dismissedMail = state.dismissedMail.slice(-2000);
+    return { result: undefined };
+  });
+}
+
+export function unlinkMailThread(threadId: string): Promise<void> {
+  return mutate((state) => {
+    state.mailLinks = state.mailLinks.filter((link) => link.threadId !== threadId);
     return { result: undefined };
   });
 }

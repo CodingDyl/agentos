@@ -5,13 +5,14 @@ import type { QueueItem, TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import { useQueueAction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { hermesHref, hermesPrompt, prospectHref } from "./traction-model";
+import { hermesHref, hermesPrompt, queueItemHref, waitingPrompt } from "./traction-model";
 
 /**
  * Today's traction: the revenue work, one item at a time.
  *
  * Four verbs and no more. DONE records that the person did it; SNOOZE puts it
- * off until tomorrow; OPEN goes to the prospect; ASK HERMES hands the item to
+ * off until tomorrow; OPEN goes to the prospect (or the Waiting On list); ASK
+ * HERMES hands the item to
  * the agent console with everything known about the prospect — research when
  * the specifics are missing, a draft when they are present. Nothing is sent
  * from here, ever.
@@ -20,6 +21,7 @@ import { hermesHref, hermesPrompt, prospectHref } from "./traction-model";
 const KIND_LABEL: Record<QueueItem["kind"], string> = {
   due: "Due",
   follow_up: "Follow-up",
+  waiting: "Waiting on",
   referral: "Referral",
   contact: "New outreach",
 };
@@ -27,6 +29,7 @@ const KIND_LABEL: Record<QueueItem["kind"], string> = {
 const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "muted"> = {
   due: "flame",
   follow_up: "marigold",
+  waiting: "marigold",
   referral: "green",
   contact: "muted",
 };
@@ -39,7 +42,9 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
     return (
       <p className="text-[14px] leading-6 text-paper-char">
         {data.prospects.length === 0
-          ? "Nothing to work yet — add a few prospects that fit the ICP and the queue fills itself."
+          ? data.waiting.length > 0
+            ? "Nothing to chase today."
+            : "Nothing to work yet — add a few prospects that fit the ICP and the queue fills itself."
           : data.doneToday > 0
             ? "Today's traction is done. Tomorrow's queue builds itself from what you did."
             : "Nothing due today. Add prospects to keep the pipeline moving."}
@@ -52,9 +57,12 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
       <ol className="divide-y divide-paper-mist border-y border-paper-mist">
         {items.map((item, index) => {
           const prospect = data.prospects.find((entry) => entry.id === item.prospectId);
-          const ask = prospect
-            ? hermesPrompt({ prospect, item, icp: data.icp, offers: data.offers, gaps: data.outreachGaps[prospect.id] ?? [] })
-            : undefined;
+          const owed = item.waitingId ? data.waiting.find((entry) => entry.id === item.waitingId) : undefined;
+          const ask = owed
+            ? { kind: "draft" as const, prompt: waitingPrompt(owed, data.today, prospect) }
+            : prospect
+              ? hermesPrompt({ prospect, item, icp: data.icp, offers: data.offers, gaps: data.outreachGaps[prospect.id] ?? [] })
+              : undefined;
           const pending = action.isPending && action.variables?.itemId === item.id;
 
           return (
@@ -85,14 +93,14 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <Clock className="size-3.5" aria-hidden="true" />
                   Snooze
                 </PaperButton>
-                <QueueLink to={prospectHref(item.prospectId)} label={`Open ${prospect?.company ?? "prospect"}`}>
+                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? "item"}`}>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                   Open
                 </QueueLink>
                 {ask ? (
                   <QueueLink
                     to={hermesHref(ask.prompt)}
-                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? "this prospect"}`}
+                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? "this item"}`}
                     title={ask.kind === "research" ? "Not enough context to draft yet — Hermes will research first" : "Hermes drafts; you review and send"}
                   >
                     <Sparkles className="size-3.5" aria-hidden="true" />

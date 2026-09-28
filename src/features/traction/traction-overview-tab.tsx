@@ -1,12 +1,14 @@
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
+import { chaseDate } from "@shared/traction-dates";
 import type { TractionData, WeeklyTargets } from "@shared/traction-types";
 import { CHANNEL_LABELS } from "@shared/traction-types";
 import { Meter, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { useSaveTargets } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { TractionIcpCard } from "./traction-icp-card";
-import { PIPELINE_STAGES, queueProgress, stageLabel, type TractionTab } from "./traction-model";
+import { TractionMailSuggestions } from "./traction-mail-suggestions";
+import { formatShortDate, PIPELINE_STAGES, queueProgress, stageLabel, type TractionTab } from "./traction-model";
 import { TractionQueue } from "./traction-queue";
 
 /**
@@ -23,6 +25,8 @@ export function TractionOverviewTab({ data, onTab }: { data: TractionData; onTab
     <div className="grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
       <div className="min-w-0 space-y-12">
         <Goal data={data} />
+        <ReviewNudge data={data} onOpen={() => onTab("review")} />
+        <TractionMailSuggestions data={data} />
 
         <PaperSection
           label="Today"
@@ -43,6 +47,7 @@ export function TractionOverviewTab({ data, onTab }: { data: TractionData; onTab
 
       <div className="min-w-0 space-y-12">
         <ThisWeek data={data} />
+        <WaitingSummary data={data} onOpen={() => onTab("waiting")} />
         <PipelineSummary data={data} onOpen={() => onTab("pipeline")} />
         <TractionIcpCard icp={data.icp} />
         <ActiveExperiments data={data} onOpen={() => onTab("experiments")} />
@@ -227,6 +232,59 @@ function ActiveExperiments({ data, onOpen }: { data: TractionData; onOpen: () =>
               <Tag tone={experiment.status === "running" ? "green" : "muted"}>{experiment.status === "running" ? "Running" : "Planned"}</Tag>
             </li>
           ))}
+        </ul>
+      )}
+    </PaperSection>
+  );
+}
+
+/** Friday to Sunday: the week is nearly done, so its review is worth ten minutes. */
+function ReviewNudge({ data, onOpen }: { data: TractionData; onOpen: () => void }) {
+  const [year, month, day] = data.today.split("-").map(Number);
+  const weekday = new Date(year, month - 1, day).getDay();
+  if (weekday !== 5 && weekday !== 6 && weekday !== 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-paper-gold px-4 py-3">
+      <p className="text-[14px] text-paper-moss">
+        <span className="font-semibold">Weekly review.</span> {data.week.conversations} of {data.targets.conversations} conversations this week — look at what
+        worked before Monday.
+      </p>
+      <PaperButton variant="ghost" onClick={onOpen}>
+        Open review
+      </PaperButton>
+    </div>
+  );
+}
+
+/** What others owe, soonest chase first. The whole list lives in its own tab. */
+function WaitingSummary({ data, onOpen }: { data: TractionData; onOpen: () => void }) {
+  const shown = data.waiting.slice(0, 4);
+
+  return (
+    <PaperSection
+      label="Waiting on"
+      count={data.waiting.length || undefined}
+      action={<PaperButton onClick={onOpen}>{data.waiting.length === 0 ? "Add" : "Open"}</PaperButton>}
+    >
+      {shown.length === 0 ? (
+        <p className="text-[14px] leading-6 text-paper-char">Nothing outstanding. Deposits, feedback and replies you are waiting for go here.</p>
+      ) : (
+        <ul className="divide-y divide-paper-stone border-y border-paper-mist">
+          {shown.map((item) => {
+            const chase = chaseDate(item);
+            return (
+              <li key={item.id} className="flex items-baseline justify-between gap-3 py-2.5">
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-medium text-paper-moss">{item.who}</span>
+                  <span className="block truncate text-[12.5px] text-paper-sage">{item.what}</span>
+                </span>
+                <span className={chase <= data.today ? "shrink-0 text-[12.5px] font-semibold text-paper-amber-deep" : "shrink-0 text-[12.5px] text-paper-sage"}>
+                  {chase <= data.today ? "Chase today" : `Chase ${formatShortDate(chase)}`}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </PaperSection>

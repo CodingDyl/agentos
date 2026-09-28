@@ -8,6 +8,9 @@ import {
   type ProspectStage,
   type QueueItem,
   type TractionData,
+  type WaitingOn,
+  type WeeklyReview,
+  SOURCE_LABELS,
 } from "@shared/traction-types";
 
 /**
@@ -20,14 +23,17 @@ import {
  * generic spam that burns the brand.
  */
 
-export type TractionTab = "overview" | "prospects" | "pipeline" | "offers" | "experiments";
+export type TractionTab = "overview" | "prospects" | "pipeline" | "waiting" | "clients" | "offers" | "experiments" | "review";
 
 export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "overview", label: "Overview" },
   { value: "prospects", label: "Prospects" },
   { value: "pipeline", label: "Pipeline" },
+  { value: "waiting", label: "Waiting on" },
+  { value: "clients", label: "Clients & referrals" },
   { value: "offers", label: "Offers" },
   { value: "experiments", label: "Experiments" },
+  { value: "review", label: "Weekly review" },
 ];
 
 export function isTractionTab(value: string | null): value is TractionTab {
@@ -47,6 +53,11 @@ export function gapLabels(gaps: readonly OutreachGap[]): string[] {
 
 export function prospectHref(prospectId: string): string {
   return `/traction?tab=prospects&prospect=${encodeURIComponent(prospectId)}`;
+}
+
+/** Where a queue item opens: its prospect, or the Waiting On list. */
+export function queueItemHref(item: QueueItem): string {
+  return item.prospectId ? prospectHref(item.prospectId) : "/traction?tab=waiting";
 }
 
 /** Hands a prompt to the agent console, which runs it once on arrival. */
@@ -200,4 +211,48 @@ export const SUGGESTED_ICP = {
 export function formatShortDate(iso: string): string {
   const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/** A short, specific chase for something owed. Drafted, never sent. */
+export function waitingPrompt(item: WaitingOn, today: string, prospect?: Prospect): string {
+  return lines([
+    `Draft a short, polite chase to ${item.who} about: ${item.what}.`,
+    `We have been waiting since ${item.since}${item.since < today ? "" : " (today)"}. Keep it warm, specific and easy to answer in one line. Under 80 words.`,
+    prospect && `Context:\n${prospectFacts(prospect)}`,
+    "",
+    "Rules: draft only — never send anything. No guilt-tripping, no generic filler.",
+  ]);
+}
+
+/** A share as a whole percentage, or an em dash when nobody can say. */
+export function percent(value: number | undefined): string {
+  return value === undefined ? "—" : `${Math.round(value * 100)}%`;
+}
+
+/**
+ * The numbers, handed to Hermes to read. It interprets; it does not count.
+ */
+export function reviewPrompt(review: WeeklyReview, targets: TractionData["targets"]): string {
+  const week = review.week;
+  return lines([
+    `Here is my traction review for the week of ${week.weekOf}. The numbers are counted, not estimated — interpret them, do not recalculate them.`,
+    "",
+    `New prospects: ${week.newProspects} (target ${targets.newProspects})`,
+    `Personal outreach: ${week.outreach} (target ${targets.outreach})`,
+    `Follow-ups: ${week.followUps} (target ${targets.followUps})`,
+    `Conversations started: ${week.conversations} (target ${targets.conversations})`,
+    `Proposals: ${week.proposals} (target ${targets.proposals})`,
+    `Won: ${week.won} · Lost: ${week.lost} · Referrals asked: ${week.referralsAsked}`,
+    "",
+    review.sources.length > 0 &&
+      `Leads by source, last four weeks:\n${review.sources
+        .map((source) => `- ${SOURCE_LABELS[source.source]}: ${source.leads} leads → ${source.conversations} conversations → ${source.proposals} proposals`)
+        .join("\n")}`,
+    review.experiments.length > 0 &&
+      `Experiments:\n${review.experiments
+        .map((experiment) => `- ${experiment.name}: ${experiment.contacted} contacted, conversation rate ${percent(experiment.conversationRate)}, proposal rate ${percent(experiment.proposalRate)}`)
+        .join("\n")}`,
+    "",
+    "Give me: what worked, what didn't, and at most three concrete changes for next week — for each experiment, continue, change or stop. Be blunt. Small samples are small; say so rather than over-reading them.",
+  ]);
 }

@@ -266,12 +266,16 @@ export const TractionEventKindSchema = z.enum([
   "followed_up",
   "stage_changed",
   "referral_asked",
+  /** A Waiting On item was chased. Counts toward today's queue, not the sales figures. */
+  "chased",
 ]);
 
 export const TractionEventSchema = z.object({
   id: z.string(),
   at: z.string(),
-  prospectId: z.string(),
+  /** Absent only for a chase of a Waiting On item with no prospect. */
+  prospectId: z.string().optional(),
+  waitingId: z.string().optional(),
   kind: TractionEventKindSchema,
   from: ProspectStageSchema.optional(),
   to: ProspectStageSchema.optional(),
@@ -285,16 +289,68 @@ export const SnoozeSchema = z.object({
   until: IsoDateSchema,
 });
 
+/**
+ * Something someone else owes — a deposit, feedback, a reply to a proposal.
+ *
+ * Not only prospects: a client's deposit is as much a thing to chase as a
+ * quote. Either link is optional. When `nextFollowUp` arrives, the item joins
+ * the daily queue as a chase; a person marks it resolved when it lands.
+ */
+export const WaitingOnSchema = z.object({
+  id: z.string(),
+  /** The person or company. */
+  who: Text(120),
+  /** What is owed. */
+  what: Text(200),
+  since: IsoDateSchema,
+  nextFollowUp: IsoDateSchema.optional(),
+  prospectId: z.string().optional(),
+  workspace: z.string().optional(),
+  resolvedAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const WaitingOnInputSchema = z.object({
+  who: Text(120),
+  what: Text(200),
+  since: IsoDateSchema,
+  nextFollowUp: IsoDateSchema.optional(),
+  prospectId: z.string().optional(),
+  workspace: z.string().optional(),
+});
+
+/** A Gmail thread a person confirmed belongs to a prospect. */
+export const MailLinkSchema = z.object({
+  threadId: z.string(),
+  prospectId: z.string(),
+  linkedAt: z.string(),
+});
+
+/** Gmail thread ids are opaque, but always short and URL-safe. */
+export const ThreadIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+
+export const ConfirmMailLinkSchema = z.object({
+  threadId: ThreadIdSchema,
+  prospectId: z.string(),
+  /** A stage move the person confirmed alongside the link. Never inferred server-side. */
+  moveTo: ProspectStageSchema.optional(),
+});
+
+export const DismissMailSuggestionSchema = z.object({ threadId: ThreadIdSchema });
+
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["due", "follow_up", "referral", "contact"]);
+export const QueueItemKindSchema = z.enum(["due", "follow_up", "waiting", "referral", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({
-  /** `${kind}:${prospectId}` — stable across reads, so a snooze sticks. */
+  /** `${kind}:${prospectId}` (or `waiting:${waitingId}`) — stable across reads, so a snooze sticks. */
   id: z.string(),
   kind: QueueItemKindSchema,
-  prospectId: z.string(),
+  /** The prospect it is about. Absent only for a Waiting On item with no prospect. */
+  prospectId: z.string().optional(),
+  waitingId: z.string().optional(),
   title: z.string(),
   /** The one or two plain facts that make it worth doing today. */
   detail: z.array(z.string()),
@@ -332,6 +388,8 @@ export const WeekProgressSchema = z.object({
   conversations: z.number().int(),
   proposals: z.number().int(),
   won: z.number().int(),
+  lost: z.number().int(),
+  referralsAsked: z.number().int(),
 });
 
 export const ExperimentProgressSchema = z.object({
@@ -339,6 +397,66 @@ export const ExperimentProgressSchema = z.object({
   prospects: z.number().int(),
   contacted: z.number().int(),
   conversations: z.number().int(),
+});
+
+/** Where leads come from, and how far they get. */
+export const SourceResultSchema = z.object({
+  source: ProspectSourceSchema,
+  leads: z.number().int(),
+  conversations: z.number().int(),
+  proposals: z.number().int(),
+});
+
+export const ExperimentReviewSchema = z.object({
+  experimentId: z.string(),
+  name: z.string(),
+  contacted: z.number().int(),
+  conversations: z.number().int(),
+  proposals: z.number().int(),
+  /** Conversations over contacted. Undefined when nobody was contacted — not zero. */
+  conversationRate: z.number().optional(),
+  proposalRate: z.number().optional(),
+});
+
+/**
+ * The Friday review. Numbers only, all counted — Hermes may read them, it
+ * never produces them.
+ */
+export const WeeklyReviewSchema = z.object({
+  week: WeekProgressSchema,
+  /** Leads created in the last four weeks, by source. Four weeks, because one week of leads is too few to compare. */
+  sources: z.array(SourceResultSchema),
+  /** The source with the best conversation rate, from at least two leads. */
+  bestSource: ProspectSourceSchema.optional(),
+  experiments: z.array(ExperimentReviewSchema),
+});
+
+/**
+ * A Gmail thread that looks like it belongs to a prospect.
+ *
+ * A suggestion, never an action: it is shown with a question and changes
+ * nothing until a person confirms it.
+ */
+export const MailSuggestionSchema = z.object({
+  threadId: z.string(),
+  prospectId: z.string(),
+  company: z.string(),
+  subject: z.string(),
+  fromName: z.string().optional(),
+  fromEmail: z.string().optional(),
+  messageDate: z.string(),
+  /** How it was matched: the prospect's own address, or their website's domain. */
+  match: z.enum(["email", "domain"]),
+  /** The stage move to offer, when a reply implies one. */
+  moveFrom: ProspectStageSchema.optional(),
+  moveTo: ProspectStageSchema.optional(),
+});
+
+export const LinkedThreadSchema = z.object({
+  threadId: z.string(),
+  subject: z.string(),
+  messageDate: z.string(),
+  fromName: z.string().optional(),
 });
 
 /** Why a prospect cannot have outreach drafted yet. Empty means it can. */
@@ -365,6 +483,14 @@ export const TractionDataSchema = z.object({
   experimentProgress: z.array(ExperimentProgressSchema),
   /** Per prospect: what is missing before outreach may be drafted. */
   outreachGaps: z.record(z.string(), z.array(OutreachGapSchema)),
+
+  /** Open Waiting On items, soonest chase first. Resolved ones are not sent. */
+  waiting: z.array(WaitingOnSchema),
+  /** Gmail threads that look like prospects' — awaiting a person's yes or no. */
+  mailSuggestions: z.array(MailSuggestionSchema),
+  /** Per prospect: the Gmail threads confirmed as theirs. */
+  mailThreads: z.record(z.string(), z.array(LinkedThreadSchema)),
+  reviews: z.object({ thisWeek: WeeklyReviewSchema, lastWeek: WeeklyReviewSchema }),
 });
 
 export const QueueActionSchema = z.object({
@@ -399,6 +525,15 @@ export type Pipeline = z.infer<typeof PipelineSchema>;
 export type WeekProgress = z.infer<typeof WeekProgressSchema>;
 export type ExperimentProgress = z.infer<typeof ExperimentProgressSchema>;
 export type OutreachGap = z.infer<typeof OutreachGapSchema>;
+export type WaitingOn = z.infer<typeof WaitingOnSchema>;
+export type WaitingOnInput = z.infer<typeof WaitingOnInputSchema>;
+export type MailLink = z.infer<typeof MailLinkSchema>;
+export type ConfirmMailLink = z.infer<typeof ConfirmMailLinkSchema>;
+export type MailSuggestion = z.infer<typeof MailSuggestionSchema>;
+export type LinkedThread = z.infer<typeof LinkedThreadSchema>;
+export type SourceResult = z.infer<typeof SourceResultSchema>;
+export type ExperimentReview = z.infer<typeof ExperimentReviewSchema>;
+export type WeeklyReview = z.infer<typeof WeeklyReviewSchema>;
 export type TractionData = z.infer<typeof TractionDataSchema>;
 export type QueueAction = z.infer<typeof QueueActionSchema>;
 

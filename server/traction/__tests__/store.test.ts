@@ -8,6 +8,7 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-traction-"));
 process.env.AGENTOS_UI_DIR = directory;
 
 const store = await import("../store");
+const mailStore = await import("../../mail/store");
 const { getTraction } = await import("../traction");
 const { ProspectInputSchema, ProspectPatchSchema, WebsiteSchema } = await import("../../../shared/traction-types");
 
@@ -74,8 +75,8 @@ describe("traction store", () => {
     const before = await getTraction();
     assert.equal(before.queue[0].id, `contact:${created.id}`);
 
-    const done = await store.completeQueueItem(`contact:${created.id}`);
-    assert.equal(done.stage, "contacted");
+    const { prospect: done } = await store.completeQueueItem(`contact:${created.id}`);
+    assert.equal(done?.stage, "contacted");
 
     const afterwards = await getTraction();
     assert.equal(afterwards.queue.length, 0);
@@ -84,11 +85,11 @@ describe("traction store", () => {
 
   it("counts a completed due action as a follow-up past target, and clears it", async () => {
     const created = await store.createProspect(input("Vaja", { stage: "proposal", nextAction: "Follow up on quote", nextActionDate: "2020-01-01" }));
-    const done = await store.completeQueueItem(`due:${created.id}`);
+    const { prospect: done } = await store.completeQueueItem(`due:${created.id}`);
 
-    assert.equal(done.stage, "proposal");
-    assert.equal(done.nextAction, undefined);
-    assert.equal(done.nextActionDate, undefined);
+    assert.equal(done?.stage, "proposal");
+    assert.equal(done?.nextAction, undefined);
+    assert.equal(done?.nextActionDate, undefined);
     assert.equal((await getTraction()).week.followUps, 1);
   });
 
@@ -118,6 +119,62 @@ describe("traction store", () => {
     const [prospect] = (await store.readState()).prospects;
     assert.equal(prospect.id, created.id);
     assert.equal(prospect.offerId, undefined);
+  });
+});
+
+describe("waiting on", () => {
+  it("chases, reschedules, and resolves — counting the chase as done today", async () => {
+    const created = await store.createProspect(input("Story Keeper", { stage: "won" }));
+    const item = await store.createWaiting({ who: "Story Keeper", what: "Deposit", since: "2020-01-01", prospectId: created.id });
+
+    const before = await getTraction();
+    assert.ok(before.queue.some((entry) => entry.id === `waiting:${item.id}`));
+
+    const { waiting } = await store.completeQueueItem(`waiting:${item.id}`, before.today);
+    assert.ok(waiting?.nextFollowUp && waiting.nextFollowUp > before.today);
+
+    const after = await getTraction();
+    assert.equal(after.queue.some((entry) => entry.id === `waiting:${item.id}`), false);
+    assert.equal(after.doneToday, 1);
+    assert.equal(after.week.followUps, 1);
+
+    await store.resolveWaiting(item.id);
+    assert.equal((await getTraction()).waiting.length, 0);
+  });
+
+  it("refuses a link to a prospect that does not exist", async () => {
+    await assert.rejects(
+      store.createWaiting({ who: "X", what: "Y", since: "2026-09-01", prospectId: "pr_missing123" }),
+      store.TractionNotFoundError,
+    );
+  });
+});
+
+describe("mail links", () => {
+  it("suggests a reply, and moves the stage only when confirmed", async () => {
+    const created = await store.createProspect(input("XYZ Realty", { stage: "contacted", email: "jane@xyzrealty.co.za" }));
+    mailStore.insertThreadIfNew({
+      threadId: "thread-xyz-1",
+      fromName: "Jane",
+      fromEmail: "jane@xyzrealty.co.za",
+      subject: "Re: your website",
+      snippet: "Sounds interesting",
+      messageDate: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    const [suggestion] = (await getTraction()).mailSuggestions;
+    assert.equal(suggestion.prospectId, created.id);
+    assert.equal(suggestion.moveTo, "conversation");
+    // A suggestion changes nothing on its own.
+    assert.equal((await store.readState()).prospects[0].stage, "contacted");
+
+    const moved = await store.confirmMailLink({ threadId: "thread-xyz-1", prospectId: created.id, moveTo: "conversation" });
+    assert.equal(moved.stage, "conversation");
+
+    const after = await getTraction();
+    assert.equal(after.mailSuggestions.length, 0);
+    assert.equal(after.mailThreads[created.id][0].subject, "Re: your website");
+    assert.equal(after.week.conversations, 1);
   });
 });
 

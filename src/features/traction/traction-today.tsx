@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
+import { chaseDate } from "@shared/traction-dates";
 import { Section } from "@/components/os";
 import { useTraction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { prospectHref, queueProgress } from "./traction-model";
+import { formatShortDate, queueItemHref, queueProgress } from "./traction-model";
 
 /** How many queue items Today shows before pointing at Traction. */
 const TODAY_LIMIT = 3;
@@ -67,7 +68,7 @@ export function TractionToday({ className }: { className?: string }) {
             <li key={item.id} className="flex min-w-0 items-baseline gap-3">
               <span className="size-1.5 shrink-0 translate-y-[-0.15em] rounded-full border border-os-amber" aria-hidden="true" />
               <Link
-                to={prospectHref(item.prospectId)}
+                to={queueItemHref(item)}
                 className="os-focus-ring min-w-0 rounded-sm text-[16px] leading-7 text-os-muted transition-colors duration-150 hover:text-foreground"
               >
                 {item.title}
@@ -80,6 +81,35 @@ export function TractionToday({ className }: { className?: string }) {
           ) : null}
         </ul>
       )}
+
+      {data.mailSuggestions.length > 0 ? (
+        <p className="mt-4 text-[15px] leading-6">
+          <Link to="/traction" className="os-focus-ring rounded-sm text-os-warning underline-offset-4 hover:underline">
+            {data.mailSuggestions.length} {data.mailSuggestions.length === 1 ? "prospect reply" : "prospect replies"} to confirm
+          </Link>
+        </p>
+      ) : null}
+
+      {/* What others owe — clients as much as prospects. Chases already due are
+          in the queue above; this is the rest of the list, so nothing owed is
+          only in your head. */}
+      {data.waiting.length > 0 ? (
+        <div className="mt-5">
+          <p className="os-meta text-os-subtle">Waiting on</p>
+          <ul className="mt-2 space-y-1.5">
+            {data.waiting.slice(0, 4).map((item) => (
+              <li key={item.id} className="flex min-w-0 items-baseline gap-3 text-[15px] leading-6 text-os-muted">
+                <span className="min-w-0 truncate">
+                  {item.who} <span className="text-os-subtle">·</span> {item.what}
+                </span>
+                <span className="os-meta shrink-0 text-os-subtle">
+                  {chaseDate(item) <= data.today ? "chase today" : `chase ${formatShortDate(chaseDate(item))}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {data.attention.length > 0 ? (
         <ul className={cn("space-y-1", shown.length > 0 || data.prospects.length > 0 ? "mt-4" : "")}>

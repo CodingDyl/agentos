@@ -4,12 +4,15 @@ import { AppShell } from "@/components/os";
 import { PaperButton, PaperStage, PaperTabs } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useTraction } from "@/lib/agentos/traction";
+import { TractionClientsTab } from "./traction-clients-tab";
 import { TractionExperimentsTab } from "./traction-experiments-tab";
 import { isTractionTab, TRACTION_TABS, type TractionTab } from "./traction-model";
 import { TractionOffersTab } from "./traction-offers-tab";
 import { TractionOverviewTab } from "./traction-overview-tab";
 import { TractionPipelineTab } from "./traction-pipeline-tab";
 import { TractionProspectsTab } from "./traction-prospects-tab";
+import { TractionReviewTab } from "./traction-review-tab";
+import { TractionWaitingTab } from "./traction-waiting-tab";
 
 /**
  * Traction — the customer-acquisition operating system.
@@ -119,8 +122,11 @@ function Traction({
         {tab === "overview" ? <TractionOverviewTab data={data} onTab={onTab} /> : null}
         {tab === "prospects" ? <TractionProspectsTab data={data} selectedId={prospectId} onSelect={onProspect} /> : null}
         {tab === "pipeline" ? <TractionPipelineTab data={data} onOpen={(id) => onProspect(id)} /> : null}
+        {tab === "waiting" ? <TractionWaitingTab data={data} /> : null}
+        {tab === "clients" ? <TractionClientsTab data={data} /> : null}
         {tab === "offers" ? <TractionOffersTab data={data} /> : null}
         {tab === "experiments" ? <TractionExperimentsTab data={data} /> : null}
+        {tab === "review" ? <TractionReviewTab data={data} /> : null}
       </div>
     </div>
   );

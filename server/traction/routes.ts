@@ -1,29 +1,41 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
 import {
+  ConfirmMailLinkSchema,
+  DismissMailSuggestionSchema,
   ExperimentInputSchema,
   IcpInputSchema,
   OfferInputSchema,
   ProspectInputSchema,
   ProspectPatchSchema,
   QueueActionSchema,
+  ThreadIdSchema,
+  WaitingOnInputSchema,
   WeeklyTargetsSchema,
 } from "../../shared/traction-types";
+import { readThreadSummary } from "../mail/store";
 import { isoDate } from "./engine";
 import {
   completeQueueItem,
+  confirmMailLink,
   createExperiment,
   createOffer,
   createProspect,
+  createWaiting,
   deleteExperiment,
   deleteOffer,
   deleteProspect,
+  deleteWaiting,
+  dismissMailSuggestion,
   replaceExperiment,
   replaceOffer,
+  replaceWaiting,
+  resolveWaiting,
   saveIcp,
   saveTargets,
   snoozeQueueItem,
   TractionNotFoundError,
+  unlinkMailThread,
   updateProspect,
 } from "./store";
 import { getTraction } from "./traction";
@@ -108,7 +120,7 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
 
   try {
     if (action.action === "done") {
-      response.json({ prospect: await completeQueueItem(request.params.itemId) });
+      response.json(await completeQueueItem(request.params.itemId));
     } else {
       await snoozeQueueItem(request.params.itemId, isoDate(new Date()), action.days);
       response.json({ ok: true });
@@ -199,5 +211,92 @@ tractionRouter.delete("/experiments/:id", async (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "remove the experiment");
+  }
+});
+
+tractionRouter.post("/waiting", async (request, response) => {
+  const input = parse(WaitingOnInputSchema, request.body, response, "waiting item");
+  if (!input) return;
+
+  try {
+    response.status(201).json({ waiting: await createWaiting(input) });
+  } catch (error) {
+    fail(response, error, "add the waiting item");
+  }
+});
+
+tractionRouter.put("/waiting/:id", async (request, response) => {
+  const input = parse(WaitingOnInputSchema, request.body, response, "waiting item");
+  if (!input) return;
+
+  try {
+    response.json({ waiting: await replaceWaiting(request.params.id, input) });
+  } catch (error) {
+    fail(response, error, "update the waiting item");
+  }
+});
+
+/** It landed. */
+tractionRouter.post("/waiting/:id/resolve", async (request, response) => {
+  try {
+    response.json({ waiting: await resolveWaiting(request.params.id) });
+  } catch (error) {
+    fail(response, error, "resolve the waiting item");
+  }
+});
+
+tractionRouter.delete("/waiting/:id", async (request, response) => {
+  try {
+    await deleteWaiting(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "remove the waiting item");
+  }
+});
+
+/**
+ * Confirms that a Gmail thread belongs to a prospect, and optionally the stage
+ * move that goes with it. The thread must be one the Inbox has actually
+ * cached — an id the adapter has never seen is refused rather than stored.
+ */
+tractionRouter.post("/mail-links", async (request, response) => {
+  const input = parse(ConfirmMailLinkSchema, request.body, response, "mail link");
+  if (!input) return;
+
+  try {
+    if (!readThreadSummary(input.threadId)) {
+      response.status(404).json({ error: "No such thread in the Inbox" });
+      return;
+    }
+    response.json({ prospect: await confirmMailLink(input) });
+  } catch (error) {
+    fail(response, error, "link the thread");
+  }
+});
+
+tractionRouter.post("/mail-links/dismiss", async (request, response) => {
+  const input = parse(DismissMailSuggestionSchema, request.body, response, "dismissal");
+  if (!input) return;
+
+  try {
+    await dismissMailSuggestion(input.threadId);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "dismiss the suggestion");
+  }
+});
+
+tractionRouter.delete("/mail-links/:threadId", async (request, response) => {
+  const threadId = ThreadIdSchema.safeParse(request.params.threadId);
+  if (!threadId.success) {
+    response.status(400).json({ error: "Invalid thread id" });
+    return;
+  }
+
+  try {
+    await unlinkMailThread(threadId.data);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "unlink the thread");
   }
 });

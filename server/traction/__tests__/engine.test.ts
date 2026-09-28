@@ -1,17 +1,22 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { Prospect, TractionEvent } from "../../../shared/traction-types";
+import type { MailThread } from "../../../shared/mail-types";
+import type { Prospect, TractionEvent, WaitingOn } from "../../../shared/traction-types";
 import {
   addDays,
   buildAttention,
   buildExperimentProgress,
   buildPipeline,
   buildQueue,
+  buildReview,
   buildWeek,
+  chasesDue,
   countDoneToday,
   daysBetween,
   DAILY_NEW_CONTACTS,
+  linkedThreads,
   outreachGaps,
+  suggestMailLinks,
   weekStart,
 } from "../engine";
 
@@ -184,6 +189,8 @@ describe("buildWeek", () => {
       conversations: 1,
       proposals: 1,
       won: 0,
+      lost: 0,
+      referralsAsked: 0,
     });
   });
 
@@ -243,5 +250,113 @@ describe("outreachGaps", () => {
   it("treats a removed offer as no offer", () => {
     const stale = prospect({ offerId: "of_gone", website: "https://example.com", observation: "x" });
     assert.deepEqual(outreachGaps(stale, icp, [offer]), ["offer"]);
+  });
+});
+
+function waiting(overrides: Partial<WaitingOn> = {}): WaitingOn {
+  counter += 1;
+  return {
+    id: `wo_test${String(counter).padStart(4, "0")}`,
+    who: "Story Keeper",
+    what: "Deposit",
+    since: addDays(TODAY, -6),
+    createdAt: daysAgo(6),
+    updatedAt: daysAgo(6),
+    ...overrides,
+  };
+}
+
+describe("waiting on", () => {
+  it("chases after the default wait, or on the chosen date", () => {
+    const old = waiting();
+    const fresh = waiting({ since: addDays(TODAY, -1) });
+    const scheduled = waiting({ since: addDays(TODAY, -1), nextFollowUp: TODAY });
+    const resolved = waiting({ resolvedAt: daysAgo(1) });
+
+    assert.deepEqual(
+      chasesDue([old, fresh, scheduled, resolved], TODAY).map((item) => item.id),
+      [old.id, scheduled.id],
+    );
+  });
+
+  it("puts a due chase in the queue and lets it claim its prospect", () => {
+    const quiet = prospect({ stage: "proposal", lastTouchAt: daysAgo(9) });
+    const owed = waiting({ prospectId: quiet.id, what: "Reply to proposal" });
+    const queue = buildQueue([quiet], [], TODAY, [owed]);
+
+    assert.equal(queue.length, 1);
+    assert.equal(queue[0].id, `waiting:${owed.id}`);
+    assert.equal(queue[0].title, "Chase Story Keeper — Reply to proposal");
+    assert.equal(queue[0].waitingId, owed.id);
+  });
+
+  it("queues a chase with no prospect at all", () => {
+    const [item] = buildQueue([], [], TODAY, [waiting()]);
+    assert.equal(item.kind, "waiting");
+    assert.equal(item.prospectId, undefined);
+  });
+});
+
+function thread(overrides: Partial<MailThread>): MailThread {
+  return { threadId: "t1", subject: "Re: your website", snippet: "", messageDate: daysAgo(0), classified: false, ...overrides };
+}
+
+describe("suggestMailLinks", () => {
+  const xyz = prospect({ company: "XYZ Realty", stage: "contacted", email: "jane@xyzrealty.co.za", website: "https://www.xyzrealty.co.za", stageChangedAt: daysAgo(5) });
+
+  it("matches on the prospect's address and offers contacted → conversation", () => {
+    const [suggestion] = suggestMailLinks([thread({ fromEmail: "Jane@XYZRealty.co.za" })], [xyz], [], []);
+    assert.equal(suggestion.match, "email");
+    assert.equal(suggestion.moveFrom, "contacted");
+    assert.equal(suggestion.moveTo, "conversation");
+  });
+
+  it("matches a colleague on the website's domain", () => {
+    const [suggestion] = suggestMailLinks([thread({ fromEmail: "sam@xyzrealty.co.za" })], [xyz], [], []);
+    assert.equal(suggestion.match, "domain");
+  });
+
+  it("never matches on a free-mail domain", () => {
+    const gmailer = prospect({ website: "https://gmail.com" });
+    assert.deepEqual(suggestMailLinks([thread({ fromEmail: "someone@gmail.com" })], [gmailer], [], []), []);
+  });
+
+  it("does not offer a stage move for a thread older than the current stage", () => {
+    const [suggestion] = suggestMailLinks([thread({ fromEmail: "jane@xyzrealty.co.za", messageDate: daysAgo(9) })], [xyz], [], []);
+    assert.equal(suggestion.moveTo, undefined);
+  });
+
+  it("does not suggest a linked or dismissed thread again", () => {
+    const threads = [thread({ threadId: "a", fromEmail: "jane@xyzrealty.co.za" }), thread({ threadId: "b", fromEmail: "jane@xyzrealty.co.za" })];
+    const result = suggestMailLinks(threads, [xyz], [{ threadId: "a", prospectId: xyz.id, linkedAt: "" }], ["b"]);
+    assert.deepEqual(result, []);
+  });
+
+  it("lists linked threads per prospect, surviving removal from the cache", () => {
+    const links = linkedThreads([{ threadId: "gone", prospectId: xyz.id, linkedAt: daysAgo(1) }], []);
+    assert.equal(links[xyz.id][0].subject, "Thread no longer in the Inbox cache");
+  });
+});
+
+describe("buildReview", () => {
+  it("names the best source from at least two leads, and leaves rates undefined when nobody was contacted", () => {
+    const review = buildReview(
+      [],
+      [
+        prospect({ source: "referral", stage: "proposal" }),
+        prospect({ source: "referral", stage: "contacted" }),
+        prospect({ source: "outbound", stage: "conversation" }),
+        prospect({ source: "outbound", stage: "contacted" }),
+        prospect({ source: "outbound", stage: "contacted" }),
+        prospect({ source: "linkedin", stage: "won" }),
+        prospect({ experimentId: "ex_1" }),
+      ],
+      [{ id: "ex_1", name: "Cold email", channel: "cold_email", hypothesis: "h", status: "running", createdAt: "", updatedAt: "" }],
+      TODAY,
+    );
+
+    assert.equal(review.bestSource, "referral");
+    assert.equal(review.experiments[0].conversationRate, undefined);
+    assert.equal(review.week.weekOf, TODAY);
   });
 });

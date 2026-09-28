@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TractionDataSchema,
+  type ConfirmMailLink,
   type ExperimentInput,
   type IcpInput,
   type OfferInput,
@@ -8,6 +9,7 @@ import {
   type ProspectPatch,
   type QueueAction,
   type TractionData,
+  type WaitingOnInput,
   type WeeklyTargets,
 } from "@shared/traction-types";
 import { AgentOSRequestError } from "./client";
@@ -123,3 +125,26 @@ export const useSaveExperiment = () =>
 
 export const useDeleteExperiment = () =>
   useTractionMutation((experimentId: string) => request(`/api/traction/experiments/${id(experimentId)}`, { method: "DELETE" }));
+
+export const useSaveWaiting = () =>
+  useTractionMutation(({ waitingId, input }: { waitingId?: string; input: WaitingOnInput }) =>
+    waitingId
+      ? request(`/api/traction/waiting/${id(waitingId)}`, json("PUT", input))
+      : request("/api/traction/waiting", json("POST", input)),
+  );
+
+export const useResolveWaiting = () =>
+  useTractionMutation((waitingId: string) => request(`/api/traction/waiting/${id(waitingId)}/resolve`, { method: "POST" }));
+
+export const useDeleteWaiting = () =>
+  useTractionMutation((waitingId: string) => request(`/api/traction/waiting/${id(waitingId)}`, { method: "DELETE" }));
+
+/** Confirms a thread belongs to a prospect — and, only if asked, the stage move with it. */
+export const useConfirmMailLink = () =>
+  useTractionMutation((input: ConfirmMailLink) => request("/api/traction/mail-links", json("POST", input)));
+
+export const useDismissMailSuggestion = () =>
+  useTractionMutation((threadId: string) => request("/api/traction/mail-links/dismiss", json("POST", { threadId })));
+
+export const useUnlinkMailThread = () =>
+  useTractionMutation((threadId: string) => request(`/api/traction/mail-links/${id(threadId)}`, { method: "DELETE" }));
