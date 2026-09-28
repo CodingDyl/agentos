@@ -71,6 +71,10 @@ happens only when you send a message or run a command.
 | `server/traction/store.ts` | Prospects, ICP, offers, experiments — the local CRM, outside the vault |
 | `server/traction/engine.ts` | The daily queue, warnings and weekly figures — deterministic, no model |
 | `server/traction/crm-provider.ts` | `CrmProvider`: local today, Virtec later, no UI change |
+| `server/virtec/client.ts` | The only place the Virtec key exists; GET-only, HTTPS, no redirects |
+| `server/virtec/normalise.ts` | Virtec's payloads read tolerantly; only fields a screen uses are kept |
+| `server/virtec/snapshot.ts` | All six Virtec reads, settled independently, cached five minutes |
+| `server/traction/crm.ts` | Virtec in Traction's terms: follow-ups as queue items, leads/clients as prospects |
 | `docs/traction/ROADMAP.md` | What Traction has, what is next, and what is parked |
 | `shared/agentos-types.ts` | The wire contract (zod schemas + derived types) |
 | `src/lib/agentos/` | React client and queries |
@@ -131,6 +135,8 @@ involved. Run them separately with `npm run dev:web` and `npm run dev:data`.
 | `HERMES_MODEL` | `hermes` | Model name sent to Hermes |
 | `HERMES_API_BASE_URL` | `<origin>/api` | Session management base (Hermes serves it separately from `/v1`) |
 | `AGENTOS_UI_DIR` | `~/.agentos-ui` | Where project → session mappings live |
+| `VIRTEC_BASE_URL` | — | Virtec deployment, `https://` (read-only CRM data for Traction) |
+| `VIRTEC_API_KEY` | — | The value Virtec holds as `AGENTOS_API_KEY`; server-only |
 | `AGENTOS_VISUAL_PREVIEW_COMMAND` | — | How to serve a worktree for visual verification; `{port}` is substituted |
 
 Copy `.env.example` to `.env` and add your key:
@@ -168,7 +174,7 @@ to browse everything, so it reads detail for the whole portfolio.
 | Route | Screen |
 | --- | --- |
 | `/` | Mission Control — what matters, what needs you, what is running, what is broken |
-| `/traction` | Customer acquisition: today's queue, prospects, pipeline, waiting on, clients & referrals, offers, experiments, weekly review |
+| `/traction` | Customer acquisition: today's queue, prospects, pipeline, waiting on, clients & referrals, Virtec, offers, experiments, weekly review |
 | `/projects` | Portfolio, grouped by state |
 | `/projects/:slug` | Project workspace (Overview, Tasks, Decisions, Sessions, Git) |
 | `/agent` | Hermes operator console |
@@ -235,6 +241,8 @@ to browse everything, so it reads detail for the whole portfolio.
 | `/api/traction/icp` · `/targets` | The active ICP and the weekly commitment (PUT) |
 | `/api/traction/offers` · `/experiments` | Adds (POST); `/:id` replaces (PUT) or removes (DELETE) |
 | `/api/traction/waiting` | Adds a Waiting On item (POST); `/:id` replaces (PUT) or removes (DELETE); `/:id/resolve` (POST) |
+| `/api/traction/crm/refresh` | Reads Virtec again now, past the cache (POST) |
+| `/api/traction/crm/import` | Imports one Virtec lead or client as a prospect, by id (POST); 409 if already imported |
 | `/api/traction/mail-links` | Confirms a Gmail thread belongs to a prospect, with an optional confirmed stage move (POST); `/dismiss` (POST); `/:threadId` unlinks (DELETE) |
 | `/api/activity` | The unified timeline; `?source=`, `?project=`, `?limit=` |
 | `/api/activity` | Records an outcome only the browser witnessed (POST) |

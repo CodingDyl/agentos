@@ -1,4 +1,14 @@
 import { z } from "zod";
+import {
+  VirtecClientSchema,
+  VirtecFollowUpSchema,
+  VirtecLeadSchema,
+  VirtecProjectSchema,
+  VirtecQuoteSchema,
+  VirtecRevenueSchema,
+  VirtecSourceSchema,
+  VirtecSourceStatusSchema,
+} from "./virtec-types";
 
 /**
  * Traction — the customer-acquisition record.
@@ -276,6 +286,8 @@ export const TractionEventSchema = z.object({
   /** Absent only for a chase of a Waiting On item with no prospect. */
   prospectId: z.string().optional(),
   waitingId: z.string().optional(),
+  /** A Virtec follow-up handled from the queue. */
+  crmFollowUpId: z.string().optional(),
   kind: TractionEventKindSchema,
   from: ProspectStageSchema.optional(),
   to: ProspectStageSchema.optional(),
@@ -341,7 +353,7 @@ export const DismissMailSuggestionSchema = z.object({ threadId: ThreadIdSchema }
 
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["due", "follow_up", "waiting", "referral", "contact"]);
+export const QueueItemKindSchema = z.enum(["due", "follow_up", "waiting", "crm", "referral", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({
@@ -351,6 +363,8 @@ export const QueueItemSchema = z.object({
   /** The prospect it is about. Absent only for a Waiting On item with no prospect. */
   prospectId: z.string().optional(),
   waitingId: z.string().optional(),
+  /** A Virtec follow-up, when the item came from the CRM. */
+  crmFollowUpId: z.string().optional(),
   title: z.string(),
   /** The one or two plain facts that make it worth doing today. */
   detail: z.array(z.string()),
@@ -361,6 +375,8 @@ export const AttentionKindSchema = z.enum([
   "stale_proposals",
   "uncontacted_referrals",
   "stalled_conversations",
+  "crm_overdue_invoices",
+  "crm_stale_quotes",
 ]);
 
 export const TractionAttentionSchema = z.object({
@@ -459,6 +475,37 @@ export const LinkedThreadSchema = z.object({
   fromName: z.string().optional(),
 });
 
+/**
+ * What Traction shows from Virtec. Read live, never stored.
+ *
+ * `pending` means the first read is still in flight — the screen says
+ * "reading Virtec" rather than implying the CRM is empty.
+ */
+export const CrmViewSchema = z.object({
+  configured: z.boolean(),
+  /** Why it is not configured, for the setup note. Never contains a secret. */
+  problem: z.string().optional(),
+  pending: z.boolean().default(false),
+  fetchedAt: z.string().optional(),
+  sources: z.record(VirtecSourceSchema, VirtecSourceStatusSchema).optional(),
+  revenue: VirtecRevenueSchema.optional(),
+  /** Open (or snooze-expired) follow-ups, soonest due first. */
+  followUps: z.array(VirtecFollowUpSchema),
+  /** Pending quotes, oldest first, with the client's name resolved. */
+  quotes: z.array(VirtecQuoteSchema.extend({ clientName: z.string().optional() })),
+  /** Projects not completed, least complete first. */
+  projects: z.array(VirtecProjectSchema),
+  /** Leads not yet imported and still worth a look, best score first. */
+  leads: z.array(VirtecLeadSchema),
+  /** Every client, with the prospect it was imported as, if any. */
+  clients: z.array(VirtecClientSchema.extend({ prospectId: z.string().optional() })),
+});
+
+export const CrmImportSchema = z.object({
+  kind: z.enum(["lead", "client"]),
+  id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
+});
+
 /** Why a prospect cannot have outreach drafted yet. Empty means it can. */
 export const OutreachGapSchema = z.enum(["icp", "offer", "website", "observation"]);
 
@@ -491,6 +538,7 @@ export const TractionDataSchema = z.object({
   /** Per prospect: the Gmail threads confirmed as theirs. */
   mailThreads: z.record(z.string(), z.array(LinkedThreadSchema)),
   reviews: z.object({ thisWeek: WeeklyReviewSchema, lastWeek: WeeklyReviewSchema }),
+  crm: CrmViewSchema,
 });
 
 export const QueueActionSchema = z.object({
@@ -534,6 +582,8 @@ export type LinkedThread = z.infer<typeof LinkedThreadSchema>;
 export type SourceResult = z.infer<typeof SourceResultSchema>;
 export type ExperimentReview = z.infer<typeof ExperimentReviewSchema>;
 export type WeeklyReview = z.infer<typeof WeeklyReviewSchema>;
+export type CrmView = z.infer<typeof CrmViewSchema>;
+export type CrmImport = z.infer<typeof CrmImportSchema>;
 export type TractionData = z.infer<typeof TractionDataSchema>;
 export type QueueAction = z.infer<typeof QueueActionSchema>;
 

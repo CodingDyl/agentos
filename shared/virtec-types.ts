@@ -1,0 +1,168 @@
+import { z } from "zod";
+
+/**
+ * Virtec, as AgentOS sees it.
+ *
+ * Virtec is the CRM behind Virtara: leads, clients, quotes, projects,
+ * follow-ups and money. AgentOS reads it through Virtec's read-only
+ * `/api/agentos/*` surface and never writes to it.
+ *
+ * These are the *normalised* shapes — what the adapter produces after reading
+ * Virtec, not Virtec's raw payload. Two things happen on the way:
+ *
+ * - **Only what a screen uses is kept.** Phone numbers, quote PDF links and
+ *   enrichment internals are dropped at the boundary, so they can never leak
+ *   into a response, a log or a Hermes prompt by accident.
+ * - **Timestamps become ISO strings.** Virtec returns Firestore timestamps
+ *   (`{ _seconds, _nanoseconds }`), and sometimes plain strings or numbers.
+ *   Every shape is read; anything unreadable is dropped rather than guessed.
+ */
+
+export const VirtecLeadSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  websiteUrl: z.string().optional(),
+  ownerEmail: z.string().optional(),
+  address: z.string().optional(),
+  area: z.string().optional(),
+  category: z.string().optional(),
+  track: z.string().optional(),
+  /** `none`, `facebook_only`, `weak`, `ok`, `unknown`. */
+  websiteSignal: z.string().optional(),
+  rating: z.number().optional(),
+  reviewCount: z.number().optional(),
+  /** 0–100, Virtec's own lead score. */
+  score: z.number().optional(),
+  scoreReasons: z.array(z.string()).default([]),
+  /** `new`, `reviewing`, `qualified`, `disqualified`, `converted`. */
+  status: z.string().optional(),
+  /** `none`, `o1`, `o2`, `o3`, `replied`, `stopped`. */
+  outreachStage: z.string().optional(),
+  outreachPitch: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
+export const VirtecClientSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().optional(),
+  companyName: z.string().optional(),
+  totalSpent: z.number().optional(),
+  maintenance: z.boolean().optional(),
+  active: z.boolean().optional(),
+  createdAt: z.string().optional(),
+});
+
+export const VirtecQuoteSchema = z.object({
+  id: z.string(),
+  projectId: z.string().optional(),
+  projectType: z.string().optional(),
+  clientId: z.string().optional(),
+  totalAmount: z.number().optional(),
+  /** `pending`, `accepted`, `rejected`. */
+  status: z.string().optional(),
+  features: z.array(z.string()).default([]),
+  createdAt: z.string().optional(),
+});
+
+export const VirtecProjectSchema = z.object({
+  id: z.string(),
+  projectType: z.string().optional(),
+  clientName: z.string().optional(),
+  clientId: z.string().optional(),
+  amount: z.number().optional(),
+  status: z.string().optional(),
+  /** 0–100. */
+  completion: z.number().optional(),
+  agreementStatus: z.string().optional(),
+  maintenanceFrequency: z.string().optional(),
+  maintenanceAmount: z.number().optional(),
+  serviceSku: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
+export const VirtecFollowUpSchema = z.object({
+  id: z.string(),
+  /** `quote_pending`, `agreement_pending`, `invoice_overdue`, `maintenance_renewal`, `project_stale`. */
+  type: z.string().optional(),
+  /** `open`, `sent`, `dismissed`, `snoozed`. */
+  status: z.string().optional(),
+  customerId: z.string().optional(),
+  customerName: z.string().optional(),
+  companyName: z.string().optional(),
+  customerEmail: z.string().optional(),
+  projectName: z.string().optional(),
+  amount: z.number().optional(),
+  dueAt: z.string().optional(),
+  snoozedUntil: z.string().optional(),
+  reason: z.string().optional(),
+  suggestedSubject: z.string().optional(),
+  suggestedMessage: z.string().optional(),
+  lastSentAt: z.string().optional(),
+});
+
+export const VirtecRevenueSchema = z.object({
+  monthlyRecurringRevenue: z.number().optional(),
+  activeMaintenanceCustomers: z.number().optional(),
+  upcomingInvoicesCount: z.number().optional(),
+  overdueInvoiceCount: z.number().optional(),
+  pendingQuoteValue: z.number().optional(),
+  acceptedQuoteValueThisMonth: z.number().optional(),
+  totalRevenue: z.number().optional(),
+  /** A percentage, 0–100, as Virtec reports it. */
+  quoteConversionRate: z.number().optional(),
+  stalePendingQuoteCount: z.number().optional(),
+});
+
+export const VirtecSourceSchema = z.enum(["leads", "clients", "quotes", "projects", "followUps", "revenue"]);
+
+/** Whether one endpoint answered. A failed source degrades its section, never the whole screen. */
+export const VirtecSourceStatusSchema = z.object({
+  ok: z.boolean(),
+  /** A plain explanation — never the key, never Virtec's raw error body. */
+  error: z.string().optional(),
+  /** Records Virtec returned that could not be read, and were skipped. */
+  skipped: z.number().int().default(0),
+});
+
+export const VirtecSnapshotSchema = z.object({
+  /** False when AgentOS has no Virtec URL or key; nothing was requested. */
+  configured: z.boolean(),
+  fetchedAt: z.string().optional(),
+  sources: z.record(VirtecSourceSchema, VirtecSourceStatusSchema).optional(),
+  leads: z.array(VirtecLeadSchema).default([]),
+  clients: z.array(VirtecClientSchema).default([]),
+  quotes: z.array(VirtecQuoteSchema).default([]),
+  projects: z.array(VirtecProjectSchema).default([]),
+  followUps: z.array(VirtecFollowUpSchema).default([]),
+  revenue: VirtecRevenueSchema.optional(),
+});
+
+export type VirtecLead = z.infer<typeof VirtecLeadSchema>;
+export type VirtecClient = z.infer<typeof VirtecClientSchema>;
+export type VirtecQuote = z.infer<typeof VirtecQuoteSchema>;
+export type VirtecProject = z.infer<typeof VirtecProjectSchema>;
+export type VirtecFollowUp = z.infer<typeof VirtecFollowUpSchema>;
+export type VirtecRevenue = z.infer<typeof VirtecRevenueSchema>;
+export type VirtecSource = z.infer<typeof VirtecSourceSchema>;
+export type VirtecSourceStatus = z.infer<typeof VirtecSourceStatusSchema>;
+export type VirtecSnapshot = z.infer<typeof VirtecSnapshotSchema>;
+
+/** `crmId` prefixes, so a Traction prospect can say which Virtec record it came from. */
+export const VIRTEC_LEAD_PREFIX = "virtec:lead:";
+export const VIRTEC_CLIENT_PREFIX = "virtec:client:";
+
+/**
+ * Rand, the way Virtec's numbers read on screen: `R 25 000`.
+ *
+ * Whole rand, grouped by thin spaces as South African usage has it — with the
+ * locale's non-breaking space replaced by a plain one so the output is the
+ * same on every machine.
+ */
+export function formatRand(amount: number | undefined): string | undefined {
+  if (amount === undefined) return undefined;
+  const grouped = Math.round(Math.abs(amount))
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return `${amount < 0 ? "-" : ""}R ${grouped}`;
+}

@@ -10,12 +10,14 @@ sophisticated the module gets.
 | --- | --- |
 | 1 | Traction page, daily acquisition queue (Done / Snooze / Open / Ask Hermes), prospects, pipeline, ICP, offer library, experiments, weekly targets, outreach guard, `CrmProvider` + local store, Traction on Today |
 | 2 | Waiting On (clients and prospects) with chases in the queue, Gmail reply → prospect suggestions that change nothing until confirmed, Clients & referrals tab, weekly review (deterministic numbers plus Hermes interpretation), linked threads on the prospect, Waiting On and replies on Today |
+| 3 | Read-only Virtec connector: money, follow-ups (in the daily queue), pending quotes, active projects, leads and clients to import. Cached five minutes; each endpoint degrades on its own |
 
 ## Next
 
-1. **Read-only Virtec connector** — `VirtecCrmProvider` behind `CrmProvider`
-   (`server/traction/crm-provider.ts`). Needs: Virtec's API shape, auth
-   method, and which of clients / leads / quotes / follow-ups it exposes.
+1. **Virtec write-back** — once Virtec has write endpoints (its `AGENTOS.md`
+   lists them as phase 2): mark a follow-up sent, move a lead's status. Until
+   then, handling a Virtec follow-up in AgentOS only holds it off the queue
+   for three days.
 2. **Case-study engine** — a completed workspace milestone raises a case-study
    opportunity; Hermes drafts Problem / Solution / Implementation / Result.
 3. **Lead magnets** — Hermes content + Creative visuals + a landing page, with
@@ -26,6 +28,13 @@ sophisticated the module gets.
 ### Local prospect discovery: Google Places API (New) + Jev profiling
 
 Requested by Dylan, to build once the manual loop is running daily.
+
+**Update (phase 3):** Virtec's leads already carry `googlePlaceId`,
+`lat`/`lng`, `rating`, `reviewCount`, `scanRunId`, a 0–100 `score` and
+`scoreReasons` — Virtec appears to run Places scans itself. Before building
+discovery in AgentOS, check whether extending Virtec's scan (new areas, the
+ICP's category) and adding Jev scoring there is the better home; AgentOS
+already imports the results.
 
 **Idea.** Pull candidate businesses near him that match the active ICP (e.g.
 estate agencies in Johannesburg) from the **Places API (New)**, then have

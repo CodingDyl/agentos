@@ -1,6 +1,7 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
 import {
+  CrmImportSchema,
   ConfirmMailLinkSchema,
   DismissMailSuggestionSchema,
   ExperimentInputSchema,
@@ -14,6 +15,9 @@ import {
   WeeklyTargetsSchema,
 } from "../../shared/traction-types";
 import { readThreadSummary } from "../mail/store";
+import { isVirtecConfigured } from "../virtec/client";
+import { getVirtecSnapshot } from "../virtec/snapshot";
+import { clientToProspect, leadToProspect } from "./crm";
 import { isoDate } from "./engine";
 import {
   completeQueueItem,
@@ -34,6 +38,8 @@ import {
   saveIcp,
   saveTargets,
   snoozeQueueItem,
+  importCrmProspect,
+  TractionConflictError,
   TractionNotFoundError,
   unlinkMailThread,
   updateProspect,
@@ -65,6 +71,11 @@ function parse<T>(schema: ZodType<T>, body: unknown, response: Response, what: s
 }
 
 function fail(response: Response, error: unknown, what: string): void {
+  if (error instanceof TractionConflictError) {
+    response.status(409).json({ error: error.message });
+    return;
+  }
+
   if (error instanceof TractionNotFoundError) {
     response.status(404).json({ error: error.message });
     return;
@@ -298,5 +309,52 @@ tractionRouter.delete("/mail-links/:threadId", async (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "unlink the thread");
+  }
+});
+
+/** Reads Virtec again now, instead of waiting out the cache. */
+tractionRouter.post("/crm/refresh", async (_request, response) => {
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+
+  try {
+    const snapshot = await getVirtecSnapshot({ fresh: true });
+    response.json({ fetchedAt: snapshot.fetchedAt, sources: snapshot.sources });
+  } catch (error) {
+    fail(response, error, "refresh Virtec");
+  }
+});
+
+/**
+ * Imports one Virtec lead or client as a prospect.
+ *
+ * The request names the record; its contents come from the adapter's own
+ * Virtec read. An id Virtec did not return is a 404, a second import a 409.
+ */
+tractionRouter.post("/crm/import", async (request, response) => {
+  const input = parse(CrmImportSchema, request.body, response, "import");
+  if (!input) return;
+
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+
+  try {
+    const snapshot = await getVirtecSnapshot();
+    const lead = input.kind === "lead" ? snapshot.leads.find((entry) => entry.id === input.id) : undefined;
+    const client = input.kind === "client" ? snapshot.clients.find((entry) => entry.id === input.id) : undefined;
+    const mapped = lead ? leadToProspect(lead) : client ? clientToProspect(client) : undefined;
+
+    if (!mapped?.crmId) {
+      response.status(404).json({ error: `No such ${input.kind} in Virtec` });
+      return;
+    }
+
+    response.status(201).json({ prospect: await importCrmProspect({ ...mapped, crmId: mapped.crmId }) });
+  } catch (error) {
+    fail(response, error, "import from Virtec");
   }
 });

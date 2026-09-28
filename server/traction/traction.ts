@@ -1,6 +1,10 @@
 import type { MailThread } from "../../shared/mail-types";
 import type { TractionData } from "../../shared/traction-types";
+import type { VirtecSnapshot } from "../../shared/virtec-types";
 import { readMailData } from "../mail/store";
+import { isVirtecConfigured, virtecConfigurationProblem } from "../virtec/client";
+import { getVirtecSnapshot } from "../virtec/snapshot";
+import { buildCrmView, crmAttention, crmQueueItems } from "./crm";
 import { crmProvider } from "./crm-provider";
 import {
   addDays,
@@ -35,6 +39,34 @@ function cachedThreads(): MailThread[] {
   }
 }
 
+/** How long Traction waits for Virtec before answering without it. */
+const VIRTEC_BUDGET_MS = 4_000;
+
+/**
+ * Virtec's snapshot, if it arrives within the budget.
+ *
+ * A slow Virtec must not hold the Traction screen hostage: past the budget the
+ * screen is answered without it (marked pending), and the read carries on in
+ * the background and fills the cache for the next poll.
+ */
+async function virtecWithin(budgetMs: number): Promise<VirtecSnapshot | undefined> {
+  if (!isVirtecConfigured()) return { configured: false, leads: [], clients: [], quotes: [], projects: [], followUps: [] };
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), budgetMs);
+  });
+
+  try {
+    return await Promise.race([getVirtecSnapshot(), timeout]);
+  } catch (error) {
+    console.error("[agentos] traction: Virtec could not be read:", error);
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Everything the Traction screen shows, in one read.
  *
@@ -43,14 +75,21 @@ function cachedThreads(): MailThread[] {
  * independently-timed reads would let a done item sit beside a count that has
  * not noticed.
  *
- * Prospects come through the CRM provider; the ICP, offers, experiments,
- * targets and Waiting On items are AgentOS's own and come from the local store.
+ * Prospects are AgentOS's working set, from the local store. Virtec — money,
+ * quotes, projects, its follow-ups and its leads — is read live alongside and
+ * never copied, except for a lead or client a person chooses to import.
  */
 export async function getTraction(now = new Date()): Promise<TractionData> {
   const today = isoDate(now);
   const provider = crmProvider();
-  const [state, events, prospects] = await Promise.all([readState(), readEvents(), provider.getProspects()]);
+  const [state, events, prospects, virtec] = await Promise.all([
+    readState(),
+    readEvents(),
+    provider.getProspects(),
+    virtecWithin(VIRTEC_BUDGET_MS),
+  ]);
   const threads = cachedThreads();
+  const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem());
   const open = state.waiting.filter((item) => !item.resolvedAt).sort((a, b) => chaseDate(a).localeCompare(chaseDate(b)));
 
   return {
@@ -62,9 +101,9 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today)),
     doneToday: countDoneToday(events, today),
-    attention: buildAttention(prospects, today),
+    attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),
     week: buildWeek(events, today),
     experimentProgress: buildExperimentProgress(state.experiments, prospects),
@@ -76,5 +115,6 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
       thisWeek: buildReview(events, prospects, state.experiments, today),
       lastWeek: buildReview(events, prospects, state.experiments, addDays(today, -7)),
     },
+    crm,
   };
 }

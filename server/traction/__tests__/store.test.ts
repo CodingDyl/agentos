@@ -178,6 +178,32 @@ describe("mail links", () => {
   });
 });
 
+describe("virtec", () => {
+  it("handling a CRM follow-up counts as a follow-up and holds it off the queue", async () => {
+    const today = (await getTraction()).today;
+    await store.completeQueueItem("crm:followup123", today);
+
+    const state = await store.readState();
+    assert.ok(state.snoozes.some((snooze) => snooze.itemId === "crm:followup123" && snooze.until > today));
+    const data = await getTraction();
+    assert.equal(data.week.followUps, 1);
+    assert.equal(data.doneToday, 1);
+  });
+
+  it("imports a CRM record once", async () => {
+    const input = ProspectInputSchema.parse({ company: "Acme", stage: "won", crmId: "virtec:client:c1" });
+    await store.importCrmProspect({ ...input, crmId: "virtec:client:c1" });
+    await assert.rejects(store.importCrmProspect({ ...input, crmId: "virtec:client:c1" }), store.TractionConflictError);
+    assert.equal((await store.readState()).prospects.length, 1);
+  });
+
+  it("reports Virtec as not configured without contacting anything", async () => {
+    const data = await getTraction();
+    assert.equal(data.crm.configured, false);
+    assert.match(data.crm.problem ?? "", /VIRTEC_BASE_URL/);
+  });
+});
+
 describe("website validation", () => {
   it("accepts http(s) and refuses script and data urls", () => {
     assert.equal(WebsiteSchema.safeParse("https://parkview.co.za").success, true);

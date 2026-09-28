@@ -218,21 +218,23 @@ function stageEvents(prospect: Prospect, from: ProspectStage, to: ProspectStage,
 
 // ─── Prospects ─────────────────────────────────────────────────────────────
 
+function newProspect(input: ProspectInput & { stage: ProspectStage }, now: string): Prospect {
+  return ProspectSchema.parse(
+    compact({
+      ...input,
+      id: newId("pr"),
+      stageChangedAt: now,
+      // Anything past target was reached somehow, even if not through here.
+      lastTouchAt: input.stage === "target" ? undefined : now,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  );
+}
+
 export function createProspect(input: ProspectInput & { stage: ProspectStage }): Promise<Prospect> {
   return mutate((state) => {
-    const now = new Date().toISOString();
-    const prospect = ProspectSchema.parse(
-      compact({
-        ...input,
-        id: newId("pr"),
-        stageChangedAt: now,
-        // Anything past target was reached somehow, even if not through here.
-        lastTouchAt: input.stage === "target" ? undefined : now,
-        createdAt: now,
-        updatedAt: now,
-      }),
-    );
-
+    const prospect = newProspect(input, new Date().toISOString());
     state.prospects.push(prospect);
     return { result: prospect, events: [event(prospect.id, "created")] };
   });
@@ -278,18 +280,24 @@ export function deleteProspect(id: string): Promise<void> {
 
 // ─── The daily queue ───────────────────────────────────────────────────────
 
-const QUEUE_ITEM = /^(?:(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64}))$/;
+const QUEUE_ITEM =
+  /^(?:(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128}))$/;
 
 type ParsedQueueItem =
-  | { kind: Exclude<QueueItemKind, "waiting">; prospectId: string }
-  | { kind: "waiting"; waitingId: string };
+  | { kind: Exclude<QueueItemKind, "waiting" | "crm">; prospectId: string }
+  | { kind: "waiting"; waitingId: string }
+  | { kind: "crm"; followUpId: string };
 
 export function parseQueueItemId(itemId: string): ParsedQueueItem | undefined {
   const match = QUEUE_ITEM.exec(itemId);
   if (!match) return undefined;
   if (match[3]) return { kind: "waiting", waitingId: match[3] };
-  return { kind: match[1] as Exclude<QueueItemKind, "waiting">, prospectId: match[2] };
+  if (match[4]) return { kind: "crm", followUpId: match[4] };
+  return { kind: match[1] as Exclude<QueueItemKind, "waiting" | "crm">, prospectId: match[2] };
 }
+
+/** After a Virtec follow-up is handled here, how long before it may reappear if Virtec still has it open. */
+export const CRM_HANDLED_DAYS = 3;
 
 /**
  * Marks a queue item done — which means a person did the thing.
@@ -304,6 +312,9 @@ export function parseQueueItemId(itemId: string): ParsedQueueItem | undefined {
  * - `waiting`   → they were chased; the next chase is set a few days out.
  *                 The item stays open until a person marks it resolved.
  * - `referral`  → the ask is recorded, so it is not asked twice.
+ * - `crm`       → a Virtec follow-up was sent. Virtec cannot be written to,
+ *                 so it is held off the queue for a few days; mark it sent in
+ *                 Virtec and it will not come back.
  *
  * This is the only place the queue changes a stage, and only `target →
  * contacted`, only because the operator said they made contact.
@@ -317,6 +328,12 @@ export function completeQueueItem(itemId: string, today: string = isoDate(new Da
   return mutate<QueueCompletion>((state) => {
     const now = new Date().toISOString();
     state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== itemId);
+
+    if (parsed.kind === "crm") {
+      state.snoozes.push({ itemId, until: addDays(today, CRM_HANDLED_DAYS) });
+      const handled: TractionEvent = { id: newId("ev"), at: now, kind: "followed_up", crmFollowUpId: parsed.followUpId, viaQueue: true };
+      return { result: {}, events: [handled] };
+    }
 
     if (parsed.kind === "waiting") {
       const item = findWaiting(state, parsed.waitingId);
@@ -370,8 +387,9 @@ export function snoozeQueueItem(itemId: string, today: string, days = 1): Promis
   if (!parsed) return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
 
   return mutate((state) => {
+    // A Virtec follow-up is not held here, so there is nothing local to check.
     if (parsed.kind === "waiting") findWaiting(state, parsed.waitingId);
-    else findProspect(state, parsed.prospectId);
+    else if (parsed.kind !== "crm") findProspect(state, parsed.prospectId);
 
     state.snoozes = [
       ...state.snoozes.filter((snooze) => snooze.itemId !== itemId && snooze.until > today),
@@ -563,3 +581,23 @@ export function saveTargets(targets: WeeklyTargets): Promise<WeeklyTargets> {
     return { result: targets };
   });
 }
+
+/**
+ * Imports a Virtec lead or client as a prospect, once.
+ *
+ * The record comes from the adapter's own Virtec read, never from the request,
+ * so a caller can name what to import but cannot supply its contents. The
+ * duplicate check runs inside the write queue, so two quick clicks import once.
+ */
+export function importCrmProspect(input: ProspectInput & { crmId: string }): Promise<Prospect> {
+  return mutate((state) => {
+    if (state.prospects.some((prospect) => prospect.crmId === input.crmId)) {
+      throw new TractionConflictError("Already imported");
+    }
+    const prospect = newProspect({ ...input, stage: input.stage ?? "target" }, new Date().toISOString());
+    state.prospects.push(prospect);
+    return { result: prospect, events: [event(prospect.id, "created")] };
+  });
+}
+
+export class TractionConflictError extends Error {}

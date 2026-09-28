@@ -12,6 +12,7 @@ import {
   type WeeklyReview,
   SOURCE_LABELS,
 } from "@shared/traction-types";
+import { formatRand, type VirtecFollowUp } from "@shared/virtec-types";
 
 /**
  * Traction's presentation rules, as plain functions.
@@ -23,7 +24,7 @@ import {
  * generic spam that burns the brand.
  */
 
-export type TractionTab = "overview" | "prospects" | "pipeline" | "waiting" | "clients" | "offers" | "experiments" | "review";
+export type TractionTab = "overview" | "prospects" | "pipeline" | "waiting" | "clients" | "crm" | "offers" | "experiments" | "review";
 
 export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "overview", label: "Overview" },
@@ -31,6 +32,7 @@ export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "pipeline", label: "Pipeline" },
   { value: "waiting", label: "Waiting on" },
   { value: "clients", label: "Clients & referrals" },
+  { value: "crm", label: "Virtec" },
   { value: "offers", label: "Offers" },
   { value: "experiments", label: "Experiments" },
   { value: "review", label: "Weekly review" },
@@ -57,6 +59,7 @@ export function prospectHref(prospectId: string): string {
 
 /** Where a queue item opens: its prospect, or the Waiting On list. */
 export function queueItemHref(item: QueueItem): string {
+  if (item.kind === "crm") return "/traction?tab=crm";
   return item.prospectId ? prospectHref(item.prospectId) : "/traction?tab=waiting";
 }
 
@@ -254,5 +257,26 @@ export function reviewPrompt(review: WeeklyReview, targets: TractionData["target
         .join("\n")}`,
     "",
     "Give me: what worked, what didn't, and at most three concrete changes for next week — for each experiment, continue, change or stop. Be blunt. Small samples are small; say so rather than over-reading them.",
+  ]);
+}
+
+/**
+ * A Virtec follow-up, handed to Hermes to make personal.
+ *
+ * Virtec already wrote a suggested message; Hermes improves it with what
+ * AgentOS knows, it does not start from nothing — and it does not send.
+ */
+export function crmFollowUpPrompt(followUp: VirtecFollowUp): string {
+  const who = followUp.companyName ?? followUp.customerName ?? "the client";
+  return lines([
+    `Help me follow up with ${who}${followUp.customerName && followUp.companyName ? ` (${followUp.customerName})` : ""}.`,
+    followUp.reason && `Why now: ${followUp.reason}`,
+    followUp.projectName && `Project: ${followUp.projectName}`,
+    followUp.amount !== undefined && `Amount: ${formatRand(followUp.amount)}`,
+    followUp.suggestedSubject && `Virtec's suggested subject: ${followUp.suggestedSubject}`,
+    followUp.suggestedMessage && `Virtec's suggested message:\n${followUp.suggestedMessage}`,
+    "",
+    "Make it shorter, warmer and more specific. Keep it easy to reply to in one line. Under 100 words.",
+    "Rules: draft only — never send anything. Do not invent facts about the project that are not above.",
   ]);
 }

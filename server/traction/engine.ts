@@ -93,6 +93,7 @@ export function buildQueue(
   snoozes: readonly Snooze[],
   today: string,
   waiting: readonly WaitingOn[] = [],
+  crm: readonly (QueueItem & { rank: number; customerId?: string })[] = [],
 ): QueueItem[] {
   const snoozed = new Set(snoozes.filter((snooze) => snooze.until > today).map((snooze) => snooze.itemId));
   const claimed = new Set<string>();
@@ -147,6 +148,21 @@ export function buildQueue(
       detail: [`Waiting ${waited <= 0 ? "since today" : plural(waited, "day")}`, item.workspace ? `Workspace ${item.workspace}` : "No reply yet"],
       rank: 1.5,
     });
+  }
+
+  // 2b. Virtec's own follow-ups due today: invoices, quotes, agreements. It
+  // decided they are due; they join this list so there is one queue, not two.
+  // A client imported from Virtec is claimed so it does not also appear twice.
+  for (const item of crm) {
+    const local = item.customerId ? prospects.find((prospect) => prospect.crmId === `virtec:client:${item.customerId}`) : undefined;
+    if (local) {
+      if (claimed.has(local.id)) continue;
+      claimed.add(local.id);
+    }
+    if (snoozed.has(item.id)) continue;
+    const { customerId, ...rest } = item;
+    void customerId;
+    items.push({ ...rest, prospectId: local?.id });
   }
 
   // 3. Follow-ups: quotes and first messages that went quiet.

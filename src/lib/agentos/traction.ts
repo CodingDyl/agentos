@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TractionDataSchema,
   type ConfirmMailLink,
+  type CrmImport,
   type ExperimentInput,
   type IcpInput,
   type OfferInput,
@@ -148,3 +149,9 @@ export const useDismissMailSuggestion = () =>
 
 export const useUnlinkMailThread = () =>
   useTractionMutation((threadId: string) => request(`/api/traction/mail-links/${id(threadId)}`, { method: "DELETE" }));
+
+/** Reads Virtec again now rather than waiting out the adapter's five-minute cache. */
+export const useRefreshCrm = () => useTractionMutation(() => request("/api/traction/crm/refresh", { method: "POST" }));
+
+/** Imports one Virtec lead or client as a prospect. The adapter supplies the contents; this only names it. */
+export const useImportCrm = () => useTractionMutation((input: CrmImport) => request("/api/traction/crm/import", json("POST", input)));

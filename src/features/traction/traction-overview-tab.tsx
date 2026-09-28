@@ -2,6 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { chaseDate } from "@shared/traction-dates";
 import type { TractionData, WeeklyTargets } from "@shared/traction-types";
+import { formatRand } from "@shared/virtec-types";
 import { CHANNEL_LABELS } from "@shared/traction-types";
 import { Meter, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { useSaveTargets } from "@/lib/agentos/traction";
@@ -47,6 +48,7 @@ export function TractionOverviewTab({ data, onTab }: { data: TractionData; onTab
 
       <div className="min-w-0 space-y-12">
         <ThisWeek data={data} />
+        <MoneySummary data={data} onOpen={() => onTab("crm")} />
         <WaitingSummary data={data} onOpen={() => onTab("waiting")} />
         <PipelineSummary data={data} onOpen={() => onTab("pipeline")} />
         <TractionIcpCard icp={data.icp} />
@@ -287,6 +289,33 @@ function WaitingSummary({ data, onOpen }: { data: TractionData; onOpen: () => vo
           })}
         </ul>
       )}
+    </PaperSection>
+  );
+}
+
+/** Three lines from Virtec — enough to know whether money needs chasing. The rest is one click away. */
+function MoneySummary({ data, onOpen }: { data: TractionData; onOpen: () => void }) {
+  const revenue = data.crm.revenue;
+  if (!data.crm.configured || !revenue) return null;
+
+  const rows = [
+    { label: "Monthly recurring", value: formatRand(revenue.monthlyRecurringRevenue) },
+    { label: "Pending quotes", value: formatRand(revenue.pendingQuoteValue) },
+    { label: "Overdue invoices", value: revenue.overdueInvoiceCount?.toString(), loud: (revenue.overdueInvoiceCount ?? 0) > 0 },
+  ];
+
+  return (
+    <PaperSection label="Money" action={<PaperButton onClick={onOpen}>Virtec</PaperButton>}>
+      <dl className="divide-y divide-paper-stone border-y border-paper-mist">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-baseline justify-between py-2 text-[14px]">
+            <dt className="text-paper-char">{row.label}</dt>
+            <dd className={row.loud ? "font-paper-display font-bold text-paper-flame-deep tabular-nums" : "font-paper-display font-bold text-paper-moss tabular-nums"}>
+              {row.value ?? "—"}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </PaperSection>
   );
 }

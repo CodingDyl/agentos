@@ -3,21 +3,27 @@ import { addDays, FOLLOW_UP_AFTER_DAYS, isoDate, PROPOSAL_FOLLOW_UP_AFTER_DAYS }
 import { readState } from "./store";
 
 /**
- * Where Traction's customer data comes from.
+ * Where Traction's prospects come from.
  *
- * V1 reads the local store. V2 is Virtec:
+ * The working set of prospects — the ones AgentOS records stages, observations
+ * and referral asks against — lives in the local store, because Virtec's API
+ * to AgentOS is read-only and a pipeline nobody can move is not a pipeline.
+ *
+ * Virtec is read alongside rather than behind this interface
+ * (`server/virtec/`, joined in `server/traction/crm.ts`):
  *
  * ```text
- * Virtec CRM  ──►  VirtecCrmProvider  ──►  Traction
+ * Virtec /api/agentos/*  ──►  server/virtec (cached, normalised)  ──►  Traction
+ *                                                   │
+ *                             import one lead/client ▼ (crmId links them)
+ *                                          local prospect store
  * ```
  *
- * The screen reads only this interface, so swapping the provider changes no
- * UI. Reads only: writes stay with whichever system owns the record, and when
- * that is Virtec, AgentOS will propose changes rather than make them.
+ * When Virtec gains write endpoints, a provider that proposes changes to it
+ * can replace the local one here without the screen changing.
  *
- * Nothing here carries credentials. A provider that needs an API key reads it
- * server-side, the way the Hermes client does, and it never reaches a
- * response.
+ * Nothing here carries credentials. The Virtec key is read server-side in
+ * `server/virtec/client.ts` and never reaches a response.
  */
 export interface CrmProvider {
   /** A short name, shown on the screen so it is clear where the pipeline came from. */

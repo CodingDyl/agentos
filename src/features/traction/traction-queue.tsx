@@ -5,7 +5,7 @@ import type { QueueItem, TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import { useQueueAction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { hermesHref, hermesPrompt, queueItemHref, waitingPrompt } from "./traction-model";
+import { crmFollowUpPrompt, hermesHref, hermesPrompt, queueItemHref, waitingPrompt } from "./traction-model";
 
 /**
  * Today's traction: the revenue work, one item at a time.
@@ -22,14 +22,16 @@ const KIND_LABEL: Record<QueueItem["kind"], string> = {
   due: "Due",
   follow_up: "Follow-up",
   waiting: "Waiting on",
+  crm: "Virtec",
   referral: "Referral",
   contact: "New outreach",
 };
 
-const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "muted"> = {
+const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "muted" | "blue"> = {
   due: "flame",
   follow_up: "marigold",
   waiting: "marigold",
+  crm: "blue",
   referral: "green",
   contact: "muted",
 };
@@ -58,7 +60,10 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
         {items.map((item, index) => {
           const prospect = data.prospects.find((entry) => entry.id === item.prospectId);
           const owed = item.waitingId ? data.waiting.find((entry) => entry.id === item.waitingId) : undefined;
-          const ask = owed
+          const crmFollowUp = item.crmFollowUpId ? data.crm.followUps.find((entry) => entry.id === item.crmFollowUpId) : undefined;
+          const ask = crmFollowUp
+            ? { kind: "draft" as const, prompt: crmFollowUpPrompt(crmFollowUp) }
+            : owed
             ? { kind: "draft" as const, prompt: waitingPrompt(owed, data.today, prospect) }
             : prospect
               ? hermesPrompt({ prospect, item, icp: data.icp, offers: data.offers, gaps: data.outreachGaps[prospect.id] ?? [] })
@@ -93,14 +98,14 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <Clock className="size-3.5" aria-hidden="true" />
                   Snooze
                 </PaperButton>
-                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? "item"}`}>
+                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? "item"}`}>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                   Open
                 </QueueLink>
                 {ask ? (
                   <QueueLink
                     to={hermesHref(ask.prompt)}
-                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? "this item"}`}
+                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? "this item"}`}
                     title={ask.kind === "research" ? "Not enough context to draft yet — Hermes will research first" : "Hermes drafts; you review and send"}
                   >
                     <Sparkles className="size-3.5" aria-hidden="true" />
