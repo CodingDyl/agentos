@@ -252,6 +252,8 @@ to browse everything, so it reads detail for the whole portfolio.
 | `/api/traction/case-studies` | Starts one — from an opportunity (`{ fromOpportunity }`) or blank (POST); `/:id` replaces (PUT) or removes (DELETE) |
 | `/api/traction/case-studies/:id/draft` | One Hermes call; fills empty sections only (POST) |
 | `/api/traction/case-studies/:id/testimonial-request` | Puts the testimonial ask on Waiting On (POST) |
+| `/api/traction/case-studies/:id/export.md` | The study as Markdown, image paths matching the ZIP |
+| `/api/traction/case-studies/:id/export.zip` | `case-study.md` and `images/`, ready for the Virtara site |
 | `/api/traction/case-studies/dismiss` | "Not this one" for a finished project (POST) |
 | `/api/traction/mail-links` | Confirms a Gmail thread belongs to a prospect, with an optional confirmed stage move (POST); `/dismiss` (POST); `/:threadId` unlinks (DELETE) |
 | `/api/activity` | The unified timeline; `?source=`, `?project=`, `?limit=` |

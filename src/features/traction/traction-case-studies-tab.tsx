@@ -1,4 +1,4 @@
-import { Check, Copy, MessageSquareQuote, PenLine, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Download, MessageSquareQuote, PenLine, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { CaseStudy, CaseStudyStatus, TractionData } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
@@ -11,7 +11,8 @@ import {
   useStartCaseStudy,
 } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { caseStudyMarkdown, optional, toList } from "./traction-model";
+import { CaseStudyScreenshots } from "./traction-case-study-screenshots";
+import { optional, toList } from "./traction-model";
 
 /**
  * Case studies — evidence, captured while it is fresh.
@@ -139,6 +140,7 @@ type Draft = {
   missing: string;
   publishedUrl: string;
   status: CaseStudyStatus;
+  assetIds: string[];
 };
 
 function toDraft(study: CaseStudy): Draft {
@@ -153,6 +155,7 @@ function toDraft(study: CaseStudy): Draft {
     missing: study.missing.join("\n"),
     publishedUrl: study.publishedUrl ?? "",
     status: study.status,
+    assetIds: [...study.assetIds],
   };
 }
 
@@ -194,6 +197,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
     testimonial: optional(draft.testimonial),
     missing: toList(draft.missing),
     publishedUrl: optional(draft.publishedUrl),
+    assetIds: draft.assetIds,
   });
 
   return (
@@ -237,6 +241,12 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
             <textarea rows={4} maxLength={6000} className={cn(PAPER_INPUT, "w-full py-2 leading-6")} value={draft[section.key]} onChange={set(section.key)} />
           </label>
         ))}
+
+        <CaseStudyScreenshots
+          assetIds={draft.assetIds}
+          workspace={study.workspace}
+          onChange={(assetIds) => setDraft((current) => ({ ...current, assetIds }))}
+        />
 
         <label className="block">
           <FieldLabel>
@@ -286,16 +296,40 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
             {testimonial.isSuccess ? "Added to Waiting on" : "Ask for testimonial"}
           </PaperButton>
           <PaperButton
+            disabled={dirty}
+            title={dirty ? "Save first; the export is made from the saved study" : undefined}
             onClick={() => {
-              void navigator.clipboard?.writeText(caseStudyMarkdown(study)).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              });
+              void fetch(`/api/traction/case-studies/${encodeURIComponent(study.id)}/export.md`)
+                .then((response) => (response.ok ? response.text() : Promise.reject(new Error("Export failed"))))
+                .then((markdown) => navigator.clipboard?.writeText(markdown))
+                .then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                })
+                .catch(() => setCopied(false));
             }}
           >
             <Copy className="size-3.5" aria-hidden="true" />
             {copied ? "Copied" : "Copy Markdown"}
           </PaperButton>
+          {dirty ? (
+            <PaperButton disabled title="Save first; the export is made from the saved study">
+              <Download className="size-3.5" aria-hidden="true" />
+              Download .zip
+            </PaperButton>
+          ) : (
+            <a
+              href={`/api/traction/case-studies/${encodeURIComponent(study.id)}/export.zip`}
+              download
+              className={cn(
+                "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                PAPER_FOCUS,
+              )}
+            >
+              <Download className="size-3.5" aria-hidden="true" />
+              Download .zip
+            </a>
+          )}
           <PaperButton
             className="ml-auto"
             aria-label={`Remove the ${study.title} case study`}

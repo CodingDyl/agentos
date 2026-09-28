@@ -13,12 +13,11 @@ sophisticated the module gets.
 | 3 | Read-only Virtec connector: money, follow-ups (in the daily queue), pending quotes, active projects, leads and clients to import. Cached five minutes; each endpoint degrades on its own |
 | 4 | Case-study engine: finished Virtec projects and completed workspaces become opportunities (and queue items); Hermes drafts empty sections only, marks unmeasured results `[NEEDS DATA]`, never writes the testimonial or mentions prices; a study with gaps cannot be marked ready; testimonial asks go on Waiting On; Markdown export |
 | 5 | Virtec write-back behind a separate write key: Done/Snooze on a Virtec follow-up marks it in Virtec, importing a lead moves it to reviewing, "Not a fit" disqualifies it. Virtec side: two allow-listed PATCH routes, constant-time key checks, audit record in the same transaction, per-instance rate limit |
+| 6 | Screenshots on case studies: up to 12 Creative images per study (picked from the workspace first, or uploaded from the editor), ordered, exported as a ZIP of `case-study.md` plus `images/` with matching paths. Hermes carries a no-em-dash house style on every call, with replies cleaned as a guarantee |
 
 ## Next
 
-1. **Screenshots on case studies** — link Creative assets to a study, so the
-   Markdown export carries its images.
-2. **Lead magnets** — Hermes content + Creative visuals + a landing page, with
+1. **Lead magnets** — Hermes content + Creative visuals + a landing page, with
    an experiment tracking it.
 
 ## Parked — noted, not started

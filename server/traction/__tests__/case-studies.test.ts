@@ -15,6 +15,7 @@ const study: CaseStudy = {
   title: "Vaja — 3D Configurator",
   client: "Vaja",
   status: "draft",
+  assetIds: [],
   missing: [],
   createdAt: "",
   updatedAt: "",

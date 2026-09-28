@@ -23,6 +23,9 @@ import { dismissFollowUp, markFollowUpSent, setLeadStatus, snoozeFollowUp, type 
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import { clientToProspect, leadToProspect } from "./crm";
 import { CaseStudyDraftError, draftCaseStudy } from "./case-study-draft";
+import { caseStudyFiles, exportFilename } from "./case-study-export";
+import { buildZip } from "./zip";
+import { findStoredAsset } from "../designs/library";
 import { currentOpportunities } from "./traction";
 import { isoDate } from "./engine";
 import {
@@ -455,6 +458,16 @@ tractionRouter.put("/case-studies/:id", async (request, response) => {
   if (!input) return;
 
   try {
+    // Only images Creative actually holds, and only stills: an id that names
+    // nothing is refused here rather than exported as a broken link later.
+    for (const assetId of input.assetIds ?? []) {
+      const asset = await findStoredAsset(assetId);
+      if (!asset || asset.mediaType === "video") {
+        response.status(400).json({ error: `No image ${assetId} in Creative` });
+        return;
+      }
+    }
+
     response.json({ caseStudy: await replaceCaseStudy(request.params.id, input) });
   } catch (error) {
     fail(response, error, "save the case study");
@@ -549,4 +562,28 @@ tractionRouter.post("/crm/follow-ups/:id", async (request, response) => {
   const outcome = status === "sent" ? await markFollowUpSent(id.data) : await dismissFollowUp(id.data);
   if (outcome.ok) response.json({ ok: true });
   else response.status(502).json({ error: outcome.error });
+});
+
+/** The study as Markdown, with image paths matching the ZIP export. */
+tractionRouter.get("/case-studies/:id/export.md", async (request, response) => {
+  try {
+    const { markdown } = await caseStudyFiles(await readCaseStudy(request.params.id));
+    response.type("text/markdown; charset=utf-8").send(markdown);
+  } catch (error) {
+    fail(response, error, "export the case study");
+  }
+});
+
+/** `case-study.md` and `images/`, ready to drop into the Virtara site. */
+tractionRouter.get("/case-studies/:id/export.zip", async (request, response) => {
+  try {
+    const study = await readCaseStudy(request.params.id);
+    const { entries, skipped } = await caseStudyFiles(study);
+    response.setHeader("Content-Type", "application/zip");
+    response.setHeader("Content-Disposition", `attachment; filename="${exportFilename(study)}"`);
+    if (skipped > 0) response.setHeader("X-Images-Skipped", String(skipped));
+    response.send(buildZip(entries));
+  } catch (error) {
+    fail(response, error, "export the case study");
+  }
 });

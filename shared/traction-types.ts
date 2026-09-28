@@ -366,6 +366,11 @@ export const CaseStudySourceSchema = z.string().regex(/^(virtec:project:[A-Za-z0
 
 const Section = z.string().trim().max(6000);
 
+/** Enough for a before, an after, and the details that sell it. */
+export const MAX_CASE_STUDY_IMAGES = 12;
+/** Creative asset ids are UUIDs; nothing else is accepted, so an id can never become a path. */
+const AssetIdSchema = z.string().regex(/^[A-Za-z0-9-]{8,64}$/);
+
 export const CaseStudySchema = z.object({
   id: z.string(),
   title: Text(160),
@@ -379,6 +384,8 @@ export const CaseStudySchema = z.object({
   result: Section.optional(),
   /** The client's own words. Never drafted by a model. */
   testimonial: Section.optional(),
+  /** Creative images shown in the study, in order. Ids only; the files stay in Creative. */
+  assetIds: z.array(AssetIdSchema).max(MAX_CASE_STUDY_IMAGES).default([]),
   /** What the draft could not know. Cleared by a person, not by Hermes. */
   missing: z.array(Text(300)).max(20).default([]),
   publishedUrl: WebsiteSchema.optional(),
@@ -400,6 +407,7 @@ export const CaseStudyInputSchema = z.object({
   implementation: Section.optional(),
   result: Section.optional(),
   testimonial: Section.optional(),
+  assetIds: z.array(AssetIdSchema).max(MAX_CASE_STUDY_IMAGES).default([]),
   missing: z.array(Text(300)).max(20).default([]),
   publishedUrl: WebsiteSchema.optional(),
 });

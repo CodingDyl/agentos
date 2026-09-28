@@ -6,7 +6,6 @@ import {
   type OutreachGap,
   type Prospect,
   type ProspectStage,
-  type CaseStudy,
   type QueueItem,
   type TractionData,
   type WaitingOn,
@@ -292,29 +291,4 @@ export function crmFollowUpPrompt(followUp: VirtecFollowUp): string {
     "Make it shorter, warmer and more specific. Keep it easy to reply to in one line. Under 100 words.",
     "Rules: draft only. Never send anything. Do not invent facts about the project that are not above.",
   ]);
-}
-
-/**
- * A case study as Markdown, ready for the Virtara site.
- *
- * Gaps are kept visible rather than stripped: a `[NEEDS DATA]` that survives
- * into a paste is a reminder, one that silently disappears is a claim.
- */
-export function caseStudyMarkdown(study: CaseStudy): string {
-  const section = (heading: string, body: string | undefined) => (body?.trim() ? `## ${heading}\n\n${body.trim()}\n` : undefined);
-  return [
-    `# ${study.title}`,
-    "",
-    `*${study.client}*`,
-    "",
-    section("The problem", study.problem),
-    section("What we built", study.solution),
-    section("How", study.implementation),
-    section("The result", study.result),
-    study.testimonial?.trim() ? `> ${study.testimonial.trim().replace(/\n/g, "\n> ")}\n>\n> ${study.client}\n` : undefined,
-  ]
-    .filter((part) => part !== undefined)
-    .join("\n")
-    .trim()
-    .concat("\n");
 }
