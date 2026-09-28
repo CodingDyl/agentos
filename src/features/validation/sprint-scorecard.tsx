@@ -3,7 +3,8 @@ import type {
   ValidationSprint,
   ValidationTaskView,
 } from "@shared/validation-sprint-types";
-import { Section, SectionLabel } from "@/components/os";
+import { PaperSection } from "@/components/paper";
+import { TodayLabel } from "@/features/mission-control/today-kit";
 import { cn } from "@/lib/utils";
 import {
   costCoverage,
@@ -45,19 +46,19 @@ export function SprintScorecard({ sprint }: { sprint: ValidationSprint }) {
   if (scorecard.tasksAttempted === 0) return null;
 
   return (
-    <Section label="Validation sprint">
+    <PaperSection label="Validation sprint">
       <Figures scorecard={scorecard} />
 
-      <div className="mt-8 border-t border-os-border pt-6">
+      <div className="mt-8 border-t border-paper-stone pt-6">
         <TaskTable tasks={tasks} />
       </div>
 
       {scorecard.frictionByCategory.length > 0 ? (
-        <div className="mt-8 border-t border-os-border pt-6">
+        <div className="mt-8 border-t border-paper-stone pt-6">
           <FrictionTally scorecard={scorecard} />
         </div>
       ) : null}
-    </Section>
+    </PaperSection>
   );
 }
 
@@ -81,17 +82,17 @@ function Figure({
         className={cn(
           "text-[22px] leading-[1.15] tabular-nums",
           unknown
-            ? "text-os-subtle"
+            ? "text-paper-sage"
             : muted
-              ? "text-os-muted"
-              : "text-foreground",
+              ? "text-paper-char"
+              : "text-paper-moss",
         )}
       >
         {value}
       </p>
-      <p className="os-meta mt-2 text-os-subtle">{label}</p>
+      <p className="text-[12.5px] mt-2 text-paper-sage">{label}</p>
       {detail ? (
-        <p className="mt-1.5 text-[13px] leading-5 text-os-subtle">{detail}</p>
+        <p className="mt-1.5 text-[13px] leading-5 text-paper-sage">{detail}</p>
       ) : null}
     </div>
   );
@@ -155,15 +156,15 @@ function Figures({ scorecard }: { scorecard: ValidationScorecard }) {
 
       {scorecard.verdicts.length > 0 ? (
         <div className="min-w-0 sm:col-span-2">
-          <SectionLabel>Easier than doing it manually?</SectionLabel>
+          <TodayLabel>Easier than doing it manually?</TodayLabel>
           <ul className="mt-3 space-y-1.5">
             {scorecard.verdicts.map(({ verdict, count }) => (
               <li
                 key={verdict}
-                className="flex items-baseline justify-between gap-4 text-[14px] leading-5 text-os-muted"
+                className="flex items-baseline justify-between gap-4 text-[14px] leading-5 text-paper-char"
               >
                 <span>{VERDICT_LABELS[verdict]}</span>
-                <span className="tabular-nums text-os-subtle">{count}</span>
+                <span className="tabular-nums text-paper-sage">{count}</span>
               </li>
             ))}
           </ul>
@@ -205,7 +206,7 @@ function TaskTable({ tasks }: { tasks: readonly ValidationTaskView[] }) {
   return (
     <div className="min-w-0 overflow-x-auto">
       <div className="min-w-[42rem]">
-        <div className={cn(COLUMNS, "os-meta pb-3 text-os-subtle")}>
+        <div className={cn(COLUMNS, "text-[12.5px] pb-3 text-paper-sage")}>
           <span>Task</span>
           <span>Worker</span>
           <span className="text-right">Total</span>
@@ -214,18 +215,18 @@ function TaskTable({ tasks }: { tasks: readonly ValidationTaskView[] }) {
           <span className="text-right">Cost</span>
         </div>
 
-        <ul className="border-t border-os-border">
+        <ul className="border-t border-paper-stone">
           {tasks.map((task) => (
             <li
               key={task.taskId}
               className={cn(
                 COLUMNS,
-                "items-baseline border-b border-os-border py-3 text-[14px] leading-5",
+                "items-baseline border-b border-paper-stone py-3 text-[14px] leading-5",
               )}
             >
               <span className="min-w-0">
-                <span className="block truncate text-os-muted">{task.label}</span>
-                <span className="os-meta mt-1 block text-os-subtle">
+                <span className="block truncate text-paper-char">{task.label}</span>
+                <span className="text-[12.5px] mt-1 block text-paper-sage">
                   {OUTCOME_LABELS[task.outcome]}
                   {task.humanInterventions > 0
                     ? ` · ${task.humanInterventions} intervention${task.humanInterventions === 1 ? "" : "s"}`
@@ -235,16 +236,16 @@ function TaskTable({ tasks }: { tasks: readonly ValidationTaskView[] }) {
 
               <WorkerCell task={task} />
 
-              <span className="text-right tabular-nums text-os-muted">
+              <span className="text-right tabular-nums text-paper-char">
                 {formatSpan(task.totalDurationMs)}
               </span>
-              <span className="text-right tabular-nums text-os-subtle">
+              <span className="text-right tabular-nums text-paper-sage">
                 {formatSpan(task.workerDurationMs)}
               </span>
-              <span className="text-right tabular-nums text-os-muted">
+              <span className="text-right tabular-nums text-paper-char">
                 {formatCount(task.revisions)}
               </span>
-              <span className="text-right tabular-nums text-os-subtle">
+              <span className="text-right tabular-nums text-paper-sage">
                 {formatCost(task.costUsd)}
               </span>
             </li>
@@ -264,14 +265,14 @@ function TaskTable({ tasks }: { tasks: readonly ValidationTaskView[] }) {
  */
 function WorkerCell({ task }: { task: ValidationTaskView }) {
   if (!task.worker) {
-    return <span className="os-meta text-os-subtle">{UNKNOWN}</span>;
+    return <span className="text-[12.5px] text-paper-sage">{UNKNOWN}</span>;
   }
 
   return (
     <span className="min-w-0">
-      <span className="os-meta block truncate text-os-muted">{task.worker}</span>
+      <span className="text-[12.5px] block truncate text-paper-char">{task.worker}</span>
       {task.routingOverridden === true ? (
-        <span className="os-meta mt-1 block truncate text-os-warning">
+        <span className="text-[12.5px] mt-1 block truncate text-paper-flame-deep">
           Not {task.recommendedWorker}
         </span>
       ) : null}
@@ -283,20 +284,20 @@ function WorkerCell({ task }: { task: ValidationTaskView }) {
 function FrictionTally({ scorecard }: { scorecard: ValidationScorecard }) {
   return (
     <>
-      <SectionLabel>
+      <TodayLabel>
         {scorecard.frictionReports === 1
           ? "1 friction report"
           : `${scorecard.frictionReports} friction reports`}
-      </SectionLabel>
+      </TodayLabel>
 
       <ul className="mt-3 grid gap-x-10 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
         {scorecard.frictionByCategory.map(({ category, count }) => (
           <li
             key={category}
-            className="flex items-baseline justify-between gap-4 text-[14px] leading-5 text-os-muted"
+            className="flex items-baseline justify-between gap-4 text-[14px] leading-5 text-paper-char"
           >
             <span className="min-w-0 truncate">{FRICTION_LABELS[category]}</span>
-            <span className="shrink-0 tabular-nums text-os-subtle">{count}</span>
+            <span className="shrink-0 tabular-nums text-paper-sage">{count}</span>
           </li>
         ))}
       </ul>

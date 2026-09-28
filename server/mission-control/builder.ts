@@ -20,6 +20,7 @@ import { listJobs } from "../workers/job-store";
 import { describeWorkers } from "../workers/registry";
 import { buildActiveWork } from "./active-work";
 import { buildAttention } from "./attention";
+import { applyDismissals } from "./dismissals";
 import { buildSystemHealth } from "./health";
 
 /**
@@ -234,12 +235,14 @@ export async function getMissionControlData(): Promise<MissionControlData> {
             : {}),
         }
       : undefined,
-    attention: buildAttention({
-      jobs: openJobs,
-      automations: automationList,
-      projects,
-      degraded,
-    }),
+    ...(await applyDismissals(
+      buildAttention({
+        jobs: openJobs,
+        automations: automationList,
+        projects,
+        degraded,
+      }),
+    )),
     activeWork: buildActiveWork(openJobs, events),
     workers: toMissionWorkers(workers.value ?? [], jobsByWorker),
     automations: toMissionAutomations(automationList),

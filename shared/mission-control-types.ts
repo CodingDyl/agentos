@@ -197,11 +197,23 @@ export const MissionSourcesSchema = z.object({
   hermes: SystemStatusSchema,
 });
 
+/** Cards to clear from Needs you: each identified by id and when it became a problem. */
+export const AttentionDismissRequestSchema = z.object({
+  items: z.array(z.object({ id: z.string().min(1), createdAt: z.string().min(1) })).min(1).max(200),
+});
+
+/** Cards to bring back; no ids restores all of them. */
+export const AttentionRestoreRequestSchema = z.object({
+  ids: z.array(z.string().min(1)).max(200).optional(),
+});
+
 export const MissionControlDataSchema = z.object({
   generatedAt: z.string(),
   focus: FocusSummarySchema.optional(),
   /** Ordered worst-first. The order is the answer to "what do I do next?". */
   attention: z.array(AttentionItemSchema).default([]),
+  /** Still-current cards the operator cleared from Needs you — kept so they can be restored. */
+  dismissed: z.array(AttentionItemSchema).default([]),
   activeWork: z.array(ActiveWorkItemSchema).default([]),
   workers: z.array(MissionWorkerSchema).default([]),
   automations: z.array(MissionAutomationSchema).default([]),

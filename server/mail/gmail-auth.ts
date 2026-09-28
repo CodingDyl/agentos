@@ -14,11 +14,15 @@ import { uiStateDir } from "../agentos/session-store";
  * Trash. It cannot permanently delete, and nothing here sends mail. A
  * connection made under the older read-only grant keeps working for reading
  * and reports `canModifyGmail() === false` until the person reconnects.
+ *
+ * The same connection also carries `calendar.readonly`, so Today can show
+ * the day's events. Read-only: AgentOS never creates or changes an event.
  */
 
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
 export class GmailAuthError extends Error {
   constructor(
@@ -95,7 +99,7 @@ export function buildConsentUrl(returnOrigin?: string): string {
     client_id: clientId,
     redirect_uri: redirectUri(),
     response_type: "code",
-    scope: GMAIL_SCOPE,
+    scope: `${GMAIL_SCOPE} ${CALENDAR_SCOPE}`,
     access_type: "offline",
     // Forces Google to hand back a refresh token on every connect, even for
     // an account that has consented before.
@@ -135,10 +139,19 @@ export async function isGmailConnected(): Promise<boolean> {
   return (await readStoredAuth()) !== undefined;
 }
 
-/** Whether the stored grant covers marking read and moving to Trash. */
-export async function canModifyGmail(): Promise<boolean> {
+async function hasGrantedScope(scope: string): Promise<boolean> {
   const stored = await readStoredAuth();
-  return Boolean(stored?.scope?.split(" ").includes(GMAIL_SCOPE));
+  return Boolean(stored?.scope?.split(" ").includes(scope));
+}
+
+/** Whether the stored grant covers marking read and moving to Trash. */
+export function canModifyGmail(): Promise<boolean> {
+  return hasGrantedScope(GMAIL_SCOPE);
+}
+
+/** Whether the stored grant covers reading the calendar. */
+export function canReadCalendar(): Promise<boolean> {
+  return hasGrantedScope(CALENDAR_SCOPE);
 }
 
 export async function disconnectGmail(): Promise<void> {

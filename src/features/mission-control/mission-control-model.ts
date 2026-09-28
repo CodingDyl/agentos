@@ -1,4 +1,5 @@
 import type {
+  AttentionItem,
   AttentionSeverity,
   MissionSources,
   SystemStatus,
@@ -158,4 +159,78 @@ export function degradedSources(sources: MissionSources): string[] {
   return (Object.keys(names) as (keyof MissionSources)[])
     .filter((key) => sources[key] !== "ready" && sources[key] !== "running")
     .map((key) => names[key]);
+}
+
+export type AttentionTagTone = "flame" | "marigold" | "muted";
+
+/**
+ * The paper tag on a Needs you card. Severity picks the tone; the word is the
+ * card's type, except that an interrupted run says so, because "Failed" would
+ * blame a worker for the server going away under it.
+ */
+export function attentionTag(item: Pick<AttentionItem, "type" | "severity" | "description">): {
+  tone: AttentionTagTone;
+  label: string;
+} {
+  const tone: AttentionTagTone =
+    item.severity === "critical" ? "flame" : item.severity === "warning" ? "marigold" : "muted";
+  const interrupted = item.type === "failed" && /^interrupted\b/i.test(item.description ?? "");
+  return { tone, label: interrupted ? "Interrupted" : attentionLabel(item.type) };
+}
+
+/** From 5pm (until 4am) Today leads with the wrap instead of the plan. */
+export function isEvening(now: Date = new Date()): boolean {
+  const hour = now.getHours();
+  return hour >= 17 || hour < 4;
+}
+
+function clock(date: Date): string {
+  return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** `09:00 to 09:30`, or `All day`. */
+export function formatEventTime(event: { start: string; end?: string; allDay: boolean }): string {
+  if (event.allDay) return "All day";
+  const start = new Date(event.start);
+  if (Number.isNaN(start.getTime())) return "";
+  const end = event.end ? new Date(event.end) : undefined;
+  return end && !Number.isNaN(end.getTime()) ? `${clock(start)} to ${clock(end)}` : clock(start);
+}
+
+export type EventTiming = "past" | "now" | "next" | "later";
+
+/**
+ * Where each event sits relative to now: done, happening, the next one, or
+ * later. All-day events are never "past" or "next"; they frame the day.
+ */
+export function eventTimings(
+  events: readonly { id: string; start: string; end?: string; allDay: boolean }[],
+  now: Date = new Date(),
+): Map<string, EventTiming> {
+  const timings = new Map<string, EventTiming>();
+  let nextAssigned = false;
+  for (const event of events) {
+    if (event.allDay) {
+      timings.set(event.id, "later");
+      continue;
+    }
+    const start = Date.parse(event.start);
+    const end = event.end ? Date.parse(event.end) : start;
+    if (end <= now.getTime()) timings.set(event.id, "past");
+    else if (start <= now.getTime()) timings.set(event.id, "now");
+    else if (!nextAssigned) {
+      timings.set(event.id, "next");
+      nextAssigned = true;
+    } else timings.set(event.id, "later");
+  }
+  return timings;
+}
+
+/** When a brief was written: `07:30` today, `Thu 07:41` otherwise. */
+export function formatBriefTime(runAt: string, now: Date = new Date()): string {
+  const date = new Date(runAt);
+  if (Number.isNaN(date.getTime())) return "";
+  const sameDay =
+    date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  return sameDay ? clock(date) : `${date.toLocaleDateString("en-GB", { weekday: "short" })} ${clock(date)}`;
 }

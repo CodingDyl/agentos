@@ -43,12 +43,15 @@ export function PaperStage({ children }: { children: ReactNode }) {
 }
 
 export function PaperSection({
+  id,
   label,
   count,
   action,
   children,
   className,
 }: {
+  /** An anchor, so another part of the page can link straight here. */
+  id?: string;
   label: string;
   count?: number;
   action?: ReactNode;
@@ -56,7 +59,7 @@ export function PaperSection({
   className?: string;
 }) {
   return (
-    <section className={className}>
+    <section id={id} aria-label={label} className={cn(id && "scroll-mt-8", className)}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
           {label}

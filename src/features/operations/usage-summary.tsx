@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Section } from "@/components/os";
+import { PaperSection } from "@/components/paper";
 import { useUsageSummary } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import {
@@ -36,12 +36,12 @@ export function UsageSummary() {
   const note = coverageNote(data.today);
 
   return (
-    <Section
+    <PaperSection
       label="AI usage"
       action={
         <Link
           to="/operations"
-          className="os-focus-ring os-meta inline-flex cursor-pointer items-center gap-2 rounded-md text-os-subtle transition-colors duration-150 hover:text-foreground"
+          className="text-[12.5px] inline-flex cursor-pointer items-center gap-2 rounded-md text-paper-sage transition-colors duration-150 hover:text-paper-moss"
         >
           Operations
           <ArrowRight className="size-3.5" aria-hidden="true" />
@@ -50,27 +50,27 @@ export function UsageSummary() {
     >
       <div className="grid gap-x-12 gap-y-6 sm:grid-cols-3">
         <div className="min-w-0">
-          <p className="os-meta text-os-subtle">Today</p>
+          <p className="text-[12.5px] text-paper-sage">Today</p>
           <p className="mt-2 text-[18px] leading-6">
             <span className={measurementTone(todayCost.measurement)}>
               {todayCost.text}
             </span>
-            <span className="text-os-subtle"> · </span>
+            <span className="text-paper-sage"> · </span>
             <span className={measurementTone(todayTokens.measurement)}>
               {todayTokens.text}
             </span>
           </p>
           {note ? (
-            <p className="mt-1.5 text-[13px] leading-5 text-os-subtle">{note}</p>
+            <p className="mt-1.5 text-[13px] leading-5 text-paper-sage">{note}</p>
           ) : null}
         </div>
 
         <div className="min-w-0">
-          <p className="os-meta text-os-subtle">Month</p>
-          <p className="mt-2 text-[18px] leading-6 text-foreground">
+          <p className="text-[12.5px] text-paper-sage">Month</p>
+          <p className="mt-2 text-[18px] leading-6 text-paper-moss">
             {formatCost(data.month.costUsd)}
             {data.budget ? (
-              <span className="text-os-subtle">
+              <span className="text-paper-sage">
                 {" "}
                 / {formatCost(data.budget.budget.monthlyUsd)}
               </span>
@@ -78,7 +78,7 @@ export function UsageSummary() {
           </p>
 
           {data.budget ? (
-            <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-os-border">
+            <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-paper-stone">
               <div
                 className={cn("h-full", budgetTone(data.budget.state))}
                 style={{
@@ -91,19 +91,19 @@ export function UsageSummary() {
         </div>
 
         <div className="min-w-0">
-          <p className="os-meta text-os-subtle">Highest today</p>
-          <p className="mt-2 text-[18px] leading-6 text-foreground">
+          <p className="text-[12.5px] text-paper-sage">Highest today</p>
+          <p className="mt-2 text-[18px] leading-6 text-paper-moss">
             {data.topAgent
               ? `${data.topAgent.label} · ${formatCost(data.topAgent.costUsd)}`
               : UNKNOWN}
           </p>
           {!data.topAgent ? (
-            <p className="mt-1.5 text-[13px] leading-5 text-os-subtle">
+            <p className="mt-1.5 text-[13px] leading-5 text-paper-sage">
               Nothing today reported a cost
             </p>
           ) : null}
         </div>
       </div>
-    </Section>
+    </PaperSection>
   );
 }

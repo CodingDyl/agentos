@@ -36,6 +36,7 @@ import {
 } from "./client";
 import type { MailBulkAction, MailCorrection } from "@shared/mail-types";
 import type { AutomationControl } from "@shared/agentos-types";
+import type { MissionControlData } from "@shared/mission-control-types";
 import { getAiStack, setAiEnabled, setAiModel } from "./client";
 import {
   createTaskFromSeoFinding,
@@ -135,6 +136,11 @@ import {
   getActivity,
   controlAutomation,
   controlCurator,
+  dismissAttention,
+  restoreAttention,
+  getDayWrap,
+  getMorningBrief,
+  getTodayCalendar,
   getAutomation,
   getAutomationSurfaces,
   getAutomations,
@@ -204,6 +210,9 @@ export const agentosKeys = {
   projectVercel: (slug: string) => [...agentosKeys.all, "project-vercel", slug] as const,
   seo: (slug: string) => [...agentosKeys.all, "seo", slug] as const,
   missionControl: () => [...agentosKeys.all, "mission-control"] as const,
+  todayCalendar: () => [...agentosKeys.all, "today-calendar"] as const,
+  morningBrief: () => [...agentosKeys.all, "morning-brief"] as const,
+  dayWrap: () => [...agentosKeys.all, "day-wrap"] as const,
   projects: () => [...agentosKeys.all, "projects"] as const,
   project: (slug: string) => [...agentosKeys.all, "project", slug] as const,
   automations: () => [...agentosKeys.all, "automations"] as const,
@@ -595,6 +604,93 @@ export function useAutomations() {
     staleTime: 15_000,
     retry: 1,
     networkMode: "always",
+  });
+}
+
+/** Today's calendar. Refreshed every few minutes so "now" and "next" stay true. */
+export function useTodayCalendar() {
+  return useQuery({
+    queryKey: agentosKeys.todayCalendar(),
+    queryFn: getTodayCalendar,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/**
+ * Hermes' morning brief. `watching` polls while a brief run has just been
+ * queued from this page, so the new plan appears when Hermes writes it.
+ */
+export function useMorningBrief(watching = false) {
+  return useQuery({
+    queryKey: agentosKeys.morningBrief(),
+    queryFn: getMorningBrief,
+    staleTime: 60_000,
+    refetchInterval: watching ? 20_000 : false,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** The end-of-day wrap. Only fetched while the wrap is on screen. */
+export function useDayWrap(enabled: boolean) {
+  return useQuery({
+    queryKey: agentosKeys.dayWrap(),
+    queryFn: getDayWrap,
+    enabled,
+    staleTime: 30_000,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/**
+ * Clears cards from Needs you. Optimistic: the cards leave at once and come
+ * back only if the server refuses, so clearing a stack of failures is quick.
+ */
+export function useDismissAttention() {
+  const queryClient = useQueryClient();
+  const key = agentosKeys.missionControl();
+
+  return useMutation({
+    mutationFn: dismissAttention,
+    onMutate: async (items) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<MissionControlData>(key);
+      if (previous) {
+        const cleared = new Set(items.map((item) => `${item.id}@${item.createdAt}`));
+        const leaving = previous.attention.filter((item) => cleared.has(`${item.id}@${item.createdAt}`));
+        queryClient.setQueryData<MissionControlData>(key, {
+          ...previous,
+          attention: previous.attention.filter((item) => !cleared.has(`${item.id}@${item.createdAt}`)),
+          dismissed: [...previous.dismissed, ...leaving],
+        });
+      }
+      return { previous };
+    },
+    onError: (_error, _items, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useRestoreAttention() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids?: string[]) => restoreAttention(ids),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
+    },
+    networkMode: "always",
+    retry: 0,
   });
 }
 

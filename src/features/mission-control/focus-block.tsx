@@ -1,187 +1,144 @@
 import { ArrowRight, FolderPlus, Inbox, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import type { FocusSummary } from "@shared/mission-control-types";
-import { CommandButton, ProgressBar, SectionLabel, StatusPill } from "@/components/os";
-import { describeDays, HEALTH_LABELS, healthPill, healthTone } from "@/features/projects/roadmap-model";
+import { Meter, PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
+import { describeDays, HEALTH_LABELS } from "@/features/projects/roadmap-model";
 import { useQuickCreate } from "@/features/workspace/quick-create-context";
 import { cn } from "@/lib/utils";
+import { TodayLabel } from "./today-kit";
+
+const HEALTH_TAG = { on_track: "green", at_risk: "marigold", blocked: "flame", no_target: "muted" } as const;
+const HEALTH_METER = { on_track: "green", at_risk: "amber", blocked: "flame", no_target: "ink" } as const;
 
 /**
  * What the day is about.
  *
- * The one part of Mission Control that is not derived from machine state. It
- * comes from `CURRENT_FOCUS.md`, which is the operator's own account of their
- * priorities — written by hand, changed deliberately, and emphatically not
- * regenerated on every refresh. A focus that a model rewrote each morning
- * would not be a focus.
+ * The one part of Today that is not derived from machine state. It comes from
+ * `CURRENT_FOCUS.md`, the operator's own account of their priorities: written
+ * by hand, changed deliberately, never regenerated on refresh.
  *
- * It sits at the top because the ranking below it only means anything against
- * it: "what needs me" is a different question when you already know what today
- * is for.
- *
- * It is also the launchpad. Starting work, adding a task, creating a project
- * and capturing a note are the four things a day actually begins with, so they
- * sit here rather than a click away — Mission Control is where you act, not
- * only where you look.
+ * It is also the launchpad. Starting work, adding a task, creating a workspace
+ * and capturing a note are the four things a day begins with, so they sit
+ * here. Start focus is the page's one amber action.
  */
-
-export interface FocusBlockProps {
-  focus: FocusSummary;
-  className?: string;
-}
-
-export function FocusBlock({ focus, className }: FocusBlockProps) {
+export function FocusBlock({ focus, className }: { focus: FocusSummary; className?: string }) {
   const navigate = useNavigate();
   const quickCreate = useQuickCreate();
 
-  // Hands off to the agent console with the project in context. The console
-  // prepares `/work-on`; the operator still chooses to send it. Mission Control
-  // starts no session of its own — there is already a flow that does this.
+  // Hands off to the agent console with the workspace in context; the console
+  // prepares `/work-on` and the operator still chooses to send it.
   const startFocus = () => {
     if (!focus.projectSlug) return;
     navigate(`/agent?project=${encodeURIComponent(focus.projectSlug)}`);
   };
 
-  return (
-    <section aria-label="Primary focus" className={cn("min-w-0", className)}>
-      <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="min-w-0">
-          <SectionLabel>Primary focus</SectionLabel>
+  const milestone = focus.milestone;
+  const days = milestone?.progress.daysToTarget;
 
-          <h2 className="mt-4 max-w-[20ch] text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.05] font-normal tracking-[-0.03em] text-balance">
+  return (
+    <PaperSection label="Primary focus" className={className}>
+      <div className="rounded-[4px] border border-paper-mist px-5 py-5 md:px-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h2 className="font-paper-display text-[24px] leading-[1.15] font-extrabold tracking-[-0.015em] text-balance text-paper-moss">
             {focus.project ?? "No focus set"}
           </h2>
-
-          <p className="mt-4 max-w-[58ch] text-[15px] leading-6 text-os-muted">
-            {focus.outcome}
-          </p>
-
-          {/* The milestone is what makes "start work" mean something: not a
-              project name but what is being shipped, how far along, and how
-              long is left. All of it derived from the roadmap; none of it a
-              model's opinion. */}
-          {focus.milestone ? (
-            <div className="mt-6 max-w-[32rem]">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <Link
-                  to={focus.projectSlug ? `/workspaces/${focus.projectSlug}?tab=roadmap&milestone=${focus.milestone.id}` : "/workspaces"}
-                  className="os-focus-ring -mx-1 cursor-pointer rounded-md px-1 text-[16px] leading-6 text-foreground transition-colors duration-150 hover:text-os-amber"
-                >
-                  {focus.milestone.title}
-                </Link>
-                <span className="os-meta text-os-subtle tabular-nums">
-                  {focus.milestone.progress.completed} / {focus.milestone.progress.total} tasks ·{" "}
-                  {focus.milestone.progress.percent}%
-                </span>
-              </div>
-              <ProgressBar
-                percent={focus.milestone.progress.percent}
-                label={`${focus.milestone.title} progress`}
-                tone={healthTone(focus.health ?? "no_target")}
-                className="mt-2.5"
-              />
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-                {focus.health ? <StatusPill status={healthPill(focus.health)} label={HEALTH_LABELS[focus.health]} /> : null}
-                {focus.milestone.progress.daysToTarget !== undefined ? (
-                  <span className={`os-meta ${focus.milestone.progress.daysToTarget < 0 ? "text-os-warning" : "text-os-subtle"}`}>
-                    Target / {describeDays(focus.milestone.progress.daysToTarget)}
-                  </span>
-                ) : (
-                  <span className="os-meta text-os-subtle">No target date</span>
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <CommandButton
-              variant="primary"
-              icon={ArrowRight}
-              disabled={!focus.projectSlug}
-              onClick={startFocus}
+          {focus.projectSlug ? (
+            <Link
+              to={`/workspaces/${focus.projectSlug}`}
+              className={cn("rounded-[2px] text-[13px] font-medium text-paper-sage hover:text-paper-moss hover:underline", PAPER_FOCUS)}
             >
-              Start focus
-            </CommandButton>
-
-            {/* Quick Create, scoped to the focus project when there is one so a
-                task added from here lands where the day is pointed. */}
-            <CommandButton
-              variant="secondary"
-              icon={Plus}
-              iconPosition="start"
-              onClick={() => quickCreate.open("task", { project: focus.projectSlug ?? undefined })}
-            >
-              Task
-            </CommandButton>
-            <CommandButton
-              variant="secondary"
-              icon={FolderPlus}
-              iconPosition="start"
-              onClick={() => quickCreate.open("project")}
-            >
-              Workspace
-            </CommandButton>
-            <CommandButton
-              variant="secondary"
-              icon={Inbox}
-              iconPosition="start"
-              onClick={() => quickCreate.open("capture", { project: focus.projectSlug ?? undefined })}
-            >
-              Capture
-            </CommandButton>
-
-            {focus.projectSlug ? (
-              <Link
-                to={`/workspaces/${focus.projectSlug}`}
-                className="os-focus-ring os-meta -mx-2 inline-flex min-h-10 cursor-pointer items-center rounded-md px-2 text-os-subtle transition-colors duration-150 hover:text-foreground"
-              >
-                Open workspace
-              </Link>
-            ) : (
-              <span className="os-meta text-os-subtle">
-                No project resolved from the focus file
-              </span>
-            )}
-          </div>
+              Open workspace
+            </Link>
+          ) : (
+            <span className="text-[12.5px] text-paper-sage">No workspace resolved from the focus file</span>
+          )}
         </div>
 
-        <div className="min-w-0 lg:pt-1">
-          {focus.nextReady ? (
-            <div>
-              <SectionLabel>Next ready task</SectionLabel>
-              <p className="mt-4 max-w-[46ch] text-[15px] leading-6 text-foreground">
-                <span className="os-meta mr-2 text-os-subtle">{focus.nextReady.id}</span>
-                {focus.nextReady.title}
-              </p>
-            </div>
-          ) : focus.nextAction ? (
-            <div>
-              <SectionLabel>Next action</SectionLabel>
-              <p className="mt-4 max-w-[46ch] text-[15px] leading-6 text-foreground">
-                {focus.nextAction}
-              </p>
-            </div>
-          ) : null}
+        <p className="mt-2 max-w-[62ch] text-[15px] leading-6 text-paper-char">{focus.outcome}</p>
 
-          {/* The risk the focus file says to carry into the day. Amber,
-              because the vault flagged it deliberately and it is the one piece
-              of standing advice on the screen. */}
-          {focus.watch ? (
-            <div className={focus.nextAction || focus.nextReady ? "mt-8" : undefined}>
-              <SectionLabel>Watch</SectionLabel>
-              <p className="mt-4 max-w-[46ch] text-[13px] leading-5 text-os-warning">
-                {focus.watch}
-              </p>
+        {milestone ? (
+          <div className="mt-5 max-w-[34rem]">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <Link
+                to={focus.projectSlug ? `/workspaces/${focus.projectSlug}?tab=roadmap&milestone=${milestone.id}` : "/workspaces"}
+                className={cn("rounded-[2px] text-[14.5px] font-semibold text-paper-moss hover:underline", PAPER_FOCUS)}
+              >
+                {milestone.title}
+              </Link>
+              <span className="text-[12.5px] text-paper-sage tabular-nums">
+                {milestone.progress.completed} / {milestone.progress.total} tasks · {milestone.progress.percent}%
+              </span>
             </div>
-          ) : null}
+            <div className="mt-2">
+              <Meter
+                value={milestone.progress.percent / 100}
+                label={`${milestone.title} progress`}
+                tone={HEALTH_METER[focus.health ?? "no_target"]}
+                size="md"
+              />
+            </div>
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              {focus.health ? <Tag tone={HEALTH_TAG[focus.health]}>{HEALTH_LABELS[focus.health]}</Tag> : null}
+              <span className={cn("text-[12.5px]", days !== undefined && days < 0 ? "text-paper-flame-deep" : "text-paper-sage")}>
+                {days !== undefined ? `Target: ${describeDays(days)}` : "No target date"}
+              </span>
+            </div>
+          </div>
+        ) : null}
 
+        {focus.nextReady || focus.nextAction || focus.watch ? (
+          <dl className="mt-5 grid gap-x-8 gap-y-4 border-t border-paper-stone pt-4 sm:grid-cols-2">
+            {focus.nextReady ? (
+              <div className="min-w-0">
+                <dt>
+                  <TodayLabel>Next ready task</TodayLabel>
+                </dt>
+                <dd className="mt-1 text-[14px] leading-6 text-paper-moss">
+                  <span className="mr-2 text-[12.5px] text-paper-sage">{focus.nextReady.id}</span>
+                  {focus.nextReady.title}
+                </dd>
+              </div>
+            ) : focus.nextAction ? (
+              <div className="min-w-0">
+                <dt>
+                  <TodayLabel>Next action</TodayLabel>
+                </dt>
+                <dd className="mt-1 text-[14px] leading-6 text-paper-moss">{focus.nextAction}</dd>
+              </div>
+            ) : null}
+            {focus.watch ? (
+              <div className="min-w-0">
+                <dt>
+                  <TodayLabel>Watch</TodayLabel>
+                </dt>
+                <dd className="mt-1 text-[13.5px] leading-5 text-paper-flame-deep">{focus.watch}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
+
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <PaperButton variant="amber" disabled={!focus.projectSlug} onClick={startFocus}>
+            Start focus
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </PaperButton>
+          <PaperButton variant="ghost" onClick={() => quickCreate.open("task", { project: focus.projectSlug ?? undefined })}>
+            <Plus className="size-3.5" aria-hidden="true" />
+            Task
+          </PaperButton>
+          <PaperButton variant="quiet" onClick={() => quickCreate.open("project")}>
+            <FolderPlus className="size-3.5" aria-hidden="true" />
+            Workspace
+          </PaperButton>
+          <PaperButton variant="quiet" onClick={() => quickCreate.open("capture", { project: focus.projectSlug ?? undefined })}>
+            <Inbox className="size-3.5" aria-hidden="true" />
+            Capture
+          </PaperButton>
           {focus.inboxCount > 0 ? (
-            <p className="os-meta mt-8 text-os-subtle">
-              Inbox / {focus.inboxCount}
-            </p>
+            <span className="ml-auto text-[12.5px] text-paper-sage">{focus.inboxCount} in the workspace inbox</span>
           ) : null}
         </div>
       </div>
-    </section>
+    </PaperSection>
   );
 }
