@@ -205,6 +205,14 @@ import {
   type ProjectSeo,
   type SeoAuditRun,
 } from "@shared/seo-types";
+import {
+  DayWrapSchema,
+  MorningBriefSchema,
+  TodayCalendarSchema,
+  type DayWrap,
+  type MorningBrief,
+  type TodayCalendar,
+} from "@shared/today-types";
 
 /**
  * Talks to the local AgentOS data adapter.
@@ -281,6 +289,39 @@ async function readVault<T>(
  * The adapter never fails this for a single bad source — it returns partial
  * data with `sources` saying which section is degraded.
  */
+/** Today's Google Calendar events. Never throws for a missing calendar; that comes back as a status. */
+export function getTodayCalendar(): Promise<TodayCalendar> {
+  return readVault("/api/today/calendar", (value) => TodayCalendarSchema.safeParse(value));
+}
+
+/** Hermes' newest morning brief, parsed into its plan. */
+export function getMorningBrief(): Promise<MorningBrief> {
+  return readVault("/api/today/brief", (value) => MorningBriefSchema.safeParse(value));
+}
+
+/** The end-of-day wrap: done today, and what tomorrow starts with. */
+export function getDayWrap(): Promise<DayWrap> {
+  return readVault("/api/today/wrap", (value) => DayWrapSchema.safeParse(value));
+}
+
+/** Clears cards from Today's Needs you. What's behind them is untouched. */
+export function dismissAttention(items: { id: string; createdAt: string }[]): Promise<unknown> {
+  return workerRequest("/api/mission-control/dismiss", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+}
+
+/** Brings cleared cards back; no ids restores every one. */
+export function restoreAttention(ids?: string[]): Promise<unknown> {
+  return workerRequest("/api/mission-control/restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(ids ? { ids } : {}),
+  });
+}
+
 export function getMissionControl(): Promise<MissionControlData> {
   return readVault(
     "/api/mission-control",

@@ -18,6 +18,12 @@ import {
 } from "../shared/agentos-types";
 import { getDashboardData } from "./agentos/dashboard";
 import { getMissionControlData } from "./mission-control/builder";
+import { dismissAttention, restoreAttention } from "./mission-control/dismissals";
+import { getTodayCalendar } from "./today/calendar";
+import { formatAgenda } from "./today/agenda";
+import { getMorningBrief } from "./today/brief";
+import { getDayWrap } from "./today/wrap";
+import { AttentionDismissRequestSchema, AttentionRestoreRequestSchema } from "../shared/mission-control-types";
 import { agentOSRoot, readOptionalFile } from "./agentos/filesystem";
 import {
   findProject,
@@ -334,6 +340,83 @@ app.get("/api/mission-control", async (_request, response) => {
     // failure is already handled inside.
     console.error("[agentos] mission control failed:", error);
     response.status(500).json({ error: "Unable to read mission control" });
+  }
+});
+
+/** Today's Google Calendar events, read-only. Never fails: a missing calendar is a status. */
+app.get("/api/today/calendar", async (_request, response) => {
+  try {
+    response.json(await getTodayCalendar());
+  } catch (error) {
+    console.error("[agentos] today calendar failed:", error);
+    response.json({ status: "error", detail: "The calendar couldn't be read.", today: [] });
+  }
+});
+
+/**
+ * Today's calendar as plain text, for Hermes' morning brief (fetched by a
+ * pre-run script, `~/.hermes/scripts/agentos-agenda.sh`). Always answers
+ * with text, even when the calendar can't be read.
+ */
+app.get("/api/today/agenda", async (_request, response) => {
+  let calendar;
+  try {
+    calendar = await getTodayCalendar();
+  } catch (error) {
+    console.error("[agentos] agenda failed:", error);
+    calendar = { status: "error" as const, detail: "AgentOS couldn't read the calendar", today: [] };
+  }
+  response.type("text/plain").send(formatAgenda(calendar));
+});
+
+/** Hermes' newest morning brief, parsed into its plan. */
+app.get("/api/today/brief", async (_request, response) => {
+  try {
+    response.json(await getMorningBrief());
+  } catch (error) {
+    console.error("[agentos] morning brief failed:", error);
+    response.status(500).json({ error: "The morning brief couldn't be read." });
+  }
+});
+
+/** The end-of-day wrap: done today, and the open Now tasks tomorrow starts with. */
+app.get("/api/today/wrap", async (_request, response) => {
+  try {
+    response.json(await getDayWrap());
+  } catch (error) {
+    console.error("[agentos] day wrap failed:", error);
+    response.status(500).json({ error: "The day's wrap couldn't be read." });
+  }
+});
+
+/** Clears cards from Today's Needs you. The jobs, automations and workspaces behind them are untouched. */
+app.post("/api/mission-control/dismiss", async (request, response) => {
+  const parsed = AttentionDismissRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: "Send the cards to clear, each with its id and createdAt." });
+    return;
+  }
+  try {
+    await dismissAttention(parsed.data.items);
+    response.json({ ok: true });
+  } catch (error) {
+    console.error("[agentos] dismissing attention failed:", error);
+    response.status(500).json({ error: "Unable to clear those cards" });
+  }
+});
+
+app.post("/api/mission-control/restore", async (request, response) => {
+  const parsed = AttentionRestoreRequestSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Send the card ids to restore, or nothing to restore all." });
+    return;
+  }
+  try {
+    await restoreAttention(parsed.data.ids);
+    response.json({ ok: true });
+  } catch (error) {
+    console.error("[agentos] restoring attention failed:", error);
+    response.status(500).json({ error: "Unable to restore those cards" });
   }
 });
 

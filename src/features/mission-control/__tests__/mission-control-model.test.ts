@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { MissionSources } from "@shared/mission-control-types";
 import {
+  attentionTag,
+  eventTimings,
+  formatBriefTime,
+  formatEventTime,
+  isEvening,
   degradedSources,
   elapsed,
   isLoud,
@@ -106,5 +111,58 @@ describe("naming the sources that did not answer", () => {
 
   it("does not call a busy source a broken one", () => {
     assert.deepEqual(degradedSources(sources({ workers: "running" })), []);
+  });
+});
+
+describe("attentionTag", () => {
+  it("tones by severity and names the type", () => {
+    assert.deepEqual(attentionTag({ type: "failed", severity: "critical", description: "Grok exited with code 1" }), {
+      tone: "flame",
+      label: "Failed",
+    });
+    assert.deepEqual(attentionTag({ type: "approval", severity: "warning" }), { tone: "marigold", label: "Approval" });
+    assert.deepEqual(attentionTag({ type: "system", severity: "info" }), { tone: "muted", label: "System" });
+  });
+
+  it("calls an interrupted run interrupted, not failed", () => {
+    assert.deepEqual(
+      attentionTag({ type: "failed", severity: "warning", description: "Interrupted: AgentOS restarted while this job was running" }),
+      { tone: "marigold", label: "Interrupted" },
+    );
+  });
+});
+
+describe("day timing", () => {
+  it("switches to the evening wrap from 5pm until 4am", () => {
+    assert.equal(isEvening(new Date(2026, 8, 28, 16, 59)), false);
+    assert.equal(isEvening(new Date(2026, 8, 28, 17, 0)), true);
+    assert.equal(isEvening(new Date(2026, 8, 29, 1, 30)), true);
+    assert.equal(isEvening(new Date(2026, 8, 29, 8, 0)), false);
+  });
+
+  it("marks past, current, next and later events", () => {
+    const at = (hour: number, minute = 0) => new Date(2026, 8, 28, hour, minute).toISOString();
+    const timings = eventTimings(
+      [
+        { id: "allday", start: "2026-09-28", allDay: true },
+        { id: "early", start: at(8), end: at(9), allDay: false },
+        { id: "call", start: at(10), end: at(11), allDay: false },
+        { id: "lunch", start: at(12), end: at(13), allDay: false },
+        { id: "review", start: at(15), end: at(16), allDay: false },
+      ],
+      new Date(2026, 8, 28, 10, 30),
+    );
+    assert.deepEqual(Object.fromEntries(timings), { allday: "later", early: "past", call: "now", lunch: "next", review: "later" });
+  });
+
+  it("formats event and brief times", () => {
+    assert.equal(formatEventTime({ start: "2026-09-28", allDay: true }), "All day");
+    assert.equal(
+      formatEventTime({ start: new Date(2026, 8, 28, 9).toISOString(), end: new Date(2026, 8, 28, 9, 30).toISOString(), allDay: false }),
+      "09:00 to 09:30",
+    );
+    const now = new Date(2026, 8, 28, 18);
+    assert.equal(formatBriefTime(new Date(2026, 8, 28, 7, 30).toISOString(), now), "07:30");
+    assert.match(formatBriefTime(new Date(2026, 8, 25, 7, 41).toISOString(), now), /^Fri 07:41$/);
   });
 });

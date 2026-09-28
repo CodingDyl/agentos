@@ -2,39 +2,22 @@ import { ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ActiveWorkItem } from "@shared/mission-control-types";
-import { EmptyState, Section } from "@/components/os";
-import { elapsed } from "./mission-control-model";
+import { PAPER_FOCUS, PaperSection } from "@/components/paper";
 import { cn } from "@/lib/utils";
+import { elapsed } from "./mission-control-model";
 
 /**
- * What is executing right now.
- *
- * The bar for appearing here is that something is genuinely running — not that
- * a project exists, or that a job finished this morning. The section's only
- * value is being true at the moment it is read, and padding it with recent
- * things would make it one more list nobody trusts.
- *
- * The elapsed time ticks. A page that says "running 06m 32s" and then sits
- * frozen for ten seconds is claiming to be live while demonstrably not being;
- * a second-by-second counter is the cheapest possible proof that the screen is
- * still watching.
+ * What is executing right now. The bar for appearing is that something is
+ * genuinely running, and the elapsed time ticks: a counter that froze would be
+ * a screen claiming to be live while demonstrably not being.
  */
-
-export interface ActiveWorkListProps {
-  items: ActiveWorkItem[];
-  className?: string;
-}
-
-export function ActiveWorkList({ items, className }: ActiveWorkListProps) {
+export function ActiveWorkList({ items, className }: { items: ActiveWorkItem[]; className?: string }) {
   return (
-    <Section id="active-work" label="Active now" className={cn("scroll-mt-8", className)}>
+    <PaperSection id="active-work" label="Active now" count={items.length > 0 ? items.length : undefined} className={className}>
       {items.length === 0 ? (
-        <EmptyState
-          variant="inline"
-          description="No agents are running."
-        />
+        <p className="text-[14px] text-paper-char">No agents are running.</p>
       ) : (
-        <ul className="space-y-6">
+        <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
           {items.map((item) => (
             <li key={item.id}>
               <ActiveWorkRow item={item} />
@@ -42,7 +25,7 @@ export function ActiveWorkList({ items, className }: ActiveWorkListProps) {
           ))}
         </ul>
       )}
-    </Section>
+    </PaperSection>
   );
 }
 
@@ -52,7 +35,6 @@ function useTicker(enabled: boolean): Date {
 
   useEffect(() => {
     if (!enabled) return;
-
     const timer = setInterval(() => setNow(new Date()), 1_000);
     return () => clearInterval(timer);
   }, [enabled]);
@@ -66,46 +48,33 @@ function ActiveWorkRow({ item }: { item: ActiveWorkItem }) {
   return (
     <Link
       to={item.href}
-      className="os-focus-ring group flex min-w-0 items-start gap-4 rounded-md py-1 transition-colors duration-150"
+      className={cn("group flex min-w-0 items-start gap-3 px-4 py-3 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
     >
-      {/* Pulsing only while the claim is confident. An inferred run gets a
-          still dot: a pulse is an assertion that something is happening. */}
+      {/* Pulsing only while the claim is confident; a pulse asserts something is happening. */}
       <span
-        className={
-          item.uncertain
-            ? "mt-2 size-1.5 shrink-0 rounded-full bg-os-subtle"
-            : "mt-2 size-1.5 shrink-0 rounded-full bg-os-amber motion-safe:animate-pulse"
-        }
+        className={cn(
+          "mt-2 size-2 shrink-0 rounded-full",
+          item.uncertain ? "bg-paper-ash" : "bg-paper-green motion-safe:animate-pulse",
+        )}
         aria-hidden="true"
       />
-
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="os-meta text-foreground">{item.actor}</span>
-          {item.project ? (
-            <span className="os-meta text-os-subtle">{item.project}</span>
-          ) : null}
-        </div>
-
-        <p className="mt-1.5 max-w-[62ch] text-[15px] leading-6 text-os-muted transition-colors duration-150 group-hover:text-foreground">
-          {item.title}
+        <p className="text-[12.5px] font-medium text-paper-sage">
+          <span className="text-paper-moss">{item.actor}</span>
+          {item.project ? ` · ${item.project}` : ""}
         </p>
-
-        <p className="os-meta mt-2 text-os-subtle tabular-nums">
+        <p className="mt-0.5 text-[14px] leading-6 text-paper-moss">{item.title}</p>
+        <p className="mt-0.5 text-[12.5px] text-paper-sage tabular-nums">
           {item.uncertain ? (
-            // Said outright rather than shown as certain. A run whose ending
-            // was never reported is not evidence that it is still going.
             <>Started {elapsed(item.startedAt, now)} ago · may have finished</>
           ) : (
-            <>{item.detail ? `${item.detail} · ` : ""}Running {elapsed(item.startedAt, now)}</>
+            <>
+              {item.detail ? `${item.detail} · ` : ""}Running {elapsed(item.startedAt, now)}
+            </>
           )}
         </p>
       </div>
-
-      <ArrowUpRight
-        className="mt-1 size-3.5 shrink-0 text-os-subtle transition-colors duration-150 group-hover:text-foreground"
-        aria-hidden="true"
-      />
+      <ArrowUpRight className="mt-1 size-3.5 shrink-0 text-paper-sage group-hover:text-paper-moss" aria-hidden="true" />
     </Link>
   );
 }

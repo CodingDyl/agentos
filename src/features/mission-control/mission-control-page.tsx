@@ -1,49 +1,52 @@
+import { FileText } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { MissionControlData } from "@shared/mission-control-types";
-import { AppShell, ErrorState, LoadingState, Section } from "@/components/os";
+import { AppShell } from "@/components/os";
+import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage, SegmentedControl } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatTime, sourceLabel, toneFor } from "@/features/activity";
 import { UsageSummary } from "@/features/operations";
+import { documentHref, TYPE_LABELS } from "@/features/projects/documents-model";
 import { TractionToday } from "@/features/traction";
 import { FrictionButton, SprintScorecard } from "@/features/validation";
-import { useCaptures, useMissionControl, useProjects, useValidationSprint } from "@/lib/agentos/queries";
+import { formatRelativeTime } from "@/lib/format";
+import {
+  useCaptures,
+  useMissionControl,
+  useProjects,
+  useRecentDocuments,
+  useValidationSprint,
+} from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { ActiveWorkList } from "./active-work-list";
 import { AttentionList } from "./attention-list";
-import { DocumentList } from "@/features/projects/detail/document-list";
-import { useRecentDocuments } from "@/lib/agentos/queries";
 import { FocusBlock } from "./focus-block";
-import {
-  degradedSources,
-  formatToday,
-  greeting,
-} from "./mission-control-model";
-import { TodayStrip, TodayWorkspaces } from "./today";
+import { degradedSources, formatToday, greeting, isEvening } from "./mission-control-model";
+import { TodayCaptured, TodayStrip, TodayWorkspaces } from "./today";
+import { DayWrapUp, MorningPlan, TodayCalendar } from "./today-day";
+import { TodayLink } from "./today-kit";
 
 /**
  * Today (Mission Control).
  *
- * Where the day starts. One screen that answers, in about ten seconds: what
- * does today look like, what needs me, what am I focused on, which areas of
- * work need movement, what is running, and what changed. Everything on it
- * already exists somewhere else — this owns no workflow state and performs no
- * action. Every line is a link into the place that actually holds it.
+ * Where the day starts. One page that answers, in about ten seconds: what does
+ * today look like, what needs me, what am I focused on, which work needs
+ * movement, what is running, and what changed.
  *
- * The reading order is the argument. The day first, then what is waiting on a
- * person, because that is the only thing that cannot proceed without them.
- * Then the one thing in focus, then the rest of the work, then what the
- * agents are doing — as help with the work, not as a subject of their own.
- * Workers, automations and the system's health live in Operations; anything
- * broken there still surfaces here, in Needs you.
+ * Two columns on a wide screen, and the split is the argument: on the left,
+ * the things that need a decision from you (Needs you, focus, workspaces,
+ * acquisition); on the right, what is happening around you (agents, captured
+ * notes, activity, spend, documents). On a narrow screen the left comes first.
  *
- * It is designed hardest for the good day. Nothing needing attention is the
- * expected state, not an empty state to apologise for — so the loud parts
- * genuinely disappear rather than becoming placeholders, and amber is spent
- * only where something is actually asking for something.
+ * The day has two ends. Until 5pm the left column opens with Hermes' plan for
+ * the day; from 5pm it opens with the wrap (done, carrying over, tomorrow,
+ * loose ends). Either can be picked by hand from the header.
+ *
+ * Designed hardest for the good day. Nothing needing attention is the expected
+ * state, so the loud parts genuinely disappear rather than becoming
+ * placeholders, and flame is spent only where something is asking.
  */
-
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
 
 /** Enough history to see the shape of the morning, not enough to be a feed. */
 const ACTIVITY_LIMIT = 8;
@@ -62,30 +65,26 @@ export function MissionControlPage() {
       activeHref="/"
       agentState={running ? "running" : "idle"}
       agentLabel={running ? "Agents / running" : "Agents / idle"}
-      contextLabel={
-        data?.focus?.project ? `Context / ${data.focus.project}` : undefined
-      }
+      contextLabel={data?.focus?.project ? `Context / ${data.focus.project}` : undefined}
       modelLabel="Model / AgentOS V1"
     >
-      <div className={PAGE_PADDING}>
+      <PaperStage>
         {isPending ? (
-          <LoadingState
-            label="Today"
-            message="Reading your day…"
-            detail="Workspaces · inbox · agents"
-          />
+          <p className="text-[14px] text-paper-sage">Reading your day…</p>
         ) : !data ? (
-          <ErrorState
-            label="Today unavailable"
-            title="Your day could not be read."
-            detail={error?.message}
-            onRetry={() => void refetch()}
-            isRetrying={isFetching}
-          />
+          <div>
+            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.015em]">Your day couldn't be read.</h1>
+            <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
+              {error?.message ?? "The server didn't answer."} Check that the AgentOS server is running.
+            </p>
+            <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
+              {isFetching ? "Trying again…" : "Try again"}
+            </PaperButton>
+          </div>
         ) : (
           <MissionControl data={data} />
         )}
-      </div>
+      </PaperStage>
     </AppShell>
   );
 }
@@ -98,29 +97,37 @@ function MissionControl({ data }: { data: MissionControlData }) {
   // workspace's Now tasks are still planned for today.
   const { data: portfolio } = useProjects();
   const projects = portfolio?.projects ?? data.projects;
+  const captured = captures?.items ?? [];
+  const [mode, setMode] = useState<"plan" | "wrap">(() => (isEvening() ? "wrap" : "plan"));
 
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3 border-b border-os-border pb-8">
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div>
-          <p className="os-meta text-os-subtle">{formatToday()}</p>
-          <h1 className="mt-3 text-[clamp(2rem,4vw,3rem)] leading-[1.05] font-normal tracking-[-0.03em] text-balance">
+          <p className="text-[13px] font-medium text-paper-sage">{formatToday()}</p>
+          <h1 className="mt-1 font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-balance text-paper-moss sm:text-[34px]">
             {greeting("Dylan")}
           </h1>
         </div>
-
-        {/* Reachable from the screen the day starts on, because the friction
-            worth recording is most often noticed on the way somewhere. */}
-        <FrictionButton surface="mission-control" className="-mr-4" />
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            label="Today's view"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: "plan", label: "Plan the day" },
+              { value: "wrap", label: "Wrap up" },
+            ]}
+          />
+          {/* Reachable from the screen the day starts on, because friction is
+              most often noticed on the way somewhere. */}
+          <FrictionButton surface="mission-control" paper />
+        </div>
       </header>
 
-      {/* Said once, at the top, rather than repeated beside every thinned-out
-          section. A screen that is missing a source should say so before a
-          person starts drawing conclusions from what is left. */}
       {degraded.length > 0 ? (
-        <p className="mt-6 max-w-[80ch] text-[13px] leading-5 text-os-warning">
-          {degraded.join(", ")} could not be read, so parts of this screen are
-          incomplete.
+        <p role="status" className="mt-4 max-w-[80ch] text-[13.5px] leading-5 text-paper-flame-deep">
+          {degraded.join(", ")} could not be read, so parts of this page are incomplete.
         </p>
       ) : null}
 
@@ -128,54 +135,35 @@ function MissionControl({ data }: { data: MissionControlData }) {
         projects={projects}
         attention={data.attention.length}
         running={data.activeWork.length}
-        captures={captures?.items ?? []}
-        className="mt-8"
+        captures={captured}
+        className="mt-6"
       />
 
-      <div className="mt-12 border-t border-os-border pt-10">
-        <AttentionList items={data.attention} />
-      </div>
-
-      {/* Acquisition beside the build, and above it: otherwise the work that
-          feels productive always wins over the work that brings customers. */}
-      <div className="mt-12 border-t border-os-border pt-10">
-        <TractionToday />
-      </div>
-
-      {data.focus ? (
-        <div className="mt-12 border-t border-os-border pt-10">
-          <FocusBlock focus={data.focus} />
+      <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-12">
+          {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
+          <AttentionList items={data.attention} dismissed={data.dismissed} />
+          {data.focus ? <FocusBlock focus={data.focus} /> : null}
+          <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
+          {/* Acquisition beside the build: otherwise the work that feels
+              productive always wins over the work that brings customers. */}
+          <TractionToday />
         </div>
-      ) : null}
 
-      <div className="mt-12 border-t border-os-border pt-10">
-        <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
-      </div>
-
-      <div className="mt-12 border-t border-os-border pt-10">
-        <ActiveWorkList items={data.activeWork} />
-      </div>
-
-      <div className="mt-12 border-t border-os-border pt-10">
-        <RecentActivity data={data} />
-      </div>
-
-      {/* What was written lately. Absent when there is nothing: a document is
-          worth a glance, not a headline. */}
-      <RecentDocuments />
-
-      {/* Four lines and a link — what the agents are costing. Today points at
-          Operations rather than reproducing it, and shows nothing at all until
-          the ledger has something to say. */}
-      <div className="mt-12 border-t border-os-border pt-10">
-        <UsageSummary />
+        <div className="min-w-0 space-y-12">
+          <TodayCalendar />
+          <ActiveWorkList items={data.activeWork} />
+          <TodayCaptured captures={captured} />
+          <RecentActivity data={data} />
+          <UsageSummary />
+          <RecentDocuments />
+        </div>
       </div>
 
       {/* Reflective rather than operational, so it sits below everything that
-          is asking for something today — and it removes itself entirely when
-          no sprint is running. */}
+          is asking for something today, and removes itself with no sprint. */}
       {sprint && sprint.scorecard.tasksAttempted > 0 ? (
-        <div className="mt-12 border-t border-os-border pt-10">
+        <div className="mt-14 border-t border-paper-stone pt-10">
           <SprintScorecard sprint={sprint} />
         </div>
       ) : null}
@@ -183,78 +171,53 @@ function MissionControl({ data }: { data: MissionControlData }) {
   );
 }
 
+const TONE_DOT = {
+  active: "bg-paper-amber",
+  success: "bg-paper-green",
+  warning: "bg-paper-marigold",
+  danger: "bg-paper-flame",
+} as const;
+
 /**
- * The last few things that happened.
- *
- * Read from the payload rather than fetched again: this screen's sections have
- * to agree with each other, and a separately-timed activity request could show
- * a completion that the attention list above has not noticed yet.
- *
- * Not the Activity page. A glance, then a link to the place that does auditing.
+ * The last few things that happened, read from the same payload as the rest
+ * of the page so the sections always agree. A glance, then a link to the
+ * place that does auditing.
  */
 function RecentActivity({ data }: { data: MissionControlData }) {
   const events = data.recentActivity.slice(0, ACTIVITY_LIMIT);
 
   return (
-    <Section
-      label="Recent activity"
-      action={
-        <Link
-          to="/activity"
-          className="os-focus-ring os-meta cursor-pointer rounded-md text-os-subtle transition-colors duration-150 hover:text-foreground"
-        >
-          All activity
-        </Link>
-      }
-    >
+    <PaperSection label="Recent activity" action={<TodayLink to="/activity">All activity</TodayLink>}>
       {events.length === 0 ? (
-        <p className="text-[15px] leading-6 text-os-muted">
-          {data.sources.activity === "ready"
-            ? "Nothing has happened yet today."
-            : "The activity timeline could not be read."}
+        <p className="text-[14px] text-paper-char">
+          {data.sources.activity === "ready" ? "Nothing has happened yet today." : "The activity timeline couldn't be read."}
         </p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-2.5">
           {events.map((event) => {
             const tone = toneFor(event);
-
             return (
-              <li key={event.id} className="flex min-w-0 items-baseline gap-4">
-                <span className="os-meta w-11 shrink-0 text-os-subtle tabular-nums">
-                  {formatTime(event.timestamp)}
-                </span>
-                <span className="flex min-w-0 flex-1 items-baseline gap-2.5">
-                  <span
-                    className={cn(
-                      "size-1.5 shrink-0 translate-y-[-0.15em] rounded-full",
-                      tone === "active"
-                        ? "bg-os-amber"
-                        : tone === "success"
-                          ? "bg-os-success"
-                          : tone === "warning"
-                            ? "bg-os-warning"
-                            : tone === "danger"
-                              ? "bg-os-danger"
-                              : "bg-os-subtle",
-                    )}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 truncate text-[15px] leading-6 text-os-muted">
-                    {event.title}
-                  </span>
-                </span>
-                <span className="os-meta hidden shrink-0 text-os-subtle sm:block">
-                  {sourceLabel(event.source)}
-                </span>
+              <li key={event.id} className="flex min-w-0 items-baseline gap-3">
+                <span className="w-11 shrink-0 text-[12.5px] text-paper-sage tabular-nums">{formatTime(event.timestamp)}</span>
+                <span
+                  className={cn(
+                    "size-1.5 shrink-0 translate-y-[-0.15em] rounded-full",
+                    tone in TONE_DOT ? TONE_DOT[tone as keyof typeof TONE_DOT] : "bg-paper-ash",
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1 truncate text-[14px] text-paper-moss">{event.title}</span>
+                <span className="hidden shrink-0 text-[12px] text-paper-sage sm:block">{sourceLabel(event.source)}</span>
               </li>
             );
           })}
         </ul>
       )}
-    </Section>
+    </PaperSection>
   );
 }
 
+/** What was written lately. Absent when there is nothing: a document is worth a glance, not a headline. */
 function RecentDocuments() {
   const { data } = useRecentDocuments(5);
   const documents = data?.documents ?? [];
@@ -262,20 +225,27 @@ function RecentDocuments() {
   if (documents.length === 0) return null;
 
   return (
-    <div className="mt-12 border-t border-os-border pt-10">
-      <Section
-        label="Recent documents"
-        action={
-          <Link
-            to="/knowledge"
-            className="os-focus-ring os-meta -mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-os-subtle transition-colors duration-150 hover:text-foreground"
-          >
-            Knowledge →
-          </Link>
-        }
-      >
-        <DocumentList documents={documents} showProject dense />
-      </Section>
-    </div>
+    <PaperSection label="Recent documents" action={<TodayLink to="/knowledge">Knowledge</TodayLink>}>
+      <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        {documents.map((document) => (
+          <li key={`${document.origin}:${document.id}`}>
+            <Link
+              to={documentHref(document)}
+              className={cn("flex min-w-0 items-start gap-3 px-4 py-2.5 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
+            >
+              <FileText className="mt-0.5 size-4 shrink-0 text-paper-sage" strokeWidth={1.5} aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] text-paper-moss">{document.title}</span>
+                <span className="mt-0.5 block truncate text-[12px] text-paper-sage">
+                  {TYPE_LABELS[document.type]}
+                  {document.projectName ? ` · ${document.projectName}` : ""}
+                  {document.updatedAt ? ` · ${formatRelativeTime(document.updatedAt)}` : ""}
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </PaperSection>
   );
 }
