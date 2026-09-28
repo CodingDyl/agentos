@@ -74,6 +74,8 @@ happens only when you send a message or run a command.
 | `server/virtec/client.ts` | The only place the Virtec key exists; GET-only, HTTPS, no redirects |
 | `server/virtec/normalise.ts` | Virtec's payloads read tolerantly; only fields a screen uses are kept |
 | `server/virtec/snapshot.ts` | All six Virtec reads, settled independently, cached five minutes |
+| `server/traction/case-studies.ts` | Which finished projects deserve a case study, and what Hermes is told about one |
+| `server/traction/case-study-draft.ts` | The one Traction agent call that writes back — into empty sections only |
 | `server/traction/crm.ts` | Virtec in Traction's terms: follow-ups as queue items, leads/clients as prospects |
 | `docs/traction/ROADMAP.md` | What Traction has, what is next, and what is parked |
 | `shared/agentos-types.ts` | The wire contract (zod schemas + derived types) |
@@ -174,7 +176,7 @@ to browse everything, so it reads detail for the whole portfolio.
 | Route | Screen |
 | --- | --- |
 | `/` | Mission Control — what matters, what needs you, what is running, what is broken |
-| `/traction` | Customer acquisition: today's queue, prospects, pipeline, waiting on, clients & referrals, Virtec, offers, experiments, weekly review |
+| `/traction` | Customer acquisition: today's queue, prospects, pipeline, waiting on, clients & referrals, case studies, Virtec, offers, experiments, weekly review |
 | `/projects` | Portfolio, grouped by state |
 | `/projects/:slug` | Project workspace (Overview, Tasks, Decisions, Sessions, Git) |
 | `/agent` | Hermes operator console |
@@ -243,6 +245,10 @@ to browse everything, so it reads detail for the whole portfolio.
 | `/api/traction/waiting` | Adds a Waiting On item (POST); `/:id` replaces (PUT) or removes (DELETE); `/:id/resolve` (POST) |
 | `/api/traction/crm/refresh` | Reads Virtec again now, past the cache (POST) |
 | `/api/traction/crm/import` | Imports one Virtec lead or client as a prospect, by id (POST); 409 if already imported |
+| `/api/traction/case-studies` | Starts one — from an opportunity (`{ fromOpportunity }`) or blank (POST); `/:id` replaces (PUT) or removes (DELETE) |
+| `/api/traction/case-studies/:id/draft` | One Hermes call; fills empty sections only (POST) |
+| `/api/traction/case-studies/:id/testimonial-request` | Puts the testimonial ask on Waiting On (POST) |
+| `/api/traction/case-studies/dismiss` | "Not this one" for a finished project (POST) |
 | `/api/traction/mail-links` | Confirms a Gmail thread belongs to a prospect, with an optional confirmed stage move (POST); `/dismiss` (POST); `/:threadId` unlinks (DELETE) |
 | `/api/activity` | The unified timeline; `?source=`, `?project=`, `?limit=` |
 | `/api/activity` | Records an outcome only the browser witnessed (POST) |

@@ -6,6 +6,7 @@ import {
   type OutreachGap,
   type Prospect,
   type ProspectStage,
+  type CaseStudy,
   type QueueItem,
   type TractionData,
   type WaitingOn,
@@ -24,7 +25,17 @@ import { formatRand, type VirtecFollowUp } from "@shared/virtec-types";
  * generic spam that burns the brand.
  */
 
-export type TractionTab = "overview" | "prospects" | "pipeline" | "waiting" | "clients" | "crm" | "offers" | "experiments" | "review";
+export type TractionTab =
+  | "overview"
+  | "prospects"
+  | "pipeline"
+  | "waiting"
+  | "clients"
+  | "case-studies"
+  | "crm"
+  | "offers"
+  | "experiments"
+  | "review";
 
 export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "overview", label: "Overview" },
@@ -32,6 +43,7 @@ export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "pipeline", label: "Pipeline" },
   { value: "waiting", label: "Waiting on" },
   { value: "clients", label: "Clients & referrals" },
+  { value: "case-studies", label: "Case studies" },
   { value: "crm", label: "Virtec" },
   { value: "offers", label: "Offers" },
   { value: "experiments", label: "Experiments" },
@@ -60,6 +72,7 @@ export function prospectHref(prospectId: string): string {
 /** Where a queue item opens: its prospect, or the Waiting On list. */
 export function queueItemHref(item: QueueItem): string {
   if (item.kind === "crm") return "/traction?tab=crm";
+  if (item.kind === "case_study") return "/traction?tab=case-studies";
   return item.prospectId ? prospectHref(item.prospectId) : "/traction?tab=waiting";
 }
 
@@ -279,4 +292,29 @@ export function crmFollowUpPrompt(followUp: VirtecFollowUp): string {
     "Make it shorter, warmer and more specific. Keep it easy to reply to in one line. Under 100 words.",
     "Rules: draft only — never send anything. Do not invent facts about the project that are not above.",
   ]);
+}
+
+/**
+ * A case study as Markdown, ready for the Virtara site.
+ *
+ * Gaps are kept visible rather than stripped: a `[NEEDS DATA]` that survives
+ * into a paste is a reminder, one that silently disappears is a claim.
+ */
+export function caseStudyMarkdown(study: CaseStudy): string {
+  const section = (heading: string, body: string | undefined) => (body?.trim() ? `## ${heading}\n\n${body.trim()}\n` : undefined);
+  return [
+    `# ${study.title}`,
+    "",
+    `*${study.client}*`,
+    "",
+    section("The problem", study.problem),
+    section("What we built", study.solution),
+    section("How", study.implementation),
+    section("The result", study.result),
+    study.testimonial?.trim() ? `> ${study.testimonial.trim().replace(/\n/g, "\n> ")}\n>\n> — ${study.client}\n` : undefined,
+  ]
+    .filter((part) => part !== undefined)
+    .join("\n")
+    .trim()
+    .concat("\n");
 }

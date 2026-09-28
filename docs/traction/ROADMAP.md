@@ -11,15 +11,24 @@ sophisticated the module gets.
 | 1 | Traction page, daily acquisition queue (Done / Snooze / Open / Ask Hermes), prospects, pipeline, ICP, offer library, experiments, weekly targets, outreach guard, `CrmProvider` + local store, Traction on Today |
 | 2 | Waiting On (clients and prospects) with chases in the queue, Gmail reply → prospect suggestions that change nothing until confirmed, Clients & referrals tab, weekly review (deterministic numbers plus Hermes interpretation), linked threads on the prospect, Waiting On and replies on Today |
 | 3 | Read-only Virtec connector: money, follow-ups (in the daily queue), pending quotes, active projects, leads and clients to import. Cached five minutes; each endpoint degrades on its own |
+| 4 | Case-study engine: finished Virtec projects and completed workspaces become opportunities (and queue items); Hermes drafts empty sections only, marks unmeasured results `[NEEDS DATA]`, never writes the testimonial or mentions prices; a study with gaps cannot be marked ready; testimonial asks go on Waiting On; Markdown export |
 
 ## Next
 
-1. **Virtec write-back** — once Virtec has write endpoints (its `AGENTOS.md`
-   lists them as phase 2): mark a follow-up sent, move a lead's status. Until
-   then, handling a Virtec follow-up in AgentOS only holds it off the queue
-   for three days.
-2. **Case-study engine** — a completed workspace milestone raises a case-study
-   opportunity; Hermes drafts Problem / Solution / Implementation / Result.
+1. **Virtec write-back** — blocked on Virtec, not AgentOS. Virtec's
+   `AGENTOS.md` lists the write routes as not implemented. The smallest useful
+   set, in order of value:
+
+   | Route | Why |
+   | --- | --- |
+   | `PATCH /api/agentos/follow-ups/:id` `{ status: "sent" \| "dismissed" \| "snoozed", snoozedUntil? }` | Done in AgentOS's queue marks it done in Virtec, instead of hiding it for three days |
+   | `PATCH /api/agentos/leads/:id` `{ status }` | Importing a lead can mark it `reviewing`; a lost prospect can mark it `disqualified` |
+
+   Both need, on Virtec's side: a separate write key (not the read key),
+   an allow-list of fields per route, an audit log entry per write, and a
+   rate limit. AgentOS would only ever send what a person just clicked.
+2. **Screenshots on case studies** — link Creative assets to a study, so the
+   Markdown export carries its images.
 3. **Lead magnets** — Hermes content + Creative visuals + a landing page, with
    an experiment tracking it.
 

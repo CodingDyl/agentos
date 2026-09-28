@@ -23,6 +23,7 @@ const KIND_LABEL: Record<QueueItem["kind"], string> = {
   follow_up: "Follow-up",
   waiting: "Waiting on",
   crm: "Virtec",
+  case_study: "Case study",
   referral: "Referral",
   contact: "New outreach",
 };
@@ -32,6 +33,7 @@ const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "mut
   follow_up: "marigold",
   waiting: "marigold",
   crm: "blue",
+  case_study: "green",
   referral: "green",
   contact: "muted",
 };
@@ -85,10 +87,10 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   variant="ghost"
                   disabled={pending}
                   onClick={() => action.mutate({ itemId: item.id, action: { action: "done" } })}
-                  aria-label={`Done: ${item.title}`}
+                  aria-label={item.kind === "case_study" ? item.title : `Done: ${item.title}`}
                 >
                   <Check className="size-3.5" aria-hidden="true" />
-                  Done
+                  {item.kind === "case_study" ? "Start" : "Done"}
                 </PaperButton>
                 <PaperButton
                   disabled={pending}

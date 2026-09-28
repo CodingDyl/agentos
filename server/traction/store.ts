@@ -3,6 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import {
+  CaseStudySchema,
+  CaseStudySourceSchema,
   DEFAULT_WEEKLY_TARGETS,
   ExperimentSchema,
   IcpSchema,
@@ -13,6 +15,8 @@ import {
   TractionEventSchema,
   WaitingOnSchema,
   WeeklyTargetsSchema,
+  type CaseStudy,
+  type CaseStudyInput,
   type ConfirmMailLink,
   type Experiment,
   type ExperimentInput,
@@ -67,6 +71,9 @@ const StateSchema = z.object({
   mailLinks: z.array(MailLinkSchema).default([]),
   /** Thread ids a person said were not a prospect's. */
   dismissedMail: z.array(z.string()).default([]),
+  caseStudies: z.array(CaseStudySchema).default([]),
+  /** Finished projects a person said do not need a case study. */
+  dismissedOpportunities: z.array(z.string()).default([]),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -94,6 +101,8 @@ function emptyState(): TractionState {
     waiting: [],
     mailLinks: [],
     dismissedMail: [],
+    caseStudies: [],
+    dismissedOpportunities: [],
   };
 }
 
@@ -281,19 +290,24 @@ export function deleteProspect(id: string): Promise<void> {
 // ─── The daily queue ───────────────────────────────────────────────────────
 
 const QUEUE_ITEM =
-  /^(?:(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128}))$/;
+  /^(?:(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128})|case_study:(.+))$/;
 
 type ParsedQueueItem =
-  | { kind: Exclude<QueueItemKind, "waiting" | "crm">; prospectId: string }
+  | { kind: Exclude<QueueItemKind, "waiting" | "crm" | "case_study">; prospectId: string }
   | { kind: "waiting"; waitingId: string }
-  | { kind: "crm"; followUpId: string };
+  | { kind: "crm"; followUpId: string }
+  | { kind: "case_study"; source: string };
 
 export function parseQueueItemId(itemId: string): ParsedQueueItem | undefined {
   const match = QUEUE_ITEM.exec(itemId);
   if (!match) return undefined;
   if (match[3]) return { kind: "waiting", waitingId: match[3] };
   if (match[4]) return { kind: "crm", followUpId: match[4] };
-  return { kind: match[1] as Exclude<QueueItemKind, "waiting" | "crm">, prospectId: match[2] };
+  if (match[5]) {
+    const source = CaseStudySourceSchema.safeParse(match[5]);
+    return source.success ? { kind: "case_study", source: source.data } : undefined;
+  }
+  return { kind: match[1] as Exclude<QueueItemKind, "waiting" | "crm" | "case_study">, prospectId: match[2] };
 }
 
 /** After a Virtec follow-up is handled here, how long before it may reappear if Virtec still has it open. */
@@ -328,6 +342,12 @@ export function completeQueueItem(itemId: string, today: string = isoDate(new Da
   return mutate<QueueCompletion>((state) => {
     const now = new Date().toISOString();
     state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== itemId);
+
+    if (parsed.kind === "case_study") {
+      // Starting a case study needs the opportunity's details, which live in
+      // Virtec and the vault — the route creates it with `startCaseStudy`.
+      throw new TractionNotFoundError("Start a case study from its opportunity");
+    }
 
     if (parsed.kind === "crm") {
       state.snoozes.push({ itemId, until: addDays(today, CRM_HANDLED_DAYS) });
@@ -387,9 +407,10 @@ export function snoozeQueueItem(itemId: string, today: string, days = 1): Promis
   if (!parsed) return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
 
   return mutate((state) => {
-    // A Virtec follow-up is not held here, so there is nothing local to check.
+    // Virtec follow-ups and case-study opportunities are not held here, so
+    // there is nothing local to check.
     if (parsed.kind === "waiting") findWaiting(state, parsed.waitingId);
-    else if (parsed.kind !== "crm") findProspect(state, parsed.prospectId);
+    else if (parsed.kind !== "crm" && parsed.kind !== "case_study") findProspect(state, parsed.prospectId);
 
     state.snoozes = [
       ...state.snoozes.filter((snooze) => snooze.itemId !== itemId && snooze.until > today),
@@ -601,3 +622,130 @@ export function importCrmProspect(input: ProspectInput & { crmId: string }): Pro
 }
 
 export class TractionConflictError extends Error {}
+
+// ─── Case studies ──────────────────────────────────────────────────────────
+
+function findCaseStudy(state: TractionState, id: string): CaseStudy {
+  const study = state.caseStudies.find((entry) => entry.id === id);
+  if (!study) throw new TractionNotFoundError(`No case study ${id}`);
+  return study;
+}
+
+export function readCaseStudy(id: string): Promise<CaseStudy> {
+  return readState().then((state) => findCaseStudy(state, id));
+}
+
+/**
+ * Starts a case study — from an opportunity, or from nothing.
+ *
+ * One per source: a finished project gets one case study, and a second
+ * request for the same project returns the first rather than a duplicate.
+ */
+export function startCaseStudy(input: CaseStudyInput, options: { autoTitle?: boolean } = {}): Promise<CaseStudy> {
+  return mutate((state) => {
+    const existing = input.source ? state.caseStudies.find((study) => study.source === input.source) : undefined;
+    if (existing) return { result: existing };
+
+    const now = new Date().toISOString();
+    const study = CaseStudySchema.parse(
+      compact({ ...input, status: input.status ?? "draft", autoTitle: options.autoTitle || undefined, id: newId("cs"), createdAt: now, updatedAt: now }),
+    );
+    state.caseStudies.push(study);
+    if (input.source) state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `case_study:${input.source}`);
+    return { result: study };
+  });
+}
+
+/**
+ * Replaces a case study's content with what the editor holds.
+ *
+ * "Ready" and "published" need nothing missing: a study that still says
+ * `[NEEDS DATA]` somewhere is not evidence yet, however good the rest reads.
+ */
+export function replaceCaseStudy(id: string, input: CaseStudyInput): Promise<CaseStudy> {
+  return mutate((state) => {
+    const existing = findCaseStudy(state, id);
+    const next = CaseStudySchema.parse(
+      compact({
+        ...input,
+        status: input.status ?? existing.status,
+        id,
+        source: existing.source,
+        // Once a person has changed the title, it is theirs.
+        autoTitle: existing.autoTitle && input.title === existing.title ? true : undefined,
+        draftedAt: existing.draftedAt,
+        createdAt: existing.createdAt,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+
+    if (next.status !== "draft" && (next.missing.length > 0 || hasGaps(next))) {
+      throw new TractionConflictError("A case study with missing data cannot be marked ready or published");
+    }
+
+    state.caseStudies[state.caseStudies.indexOf(existing)] = next;
+    return { result: next };
+  });
+}
+
+const GAP = /\[NEEDS DATA/i;
+
+/** Whether any section still holds a `[NEEDS DATA: …]` marker. */
+export function hasGaps(study: Pick<CaseStudy, "problem" | "solution" | "implementation" | "result">): boolean {
+  return [study.problem, study.solution, study.implementation, study.result].some((section) => section && GAP.test(section));
+}
+
+/**
+ * Folds a Hermes draft into a case study — into empty sections only.
+ *
+ * What a person already wrote is never overwritten — the title included,
+ * which a draft replaces only while it is still the automatic working title.
+ * The draft's list of
+ * missing facts is added to, not replaced, so a gap someone noted by hand
+ * survives a redraft.
+ */
+export function applyCaseStudyDraft(
+  id: string,
+  draft: Partial<Pick<CaseStudy, "title" | "problem" | "solution" | "implementation" | "result">> & { missing: string[] },
+): Promise<CaseStudy> {
+  return mutate((state) => {
+    const existing = findCaseStudy(state, id);
+    const now = new Date().toISOString();
+    const fill = (current: string | undefined, proposed: string | undefined) => (current && current.trim() ? current : proposed);
+
+    const next = CaseStudySchema.parse(
+      compact({
+        ...existing,
+        title: existing.autoTitle && draft.title ? draft.title : existing.title,
+        autoTitle: existing.autoTitle && draft.title ? undefined : existing.autoTitle,
+        problem: fill(existing.problem, draft.problem),
+        solution: fill(existing.solution, draft.solution),
+        implementation: fill(existing.implementation, draft.implementation),
+        result: fill(existing.result, draft.result),
+        missing: [...new Set([...existing.missing, ...draft.missing])].slice(0, 20),
+        draftedAt: now,
+        updatedAt: now,
+      }),
+    );
+
+    state.caseStudies[state.caseStudies.indexOf(existing)] = next;
+    return { result: next };
+  });
+}
+
+export function deleteCaseStudy(id: string): Promise<void> {
+  return mutate((state) => {
+    findCaseStudy(state, id);
+    state.caseStudies = state.caseStudies.filter((study) => study.id !== id);
+    return { result: undefined };
+  });
+}
+
+/** "This one does not need a case study." Remembered, so it is not raised again. */
+export function dismissOpportunity(source: string): Promise<void> {
+  return mutate((state) => {
+    if (!state.dismissedOpportunities.includes(source)) state.dismissedOpportunities.push(source);
+    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `case_study:${source}`);
+    return { result: undefined };
+  });
+}

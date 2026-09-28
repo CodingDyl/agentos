@@ -94,6 +94,8 @@ export function buildQueue(
   today: string,
   waiting: readonly WaitingOn[] = [],
   crm: readonly (QueueItem & { rank: number; customerId?: string })[] = [],
+  /** Items about no single prospect — case-study opportunities — ranked by the caller. */
+  other: readonly (QueueItem & { rank: number })[] = [],
 ): QueueItem[] {
   const snoozed = new Set(snoozes.filter((snooze) => snooze.until > today).map((snooze) => snooze.itemId));
   const claimed = new Set<string>();
@@ -226,6 +228,10 @@ export function buildQueue(
       [prospect.source === "referral" ? "Warm referral" : "Target account", "No outreach yet"],
       prospect.source === "referral" ? 2.5 : 4,
     );
+  }
+
+  for (const item of other) {
+    if (!snoozed.has(item.id)) items.push(item);
   }
 
   return items

@@ -351,9 +351,77 @@ export const ConfirmMailLinkSchema = z.object({
 
 export const DismissMailSuggestionSchema = z.object({ threadId: ThreadIdSchema });
 
+/**
+ * A case study: evidence that the work works.
+ *
+ * Four sections a prospect actually reads — the problem, what was built, how,
+ * and what changed — plus the client's own words. A result nobody measured is
+ * written as a gap, not a guess: Hermes marks it `[NEEDS DATA: …]` and lists
+ * it in `missing`, and the study is not "ready" while anything is missing.
+ */
+export const CaseStudyStatusSchema = z.enum(["draft", "ready", "published"]);
+
+/** Where a finished project was found. */
+export const CaseStudySourceSchema = z.string().regex(/^(virtec:project:[A-Za-z0-9_-]{1,128}|workspace:[a-z0-9][a-z0-9-]{0,80})$/);
+
+const Section = z.string().trim().max(6000);
+
+export const CaseStudySchema = z.object({
+  id: z.string(),
+  title: Text(160),
+  client: Text(120),
+  source: CaseStudySourceSchema.optional(),
+  workspace: z.string().optional(),
+  status: CaseStudyStatusSchema,
+  problem: Section.optional(),
+  solution: Section.optional(),
+  implementation: Section.optional(),
+  result: Section.optional(),
+  /** The client's own words. Never drafted by a model. */
+  testimonial: Section.optional(),
+  /** What the draft could not know. Cleared by a person, not by Hermes. */
+  missing: z.array(Text(300)).max(20).default([]),
+  publishedUrl: WebsiteSchema.optional(),
+  /** The title is still the automatic working title, so a draft may replace it. */
+  autoTitle: z.boolean().optional(),
+  draftedAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const CaseStudyInputSchema = z.object({
+  title: Text(160),
+  client: Text(120),
+  source: CaseStudySourceSchema.optional(),
+  workspace: z.string().optional(),
+  status: CaseStudyStatusSchema.default("draft"),
+  problem: Section.optional(),
+  solution: Section.optional(),
+  implementation: Section.optional(),
+  result: Section.optional(),
+  testimonial: Section.optional(),
+  missing: z.array(Text(300)).max(20).default([]),
+  publishedUrl: WebsiteSchema.optional(),
+});
+
+/** A finished project that has earned a case study and does not have one. */
+export const CaseStudyOpportunitySchema = z.object({
+  source: CaseStudySourceSchema,
+  client: z.string(),
+  title: z.string(),
+  workspace: z.string().optional(),
+  origin: z.enum(["virtec", "workspace"]),
+  detail: z.string(),
+});
+
+export const DismissOpportunitySchema = z.object({ source: CaseStudySourceSchema });
+
+/** Starts a case study from an opportunity. Only the source is sent; the details are the adapter's. */
+export const StartFromOpportunitySchema = z.object({ fromOpportunity: CaseStudySourceSchema }).strict();
+
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["due", "follow_up", "waiting", "crm", "referral", "contact"]);
+export const QueueItemKindSchema = z.enum(["due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({
@@ -365,6 +433,8 @@ export const QueueItemSchema = z.object({
   waitingId: z.string().optional(),
   /** A Virtec follow-up, when the item came from the CRM. */
   crmFollowUpId: z.string().optional(),
+  /** A finished project with no case study yet — `virtec:project:<id>` or `workspace:<slug>`. */
+  caseStudySource: z.string().optional(),
   title: z.string(),
   /** The one or two plain facts that make it worth doing today. */
   detail: z.array(z.string()),
@@ -539,6 +609,8 @@ export const TractionDataSchema = z.object({
   mailThreads: z.record(z.string(), z.array(LinkedThreadSchema)),
   reviews: z.object({ thisWeek: WeeklyReviewSchema, lastWeek: WeeklyReviewSchema }),
   crm: CrmViewSchema,
+  caseStudies: z.array(CaseStudySchema),
+  caseStudyOpportunities: z.array(CaseStudyOpportunitySchema),
 });
 
 export const QueueActionSchema = z.object({
@@ -583,6 +655,10 @@ export type SourceResult = z.infer<typeof SourceResultSchema>;
 export type ExperimentReview = z.infer<typeof ExperimentReviewSchema>;
 export type WeeklyReview = z.infer<typeof WeeklyReviewSchema>;
 export type CrmView = z.infer<typeof CrmViewSchema>;
+export type CaseStudyStatus = z.infer<typeof CaseStudyStatusSchema>;
+export type CaseStudy = z.infer<typeof CaseStudySchema>;
+export type CaseStudyInput = z.input<typeof CaseStudyInputSchema>;
+export type CaseStudyOpportunity = z.infer<typeof CaseStudyOpportunitySchema>;
 export type CrmImport = z.infer<typeof CrmImportSchema>;
 export type TractionData = z.infer<typeof TractionDataSchema>;
 export type QueueAction = z.infer<typeof QueueActionSchema>;

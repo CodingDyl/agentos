@@ -4,6 +4,9 @@ import type { VirtecSnapshot } from "../../shared/virtec-types";
 import { readMailData } from "../mail/store";
 import { isVirtecConfigured, virtecConfigurationProblem } from "../virtec/client";
 import { getVirtecSnapshot } from "../virtec/snapshot";
+import type { ProjectSummary } from "../../shared/agentos-types";
+import { getProjects } from "../agentos/projects";
+import { buildOpportunities, caseStudyQueueItems } from "./case-studies";
 import { buildCrmView, crmAttention, crmQueueItems } from "./crm";
 import { crmProvider } from "./crm-provider";
 import {
@@ -37,6 +40,25 @@ function cachedThreads(): MailThread[] {
     console.error("[agentos] traction: the mail cache could not be read:", error);
     return [];
   }
+}
+
+/** The portfolio, for finished workspaces. A vault that cannot be read costs the opportunities, not the screen. */
+async function portfolio(): Promise<ProjectSummary[]> {
+  try {
+    return await getProjects();
+  } catch (error) {
+    console.error("[agentos] traction: the portfolio could not be read:", error);
+    return [];
+  }
+}
+
+/**
+ * Case-study opportunities as they stand now — also used to start one from
+ * the queue, so the queue and the screen agree on what an opportunity is.
+ */
+export async function currentOpportunities() {
+  const [state, virtec, projects] = await Promise.all([readState(), virtecWithin(VIRTEC_BUDGET_MS), portfolio()]);
+  return buildOpportunities(virtec, projects, state.caseStudies, state.dismissedOpportunities);
 }
 
 /** How long Traction waits for Virtec before answering without it. */
@@ -82,12 +104,14 @@ async function virtecWithin(budgetMs: number): Promise<VirtecSnapshot | undefine
 export async function getTraction(now = new Date()): Promise<TractionData> {
   const today = isoDate(now);
   const provider = crmProvider();
-  const [state, events, prospects, virtec] = await Promise.all([
+  const [state, events, prospects, virtec, projects] = await Promise.all([
     readState(),
     readEvents(),
     provider.getProspects(),
     virtecWithin(VIRTEC_BUDGET_MS),
+    portfolio(),
   ]);
+  const opportunities = buildOpportunities(virtec, projects, state.caseStudies, state.dismissedOpportunities);
   const threads = cachedThreads();
   const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem());
   const open = state.waiting.filter((item) => !item.resolvedAt).sort((a, b) => chaseDate(a).localeCompare(chaseDate(b)));
@@ -101,7 +125,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today)),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), caseStudyQueueItems(opportunities)),
     doneToday: countDoneToday(events, today),
     attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),
@@ -116,5 +140,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
       lastWeek: buildReview(events, prospects, state.experiments, addDays(today, -7)),
     },
     crm,
+    caseStudies: [...state.caseStudies].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    caseStudyOpportunities: opportunities,
   };
 }

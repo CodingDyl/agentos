@@ -1,6 +1,9 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
 import {
+  CaseStudyInputSchema,
+  StartFromOpportunitySchema,
+  DismissOpportunitySchema,
   CrmImportSchema,
   ConfirmMailLinkSchema,
   DismissMailSuggestionSchema,
@@ -18,10 +21,17 @@ import { readThreadSummary } from "../mail/store";
 import { isVirtecConfigured } from "../virtec/client";
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import { clientToProspect, leadToProspect } from "./crm";
+import { CaseStudyDraftError, draftCaseStudy } from "./case-study-draft";
+import { currentOpportunities } from "./traction";
 import { isoDate } from "./engine";
 import {
   completeQueueItem,
   confirmMailLink,
+  deleteCaseStudy,
+  dismissOpportunity,
+  readCaseStudy,
+  replaceCaseStudy,
+  startCaseStudy,
   createExperiment,
   createOffer,
   createProspect,
@@ -71,6 +81,11 @@ function parse<T>(schema: ZodType<T>, body: unknown, response: Response, what: s
 }
 
 function fail(response: Response, error: unknown, what: string): void {
+  if (error instanceof CaseStudyDraftError) {
+    response.status(422).json({ error: error.message });
+    return;
+  }
+
   if (error instanceof TractionConflictError) {
     response.status(409).json({ error: error.message });
     return;
@@ -130,7 +145,17 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
   if (!action) return;
 
   try {
-    if (action.action === "done") {
+    if (action.action === "done" && request.params.itemId.startsWith("case_study:")) {
+      // "Done" on an opportunity means "start it": the study is created from
+      // the opportunity as it stands now, never from anything in the request.
+      const source = request.params.itemId.slice("case_study:".length);
+      const opportunity = (await currentOpportunities()).find((entry) => entry.source === source);
+      if (!opportunity) {
+        response.status(404).json({ error: "No such case-study opportunity" });
+        return;
+      }
+      response.json({ caseStudy: await startFromOpportunity(opportunity) });
+    } else if (action.action === "done") {
       response.json(await completeQueueItem(request.params.itemId));
     } else {
       await snoozeQueueItem(request.params.itemId, isoDate(new Date()), action.days);
@@ -356,5 +381,109 @@ tractionRouter.post("/crm/import", async (request, response) => {
     response.status(201).json({ prospect: await importCrmProspect({ ...mapped, crmId: mapped.crmId }) });
   } catch (error) {
     fail(response, error, "import from Virtec");
+  }
+});
+
+function startFromOpportunity(opportunity: Awaited<ReturnType<typeof currentOpportunities>>[number]) {
+  return startCaseStudy(
+    {
+      title: `${opportunity.client} — ${opportunity.title}`,
+      client: opportunity.client,
+      source: opportunity.source,
+      workspace: opportunity.workspace,
+    },
+    { autoTitle: true },
+  );
+}
+
+/**
+ * Starts a case study: from an opportunity (by its source), or blank.
+ *
+ * From an opportunity, the details come from the adapter's own reading of
+ * Virtec and the portfolio; the request only names which one.
+ */
+tractionRouter.post("/case-studies", async (request, response) => {
+  const from = StartFromOpportunitySchema.safeParse(request.body ?? {});
+
+  try {
+    if (from.success) {
+      const opportunity = (await currentOpportunities()).find((entry) => entry.source === from.data.fromOpportunity);
+      if (!opportunity) {
+        response.status(404).json({ error: "No such case-study opportunity" });
+        return;
+      }
+      response.status(201).json({ caseStudy: await startFromOpportunity(opportunity) });
+      return;
+    }
+
+    const input = parse(CaseStudyInputSchema, request.body, response, "case study");
+    if (!input) return;
+    response.status(201).json({ caseStudy: await startCaseStudy(input) });
+  } catch (error) {
+    fail(response, error, "start the case study");
+  }
+});
+
+tractionRouter.put("/case-studies/:id", async (request, response) => {
+  const input = parse(CaseStudyInputSchema, request.body, response, "case study");
+  if (!input) return;
+
+  try {
+    response.json({ caseStudy: await replaceCaseStudy(request.params.id, input) });
+  } catch (error) {
+    fail(response, error, "save the case study");
+  }
+});
+
+tractionRouter.delete("/case-studies/:id", async (request, response) => {
+  try {
+    await deleteCaseStudy(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "remove the case study");
+  }
+});
+
+/** One Hermes call, on request. Fills empty sections only. */
+tractionRouter.post("/case-studies/:id/draft", async (request, response) => {
+  try {
+    response.json({ caseStudy: await draftCaseStudy(request.params.id) });
+  } catch (error) {
+    fail(response, error, "draft the case study");
+  }
+});
+
+/**
+ * Asks for the client's words by putting the ask on Waiting On.
+ *
+ * The testimonial is the one section no model may write, so the only thing
+ * AgentOS can do is make sure the ask is not forgotten.
+ */
+tractionRouter.post("/case-studies/:id/testimonial-request", async (request, response) => {
+  try {
+    const study = await readCaseStudy(request.params.id);
+    const today = isoDate(new Date());
+    response.status(201).json({
+      waiting: await createWaiting({
+        who: study.client,
+        what: `Testimonial for the “${study.title.slice(0, 120)}” case study`.slice(0, 200),
+        since: today,
+        workspace: study.workspace,
+      }),
+    });
+  } catch (error) {
+    fail(response, error, "request the testimonial");
+  }
+});
+
+tractionRouter.post("/case-studies/dismiss", async (request, response) => {
+  const input = parse(DismissOpportunitySchema, request.body, response, "dismissal");
+  if (!input) return;
+
+  try {
+    await dismissOpportunity(input.source);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "dismiss the opportunity");
   }
 });

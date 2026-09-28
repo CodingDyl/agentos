@@ -204,6 +204,56 @@ describe("virtec", () => {
   });
 });
 
+describe("case studies", () => {
+  it("starts one per source, and a second start returns the first", async () => {
+    const first = await store.startCaseStudy({ title: "Vaja — Configurator", client: "Vaja", source: "virtec:project:p1" }, { autoTitle: true });
+    const again = await store.startCaseStudy({ title: "Other", client: "Vaja", source: "virtec:project:p1" });
+    assert.equal(again.id, first.id);
+    assert.equal((await store.readState()).caseStudies.length, 1);
+  });
+
+  it("fills only empty sections, and replaces the title only while it is automatic", async () => {
+    const study = await store.startCaseStudy({ title: "Vaja — Configurator", client: "Vaja", source: "virtec:project:p2" }, { autoTitle: true });
+    await store.replaceCaseStudy(study.id, { title: study.title, client: "Vaja", problem: "Written by Dylan", missing: [] });
+
+    const drafted = await store.applyCaseStudyDraft(study.id, {
+      title: "A 3D configurator that sells",
+      problem: "Hermes problem",
+      solution: "Hermes solution",
+      missing: ["Conversion before and after"],
+    });
+
+    assert.equal(drafted.problem, "Written by Dylan");
+    assert.equal(drafted.solution, "Hermes solution");
+    assert.equal(drafted.title, "A 3D configurator that sells");
+    assert.deepEqual(drafted.missing, ["Conversion before and after"]);
+
+    await store.replaceCaseStudy(study.id, { ...drafted, title: "My own title", missing: [] });
+    const redrafted = await store.applyCaseStudyDraft(study.id, { title: "Hermes again", missing: [] });
+    assert.equal(redrafted.title, "My own title");
+  });
+
+  it("refuses to mark a study ready while data is missing", async () => {
+    const study = await store.startCaseStudy({ title: "T", client: "C", result: "Enquiries up [NEEDS DATA: numbers]" });
+    await assert.rejects(
+      store.replaceCaseStudy(study.id, { title: "T", client: "C", result: study.result, status: "ready", missing: [] }),
+      store.TractionConflictError,
+    );
+    await assert.rejects(
+      store.replaceCaseStudy(study.id, { title: "T", client: "C", result: "Enquiries doubled", status: "ready", missing: ["Screenshots"] }),
+      store.TractionConflictError,
+    );
+    const ready = await store.replaceCaseStudy(study.id, { title: "T", client: "C", result: "Enquiries doubled", status: "ready", missing: [] });
+    assert.equal(ready.status, "ready");
+  });
+
+  it("will not draft from nothing, and never calls Hermes to find out", async () => {
+    const { draftCaseStudy, CaseStudyDraftError } = await import("../case-study-draft");
+    const study = await store.startCaseStudy({ title: "Empty", client: "Nobody" });
+    await assert.rejects(draftCaseStudy(study.id), CaseStudyDraftError);
+  });
+});
+
 describe("website validation", () => {
   it("accepts http(s) and refuses script and data urls", () => {
     assert.equal(WebsiteSchema.safeParse("https://parkview.co.za").success, true);

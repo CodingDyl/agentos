@@ -4,6 +4,7 @@ import { AppShell } from "@/components/os";
 import { PaperButton, PaperStage, PaperTabs } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useTraction } from "@/lib/agentos/traction";
+import { TractionCaseStudiesTab } from "./traction-case-studies-tab";
 import { TractionClientsTab } from "./traction-clients-tab";
 import { TractionCrmTab } from "./traction-crm-tab";
 import { TractionExperimentsTab } from "./traction-experiments-tab";
@@ -125,6 +126,7 @@ function Traction({
         {tab === "pipeline" ? <TractionPipelineTab data={data} onOpen={(id) => onProspect(id)} /> : null}
         {tab === "waiting" ? <TractionWaitingTab data={data} /> : null}
         {tab === "clients" ? <TractionClientsTab data={data} /> : null}
+        {tab === "case-studies" ? <TractionCaseStudiesTab data={data} /> : null}
         {tab === "crm" ? <TractionCrmTab data={data} /> : null}
         {tab === "offers" ? <TractionOffersTab data={data} /> : null}
         {tab === "experiments" ? <TractionExperimentsTab data={data} /> : null}

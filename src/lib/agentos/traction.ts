@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TractionDataSchema,
+  type CaseStudyInput,
   type ConfirmMailLink,
   type CrmImport,
   type ExperimentInput,
@@ -73,7 +74,7 @@ export function useTraction() {
 }
 
 /** A mutation that re-reads Traction (and Today, which shows the queue) when it lands. */
-function useTractionMutation<V>(fn: (variables: V) => Promise<unknown>) {
+function useTractionMutation<V, R = unknown>(fn: (variables: V) => Promise<R>) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -155,3 +156,27 @@ export const useRefreshCrm = () => useTractionMutation(() => request("/api/tract
 
 /** Imports one Virtec lead or client as a prospect. The adapter supplies the contents; this only names it. */
 export const useImportCrm = () => useTractionMutation((input: CrmImport) => request("/api/traction/crm/import", json("POST", input)));
+
+/** Starts a case study from an opportunity (by its source only) or from a blank form. */
+export const useStartCaseStudy = () =>
+  useTractionMutation((input: { fromOpportunity: string } | CaseStudyInput) =>
+    request<{ caseStudy: { id: string } }>("/api/traction/case-studies", json("POST", input)),
+  );
+
+export const useSaveCaseStudy = () =>
+  useTractionMutation(({ caseStudyId, input }: { caseStudyId: string; input: CaseStudyInput }) =>
+    request(`/api/traction/case-studies/${id(caseStudyId)}`, json("PUT", input)),
+  );
+
+export const useDeleteCaseStudy = () =>
+  useTractionMutation((caseStudyId: string) => request(`/api/traction/case-studies/${id(caseStudyId)}`, { method: "DELETE" }));
+
+/** One Hermes call. Slow — it is a whole draft — and only ever on request. */
+export const useDraftCaseStudy = () =>
+  useTractionMutation((caseStudyId: string) => request(`/api/traction/case-studies/${id(caseStudyId)}/draft`, { method: "POST" }));
+
+export const useRequestTestimonial = () =>
+  useTractionMutation((caseStudyId: string) => request(`/api/traction/case-studies/${id(caseStudyId)}/testimonial-request`, { method: "POST" }));
+
+export const useDismissOpportunity = () =>
+  useTractionMutation((source: string) => request("/api/traction/case-studies/dismiss", json("POST", { source })));
