@@ -33,11 +33,13 @@ describe("buildActions", () => {
     const actions = buildActions(ctx);
 
     actions.find((action) => action.id === "create:task")?.run();
-    actions.find((action) => action.id === "create:delegate")?.run();
+    actions.find((action) => action.id === "work:delegate")?.run();
+    actions.find((action) => action.id === "create:document")?.run();
 
     assert.deepEqual(ctx.calls, [
       "create:task:pantry-pilot",
-      "nav:/projects/pantry-pilot?tab=tasks&delegate=1",
+      "nav:/workspaces/pantry-pilot?tab=tasks&delegate=1",
+      "create:document:pantry-pilot",
     ]);
     assert.match(actions.find((action) => action.id === "create:task")?.hint ?? "", /Pantry Pilot/);
   });
@@ -47,17 +49,35 @@ describe("buildActions", () => {
     const actions = buildActions(ctx);
 
     actions.find((action) => action.id === "create:task")?.run();
-    actions.find((action) => action.id === "agent:delegate")?.run();
+    actions.find((action) => action.id === "work:delegate")?.run();
 
-    assert.deepEqual(ctx.calls, ["create:task:-", "nav:/projects"]);
+    assert.deepEqual(ctx.calls, ["create:task:-", "nav:/workspaces"]);
   });
 
-  it("lists every project under Navigate, active first and archived last", () => {
+  it("starts focus on the workspace in context, or the day without one", () => {
+    const scoped = context("pantry-pilot");
+    buildActions(scoped).find((action) => action.id === "work:focus")?.run();
+    const unscoped = context();
+    buildActions(unscoped).find((action) => action.id === "work:focus")?.run();
+
+    assert.deepEqual(scoped.calls, ["nav:/agent?project=pantry-pilot&run=%2Fwork-on%20pantry-pilot"]);
+    assert.deepEqual(unscoped.calls, ["nav:/agent?run=%2Fstart-day"]);
+  });
+
+  it("lists every workspace under Navigate, active first and archived last", () => {
     const names = buildActions(context())
-      .filter((action) => action.id.startsWith("go:/projects/"))
+      .filter((action) => action.id.startsWith("go:/workspaces/"))
       .map((action) => action.label);
 
     assert.deepEqual(names, ["Pantry Pilot", "Jurivo", "Old Thing"]);
+  });
+
+  it("ranks recently opened workspaces first", () => {
+    const names = buildActions({ ...context(), recent: ["old-thing", "jurivo"] })
+      .filter((action) => action.id.startsWith("go:/workspaces/"))
+      .map((action) => action.label);
+
+    assert.deepEqual(names, ["Old Thing", "Jurivo", "Pantry Pilot"]);
   });
 });
 
@@ -65,8 +85,8 @@ describe("groupActions", () => {
   it("keeps the fixed group order and caps Navigate", () => {
     const groups = groupActions(buildActions(context()), 3);
 
-    assert.deepEqual(groups.map((group) => group.label), ["Create", "Navigate", "Agents"]);
-    assert.equal(groups[1].actions.length, 3);
+    assert.deepEqual(groups.map((group) => group.label), ["Create", "Work", "Navigate"]);
+    assert.equal(groups[2].actions.length, 3);
   });
 });
 
@@ -75,7 +95,7 @@ describe("searchActions", () => {
     const actions = buildActions(context());
     const results = searchActions(actions, "new").map((action) => action.label);
 
-    assert.deepEqual(results.slice(0, 3), ["New task", "New project", "New decision"]);
+    assert.deepEqual(results.slice(0, 4), ["New task", "New document", "New workspace", "New milestone"]);
   });
 
   it("finds projects by slug and screens by keyword", () => {

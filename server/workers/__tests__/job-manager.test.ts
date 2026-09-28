@@ -319,7 +319,9 @@ describe("running jobs", () => {
       });
 
       assert.ok(job);
-      assert.equal(await manager.cancelJob(job.id), true);
+      const result = await manager.cancelJob(job.id);
+      assert.equal(result.ok, true);
+      assert.equal(result.ok && result.stopped, true);
 
       await settle(job.id);
 
@@ -329,8 +331,55 @@ describe("running jobs", () => {
       assert.equal(finished?.error, undefined);
     });
 
-    it("reports that a job which is not running cannot be cancelled", async () => {
-      assert.equal(await manager.cancelJob("job_doesnotexist00"), false);
+    it("reports a job that does not exist", async () => {
+      const result = await manager.cancelJob("job_doesnotexist00");
+      assert.equal(result.ok, false);
+    });
+
+    it("cancels a job whose worker has finished but nobody has decided on", async () => {
+      const { job } = await manager.startJob({
+        worker: "mock",
+        project: "agentos",
+        objective: "Finished work nobody wants any more",
+        repoPath: repo,
+      });
+
+      assert.ok(job);
+      await settle(job.id);
+      assert.equal((await store.readJob(job.id))?.status, "awaiting_review");
+
+      const result = await manager.cancelJob(job.id);
+      assert.equal(result.ok, true);
+      assert.equal(result.ok && result.stopped, false);
+
+      const cancelled = await store.readJob(job.id);
+      assert.equal(cancelled?.status, "cancelled");
+      assert.ok(cancelled?.completedAt);
+      // Cancelling ends the job, not the evidence.
+      if (cancelled?.worktreePath) await fs.access(cancelled.worktreePath);
+
+      const again = await manager.cancelJob(job.id);
+      assert.equal(again.ok, false);
+      assert.match(again.ok ? "" : again.error, /already cancelled/);
+    });
+
+    it("refuses to cancel a job that is being applied to the repository", async () => {
+      const { job } = await manager.startJob({
+        worker: "mock",
+        project: "agentos",
+        objective: "Mid-integration",
+        repoPath: repo,
+      });
+
+      assert.ok(job);
+      await settle(job.id);
+      const settled = await store.readJob(job.id);
+      assert.ok(settled);
+      await store.saveJob({ ...settled, status: "integrating" });
+
+      const result = await manager.cancelJob(job.id);
+      assert.equal(result.ok, false);
+      assert.match(result.ok ? "" : result.error, /applied to the repository/);
     });
   });
 

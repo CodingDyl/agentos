@@ -4,7 +4,7 @@ import type { AgentUsage, LiveAgent, OperationsData } from "@shared/usage-types"
 import { cn } from "@/lib/utils";
 import { Figure } from "./figures";
 import { formatCost, measuredCost, measuredTokens } from "./operations-model";
-import { PAPER_FOCUS, PaperCard, PaperSection, RadialMeter, Tag } from "./paper";
+import { PAPER_FOCUS, PaperCard, PaperSection, RadialMeter, Tag } from "@/components/paper";
 
 /**
  * The workforce.

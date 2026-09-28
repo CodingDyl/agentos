@@ -1,6 +1,6 @@
 import { Menu, X, type LucideIcon } from "lucide-react";
 import { useContext, useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppShellActionsContext } from "./app-shell-actions-context";
 import { SystemIndicator, type SystemState } from "./system-indicator";
@@ -17,7 +17,24 @@ export interface AppShellNavigationItem {
    * meaning something on the day it says 3.
    */
   badge?: number;
+  /**
+   * Where the item sits. `primary` is ungrouped at the top; `work` and
+   * `system` carry a label; `footer` is the quiet row of power-user links.
+   * Absent reads as `primary`, so an old item list still renders.
+   */
+  section?: AppShellNavigationSection;
+  /** Nested links shown under the item — pinned workspaces under Workspaces. */
+  children?: readonly { label: string; href: string }[];
 }
+
+export type AppShellNavigationSection = "primary" | "work" | "system" | "footer";
+
+const SECTION_LABELS: Partial<Record<AppShellNavigationSection, string>> = {
+  work: "Work",
+  system: "System",
+};
+
+const SECTION_ORDER: readonly AppShellNavigationSection[] = ["primary", "work", "system"];
 
 export interface AppShellProps {
   children: ReactNode;
@@ -85,6 +102,7 @@ export function AppShell({
   }, [isNavigationOpen]);
 
   const navigationIsAvailable = isDesktop || isNavigationOpen;
+  const location = useLocation();
   const shellActions = useContext(AppShellActionsContext);
 
   return (
@@ -94,6 +112,13 @@ export function AppShell({
         className,
       )}
     >
+      {/* The sidebar is a dozen stops long; keyboard users skip it. */}
+      <a
+        href="#agentos-main"
+        className="os-focus-ring sr-only z-50 rounded-md bg-os-surface-raised px-3 py-2 text-[13px] text-foreground focus:not-sr-only focus:absolute focus:top-2 focus:left-2"
+      >
+        Skip to content
+      </a>
       <header className="z-30 flex items-center justify-between border-b border-os-border bg-os-background/95 px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <button
@@ -142,60 +167,55 @@ export function AppShell({
           aria-hidden={!navigationIsAvailable}
           aria-label="Primary navigation"
         >
-          <nav className="flex flex-1 flex-col gap-1 p-3 pt-5">
-            <span className="os-meta mb-3 px-3 text-os-subtle">Workspace</span>
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.href === activeHref;
+          <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 pt-4" aria-label="Sections">
+            {SECTION_ORDER.map((section) => {
+              const items = navigationItems.filter((item) => (item.section ?? "primary") === section);
+              if (items.length === 0) return null;
+
               return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  onClick={() => setIsNavigationOpen(false)}
-                  className={cn(
-                    "os-focus-ring group relative flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 font-mono text-xs tracking-[0.06em] uppercase transition-colors duration-150",
-                    isActive
-                      ? "bg-os-surface-raised text-foreground"
-                      : "text-os-muted hover:bg-os-surface-raised/70 hover:text-foreground",
-                  )}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  {isActive ? (
-                    <span
-                      className="absolute inset-y-3 left-0 w-px bg-os-amber"
-                      aria-hidden="true"
+                <div key={section} className={cn("flex flex-col gap-0.5", section !== "primary" && "mt-6")}>
+                  {SECTION_LABELS[section] ? (
+                    <span className="os-meta mb-2 px-3 text-os-subtle">{SECTION_LABELS[section]}</span>
+                  ) : null}
+                  {items.map((item) => (
+                    <NavigationLink
+                      key={item.href}
+                      item={item}
+                      isActive={item.href === activeHref}
+                      pathname={location.pathname}
+                      onNavigate={() => setIsNavigationOpen(false)}
                     />
-                  ) : null}
-                  <Icon
-                    className={cn(
-                      "size-4 text-os-subtle transition-colors",
-                      isActive && "text-os-amber",
-                    )}
-                    strokeWidth={1.5}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {item.badge ? (
-                    <span
-                      className="shrink-0 rounded-sm bg-os-warning/15 px-1.5 py-0.5 text-[10px] leading-4 text-os-warning tabular-nums"
-                      aria-label={`${item.badge} waiting on you`}
-                    >
-                      {item.badge}
-                    </span>
-                  ) : null}
-                </Link>
+                  ))}
+                </div>
               );
             })}
           </nav>
-          <div className="border-t border-os-border p-4">
-            <p className="os-meta text-os-subtle">System foundation</p>
-            <p className="mt-2 text-xs leading-5 text-os-muted">
-              V1 visual language
-            </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-os-border px-6 py-3">
+            {navigationItems
+              .filter((item) => item.section === "footer")
+              .map((item) => {
+                const Icon = item.icon;
+                const isActive = item.href === activeHref;
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    onClick={() => setIsNavigationOpen(false)}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md transition-colors duration-150",
+                      isActive ? "text-foreground" : "text-os-subtle hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+                    {item.label}
+                  </Link>
+                );
+              })}
           </div>
         </aside>
 
-        <main data-agentos-page={pageId} className="min-w-0 overflow-y-auto">
+        <main id="agentos-main" tabIndex={-1} data-agentos-page={pageId} className="min-w-0 overflow-y-auto outline-none">
           {children}
         </main>
       </div>
@@ -220,5 +240,83 @@ export function AppShell({
         </div>
       </footer>
     </div>
+  );
+}
+
+function NavigationLink({
+  item,
+  isActive,
+  pathname,
+  onNavigate,
+}: {
+  item: AppShellNavigationItem;
+  isActive: boolean;
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const Icon = item.icon;
+  const children = item.children ?? [];
+
+  return (
+    <>
+      <Link
+        to={item.href}
+        onClick={onNavigate}
+        className={cn(
+          "os-focus-ring group relative flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-3 font-mono text-xs tracking-[0.06em] uppercase transition-colors duration-150",
+          isActive
+            ? "bg-os-surface-raised text-foreground"
+            : "text-os-muted hover:bg-os-surface-raised/70 hover:text-foreground",
+        )}
+        aria-current={isActive ? "page" : undefined}
+      >
+        {isActive ? (
+          <span className="absolute inset-y-3 left-0 w-px bg-os-amber" aria-hidden="true" />
+        ) : null}
+        <Icon
+          className={cn("size-4 text-os-subtle transition-colors", isActive && "text-os-amber")}
+          strokeWidth={1.5}
+          aria-hidden="true"
+        />
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        {item.badge ? (
+          <span
+            className="shrink-0 rounded-sm bg-os-warning/15 px-1.5 py-0.5 text-[10px] leading-4 text-os-warning tabular-nums"
+            aria-label={`${item.badge} waiting on you`}
+          >
+            {item.badge}
+          </span>
+        ) : null}
+      </Link>
+
+      {children.length > 0 ? (
+        <ul className="mb-1 flex flex-col gap-px" aria-label={`Pinned ${item.label.toLowerCase()}`}>
+          {children.map((child) => {
+            const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+            return (
+              <li key={child.href}>
+                <Link
+                  to={child.href}
+                  onClick={onNavigate}
+                  aria-current={childActive ? "page" : undefined}
+                  className={cn(
+                    "os-focus-ring flex min-h-8 cursor-pointer items-center gap-2.5 rounded-md py-1 pr-3 pl-10 text-[13px] leading-5 transition-colors duration-150",
+                    childActive
+                      ? "bg-os-surface-raised/70 text-foreground"
+                      : "text-os-muted hover:bg-os-surface-raised/50 hover:text-foreground",
+                  )}
+                >
+                  <span
+                    className={cn("size-1 shrink-0 rounded-full", childActive ? "bg-os-amber" : "bg-os-subtle")}
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 truncate">{child.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </>
   );
 }

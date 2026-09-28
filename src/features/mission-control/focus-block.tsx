@@ -64,7 +64,7 @@ export function FocusBlock({ focus, className }: FocusBlockProps) {
             <div className="mt-6 max-w-[32rem]">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <Link
-                  to={focus.projectSlug ? `/projects/${focus.projectSlug}?tab=roadmap&milestone=${focus.milestone.id}` : "/projects"}
+                  to={focus.projectSlug ? `/workspaces/${focus.projectSlug}?tab=roadmap&milestone=${focus.milestone.id}` : "/workspaces"}
                   className="os-focus-ring -mx-1 cursor-pointer rounded-md px-1 text-[16px] leading-6 text-foreground transition-colors duration-150 hover:text-os-amber"
                 >
                   {focus.milestone.title}
@@ -119,7 +119,7 @@ export function FocusBlock({ focus, className }: FocusBlockProps) {
               iconPosition="start"
               onClick={() => quickCreate.open("project")}
             >
-              Project
+              Workspace
             </CommandButton>
             <CommandButton
               variant="secondary"
@@ -132,10 +132,10 @@ export function FocusBlock({ focus, className }: FocusBlockProps) {
 
             {focus.projectSlug ? (
               <Link
-                to={`/projects/${focus.projectSlug}`}
+                to={`/workspaces/${focus.projectSlug}`}
                 className="os-focus-ring os-meta -mx-2 inline-flex min-h-10 cursor-pointer items-center rounded-md px-2 text-os-subtle transition-colors duration-150 hover:text-foreground"
               >
-                Open project
+                Open workspace
               </Link>
             ) : (
               <span className="os-meta text-os-subtle">

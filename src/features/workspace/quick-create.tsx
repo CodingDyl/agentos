@@ -1,9 +1,16 @@
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ProjectTaskSection } from "@shared/agentos-types";
+import type { ArtifactType, ProjectTaskSection } from "@shared/agentos-types";
 import { CommandButton, SectionLabel } from "@/components/os";
-import { useCreateTask, useProjects, useWriteDecision } from "@/lib/agentos/queries";
+import { TYPE_LABELS } from "@/features/projects/documents-model";
+import {
+  useCaptureNote,
+  useCreateDocument,
+  useCreateTask,
+  useProjects,
+  useWriteDecision,
+} from "@/lib/agentos/queries";
 import { CreateProject } from "./create-project";
 import {
   QuickCreateContext,
@@ -15,8 +22,8 @@ import { useWorkspaceFeedback } from "./use-workspace-feedback";
 /**
  * Quick Create: the forms that can be opened from anywhere.
  *
- * A task, a project, a decision or a captured note, from any screen, without
- * first navigating to where it belongs. The forms are the same ones the
+ * A task, a workspace, a decision, a document or a captured note, from any
+ * screen, without first navigating to where it belongs. The forms are the same ones the
  * project page uses — this only hosts them at the app root so the palette,
  * the shell's `+` and Mission Control can all open them.
  *
@@ -48,6 +55,7 @@ export function QuickCreateProvider({ children }: { children: ReactNode }) {
       {state?.kind === "task" ? <QuickTask project={state.project} onClose={close} /> : null}
       {state?.kind === "decision" ? <QuickDecision project={state.project} onClose={close} /> : null}
       {state?.kind === "capture" ? <QuickCapture project={state.project} onClose={close} /> : null}
+      {state?.kind === "document" ? <QuickDocument project={state.project} onClose={close} /> : null}
     </QuickCreateContext.Provider>
   );
 }
@@ -85,7 +93,7 @@ function QuickTask({ project, onClose }: { project?: string; onClose: () => void
               onSuccess: (result) => {
                 feedback.recordEdit(`${result.taskId} created in ${name}.`, result.undoId);
                 onClose();
-                void navigate(`/projects/${chosen}?tab=tasks&task=${encodeURIComponent(result.taskId)}`);
+                void navigate(`/workspaces/${chosen}?tab=tasks&task=${encodeURIComponent(result.taskId)}`);
               },
               onError: (error) => feedback.reportFailure(error),
             },
@@ -93,7 +101,7 @@ function QuickTask({ project, onClose }: { project?: string; onClose: () => void
         }}
       >
         {!project ? (
-          <Field label="Project">
+          <Field label="Workspace">
             <select value={chosen} onChange={(event) => setSlug(event.target.value)} className={SELECT}>
               {projects.map((entry) => (
                 <option key={entry.slug} value={entry.slug}>
@@ -104,7 +112,7 @@ function QuickTask({ project, onClose }: { project?: string; onClose: () => void
           </Field>
         ) : (
           <p className="os-meta text-os-subtle">
-            Project / <span className="text-os-muted">{name}</span>
+            Workspace / <span className="text-os-muted">{name}</span>
           </p>
         )}
 
@@ -177,7 +185,7 @@ function QuickDecision({ project, onClose }: { project?: string; onClose: () => 
               onSuccess: (result) => {
                 feedback.recordEdit(`Decision "${title.trim()}" recorded in ${name}.`, result.undoId);
                 onClose();
-                void navigate(`/projects/${chosen}?tab=decisions`);
+                void navigate(`/workspaces/${chosen}?tab=decisions`);
               },
               onError: (error) => feedback.reportFailure(error),
             },
@@ -185,7 +193,7 @@ function QuickDecision({ project, onClose }: { project?: string; onClose: () => 
         }}
       >
         {!project ? (
-          <Field label="Project">
+          <Field label="Workspace">
             <select value={chosen} onChange={(event) => setSlug(event.target.value)} className={SELECT}>
               {projects.map((entry) => (
                 <option key={entry.slug} value={entry.slug}>
@@ -196,7 +204,7 @@ function QuickDecision({ project, onClose }: { project?: string; onClose: () => 
           </Field>
         ) : (
           <p className="os-meta text-os-subtle">
-            Project / <span className="text-os-muted">{name}</span>
+            Workspace / <span className="text-os-muted">{name}</span>
           </p>
         )}
 
@@ -229,46 +237,239 @@ function QuickDecision({ project, onClose }: { project?: string; onClose: () => 
 }
 
 /**
- * Capture is Hermes' job — `/capture` files a note into the inbox and decides
- * where it belongs — so this form only prepares the command and hands it to
- * the console, where the operator sends it.
+ * Capture: the fastest write in AgentOS.
+ *
+ * The note is appended to `inbox/CAPTURE.md` as it is typed — no model in the
+ * path, so it cannot be slow and cannot fail because Hermes is down. Filing it
+ * properly is a later job. It can instead go straight in as a task, or be
+ * tagged with the workspace it is about; Hermes can still be asked to file it,
+ * as the secondary route rather than the only one.
  */
 function QuickCapture({ project, onClose }: { project?: string; onClose: () => void }) {
+  const { data } = useProjects();
+  const projects = (data?.projects ?? []).filter((entry) => entry.state !== "archived");
   const [note, setNote] = useState("");
+  const [slug, setSlug] = useState(project ?? "");
+  const [asTask, setAsTask] = useState(false);
   const navigate = useNavigate();
+  const feedback = useWorkspaceFeedback();
+  const capture = useCaptureNote();
+  // A task needs somewhere to live; the first workspace stands in until chosen.
+  const taskSlug = slug || projects[0]?.slug || "";
+  const createTask = useCreateTask(taskSlug);
+
+  const workspace = projects.find((entry) => entry.slug === slug);
+  const text = note.trim();
+  const pending = capture.isPending || createTask.isPending;
+
+  const submit = () => {
+    if (!text || pending) return;
+
+    if (asTask) {
+      if (!taskSlug) return;
+      createTask.mutate(
+        { title: text, section: "now" },
+        {
+          onSuccess: (result) => {
+            const name = projects.find((entry) => entry.slug === taskSlug)?.name ?? taskSlug;
+            feedback.recordEdit(`${result.taskId} added to ${name}.`, result.undoId);
+            onClose();
+          },
+          onError: (error) => feedback.reportFailure(error),
+        },
+      );
+      return;
+    }
+
+    capture.mutate(
+      { note: text, workspace: workspace?.name },
+      {
+        onSuccess: (result) => {
+          feedback.recordEdit("Captured to the inbox.", result.undoId);
+          onClose();
+        },
+        onError: (error) => feedback.reportFailure(error),
+      },
+    );
+  };
+
+  const fileWithHermes = () => {
+    if (!text) return;
+    const params = new URLSearchParams();
+    if (slug) params.set("project", slug);
+    params.set("run", `/capture ${text}`);
+    onClose();
+    void navigate(`/agent?${params.toString()}`);
+  };
 
   return (
-    <QuickDialog label="Capture" hint="Prepares /capture in the console. Hermes files it; you send it." onClose={onClose}>
+    <QuickDialog label="Capture" hint="Saved the moment you press ⌘↵. Nothing is classified until you choose to file it." onClose={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (note.trim().length === 0) return;
-
-          const params = new URLSearchParams();
-          if (project) params.set("project", project);
-          params.set("run", `/capture ${note.trim()}`);
-
-          onClose();
-          void navigate(`/agent?${params.toString()}`);
+          submit();
         }}
       >
         <Field label="Note">
           <textarea
             autoFocus
-            rows={4}
+            rows={3}
             value={note}
             onChange={(event) => setNote(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                event.currentTarget.form?.requestSubmit();
+                event.preventDefault();
+                submit();
               }
             }}
-            placeholder="Idea, loose end, thing to remember…"
+            placeholder="Need to update Story Keeper checkout copy"
             className={`${INPUT} resize-y`}
           />
         </Field>
 
-        <Actions submitLabel="Open in console" disabled={note.trim().length === 0} onCancel={onClose} hint="⌘↵" />
+        <div className="mt-5 grid gap-5 sm:grid-cols-2 [&>label]:mt-0">
+          <Field label="Workspace">
+            <select value={slug} onChange={(event) => setSlug(event.target.value)} className={SELECT}>
+              <option value="">{asTask ? "Choose a workspace" : "None — just the inbox"}</option>
+              {projects.map((entry) => (
+                <option key={entry.slug} value={entry.slug}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Save as">
+            <div role="radiogroup" aria-label="Save as" className="mt-3 inline-flex overflow-hidden rounded-md border border-os-border">
+              {[
+                { value: false, label: "Inbox note" },
+                { value: true, label: "Task" },
+              ].map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={asTask === option.value}
+                  onClick={() => setAsTask(option.value)}
+                  className={`os-focus-ring os-meta min-h-9 cursor-pointer border-l border-os-border px-4 transition-colors duration-150 first:border-l-0 ${
+                    asTask === option.value ? "bg-os-surface-raised text-foreground" : "text-os-muted hover:text-foreground"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+        </div>
+
+        <p className="mt-4 text-[13px] leading-5 text-os-subtle">
+          {asTask
+            ? `Added to Now in ${projects.find((entry) => entry.slug === taskSlug)?.name ?? "the workspace"}'s TASKS.md.`
+            : workspace
+              ? `One line in inbox/CAPTURE.md, tagged for ${workspace.name}.`
+              : "One line in inbox/CAPTURE.md."}
+        </p>
+
+        {capture.error || createTask.error ? (
+          <p className="mt-4 text-[13px] leading-5 text-os-danger">{(capture.error ?? createTask.error)?.message}</p>
+        ) : null}
+
+        <div className="mt-7 flex flex-wrap items-center gap-2">
+          <CommandButton type="submit" variant="primary" disabled={!text || (asTask && !taskSlug)} loading={pending} loadingLabel="Saving">
+            {asTask ? "Create task" : "Capture"}
+          </CommandButton>
+          <CommandButton variant="quiet" onClick={fileWithHermes} disabled={!text}>
+            File with Hermes
+          </CommandButton>
+          <span className="os-meta ml-auto text-os-subtle">⌘↵</span>
+        </div>
+      </form>
+    </QuickDialog>
+  );
+}
+
+const DOCUMENT_TYPES: readonly ArtifactType[] = ["notes", "plan", "research", "spec", "report", "review", "design", "other"];
+
+/** A blank document in a workspace's `docs/`, opened in its viewer once written. */
+function QuickDocument({ project, onClose }: { project?: string; onClose: () => void }) {
+  const { data } = useProjects();
+  const projects = (data?.projects ?? []).filter((entry) => entry.state !== "archived");
+  const [slug, setSlug] = useState(project ?? "");
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState<ArtifactType>("notes");
+  const [content, setContent] = useState("");
+
+  const chosen = slug || projects[0]?.slug || "";
+  const create = useCreateDocument(chosen);
+  const feedback = useWorkspaceFeedback();
+  const navigate = useNavigate();
+  const name = projects.find((entry) => entry.slug === chosen)?.name ?? chosen;
+
+  return (
+    <QuickDialog label="New document" hint="Written to the workspace's docs/ as Markdown with front matter." onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!chosen || title.trim().length === 0) return;
+
+          create.mutate(
+            { title: title.trim(), type, content, source: "human" },
+            {
+              onSuccess: (result) => {
+                feedback.recordEdit(`"${result.artifact.title}" created in ${name}.`, result.undoId);
+                onClose();
+                const params = new URLSearchParams({ tab: "documents", doc: result.artifact.relativePath });
+                void navigate(`/workspaces/${chosen}?${params.toString()}`);
+              },
+              onError: (error) => feedback.reportFailure(error),
+            },
+          );
+        }}
+      >
+        {!project ? (
+          <Field label="Workspace">
+            <select value={chosen} onChange={(event) => setSlug(event.target.value)} className={SELECT}>
+              {projects.map((entry) => (
+                <option key={entry.slug} value={entry.slug}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <p className="os-meta text-os-subtle">
+            Workspace / <span className="text-os-muted">{name}</span>
+          </p>
+        )}
+
+        <div className="mt-5 grid gap-5 sm:grid-cols-[minmax(0,1fr)_10rem] [&>label]:mt-0">
+          <Field label="Title">
+            <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Vaja pricing notes" className={INPUT} />
+          </Field>
+          <Field label="Type">
+            <select value={type} onChange={(event) => setType(event.target.value as ArtifactType)} className={SELECT}>
+              {DOCUMENT_TYPES.map((entry) => (
+                <option key={entry} value={entry}>
+                  {TYPE_LABELS[entry]}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <Field label="Body">
+          <textarea rows={5} value={content} onChange={(event) => setContent(event.target.value)} placeholder="Markdown. Can be left empty and written later." className={`${INPUT} resize-y font-mono text-[13px]`} />
+        </Field>
+
+        {create.error ? <p className="mt-5 text-[13px] leading-5 text-os-danger">{create.error.message}</p> : null}
+
+        <Actions
+          submitLabel="Create document"
+          disabled={!chosen || title.trim().length === 0}
+          loading={create.isPending}
+          loadingLabel="Writing"
+          onCancel={onClose}
+        />
       </form>
     </QuickDialog>
   );

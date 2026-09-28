@@ -408,7 +408,7 @@ function MilestoneDetail({
               ) : (
                 <ul className="mt-3 divide-y divide-os-border rounded-lg border border-os-border">
                   {milestone.tasks.map((task) => (
-                    <TaskLine key={task.id} task={task} onOpen={() => navigate(`/projects/${slug}?tab=tasks&task=${task.id}`)} />
+                    <TaskLine key={task.id} task={task} onOpen={() => navigate(`/workspaces/${slug}?tab=tasks&task=${task.id}`)} />
                   ))}
                 </ul>
               )}

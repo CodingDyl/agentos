@@ -10,7 +10,7 @@ import {
 } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { budgetLabel, formatCost, formatPercent } from "./operations-model";
-import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "./paper";
+import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 
 /**
  * What the AI stack actually costs.

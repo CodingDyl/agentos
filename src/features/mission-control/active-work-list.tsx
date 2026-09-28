@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { ActiveWorkItem } from "@shared/mission-control-types";
 import { EmptyState, Section } from "@/components/os";
 import { elapsed } from "./mission-control-model";
+import { cn } from "@/lib/utils";
 
 /**
  * What is executing right now.
@@ -26,7 +27,7 @@ export interface ActiveWorkListProps {
 
 export function ActiveWorkList({ items, className }: ActiveWorkListProps) {
   return (
-    <Section label="Active now" className={className}>
+    <Section id="active-work" label="Active now" className={cn("scroll-mt-8", className)}>
       {items.length === 0 ? (
         <EmptyState
           variant="inline"

@@ -54,7 +54,7 @@ export function ActivityFilters({
             onChange={onProjectChange}
             className="mt-3"
             options={[
-              { value: "all", label: "All projects" },
+              { value: "all", label: "All workspaces" },
               ...projects.map((entry) => ({
                 value: entry.slug as ProjectFilter,
                 label: entry.name,

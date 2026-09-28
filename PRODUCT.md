@@ -12,7 +12,7 @@ The primary user is Dylan, operating a personal agentic workspace. Developers ex
 
 ## Product Purpose
 
-AgentOS is a focused command surface for coordinating agent-assisted work, project context, and system state. Success means the next useful action is obvious without turning the workspace into a reporting dashboard.
+AgentOS is the operating system for Dylan's working day: businesses, clients, products, personal admin, knowledge and the agents that help with all of them. It is the orchestration layer above email, notes, trackers and agent consoles — not a replacement for each. Success means opening AgentOS answers "what matters today, what needs me, and what should I do next?" within seconds, without feeling like a developer tool or a reporting dashboard. Engineering capability (repositories, workers, reviews) stays fully available as supporting infrastructure inside the work it serves.
 
 ## Positioning
 
@@ -41,6 +41,7 @@ The repository contains a detailed V1 design specification in `DESIGN.md`. Showc
 
 - Reduce cognitive load before exposing more information.
 - Keep one next action visible.
+- Organise around the work, not around the agents doing the work.
 - Translate technical structure into usable product concepts.
 - Communicate agent work through meaningful state, not decorative activity.
 - Establish shared primitives before production screens.

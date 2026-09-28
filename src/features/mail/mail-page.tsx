@@ -1,4 +1,5 @@
 import "@/styles/mail.css";
+import type { MailClassifier } from "@shared/mail-types";
 import { AppShell } from "@/components/os";
 import { mailConnectUrl } from "@/lib/agentos/client";
 import { useNavigationItems } from "@/config/use-navigation";
@@ -7,9 +8,19 @@ import { BucketSection } from "./bucket-section";
 import { MailEmptyState } from "./mail-empty-state";
 
 /**
- * Mail: Gmail, read-only, classified by Jev into Needs you / FYI / Low
- * priority. Opening this page never calls Gmail or Jev — only Refresh does.
+ * Inbox: what arrived. Today that is Gmail, read-only.
+ *
+ * Sorting into Needs you / FYI / Low priority is done by whichever classifier
+ * is active — Jev when it is configured, otherwise `manual`, which lists every
+ * thread unsorted under FYI. The Inbox never requires a classifier, and it is
+ * built to take more sources than email later. Opening this page never calls
+ * Gmail or a classifier — only Refresh does.
  */
+const CLASSIFIER_LABEL: Record<MailClassifier, string> = {
+  manual: "unsorted — no classifier active",
+  jev: "sorted by Jev",
+};
+
 export function MailPage() {
   const navigationItems = useNavigationItems();
   const status = useMailStatus();
@@ -25,17 +36,18 @@ export function MailPage() {
     : 0;
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="mail" activeHref="/mail">
+    <AppShell navigationItems={navigationItems} pageId="mail" activeHref="/inbox">
       <div className="mail-stage">
         <div className="mail-window">
           <div className="mail-toolbar">
             <div>
-              <h1 className="mail-title">Mail</h1>
+              <h1 className="mail-title">Inbox</h1>
               <div className="mail-meta">
                 {mail.data ? `${totalThreads} thread${totalThreads === 1 ? "" : "s"}` : "—"}
                 {status.data?.lastSyncedAt
                   ? ` · last synced ${new Date(status.data.lastSyncedAt).toLocaleString()}`
                   : ""}
+                {connected ? ` · ${CLASSIFIER_LABEL[status.data?.classifier ?? "manual"]}` : ""}
               </div>
             </div>
             {connected ? (
@@ -60,8 +72,8 @@ export function MailPage() {
               <p className="mail-meta">Checking Mail configuration…</p>
             ) : !configured ? (
               <MailEmptyState
-                title="Mail is not configured"
-                description="Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and JEV_API_KEY to .env, then restart the server."
+                title="The inbox is not connected yet"
+                description="Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart the server. A classifier such as Jev (JEV_API_KEY) is optional — without one, threads are listed unsorted."
               />
             ) : !connected ? (
               <MailEmptyState
@@ -74,7 +86,11 @@ export function MailPage() {
             ) : !mail.data || totalThreads === 0 ? (
               <MailEmptyState
                 title="No mail synced yet"
-                description="Click Refresh to fetch and classify your most recent inbox threads."
+                description={
+                  status.data?.classifier === "jev"
+                    ? "Click Refresh to fetch and sort your most recent inbox threads."
+                    : "Click Refresh to fetch your most recent inbox threads. No classifier is active, so they will be listed unsorted."
+                }
               />
             ) : (
               <>

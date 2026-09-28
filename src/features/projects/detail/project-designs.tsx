@@ -1,40 +1,7 @@
-import { ArrowRight, Images } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { EmptyState, HairlineCard, Section } from "@/components/os";
 import { useDesignLibrary } from "@/lib/agentos/queries";
-
-/** The compact way in, for the Overview. */
-export function ProjectDesignsStrip({ slug, className }: { slug: string; className?: string }) {
-  const { data, isError } = useDesignLibrary();
-
-  const count = (data?.assets ?? []).filter((asset) => asset.project === slug).length;
-
-  return (
-    <Section label="Designs" className={className}>
-      {count === 0 ? (
-        <EmptyState
-          variant="inline"
-          description={
-            isError ? "The design library could not be read." : "No visuals are assigned to this project yet."
-          }
-        />
-      ) : (
-        <Link
-          to={`/designs?project=${encodeURIComponent(slug)}`}
-          className="os-focus-ring group -mx-2 inline-flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-2 text-os-muted transition-colors duration-150 hover:text-foreground"
-        >
-          <Images className="size-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-          <span className="text-[15px] leading-6">
-            {count} {count === 1 ? "asset" : "assets"}
-          </span>
-          <span className="os-meta text-os-subtle transition-colors duration-150 group-hover:text-os-amber" aria-hidden="true">
-            →
-          </span>
-        </Link>
-      )}
-    </Section>
-  );
-}
 
 /**
  * This project's visuals, as a tab.

@@ -54,6 +54,7 @@ import {
   bySeverity,
   formatDuration,
   hasReviewableWork,
+  isCancellable,
   isFinished,
   statusLabel,
   statusPill,
@@ -131,6 +132,7 @@ export function JobDetailPage() {
             events={events}
             onCancel={() => cancelJob.mutate(job.id)}
             isCancelling={cancelJob.isPending}
+            cancelError={cancelJob.error?.message}
             onRetry={() =>
               retryJob.mutate(job.id, {
                 onSuccess: ({ job: next }) => void navigate(`/workers/jobs/${next.id}`),
@@ -150,13 +152,18 @@ interface JobDetailProps {
   events: ReturnType<typeof useJobEvents>;
   onCancel: () => void;
   isCancelling: boolean;
+  cancelError?: string;
   onRetry: () => void;
   isRetrying: boolean;
   retryError?: string;
 }
 
-function JobDetail({ job, events, onCancel, isCancelling, onRetry, isRetrying, retryError }: JobDetailProps) {
+function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, isRetrying, retryError }: JobDetailProps) {
   const finished = isFinished(job.status);
+  const cancellable = isCancellable(job.status);
+  // A live run stops at once; finished work asks first, because it throws
+  // away a result someone may still have wanted to review.
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const steps = toSteps(events, finished);
   const duration = formatDuration(job.startedAt, job.completedAt);
 
@@ -222,14 +229,14 @@ function JobDetail({ job, events, onCancel, isCancelling, onRetry, isRetrying, r
               project={job.project}
             />
 
-            {!finished ? (
+            {cancellable && !confirmingCancel ? (
               <CommandButton
                 variant="danger"
                 icon={Square}
                 iconPosition="start"
-                onClick={onCancel}
+                onClick={() => (finished ? setConfirmingCancel(true) : onCancel())}
                 loading={isCancelling}
-                loadingLabel="Stopping"
+                loadingLabel={finished ? "Cancelling" : "Stopping"}
               >
                 Cancel job
               </CommandButton>
@@ -250,6 +257,40 @@ function JobDetail({ job, events, onCancel, isCancelling, onRetry, isRetrying, r
           </div>
         </div>
       </header>
+
+      {confirmingCancel && cancellable ? (
+        <div className="mt-10 max-w-[72ch] rounded-lg border border-os-danger/40 bg-os-danger/5 p-5 md:p-6" role="alertdialog" aria-label="Cancel this job?">
+          <p className="os-meta text-os-danger">Cancel this job?</p>
+          <p className="mt-3 text-[15px] leading-6 text-foreground">
+            {job.resolvedWorker ?? job.worker} has finished its run. Cancelling closes the job without reviewing or applying
+            the work, and frees the task for new work. The worktree is kept until you discard it, and Retry starts it again.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <CommandButton
+              variant="danger"
+              icon={Square}
+              iconPosition="start"
+              onClick={() => {
+                onCancel();
+                setConfirmingCancel(false);
+              }}
+              loading={isCancelling}
+              loadingLabel="Cancelling"
+            >
+              Yes, cancel job
+            </CommandButton>
+            <CommandButton variant="quiet" onClick={() => setConfirmingCancel(false)}>
+              Keep it
+            </CommandButton>
+          </div>
+        </div>
+      ) : null}
+
+      {cancelError ? (
+        <p className="mt-6 max-w-[72ch] text-[13px] leading-5 text-os-danger" role="alert">
+          {cancelError}
+        </p>
+      ) : null}
 
       {stalled ? (
         <div className="mt-10 max-w-[72ch] rounded-lg border border-os-warning/40 bg-os-warning/5 p-5 md:p-6" role="status">

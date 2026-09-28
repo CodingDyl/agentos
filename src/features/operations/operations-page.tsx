@@ -8,7 +8,8 @@ import { AiStackTab } from "./ai-stack-tab";
 import { Breakdown } from "./figures";
 import { Glance, PlansPanel } from "./glance";
 import { MoneyTab } from "./money-tab";
-import { PaperButton, PaperStage, PaperTabs, SegmentedControl } from "./paper";
+import { PaperButton, PaperStage, PaperTabs, SegmentedControl } from "@/components/paper";
+import { QuietLink, SystemTab } from "./system-tab";
 import { UsageTab } from "./usage-tab";
 
 /**
@@ -17,10 +18,15 @@ import { UsageTab } from "./usage-tab";
  * The third management layer, beside the two that already exist:
  *
  * ```text
- * MISSION CONTROL   what needs my attention?
- * PROJECTS          what work needs to get done?
- * OPERATIONS        how is my AI workforce performing, and what does it cost?
+ * TODAY        what needs my attention?
+ * WORKSPACES   what work needs to get done?
+ * OPERATIONS   how is the machinery performing, and what does it cost?
  * ```
+ *
+ * Since Step 59 this is also where the machinery lives: agents, models,
+ * subscriptions and budgets, the system's health, and the ways into the
+ * Hermes console and worker jobs. The work itself is organised elsewhere;
+ * this is the engine room.
  *
  * The first screen built on the shared paper world (Mail trialled it): the
  * whole page is the ledger. The glance answers the page's question before any
@@ -32,15 +38,16 @@ import { UsageTab } from "./usage-tab";
  * screen record what the operator already pays and has already decided.
  */
 
-type Tab = "usage" | "stack" | "agents" | "models" | "projects" | "money";
+type Tab = "usage" | "stack" | "agents" | "models" | "projects" | "money" | "system";
 
 const TABS = [
   { value: "usage" as const, label: "Usage" },
-  { value: "stack" as const, label: "AI Stack" },
   { value: "agents" as const, label: "Agents" },
+  { value: "stack" as const, label: "AI Stack" },
   { value: "models" as const, label: "Models" },
-  { value: "projects" as const, label: "Projects" },
-  { value: "money" as const, label: "Cost" },
+  { value: "projects" as const, label: "Workspaces" },
+  { value: "money" as const, label: "Subscriptions & budgets" },
+  { value: "system" as const, label: "System" },
 ];
 
 const RANGES: readonly UsageRange[] = ["today", "7d", "month"];
@@ -145,6 +152,10 @@ function Operations({
           </p>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+        {/* The power-user surfaces, one click away rather than in the sidebar. */}
+        <QuietLink to="/agent">Hermes console</QuietLink>
+        <QuietLink to="/workers">Worker jobs</QuietLink>
         <SegmentedControl
           label="Range"
           value={data.range}
@@ -155,6 +166,7 @@ function Operations({
             { value: "month", label: month },
           ]}
         />
+        </div>
       </header>
 
       <div className="mt-6">
@@ -175,9 +187,10 @@ function Operations({
         {tab === "agents" ? <AgentsTab data={data} /> : null}
         {tab === "models" ? <Breakdown rows={data.models} label="By model" empty="No run has reported which model it used." /> : null}
         {tab === "projects" ? (
-          <Breakdown rows={data.projects} label="By project" by="cost" empty="No usage has been attributed to a project yet." />
+          <Breakdown rows={data.projects} label="By workspace" by="cost" empty="No usage has been attributed to a workspace yet." />
         ) : null}
         {tab === "money" ? <MoneyTab data={data} /> : null}
+        {tab === "system" ? <SystemTab /> : null}
       </div>
     </div>
   );

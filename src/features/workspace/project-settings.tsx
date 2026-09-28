@@ -7,6 +7,17 @@ import type {
   VisualVerificationDefault,
   WorkerPreference,
 } from "@shared/agentos-types";
+import {
+  DEFAULT_WORKSPACE_MODULES,
+  deriveWorkspaceType,
+  moduleLabel,
+  WORKSPACE_MODULES,
+  WORKSPACE_TYPE_DESCRIPTIONS,
+  WORKSPACE_TYPE_LABELS,
+  WORKSPACE_TYPES,
+  type WorkspaceModule,
+  type WorkspaceType,
+} from "@shared/workspace";
 import { CommandButton, SectionLabel } from "@/components/os";
 import type { ProjectSettings as Settings } from "@/lib/agentos/client";
 import {
@@ -61,6 +72,10 @@ interface Draft {
   workerPreference: WorkerPreference;
   visualVerification: VisualVerificationDefault;
   validation: string;
+  /** `""` = derive from the portfolio type. */
+  workspaceType: WorkspaceType | "";
+  /** Empty = the type's defaults. */
+  modules: WorkspaceModule[];
 }
 
 function toDraft(settings: Settings): Draft {
@@ -79,6 +94,8 @@ function toDraft(settings: Settings): Draft {
     workerPreference: settings.configuration.workerPreference,
     visualVerification: settings.configuration.visualVerification,
     validation: settings.configuration.validationCommands.join("\n"),
+    workspaceType: settings.configuration.workspaceType ?? "",
+    modules: settings.configuration.modules ?? [],
   };
 }
 
@@ -123,6 +140,9 @@ function toPatch(settings: Settings, draft: Draft): ProjectPatchRequest {
   if (commands.join("\n") !== current.validationCommands.join("\n")) {
     configuration.validationCommands = commands;
   }
+
+  if (draft.workspaceType !== (current.workspaceType ?? "")) configuration.workspaceType = draft.workspaceType;
+  if (draft.modules.join(",") !== (current.modules ?? []).join(",")) configuration.modules = draft.modules;
 
   if (Object.keys(configuration).length > 0) patch.configuration = configuration;
 
@@ -263,6 +283,14 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
                 </Field>
               </div>
             </Group>
+
+            <WorkspaceGroup
+              portfolioType={form.type}
+              workspaceType={form.workspaceType}
+              modules={form.modules}
+              onType={(value) => update("workspaceType", value)}
+              onModules={(value) => update("modules", value)}
+            />
 
             <Group label="Repository">
               <Field label="Local path" hint="Where workers check out and run. Absolute, or ~/.">
@@ -421,6 +449,98 @@ function Field({ label, hint, invalid, children }: { label: string; hint?: strin
         <span className={`mt-2 block text-[13px] leading-5 ${invalid ? "text-os-danger" : "text-os-subtle"}`}>{hint}</span>
       ) : null}
     </label>
+  );
+}
+
+/**
+ * What the workspace is, and which tabs it shows.
+ *
+ * Written as `Workspace type:` and `Modules:` under `## Configuration`. The
+ * automatic type is shown by name, so "automatic" never hides a guess: it is
+ * an exact match of the portfolio type or it is General.
+ */
+function WorkspaceGroup({
+  portfolioType,
+  workspaceType,
+  modules,
+  onType,
+  onModules,
+}: {
+  portfolioType: string;
+  workspaceType: WorkspaceType | "";
+  modules: WorkspaceModule[];
+  onType: (value: WorkspaceType | "") => void;
+  onModules: (value: WorkspaceModule[]) => void;
+}) {
+  const derived = deriveWorkspaceType(portfolioType);
+  const effective = workspaceType || derived;
+  const defaults = DEFAULT_WORKSPACE_MODULES[effective];
+  const custom = modules.length > 0;
+  const shown = custom ? modules : [...defaults];
+  // Chosen tabs first, in their order; then the rest, in canonical order.
+  const ordered = [...shown, ...WORKSPACE_MODULES.filter((module) => !shown.includes(module))];
+
+  const toggle = (module: WorkspaceModule) => {
+    const next = shown.includes(module) ? shown.filter((entry) => entry !== module) : [...shown, module];
+    // Unticking everything returns to the defaults rather than a tab-less page.
+    onModules(next.length === 0 ? [] : next);
+  };
+
+  return (
+    <Group label="Workspace">
+      <Field label="Workspace type" hint={WORKSPACE_TYPE_DESCRIPTIONS[effective]}>
+        <select value={workspaceType} onChange={(event) => onType(event.target.value as WorkspaceType | "")} className={SELECT}>
+          <option value="">Automatic — {WORKSPACE_TYPE_LABELS[derived]}</option>
+          {WORKSPACE_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {WORKSPACE_TYPE_LABELS[type]}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <fieldset>
+        <SectionLabel
+          action={
+            custom ? (
+              <button
+                type="button"
+                onClick={() => onModules([])}
+                className="os-focus-ring os-meta cursor-pointer rounded-sm text-os-subtle transition-colors duration-150 hover:text-foreground"
+              >
+                Use {WORKSPACE_TYPE_LABELS[effective].toLowerCase()} defaults
+              </button>
+            ) : undefined
+          }
+        >
+          Tabs
+        </SectionLabel>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {ordered.map((module) => {
+            const on = shown.includes(module);
+            return (
+              <button
+                key={module}
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                onClick={() => toggle(module)}
+                className={`os-focus-ring os-meta min-h-9 cursor-pointer rounded-md border px-3 transition-colors duration-150 ${
+                  on ? "border-os-border-strong bg-os-surface-raised text-foreground" : "border-os-border text-os-subtle hover:text-foreground"
+                }`}
+              >
+                {moduleLabel(module, effective)}
+              </button>
+            );
+          })}
+        </div>
+        <span className="mt-2 block text-[13px] leading-5 text-os-subtle">
+          {custom
+            ? "Your own set, in the order chosen. The rest stay under More."
+            : `The ${WORKSPACE_TYPE_LABELS[effective].toLowerCase()} defaults. The rest stay under More.`}
+        </span>
+      </fieldset>
+    </Group>
   );
 }
 

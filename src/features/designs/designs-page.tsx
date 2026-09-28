@@ -157,14 +157,14 @@ export function DesignsPage() {
         <div className={PAGE_PADDING}>
           {isPending ? (
             <LoadingState
-              label="Designs"
+              label="Creative"
               message="Opening the visual library…"
               detail="Media / reading"
             />
           ) : !data ? (
             <ErrorState
               label="Library unavailable"
-              title="Could not read the design library."
+              title="Could not read the creative library."
               detail={error?.message}
               hint="Images live outside the vault, in AgentOS-Media. Check that the adapter is running."
               onRetry={() => void refetch()}
@@ -175,10 +175,10 @@ export function DesignsPage() {
               <header className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-3">
                 <div>
                   <h1 className="text-[clamp(2rem,4vw,3rem)] leading-[1.05] font-normal tracking-[-0.03em]">
-                    Designs
+                    Creative
                   </h1>
                   <p className="mt-3 text-[15px] leading-6 text-os-muted">
-                    Find references, ideas and generated work.
+                    Product imagery, brand and marketing assets, UI inspiration, client visuals and generations.
                   </p>
                 </div>
                 <div className="flex items-baseline gap-5">
@@ -266,7 +266,7 @@ export function DesignsPage() {
                       setParam("project", value === "all" ? undefined : value)
                     }
                     options={[
-                      { value: "all", label: "All projects" },
+                      { value: "all", label: "All workspaces" },
                       ...projects.map((entry) => ({
                         value: entry.slug,
                         label: entry.name,

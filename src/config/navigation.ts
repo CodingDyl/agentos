@@ -1,34 +1,49 @@
 import {
   Activity,
+  BookOpen,
   Bot,
-  Cpu,
-  Gauge,
   CalendarClock,
-  FolderKanban,
-  Home,
+  Gauge,
   Images,
-  Mail as MailIcon,
+  Inbox,
+  LayoutGrid,
+  Sun,
   SwatchBook,
 } from "lucide-react";
 import type { AppShellNavigationItem } from "@/components/os";
 
-/** Primary workspace navigation, shared by every AgentOS screen. */
+/**
+ * Primary navigation, shared by every AgentOS screen.
+ *
+ * Organised around the operator's work, not around the agents doing it:
+ *
+ * ```text
+ * Today · Inbox                       where the day starts, what arrived
+ * WORK    Workspaces · Knowledge · Creative
+ * SYSTEM  Automations · Operations · Activity
+ * ```
+ *
+ * The agent console and worker jobs are still here — under Operations, and
+ * inside the workspace a job belongs to — but they are no longer the first
+ * thing a person reads. They are the machinery, not the work.
+ */
 export const navigationItems: AppShellNavigationItem[] = [
-  // The name of the screen, not of the route. `/` is where the day starts,
-  // and what is there is Mission Control.
-  { label: "Mission control", href: "/", icon: Home },
-  // Positioned right after Mission Control: mail is an attention source, the
-  // same layer as "what needs me", not a project-management tool.
-  { label: "Mail", href: "/mail", icon: MailIcon },
-  { label: "Projects", href: "/projects", icon: FolderKanban },
-  { label: "Designs", href: "/designs", icon: Images },
-  { label: "Agent", href: "/agent", icon: Bot },
-  { label: "Automations", href: "/automations", icon: CalendarClock },
-  { label: "Activity", href: "/activity", icon: Activity },
-  { label: "Workers", href: "/workers", icon: Cpu },
-  // The third management layer: Mission Control asks what needs attention,
-  // Projects asks what work there is, Operations asks what the workforce is
-  // costing and how well it is doing.
-  { label: "Operations", href: "/operations", icon: Gauge },
-  { label: "Design system", href: "/design-system", icon: SwatchBook },
+  // `/` is where the day starts. The screen is still Mission Control
+  // underneath; what it answers first is "what does today look like?".
+  { label: "Today", href: "/", icon: Sun, section: "primary" },
+  // An attention source, the same layer as Today — not a project tool.
+  { label: "Inbox", href: "/inbox", icon: Inbox, section: "primary" },
+  { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
+  { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "work" },
+  // Still `/designs` underneath. Creative, because product imagery, brand
+  // references and client visuals are not "designs" in the interface sense.
+  { label: "Creative", href: "/designs", icon: Images, section: "work" },
+  { label: "Automations", href: "/automations", icon: CalendarClock, section: "system" },
+  // The infrastructure control centre: agents, usage, models, cost, system.
+  { label: "Operations", href: "/operations", icon: Gauge, section: "system" },
+  { label: "Activity", href: "/activity", icon: Activity, section: "system" },
+  // The workers and the jobs they are busy with — kept one click away, in the
+  // footer, rather than leading the main list.
+  { label: "Agents", href: "/workers", icon: Bot, section: "footer" },
+  { label: "Design system", href: "/design-system", icon: SwatchBook, section: "footer" },
 ];

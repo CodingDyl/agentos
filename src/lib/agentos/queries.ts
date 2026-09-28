@@ -38,6 +38,9 @@ import {
   runRepositoryAction,
   validateWorkerJob,
   getRecentDocuments,
+  getKnowledge,
+  getCaptures,
+  captureNote,
   proposeProjectDocument,
 } from "./client";
 import type { CreateDocumentRequest } from "@shared/agentos-types";
@@ -234,6 +237,8 @@ export const agentosKeys = {
   document: (slug: string, path: string, origin: string) =>
     [...agentosKeys.all, "document", slug, origin, path] as const,
   recentDocuments: () => [...agentosKeys.all, "documents", "recent"] as const,
+  knowledge: () => [...agentosKeys.all, "documents", "knowledge"] as const,
+  captures: () => [...agentosKeys.all, "captures"] as const,
   higgsfield: () => [...agentosKeys.all, "higgsfield"] as const,
   higgsfieldModels: () => [...agentosKeys.all, "higgsfield", "models"] as const,
   generationCost: (model: string, prompt: string, count: number) =>
@@ -2038,6 +2043,7 @@ export function useCreateDocument(slug: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.documents(slug) });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.recentDocuments() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.knowledge() });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.backups() });
     },
     networkMode: "always",
@@ -2049,6 +2055,42 @@ export function useCreateDocument(slug: string) {
 export function useProposeDocument(slug: string) {
   return useMutation({
     mutationFn: (input: { brief: string; taskId?: string }) => proposeProjectDocument(slug, input.brief, input.taskId),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Every document and decision across the portfolio. */
+export function useKnowledge() {
+  return useQuery({
+    queryKey: agentosKeys.knowledge(),
+    queryFn: getKnowledge,
+    staleTime: 30_000,
+    networkMode: "always",
+    retry: 1,
+  });
+}
+
+/** Notes captured and not yet filed. */
+export function useCaptures() {
+  return useQuery({
+    queryKey: agentosKeys.captures(),
+    queryFn: getCaptures,
+    staleTime: 15_000,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useCaptureNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: captureNote,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.captures() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
+    },
     networkMode: "always",
     retry: 0,
   });

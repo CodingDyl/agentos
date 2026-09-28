@@ -3,7 +3,7 @@ import type { JobUsage, OperationsData } from "@shared/usage-types";
 import { cn } from "@/lib/utils";
 import { Breakdown } from "./figures";
 import { formatDuration, formatTokens, measuredCost, measuredTokens, paperTone, UNKNOWN } from "./operations-model";
-import { PAPER_FOCUS, PaperCard, PaperSection, Tag } from "./paper";
+import { PAPER_FOCUS, PaperCard, PaperSection, Tag } from "@/components/paper";
 
 /**
  * What is using the tokens.

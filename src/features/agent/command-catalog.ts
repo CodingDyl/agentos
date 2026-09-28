@@ -287,7 +287,8 @@ export function projectInContext(
   pathname: string,
   search: string,
 ): string | undefined {
-  const onProject = /^\/projects\/([^/]+)\/?$/.exec(pathname);
+  // `/projects/…` only matters for the moment before its redirect lands.
+  const onProject = /^\/(?:workspaces|projects)\/([^/]+)\/?$/.exec(pathname);
   if (onProject) return decodeURIComponent(onProject[1]);
 
   if (pathname === "/agent") {

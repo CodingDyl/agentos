@@ -12,6 +12,7 @@ import type {
 import { listDirectory, readOptionalFile, statNewest } from "./filesystem";
 import { readGitStatus } from "./git";
 import { parseConfiguration } from "./mutations/configuration";
+import { resolveWorkspaceType } from "../../shared/workspace";
 import { getMilestoneSummary } from "./roadmap";
 import { readSection } from "./mutations/prose-document";
 import {
@@ -198,7 +199,7 @@ export function parseProjectNextAction(markdown: string): string | undefined {
 
 async function readProjectDetail(
   slug: string,
-): Promise<Pick<ProjectSummary, "status" | "nextAction" | "lastActivity">> {
+): Promise<Pick<ProjectSummary, "status" | "nextAction" | "lastActivity" | "nowCount">> {
   const [status, tasks, lastActivity] = await Promise.all([
     readOptionalFile(`${PROJECTS_DIR}/${slug}/STATUS.md`),
     readOptionalFile(`${PROJECTS_DIR}/${slug}/TASKS.md`),
@@ -209,6 +210,7 @@ async function readProjectDetail(
     status: status ? parseProjectStatus(status) : undefined,
     nextAction: tasks ? parseProjectNextAction(tasks) : undefined,
     lastActivity: lastActivity?.toISOString(),
+    nowCount: tasks ? parseProjectTasks(tasks).now.filter((task) => !task.completed).length : undefined,
   };
 }
 
@@ -230,7 +232,16 @@ export async function getProjects(
   return Promise.all(
     entries.map(async (entry): Promise<ProjectSummary> => {
       const slug = resolveSlug(entry.name);
-      const summary: ProjectSummary = { slug, ...entry };
+      // Every row needs its workspace type, parked ones included — the
+      // Workspaces screen groups and labels by it. One small file per project.
+      const configuration = parseConfiguration(
+        await readOptionalFile(`${PROJECTS_DIR}/${slug}/PROJECT.md`),
+      );
+      const summary: ProjectSummary = {
+        slug,
+        ...entry,
+        workspaceType: resolveWorkspaceType(configuration.workspaceType, entry.type),
+      };
 
       const wantsDetail =
         scope === "all" ||

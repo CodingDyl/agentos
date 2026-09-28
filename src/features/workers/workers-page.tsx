@@ -1,4 +1,4 @@
-import { ArrowUpRight, Plus } from "lucide-react";
+import { ArrowUpRight, Plus, Square } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { WorkerJob, WorkerSummary } from "@shared/worker-types";
@@ -15,19 +15,22 @@ import {
 } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
-import { useWorkerJobs, useWorkers } from "@/lib/agentos/queries";
+import { useCancelWorkerJob, useWorkerJobs, useWorkers } from "@/lib/agentos/queries";
+import { cn } from "@/lib/utils";
 import { DelegateJobForm } from "./delegate-job-form";
-import { formatDuration, isFinished, statusLabel, statusPill } from "./workers-model";
+import { formatDuration, isCancellable, isFinished, statusLabel, statusPill } from "./workers-model";
 
 const PAGE_PADDING =
   "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
 
 /**
- * Who does the work, and what they have been asked to do.
+ * Who does the work, and what each of them is busy with.
  *
  * Hermes plans and reviews; a worker executes one scoped job; the operator has
- * the final say. This screen is the middle of that — deliberately small, because
- * the interesting part is the job, not the roster.
+ * the final say. Each worker carries its open jobs — running, waiting on
+ * review, sent back, approved — so "what is Claude doing?" is answered on the
+ * worker itself, and any of them can be cancelled from here. The full history
+ * follows below. Reached from Agents in the sidebar footer.
  */
 export function WorkersPage() {
   const navigationItems = useNavigationItems();
@@ -40,6 +43,20 @@ export function WorkersPage() {
     () => (workers.data?.workers ?? []).filter((worker) => worker.available),
     [workers.data],
   );
+
+  // Open work, by the worker that is actually doing it (routing may have
+  // picked it, so the resolved worker wins over the requested one).
+  const openByWorker = useMemo(() => {
+    const map = new Map<string, WorkerJob[]>();
+    for (const job of jobs.data?.jobs ?? []) {
+      if (!isCancellable(job.status) && job.status !== "integrating") continue;
+      const id = job.resolvedWorker ?? job.worker;
+      map.set(id, [...(map.get(id) ?? []), job]);
+    }
+    return map;
+  }, [jobs.data]);
+
+  const busy = [...openByWorker.values()].reduce((sum, list) => sum + list.length, 0);
 
   return (
     <AppShell
@@ -70,19 +87,22 @@ export function WorkersPage() {
               description="Hermes plans and reviews. A worker executes one scoped job, in isolation, and reports what it did."
               actions={
                 <SystemIndicator
-                  state={available.length > 0 ? "online" : "idle"}
-                  label={`${available.length} available`}
-                  detail={`${workers.data.workers.length} declared`}
+                  state={busy > 0 ? "running" : available.length > 0 ? "online" : "idle"}
+                  label={busy > 0 ? `${busy} open ${busy === 1 ? "job" : "jobs"}` : `${available.length} available`}
+                  detail={`${available.length} of ${workers.data.workers.length} ready`}
                 />
               }
             />
 
-            <Section label="Available" className="mt-10">
+            <Section label="Workers" className="mt-10">
               <HairlineCard className="overflow-hidden">
                 <ul className="divide-y divide-os-border">
-                  {workers.data.workers.map((worker) => (
-                    <WorkerRow key={worker.id} worker={worker} />
-                  ))}
+                  {/* Busy workers first: they are the ones worth looking at. */}
+                  {[...workers.data.workers]
+                    .sort((a, b) => (openByWorker.get(b.id)?.length ?? 0) - (openByWorker.get(a.id)?.length ?? 0))
+                    .map((worker) => (
+                      <WorkerRow key={worker.id} worker={worker} jobs={openByWorker.get(worker.id) ?? []} />
+                    ))}
                 </ul>
               </HairlineCard>
             </Section>
@@ -139,10 +159,11 @@ export function WorkersPage() {
   );
 }
 
-/** One worker, and whether it can actually be used. */
-function WorkerRow({ worker }: { worker: WorkerSummary }) {
+/** One worker: whether it can be used, and the jobs it is busy with. */
+function WorkerRow({ worker, jobs }: { worker: WorkerSummary; jobs: WorkerJob[] }) {
   return (
-    <li className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 px-5 py-5 md:px-6">
+    <li className="px-5 py-5 md:px-6">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
         <h3 className="text-base leading-6 font-medium">{worker.name}</h3>
         <p className="mt-1.5 text-[13px] leading-5 text-os-muted">{worker.role}</p>
@@ -163,6 +184,97 @@ function WorkerRow({ worker }: { worker: WorkerSummary }) {
           </p>
         ) : null}
       </div>
+      </div>
+
+      <div className="mt-4 border-t border-os-border pt-4">
+        {jobs.length === 0 ? (
+          <p className="os-meta text-os-subtle">Idle · no open jobs</p>
+        ) : (
+          <>
+            <p className="os-meta text-os-amber">
+              Busy with {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
+            </p>
+            <ul className="mt-3 space-y-2">
+              {jobs.map((job) => (
+                <BusyJob key={job.id} job={job} />
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * A job a worker is holding, with a way to end it.
+ *
+ * A live run stops on the first click. Finished work asks first, because
+ * cancelling it closes something that may never have been reviewed.
+ */
+function BusyJob({ job }: { job: WorkerJob }) {
+  const cancel = useCancelWorkerJob();
+  const [confirming, setConfirming] = useState(false);
+  const live = !isFinished(job.status);
+  const cancellable = isCancellable(job.status);
+
+  return (
+    <li className="rounded-md border border-os-border bg-os-surface/40 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Link
+          to={`/workers/jobs/${job.id}`}
+          className="os-focus-ring min-w-0 flex-1 cursor-pointer rounded-sm text-[14px] leading-5 text-foreground transition-colors duration-150 hover:text-os-amber"
+        >
+          <span className="line-clamp-1">{job.objective}</span>
+          <span className="os-meta mt-1 block text-os-subtle">
+            {job.project}
+            {job.lastEventAt ?? job.startedAt ? ` · last heard ${formatRelativeTime(job.lastEventAt ?? job.startedAt)}` : ""}
+          </span>
+        </Link>
+
+        <StatusPill
+          status={job.stalledSince && live ? "attention" : statusPill(job.status)}
+          label={job.stalledSince && live ? "Stalled" : statusLabel(job.status)}
+          className="shrink-0"
+        />
+
+        {!cancellable ? (
+          <span className="os-meta shrink-0 text-os-subtle">Applying…</span>
+        ) : confirming ? (
+          <span className="flex shrink-0 items-center gap-1">
+            <span className="os-meta mr-1 text-os-danger">Cancel?</span>
+            <button
+              type="button"
+              disabled={cancel.isPending}
+              onClick={() => cancel.mutate(job.id, { onSuccess: () => setConfirming(false) })}
+              className="os-focus-ring os-meta min-h-8 cursor-pointer rounded-md border border-os-danger/50 px-2.5 text-os-danger transition-colors duration-150 hover:bg-os-danger/10 disabled:opacity-50"
+            >
+              {cancel.isPending ? "Cancelling…" : "Yes"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="os-focus-ring os-meta min-h-8 cursor-pointer rounded-md px-2.5 text-os-subtle transition-colors duration-150 hover:text-foreground"
+            >
+              No
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            disabled={cancel.isPending}
+            onClick={() => (live ? cancel.mutate(job.id) : setConfirming(true))}
+            aria-label={`Cancel ${job.objective}`}
+            className={cn(
+              "os-focus-ring os-meta inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-os-border px-2.5 text-os-muted transition-colors duration-150 hover:border-os-danger/50 hover:text-os-danger disabled:opacity-50",
+            )}
+          >
+            <Square className="size-3" strokeWidth={1.75} aria-hidden="true" />
+            {cancel.isPending ? "Stopping…" : "Cancel"}
+          </button>
+        )}
+      </div>
+      {cancel.error ? <p className="mt-2 text-[12px] leading-4 text-os-danger">{cancel.error.message}</p> : null}
     </li>
   );
 }

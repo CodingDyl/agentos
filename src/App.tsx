@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { ActivityPage } from "@/features/activity";
 import { AgentPage, CommandPaletteProvider } from "@/features/agent";
 import { AppShellActionsContext } from "@/components/os";
@@ -16,7 +16,8 @@ import {
   DesignsPage,
   GenerationsPage,
 } from "@/features/designs";
-import { ProjectDetailPage, ProjectsPage } from "@/features/projects";
+import { KnowledgePage } from "@/features/knowledge";
+import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
 import { DesignSystemPage } from "@/pages/design-system-page";
 
@@ -35,13 +36,21 @@ function App() {
         <CommandPaletteProvider>
         <AppShellActionsContext.Provider value={<ShellActions />}>
         <Routes>
-          {/* Mission Control replaces the old Dashboard here rather than
-              sitting beside it: two screens both answering "what should I do
-              now?" is two screens nobody fully trusts. */}
+          {/* Today. Still Mission Control underneath — it replaced the old
+              Dashboard rather than sitting beside it, because two screens both
+              answering "what should I do now?" is two screens nobody trusts. */}
           <Route path="/" element={<MissionControlPage />} />
-          <Route path="/mail" element={<MailPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:slug" element={<ProjectDetailPage />} />
+          <Route path="/today" element={<Navigate to="/" replace />} />
+          <Route path="/inbox" element={<MailPage />} />
+          <Route path="/mail" element={<Redirect to="/inbox" />} />
+          {/* Projects are presented as workspaces. The vault still says
+              `projects/`; the old URLs redirect with their query strings, so
+              every saved `?tab=tasks&task=PP-031` link keeps working. */}
+          <Route path="/workspaces" element={<WorkspacesPage />} />
+          <Route path="/workspaces/:slug" element={<WorkspacePage />} />
+          <Route path="/projects" element={<Redirect to="/workspaces" />} />
+          <Route path="/projects/:slug" element={<ProjectRedirect />} />
+          <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/agent" element={<AgentPage />} />
           <Route path="/automations" element={<AutomationsPage />} />
           <Route
@@ -71,6 +80,17 @@ function App() {
       </WorkspaceFeedbackProvider>
     </BrowserRouter>
   );
+}
+
+/** A redirect that keeps the query string and hash of the URL it replaces. */
+function Redirect({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
+
+function ProjectRedirect() {
+  const { slug = "" } = useParams();
+  return <Redirect to={`/workspaces/${encodeURIComponent(slug)}`} />;
 }
 
 export default App;

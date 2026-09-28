@@ -235,7 +235,7 @@ export function projectAttention(
     title: project.name,
     description: project.status ?? "This project is blocked.",
     project: project.name,
-    action: { label: "Open project", href: `/projects/${project.slug}` },
+    action: { label: "Open workspace", href: `/workspaces/${project.slug}` },
     createdAt: project.lastActivity ?? new Date().toISOString(),
   };
 }

@@ -27,7 +27,7 @@ export interface AttentionListProps {
 
 export function AttentionList({ items, className }: AttentionListProps) {
   return (
-    <section aria-label="Needs you" className={cn("min-w-0", className)}>
+    <section id="needs-you" aria-label="Needs you" className={cn("min-w-0 scroll-mt-8", className)}>
       <SectionLabel
         action={
           items.length > 0 ? (

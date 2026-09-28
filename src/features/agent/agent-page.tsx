@@ -351,7 +351,7 @@ export function AgentPage() {
     <AppShell
       navigationItems={navigationItems}
       pageId="agent"
-      activeHref="/agent"
+      activeHref="/operations"
       agentState={
         run.isRunning
           ? shellStateFor(run.state.status)

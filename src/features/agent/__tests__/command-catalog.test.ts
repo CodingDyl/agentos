@@ -255,6 +255,7 @@ describe("context-aware ranking", () => {
 
 describe("the project a route is about", () => {
   it("reads the slug from a project route", () => {
+    assert.equal(projectInContext("/workspaces/pantry-pilot", ""), "pantry-pilot");
     assert.equal(projectInContext("/projects/pantry-pilot", ""), "pantry-pilot");
     assert.equal(projectInContext("/projects/pantry-pilot/", ""), "pantry-pilot");
   });

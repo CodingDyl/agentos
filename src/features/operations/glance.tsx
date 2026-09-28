@@ -9,7 +9,7 @@ import {
   paperTone,
   successWord,
 } from "./operations-model";
-import { Meter, PaperButton, PaperCard, PaperSection, RadialMeter, SegmentedControl, Sparkline, StackedMeter, Tag } from "./paper";
+import { Meter, PaperButton, PaperCard, PaperSection, RadialMeter, SegmentedControl, Sparkline, StackedMeter, Tag } from "@/components/paper";
 
 /**
  * The top of Operations: what this range cost, what the month's bill looks

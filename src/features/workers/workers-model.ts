@@ -67,6 +67,18 @@ export function isFinished(status: WorkerJobStatus): boolean {
   return TERMINAL.includes(status);
 }
 
+/**
+ * Whether a job can still be cancelled.
+ *
+ * Anything that has not ended for good — running, queued, finished and
+ * waiting on review, sent back for changes, approved but not applied, or
+ * orphaned by a restart. Not `integrating`: the work is being written into
+ * the repository, and stopping halfway is worse than letting it land.
+ */
+export function isCancellable(status: WorkerJobStatus): boolean {
+  return !["completed", "rejected", "failed", "cancelled", "integrating"].includes(status);
+}
+
 /** Whether the job is waiting on a person rather than on a machine. */
 export function isAwaitingReview(status: WorkerJobStatus): boolean {
   return status === "awaiting_review";

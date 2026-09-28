@@ -65,7 +65,7 @@ export function BoardsPage() {
         ) : !data ? (
           <ErrorState
             label="Boards unavailable"
-            title="Could not read the design library."
+            title="Could not read the creative library."
             detail={error?.message}
             onRetry={() => void refetch()}
             isRetrying={isFetching}
@@ -77,7 +77,7 @@ export function BoardsPage() {
               className="os-focus-ring os-meta -mx-2 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-os-subtle transition-colors duration-150 hover:text-foreground"
             >
               <ArrowLeft className="size-3.5" aria-hidden="true" />
-              All designs
+              Creative
             </Link>
 
             <PageHeader

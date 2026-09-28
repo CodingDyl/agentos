@@ -11,7 +11,7 @@ import {
   UNKNOWN,
   type Measured,
 } from "./operations-model";
-import { Meter, PAPER_FOCUS, PaperSection, StackedMeter } from "./paper";
+import { Meter, PAPER_FOCUS, PaperSection, StackedMeter } from "@/components/paper";
 
 /**
  * The pieces every Operations view is built from.

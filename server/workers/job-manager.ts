@@ -940,14 +940,71 @@ export async function rerunJob(
 }
 
 /** Asks a running job to stop. A job that already finished is left alone. */
-export async function cancelJob(jobId: string): Promise<boolean> {
+export type CancelResult =
+  | { ok: true; job: WorkerJob; stopped: boolean }
+  | { ok: false; error: string };
+
+/** Statuses a cancel can no longer change: the job is over, one way or another. */
+const SETTLED: readonly WorkerJobStatus[] = ["completed", "rejected", "failed", "cancelled"];
+
+/**
+ * Cancels a job, wherever it is in its life.
+ *
+ * A live run is aborted, and its own failure path records the cancellation.
+ * A job with nothing executing — finished and waiting on review, sent back
+ * for changes, approved but not applied, or orphaned by a restart — is
+ * settled here directly: otherwise the only way out of those states was to
+ * reject work that might never have been looked at, and a job left stranded
+ * by a restart could not be closed at all.
+ *
+ * The worktree is kept either way. Cancelling ends the job, not the evidence:
+ * discarding the checkout is still its own decision, and Retry still works.
+ *
+ * The one refusal is `integrating`: the work is being written into the real
+ * repository, and stopping halfway is worse than letting it land.
+ */
+export async function cancelJob(jobId: string): Promise<CancelResult> {
   const live = running.get(jobId);
-  if (!live) return false;
 
-  live.controller.abort();
-  await live.worker.cancel?.(jobId).catch(() => undefined);
+  if (live) {
+    live.controller.abort();
+    await live.worker.cancel?.(jobId).catch(() => undefined);
+    const job = await readJob(jobId);
+    return job ? { ok: true, job, stopped: true } : { ok: false, error: "There is no such job." };
+  }
 
-  return true;
+  const job = await readJob(jobId);
+  if (!job) return { ok: false, error: "There is no such job." };
+
+  if (SETTLED.includes(job.status)) {
+    return { ok: false, error: `That job is already ${job.status}.` };
+  }
+
+  if (job.status === "integrating") {
+    return {
+      ok: false,
+      error: "That job is being applied to the repository right now. Let it finish, then revert if needed.",
+    };
+  }
+
+  const previous = job.status;
+  const next = await update(job, {
+    status: "cancelled",
+    completedAt: new Date().toISOString(),
+    error: undefined,
+  });
+
+  emit(jobId, "job.cancelled", `Cancelled by the operator (was ${previous.replace(/_/g, " ")}). The worktree is kept.`);
+  await flushEvents();
+
+  await recordActivity({
+    type: "worker.cancelled",
+    description: `${job.objective} — cancelled`,
+    project: job.project,
+    metadata: { jobId, worker: job.resolvedWorker ?? job.worker, previous },
+  });
+
+  return { ok: true, job: next, stopped: false };
 }
 
 export interface SteerResult {

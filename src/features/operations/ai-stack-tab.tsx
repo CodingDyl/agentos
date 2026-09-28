@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { EVIDENCE_LABELS, monthlyPrice, STATUS_LABELS, subscriptionsFor, summarise } from "./ai-stack-model";
 import { Figure } from "./figures";
 import { formatCost, formatTokens } from "./operations-model";
-import { PAPER_INPUT, PaperCard, PaperSection, PaperSwitch, Tag } from "./paper";
+import { PAPER_INPUT, PaperCard, PaperSection, PaperSwitch, Tag } from "@/components/paper";
 
 /**
  * The AI stack: every AI on this machine, and which of them AgentOS uses.

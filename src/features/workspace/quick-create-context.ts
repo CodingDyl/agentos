@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-export type QuickCreateKind = "task" | "project" | "decision" | "capture";
+export type QuickCreateKind = "task" | "project" | "decision" | "capture" | "document";
 
 export interface QuickCreateControls {
   open: (kind: QuickCreateKind, options?: { project?: string }) => void;

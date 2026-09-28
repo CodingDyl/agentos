@@ -34,6 +34,10 @@ import {
   DocumentContentSchema,
   DocumentProposalSchema,
   RecentDocumentsSchema,
+  KnowledgeResponseSchema,
+  CaptureListSchema,
+  type KnowledgeResponse,
+  type CaptureList,
   SearchResponseSchema,
   type CreateDocumentRequest,
   type DocumentContent,
@@ -1820,6 +1824,19 @@ export function getRecentDocuments(limit = 6): Promise<RecentDocuments> {
   return workerRequest(`/api/documents/recent?limit=${limit}`, { method: "GET" }, (value) =>
     RecentDocumentsSchema.safeParse(value),
   );
+}
+
+export function getKnowledge(): Promise<KnowledgeResponse> {
+  return workerRequest("/api/knowledge", { method: "GET" }, (value) => KnowledgeResponseSchema.safeParse(value));
+}
+
+export function getCaptures(): Promise<CaptureList> {
+  return workerRequest("/api/capture", { method: "GET" }, (value) => CaptureListSchema.safeParse(value));
+}
+
+/** Appends one line to `inbox/CAPTURE.md`. No model involved. */
+export function captureNote(input: { note: string; workspace?: string }): Promise<{ revision: string; undoId?: string; line: string }> {
+  return writeVault(`/api/capture`, { method: "POST", ...asJson(input) });
 }
 
 export async function getHiggsfieldAccount(): Promise<HiggsfieldAccount> {

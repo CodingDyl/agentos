@@ -40,7 +40,7 @@ function toProjectSummary(
     kind: project.kind,
     promoted: project.promoted,
     summary: project.status,
-    href: `/projects/${project.slug}`,
+    href: `/workspaces/${project.slug}`,
   };
 }
 

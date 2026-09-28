@@ -8,6 +8,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import type { SearchHit } from "@shared/agentos-types";
 import { useQuickCreate } from "@/features/workspace/quick-create-context";
+import { readRecentWorkspaces } from "@/features/workspaces/workspace-preferences";
 import { useAgentSkills, useProjects } from "@/lib/agentos/queries";
 import { projectInContext } from "./command-catalog";
 import { buildActions } from "./workspace-actions";
@@ -93,6 +94,9 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       buildActions({
         projects: projectsData?.projects ?? [],
         project,
+        // Read when the palette's actions are rebuilt — on route change, which
+        // is also exactly when a new workspace becomes "recent".
+        recent: readRecentWorkspaces(),
         navigate: (to) => void navigate(to),
         quickCreate: (kind, forProject) => quickCreate.open(kind, { project: forProject }),
       }),

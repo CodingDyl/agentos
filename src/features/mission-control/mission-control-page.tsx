@@ -3,9 +3,9 @@ import type { MissionControlData } from "@shared/mission-control-types";
 import { AppShell, ErrorState, LoadingState, Section } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatTime, sourceLabel, toneFor } from "@/features/activity";
-import { AiStackSummary, UsageSummary } from "@/features/operations";
+import { UsageSummary } from "@/features/operations";
 import { FrictionButton, SprintScorecard } from "@/features/validation";
-import { useMissionControl, useValidationSprint } from "@/lib/agentos/queries";
+import { useCaptures, useMissionControl, useProjects, useValidationSprint } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { ActiveWorkList } from "./active-work-list";
 import { AttentionList } from "./attention-list";
@@ -17,20 +17,23 @@ import {
   formatToday,
   greeting,
 } from "./mission-control-model";
-import { AutomationStrip, SystemPanel, WorkerStrip } from "./status-strips";
+import { TodayStrip, TodayWorkspaces } from "./today";
 
 /**
- * Mission Control.
+ * Today (Mission Control).
  *
- * One screen that answers, in order: what matters, what needs me, what is
- * running, what is broken, where do I go next. Everything on it already exists
- * somewhere else — this owns no workflow state and performs no action. Every
- * card is a link into the system that actually holds the decision.
+ * Where the day starts. One screen that answers, in about ten seconds: what
+ * does today look like, what needs me, what am I focused on, which areas of
+ * work need movement, what is running, and what changed. Everything on it
+ * already exists somewhere else — this owns no workflow state and performs no
+ * action. Every line is a link into the place that actually holds it.
  *
- * The reading order is the argument. Focus first, because the ranking below
- * only means something against it. Then what is waiting on a person, because
- * that is the only thing on the screen that cannot proceed without them. Then
- * machines, then history, then the floor it all stands on.
+ * The reading order is the argument. The day first, then what is waiting on a
+ * person, because that is the only thing that cannot proceed without them.
+ * Then the one thing in focus, then the rest of the work, then what the
+ * agents are doing — as help with the work, not as a subject of their own.
+ * Workers, automations and the system's health live in Operations; anything
+ * broken there still surfaces here, in Needs you.
  *
  * It is designed hardest for the good day. Nothing needing attention is the
  * expected state, not an empty state to apologise for — so the loud parts
@@ -53,6 +56,7 @@ export function MissionControlPage() {
   return (
     <AppShell
       navigationItems={navigationItems}
+      // Kept as `mission-control`: visual verification routes name it.
       pageId="mission-control"
       activeHref="/"
       agentState={running ? "running" : "idle"}
@@ -65,14 +69,14 @@ export function MissionControlPage() {
       <div className={PAGE_PADDING}>
         {isPending ? (
           <LoadingState
-            label="Mission control"
-            message="Reading the system…"
-            detail="Projects · workers · automations"
+            label="Today"
+            message="Reading your day…"
+            detail="Workspaces · inbox · agents"
           />
         ) : !data ? (
           <ErrorState
-            label="Mission control unavailable"
-            title="The system could not be read."
+            label="Today unavailable"
+            title="Your day could not be read."
             detail={error?.message}
             onRetry={() => void refetch()}
             isRetrying={isFetching}
@@ -88,18 +92,25 @@ export function MissionControlPage() {
 function MissionControl({ data }: { data: MissionControlData }) {
   const degraded = degradedSources(data.sources);
   const { data: sprint } = useValidationSprint();
+  const { data: captures } = useCaptures();
+  // The whole portfolio, not Mission Control's live subset: a low-priority
+  // workspace's Now tasks are still planned for today.
+  const { data: portfolio } = useProjects();
+  const projects = portfolio?.projects ?? data.projects;
 
   return (
     <>
-      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-b border-os-border pb-6">
-        <h1 className="os-meta text-os-muted">{greeting("Dylan")}</h1>
-
-        <div className="flex items-center gap-4">
-          <span className="os-meta text-os-subtle">{formatToday()}</span>
-          {/* Reachable from the screen the day starts on, because the friction
-              worth recording is most often noticed on the way somewhere. */}
-          <FrictionButton surface="mission-control" className="-mr-4" />
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3 border-b border-os-border pb-8">
+        <div>
+          <p className="os-meta text-os-subtle">{formatToday()}</p>
+          <h1 className="mt-3 text-[clamp(2rem,4vw,3rem)] leading-[1.05] font-normal tracking-[-0.03em] text-balance">
+            {greeting("Dylan")}
+          </h1>
         </div>
+
+        {/* Reachable from the screen the day starts on, because the friction
+            worth recording is most often noticed on the way somewhere. */}
+        <FrictionButton surface="mission-control" className="-mr-4" />
       </header>
 
       {/* Said once, at the top, rather than repeated beside every thinned-out
@@ -112,43 +123,45 @@ function MissionControl({ data }: { data: MissionControlData }) {
         </p>
       ) : null}
 
-      {data.focus ? <FocusBlock focus={data.focus} className="mt-10" /> : null}
+      <TodayStrip
+        projects={projects}
+        attention={data.attention.length}
+        running={data.activeWork.length}
+        captures={captures?.items ?? []}
+        className="mt-8"
+      />
 
       <div className="mt-12 border-t border-os-border pt-10">
         <AttentionList items={data.attention} />
+      </div>
+
+      {data.focus ? (
+        <div className="mt-12 border-t border-os-border pt-10">
+          <FocusBlock focus={data.focus} />
+        </div>
+      ) : null}
+
+      <div className="mt-12 border-t border-os-border pt-10">
+        <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
       </div>
 
       <div className="mt-12 border-t border-os-border pt-10">
         <ActiveWorkList items={data.activeWork} />
       </div>
 
-      <div className="mt-12 grid gap-x-16 gap-y-10 border-t border-os-border pt-10 lg:grid-cols-2">
-        <WorkerStrip workers={data.workers} />
-        <AutomationStrip
-          automations={data.automations}
-          degraded={data.sources.automations !== "ready"}
-        />
-      </div>
-
       <div className="mt-12 border-t border-os-border pt-10">
         <RecentActivity data={data} />
       </div>
 
-      {/* What the agents wrote lately. Low on the page and absent when there is
-          nothing: a document is worth a glance, not a headline. */}
+      {/* What was written lately. Absent when there is nothing: a document is
+          worth a glance, not a headline. */}
       <RecentDocuments />
 
-      {/* Four lines and a link. Mission Control points at Operations rather
-          than reproducing it — and shows nothing at all until the ledger has
-          something to say. */}
+      {/* Four lines and a link — what the agents are costing. Today points at
+          Operations rather than reproducing it, and shows nothing at all until
+          the ledger has something to say. */}
       <div className="mt-12 border-t border-os-border pt-10">
         <UsageSummary />
-      </div>
-
-      {/* Which AIs AgentOS is actually running on right now. A line of dots
-          and a link — the detail lives in Operations → AI Stack. */}
-      <div className="mt-12 border-t border-os-border pt-10">
-        <AiStackSummary />
       </div>
 
       {/* Reflective rather than operational, so it sits below everything that
@@ -159,10 +172,6 @@ function MissionControl({ data }: { data: MissionControlData }) {
           <SprintScorecard sprint={sprint} />
         </div>
       ) : null}
-
-      <div className="mt-12 border-t border-os-border pt-10">
-        <SystemPanel components={data.system} />
-      </div>
     </>
   );
 }
@@ -251,10 +260,10 @@ function RecentDocuments() {
         label="Recent documents"
         action={
           <Link
-            to="/projects"
+            to="/knowledge"
             className="os-focus-ring os-meta -mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-os-subtle transition-colors duration-150 hover:text-foreground"
           >
-            All projects →
+            Knowledge →
           </Link>
         }
       >

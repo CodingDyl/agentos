@@ -843,7 +843,7 @@ Every screen should make the next useful action obvious.
 
 ## 27. Paper — the migration world (in progress)
 
-AgentOS is moving, one screen at a time, from Editorial Terminal to **Paper**, a world derived from PostHog's desktop-OS style: a document opened on a sandy desk. Everything above still governs every screen that has not moved. As of 2026-09-24 two screens have moved: **Mail** (scoped trial, `src/styles/mail.css`) and **Operations**, including its agent detail page (shared tokens). The application shell (sidebar, top bar, status bar) stays in Editorial Terminal until the migration reaches it.
+AgentOS is moving, one screen at a time, from Editorial Terminal to **Paper**, a world derived from PostHog's desktop-OS style: a document opened on a sandy desk. Everything above still governs every screen that has not moved. As of 2026-09-25 these have moved: **Inbox** (formerly Mail; scoped trial, `src/styles/mail.css`), **Operations** including its agent detail page and System tab, and — with Step 59 — **Workspaces**, **Knowledge**, and the **workspace page's header, tabs, Overview and Clients tab**. A workspace's working tabs (Tasks, Roadmap, Documents, Repository, …) have not moved yet: they sit on the dark desk directly beneath the paper header. **Today** stays Editorial Terminal. The application shell (sidebar, top bar, status bar) stays in Editorial Terminal until the migration reaches it.
 
 ### Tokens
 
@@ -874,10 +874,20 @@ Faces: `font-paper-display` is Inter Tight Variable (headings and numerals), sta
 - Headings: display face, 800 weight, tracking no tighter than -0.015em. Inter Tight's word space collapses below that.
 - Figures keep Operations' honesty rules: an unknown is `—` in sage, an estimate carries `~`, and nothing unpriced is shown as `$0`.
 
-### Components (`src/features/operations/paper.tsx`)
+### Components (`src/components/paper/paper.tsx`, promoted from Operations in Step 59)
 
 `PaperStage` (the full white page), `PaperSection`, `PaperCard`, `PaperButton` (amber / ghost / quiet), `Tag`, `SegmentedControl`, `PaperTabs`, `Meter` (a single share), `StackedMeter` (parts of a whole with a legend, used instead of a pie), `RadialMeter` (a beaded track with a solid arc, number and word), `Sparkline`, `PaperSwitch`, `PAPER_INPUT`, `FieldLabel`.
 
 ### Motion
 
 There is one authored moment. Meters, rings and the spend line draw from empty on arrival, over 700–1000ms with an ease-out of `cubic-bezier(0.16,1,0.3,1)`, animating transform, stroke-dashoffset or clip-path only. Under reduced motion none of it animates. Hover transitions are 150ms colour changes.
+
+## 28. Everyday OS information architecture (Step 59)
+
+AgentOS organises around the operator's work, not around the agents doing it.
+
+- **Sidebar:** `Today · Inbox`, then **Work** (`Workspaces` with pinned workspaces nested beneath, `Knowledge`, `Creative`), then **System** (`Automations · Operations · Activity`), with `Agents` and `Design system` as quiet footer links. The Hermes console and worker jobs are reached from Operations and from the work they belong to.
+- **Vocabulary:** the primary UI says Today, attention, workspaces, tasks, documents, creative, inbox. Worktrees, diffs, runs, models and providers appear only once a person drills into technical work.
+- **Workspaces** are a presentation of vault projects. Type (`Workspace type:`) and tabs (`Modules:`) live in `PROJECT.md → ## Configuration`; the type decides which tabs lead, never which exist — everything else is under More.
+- **Agents surface in context:** on the task they hold (`Claude · Awaiting review · View`), not as a panel of their own.
+- **Capture** is in every top bar (⌘⇧C) and never waits on a model.

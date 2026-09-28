@@ -1,4 +1,4 @@
-import type { MailSyncResult } from "../../shared/mail-types";
+import type { MailClassifier, MailSyncResult } from "../../shared/mail-types";
 import { getThreadSummary, listInboxThreadIds, type GmailThreadSummary } from "./gmail-client";
 import { classifyThread, type ClassificationResult, type ClassifyThreadInput } from "./jev-client";
 import {
@@ -16,7 +16,8 @@ import {
 export interface MailSyncDeps {
   listInboxThreadIds: () => Promise<string[]>;
   getThreadSummary: (threadId: string) => Promise<GmailThreadSummary>;
-  classifyThread: (input: ClassifyThreadInput) => Promise<ClassificationResult>;
+  /** Absent when no classifier is active: threads are stored unsorted. */
+  classifyThread?: (input: ClassifyThreadInput) => Promise<ClassificationResult>;
 }
 
 const defaultDeps: MailSyncDeps = { listInboxThreadIds, getThreadSummary, classifyThread };
@@ -30,6 +31,11 @@ const defaultDeps: MailSyncDeps = { listInboxThreadIds, getThreadSummary, classi
  * failed classification never aborts the sync; it is counted and left for
  * the next Refresh to retry.
  */
+/** Sync with whichever classifier is active — or none, under `manual`. */
+export function syncDepsFor(classifier: MailClassifier): MailSyncDeps {
+  return classifier === "jev" ? defaultDeps : { ...defaultDeps, classifyThread: undefined };
+}
+
 export async function runMailSync(deps: MailSyncDeps = defaultDeps): Promise<MailSyncResult> {
   const remoteIds = await deps.listInboxThreadIds();
   const known = existingThreadIds();
@@ -40,6 +46,9 @@ export async function runMailSync(deps: MailSyncDeps = defaultDeps): Promise<Mai
     insertThreadIfNew(summary);
   }
 
+  const classify = deps.classifyThread;
+  if (!classify) return { added: newIds.length, classified: 0, failed: 0 };
+
   const pending = listUnclassifiedThreadIds();
   let classified = 0;
   let failed = 0;
@@ -49,7 +58,7 @@ export async function runMailSync(deps: MailSyncDeps = defaultDeps): Promise<Mai
     if (!summary) continue;
 
     try {
-      const result = await deps.classifyThread({
+      const result = await classify({
         from: summary.fromEmail ?? summary.fromName ?? "unknown",
         subject: summary.subject,
         snippet: summary.snippet,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WorkspaceModuleSchema, WorkspaceTypeSchema } from "./workspace";
 
 /**
  * The wire contract between the AgentOS data adapter and the React app.
@@ -54,6 +55,14 @@ export const ProjectSummarySchema = z.object({
   /** The active milestone, when there is one. What the portfolio row shows. */
   milestone: z.lazy(() => MilestoneSummarySchema).optional(),
   health: z.lazy(() => ProjectHealthSchema).optional(),
+  /**
+   * What the interface presents this project as. Resolved from `Workspace
+   * type:` in `PROJECT.md`, else an exact match of the portfolio type, else
+   * `general` — see `shared/workspace.ts`.
+   */
+  workspaceType: WorkspaceTypeSchema.optional(),
+  /** Open tasks filed under Now: what "planned today" counts. */
+  nowCount: z.number().int().nonnegative().optional(),
 });
 
 export const ProjectsResponseSchema = z.object({
@@ -178,6 +187,10 @@ export const ProjectConfigurationSchema = z.object({
   /** Cached display name, so Settings can show the link without a Vercel call. */
   vercelProjectName: z.string().optional(),
   validationCommands: z.array(z.string()),
+  /** Set explicitly by the operator. Absent means "derive it". */
+  workspaceType: WorkspaceTypeSchema.optional(),
+  /** The workspace's tabs, in order. Absent or empty means the type's defaults. */
+  modules: z.array(WorkspaceModuleSchema).optional(),
 });
 
 export const DEFAULT_PROJECT_CONFIGURATION: ProjectConfiguration = {
@@ -192,6 +205,8 @@ export const DEFAULT_PROJECT_CONFIGURATION: ProjectConfiguration = {
  */
 export const ProjectConfigurationPatchSchema = ProjectConfigurationSchema.partial().extend({
   taskPrefix: z.union([z.string().regex(/^[A-Z][A-Z0-9]{0,7}$/), z.literal("")]).optional(),
+  /** `""` returns the workspace to its derived type. */
+  workspaceType: z.union([WorkspaceTypeSchema, z.literal("")]).optional(),
 });
 
 export const ProjectDetailSchema = ProjectSummarySchema.extend({
@@ -515,6 +530,54 @@ export const DocumentProposalSchema = z.object({
 
 export const RecentDocumentsSchema = z.object({
   documents: z.array(ProjectArtifactSchema.extend({ projectName: z.string().optional() })),
+});
+
+/**
+ * One thing Knowledge lists: a document (vault or repository) or a decision.
+ *
+ * A view, never a copy. `href` is where it is actually read — the owning
+ * workspace's Documents or Decisions tab — so there is one viewer and one
+ * source of truth for every file.
+ */
+export const KnowledgeItemSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["document", "decision"]),
+  title: z.string(),
+  project: z.string(),
+  projectName: z.string(),
+  workspaceType: WorkspaceTypeSchema.optional(),
+  /** Document type, or `decision`. */
+  type: z.union([ArtifactTypeSchema, z.literal("decision")]),
+  /** Absent when the file does not say who wrote it. */
+  source: ArtifactSourceSchema.optional(),
+  origin: z.enum(["agentos", "repo"]).optional(),
+  taskId: z.string().optional(),
+  updatedAt: z.string().optional(),
+  /** One line of context: a decision's position, a document's path. */
+  detail: z.string().optional(),
+  href: z.string(),
+});
+
+export const KnowledgeResponseSchema = z.object({
+  generatedAt: z.string(),
+  items: z.array(KnowledgeItemSchema),
+  /** Workspaces whose repository documentation could not be read. */
+  unavailable: z.array(z.object({ project: z.string(), reason: z.string() })),
+});
+
+/** A note captured to `inbox/CAPTURE.md`, waiting to be filed. */
+export const CapturedItemSchema = z.object({
+  text: z.string(),
+  kind: z.string().optional(),
+  workspace: z.string().optional(),
+});
+
+export const CaptureListSchema = z.object({ items: z.array(CapturedItemSchema) });
+
+export const CaptureRequestSchema = z.object({
+  note: z.string().trim().min(1).max(2000),
+  /** A workspace name to tag the note with. Tagging, not filing. */
+  workspace: z.string().max(120).optional(),
 });
 
 /** What global search can find. Each kind renders as its own palette group. */
@@ -1041,6 +1104,11 @@ export type DocumentContent = z.infer<typeof DocumentContentSchema>;
 export type CreateDocumentRequest = z.infer<typeof CreateDocumentRequestSchema>;
 export type DocumentProposal = z.infer<typeof DocumentProposalSchema>;
 export type RecentDocuments = z.infer<typeof RecentDocumentsSchema>;
+export type KnowledgeItem = z.infer<typeof KnowledgeItemSchema>;
+export type KnowledgeResponse = z.infer<typeof KnowledgeResponseSchema>;
+export type CapturedItem = z.infer<typeof CapturedItemSchema>;
+export type CaptureList = z.infer<typeof CaptureListSchema>;
+export type CaptureRequest = z.infer<typeof CaptureRequestSchema>;
 export type SearchHitKind = z.infer<typeof SearchHitKindSchema>;
 export type SearchHit = z.infer<typeof SearchHitSchema>;
 export type SearchGroup = z.infer<typeof SearchGroupSchema>;

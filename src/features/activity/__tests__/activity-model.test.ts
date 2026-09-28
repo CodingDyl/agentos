@@ -124,7 +124,7 @@ describe("grouping by day", () => {
 describe("where an event leads", () => {
   it("opens the project it belongs to", () => {
     assert.deepEqual(linksFor(event({ project: "pantry-pilot" })), [
-      { label: "Open project", to: "/projects/pantry-pilot" },
+      { label: "Open workspace", to: "/workspaces/pantry-pilot" },
     ]);
   });
 

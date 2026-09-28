@@ -70,5 +70,5 @@ export function availableFilters(documents: readonly ProjectArtifact[]): typeof 
 export function documentHref(document: ProjectArtifact): string {
   const params = new URLSearchParams({ tab: "documents", doc: document.relativePath });
   if (document.origin === "repo") params.set("origin", "repo");
-  return `/projects/${document.project}?${params.toString()}`;
+  return `/workspaces/${document.project}?${params.toString()}`;
 }

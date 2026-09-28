@@ -7,7 +7,7 @@ import { useAgentDetail } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { Breakdown, Figure, TotalFigures } from "./figures";
 import { formatCost } from "./operations-model";
-import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, RadialMeter, Tag } from "./paper";
+import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, RadialMeter, Tag } from "@/components/paper";
 import { RecentJobs } from "./usage-tab";
 
 /**

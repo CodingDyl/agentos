@@ -115,8 +115,8 @@ export function DocumentViewer({
 
           <aside className="space-y-6 lg:pt-1">
             <div>
-              <SectionLabel>Project</SectionLabel>
-              <Link to={`/projects/${slug}`} className="os-focus-ring mt-2 block cursor-pointer rounded-md text-[14px] leading-5 text-foreground hover:text-os-amber">
+              <SectionLabel>Workspace</SectionLabel>
+              <Link to={`/workspaces/${slug}`} className="os-focus-ring mt-2 block cursor-pointer rounded-md text-[14px] leading-5 text-foreground hover:text-os-amber">
                 {slug}
               </Link>
             </div>
@@ -125,7 +125,7 @@ export function DocumentViewer({
               <div>
                 <SectionLabel>Task</SectionLabel>
                 <Link
-                  to={`/projects/${slug}?tab=tasks&task=${encodeURIComponent(data.artifact.taskId)}`}
+                  to={`/workspaces/${slug}?tab=tasks&task=${encodeURIComponent(data.artifact.taskId)}`}
                   className="os-focus-ring mt-2 block cursor-pointer rounded-md text-[14px] leading-5 text-foreground hover:text-os-amber"
                 >
                   {data.artifact.taskId} <span className="os-meta text-os-subtle">Open task →</span>

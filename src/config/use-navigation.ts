@@ -1,31 +1,49 @@
 import { useMemo } from "react";
 import type { AppShellNavigationItem } from "@/components/os";
-import { useAttentionCount } from "@/lib/agentos/queries";
+import { sidebarWorkspaces, usePinnedWorkspaces } from "@/features/workspaces/workspace-preferences";
+import { useAttentionCount, useMail, useProjects } from "@/lib/agentos/queries";
 import { navigationItems } from "./navigation";
 
 /**
- * The sidebar, carrying the count of things waiting on a person.
+ * The sidebar, carrying what is worth seeing from anywhere.
  *
- * A hook rather than a constant because the badge is the point: wherever you
- * are in AgentOS, you should be able to see that three decisions are waiting
- * without navigating anywhere to find out. A static nav could not do that.
+ * A hook rather than a constant because the badges and the pinned workspaces
+ * are the point: wherever you are in AgentOS, you should be able to see that
+ * three decisions are waiting, or jump to the workspace you live in, without
+ * navigating anywhere first.
  *
- * The count is **decisions requiring the operator** — never a notification
- * count. It does not go up because a machine did some work, and it goes down
- * only when somebody actually decides something. That is what makes it worth
- * looking at rather than worth dismissing.
+ * Today's count is **decisions requiring the operator** — never a notification
+ * count. Inbox's is the mail sorted into Needs you. Neither goes up because a
+ * machine did some work.
  *
- * Every screen shares one query cache entry, so the whole app costs a single
- * poll between them.
+ * Every screen shares the same query cache entries, so the whole app costs a
+ * single poll between them.
  */
 export function useNavigationItems(): AppShellNavigationItem[] {
   const attention = useAttentionCount();
+  const { data: mail } = useMail();
+  const { data: projects } = useProjects();
+  const { pinned } = usePinnedWorkspaces();
+
+  const needsReply = mail?.needsYou.length ?? 0;
+
+  const pinnedWorkspaces = useMemo(
+    () =>
+      sidebarWorkspaces(projects?.projects ?? [], pinned).map((project) => ({
+        label: project.name,
+        href: `/workspaces/${project.slug}`,
+      })),
+    [pinned, projects],
+  );
 
   return useMemo(
     () =>
-      navigationItems.map((item) =>
-        item.href === "/" && attention > 0 ? { ...item, badge: attention } : item,
-      ),
-    [attention],
+      navigationItems.map((item) => {
+        if (item.href === "/" && attention > 0) return { ...item, badge: attention };
+        if (item.href === "/inbox" && needsReply > 0) return { ...item, badge: needsReply };
+        if (item.href === "/workspaces") return { ...item, children: pinnedWorkspaces };
+        return item;
+      }),
+    [attention, needsReply, pinnedWorkspaces],
   );
 }

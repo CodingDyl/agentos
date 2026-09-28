@@ -87,7 +87,7 @@ async function gather(): Promise<Record<SearchHitKind, SearchHit[]>> {
     title: project.name,
     detail: [project.type, project.state].filter(Boolean).join(" · "),
     project: project.slug,
-    href: `/projects/${project.slug}`,
+    href: `/workspaces/${project.slug}`,
   }));
 
   const perProject = await Promise.all(
@@ -115,7 +115,7 @@ async function gather(): Promise<Record<SearchHitKind, SearchHit[]>> {
               .filter(Boolean)
               .join(" · "),
             project: project.slug,
-            href: `/projects/${project.slug}?tab=documents&doc=${encodeURIComponent(document.relativePath)}`,
+            href: `/workspaces/${project.slug}?tab=documents&doc=${encodeURIComponent(document.relativePath)}`,
           };
         }),
       );
@@ -126,7 +126,7 @@ async function gather(): Promise<Record<SearchHitKind, SearchHit[]>> {
         title: milestone.title,
         detail: [project.name, milestone.status, milestone.outcome?.slice(0, 100)].filter(Boolean).join(" · "),
         project: project.slug,
-        href: `/projects/${project.slug}?tab=roadmap&milestone=${encodeURIComponent(milestone.id)}`,
+        href: `/workspaces/${project.slug}?tab=roadmap&milestone=${encodeURIComponent(milestone.id)}`,
       }));
 
       const taskHits: SearchHit[] = tasks.tasks
@@ -137,7 +137,7 @@ async function gather(): Promise<Record<SearchHitKind, SearchHit[]>> {
           title: `${task.id} ${task.title}`,
           detail: `${project.name} · ${task.section ?? "unfiled"}${task.completed ? " · done" : ""}`,
           project: project.slug,
-          href: `/projects/${project.slug}?tab=tasks&task=${encodeURIComponent(task.id as string)}`,
+          href: `/workspaces/${project.slug}?tab=tasks&task=${encodeURIComponent(task.id as string)}`,
         }));
 
       const decisionHits: SearchHit[] = decisions.decisions.map((decision) => ({
@@ -146,7 +146,7 @@ async function gather(): Promise<Record<SearchHitKind, SearchHit[]>> {
         title: decision.title,
         detail: `${project.name}${decision.body ? ` · ${decision.body.slice(0, 120)}` : ""}`,
         project: project.slug,
-        href: `/projects/${project.slug}?tab=decisions`,
+        href: `/workspaces/${project.slug}?tab=decisions`,
       }));
 
       return { taskHits, decisionHits, milestoneHits, documentHits };

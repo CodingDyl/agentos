@@ -243,8 +243,12 @@ import {
   isGmailConnected,
 } from "./mail/gmail-auth";
 import { getThreadBody, GmailError } from "./mail/gmail-client";
-import { isJevConfigured, JevError } from "./mail/jev-client";
-import { runMailSync } from "./mail/sync";
+import { JevError } from "./mail/jev-client";
+import { runMailSync, syncDepsFor } from "./mail/sync";
+import { activeMailClassifier } from "./mail/classifier";
+import { captureNote, CAPTURE_PATH, parseCaptures } from "./agentos/capture";
+import { getKnowledge } from "./agentos/knowledge";
+import { CaptureRequestSchema } from "../shared/agentos-types";
 import { lastSyncedAt, readMailData, removeThread, threadCount } from "./mail/store";
 import { setAiEnabled, setAiModel } from "./ai-stack/settings";
 import { hasConfigurableModel, isToggleable, readAiStack } from "./ai-stack/stack";
@@ -331,11 +335,14 @@ app.get("/api/dashboard", async (_request, response) => {
  */
 app.get("/api/mail/status", async (_request, response) => {
   try {
-    const configured = isGmailConfigured() && isJevConfigured();
+    // Gmail alone makes the Inbox usable. Classification is optional and
+    // reported separately, so a missing Jev key never hides the mail.
+    const configured = isGmailConfigured();
     const connected = configured && (await isGmailConnected());
 
     response.json({
       configured,
+      classifier: activeMailClassifier(),
       connected,
       lastSyncedAt: lastSyncedAt(),
       threadCount: threadCount(),
@@ -367,7 +374,7 @@ app.get("/api/mail/oauth/callback", async (request, response) => {
 
   try {
     await completeGmailConnection(code);
-    response.redirect(`${process.env.AGENTOS_WEB_ORIGIN ?? "http://127.0.0.1:1420"}/mail`);
+    response.redirect(`${process.env.AGENTOS_WEB_ORIGIN ?? "http://127.0.0.1:1420"}/inbox`);
   } catch (error) {
     console.error("[agentos] gmail connection failed:", error);
     response.status(502).send("Could not complete the Gmail connection. Return to AgentOS and try again.");
@@ -382,7 +389,7 @@ app.post("/api/mail/disconnect", async (_request, response) => {
 /** A manual sync: fetches new INBOX threads and classifies anything unclassified. */
 app.post("/api/mail/sync", async (_request, response) => {
   try {
-    response.json(await runMailSync());
+    response.json(await runMailSync(syncDepsFor(activeMailClassifier())));
   } catch (error) {
     if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof JevError) {
       response.status(409).json({ error: error.message, reason: error.reason });
@@ -1618,14 +1625,19 @@ app.get("/api/worker-jobs/:id/events", async (request, response) => {
 });
 
 app.post("/api/worker-jobs/:id/cancel", async (request, response) => {
-  const stopped = await cancelJob(request.params.id);
+  try {
+    const result = await cancelJob(request.params.id);
 
-  if (!stopped) {
-    response.status(409).json({ error: "That job is not running." });
-    return;
+    if (!result.ok) {
+      response.status(409).json({ error: result.error });
+      return;
+    }
+
+    response.json({ ok: true, stopped: result.stopped, job: result.job });
+  } catch (error) {
+    console.error("[agentos] cancel failed:", error);
+    response.status(500).json({ error: "Unable to cancel that job" });
   }
-
-  response.json({ ok: true });
 });
 
 /**
@@ -2923,6 +2935,40 @@ app.get("/api/documents/recent", async (request, response) => {
   } catch (error) {
     console.error("[agentos] recent documents failed:", error);
     response.status(500).json({ error: "Unable to list recent documents" });
+  }
+});
+
+/** Every document and decision across the portfolio, for Knowledge. */
+app.get("/api/knowledge", async (_request, response) => {
+  try {
+    response.json(await getKnowledge(await getProjects("all")));
+  } catch (error) {
+    console.error("[agentos] knowledge failed:", error);
+    response.status(500).json({ error: "Unable to list knowledge" });
+  }
+});
+
+/** Notes waiting in `inbox/CAPTURE.md`. */
+app.get("/api/capture", async (_request, response) => {
+  try {
+    response.json({ items: parseCaptures(await readOptionalFile(CAPTURE_PATH)) });
+  } catch (error) {
+    console.error("[agentos] capture read failed:", error);
+    response.status(500).json({ error: "Unable to read captured notes" });
+  }
+});
+
+/**
+ * Captures a note. Appends one line; no model is consulted, so this answers
+ * as fast as the disk does and cannot fail because Hermes is down.
+ */
+app.post("/api/capture", async (request, response) => {
+  try {
+    const body = CaptureRequestSchema.parse(request.body);
+    const result = await captureNote(body.note, body.workspace);
+    response.status(201).json(result);
+  } catch (error) {
+    mutationFailed(error, response);
   }
 });
 

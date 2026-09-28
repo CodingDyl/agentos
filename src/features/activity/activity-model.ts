@@ -75,7 +75,7 @@ export function linksFor(event: ActivityEvent): ActivityLink[] {
   const links: ActivityLink[] = [];
 
   if (event.project) {
-    links.push({ label: "Open project", to: `/projects/${event.project}` });
+    links.push({ label: "Open workspace", to: `/workspaces/${event.project}` });
   }
 
   const automation = event.metadata?.automation;

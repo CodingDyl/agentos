@@ -109,7 +109,7 @@ export function BoardDetailPage() {
         ) : !data ? (
           <ErrorState
             label="Board unavailable"
-            title="Could not read the design library."
+            title="Could not read the creative library."
             detail={error?.message}
             onRetry={() => void refetch()}
             isRetrying={isFetching}

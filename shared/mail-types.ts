@@ -59,8 +59,18 @@ export const MailDataSchema = z.object({
 });
 
 /** Whether Mail is usable at all, established without contacting Gmail or Jev. */
+/**
+ * Who sorts the inbox into Needs you / FYI / Low priority.
+ *
+ * `manual` is a real mode, not an error: Gmail connected with no classifier
+ * still lists every thread, unsorted, under FYI. Jev is one provider among the
+ * ones this enum will grow to hold — the Inbox never requires it.
+ */
+export const MailClassifierSchema = z.enum(["manual", "jev"]);
+
 export const MailStatusSchema = z.object({
   configured: z.boolean(),
+  classifier: MailClassifierSchema.default("manual"),
   connected: z.boolean(),
   lastSyncedAt: z.string().optional(),
   threadCount: z.number().int().nonnegative(),
@@ -79,5 +89,6 @@ export const MailThreadBodySchema = z.object({
 export type MailCategory = z.infer<typeof MailCategorySchema>;
 export type MailThread = z.infer<typeof MailThreadSchema>;
 export type MailData = z.infer<typeof MailDataSchema>;
+export type MailClassifier = z.infer<typeof MailClassifierSchema>;
 export type MailStatus = z.infer<typeof MailStatusSchema>;
 export type MailSyncResult = z.infer<typeof MailSyncResultSchema>;

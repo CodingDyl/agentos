@@ -232,7 +232,7 @@ describe("what a project is asking for", () => {
     const item = projectAttention(project({ state: "blocked" }));
 
     assert.equal(item?.type, "blocked");
-    assert.equal(item?.action.href, "/projects/pantry-pilot");
+    assert.equal(item?.action.href, "/workspaces/pantry-pilot");
   });
 
   it("says nothing about a project that is simply active", () => {

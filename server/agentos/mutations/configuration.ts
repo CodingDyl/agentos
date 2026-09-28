@@ -4,6 +4,7 @@ import {
   type ProjectConfiguration,
   type ProjectConfigurationPatch,
 } from "../../../shared/agentos-types";
+import { parseModuleList, WORKSPACE_TYPES, type WorkspaceType } from "../../../shared/workspace";
 import { findSection, readSection, setSection } from "./prose-document";
 
 /**
@@ -19,6 +20,8 @@ import { findSection, readSection, setSection } from "./prose-document";
  * Design board: Chef Board
  * Vercel project: prj_abc123
  * Vercel project name: Chef
+ * Workspace type: business
+ * Modules: tasks, roadmap, documents, clients, decisions, activity
  * Validation:
  * - npm test
  * - npm run lint
@@ -46,6 +49,8 @@ const KEYS = {
   designBoard: "Design board",
   vercelProjectId: "Vercel project",
   vercelProjectName: "Vercel project name",
+  workspaceType: "Workspace type",
+  modules: "Modules",
   validationCommands: "Validation",
 } as const;
 
@@ -111,6 +116,8 @@ export function parseConfiguration(markdown: string | undefined): ProjectConfigu
   }
 
   const prefix = raw.taskPrefix?.trim().toUpperCase();
+  const workspaceType = raw.workspaceType?.trim().toLowerCase();
+  const modules = parseModuleList(raw.modules);
 
   const parsed = ProjectConfigurationSchema.safeParse({
     taskPrefix: prefix && /^[A-Z][A-Z0-9]{0,7}$/.test(prefix) ? prefix : undefined,
@@ -129,6 +136,12 @@ export function parseConfiguration(markdown: string | undefined): ProjectConfigu
     vercelProjectId: raw.vercelProjectId?.trim() || undefined,
     vercelProjectName: raw.vercelProjectName?.trim() || undefined,
     validationCommands: validation.filter((command) => command.length > 0),
+    // An unrecognised type is ignored rather than guessed at: the workspace
+    // falls back to its derived type, exactly as if the line were absent.
+    workspaceType: (WORKSPACE_TYPES as readonly string[]).includes(workspaceType ?? "")
+      ? (workspaceType as WorkspaceType)
+      : undefined,
+    modules: modules.length > 0 ? modules : undefined,
   });
 
   return parsed.success ? parsed.data : { ...DEFAULT_PROJECT_CONFIGURATION };
@@ -142,6 +155,8 @@ export function isDefaultConfiguration(config: ProjectConfiguration): boolean {
     config.designBoard === undefined &&
     config.vercelProjectId === undefined &&
     config.vercelProjectName === undefined &&
+    config.workspaceType === undefined &&
+    (config.modules === undefined || config.modules.length === 0) &&
     config.workerPreference === DEFAULT_PROJECT_CONFIGURATION.workerPreference &&
     config.visualVerification === DEFAULT_PROJECT_CONFIGURATION.visualVerification &&
     config.validationCommands.length === 0
@@ -152,6 +167,8 @@ export function isDefaultConfiguration(config: ProjectConfiguration): boolean {
 export function renderConfiguration(config: ProjectConfiguration): string {
   const lines: string[] = [];
 
+  if (config.workspaceType) lines.push(`${KEYS.workspaceType}: ${config.workspaceType}`);
+  if (config.modules && config.modules.length > 0) lines.push(`${KEYS.modules}: ${config.modules.join(", ")}`);
   if (config.taskPrefix) lines.push(`${KEYS.taskPrefix}: ${config.taskPrefix}`);
   if (config.defaultBranch) lines.push(`${KEYS.defaultBranch}: ${config.defaultBranch}`);
   lines.push(`${KEYS.workerPreference}: ${config.workerPreference}`);
@@ -180,6 +197,8 @@ export function mergeConfiguration(
   if ("designBoard" in patch) next.designBoard = patch.designBoard?.trim() || undefined;
   if ("vercelProjectId" in patch) next.vercelProjectId = patch.vercelProjectId?.trim() || undefined;
   if ("vercelProjectName" in patch) next.vercelProjectName = patch.vercelProjectName?.trim() || undefined;
+  if ("workspaceType" in patch) next.workspaceType = patch.workspaceType || undefined;
+  if (patch.modules) next.modules = patch.modules.length > 0 ? [...new Set(patch.modules)] : undefined;
   if (patch.workerPreference) next.workerPreference = patch.workerPreference;
   if (patch.visualVerification) next.visualVerification = patch.visualVerification;
 

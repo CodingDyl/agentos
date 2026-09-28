@@ -155,7 +155,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
             mode === "review" ? `${project.name} created from Hermes' plan.` : `${project.name} created.`,
           );
           onClose();
-          void navigate(`/projects/${project.slug}`);
+          void navigate(`/workspaces/${project.slug}`);
         },
         onError: (error) => feedback.reportFailure(error),
       },
@@ -164,12 +164,12 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
 
   const title =
     mode === "choose"
-      ? "Create project"
+      ? "Create workspace"
       : mode === "brief"
         ? "Plan with Hermes"
         : mode === "review"
           ? "Review the plan"
-          : "Create project";
+          : "Create workspace";
 
   const subtitle =
     mode === "choose"
@@ -389,7 +389,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
 
                 <div className="mt-8 border-t border-os-border pt-6">
                   <p className="text-[13px] leading-5 text-os-subtle">
-                    Scope, milestones and risks are recorded as the project's first decisions. One per line; leave blank to skip.
+                    Scope, milestones and risks are recorded as the workspace's first decisions. One per line; leave blank to skip.
                   </p>
                   <Field label="Scope">
                     <textarea rows={3} value={scope} onChange={(event) => setScope(event.target.value)} className={`${INPUT} resize-y text-[14px]`} />
@@ -408,7 +408,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
 
             <div className="mt-7 flex flex-wrap items-center gap-2">
               <CommandButton type="submit" variant="primary" disabled={name.trim().length === 0} loading={create.isPending} loadingLabel="Creating">
-                {mode === "review" ? "Create project from plan" : "Create project"}
+                {mode === "review" ? "Create workspace from plan" : "Create workspace"}
               </CommandButton>
               <CommandButton variant="quiet" onClick={onClose}>
                 Cancel
