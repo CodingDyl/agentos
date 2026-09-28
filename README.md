@@ -71,7 +71,8 @@ happens only when you send a message or run a command.
 | `server/traction/store.ts` | Prospects, ICP, offers, experiments — the local CRM, outside the vault |
 | `server/traction/engine.ts` | The daily queue, warnings and weekly figures — deterministic, no model |
 | `server/traction/crm-provider.ts` | `CrmProvider`: local today, Virtec later, no UI change |
-| `server/virtec/client.ts` | The only place the Virtec key exists; GET-only, HTTPS, no redirects |
+| `server/virtec/client.ts` | The only place the Virtec keys exist; HTTPS, no redirects; two fixed PATCH routes behind a separate write key |
+| `server/virtec/writes.ts` | Each write-back, the action that causes it, and its reported outcome |
 | `server/virtec/normalise.ts` | Virtec's payloads read tolerantly; only fields a screen uses are kept |
 | `server/virtec/snapshot.ts` | All six Virtec reads, settled independently, cached five minutes |
 | `server/traction/case-studies.ts` | Which finished projects deserve a case study, and what Hermes is told about one |
@@ -139,6 +140,7 @@ involved. Run them separately with `npm run dev:web` and `npm run dev:data`.
 | `AGENTOS_UI_DIR` | `~/.agentos-ui` | Where project → session mappings live |
 | `VIRTEC_BASE_URL` | — | Virtec deployment, `https://` (read-only CRM data for Traction) |
 | `VIRTEC_API_KEY` | — | The value Virtec holds as `AGENTOS_API_KEY`; server-only |
+| `VIRTEC_WRITE_API_KEY` | — | Optional write-back: Virtec's `AGENTOS_WRITE_API_KEY`, a different secret; server-only |
 | `AGENTOS_VISUAL_PREVIEW_COMMAND` | — | How to serve a worktree for visual verification; `{port}` is substituted |
 
 Copy `.env.example` to `.env` and add your key:
@@ -244,7 +246,9 @@ to browse everything, so it reads detail for the whole portfolio.
 | `/api/traction/offers` · `/experiments` | Adds (POST); `/:id` replaces (PUT) or removes (DELETE) |
 | `/api/traction/waiting` | Adds a Waiting On item (POST); `/:id` replaces (PUT) or removes (DELETE); `/:id/resolve` (POST) |
 | `/api/traction/crm/refresh` | Reads Virtec again now, past the cache (POST) |
-| `/api/traction/crm/import` | Imports one Virtec lead or client as a prospect, by id (POST); 409 if already imported |
+| `/api/traction/crm/import` | Imports one Virtec lead or client as a prospect, by id (POST); 409 if already imported; a new lead moves to `reviewing` in Virtec when write-back is on |
+| `/api/traction/crm/follow-ups/:id` | Marks a Virtec follow-up `sent` or `dismissed` in Virtec (POST); needs write-back |
+| `/api/traction/crm/leads/:id/not-a-fit` | Marks a Virtec lead `disqualified` (POST); needs write-back |
 | `/api/traction/case-studies` | Starts one — from an opportunity (`{ fromOpportunity }`) or blank (POST); `/:id` replaces (PUT) or removes (DELETE) |
 | `/api/traction/case-studies/:id/draft` | One Hermes call; fills empty sections only (POST) |
 | `/api/traction/case-studies/:id/testimonial-request` | Puts the testimonial ask on Waiting On (POST) |

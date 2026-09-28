@@ -98,9 +98,12 @@ export const useUpdateProspect = () =>
 export const useDeleteProspect = () =>
   useTractionMutation((prospectId: string) => request(`/api/traction/prospects/${id(prospectId)}`, { method: "DELETE" }));
 
+/** What a Virtec write-back came to, when the action involved one. */
+export type VirtecOutcome = { ok: true } | { ok: false; error: string };
+
 export const useQueueAction = () =>
   useTractionMutation(({ itemId, action }: { itemId: string; action: QueueAction }) =>
-    request(`/api/traction/queue/${id(itemId)}`, json("POST", action)),
+    request<{ virtec?: VirtecOutcome }>(`/api/traction/queue/${id(itemId)}`, json("POST", action)),
   );
 
 export const useSaveIcp = () => useTractionMutation((input: IcpInput) => request("/api/traction/icp", json("PUT", input)));
@@ -155,7 +158,18 @@ export const useUnlinkMailThread = () =>
 export const useRefreshCrm = () => useTractionMutation(() => request("/api/traction/crm/refresh", { method: "POST" }));
 
 /** Imports one Virtec lead or client as a prospect. The adapter supplies the contents; this only names it. */
-export const useImportCrm = () => useTractionMutation((input: CrmImport) => request("/api/traction/crm/import", json("POST", input)));
+export const useImportCrm = () =>
+  useTractionMutation((input: CrmImport) => request<{ virtec?: VirtecOutcome }>("/api/traction/crm/import", json("POST", input)));
+
+/** Marks a Virtec follow-up sent or dismissed — in Virtec. Needs write-back on. */
+export const useSetCrmFollowUp = () =>
+  useTractionMutation(({ followUpId, status }: { followUpId: string; status: "sent" | "dismissed" }) =>
+    request(`/api/traction/crm/follow-ups/${id(followUpId)}`, json("POST", { status })),
+  );
+
+/** Marks a Virtec lead disqualified. Needs write-back on. */
+export const useLeadNotAFit = () =>
+  useTractionMutation((leadId: string) => request(`/api/traction/crm/leads/${id(leadId)}/not-a-fit`, { method: "POST" }));
 
 /** Starts a case study from an opportunity (by its source only) or from a blank form. */
 export const useStartCaseStudy = () =>

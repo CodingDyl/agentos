@@ -147,3 +147,12 @@ export async function getVirtecSnapshot(options: { fresh?: boolean; fetcher?: ty
 export function clearVirtecCache(): void {
   cached = undefined;
 }
+
+/**
+ * Applies a change AgentOS just made in Virtec to the cached snapshot, so
+ * the screen reflects it now rather than after the cache expires. The next
+ * real read replaces it with Virtec's own version either way.
+ */
+export function patchCachedSnapshot(change: (snapshot: VirtecSnapshot) => VirtecSnapshot): void {
+  if (cached) cached = { ...cached, snapshot: change(cached.snapshot) };
+}

@@ -43,14 +43,15 @@ export function buildCrmView(
   prospects: readonly Prospect[],
   now: Date,
   problem?: string,
+  writable = false,
 ): CrmView {
   if (!snapshot) {
     // Configured, but the first read has not come back inside the budget.
-    return { configured: true, pending: true, followUps: [], quotes: [], projects: [], leads: [], clients: [] };
+    return { configured: true, writable, pending: true, followUps: [], quotes: [], projects: [], leads: [], clients: [] };
   }
 
   if (!snapshot.configured) {
-    return { configured: false, problem, pending: false, followUps: [], quotes: [], projects: [], leads: [], clients: [] };
+    return { configured: false, writable: false, problem, pending: false, followUps: [], quotes: [], projects: [], leads: [], clients: [] };
   }
 
   const imported = new Map(prospects.filter((prospect) => prospect.crmId).map((prospect) => [prospect.crmId as string, prospect.id]));
@@ -58,6 +59,7 @@ export function buildCrmView(
 
   return {
     configured: true,
+    writable,
     pending: false,
     fetchedAt: snapshot.fetchedAt,
     sources: snapshot.sources,

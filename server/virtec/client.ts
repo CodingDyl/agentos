@@ -6,8 +6,8 @@
  * read by the Node server only. The key is attached to requests here and
  * nowhere else — it never reaches a response, an error message or a log line.
  *
- * GET only. Virtec exposes no write API to AgentOS, and this client could not
- * use one if it did.
+ * GET for reads with `VIRTEC_API_KEY`. Writes — two fixed PATCH routes — use
+ * a separate `VIRTEC_WRITE_API_KEY`, and only when it is set.
  */
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -94,6 +94,18 @@ export function isVirtecConfigured(): boolean {
   return Boolean(virtecBaseUrl() && process.env.VIRTEC_API_KEY?.trim());
 }
 
+/**
+ * Whether AgentOS may write back to Virtec.
+ *
+ * A separate key, `VIRTEC_WRITE_API_KEY` (Virtec's `AGENTOS_WRITE_API_KEY`):
+ * the read key cannot write, so a read-only setup stays read-only. Virtec
+ * refuses a write key equal to the read key, and so does this check.
+ */
+export function isVirtecWritable(): boolean {
+  const write = process.env.VIRTEC_WRITE_API_KEY?.trim();
+  return Boolean(isVirtecConfigured() && write && write !== process.env.VIRTEC_API_KEY?.trim());
+}
+
 /** Why Virtec cannot be used, in words a person can act on. Never mentions the key's value. */
 export function virtecConfigurationProblem(): string | undefined {
   if (!process.env.VIRTEC_BASE_URL?.trim()) return "VIRTEC_BASE_URL is not set.";
@@ -103,16 +115,52 @@ export function virtecConfigurationProblem(): string | undefined {
 }
 
 export async function getVirtec(path: VirtecPath, fetcher: typeof fetch = fetch): Promise<unknown> {
-  const base = virtecBaseUrl();
   const key = process.env.VIRTEC_API_KEY?.trim();
+  return requestVirtec("GET", path, key, undefined, fetcher);
+}
+
+/** Firestore-style ids only — never a path fragment. */
+const DOC_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * The only writes AgentOS can make to Virtec, each to one fixed route with a
+ * body of known fields. Virtec enforces the same allow-list on its side.
+ */
+export type VirtecWrite =
+  | { kind: "follow-up"; id: string; body: { status: "sent" | "dismissed" } | { status: "snoozed"; snoozedUntil: string } }
+  | { kind: "lead"; id: string; body: { status: "new" | "reviewing" | "qualified" | "disqualified" } };
+
+export async function patchVirtec(write: VirtecWrite, fetcher: typeof fetch = fetch): Promise<unknown> {
+  if (!DOC_ID.test(write.id)) throw new VirtecError("Not a Virtec record id.", "bad-response");
+  if (!isVirtecWritable()) {
+    throw new VirtecError("Write-back is off: VIRTEC_WRITE_API_KEY is not set (or equals the read key).", "not-configured");
+  }
+
+  const path = write.kind === "follow-up" ? `/api/agentos/follow-ups/${write.id}` : `/api/agentos/leads/${write.id}`;
+  return requestVirtec("PATCH", path, process.env.VIRTEC_WRITE_API_KEY?.trim(), write.body, fetcher);
+}
+
+async function requestVirtec(
+  method: "GET" | "PATCH",
+  path: string,
+  key: string | undefined,
+  body: unknown,
+  fetcher: typeof fetch,
+): Promise<unknown> {
+  const base = virtecBaseUrl();
   if (!base || !key) throw new VirtecError(virtecConfigurationProblem() ?? "Virtec is not configured.", "not-configured");
 
   let response: Response;
 
   try {
     response = await fetcher(new URL(path, base), {
-      method: "GET",
-      headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+      method,
+      headers: {
+        Authorization: `Bearer ${key}`,
+        Accept: "application/json",
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       // Never followed: a redirect could carry the Authorization header
       // somewhere else. Read instead, so the fix can be named.
@@ -150,15 +198,48 @@ export async function getVirtec(path: VirtecPath, fetcher: typeof fetch = fetch)
     );
   }
   if (response.status === 401) {
-    throw new VirtecError("Virtec refused the API key — VIRTEC_API_KEY here must equal AGENTOS_API_KEY there.", "unauthorized", 401);
+    throw new VirtecError(
+      method === "GET"
+        ? "Virtec refused the API key — VIRTEC_API_KEY here must equal AGENTOS_API_KEY there."
+        : "Virtec refused the write key — VIRTEC_WRITE_API_KEY here must equal AGENTOS_WRITE_API_KEY there.",
+      "unauthorized",
+      401,
+    );
   }
   if (response.status === 503) {
-    throw new VirtecError("Virtec has no AGENTOS_API_KEY configured on its side (redeploy after adding it).", "not-configured", 503);
+    throw new VirtecError(
+      method === "GET"
+        ? "Virtec has no AGENTOS_API_KEY configured on its side (redeploy after adding it)."
+        : "Virtec's write API is off — AGENTOS_WRITE_API_KEY is missing there, or equals the read key (redeploy after fixing).",
+      "not-configured",
+      503,
+    );
   }
   if (response.status === 404) {
-    throw new VirtecError("Virtec has no AgentOS API at this address (404) — wrong domain, or not deployed yet.", "unavailable", 404);
+    throw new VirtecError(
+      method === "GET"
+        ? "Virtec has no AgentOS API at this address (404) — wrong domain, or not deployed yet."
+        : "Virtec has no such record, or this deployment predates the write routes (404).",
+      "unavailable",
+      404,
+    );
   }
-  if (!response.ok) throw new VirtecError(`Virtec answered ${response.status}.`, "unavailable", response.status);
+  if (!response.ok) {
+    // For writes, Virtec's own reason (a 409 "already sent", a 400 field
+    // error) is the useful part. It is Virtec's message, never our key.
+    const detail =
+      method === "PATCH"
+        ? await response.json().then(
+            (json: unknown) => (typeof json === "object" && json !== null ? (json as { error?: unknown }).error : undefined),
+            () => undefined,
+          )
+        : undefined;
+    throw new VirtecError(
+      typeof detail === "string" ? `Virtec answered ${response.status}: ${detail.slice(0, 200)}` : `Virtec answered ${response.status}.`,
+      "unavailable",
+      response.status,
+    );
+  }
 
   try {
     return await response.json();

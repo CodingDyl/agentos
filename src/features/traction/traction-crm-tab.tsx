@@ -1,11 +1,11 @@
-import { Download, RefreshCw, Sparkles } from "lucide-react";
+import { Check, Download, RefreshCw, Sparkles, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { daysBetween } from "@shared/traction-dates";
 import type { CrmView, TractionData } from "@shared/traction-types";
 import { formatRand, type VirtecSource } from "@shared/virtec-types";
 import { Meter, PAPER_FOCUS, PaperButton, PaperCard, PaperSection, SegmentedControl, Tag } from "@/components/paper";
-import { useImportCrm, useRefreshCrm } from "@/lib/agentos/traction";
+import { useImportCrm, useLeadNotAFit, useRefreshCrm, useSetCrmFollowUp } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { crmFollowUpPrompt, formatShortDate, hermesHref, prospectHref } from "./traction-model";
 
@@ -84,7 +84,10 @@ function Status({ crm }: { crm: CrmView }) {
       <div className="text-[13px] leading-5 text-paper-sage" aria-live="polite">
         <p>
           Read from Virtec{crm.fetchedAt ? ` at ${new Date(crm.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}. Refreshed at
-          most every five minutes.
+          most every five minutes.{" "}
+          {crm.writable
+            ? "Write-back is on: follow-ups done here are marked in Virtec, and imported leads move to reviewing."
+            : "Read-only — set VIRTEC_WRITE_API_KEY to write follow-ups and lead statuses back."}
         </p>
         {failed.length > 0 ? (
           <p className="mt-1 text-paper-flame-deep">
@@ -140,6 +143,7 @@ function Money({ crm }: { crm: CrmView }) {
 }
 
 function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
+  const setFollowUp = useSetCrmFollowUp();
   return (
     <PaperSection label="Follow-ups" count={crm.followUps.length}>
       {crm.followUps.length === 0 ? (
@@ -163,24 +167,51 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
                       {followUp.type ? ` · ${followUp.type.replace(/_/g, " ")}` : ""}
                     </p>
                   </div>
-                  <Link
-                    to={hermesHref(crmFollowUpPrompt(followUp))}
-                    className={cn(
-                      "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
-                      PAPER_FOCUS,
-                    )}
-                    aria-label={`Draft a follow-up to ${followUp.companyName ?? followUp.customerName ?? "this client"}`}
-                  >
-                    <Sparkles className="size-3.5" aria-hidden="true" />
-                    Draft
-                  </Link>
+                  <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                    <Link
+                      to={hermesHref(crmFollowUpPrompt(followUp))}
+                      className={cn(
+                        "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+                        PAPER_FOCUS,
+                      )}
+                      aria-label={`Draft a follow-up to ${followUp.companyName ?? followUp.customerName ?? "this client"}`}
+                    >
+                      <Sparkles className="size-3.5" aria-hidden="true" />
+                      Draft
+                    </Link>
+                    {crm.writable ? (
+                      <>
+                        <PaperButton
+                          variant="ghost"
+                          disabled={setFollowUp.isPending && setFollowUp.variables?.followUpId === followUp.id}
+                          onClick={() => setFollowUp.mutate({ followUpId: followUp.id, status: "sent" })}
+                          aria-label={`Mark the follow-up to ${followUp.companyName ?? followUp.customerName ?? "this client"} sent in Virtec`}
+                        >
+                          <Check className="size-3.5" aria-hidden="true" />
+                          Sent
+                        </PaperButton>
+                        <PaperButton
+                          disabled={setFollowUp.isPending && setFollowUp.variables?.followUpId === followUp.id}
+                          onClick={() => setFollowUp.mutate({ followUpId: followUp.id, status: "dismissed" })}
+                          aria-label={`Dismiss the follow-up to ${followUp.companyName ?? followUp.customerName ?? "this client"} in Virtec`}
+                        >
+                          <X className="size-3.5" aria-hidden="true" />
+                        </PaperButton>
+                      </>
+                    ) : null}
+                  </span>
                 </div>
               </li>
             );
           })}
         </ul>
       )}
-      <p className="mt-2 text-[12px] text-paper-sage">Mark follow-ups as sent in Virtec — AgentOS cannot write to it.</p>
+      {crm.writable ? null : <p className="mt-2 text-[12px] text-paper-sage">Mark follow-ups as sent in Virtec — write-back is off.</p>}
+      {setFollowUp.error ? (
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
+          {setFollowUp.error.message}
+        </p>
+      ) : null}
     </PaperSection>
   );
 }
@@ -256,6 +287,7 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
   const tracks = new Set(crm.leads.map((lead) => lead.track).filter(Boolean));
   const [track, setTrack] = useState<Track>(tracks.has("virtara") ? "virtara" : "all");
   const importLead = useImportCrm();
+  const notAFit = useLeadNotAFit();
 
   const shown = useMemo(() => crm.leads.filter((lead) => track === "all" || lead.track === track), [crm.leads, track]);
 
@@ -311,10 +343,21 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
                     <td className="py-2.5 text-right font-paper-display font-bold text-paper-moss tabular-nums">{lead.score ?? "—"}</td>
                     <td className="py-2.5 pl-4 text-paper-char">{lead.scoreReasons.slice(0, 2).join(" · ") || "—"}</td>
                     <td className="py-2.5 text-right">
-                      <PaperButton variant="ghost" disabled={pending} onClick={() => importLead.mutate({ kind: "lead", id: lead.id })} aria-label={`Import ${lead.name}`}>
-                        <Download className="size-3.5" aria-hidden="true" />
-                        {pending ? "Importing…" : "Import"}
-                      </PaperButton>
+                      <span className="inline-flex gap-1">
+                        <PaperButton variant="ghost" disabled={pending} onClick={() => importLead.mutate({ kind: "lead", id: lead.id })} aria-label={`Import ${lead.name}`}>
+                          <Download className="size-3.5" aria-hidden="true" />
+                          {pending ? "Importing…" : "Import"}
+                        </PaperButton>
+                        {crm.writable ? (
+                          <PaperButton
+                            disabled={notAFit.isPending && notAFit.variables === lead.id}
+                            onClick={() => notAFit.mutate(lead.id)}
+                            aria-label={`${lead.name} is not a fit — mark disqualified in Virtec`}
+                          >
+                            Not a fit
+                          </PaperButton>
+                        ) : null}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -323,9 +366,14 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
           </table>
         </div>
       )}
-      {importLead.error ? (
+      {importLead.error ?? notAFit.error ? (
         <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
-          {importLead.error.message}
+          {(importLead.error ?? notAFit.error)?.message}
+        </p>
+      ) : null}
+      {importLead.data?.virtec && !importLead.data.virtec.ok ? (
+        <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
+          Imported, but Virtec was not told: {importLead.data.virtec.error}
         </p>
       ) : null}
     </PaperSection>

@@ -18,7 +18,8 @@ import {
   WeeklyTargetsSchema,
 } from "../../shared/traction-types";
 import { readThreadSummary } from "../mail/store";
-import { isVirtecConfigured } from "../virtec/client";
+import { isVirtecConfigured, isVirtecWritable } from "../virtec/client";
+import { dismissFollowUp, markFollowUpSent, setLeadStatus, snoozeFollowUp, type WriteOutcome } from "../virtec/writes";
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import { clientToProspect, leadToProspect } from "./crm";
 import { CaseStudyDraftError, draftCaseStudy } from "./case-study-draft";
@@ -139,6 +140,19 @@ tractionRouter.delete("/prospects/:id", async (request, response) => {
   }
 });
 
+function crmFollowUpId(itemId: string): string | undefined {
+  const match = /^crm:([A-Za-z0-9_-]{1,128})$/.exec(itemId);
+  return match?.[1];
+}
+
+/** The start of the day the snooze ends on — when AgentOS's own snooze lets the item back. */
+function snoozeEnd(days: number): Date {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
 /** A person did the thing (`done`), or put it off (`snooze`). */
 tractionRouter.post("/queue/:itemId", async (request, response) => {
   const action = parse(QueueActionSchema, request.body, response, "queue action");
@@ -156,10 +170,18 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
       }
       response.json({ caseStudy: await startFromOpportunity(opportunity) });
     } else if (action.action === "done") {
-      response.json(await completeQueueItem(request.params.itemId));
+      const result = await completeQueueItem(request.params.itemId);
+      // A Virtec follow-up handled here is marked sent there too, when
+      // write-back is on. Its outcome is reported, never swallowed.
+      const followUpId = crmFollowUpId(request.params.itemId);
+      const virtec = followUpId && isVirtecWritable() ? await markFollowUpSent(followUpId) : undefined;
+      response.json({ ...result, virtec });
     } else {
-      await snoozeQueueItem(request.params.itemId, isoDate(new Date()), action.days);
-      response.json({ ok: true });
+      const days = action.days ?? 1;
+      await snoozeQueueItem(request.params.itemId, isoDate(new Date()), days);
+      const followUpId = crmFollowUpId(request.params.itemId);
+      const virtec = followUpId && isVirtecWritable() ? await snoozeFollowUp(followUpId, snoozeEnd(days)) : undefined;
+      response.json({ ok: true, virtec });
     }
   } catch (error) {
     fail(response, error, "update the queue");
@@ -378,7 +400,11 @@ tractionRouter.post("/crm/import", async (request, response) => {
       return;
     }
 
-    response.status(201).json({ prospect: await importCrmProspect({ ...mapped, crmId: mapped.crmId }) });
+    const prospect = await importCrmProspect({ ...mapped, crmId: mapped.crmId });
+    // Taking a new lead into Traction is reviewing it; Virtec is told so.
+    const virtec: WriteOutcome | undefined =
+      lead && (lead.status === undefined || lead.status === "new") && isVirtecWritable() ? await setLeadStatus(lead.id, "reviewing") : undefined;
+    response.status(201).json({ prospect, virtec });
   } catch (error) {
     fail(response, error, "import from Virtec");
   }
@@ -486,4 +512,41 @@ tractionRouter.post("/case-studies/dismiss", async (request, response) => {
   } catch (error) {
     fail(response, error, "dismiss the opportunity");
   }
+});
+
+const LeadIdSchema = CrmImportSchema.shape.id;
+
+/** "Not a fit": marks a Virtec lead disqualified, so neither system offers it again. */
+tractionRouter.post("/crm/leads/:id/not-a-fit", async (request, response) => {
+  const id = LeadIdSchema.safeParse(request.params.id);
+  if (!id.success) {
+    response.status(400).json({ error: "Invalid lead id" });
+    return;
+  }
+  if (!isVirtecWritable()) {
+    response.status(409).json({ error: "Write-back to Virtec is off (VIRTEC_WRITE_API_KEY is not set)" });
+    return;
+  }
+
+  const outcome = await setLeadStatus(id.data, "disqualified");
+  if (outcome.ok) response.json({ ok: true });
+  else response.status(502).json({ error: outcome.error });
+});
+
+/** Marks a Virtec follow-up sent or dismissed, from the Virtec tab. */
+tractionRouter.post("/crm/follow-ups/:id", async (request, response) => {
+  const id = LeadIdSchema.safeParse(request.params.id);
+  const status = (request.body as { status?: unknown } | undefined)?.status;
+  if (!id.success || (status !== "sent" && status !== "dismissed")) {
+    response.status(400).json({ error: "Expected a follow-up id and status \"sent\" or \"dismissed\"" });
+    return;
+  }
+  if (!isVirtecWritable()) {
+    response.status(409).json({ error: "Write-back to Virtec is off (VIRTEC_WRITE_API_KEY is not set)" });
+    return;
+  }
+
+  const outcome = status === "sent" ? await markFollowUpSent(id.data) : await dismissFollowUp(id.data);
+  if (outcome.ok) response.json({ ok: true });
+  else response.status(502).json({ error: outcome.error });
 });

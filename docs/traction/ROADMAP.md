@@ -12,24 +12,13 @@ sophisticated the module gets.
 | 2 | Waiting On (clients and prospects) with chases in the queue, Gmail reply → prospect suggestions that change nothing until confirmed, Clients & referrals tab, weekly review (deterministic numbers plus Hermes interpretation), linked threads on the prospect, Waiting On and replies on Today |
 | 3 | Read-only Virtec connector: money, follow-ups (in the daily queue), pending quotes, active projects, leads and clients to import. Cached five minutes; each endpoint degrades on its own |
 | 4 | Case-study engine: finished Virtec projects and completed workspaces become opportunities (and queue items); Hermes drafts empty sections only, marks unmeasured results `[NEEDS DATA]`, never writes the testimonial or mentions prices; a study with gaps cannot be marked ready; testimonial asks go on Waiting On; Markdown export |
+| 5 | Virtec write-back behind a separate write key: Done/Snooze on a Virtec follow-up marks it in Virtec, importing a lead moves it to reviewing, "Not a fit" disqualifies it. Virtec side: two allow-listed PATCH routes, constant-time key checks, audit record in the same transaction, per-instance rate limit |
 
 ## Next
 
-1. **Virtec write-back** — blocked on Virtec, not AgentOS. Virtec's
-   `AGENTOS.md` lists the write routes as not implemented. The smallest useful
-   set, in order of value:
-
-   | Route | Why |
-   | --- | --- |
-   | `PATCH /api/agentos/follow-ups/:id` `{ status: "sent" \| "dismissed" \| "snoozed", snoozedUntil? }` | Done in AgentOS's queue marks it done in Virtec, instead of hiding it for three days |
-   | `PATCH /api/agentos/leads/:id` `{ status }` | Importing a lead can mark it `reviewing`; a lost prospect can mark it `disqualified` |
-
-   Both need, on Virtec's side: a separate write key (not the read key),
-   an allow-list of fields per route, an audit log entry per write, and a
-   rate limit. AgentOS would only ever send what a person just clicked.
-2. **Screenshots on case studies** — link Creative assets to a study, so the
+1. **Screenshots on case studies** — link Creative assets to a study, so the
    Markdown export carries its images.
-3. **Lead magnets** — Hermes content + Creative visuals + a landing page, with
+2. **Lead magnets** — Hermes content + Creative visuals + a landing page, with
    an experiment tracking it.
 
 ## Parked — noted, not started

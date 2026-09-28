@@ -125,6 +125,12 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
           {action.error.message}
         </p>
       ) : null}
+      {/* Done here, but Virtec was not updated — the one outcome that needs a person. */}
+      {action.data?.virtec && !action.data.virtec.ok ? (
+        <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
+          Recorded here, but Virtec was not updated: {action.data.virtec.error} Update it in Virtec by hand.
+        </p>
+      ) : null}
     </div>
   );
 }

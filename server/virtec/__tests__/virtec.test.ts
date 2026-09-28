@@ -250,3 +250,70 @@ describe("diagnosing a connection that does not work", () => {
     assert.equal(logged.some((line) => line.includes(KEY)), false);
   });
 });
+
+describe("write-back", () => {
+  const WRITE_KEY = "write-key-that-must-never-leak-abcdefgh";
+
+  beforeEach(() => {
+    process.env.VIRTEC_BASE_URL = "https://crm.example.test";
+    process.env.VIRTEC_API_KEY = KEY;
+    process.env.VIRTEC_WRITE_API_KEY = WRITE_KEY;
+  });
+
+  afterEach(() => {
+    delete process.env.VIRTEC_BASE_URL;
+    delete process.env.VIRTEC_API_KEY;
+    delete process.env.VIRTEC_WRITE_API_KEY;
+  });
+
+  it("PATCHes the fixed route with the write key and only the given fields", async () => {
+    const { patchVirtec } = await import("../client");
+    let seen: { url: string; init?: RequestInit } | undefined;
+    const fetcher = (async (url: URL, init?: RequestInit) => {
+      seen = { url: String(url), init };
+      return respond(200, { followUp: { id: "f1", status: "sent" } });
+    }) as unknown as typeof fetch;
+
+    await patchVirtec({ kind: "follow-up", id: "f1", body: { status: "sent" } }, fetcher);
+    assert.equal(seen?.url, "https://crm.example.test/api/agentos/follow-ups/f1");
+    assert.equal(seen?.init?.method, "PATCH");
+    assert.equal((seen?.init?.headers as Record<string, string>).Authorization, `Bearer ${WRITE_KEY}`);
+    assert.equal(seen?.init?.body, '{"status":"sent"}');
+  });
+
+  it("is off without a separate write key, and never writes with the read key", async () => {
+    const { isVirtecWritable, patchVirtec } = await import("../client");
+    const fetcher = (async () => {
+      throw new Error("must not be called");
+    }) as unknown as typeof fetch;
+
+    delete process.env.VIRTEC_WRITE_API_KEY;
+    assert.equal(isVirtecWritable(), false);
+    await assert.rejects(patchVirtec({ kind: "lead", id: "l1", body: { status: "reviewing" } }, fetcher), /Write-back is off/);
+
+    process.env.VIRTEC_WRITE_API_KEY = KEY;
+    assert.equal(isVirtecWritable(), false, "a write key equal to the read key does not count");
+  });
+
+  it("refuses an id that is not a record id, before any request", async () => {
+    const { patchVirtec } = await import("../client");
+    const fetcher = (async () => {
+      throw new Error("must not be called");
+    }) as unknown as typeof fetch;
+    await assert.rejects(patchVirtec({ kind: "lead", id: "../clients", body: { status: "reviewing" } }, fetcher), /Not a Virtec record id/);
+  });
+
+  it("passes Virtec's reason through on a refused write, and names the write key on 401", async () => {
+    const { patchVirtec } = await import("../client");
+    const conflict = (async () => respond(409, { error: "Follow-up is already sent" })) as unknown as typeof fetch;
+    await assert.rejects(patchVirtec({ kind: "follow-up", id: "f1", body: { status: "sent" } }, conflict), /409: Follow-up is already sent/);
+
+    const refused = (async () => respond(401, { error: "Invalid API key" })) as unknown as typeof fetch;
+    await assert.rejects(patchVirtec({ kind: "follow-up", id: "f1", body: { status: "sent" } }, refused), (error: unknown) => {
+      assert.ok(error instanceof VirtecError);
+      assert.match(error.message, /VIRTEC_WRITE_API_KEY/);
+      assert.equal(error.message.includes(WRITE_KEY), false);
+      return true;
+    });
+  });
+});

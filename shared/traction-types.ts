@@ -553,6 +553,8 @@ export const LinkedThreadSchema = z.object({
  */
 export const CrmViewSchema = z.object({
   configured: z.boolean(),
+  /** Whether changes made here are written back to Virtec (a separate write key is set). */
+  writable: z.boolean().default(false),
   /** Why it is not configured, for the setup note. Never contains a secret. */
   problem: z.string().optional(),
   pending: z.boolean().default(false),
@@ -612,6 +614,9 @@ export const TractionDataSchema = z.object({
   caseStudies: z.array(CaseStudySchema),
   caseStudyOpportunities: z.array(CaseStudyOpportunitySchema),
 });
+
+/** What a write to Virtec came to, reported alongside the local change it accompanied. */
+export const VirtecWriteOutcomeSchema = z.union([z.object({ ok: z.literal(true) }), z.object({ ok: z.literal(false), error: z.string() })]);
 
 export const QueueActionSchema = z.object({
   action: z.enum(["done", "snooze"]),

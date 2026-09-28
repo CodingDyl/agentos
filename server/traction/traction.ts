@@ -2,7 +2,7 @@ import type { MailThread } from "../../shared/mail-types";
 import type { TractionData } from "../../shared/traction-types";
 import type { VirtecSnapshot } from "../../shared/virtec-types";
 import { readMailData } from "../mail/store";
-import { isVirtecConfigured, virtecConfigurationProblem } from "../virtec/client";
+import { isVirtecConfigured, isVirtecWritable, virtecConfigurationProblem } from "../virtec/client";
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import type { ProjectSummary } from "../../shared/agentos-types";
 import { getProjects } from "../agentos/projects";
@@ -113,7 +113,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
   ]);
   const opportunities = buildOpportunities(virtec, projects, state.caseStudies, state.dismissedOpportunities);
   const threads = cachedThreads();
-  const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem());
+  const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem(), isVirtecWritable());
   const open = state.waiting.filter((item) => !item.resolvedAt).sort((a, b) => chaseDate(a).localeCompare(chaseDate(b)));
 
   return {
