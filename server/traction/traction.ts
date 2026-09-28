@@ -7,7 +7,7 @@ import { getVirtecSnapshot } from "../virtec/snapshot";
 import type { ProjectSummary } from "../../shared/agentos-types";
 import { getProjects } from "../agentos/projects";
 import { buildOpportunities, caseStudyQueueItems } from "./case-studies";
-import { buildCrmView, crmAttention, crmQueueItems } from "./crm";
+import { buildCrmView, crmAttention, crmQueueItems, inboundQueueItems } from "./crm";
 import { crmProvider } from "./crm-provider";
 import {
   addDays,
@@ -72,7 +72,7 @@ const VIRTEC_BUDGET_MS = 4_000;
  * the background and fills the cache for the next poll.
  */
 async function virtecWithin(budgetMs: number): Promise<VirtecSnapshot | undefined> {
-  if (!isVirtecConfigured()) return { configured: false, leads: [], clients: [], quotes: [], projects: [], followUps: [] };
+  if (!isVirtecConfigured()) return { configured: false, leads: [], inbound: [], clients: [], quotes: [], projects: [], followUps: [] };
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<undefined>((resolve) => {
@@ -125,7 +125,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), caseStudyQueueItems(opportunities)),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), [...inboundQueueItems(crm.inbound, prospects, today), ...caseStudyQueueItems(opportunities)]),
     doneToday: countDoneToday(events, today),
     attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),

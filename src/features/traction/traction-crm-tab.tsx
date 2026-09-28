@@ -1,26 +1,26 @@
-import { Check, Download, PenLine, RefreshCw, X } from "lucide-react";
+import { Check, Download, Mail, PenLine, Phone, RefreshCw, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { daysBetween } from "@shared/traction-dates";
+import { daysBetween, isoDate } from "@shared/traction-dates";
 import type { CrmView, TractionData } from "@shared/traction-types";
-import { formatRand, type VirtecSource } from "@shared/virtec-types";
+import { formatRand, inboundOrigin, type VirtecSource } from "@shared/virtec-types";
 import { Meter, PAPER_FOCUS, PaperButton, PaperCard, PaperSection, SegmentedControl, Tag } from "@/components/paper";
-import { useImportCrm, useLeadNotAFit, useRefreshCrm, useSetCrmFollowUp } from "@/lib/agentos/traction";
+import { useImportCrm, useLeadNotAFit, useRefreshCrm, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { crmFollowUpPrompt, formatShortDate, hermesHref, prospectHref } from "./traction-model";
+import { crmFollowUpPrompt, formatShortDate, hermesHref, inboundReplyPrompt, prospectHref } from "./traction-model";
 
 /**
  * Virtec, read live.
  *
- * What the CRM knows about money and clients, shown next to the acquisition
- * work rather than instead of it. Nothing here writes to Virtec — its API to
- * AgentOS is read-only — so the actions are the ones AgentOS owns: draft a
- * follow-up with Hermes, or import a lead or client into Traction so stages,
- * observations and referral asks can be recorded against it.
+ * What the CRM knows about money, clients and the leads our websites catch,
+ * shown next to the acquisition work rather than instead of it. The actions
+ * are the ones AgentOS owns (draft with Hermes, import into Traction), plus a
+ * few status changes written back to Virtec when write-back is on.
  */
 
 const SOURCE_LABELS: Record<VirtecSource, string> = {
   leads: "Leads",
+  inbound: "Website leads",
   clients: "Clients",
   quotes: "Quotes",
   projects: "Projects",
@@ -44,6 +44,7 @@ export function TractionCrmTab({ data }: { data: TractionData }) {
   return (
     <div className="space-y-12">
       <Status crm={crm} />
+      <WebsiteLeads crm={crm} />
       <Money crm={crm} />
       <div className="grid gap-x-12 gap-y-12 lg:grid-cols-2">
         <FollowUps crm={crm} today={data.today} />
@@ -282,6 +283,127 @@ function Projects({ crm }: { crm: CrmView }) {
 }
 
 type Track = "virtara" | "jurivo" | "all";
+
+/**
+ * People who filled in a form on Virtara or Jurivo and are still waiting on
+ * us. Unanswered ones are also at the top of the queue.
+ */
+function WebsiteLeads({ crm }: { crm: CrmView }) {
+  const importLead = useImportCrm();
+  const settle = useSetInboundLead();
+  const failedToRead = crm.sources?.inbound && !crm.sources.inbound.ok;
+
+  return (
+    <PaperSection label="Website leads" count={crm.inbound.length}>
+      <p className="-mt-2 mb-4 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
+        Forms filled in on Virtara and Jurivo that nobody has settled yet. Reply first; importing makes them a prospect in conversation.
+      </p>
+      {crm.inbound.length === 0 ? (
+        <Empty>{failedToRead ? "Website leads could not be read from Virtec (see above)." : "No open website leads."}</Empty>
+      ) : (
+        <ul className="grid gap-3 lg:grid-cols-2">
+          {crm.inbound.map((lead) => {
+            const importing = importLead.isPending && importLead.variables?.id === lead.id;
+            const settling = settle.isPending && settle.variables?.leadId === lead.id;
+            return (
+              <li key={lead.id}>
+                <PaperCard className="h-full p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="text-[15px] leading-6 font-semibold text-paper-moss">
+                        {lead.name}
+                        {lead.company ? <span className="font-normal text-paper-sage"> · {lead.company}</span> : null}
+                      </h3>
+                      <p className="text-[12.5px] text-paper-sage">
+                        {inboundOrigin(lead)}
+                        {lead.createdAt ? ` · ${formatShortDate(isoDate(new Date(lead.createdAt)))}` : ""}
+                      </p>
+                    </div>
+                    <Tag tone={lead.status === "reviewing" ? "blue" : "flame"}>{lead.status === "reviewing" ? "Reviewing" : "New"}</Tag>
+                  </div>
+
+                  <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+                    {lead.email ? (
+                      <a className={cn("inline-flex items-center gap-1 text-paper-blue hover:underline", PAPER_FOCUS)} href={`mailto:${lead.email}`}>
+                        <Mail className="size-3.5" aria-hidden="true" />
+                        {lead.email}
+                      </a>
+                    ) : null}
+                    {lead.phone ? (
+                      <a className={cn("inline-flex items-center gap-1 text-paper-blue hover:underline", PAPER_FOCUS)} href={`tel:${lead.phone.replace(/[^\d+]/g, "")}`}>
+                        <Phone className="size-3.5" aria-hidden="true" />
+                        {lead.phone}
+                      </a>
+                    ) : null}
+                  </p>
+
+                  {Object.keys(lead.details).length > 0 ? (
+                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[12.5px]">
+                      {Object.entries(lead.details).map(([key, value]) => (
+                        <div key={key} className="contents">
+                          <dt className="text-paper-sage">{key}</dt>
+                          <dd className="text-paper-char">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  {lead.message ? <p className="mt-2 line-clamp-4 text-[13.5px] leading-5 whitespace-pre-wrap text-paper-char">{lead.message}</p> : null}
+
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <Link
+                      to={hermesHref(inboundReplyPrompt(lead))}
+                      className={cn(
+                        "inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+                        PAPER_FOCUS,
+                      )}
+                      aria-label={`Ask Hermes to draft a reply to ${lead.name}`}
+                    >
+                      <PenLine className="size-3.5" aria-hidden="true" />
+                      Draft reply
+                    </Link>
+                    {lead.prospectId ? (
+                      <Link
+                        to={prospectHref(lead.prospectId)}
+                        className={cn("inline-flex min-h-8 items-center rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
+                      >
+                        Open prospect
+                      </Link>
+                    ) : (
+                      <PaperButton variant="ghost" disabled={importing} onClick={() => importLead.mutate({ kind: "inbound", id: lead.id })} aria-label={`Import ${lead.name}`}>
+                        <Download className="size-3.5" aria-hidden="true" />
+                        {importing ? "Importing…" : "Import"}
+                      </PaperButton>
+                    )}
+                    {crm.writable ? (
+                      <>
+                        <PaperButton disabled={settling} onClick={() => settle.mutate({ leadId: lead.id, status: "replied" })} aria-label={`Mark ${lead.name} replied in Virtec`}>
+                          <Check className="size-3.5" aria-hidden="true" />
+                          Replied
+                        </PaperButton>
+                        <PaperButton disabled={settling} onClick={() => settle.mutate({ leadId: lead.id, status: "not_a_fit" })} aria-label={`${lead.name} is not a fit`}>
+                          Not a fit
+                        </PaperButton>
+                        <PaperButton disabled={settling} onClick={() => settle.mutate({ leadId: lead.id, status: "spam" })} aria-label={`Mark ${lead.name} as spam`}>
+                          <X className="size-3.5" aria-hidden="true" />
+                          Spam
+                        </PaperButton>
+                      </>
+                    ) : null}
+                  </div>
+                </PaperCard>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {importLead.error ?? settle.error ? (
+        <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
+          {(importLead.error ?? settle.error)?.message}
+        </p>
+      ) : null}
+    </PaperSection>
+  );
+}
 
 function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
   const tracks = new Set(crm.leads.map((lead) => lead.track).filter(Boolean));

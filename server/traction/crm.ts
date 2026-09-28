@@ -3,16 +3,19 @@ import { WebsiteSchema } from "../../shared/traction-types";
 import {
   formatRand,
   VIRTEC_CLIENT_PREFIX,
+  VIRTEC_INBOUND_PREFIX,
   VIRTEC_LEAD_PREFIX,
+  inboundOrigin,
   type VirtecClient,
   type VirtecFollowUp,
+  type VirtecInboundLead,
   type VirtecLead,
   type VirtecSnapshot,
 } from "../../shared/virtec-types";
 import type { Prospect } from "../../shared/traction-types";
-import { isoDate } from "../../shared/traction-dates";
+import { daysBetween, isoDate } from "../../shared/traction-dates";
 
-export { formatRand };
+export { formatRand, inboundOrigin };
 
 /**
  * Virtec, turned into Traction's terms. Plain functions, no I/O.
@@ -47,11 +50,11 @@ export function buildCrmView(
 ): CrmView {
   if (!snapshot) {
     // Configured, but the first read has not come back inside the budget.
-    return { configured: true, writable, pending: true, followUps: [], quotes: [], projects: [], leads: [], clients: [] };
+    return { configured: true, writable, pending: true, followUps: [], quotes: [], projects: [], leads: [], inbound: [], clients: [] };
   }
 
   if (!snapshot.configured) {
-    return { configured: false, writable: false, problem, pending: false, followUps: [], quotes: [], projects: [], leads: [], clients: [] };
+    return { configured: false, writable: false, problem, pending: false, followUps: [], quotes: [], projects: [], leads: [], inbound: [], clients: [] };
   }
 
   const imported = new Map(prospects.filter((prospect) => prospect.crmId).map((prospect) => [prospect.crmId as string, prospect.id]));
@@ -78,7 +81,81 @@ export function buildCrmView(
       .filter((lead) => !imported.has(`${VIRTEC_LEAD_PREFIX}${lead.id}`) && !SETTLED_LEAD_STATUSES.has(lead.status ?? ""))
       .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
       .slice(0, IMPORTABLE_LEAD_LIMIT),
+    inbound: snapshot.inbound
+      .filter(isOpenInbound)
+      .map((lead) => ({ ...lead, prospectId: imported.get(`${VIRTEC_INBOUND_PREFIX}${lead.id}`) }))
+      .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")),
     clients: snapshot.clients.map((client) => ({ ...client, prospectId: imported.get(`${VIRTEC_CLIENT_PREFIX}${client.id}`) })),
+  };
+}
+
+// ─── Website leads ─────────────────────────────────────────────────────────
+
+/** Still waiting on us: nobody has replied, ruled it out, or called it spam. */
+function isOpenInbound(lead: VirtecInboundLead): boolean {
+  return lead.status === undefined || lead.status === "new" || lead.status === "reviewing";
+}
+
+/**
+ * Website leads nobody has answered yet, as queue items.
+ *
+ * They go to the top: a person who asked to hear from us today is worth more
+ * than any cold contact, and a reply within the hour wins far more of them
+ * than one the next day. A lead already imported is left to its prospect's
+ * own queue item, so it never shows twice. The longest-waiting come first.
+ */
+export function inboundQueueItems(inbound: readonly VirtecInboundLead[], prospects: readonly Prospect[], today: string): (QueueItem & { rank: number })[] {
+  const imported = new Set(prospects.map((prospect) => prospect.crmId).filter(Boolean));
+
+  return inbound
+    .filter((lead) => (lead.status === undefined || lead.status === "new") && !imported.has(`${VIRTEC_INBOUND_PREFIX}${lead.id}`))
+    .map((lead) => {
+      const waited = lead.createdAt ? Math.max(0, daysBetween(isoDate(new Date(lead.createdAt)), today)) : 0;
+      const firstLine = lead.message?.split("\n").find((line) => line.trim())?.trim();
+      return {
+        id: `inbound:${lead.id}`,
+        kind: "inbound" as const,
+        inboundLeadId: lead.id,
+        title: `Reply to ${lead.company ? `${lead.name} (${lead.company})` : lead.name}`,
+        detail: [
+          `${inboundOrigin(lead)} · ${waited === 0 ? "arrived today" : `waiting ${waited} ${waited === 1 ? "day" : "days"}`}`,
+          firstLine ? (firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine) : lead.email ?? "No message",
+        ],
+        rank: -1 - waited / 100,
+      };
+    });
+}
+
+/**
+ * A website lead as a prospect.
+ *
+ * They came to us, so they start in conversation, from the website, with the
+ * form they used as the reason. Their message and answers go in the notes as
+ * they wrote them. `replied` says whether the first reply has already gone:
+ * if not, replying is the prospect's next action, due today.
+ */
+export function inboundToProspect(lead: VirtecInboundLead, today: string, replied: boolean): ProspectInput {
+  const answers = Object.entries(lead.details).map(([key, value]) => `${key}: ${value}`);
+  const notes = [
+    `From the ${inboundOrigin(lead)} form${lead.createdAt ? ` on ${isoDate(new Date(lead.createdAt))}` : ""}.`,
+    lead.phone ? `Phone: ${lead.phone}` : undefined,
+    ...answers,
+    lead.message ? `\nTheir message:\n${lead.message}` : undefined,
+  ].filter(Boolean);
+
+  return {
+    company: clip(lead.company ?? lead.name, 120) as string,
+    contact: lead.company ? clip(lead.name, 120) : undefined,
+    email: validEmail(lead.email),
+    website: validWebsite(lead.website),
+    segment: clip(lead.details.practiceArea ?? lead.details.industry, 80),
+    stage: "conversation",
+    source: "website",
+    reasons: [clip(`Asked us through the ${inboundOrigin(lead)} form`, 200) as string],
+    nextAction: replied ? undefined : "Reply to their enquiry",
+    nextActionDate: replied ? undefined : today,
+    notes: clip(notes.join("\n"), 4000),
+    crmId: `${VIRTEC_INBOUND_PREFIX}${lead.id}`,
   };
 }
 

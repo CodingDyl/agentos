@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   VirtecClientSchema,
   VirtecFollowUpSchema,
+  VirtecInboundLeadSchema,
   VirtecLeadSchema,
   VirtecProjectSchema,
   VirtecQuoteSchema,
@@ -429,7 +430,7 @@ export const StartFromOpportunitySchema = z.object({ fromOpportunity: CaseStudyS
 
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
+export const QueueItemKindSchema = z.enum(["inbound", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({
@@ -441,6 +442,8 @@ export const QueueItemSchema = z.object({
   waitingId: z.string().optional(),
   /** A Virtec follow-up, when the item came from the CRM. */
   crmFollowUpId: z.string().optional(),
+  /** A website lead in Virtec, waiting for a first reply. */
+  inboundLeadId: z.string().optional(),
   /** A finished project with no case study yet — `virtec:project:<id>` or `workspace:<slug>`. */
   caseStudySource: z.string().optional(),
   title: z.string(),
@@ -577,12 +580,14 @@ export const CrmViewSchema = z.object({
   projects: z.array(VirtecProjectSchema),
   /** Leads not yet imported and still worth a look, best score first. */
   leads: z.array(VirtecLeadSchema),
+  /** Website leads still open in Virtec (new or reviewing), newest first, with their prospect once imported. */
+  inbound: z.array(VirtecInboundLeadSchema.extend({ prospectId: z.string().optional() })).default([]),
   /** Every client, with the prospect it was imported as, if any. */
   clients: z.array(VirtecClientSchema.extend({ prospectId: z.string().optional() })),
 });
 
 export const CrmImportSchema = z.object({
-  kind: z.enum(["lead", "client"]),
+  kind: z.enum(["lead", "client", "inbound"]),
   id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
 });
 

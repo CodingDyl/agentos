@@ -197,6 +197,32 @@ describe("virtec", () => {
     assert.equal((await store.readState()).prospects.length, 1);
   });
 
+  it("turns a replied website lead into a prospect in conversation, counted as a follow-up", async () => {
+    const { inboundToProspect } = await import("../crm");
+    const mapped = ProspectInputSchema.parse(
+      inboundToProspect({ id: "in1", name: "Jane", company: "Smith Inc", email: "jane@smith.test", source: "demo-request", track: "jurivo", details: {} }, "2026-09-28", true),
+    );
+    await store.snoozeQueueItem("inbound:in1", "2026-09-28", 1);
+
+    const first = await store.replyToInboundLead({ ...mapped, crmId: "virtec:inbound:in1" }, "inbound:in1");
+    assert.equal(first.stage, "conversation");
+    assert.equal(first.source, "website");
+    assert.ok(first.lastTouchAt);
+
+    // A second reply reuses the prospect rather than creating another.
+    const second = await store.replyToInboundLead({ ...mapped, crmId: "virtec:inbound:in1" }, "inbound:in1");
+    assert.equal(second.id, first.id);
+
+    const state = await store.readState();
+    assert.equal(state.prospects.length, 1);
+    assert.equal(state.snoozes.some((snooze) => snooze.itemId === "inbound:in1"), false);
+    assert.equal((await getTraction()).doneToday, 2);
+  });
+
+  it("will not complete a website lead without its Virtec details", async () => {
+    await assert.rejects(store.completeQueueItem("inbound:in1"), store.TractionNotFoundError);
+  });
+
   it("reports Virtec as not configured without contacting anything", async () => {
     const data = await getTraction();
     assert.equal(data.crm.configured, false);

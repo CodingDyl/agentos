@@ -7,7 +7,7 @@ import { buildDraftPacket, buildOpportunities, caseStudyQueueItems, readDraft } 
 import { buildQueue } from "../engine";
 
 function snapshot(overrides: Partial<VirtecSnapshot> = {}): VirtecSnapshot {
-  return { configured: true, leads: [], clients: [], quotes: [], projects: [], followUps: [], ...overrides };
+  return { configured: true, leads: [], inbound: [], clients: [], quotes: [], projects: [], followUps: [], ...overrides };
 }
 
 const study: CaseStudy = {

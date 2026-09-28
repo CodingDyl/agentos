@@ -19,9 +19,9 @@ import {
 } from "../../shared/traction-types";
 import { readThreadSummary } from "../mail/store";
 import { isVirtecConfigured, isVirtecWritable } from "../virtec/client";
-import { dismissFollowUp, markFollowUpSent, setLeadStatus, snoozeFollowUp, type WriteOutcome } from "../virtec/writes";
+import { dismissFollowUp, markFollowUpSent, setInboundLeadStatus, setLeadStatus, snoozeFollowUp, type WriteOutcome } from "../virtec/writes";
 import { getVirtecSnapshot } from "../virtec/snapshot";
-import { clientToProspect, leadToProspect } from "./crm";
+import { clientToProspect, inboundToProspect, leadToProspect } from "./crm";
 import { CaseStudyDraftError, draftCaseStudy } from "./case-study-draft";
 import { caseStudyFiles, exportFilename } from "./case-study-export";
 import { buildZip } from "./zip";
@@ -53,6 +53,7 @@ import {
   saveTargets,
   snoozeQueueItem,
   importCrmProspect,
+  replyToInboundLead,
   TractionConflictError,
   TractionNotFoundError,
   unlinkMailThread,
@@ -172,6 +173,19 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
         return;
       }
       response.json({ caseStudy: await startFromOpportunity(opportunity) });
+    } else if (action.action === "done" && request.params.itemId.startsWith("inbound:")) {
+      // "Done" on a website lead means "I replied": it becomes a prospect in
+      // conversation, built from Virtec's copy of the lead, and Virtec is told.
+      const id = request.params.itemId.slice("inbound:".length);
+      const lead = (await getVirtecSnapshot()).inbound.find((entry) => entry.id === id);
+      if (!lead) {
+        response.status(404).json({ error: "No such website lead in Virtec" });
+        return;
+      }
+      const mapped = inboundToProspect(lead, isoDate(new Date()), true);
+      const prospect = await replyToInboundLead({ ...mapped, crmId: mapped.crmId as string }, request.params.itemId);
+      const virtec = isVirtecWritable() ? await setInboundLeadStatus(lead.id, "replied") : undefined;
+      response.json({ prospect, virtec });
     } else if (action.action === "done") {
       const result = await completeQueueItem(request.params.itemId);
       // A Virtec follow-up handled here is marked sent there too, when
@@ -396,7 +410,14 @@ tractionRouter.post("/crm/import", async (request, response) => {
     const snapshot = await getVirtecSnapshot();
     const lead = input.kind === "lead" ? snapshot.leads.find((entry) => entry.id === input.id) : undefined;
     const client = input.kind === "client" ? snapshot.clients.find((entry) => entry.id === input.id) : undefined;
-    const mapped = lead ? leadToProspect(lead) : client ? clientToProspect(client) : undefined;
+    const inbound = input.kind === "inbound" ? snapshot.inbound.find((entry) => entry.id === input.id) : undefined;
+    const mapped = lead
+      ? leadToProspect(lead)
+      : client
+        ? clientToProspect(client)
+        : inbound
+          ? inboundToProspect(inbound, isoDate(new Date()), false)
+          : undefined;
 
     if (!mapped?.crmId) {
       response.status(404).json({ error: `No such ${input.kind} in Virtec` });
@@ -405,8 +426,13 @@ tractionRouter.post("/crm/import", async (request, response) => {
 
     const prospect = await importCrmProspect({ ...mapped, crmId: mapped.crmId });
     // Taking a new lead into Traction is reviewing it; Virtec is told so.
-    const virtec: WriteOutcome | undefined =
-      lead && (lead.status === undefined || lead.status === "new") && isVirtecWritable() ? await setLeadStatus(lead.id, "reviewing") : undefined;
+    const virtec: WriteOutcome | undefined = !isVirtecWritable()
+      ? undefined
+      : lead && (lead.status === undefined || lead.status === "new")
+        ? await setLeadStatus(lead.id, "reviewing")
+        : inbound && (inbound.status === undefined || inbound.status === "new")
+          ? await setInboundLeadStatus(inbound.id, "reviewing")
+          : undefined;
     response.status(201).json({ prospect, virtec });
   } catch (error) {
     fail(response, error, "import from Virtec");
@@ -542,6 +568,26 @@ tractionRouter.post("/crm/leads/:id/not-a-fit", async (request, response) => {
   }
 
   const outcome = await setLeadStatus(id.data, "disqualified");
+  if (outcome.ok) response.json({ ok: true });
+  else response.status(502).json({ error: outcome.error });
+});
+
+const INBOUND_STATUSES = ["replied", "not_a_fit", "spam"] as const;
+
+/** Settles a website lead from the Virtec tab: replied, not a fit, or spam. */
+tractionRouter.post("/crm/inbound/:id", async (request, response) => {
+  const id = LeadIdSchema.safeParse(request.params.id);
+  const status = (request.body as { status?: unknown } | undefined)?.status;
+  if (!id.success || !INBOUND_STATUSES.includes(status as (typeof INBOUND_STATUSES)[number])) {
+    response.status(400).json({ error: `Expected a website lead id and status ${INBOUND_STATUSES.map((entry) => `"${entry}"`).join(", ")}` });
+    return;
+  }
+  if (!isVirtecWritable()) {
+    response.status(409).json({ error: "Write-back to Virtec is off (VIRTEC_WRITE_API_KEY is not set)" });
+    return;
+  }
+
+  const outcome = await setInboundLeadStatus(id.data, status as (typeof INBOUND_STATUSES)[number]);
   if (outcome.ok) response.json({ ok: true });
   else response.status(502).json({ error: outcome.error });
 });

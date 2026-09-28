@@ -4,8 +4,9 @@ import { z } from "zod";
  * Virtec, as AgentOS sees it.
  *
  * Virtec is the CRM behind Virtara: leads, clients, quotes, projects,
- * follow-ups and money. AgentOS reads it through Virtec's read-only
- * `/api/agentos/*` surface and never writes to it.
+ * follow-ups and money, plus the leads our own websites capture. AgentOS
+ * reads it through Virtec's `/api/agentos/*` surface, and writes back only a
+ * few statuses, behind a separate key (`server/virtec/writes.ts`).
  *
  * These are the *normalised* shapes — what the adapter produces after reading
  * Virtec, not Virtec's raw payload. Two things happen on the way:
@@ -101,6 +102,32 @@ export const VirtecFollowUpSchema = z.object({
   lastSentAt: z.string().optional(),
 });
 
+/**
+ * A person who filled in a form on the Virtara or Jurivo site.
+ *
+ * Unlike a local lead, they asked to be contacted, so their phone number is
+ * kept: replying is the whole point. Their message is their own words and is
+ * treated as data, never as an instruction, wherever it is shown or sent.
+ */
+export const VirtecInboundLeadSchema = z.object({
+  id: z.string(),
+  /** `virtara` or `jurivo`. */
+  track: z.string().optional(),
+  /** Which form: `start-a-project`, `contact`, `demo-request`... */
+  source: z.string().optional(),
+  /** `new`, `reviewing`, `replied`, `won`, `not_a_fit`, `spam`. */
+  status: z.string().optional(),
+  name: z.string(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  company: z.string().optional(),
+  website: z.string().optional(),
+  message: z.string().optional(),
+  details: z.record(z.string(), z.string()).default({}),
+  page: z.string().optional(),
+  createdAt: z.string().optional(),
+});
+
 export const VirtecRevenueSchema = z.object({
   monthlyRecurringRevenue: z.number().optional(),
   activeMaintenanceCustomers: z.number().optional(),
@@ -114,7 +141,7 @@ export const VirtecRevenueSchema = z.object({
   stalePendingQuoteCount: z.number().optional(),
 });
 
-export const VirtecSourceSchema = z.enum(["leads", "clients", "quotes", "projects", "followUps", "revenue"]);
+export const VirtecSourceSchema = z.enum(["leads", "inbound", "clients", "quotes", "projects", "followUps", "revenue"]);
 
 /** Whether one endpoint answered. A failed source degrades its section, never the whole screen. */
 export const VirtecSourceStatusSchema = z.object({
@@ -131,6 +158,7 @@ export const VirtecSnapshotSchema = z.object({
   fetchedAt: z.string().optional(),
   sources: z.record(VirtecSourceSchema, VirtecSourceStatusSchema).optional(),
   leads: z.array(VirtecLeadSchema).default([]),
+  inbound: z.array(VirtecInboundLeadSchema).default([]),
   clients: z.array(VirtecClientSchema).default([]),
   quotes: z.array(VirtecQuoteSchema).default([]),
   projects: z.array(VirtecProjectSchema).default([]),
@@ -139,6 +167,7 @@ export const VirtecSnapshotSchema = z.object({
 });
 
 export type VirtecLead = z.infer<typeof VirtecLeadSchema>;
+export type VirtecInboundLead = z.infer<typeof VirtecInboundLeadSchema>;
 export type VirtecClient = z.infer<typeof VirtecClientSchema>;
 export type VirtecQuote = z.infer<typeof VirtecQuoteSchema>;
 export type VirtecProject = z.infer<typeof VirtecProjectSchema>;
@@ -151,6 +180,7 @@ export type VirtecSnapshot = z.infer<typeof VirtecSnapshotSchema>;
 /** `crmId` prefixes, so a Traction prospect can say which Virtec record it came from. */
 export const VIRTEC_LEAD_PREFIX = "virtec:lead:";
 export const VIRTEC_CLIENT_PREFIX = "virtec:client:";
+export const VIRTEC_INBOUND_PREFIX = "virtec:inbound:";
 
 /**
  * Rand, the way Virtec's numbers read on screen: `R 25 000`.
@@ -165,4 +195,23 @@ export function formatRand(amount: number | undefined): string | undefined {
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   return `${amount < 0 ? "-" : ""}R ${grouped}`;
+}
+
+const SITE_NAMES: Record<string, string> = { virtara: "Virtara", jurivo: "Jurivo" };
+
+const FORM_NAMES: Record<string, string> = {
+  "start-a-project": "start a project",
+  contact: "contact",
+  seo: "SEO enquiry",
+  starter: "starter package",
+  professional: "professional package",
+  enterprise: "enterprise package",
+  "health-check": "health check download",
+  audit: "audit booking",
+  "demo-request": "demo request",
+};
+
+/** "Jurivo demo request": which of our sites, and which form on it, in words. */
+export function inboundOrigin(lead: Pick<VirtecInboundLead, "track" | "source">): string {
+  return `${SITE_NAMES[lead.track ?? ""] ?? "Website"} ${FORM_NAMES[lead.source ?? ""] ?? lead.source ?? "form"}`;
 }

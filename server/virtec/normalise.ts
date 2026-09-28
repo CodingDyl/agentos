@@ -2,12 +2,14 @@ import type { ZodType } from "zod";
 import {
   VirtecClientSchema,
   VirtecFollowUpSchema,
+  VirtecInboundLeadSchema,
   VirtecLeadSchema,
   VirtecProjectSchema,
   VirtecQuoteSchema,
   VirtecRevenueSchema,
   type VirtecClient,
   type VirtecFollowUp,
+  type VirtecInboundLead,
   type VirtecLead,
   type VirtecProject,
   type VirtecQuote,
@@ -130,6 +132,43 @@ export function normaliseLeads(payload: unknown): Normalised<VirtecLead> {
         createdAt: timestamp(raw.createdAt),
       }),
     VirtecLeadSchema,
+  );
+}
+
+/** Short text answers only: anything else a form sent is dropped. */
+function answers(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .slice(0, 12)
+      .flatMap(([key, entry]) => {
+        const answer = text(entry);
+        return /^[a-zA-Z][a-zA-Z0-9_-]{0,39}$/.test(key) && answer ? [[key, answer.slice(0, 300)]] : [];
+      }),
+  );
+}
+
+export function normaliseInboundLeads(payload: unknown): Normalised<VirtecInboundLead> {
+  return list(
+    payload,
+    "leads",
+    (raw) =>
+      defined({
+        id: text(raw.id),
+        track: text(raw.track),
+        source: text(raw.source),
+        status: text(raw.status),
+        name: text(raw.name)?.slice(0, 120),
+        email: text(raw.email),
+        phone: text(raw.phone)?.slice(0, 40),
+        company: text(raw.company)?.slice(0, 160),
+        website: text(raw.website),
+        message: text(raw.message)?.slice(0, 4000),
+        details: answers(raw.details),
+        page: text(raw.page),
+        createdAt: timestamp(raw.createdAt),
+      }),
+    VirtecInboundLeadSchema,
   );
 }
 

@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ProspectInputSchema, type Prospect } from "../../../shared/traction-types";
-import type { VirtecSnapshot } from "../../../shared/virtec-types";
-import { buildCrmView, clientToProspect, crmAttention, crmQueueItems, formatRand, leadToProspect } from "../crm";
+import type { VirtecInboundLead, VirtecSnapshot } from "../../../shared/virtec-types";
+import { buildCrmView, clientToProspect, crmAttention, crmQueueItems, formatRand, inboundQueueItems, inboundToProspect, leadToProspect } from "../crm";
 import { buildQueue } from "../engine";
 
 const NOW = new Date(2026, 8, 28, 12);
 const TODAY = "2026-09-28";
 
 function snapshot(overrides: Partial<VirtecSnapshot> = {}): VirtecSnapshot {
-  return { configured: true, fetchedAt: NOW.toISOString(), leads: [], clients: [], quotes: [], projects: [], followUps: [], ...overrides };
+  return { configured: true, fetchedAt: NOW.toISOString(), leads: [], inbound: [], clients: [], quotes: [], projects: [], followUps: [], ...overrides };
 }
 
 function prospect(overrides: Partial<Prospect>): Prospect {
@@ -148,5 +148,71 @@ describe("mapping", () => {
   it("formats Rand without a locale's non-breaking space", () => {
     assert.equal(formatRand(385000), "R 385 000");
     assert.equal(formatRand(undefined), undefined);
+  });
+});
+
+describe("website leads", () => {
+  const lead = (overrides: Partial<VirtecInboundLead> = {}): VirtecInboundLead => ({
+    id: "in1",
+    name: "Jane Smith",
+    company: "Smith Attorneys",
+    email: "jane@smith.test",
+    phone: "082 123 4567",
+    track: "jurivo",
+    source: "demo-request",
+    status: "new",
+    message: "We miss leads after hours.\nCan you help?",
+    details: { practiceArea: "Family law", monthlyLeads: "21-50 leads" },
+    createdAt: new Date(2026, 8, 26, 9).toISOString(),
+    ...overrides,
+  });
+
+  it("puts unanswered leads at the very top of the queue, longest-waiting first", () => {
+    const items = inboundQueueItems([lead(), lead({ id: "in2", name: "Sam", company: undefined, createdAt: NOW.toISOString() })], [], TODAY);
+    const queue = buildQueue([prospect({ nextAction: "Call", nextActionDate: "2026-09-20" })], [], TODAY, [], [], items);
+
+    assert.deepEqual(queue.slice(0, 2).map((item) => item.id), ["inbound:in1", "inbound:in2"]);
+    assert.equal(queue[0].title, "Reply to Jane Smith (Smith Attorneys)");
+    assert.equal(queue[0].detail[0], "Jurivo demo request · waiting 2 days");
+    assert.equal(queue[0].detail[1], "We miss leads after hours.");
+    assert.equal(queue[1].detail[0], "Jurivo demo request · arrived today");
+  });
+
+  it("leaves out leads already imported, replied to, or ruled out", () => {
+    const imported = prospect({ crmId: "virtec:inbound:in1" });
+    assert.equal(inboundQueueItems([lead()], [imported], TODAY).length, 0);
+    for (const status of ["reviewing", "replied", "not_a_fit", "spam", "won"]) {
+      assert.equal(inboundQueueItems([lead({ status })], [], TODAY).length, 0, status);
+    }
+  });
+
+  it("shows open leads in the view, newest first, with their prospect once imported", () => {
+    const view = buildCrmView(
+      snapshot({ inbound: [lead(), lead({ id: "in2", createdAt: NOW.toISOString() }), lead({ id: "in3", status: "spam" }), lead({ id: "in4", status: "reviewing" })] }),
+      [prospect({ id: "pr_imported1", crmId: "virtec:inbound:in4" })],
+      NOW,
+    );
+    assert.deepEqual(view.inbound.map((entry) => entry.id), ["in2", "in1", "in4"]);
+    assert.equal(view.inbound[2].prospectId, "pr_imported1");
+  });
+
+  it("maps a lead to a prospect in conversation from the website, keeping their words in the notes", () => {
+    const waiting = ProspectInputSchema.parse(inboundToProspect(lead(), TODAY, false));
+    assert.equal(waiting.company, "Smith Attorneys");
+    assert.equal(waiting.contact, "Jane Smith");
+    assert.equal(waiting.stage, "conversation");
+    assert.equal(waiting.source, "website");
+    assert.equal(waiting.segment, "Family law");
+    assert.equal(waiting.nextAction, "Reply to their enquiry");
+    assert.equal(waiting.nextActionDate, TODAY);
+    assert.equal(waiting.crmId, "virtec:inbound:in1");
+    assert.match(waiting.notes ?? "", /Phone: 082 123 4567/);
+    assert.match(waiting.notes ?? "", /We miss leads after hours/);
+
+    const replied = ProspectInputSchema.parse(inboundToProspect(lead({ company: undefined, website: "javascript:alert(1)" }), TODAY, true));
+    assert.equal(replied.company, "Jane Smith");
+    assert.equal(replied.contact, undefined);
+    assert.equal(replied.nextAction, undefined);
+    assert.equal(replied.website, undefined);
   });
 });

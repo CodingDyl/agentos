@@ -3,6 +3,7 @@ import { getVirtec, isVirtecConfigured, VIRTEC_PATHS, virtecBaseUrl, virtecConfi
 import {
   normaliseClients,
   normaliseFollowUps,
+  normaliseInboundLeads,
   normaliseLeads,
   normaliseProjects,
   normaliseQuotes,
@@ -56,7 +57,7 @@ function logConfiguration(): void {
 async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
   if (!isVirtecConfigured()) {
     logConfiguration();
-    return { configured: false, leads: [], clients: [], quotes: [], projects: [], followUps: [] };
+    return { configured: false, leads: [], inbound: [], clients: [], quotes: [], projects: [], followUps: [] };
   }
 
   const started = Date.now();
@@ -78,8 +79,9 @@ async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
     }
   };
 
-  const [leads, clients, quotes, projects, followUps, revenue] = await Promise.all([
+  const [leads, inbound, clients, quotes, projects, followUps, revenue] = await Promise.all([
     settle("leads", async () => normaliseLeads(await getVirtec(VIRTEC_PATHS.leads, fetcher))),
+    settle("inbound", async () => normaliseInboundLeads(await getVirtec(VIRTEC_PATHS.inbound, fetcher))),
     settle("clients", async () => normaliseClients(await getVirtec(VIRTEC_PATHS.clients, fetcher))),
     settle("quotes", async () => normaliseQuotes(await getVirtec(VIRTEC_PATHS.quotes, fetcher))),
     settle("projects", async () => normaliseProjects(await getVirtec(VIRTEC_PATHS.projects, fetcher))),
@@ -87,11 +89,11 @@ async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
     settle("revenue", async () => ({ items: normaliseRevenue(await getVirtec(VIRTEC_PATHS.revenue, fetcher)), skipped: 0 })),
   ]);
 
-  const results = [leads, clients, quotes, projects, followUps, revenue];
+  const results = [leads, inbound, clients, quotes, projects, followUps, revenue];
   const ok = results.filter((result) => result.status.ok).length;
   const skipped = results.reduce((sum, result) => sum + result.status.skipped, 0);
   // Where it went and how it went — host only, never a path with a key or a query.
-  const summary = `[agentos] virtec: ${ok}/6 sources read from ${virtecBaseUrl()?.host ?? "?"}` + (skipped > 0 ? ` (${skipped} unreadable records skipped)` : "");
+  const summary = `[agentos] virtec: ${ok}/${results.length} sources read from ${virtecBaseUrl()?.host ?? "?"}` + (skipped > 0 ? ` (${skipped} unreadable records skipped)` : "");
   // Timing is left out of the comparison, so an unchanged outcome is not reprinted.
   if (lastLogged.get("summary") !== summary) {
     lastLogged.set("summary", summary);
@@ -103,6 +105,7 @@ async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
     fetchedAt: new Date().toISOString(),
     sources: {
       leads: leads.status,
+      inbound: inbound.status,
       clients: clients.status,
       quotes: quotes.status,
       projects: projects.status,
@@ -110,6 +113,7 @@ async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
       revenue: revenue.status,
     },
     leads: leads.items ?? [],
+    inbound: inbound.items ?? [],
     clients: clients.items ?? [],
     quotes: quotes.items ?? [],
     projects: projects.items ?? [],

@@ -5,7 +5,7 @@ import type { QueueItem, TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import { useQueueAction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { crmFollowUpPrompt, hermesHref, hermesPrompt, queueItemHref, waitingPrompt } from "./traction-model";
+import { crmFollowUpPrompt, hermesHref, hermesPrompt, inboundReplyPrompt, queueItemHref, waitingPrompt } from "./traction-model";
 
 /**
  * Today's traction: the revenue work, one item at a time.
@@ -19,6 +19,7 @@ import { crmFollowUpPrompt, hermesHref, hermesPrompt, queueItemHref, waitingProm
  */
 
 const KIND_LABEL: Record<QueueItem["kind"], string> = {
+  inbound: "Website lead",
   due: "Due",
   follow_up: "Follow-up",
   waiting: "Waiting on",
@@ -29,6 +30,7 @@ const KIND_LABEL: Record<QueueItem["kind"], string> = {
 };
 
 const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "muted" | "blue"> = {
+  inbound: "flame",
   due: "flame",
   follow_up: "marigold",
   waiting: "marigold",
@@ -64,7 +66,10 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
           const prospect = data.prospects.find((entry) => entry.id === item.prospectId);
           const owed = item.waitingId ? data.waiting.find((entry) => entry.id === item.waitingId) : undefined;
           const crmFollowUp = item.crmFollowUpId ? data.crm.followUps.find((entry) => entry.id === item.crmFollowUpId) : undefined;
-          const ask = crmFollowUp
+          const inbound = item.inboundLeadId ? data.crm.inbound.find((entry) => entry.id === item.inboundLeadId) : undefined;
+          const ask = inbound
+            ? { kind: "draft" as const, prompt: inboundReplyPrompt(inbound) }
+            : crmFollowUp
             ? { kind: "draft" as const, prompt: crmFollowUpPrompt(crmFollowUp) }
             : owed
             ? { kind: "draft" as const, prompt: waitingPrompt(owed, data.today, prospect) }
@@ -100,10 +105,11 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                       },
                     )
                   }
-                  aria-label={item.kind === "case_study" ? item.title : `Done: ${item.title}`}
+                  aria-label={item.kind === "case_study" ? item.title : item.kind === "inbound" ? `Replied: ${item.title}` : `Done: ${item.title}`}
+                  title={item.kind === "inbound" ? "You replied: they become a prospect in conversation" : undefined}
                 >
                   <Check className="size-3.5" aria-hidden="true" />
-                  {item.kind === "case_study" ? "Start" : "Done"}
+                  {item.kind === "case_study" ? "Start" : item.kind === "inbound" ? "Replied" : "Done"}
                 </PaperButton>
                 <PaperButton
                   disabled={pending}
@@ -113,14 +119,14 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <Clock className="size-3.5" aria-hidden="true" />
                   Snooze
                 </PaperButton>
-                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? "item"}`}>
+                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? "item"}`}>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                   Open
                 </QueueLink>
                 {ask ? (
                   <QueueLink
                     to={hermesHref(ask.prompt)}
-                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? "this item"}`}
+                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? "this item"}`}
                     title={ask.kind === "research" ? "Not enough context to draft yet, so Hermes researches first" : "Hermes drafts; you review and send"}
                   >
                     {ask.kind === "research" ? <Search className="size-3.5" aria-hidden="true" /> : <PenLine className="size-3.5" aria-hidden="true" />}

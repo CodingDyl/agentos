@@ -1,5 +1,5 @@
 import type { VirtecSnapshot } from "../../shared/virtec-types";
-import { patchVirtec, VirtecError } from "./client";
+import { patchVirtec, VirtecError, type InboundLeadWriteStatus } from "./client";
 import { patchCachedSnapshot } from "./snapshot";
 
 /**
@@ -56,6 +56,17 @@ export async function setLeadStatus(id: string, status: "reviewing" | "disqualif
     patchCachedSnapshot((snapshot) => ({
       ...snapshot,
       leads: snapshot.leads.map((lead) => (lead.id === id ? { ...lead, status } : lead)),
+    }));
+  }
+  return outcome;
+}
+
+export async function setInboundLeadStatus(id: string, status: InboundLeadWriteStatus): Promise<WriteOutcome> {
+  const outcome = await attempt(() => patchVirtec({ kind: "inbound-lead", id, body: { status } }), `website lead ${id} ${status}`);
+  if (outcome.ok) {
+    patchCachedSnapshot((snapshot) => ({
+      ...snapshot,
+      inbound: snapshot.inbound.map((lead) => (lead.id === id ? { ...lead, status } : lead)),
     }));
   }
   return outcome;

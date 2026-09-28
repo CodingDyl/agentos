@@ -6,7 +6,7 @@
  * read by the Node server only. The key is attached to requests here and
  * nowhere else — it never reaches a response, an error message or a log line.
  *
- * GET for reads with `VIRTEC_API_KEY`. Writes — two fixed PATCH routes — use
+ * GET for reads with `VIRTEC_API_KEY`. Writes (three fixed PATCH routes) use
  * a separate `VIRTEC_WRITE_API_KEY`, and only when it is set.
  */
 
@@ -15,6 +15,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 /** Every path this client may request. Nothing from a request is ever appended. */
 export const VIRTEC_PATHS = {
   leads: "/api/agentos/leads?limit=500",
+  inbound: "/api/agentos/inbound-leads?limit=200",
   clients: "/api/agentos/clients?limit=500",
   quotes: "/api/agentos/quotes?limit=500",
   projects: "/api/agentos/projects?limit=500",
@@ -128,7 +129,17 @@ const DOC_ID = /^[A-Za-z0-9_-]{1,128}$/;
  */
 export type VirtecWrite =
   | { kind: "follow-up"; id: string; body: { status: "sent" | "dismissed" } | { status: "snoozed"; snoozedUntil: string } }
-  | { kind: "lead"; id: string; body: { status: "new" | "reviewing" | "qualified" | "disqualified" } };
+  | { kind: "lead"; id: string; body: { status: "new" | "reviewing" | "qualified" | "disqualified" } }
+  | { kind: "inbound-lead"; id: string; body: { status: InboundLeadWriteStatus } };
+
+/** What AgentOS may set on a website lead. `won` is decided in Virtec. */
+export type InboundLeadWriteStatus = "reviewing" | "replied" | "not_a_fit" | "spam";
+
+const WRITE_PATHS: Record<VirtecWrite["kind"], string> = {
+  "follow-up": "/api/agentos/follow-ups/",
+  lead: "/api/agentos/leads/",
+  "inbound-lead": "/api/agentos/inbound-leads/",
+};
 
 export async function patchVirtec(write: VirtecWrite, fetcher: typeof fetch = fetch): Promise<unknown> {
   if (!DOC_ID.test(write.id)) throw new VirtecError("Not a Virtec record id.", "bad-response");
@@ -136,7 +147,7 @@ export async function patchVirtec(write: VirtecWrite, fetcher: typeof fetch = fe
     throw new VirtecError("Write-back is off: VIRTEC_WRITE_API_KEY is not set (or equals the read key).", "not-configured");
   }
 
-  const path = write.kind === "follow-up" ? `/api/agentos/follow-ups/${write.id}` : `/api/agentos/leads/${write.id}`;
+  const path = `${WRITE_PATHS[write.kind]}${write.id}`;
   return requestVirtec("PATCH", path, process.env.VIRTEC_WRITE_API_KEY?.trim(), write.body, fetcher);
 }
 

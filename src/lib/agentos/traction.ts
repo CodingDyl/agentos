@@ -171,6 +171,12 @@ export const useSetCrmFollowUp = () =>
 export const useLeadNotAFit = () =>
   useTractionMutation((leadId: string) => request(`/api/traction/crm/leads/${id(leadId)}/not-a-fit`, { method: "POST" }));
 
+/** Settles a website lead in Virtec: replied, not a fit, or spam. Needs write-back on. */
+export const useSetInboundLead = () =>
+  useTractionMutation(({ leadId, status }: { leadId: string; status: "replied" | "not_a_fit" | "spam" }) =>
+    request(`/api/traction/crm/inbound/${id(leadId)}`, json("POST", { status })),
+  );
+
 /** Starts a case study from an opportunity (by its source only) or from a blank form. */
 export const useStartCaseStudy = () =>
   useTractionMutation((input: { fromOpportunity: string } | CaseStudyInput) =>

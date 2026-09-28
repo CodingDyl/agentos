@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { getVirtec, isVirtecConfigured, VIRTEC_PATHS, VirtecError, virtecConfigurationProblem } from "../client";
-import { normaliseClients, normaliseFollowUps, normaliseLeads, normaliseQuotes, normaliseRevenue, timestamp } from "../normalise";
+import { normaliseClients, normaliseFollowUps, normaliseInboundLeads, normaliseLeads, normaliseQuotes, normaliseRevenue, timestamp } from "../normalise";
 import { clearVirtecCache, getVirtecSnapshot } from "../snapshot";
 
 const KEY = "test-key-that-must-never-leak-0123456789";
@@ -80,6 +80,32 @@ function respond(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
+describe("website leads", () => {
+  it("keeps what a reply needs, drops malformed answers, and skips a lead with no name", () => {
+    const { items, skipped } = normaliseInboundLeads({
+      leads: [
+        {
+          id: "in1",
+          track: "jurivo",
+          source: "demo-request",
+          status: "new",
+          name: "Jane",
+          email: "jane@smith.test",
+          phone: "082 123 4567",
+          details: { practiceArea: "Family", "bad key": "x", nested: { a: 1 }, monthlyLeads: "21-50 leads" },
+          createdAt: "2026-09-28T08:00:00.000Z",
+          dedupeKey: "internal",
+        },
+        { id: "in2", email: "no-name@test" },
+      ],
+    });
+    assert.equal(skipped, 1);
+    assert.deepEqual(items[0].details, { practiceArea: "Family", monthlyLeads: "21-50 leads" });
+    assert.equal(items[0].phone, "082 123 4567");
+    assert.equal("dedupeKey" in items[0], false);
+  });
+});
+
 describe("client", () => {
   beforeEach(() => {
     process.env.VIRTEC_BASE_URL = "https://crm.example.test";
@@ -148,7 +174,7 @@ describe("client", () => {
     assert.equal(snapshot.revenue?.monthlyRecurringRevenue, 1000);
 
     await getVirtecSnapshot({ fetcher });
-    assert.equal(calls, 6, "the second read came from the cache");
+    assert.equal(calls, 7, "the second read came from the cache");
   });
 
   it("does not request anything when unconfigured", async () => {
@@ -246,7 +272,7 @@ describe("diagnosing a connection that does not work", () => {
     const failures = logged.filter((line) => line.includes("virtec leads:"));
     assert.equal(failures.length, 1, "the second identical failure is not reprinted");
     assert.match(failures[0], /HTTP 404: .*wrong domain/);
-    assert.ok(logged.some((line) => /0\/6 sources read from localhost:\d+ in \d+ms/.test(line)));
+    assert.ok(logged.some((line) => /0\/7 sources read from localhost:\d+ in \d+ms/.test(line)));
     assert.equal(logged.some((line) => line.includes(KEY)), false);
   });
 });
@@ -293,6 +319,18 @@ describe("write-back", () => {
 
     process.env.VIRTEC_WRITE_API_KEY = KEY;
     assert.equal(isVirtecWritable(), false, "a write key equal to the read key does not count");
+  });
+
+  it("writes a website lead's status to its own route", async () => {
+    const { patchVirtec } = await import("../client");
+    let url: string | undefined;
+    const fetcher = (async (target: URL) => {
+      url = String(target);
+      return respond(200, { lead: { id: "in1", status: "replied" } });
+    }) as unknown as typeof fetch;
+
+    await patchVirtec({ kind: "inbound-lead", id: "in1", body: { status: "replied" } }, fetcher);
+    assert.equal(url, "https://crm.example.test/api/agentos/inbound-leads/in1");
   });
 
   it("refuses an id that is not a record id, before any request", async () => {
