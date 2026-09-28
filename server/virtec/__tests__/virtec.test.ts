@@ -93,7 +93,7 @@ describe("client", () => {
     clearVirtecCache();
   });
 
-  it("sends the key as a bearer token, to the fixed path, and refuses redirects", async () => {
+  it("sends the key as a bearer token, to the fixed path, and never follows redirects", async () => {
     let seen: { url: string; init?: RequestInit } | undefined;
     const fetcher = (async (url: URL, init?: RequestInit) => {
       seen = { url: String(url), init };
@@ -103,7 +103,7 @@ describe("client", () => {
     await getVirtec(VIRTEC_PATHS.leads, fetcher);
     assert.equal(seen?.url, "https://crm.example.test/api/agentos/leads?limit=500");
     assert.equal((seen?.init?.headers as Record<string, string>).Authorization, `Bearer ${KEY}`);
-    assert.equal(seen?.init?.redirect, "error");
+    assert.equal(seen?.init?.redirect, "manual");
   });
 
   it("explains 401 and 503 without ever mentioning the key", async () => {
@@ -158,5 +158,95 @@ describe("client", () => {
     }) as unknown as typeof fetch;
     const snapshot = await getVirtecSnapshot({ fetcher });
     assert.equal(snapshot.configured, false);
+  });
+});
+
+describe("diagnosing a connection that does not work", () => {
+  let server: import("node:http").Server;
+  let port = 0;
+  let handler: (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void = () => undefined;
+  const logged: string[] = [];
+  const originalLog = console.log;
+  const originalError = console.error;
+
+  beforeEach(async () => {
+    const http = await import("node:http");
+    server = http.createServer((req, res) => handler(req, res));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    port = (server.address() as { port: number }).port;
+    process.env.VIRTEC_BASE_URL = `http://localhost:${port}`;
+    process.env.VIRTEC_API_KEY = KEY;
+    clearVirtecCache();
+    logged.length = 0;
+    console.log = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
+    console.error = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
+  });
+
+  afterEach(async () => {
+    console.log = originalLog;
+    console.error = originalError;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    delete process.env.VIRTEC_BASE_URL;
+    delete process.env.VIRTEC_API_KEY;
+    clearVirtecCache();
+  });
+
+  it("names the address a redirect points to, without following it", async () => {
+    let followed = false;
+    handler = (req, res) => {
+      if (req.url?.startsWith("/elsewhere")) followed = true;
+      res.writeHead(308, { Location: "https://www.virtec.example/api/agentos/leads?limit=500" });
+      res.end();
+    };
+
+    await assert.rejects(getVirtec(VIRTEC_PATHS.leads), (error: unknown) => {
+      assert.ok(error instanceof VirtecError);
+      assert.equal(error.reason, "redirected");
+      assert.match(error.message, /https:\/\/www\.virtec\.example — set VIRTEC_BASE_URL/);
+      return true;
+    });
+    assert.equal(followed, false);
+  });
+
+  it("tells a login page in front of Virtec apart from a wrong key", async () => {
+    handler = (_req, res) => {
+      res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
+      res.end("<html>Log in to Vercel</html>");
+    };
+    await assert.rejects(getVirtec(VIRTEC_PATHS.clients), /Deployment Protection/);
+
+    handler = (_req, res) => {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end('{"error":"Invalid API key"}');
+    };
+    await assert.rejects(getVirtec(VIRTEC_PATHS.clients), /must equal AGENTOS_API_KEY/);
+  });
+
+  it("names a refused connection", async () => {
+    // A port that was open a moment ago and is now closed.
+    const http = await import("node:http");
+    const probe = http.createServer();
+    await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+    const closed = (probe.address() as { port: number }).port;
+    await new Promise<void>((resolve) => probe.close(() => resolve()));
+
+    process.env.VIRTEC_BASE_URL = `http://localhost:${closed}`;
+    await assert.rejects(getVirtec(VIRTEC_PATHS.clients), /refused the connection/);
+  });
+
+  it("logs each failing endpoint once, with its status, and never the key", async () => {
+    handler = (_req, res) => {
+      res.writeHead(404, { "Content-Type": "text/html" });
+      res.end("not here");
+    };
+
+    await getVirtecSnapshot();
+    await getVirtecSnapshot();
+
+    const failures = logged.filter((line) => line.includes("virtec leads:"));
+    assert.equal(failures.length, 1, "the second identical failure is not reprinted");
+    assert.match(failures[0], /HTTP 404 — .*wrong domain/);
+    assert.ok(logged.some((line) => /0\/6 sources read from localhost:\d+ in \d+ms/.test(line)));
+    assert.equal(logged.some((line) => line.includes(KEY)), false);
   });
 });

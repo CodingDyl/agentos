@@ -1,5 +1,5 @@
 import type { VirtecSnapshot, VirtecSource, VirtecSourceStatus } from "../../shared/virtec-types";
-import { getVirtec, isVirtecConfigured, VIRTEC_PATHS, VirtecError } from "./client";
+import { getVirtec, isVirtecConfigured, VIRTEC_PATHS, virtecBaseUrl, virtecConfigurationProblem, VirtecError } from "./client";
 import {
   normaliseClients,
   normaliseFollowUps,
@@ -30,17 +30,50 @@ function failure(error: unknown): VirtecSourceStatus {
   return { ok: false, error: error instanceof VirtecError ? error.message : "Virtec's answer could not be read.", skipped: 0 };
 }
 
+/**
+ * One line per problem, in the server terminal.
+ *
+ * Each names the endpoint, the HTTP status when there was one, and the
+ * reason — never the key, never a response body. A line is printed when it
+ * changes, not on every read: a failed read is not cached, so a broken Virtec
+ * is retried on every poll and would otherwise print the same six lines a
+ * minute.
+ */
+const lastLogged = new Map<string, string>();
+
+function logOnce(topic: string, line: string, write: (line: string) => void = console.log): void {
+  if (lastLogged.get(topic) === line) return;
+  lastLogged.set(topic, line);
+  write(line);
+}
+
+/** Said once when Virtec is half-configured — both unset means it is simply not in use. */
+function logConfiguration(): void {
+  const partlySet = Boolean(process.env.VIRTEC_BASE_URL?.trim() || process.env.VIRTEC_API_KEY?.trim());
+  if (partlySet) logOnce("configuration", `[agentos] virtec: not configured — ${virtecConfigurationProblem() ?? "unknown reason"}`);
+}
+
 async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
   if (!isVirtecConfigured()) {
+    logConfiguration();
     return { configured: false, leads: [], clients: [], quotes: [], projects: [], followUps: [] };
   }
+
+  const started = Date.now();
 
   const settle = async <T>(source: VirtecSource, load: () => Promise<{ items: T; skipped: number }>) => {
     try {
       const { items, skipped } = await load();
+      lastLogged.delete(source); // recovered: the next failure is news again
       return { source, items, status: { ok: true, skipped } as VirtecSourceStatus };
     } catch (error) {
-      if (!(error instanceof VirtecError)) console.error(`[agentos] virtec ${source} could not be read:`, error);
+      if (error instanceof VirtecError) {
+        logOnce(source, `[agentos] virtec ${source}: ${error.status ? `HTTP ${error.status} — ` : ""}${error.message}`, console.error);
+      } else {
+        // A payload Virtec changed the shape of. The error is ours (a parse),
+        // so it carries no credential.
+        console.error(`[agentos] virtec ${source} could not be read:`, error);
+      }
       return { source, items: undefined, status: failure(error) };
     }
   };
@@ -53,6 +86,17 @@ async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
     settle("followUps", async () => normaliseFollowUps(await getVirtec(VIRTEC_PATHS.followUps, fetcher))),
     settle("revenue", async () => ({ items: normaliseRevenue(await getVirtec(VIRTEC_PATHS.revenue, fetcher)), skipped: 0 })),
   ]);
+
+  const results = [leads, clients, quotes, projects, followUps, revenue];
+  const ok = results.filter((result) => result.status.ok).length;
+  const skipped = results.reduce((sum, result) => sum + result.status.skipped, 0);
+  // Where it went and how it went — host only, never a path with a key or a query.
+  const summary = `[agentos] virtec: ${ok}/6 sources read from ${virtecBaseUrl()?.host ?? "?"}` + (skipped > 0 ? ` (${skipped} unreadable records skipped)` : "");
+  // Timing is left out of the comparison, so an unchanged outcome is not reprinted.
+  if (lastLogged.get("summary") !== summary) {
+    lastLogged.set("summary", summary);
+    console.log(`${summary} in ${Date.now() - started}ms`);
+  }
 
   return {
     configured: true,

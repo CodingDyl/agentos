@@ -27,10 +27,46 @@ export type VirtecPath = (typeof VIRTEC_PATHS)[keyof typeof VIRTEC_PATHS];
 export class VirtecError extends Error {
   constructor(
     message: string,
-    readonly reason: "not-configured" | "unauthorized" | "unavailable" | "bad-response",
+    readonly reason: "not-configured" | "unauthorized" | "unavailable" | "redirected" | "bad-response",
+    /** The HTTP status, when Virtec answered at all. */
+    readonly status?: number,
   ) {
     super(message);
     this.name = "VirtecError";
+  }
+}
+
+/**
+ * Why a request never got an answer, in words that point at the fix.
+ *
+ * Node's fetch reports every network failure as "fetch failed" and hides the
+ * real cause one level down; this digs it out. Only error codes and names are
+ * read — nothing that could contain the request's headers.
+ */
+function networkFailure(error: unknown): string {
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+    return `Virtec did not answer within ${REQUEST_TIMEOUT_MS / 1000}s.`;
+  }
+
+  // `localhost` can resolve to both ::1 and 127.0.0.1; a failure on both comes
+  // back as an AggregateError whose individual errors hold the codes.
+  const raw = error instanceof Error ? (error.cause as { code?: string; errors?: { code?: string }[] } | undefined) : undefined;
+  const cause = raw ? { code: raw.code ?? raw.errors?.find((entry) => entry.code)?.code } : undefined;
+  switch (cause?.code) {
+    case "ENOTFOUND":
+    case "EAI_AGAIN":
+      return "Virtec's host name could not be found — check VIRTEC_BASE_URL.";
+    case "ECONNREFUSED":
+      return "Virtec refused the connection — is the address right, and is it running?";
+    case "ECONNRESET":
+      return "Virtec closed the connection.";
+    case "CERT_HAS_EXPIRED":
+    case "DEPTH_ZERO_SELF_SIGNED_CERT":
+    case "UNABLE_TO_VERIFY_LEAF_SIGNATURE":
+    case "ERR_TLS_CERT_ALTNAME_INVALID":
+      return `Virtec's HTTPS certificate was not accepted (${cause.code}).`;
+    default:
+      return cause?.code ? `Virtec did not answer (${cause.code}).` : "Virtec did not answer.";
   }
 }
 
@@ -78,20 +114,57 @@ export async function getVirtec(path: VirtecPath, fetcher: typeof fetch = fetch)
       method: "GET",
       headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      // A redirect could carry the Authorization header somewhere else.
-      redirect: "error",
+      // Never followed: a redirect could carry the Authorization header
+      // somewhere else. Read instead, so the fix can be named.
+      redirect: "manual",
     });
-  } catch {
-    throw new VirtecError("Virtec did not answer.", "unavailable");
+  } catch (error) {
+    throw new VirtecError(networkFailure(error), "unavailable");
   }
 
-  if (response.status === 401) throw new VirtecError("Virtec refused the API key.", "unauthorized");
-  if (response.status === 503) throw new VirtecError("Virtec has no AGENTOS_API_KEY configured on its side.", "not-configured");
-  if (!response.ok) throw new VirtecError(`Virtec answered ${response.status}.`, "unavailable");
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location");
+    let target: string | undefined;
+    try {
+      // Origin only: a redirect target's path or query is not ours to repeat.
+      target = location ? new URL(location, base).origin : undefined;
+    } catch {
+      target = undefined;
+    }
+    throw new VirtecError(
+      target ? `Virtec redirects to ${target} — set VIRTEC_BASE_URL to that address.` : `Virtec answered with a redirect (${response.status}).`,
+      "redirected",
+      response.status,
+    );
+  }
+
+  // Virtec's own refusals are JSON. An HTML 401/403 came from something in
+  // front of it — typically Vercel's Deployment Protection — before Virtec's
+  // code ever saw the key.
+  const html = (response.headers.get("content-type") ?? "").includes("text/html");
+  if ((response.status === 401 || response.status === 403) && html) {
+    throw new VirtecError(
+      `A login page answered instead of Virtec (HTTP ${response.status}) — likely Vercel Deployment Protection. Use the production domain, or turn protection off for /api/agentos.`,
+      "unauthorized",
+      response.status,
+    );
+  }
+  if (response.status === 401) {
+    throw new VirtecError("Virtec refused the API key — VIRTEC_API_KEY here must equal AGENTOS_API_KEY there.", "unauthorized", 401);
+  }
+  if (response.status === 503) {
+    throw new VirtecError("Virtec has no AGENTOS_API_KEY configured on its side (redeploy after adding it).", "not-configured", 503);
+  }
+  if (response.status === 404) {
+    throw new VirtecError("Virtec has no AgentOS API at this address (404) — wrong domain, or not deployed yet.", "unavailable", 404);
+  }
+  if (!response.ok) throw new VirtecError(`Virtec answered ${response.status}.`, "unavailable", response.status);
 
   try {
     return await response.json();
   } catch {
-    throw new VirtecError("Virtec returned something that is not JSON.", "bad-response");
+    // Usually an HTML page: a login wall, a framework error page, or the wrong site.
+    const type = response.headers.get("content-type") ?? "unknown";
+    throw new VirtecError(`Virtec returned something that is not JSON (${type.split(";")[0]}).`, "bad-response", response.status);
   }
 }
