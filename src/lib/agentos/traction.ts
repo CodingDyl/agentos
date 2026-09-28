@@ -1,0 +1,125 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  TractionDataSchema,
+  type ExperimentInput,
+  type IcpInput,
+  type OfferInput,
+  type ProspectInput,
+  type ProspectPatch,
+  type QueueAction,
+  type TractionData,
+  type WeeklyTargets,
+} from "@shared/traction-types";
+import { AgentOSRequestError } from "./client";
+import { agentosKeys } from "./queries";
+
+/**
+ * Traction's client and queries, kept apart from the shared client so the
+ * module can be read (and eventually moved) on its own.
+ *
+ * One read, many small writes. Every write invalidates the one read, so the
+ * queue, pipeline and warnings are re-derived by the server together rather
+ * than patched optimistically here — the numbers on screen are always the
+ * server's numbers.
+ */
+
+export const tractionKey = () => [...agentosKeys.all, "traction"] as const;
+
+async function request<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+
+  try {
+    response = await fetch(path, init);
+  } catch {
+    throw new AgentOSRequestError("The AgentOS data adapter is not responding. Is it running?");
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const failure = payload as { error?: string } | null;
+    throw new AgentOSRequestError(failure?.error ?? "Traction could not be updated.", response.status);
+  }
+
+  return payload as T;
+}
+
+function json(method: string, body: unknown): RequestInit {
+  return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
+
+export async function getTraction(): Promise<TractionData> {
+  const payload = await request("/api/traction");
+  const parsed = TractionDataSchema.safeParse(payload);
+  if (!parsed.success) throw new AgentOSRequestError("Traction returned data in an unexpected shape.");
+  return parsed.data;
+}
+
+const id = (value: string) => encodeURIComponent(value);
+
+/** Polled gently: Traction changes when a person acts, not on its own. */
+export function useTraction() {
+  return useQuery({
+    queryKey: tractionKey(),
+    queryFn: getTraction,
+    staleTime: 15_000,
+    refetchInterval: 60_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+/** A mutation that re-reads Traction (and Today, which shows the queue) when it lands. */
+function useTractionMutation<V>(fn: (variables: V) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: tractionKey() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export const useCreateProspect = () =>
+  useTractionMutation((input: ProspectInput) => request("/api/traction/prospects", json("POST", input)));
+
+export const useUpdateProspect = () =>
+  useTractionMutation(({ prospectId, patch }: { prospectId: string; patch: ProspectPatch }) =>
+    request(`/api/traction/prospects/${id(prospectId)}`, json("PATCH", patch)),
+  );
+
+export const useDeleteProspect = () =>
+  useTractionMutation((prospectId: string) => request(`/api/traction/prospects/${id(prospectId)}`, { method: "DELETE" }));
+
+export const useQueueAction = () =>
+  useTractionMutation(({ itemId, action }: { itemId: string; action: QueueAction }) =>
+    request(`/api/traction/queue/${id(itemId)}`, json("POST", action)),
+  );
+
+export const useSaveIcp = () => useTractionMutation((input: IcpInput) => request("/api/traction/icp", json("PUT", input)));
+
+export const useSaveTargets = () =>
+  useTractionMutation((input: WeeklyTargets) => request("/api/traction/targets", json("PUT", input)));
+
+export const useSaveOffer = () =>
+  useTractionMutation(({ offerId, input }: { offerId?: string; input: OfferInput }) =>
+    offerId
+      ? request(`/api/traction/offers/${id(offerId)}`, json("PUT", input))
+      : request("/api/traction/offers", json("POST", input)),
+  );
+
+export const useDeleteOffer = () =>
+  useTractionMutation((offerId: string) => request(`/api/traction/offers/${id(offerId)}`, { method: "DELETE" }));
+
+export const useSaveExperiment = () =>
+  useTractionMutation(({ experimentId, input }: { experimentId?: string; input: ExperimentInput }) =>
+    experimentId
+      ? request(`/api/traction/experiments/${id(experimentId)}`, json("PUT", input))
+      : request("/api/traction/experiments", json("POST", input)),
+  );
+
+export const useDeleteExperiment = () =>
+  useTractionMutation((experimentId: string) => request(`/api/traction/experiments/${id(experimentId)}`, { method: "DELETE" }));

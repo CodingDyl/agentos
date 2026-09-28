@@ -63,6 +63,7 @@ import {
 } from "./activity";
 import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
+import { tractionRouter } from "./traction/routes";
 import {
   archiveTask,
   bulkTasks,
@@ -290,6 +291,9 @@ const app = express();
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
+
+/** Traction: prospects, the daily acquisition queue, offers and experiments. */
+app.use("/api/traction", tractionRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
