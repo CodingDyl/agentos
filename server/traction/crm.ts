@@ -117,7 +117,7 @@ export function crmQueueItems(followUps: readonly VirtecFollowUp[], today: strin
         id: `crm:${followUp.id}`,
         kind: "crm" as const,
         crmFollowUpId: followUp.id,
-        title: `${FOLLOW_UP_TITLES[followUp.type ?? ""] ?? "Follow up"} — ${who}`,
+        title: `${FOLLOW_UP_TITLES[followUp.type ?? ""] ?? "Follow up"}: ${who}`,
         detail: detail.length > 0 ? detail.slice(0, 2) : ["From Virtec"],
         rank: FOLLOW_UP_RANK[followUp.type ?? ""] ?? 1.8,
         customerId: followUp.customerId,

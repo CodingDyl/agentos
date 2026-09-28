@@ -277,7 +277,7 @@ Rules for the verdict:
 - CHANGES_REQUIRED when the implementation is functionally there but visually
   off. List every change you want, and only changes you can point at in a
   screenshot.
-- UNVERIFIABLE when you cannot honestly judge it — a screenshot is missing, the
+- UNVERIFIABLE when you cannot honestly judge it: a screenshot is missing, the
   references do not bear on what was built, or you were not given enough to
   compare. Never round this up to a pass.`;
 
@@ -333,7 +333,7 @@ export function buildVisualReviewPacket(input: VisualReviewPacketInput): string 
     "",
     "An automated worker implemented a change, and AgentOS ran the result and",
     "photographed it. Your job is to say whether what it built follows the",
-    "intended visual direction. This is not a code review — the code has been",
+    "intended visual direction. This is not a code review; the code has been",
     "reviewed separately and may be perfectly correct while the screen is wrong.",
     "",
     `PROJECT\n${input.project}`,
@@ -364,7 +364,7 @@ export function buildVisualReviewPacket(input: VisualReviewPacketInput): string 
       ? `\nIMPLEMENTATION SCREENSHOTS\n${screenshots.join("\n")}`
       : "\nIMPLEMENTATION SCREENSHOTS\nNone were captured.",
     input.captureFailures.length > 0
-      ? `\nROUTES THAT COULD NOT BE CAPTURED\n${input.captureFailures.map((failure) => `- ${failure}`).join("\n")}\nWeigh this in your verdict — you have not seen all of the work.`
+      ? `\nROUTES THAT COULD NOT BE CAPTURED\n${input.captureFailures.map((failure) => `- ${failure}`).join("\n")}\nWeigh this in your verdict: you have not seen all of the work.`
       : undefined,
     "",
     "WHAT TO COMPARE",
@@ -374,7 +374,7 @@ export function buildVisualReviewPacket(input: VisualReviewPacketInput): string 
     "baseline.",
     "",
     "Inspect every image with vision_analyze before saying anything about it.",
-    "Keep what you observed separate from what you recommend — \"the references",
+    "Keep what you observed separate from what you recommend: \"the references",
     "use less card framing\" is an observation; \"remove the container borders",
     "around the grid\" is a recommendation. State the observation first.",
     "Describe only what is actually visible; do not infer a screen you were not",

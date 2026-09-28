@@ -131,7 +131,7 @@ export function WorkspacesPage() {
 
             {visible.length === 0 ? (
               <p className="mt-12 text-[15px] text-paper-sage">
-                {projects.length === 0 ? "No workspaces yet. Create one — AgentOS writes the files." : "Nothing matches."}
+                {projects.length === 0 ? "No workspaces yet. Create one and AgentOS writes the files." : "Nothing matches."}
               </p>
             ) : (
               <div className="mt-8 space-y-10">

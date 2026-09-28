@@ -143,7 +143,7 @@ export async function buildRoutingContext(
     if (worker.simulated) {
       excluded.push({
         worker: worker.id,
-        reason: "A development worker — it rehearses the pipeline without doing the work.",
+        reason: "A development worker. It rehearses the pipeline without doing the work.",
       });
       continue;
     }
@@ -342,7 +342,7 @@ export async function routeJob(input: {
         reasons: [
           `${only.worker.name} is the only worker able to take this job right now.`,
           ...context.excluded.map(
-            (entry) => `${entry.worker} was ruled out — ${entry.reason}`,
+            (entry) => `${entry.worker} was ruled out: ${entry.reason}`,
           ),
         ],
         taskType: context.taskType,

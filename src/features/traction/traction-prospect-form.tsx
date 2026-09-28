@@ -202,7 +202,7 @@ export function ProspectForm({
       </div>
 
       <label className="block">
-        <FieldLabel>Specific observation — the thing you would actually say</FieldLabel>
+        <FieldLabel>Specific observation (the thing you would actually say)</FieldLabel>
         <textarea
           maxLength={500}
           rows={2}
@@ -226,7 +226,7 @@ export function ProspectForm({
       {more ? (
         <>
           <label className="block">
-            <FieldLabel>Why this lead — one reason per line</FieldLabel>
+            <FieldLabel>Why this lead (one reason per line)</FieldLabel>
             <textarea rows={3} placeholder={"Independent agency\nExisting site is dated\nNo strong lead capture"} className={cn(PAPER_INPUT, "w-full py-2")} {...field("reasons")} />
           </label>
           <label className="block">
@@ -252,7 +252,7 @@ export function ProspectForm({
             <label className="block">
               <FieldLabel>Relationship</FieldLabel>
               <select className={cn(PAPER_INPUT, "w-full")} {...field("relationship")}>
-                <option value="">—</option>
+                <option value="">Not set</option>
                 <option value="strong">Strong</option>
                 <option value="active">Active</option>
                 <option value="cold">Cold</option>
@@ -276,7 +276,7 @@ export function ProspectForm({
           </label>
         </>
       ) : (
-        <PaperButton onClick={() => setMore(true)}>More detail — reasons, angle, experiment, workspace</PaperButton>
+        <PaperButton onClick={() => setMore(true)}>More detail: reasons, angle, experiment, workspace</PaperButton>
       )}
 
       <div className="flex flex-wrap gap-2 pt-1">

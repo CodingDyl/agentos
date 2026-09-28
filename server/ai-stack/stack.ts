@@ -202,7 +202,7 @@ const CATALOG: readonly CatalogEntry[] = [
     clis: ["cursor-agent"],
     apps: ["Cursor"],
     configs: [".cursor"],
-    connectHint: "The editor can't take work from another program. Cursor's cursor-agent CLI could — AgentOS doesn't drive it yet.",
+    connectHint: "The editor can't take work from another program. Cursor's cursor-agent CLI could, but AgentOS doesn't drive it yet.",
   },
   {
     id: "windsurf",

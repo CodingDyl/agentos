@@ -55,9 +55,9 @@ function networkFailure(error: unknown): string {
   switch (cause?.code) {
     case "ENOTFOUND":
     case "EAI_AGAIN":
-      return "Virtec's host name could not be found — check VIRTEC_BASE_URL.";
+      return "Virtec's host name could not be found. Check VIRTEC_BASE_URL.";
     case "ECONNREFUSED":
-      return "Virtec refused the connection — is the address right, and is it running?";
+      return "Virtec refused the connection. Is the address right, and is it running?";
     case "ECONNRESET":
       return "Virtec closed the connection.";
     case "CERT_HAS_EXPIRED":
@@ -180,7 +180,7 @@ async function requestVirtec(
       target = undefined;
     }
     throw new VirtecError(
-      target ? `Virtec redirects to ${target} — set VIRTEC_BASE_URL to that address.` : `Virtec answered with a redirect (${response.status}).`,
+      target ? `Virtec redirects to ${target}. Set VIRTEC_BASE_URL to that address.` : `Virtec answered with a redirect (${response.status}).`,
       "redirected",
       response.status,
     );
@@ -192,7 +192,7 @@ async function requestVirtec(
   const html = (response.headers.get("content-type") ?? "").includes("text/html");
   if ((response.status === 401 || response.status === 403) && html) {
     throw new VirtecError(
-      `A login page answered instead of Virtec (HTTP ${response.status}) — likely Vercel Deployment Protection. Use the production domain, or turn protection off for /api/agentos.`,
+      `A login page answered instead of Virtec (HTTP ${response.status}), likely Vercel Deployment Protection. Use the production domain, or turn protection off for /api/agentos.`,
       "unauthorized",
       response.status,
     );
@@ -200,8 +200,8 @@ async function requestVirtec(
   if (response.status === 401) {
     throw new VirtecError(
       method === "GET"
-        ? "Virtec refused the API key — VIRTEC_API_KEY here must equal AGENTOS_API_KEY there."
-        : "Virtec refused the write key — VIRTEC_WRITE_API_KEY here must equal AGENTOS_WRITE_API_KEY there.",
+        ? "Virtec refused the API key. VIRTEC_API_KEY here must equal AGENTOS_API_KEY there."
+        : "Virtec refused the write key. VIRTEC_WRITE_API_KEY here must equal AGENTOS_WRITE_API_KEY there.",
       "unauthorized",
       401,
     );
@@ -210,7 +210,7 @@ async function requestVirtec(
     throw new VirtecError(
       method === "GET"
         ? "Virtec has no AGENTOS_API_KEY configured on its side (redeploy after adding it)."
-        : "Virtec's write API is off — AGENTOS_WRITE_API_KEY is missing there, or equals the read key (redeploy after fixing).",
+        : "Virtec's write API is off: AGENTOS_WRITE_API_KEY is missing there, or equals the read key (redeploy after fixing).",
       "not-configured",
       503,
     );
@@ -218,7 +218,7 @@ async function requestVirtec(
   if (response.status === 404) {
     throw new VirtecError(
       method === "GET"
-        ? "Virtec has no AgentOS API at this address (404) — wrong domain, or not deployed yet."
+        ? "Virtec has no AgentOS API at this address (404): wrong domain, or not deployed yet."
         : "Virtec has no such record, or this deployment predates the write routes (404).",
       "unavailable",
       404,

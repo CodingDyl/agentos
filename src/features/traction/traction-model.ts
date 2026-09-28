@@ -118,7 +118,7 @@ function icpFacts(icp: Icp | undefined): string | undefined {
 function offerFacts(offer: Offer | undefined): string | undefined {
   if (!offer) return undefined;
   return lines([
-    `Offer: ${offer.name} — ${offer.offer}`,
+    `Offer: ${offer.name}: ${offer.offer}`,
     offer.problem && `Problem it solves: ${offer.problem}`,
     offer.startingPrice && `Starting price: ${offer.startingPrice}`,
   ]);
@@ -126,7 +126,7 @@ function offerFacts(offer: Offer | undefined): string | undefined {
 
 /** The rule Hermes is held to on every Traction request. */
 export const NO_GENERIC_OUTREACH_RULE =
-  'Rules: draft only — never send anything. Every claim must be specific to this company and verifiable from the facts above or their website. If you cannot identify something genuinely specific, reply exactly "NOT ENOUGH CONTEXT FOR PERSONALIZED OUTREACH" and list what is missing. No flattery, no "I came across your amazing company".';
+  'Rules: draft only. Never send anything. Every claim must be specific to this company and verifiable from the facts above or their website. If you cannot identify something genuinely specific, reply exactly "NOT ENOUGH CONTEXT FOR PERSONALIZED OUTREACH" and list what is missing. No flattery, no "I came across your amazing company".';
 
 /**
  * What to ask Hermes about a prospect.
@@ -169,9 +169,9 @@ export function hermesPrompt({
     return {
       kind: "research",
       prompt: lines([
-        `Research ${prospect.company} as a prospect${prospect.website ? ` (${prospect.website})` : " — find their website first"}.`,
+        `Research ${prospect.company} as a prospect${prospect.website ? ` (${prospect.website})` : " (find their website first)"}.`,
         "Review: website, mobile UX, conversion paths and calls to action, SEO basics, performance, content.",
-        "Give me exactly 3 concrete, verifiable opportunities I could mention in outreach — each one sentence, each something I could check myself. Not a report.",
+        "Give me exactly 3 concrete, verifiable opportunities I could mention in outreach. Each one sentence, each something I could check myself. Not a report.",
         "",
         context,
         "",
@@ -236,13 +236,13 @@ export function waitingPrompt(item: WaitingOn, today: string, prospect?: Prospec
     `We have been waiting since ${item.since}${item.since < today ? "" : " (today)"}. Keep it warm, specific and easy to answer in one line. Under 80 words.`,
     prospect && `Context:\n${prospectFacts(prospect)}`,
     "",
-    "Rules: draft only — never send anything. No guilt-tripping, no generic filler.",
+    "Rules: draft only. Never send anything. No guilt-tripping, no generic filler.",
   ]);
 }
 
 /** A share as a whole percentage, or an em dash when nobody can say. */
 export function percent(value: number | undefined): string {
-  return value === undefined ? "—" : `${Math.round(value * 100)}%`;
+  return value === undefined ? "-" : `${Math.round(value * 100)}%`;
 }
 
 /**
@@ -251,7 +251,7 @@ export function percent(value: number | undefined): string {
 export function reviewPrompt(review: WeeklyReview, targets: TractionData["targets"]): string {
   const week = review.week;
   return lines([
-    `Here is my traction review for the week of ${week.weekOf}. The numbers are counted, not estimated — interpret them, do not recalculate them.`,
+    `Here is my traction review for the week of ${week.weekOf}. The numbers are counted, not estimated. Interpret them; do not recalculate them.`,
     "",
     `New prospects: ${week.newProspects} (target ${targets.newProspects})`,
     `Personal outreach: ${week.outreach} (target ${targets.outreach})`,
@@ -269,7 +269,7 @@ export function reviewPrompt(review: WeeklyReview, targets: TractionData["target
         .map((experiment) => `- ${experiment.name}: ${experiment.contacted} contacted, conversation rate ${percent(experiment.conversationRate)}, proposal rate ${percent(experiment.proposalRate)}`)
         .join("\n")}`,
     "",
-    "Give me: what worked, what didn't, and at most three concrete changes for next week — for each experiment, continue, change or stop. Be blunt. Small samples are small; say so rather than over-reading them.",
+    "Give me: what worked, what didn't, and at most three concrete changes for next week. For each experiment, continue, change or stop. Be blunt. Small samples are small; say so rather than over-reading them.",
   ]);
 }
 
@@ -290,7 +290,7 @@ export function crmFollowUpPrompt(followUp: VirtecFollowUp): string {
     followUp.suggestedMessage && `Virtec's suggested message:\n${followUp.suggestedMessage}`,
     "",
     "Make it shorter, warmer and more specific. Keep it easy to reply to in one line. Under 100 words.",
-    "Rules: draft only — never send anything. Do not invent facts about the project that are not above.",
+    "Rules: draft only. Never send anything. Do not invent facts about the project that are not above.",
   ]);
 }
 
@@ -311,7 +311,7 @@ export function caseStudyMarkdown(study: CaseStudy): string {
     section("What we built", study.solution),
     section("How", study.implementation),
     section("The result", study.result),
-    study.testimonial?.trim() ? `> ${study.testimonial.trim().replace(/\n/g, "\n> ")}\n>\n> — ${study.client}\n` : undefined,
+    study.testimonial?.trim() ? `> ${study.testimonial.trim().replace(/\n/g, "\n> ")}\n>\n> ${study.client}\n` : undefined,
   ]
     .filter((part) => part !== undefined)
     .join("\n")

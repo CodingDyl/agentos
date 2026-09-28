@@ -307,7 +307,7 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
                 hint={
                   prefixInvalid
                     ? "Letters and digits only, starting with a letter, up to eight characters."
-                    : "New ids use this. Existing ids keep theirs — nothing is renumbered."
+                    : "New ids use this. Existing ids keep theirs; nothing is renumbered."
                 }
                 invalid={prefixInvalid}
               >
@@ -490,7 +490,7 @@ function WorkspaceGroup({
     <Group label="Workspace">
       <Field label="Workspace type" hint={WORKSPACE_TYPE_DESCRIPTIONS[effective]}>
         <select value={workspaceType} onChange={(event) => onType(event.target.value as WorkspaceType | "")} className={SELECT}>
-          <option value="">Automatic — {WORKSPACE_TYPE_LABELS[derived]}</option>
+          <option value="">Automatic ({WORKSPACE_TYPE_LABELS[derived]})</option>
           {WORKSPACE_TYPES.map((type) => (
             <option key={type} value={type}>
               {WORKSPACE_TYPE_LABELS[type]}

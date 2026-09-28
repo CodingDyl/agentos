@@ -375,7 +375,7 @@ export function RadialMeter({
             size >= 100 ? "text-[32px]" : "text-[15px]",
           )}
         >
-          {value === undefined ? "—" : `${Math.round(clamped * 100)}%`}
+          {value === undefined ? "-" : `${Math.round(clamped * 100)}%`}
         </span>
         {word && size >= 100 ? (
           <span id={id} className="mt-1 text-[12.5px] text-paper-sage">

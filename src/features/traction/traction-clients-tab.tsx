@@ -1,4 +1,4 @@
-import { Check, Sparkles } from "lucide-react";
+import { Check, PenLine } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Prospect, TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
@@ -42,7 +42,7 @@ export function TractionClientsTab({ data }: { data: TractionData }) {
     <PaperSection label="Clients & referral opportunities" count={clients.length}>
       {clients.length === 0 ? (
         <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">
-          No clients recorded yet. Move a prospect to Won — and set how warm the relationship is — to see referral opportunities here.
+          No clients recorded yet. Move a prospect to Won, and set how warm the relationship is, to see referral opportunities here.
         </p>
       ) : (
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
@@ -104,7 +104,7 @@ export function TractionClientsTab({ data }: { data: TractionData }) {
                         PAPER_FOCUS,
                       )}
                     >
-                      <Sparkles className="size-3.5" aria-hidden="true" />
+                      <PenLine className="size-3.5" aria-hidden="true" />
                       Prepare ask
                     </Link>
                     <PaperButton

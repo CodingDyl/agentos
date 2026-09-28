@@ -63,7 +63,7 @@ export function ApprovalOutcome({
       )}
     >
       <Icon className="size-3.5" aria-hidden="true" />
-      {denied ? "Denied — nothing was changed" : "Approved"}
+      {denied ? "Denied. Nothing was changed" : "Approved"}
     </p>
   );
 }

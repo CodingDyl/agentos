@@ -86,7 +86,7 @@ describe("crm queue items", () => {
     const queue = buildQueue([], [], TODAY, [], items);
 
     assert.deepEqual(queue.map((item) => item.id), ["crm:i", "crm:q"]);
-    assert.equal(queue[1].title, "Follow up on quote — Acme");
+    assert.equal(queue[1].title, "Follow up on quote: Acme");
     assert.deepEqual(queue[1].detail, ["No answer for 5 days.", "R 25 000"]);
   });
 

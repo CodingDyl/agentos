@@ -49,7 +49,7 @@ export function DashboardError({
           <p className="os-meta mt-4 text-os-subtle">{error.message}</p>
         ) : null}
         <p className="mt-5 text-[13px] leading-5 text-os-muted">
-          The data adapter reads the vault directly. Check that it is running —{" "}
+          The data adapter reads the vault directly. Check that it is running:{" "}
           <span className="font-mono text-os-subtle">npm run dev</span> starts it
           alongside the app.
         </p>

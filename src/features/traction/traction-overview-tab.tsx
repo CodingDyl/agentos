@@ -221,7 +221,7 @@ function ActiveExperiments({ data, onOpen }: { data: TractionData; onOpen: () =>
     >
       {shown.length === 0 ? (
         <p className="text-[14px] leading-6 text-paper-char">
-          No channel under test. Pick one channel, one hypothesis, two weeks — not nineteen at once.
+          No channel under test. Pick one channel, one hypothesis, two weeks.
         </p>
       ) : (
         <ul className="divide-y divide-paper-stone border-y border-paper-mist">
@@ -249,7 +249,7 @@ function ReviewNudge({ data, onOpen }: { data: TractionData; onOpen: () => void 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-paper-gold px-4 py-3">
       <p className="text-[14px] text-paper-moss">
-        <span className="font-semibold">Weekly review.</span> {data.week.conversations} of {data.targets.conversations} conversations this week — look at what
+        <span className="font-semibold">Weekly review.</span> {data.week.conversations} of {data.targets.conversations} conversations this week. Look at what
         worked before Monday.
       </p>
       <PaperButton variant="ghost" onClick={onOpen}>
@@ -311,7 +311,7 @@ function MoneySummary({ data, onOpen }: { data: TractionData; onOpen: () => void
           <div key={row.label} className="flex items-baseline justify-between py-2 text-[14px]">
             <dt className="text-paper-char">{row.label}</dt>
             <dd className={row.loud ? "font-paper-display font-bold text-paper-flame-deep tabular-nums" : "font-paper-display font-bold text-paper-moss tabular-nums"}>
-              {row.value ?? "—"}
+              {row.value ?? "-"}
             </dd>
           </div>
         ))}

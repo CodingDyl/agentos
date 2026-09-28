@@ -50,7 +50,7 @@ function logOnce(topic: string, line: string, write: (line: string) => void = co
 /** Said once when Virtec is half-configured — both unset means it is simply not in use. */
 function logConfiguration(): void {
   const partlySet = Boolean(process.env.VIRTEC_BASE_URL?.trim() || process.env.VIRTEC_API_KEY?.trim());
-  if (partlySet) logOnce("configuration", `[agentos] virtec: not configured — ${virtecConfigurationProblem() ?? "unknown reason"}`);
+  if (partlySet) logOnce("configuration", `[agentos] virtec: not configured: ${virtecConfigurationProblem() ?? "unknown reason"}`);
 }
 
 async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
@@ -68,7 +68,7 @@ async function read(fetcher: typeof fetch): Promise<VirtecSnapshot> {
       return { source, items, status: { ok: true, skipped } as VirtecSourceStatus };
     } catch (error) {
       if (error instanceof VirtecError) {
-        logOnce(source, `[agentos] virtec ${source}: ${error.status ? `HTTP ${error.status} — ` : ""}${error.message}`, console.error);
+        logOnce(source, `[agentos] virtec ${source}: ${error.status ? `HTTP ${error.status}: ` : ""}${error.message}`, console.error);
       } else {
         // A payload Virtec changed the shape of. The error is ours (a parse),
         // so it carries no credential.

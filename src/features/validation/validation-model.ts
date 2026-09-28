@@ -21,7 +21,7 @@ import type {
  */
 
 /** The em dash the whole screen uses for "nobody knows". */
-export const UNKNOWN = "—";
+export const UNKNOWN = "-";
 
 export const FRICTION_LABELS: Record<FrictionCategory, string> = {
   too_many_clicks: "Too many clicks",

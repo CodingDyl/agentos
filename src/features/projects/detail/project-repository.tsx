@@ -127,7 +127,7 @@ export function ProjectRepository({ slug }: { slug: string }) {
             value={dirty ? `${status.uncommitted.length} uncommitted` : "Clean"}
             tone={dirty ? "warning" : undefined}
           />
-          <Row label="Path" value={status.repositoryPath ?? "—"} />
+          <Row label="Path" value={status.repositoryPath ?? "-"} />
         </div>
 
         {frozen ? (
@@ -198,7 +198,7 @@ export function ProjectRepository({ slug }: { slug: string }) {
             {/* Said plainly, because "stash" is only reassuring if you know
                 where it went. */}
             <p className="os-meta mt-2 normal-case text-os-subtle">
-              Stashing keeps your work — restore it with <span className="font-mono">git stash pop</span>.
+              Stashing keeps your work. Restore it with <span className="font-mono">git stash pop</span>.
             </p>
           </div>
         ) : null}

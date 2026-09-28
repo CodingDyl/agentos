@@ -195,8 +195,8 @@ export function DesignReviewPanel({
                 "Hermes cannot inspect images on this machine."}
             </p>
             <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-subtle">
-              Without it Hermes would still answer — from the filenames and the
-              project notes — and nothing in the reply would tell you it had not
+              Without it Hermes would still answer (from the filenames and the
+              project notes), and nothing in the reply would tell you it had not
               looked at anything. So the review is not offered.
             </p>
           </div>
@@ -508,7 +508,7 @@ function ReviewResult({
               </CommandButton>
             </div>
             <p className="os-meta mt-2 text-os-subtle">
-              Drafted from this review — nothing is written to the project until
+              Drafted from this review. Nothing is written to the project until
               you approve it
             </p>
           </>

@@ -308,7 +308,7 @@ const controllers = new Map<string, AbortController>();
 export const claudeWorker: Worker = {
   id: "claude",
   name: "Claude",
-  role: "Implementation — writes code in an isolated checkout",
+  role: "Implementation. Writes code in an isolated checkout",
   capabilities: ["code", "review", "research"],
 
   /**

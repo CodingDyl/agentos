@@ -534,7 +534,7 @@ function describeConfiguration(
   if (worker) {
     rows.push({
       label: "Capabilities",
-      value: worker.capabilities.join(", ") || "—",
+      value: worker.capabilities.join(", ") || "-",
     });
   }
 

@@ -1,4 +1,4 @@
-import { Check, Download, RefreshCw, Sparkles, X } from "lucide-react";
+import { Check, Download, PenLine, RefreshCw, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { daysBetween } from "@shared/traction-dates";
@@ -87,7 +87,7 @@ function Status({ crm }: { crm: CrmView }) {
           most every five minutes.{" "}
           {crm.writable
             ? "Write-back is on: follow-ups done here are marked in Virtec, and imported leads move to reviewing."
-            : "Read-only — set VIRTEC_WRITE_API_KEY to write follow-ups and lead statuses back."}
+            : "Read-only. Set VIRTEC_WRITE_API_KEY to write follow-ups and lead statuses back."}
         </p>
         {failed.length > 0 ? (
           <p className="mt-1 text-paper-flame-deep">
@@ -114,14 +114,14 @@ function Money({ crm }: { crm: CrmView }) {
   if (!revenue) return null;
 
   const figures: { label: string; value: string; loud?: boolean }[] = [
-    { label: "Monthly recurring", value: formatRand(revenue.monthlyRecurringRevenue) ?? "—" },
-    { label: "Pending quotes", value: formatRand(revenue.pendingQuoteValue) ?? "—" },
-    { label: "Accepted this month", value: formatRand(revenue.acceptedQuoteValueThisMonth) ?? "—" },
-    { label: "Quote conversion", value: revenue.quoteConversionRate === undefined ? "—" : `${Math.round(revenue.quoteConversionRate)}%` },
-    { label: "Maintenance clients", value: revenue.activeMaintenanceCustomers?.toString() ?? "—" },
+    { label: "Monthly recurring", value: formatRand(revenue.monthlyRecurringRevenue) ?? "-" },
+    { label: "Pending quotes", value: formatRand(revenue.pendingQuoteValue) ?? "-" },
+    { label: "Accepted this month", value: formatRand(revenue.acceptedQuoteValueThisMonth) ?? "-" },
+    { label: "Quote conversion", value: revenue.quoteConversionRate === undefined ? "-" : `${Math.round(revenue.quoteConversionRate)}%` },
+    { label: "Maintenance clients", value: revenue.activeMaintenanceCustomers?.toString() ?? "-" },
     {
       label: "Overdue invoices",
-      value: revenue.overdueInvoiceCount?.toString() ?? "—",
+      value: revenue.overdueInvoiceCount?.toString() ?? "-",
       loud: (revenue.overdueInvoiceCount ?? 0) > 0,
     },
   ];
@@ -176,7 +176,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
                       )}
                       aria-label={`Draft a follow-up to ${followUp.companyName ?? followUp.customerName ?? "this client"}`}
                     >
-                      <Sparkles className="size-3.5" aria-hidden="true" />
+                      <PenLine className="size-3.5" aria-hidden="true" />
                       Draft
                     </Link>
                     {crm.writable ? (
@@ -206,7 +206,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
           })}
         </ul>
       )}
-      {crm.writable ? null : <p className="mt-2 text-[12px] text-paper-sage">Mark follow-ups as sent in Virtec — write-back is off.</p>}
+      {crm.writable ? null : <p className="mt-2 text-[12px] text-paper-sage">Mark follow-ups as sent in Virtec; write-back is off.</p>}
       {setFollowUp.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
           {setFollowUp.error.message}
@@ -239,9 +239,9 @@ function Quotes({ crm, today }: { crm: CrmView; today: string }) {
                     {quote.clientName ?? "Unknown client"}
                     {quote.projectType ? <span className="block text-[12px] text-paper-sage">{quote.projectType}</span> : null}
                   </th>
-                  <td className="py-2 text-right tabular-nums">{formatRand(quote.totalAmount) ?? "—"}</td>
+                  <td className="py-2 text-right tabular-nums">{formatRand(quote.totalAmount) ?? "-"}</td>
                   <td className={cn("py-2 text-right tabular-nums", age !== undefined && age >= 7 ? "font-semibold text-paper-amber-deep" : "text-paper-char")}>
-                    {age === undefined ? "—" : `${age}d`}
+                    {age === undefined ? "-" : `${age}d`}
                   </td>
                 </tr>
               );
@@ -271,7 +271,7 @@ function Projects({ crm }: { crm: CrmView }) {
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <Meter value={project.completion === undefined ? undefined : project.completion / 100} label={`${project.clientName ?? "Project"} completion`} />
-                <span className="shrink-0 text-[12.5px] text-paper-char tabular-nums">{project.completion === undefined ? "—" : `${Math.round(project.completion)}%`}</span>
+                <span className="shrink-0 text-[12.5px] text-paper-char tabular-nums">{project.completion === undefined ? "-" : `${Math.round(project.completion)}%`}</span>
               </div>
             </PaperCard>
           </li>
@@ -311,7 +311,7 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
       }
     >
       <p className="-mt-2 mb-4 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
-        Virtec's best-scored leads{icpName ? `. Import the ones that fit “${icpName}”` : ""} — importing adds them to Traction's queue. Virtec's score is not a
+        Virtec's best-scored leads{icpName ? `. Import the ones that fit “${icpName}”` : ""}. Importing adds them to Traction's queue. Virtec's score is not a
         specific observation, so you will still need one before outreach is drafted.
       </p>
       {shown.length === 0 ? (
@@ -340,8 +340,8 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
                         {[lead.category, lead.area, lead.websiteSignal ? `website: ${lead.websiteSignal}` : undefined].filter(Boolean).join(" · ")}
                       </span>
                     </th>
-                    <td className="py-2.5 text-right font-paper-display font-bold text-paper-moss tabular-nums">{lead.score ?? "—"}</td>
-                    <td className="py-2.5 pl-4 text-paper-char">{lead.scoreReasons.slice(0, 2).join(" · ") || "—"}</td>
+                    <td className="py-2.5 text-right font-paper-display font-bold text-paper-moss tabular-nums">{lead.score ?? "-"}</td>
+                    <td className="py-2.5 pl-4 text-paper-char">{lead.scoreReasons.slice(0, 2).join(" · ") || "-"}</td>
                     <td className="py-2.5 text-right">
                       <span className="inline-flex gap-1">
                         <PaperButton variant="ghost" disabled={pending} onClick={() => importLead.mutate({ kind: "lead", id: lead.id })} aria-label={`Import ${lead.name}`}>
@@ -352,7 +352,7 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
                           <PaperButton
                             disabled={notAFit.isPending && notAFit.variables === lead.id}
                             onClick={() => notAFit.mutate(lead.id)}
-                            aria-label={`${lead.name} is not a fit — mark disqualified in Virtec`}
+                            aria-label={`${lead.name} is not a fit: mark disqualified in Virtec`}
                           >
                             Not a fit
                           </PaperButton>

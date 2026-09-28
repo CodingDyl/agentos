@@ -212,7 +212,7 @@ function terminate(child: ChildProcess): void {
 export const grokWorker: Worker = {
   id: "grok",
   name: "Grok Build",
-  role: "Implementation — writes code in an isolated checkout",
+  role: "Implementation. Writes code in an isolated checkout",
   capabilities: ["code", "review", "research"],
 
   /**

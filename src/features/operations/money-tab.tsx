@@ -85,7 +85,7 @@ function CostBreakdown({ cost, month }: { cost: CostSummary; month: string }) {
             <Tag tone="flame" className="mt-px shrink-0">
               Floor
             </Tag>
-            Some runs reported no cost, so this is a floor rather than a bill. Workers that count tokens without pricing them — Grok among them — are absent
+            Some runs reported no cost, so this is a floor rather than a bill. Workers that count tokens without pricing them (Grok among them) are absent
             from the usage-based column.
           </p>
         ) : null}
@@ -210,7 +210,7 @@ function Subscriptions({ subscriptions }: { subscriptions: readonly Subscription
 
       {subscriptions.length === 0 ? (
         <p className="max-w-[70ch] text-[14px] leading-6 text-paper-char">
-          Nothing recorded. AgentOS never assumes a subscription exists because it saw traffic — a pay-as-you-go key and a monthly plan look identical from
+          Nothing recorded. AgentOS never assumes a subscription exists because it saw traffic: a pay-as-you-go key and a monthly plan look identical from
           the inside.
         </p>
       ) : (
@@ -361,7 +361,7 @@ function Higgsfield() {
               <p className="text-[12.5px] text-paper-sage">{account.email}</p>
 
               <h3 className="mt-5 text-[13.5px] font-semibold text-paper-moss">Credits remaining</h3>
-              <p className="mt-1 font-paper-display text-[28px] leading-8 font-extrabold tracking-[-0.03em] text-paper-moss tabular-nums">{account.credits ?? "—"}</p>
+              <p className="mt-1 font-paper-display text-[28px] leading-8 font-extrabold tracking-[-0.03em] text-paper-moss tabular-nums">{account.credits ?? "-"}</p>
             </div>
 
             <div>

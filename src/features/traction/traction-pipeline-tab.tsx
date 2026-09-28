@@ -66,7 +66,7 @@ export function TractionPipelineTab({ data, onOpen }: { data: TractionData; onOp
           );
         })}
       </div>
-      {data.pipeline.lost > 0 ? <p className="mt-4 text-[13px] text-paper-sage">{data.pipeline.lost} lost — kept for the record, out of the way.</p> : null}
+      {data.pipeline.lost > 0 ? <p className="mt-4 text-[13px] text-paper-sage">{data.pipeline.lost} lost, kept for the record.</p> : null}
       {update.error ? (
         <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
           {update.error.message}

@@ -126,7 +126,7 @@ export function MilestoneRun({
                   <ul className="mt-3 space-y-2">
                     {preview.skipped.map((entry) => (
                       <li key={entry.taskId} className="text-[13px] leading-5 text-os-subtle">
-                        <span className="font-mono">{entry.taskId}</span> — {entry.taskTitle}: {entry.reason}
+                        <span className="font-mono">{entry.taskId}</span> · {entry.taskTitle}: {entry.reason}
                       </li>
                     ))}
                   </ul>
@@ -170,7 +170,7 @@ export function MilestoneRun({
                           <div className="flex items-start gap-3 rounded-md border border-os-border bg-os-surface-raised p-3">
                             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-os-warning" strokeWidth={1.5} aria-hidden="true" />
                             <span className="min-w-0 text-[14px] leading-6 text-foreground">
-                              <span className="font-mono text-os-subtle">{entry.taskId}</span> {entry.taskTitle} — {entry.error}
+                              <span className="font-mono text-os-subtle">{entry.taskId}</span> {entry.taskTitle}: {entry.error}
                             </span>
                           </div>
                         )}

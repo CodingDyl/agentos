@@ -1,20 +1,4 @@
-import {
-  Archive,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  MessageSquare,
-  Pause,
-  Pencil,
-  Play,
-  Plus,
-  Rocket,
-  RotateCcw,
-  Sparkles,
-  Square,
-  SquareCheck,
-  Trash2,
-} from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, ChevronUp, MessageSquare, Pause, PenLine, Pencil, Play, Plus, Rocket, RotateCcw, Square, SquareCheck, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RoadmapMilestone, RoadmapTask } from "@shared/agentos-types";
@@ -369,7 +353,7 @@ function MilestoneDetail({
               <SectionLabel>Success criteria</SectionLabel>
               {milestone.criteria.length === 0 ? (
                 <p className="mt-3 text-[14px] leading-5 text-os-subtle">
-                  None yet. Criteria are outcomes a person can check — not implementation tasks.
+                  None yet. Criteria are outcomes a person can check, not implementation tasks.
                 </p>
               ) : (
                 <ul className="mt-3 space-y-2">
@@ -441,7 +425,7 @@ function MilestoneDetail({
             <div>
               <SectionLabel>AI cost</SectionLabel>
               <p className="mt-3 text-[22px] leading-7 tabular-nums text-foreground">
-                {detail.data?.usage.costUsd !== undefined ? `$${detail.data.usage.costUsd.toFixed(2)}` : "—"}
+                {detail.data?.usage.costUsd !== undefined ? `$${detail.data.usage.costUsd.toFixed(2)}` : "-"}
               </p>
               <p className="mt-1 text-[13px] leading-5 text-os-subtle">
                 {detail.data?.usage.tokens !== undefined ? `${Math.round(detail.data.usage.tokens / 1000)}k tokens · ` : ""}
@@ -450,7 +434,7 @@ function MilestoneDetail({
             </div>
 
             <div className="flex flex-col items-start gap-2">
-              <CommandButton variant="secondary" icon={Sparkles} iconPosition="start" onClick={() => setPlanning((value) => !value)}>
+              <CommandButton variant="secondary" icon={PenLine} iconPosition="start" onClick={() => setPlanning((value) => !value)}>
                 Plan with Hermes
               </CommandButton>
               {runnableCount > 0 && milestone.status !== "completed" && milestone.status !== "archived" ? (

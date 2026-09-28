@@ -352,7 +352,7 @@ async function sweepForStalls(): Promise<void> {
 
     await recordActivity({
       type: "worker.stalled",
-      description: `${job.resolvedWorker ?? job.worker}: silent for ${Math.round(silentFor / 60_000)} min — ${job.objective.slice(0, 80)}`,
+      description: `${job.resolvedWorker ?? job.worker}: silent for ${Math.round(silentFor / 60_000)} min: ${job.objective.slice(0, 80)}`,
       project: job.project,
       metadata: { jobId, worker: job.resolvedWorker ?? job.worker, lastEventAt: live.lastEventAt },
     });
@@ -999,7 +999,7 @@ export async function cancelJob(jobId: string): Promise<CancelResult> {
 
   await recordActivity({
     type: "worker.cancelled",
-    description: `${job.objective} — cancelled`,
+    description: `${job.objective}: cancelled`,
     project: job.project,
     metadata: { jobId, worker: job.resolvedWorker ?? job.worker, previous },
   });

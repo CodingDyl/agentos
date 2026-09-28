@@ -105,7 +105,7 @@ export function checkMobileAndCanonical(page: CrawledPage): NewFinding[] {
   const findings: NewFinding[] = [];
 
   if (!page.metaViewport) {
-    findings.push(finding("technical", "warning", "No viewport meta tag", "Without <meta name=\"viewport\">, mobile browsers render the page at desktop width and zoom out — a mobile-friendliness signal search engines check for.", page.url));
+    findings.push(finding("technical", "warning", "No viewport meta tag", "Without <meta name=\"viewport\">, mobile browsers render the page at desktop width and zoom out: a mobile-friendliness signal search engines check for.", page.url));
   }
 
   if (!page.canonical) {

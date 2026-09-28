@@ -1,4 +1,4 @@
-import { Check, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, PenLine, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { chaseDate, daysBetween, WAITING_CHASE_AFTER_DAYS } from "@shared/traction-dates";
@@ -106,7 +106,7 @@ function WaitingRow({ data, item, onEdit }: { data: TractionData; item: WaitingO
             PAPER_FOCUS,
           )}
         >
-          <Sparkles className="size-3.5" aria-hidden="true" />
+          <PenLine className="size-3.5" aria-hidden="true" />
           Draft chase
         </Link>
         <PaperButton onClick={onEdit}>Edit</PaperButton>
@@ -173,7 +173,7 @@ function WaitingForm({ data, item, onDone, canCancel }: { data: TractionData; it
           <input required type="date" max={data.today} className={cn(PAPER_INPUT, "w-full")} value={draft.since} onChange={set("since")} />
         </label>
         <label className="block">
-          <FieldLabel>Chase on — blank means {WAITING_CHASE_AFTER_DAYS} days after</FieldLabel>
+          <FieldLabel>Chase on (blank means {WAITING_CHASE_AFTER_DAYS} days after)</FieldLabel>
           <input type="date" className={cn(PAPER_INPUT, "w-full")} value={draft.nextFollowUp} onChange={set("nextFollowUp")} />
         </label>
         <label className="block">

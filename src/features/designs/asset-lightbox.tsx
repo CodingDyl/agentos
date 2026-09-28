@@ -1,4 +1,4 @@
-import { Check, Heart, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Heart, PenLine, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type {
   DesignAsset,
@@ -269,7 +269,7 @@ export function AssetLightbox({
                 says what it is waiting for. */}
             <CommandButton
               variant="secondary"
-              icon={Sparkles}
+              icon={PenLine}
               iconPosition="start"
               disabled
               title="Hermes visual review is not built yet"

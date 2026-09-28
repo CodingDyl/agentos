@@ -84,7 +84,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
         />
         <Figure value={{ text: String(counts.detected), measurement: "exact" }} label="Found on this machine" detail={`${counts.notConnected} not connected to AgentOS`} />
         <Figure
-          value={{ text: localTokens > 0 ? formatTokens(localTokens) : "—", measurement: localTokens > 0 ? "exact" : "unknown" }}
+          value={{ text: localTokens > 0 ? formatTokens(localTokens) : "-", measurement: localTokens > 0 ? "exact" : "unknown" }}
           label="Tokens outside AgentOS"
           detail={localSources.length > 0 ? `${localSources.join(", ")} · ${stack.data.windowLabel}` : "No local logs found"}
         />
@@ -127,7 +127,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
 
       <p className="max-w-[80ch] border-t border-paper-stone pt-5 text-[12.5px] leading-5 text-paper-sage">
         Detection only looks: CLIs on the PATH, apps in /Applications, config folders, key names in .env (never their values), and local model servers on
-        127.0.0.1. Local usage is read from Claude Code and Codex logs — token counts and model names only, never conversation content.
+        127.0.0.1. Local usage is read from Claude Code and Codex logs: token counts and model names only, never conversation content.
       </p>
     </div>
   );

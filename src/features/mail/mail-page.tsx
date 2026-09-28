@@ -17,7 +17,7 @@ import { MailEmptyState } from "./mail-empty-state";
  * Gmail or a classifier — only Refresh does.
  */
 const CLASSIFIER_LABEL: Record<MailClassifier, string> = {
-  manual: "unsorted — no classifier active",
+  manual: "unsorted, no classifier active",
   jev: "sorted by Jev",
 };
 
@@ -43,7 +43,7 @@ export function MailPage() {
             <div>
               <h1 className="mail-title">Inbox</h1>
               <div className="mail-meta">
-                {mail.data ? `${totalThreads} thread${totalThreads === 1 ? "" : "s"}` : "—"}
+                {mail.data ? `${totalThreads} thread${totalThreads === 1 ? "" : "s"}` : "-"}
                 {status.data?.lastSyncedAt
                   ? ` · last synced ${new Date(status.data.lastSyncedAt).toLocaleString()}`
                   : ""}
@@ -73,12 +73,12 @@ export function MailPage() {
             ) : !configured ? (
               <MailEmptyState
                 title="The inbox is not connected yet"
-                description="Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart the server. A classifier such as Jev (JEV_API_KEY) is optional — without one, threads are listed unsorted."
+                description="Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart the server. A classifier such as Jev (JEV_API_KEY) is optional. Without one, threads are listed unsorted."
               />
             ) : !connected ? (
               <MailEmptyState
                 title="Gmail is not connected"
-                description="Connect a Gmail account to start triaging your inbox. Access is read-only — AgentOS never sends, labels, or deletes anything."
+                description="Connect a Gmail account to start triaging your inbox. Access is read-only: AgentOS never sends, labels, or deletes anything."
                 action={{ label: "Connect Gmail", href: mailConnectUrl() }}
               />
             ) : mail.isPending ? (

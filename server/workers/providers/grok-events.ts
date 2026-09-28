@@ -295,7 +295,7 @@ export class GrokStream {
 
     const emissions = this.tool({
       type: "tool.completed",
-      message: status === "failed" ? `${title} — failed` : title,
+      message: status === "failed" ? `${title}: failed` : title,
       metadata: { toolCallId: id, status },
     });
 
@@ -322,7 +322,7 @@ export class GrokStream {
     return [
       {
         type: "job.progress",
-        message: `Plan updated — ${entries.length} ${
+        message: `Plan updated: ${entries.length} ${
           entries.length === 1 ? "step" : "steps"
         }`,
         metadata: { entries: entries.length },
@@ -365,7 +365,7 @@ export class GrokStream {
     return [
       {
         type: "job.progress",
-        message: "Further Grok events are not being recorded — too many to log",
+        message: "Further Grok events are not being recorded (too many to log)",
       },
     ];
   }

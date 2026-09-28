@@ -230,7 +230,7 @@ function TaskLine({
 
   const body = (
     <>
-      <span className="w-14 shrink-0 font-mono text-[12px] text-paper-sage tabular-nums">{id ?? "—"}</span>
+      <span className="w-14 shrink-0 font-mono text-[12px] text-paper-sage tabular-nums">{id ?? "-"}</span>
       <span className="min-w-0 flex-1 text-[14.5px] leading-6 text-paper-moss">{title}</span>
       {tag ? <Tag tone={tag.tone}>{tag.label}</Tag> : null}
     </>
@@ -279,7 +279,7 @@ function WaitingLine({
 }) {
   const reason =
     task.status === "review"
-      ? `${job?.worker ? `${job.worker[0].toUpperCase()}${job.worker.slice(1)} finished` : "Work finished"} — needs your review`
+      ? `${job?.worker ? `${job.worker[0].toUpperCase()}${job.worker.slice(1)} finished` : "Work finished"}, needs your review`
       : task.blockedBy.length > 0
         ? `Waiting on ${task.blockedBy.map((id) => (byId.get(id) ? `${id} ${byId.get(id)?.title}` : id)).join(", ")}`
         : "Blocked";

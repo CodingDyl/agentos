@@ -26,7 +26,7 @@ export function TractionMailSuggestions({ data }: { data: TractionData }) {
         ))}
       </ul>
       {data.mailSuggestions.length > 5 ? (
-        <p className="mt-3 text-[12.5px] text-paper-sage">+{data.mailSuggestions.length - 5} more — answer these first.</p>
+        <p className="mt-3 text-[12.5px] text-paper-sage">+{data.mailSuggestions.length - 5} more. Answer these first.</p>
       ) : null}
     </PaperSection>
   );

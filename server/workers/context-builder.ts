@@ -32,11 +32,11 @@ const STANDING_CONSTRAINTS: readonly string[] = [
  * model — so nothing has to guess what mattered.
  */
 const ARTIFACT_INSTRUCTIONS = [
-  "If you produce a document worth keeping — a plan, research, a report, a",
-  "specification, an architecture proposal — write it as Markdown inside an",
+  "If you produce a document worth keeping (a plan, research, a report, a",
+  "specification, an architecture proposal), write it as Markdown inside an",
   "`artifacts/` folder in the worktree, and end your closing summary with one",
   "line per document, exactly in this form:",
-  "Artifact: artifacts/<file>.md — <Title> (<plan|research|spec|design|review|report|notes>)",
+  "Artifact: artifacts/<file>.md - <Title> (<plan|research|spec|design|review|report|notes>)",
   "Do not create documents for ordinary progress updates.",
 ].join("\n");
 

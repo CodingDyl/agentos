@@ -1,4 +1,4 @@
-import { Check, Clock, ExternalLink, Sparkles } from "lucide-react";
+import { Check, Clock, ExternalLink, PenLine, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { QueueItem, TractionData } from "@shared/traction-types";
@@ -49,7 +49,7 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
         {data.prospects.length === 0
           ? data.waiting.length > 0
             ? "Nothing to chase today."
-            : "Nothing to work yet — add a few prospects that fit the ICP and the queue fills itself."
+            : "Nothing to work on yet. Add a few prospects that fit the ICP and the queue fills itself."
           : data.doneToday > 0
             ? "Today's traction is done. Tomorrow's queue builds itself from what you did."
             : "Nothing due today. Add prospects to keep the pipeline moving."}
@@ -121,9 +121,9 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <QueueLink
                     to={hermesHref(ask.prompt)}
                     label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? "this item"}`}
-                    title={ask.kind === "research" ? "Not enough context to draft yet — Hermes will research first" : "Hermes drafts; you review and send"}
+                    title={ask.kind === "research" ? "Not enough context to draft yet, so Hermes researches first" : "Hermes drafts; you review and send"}
                   >
-                    <Sparkles className="size-3.5" aria-hidden="true" />
+                    {ask.kind === "research" ? <Search className="size-3.5" aria-hidden="true" /> : <PenLine className="size-3.5" aria-hidden="true" />}
                     {ask.kind === "research" ? "Research" : "Ask Hermes"}
                   </QueueLink>
                 ) : null}

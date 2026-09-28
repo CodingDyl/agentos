@@ -41,7 +41,7 @@ function pause(milliseconds: number, signal: AbortSignal): Promise<void> {
 export const mockWorker: Worker = {
   id: "mock",
   name: "Mock",
-  role: "Development worker — proves the pipeline without running anything",
+  role: "Development worker. Proves the pipeline without running anything",
   capabilities: ["code", "research", "review"],
 
   // It writes no files and claims no work, so routing must never pick it to
@@ -76,7 +76,7 @@ export const mockWorker: Worker = {
     for (const command of job.validationCommands ?? []) {
       emit("validation.started", command);
       await pause(STEP_MS, signal);
-      emit("validation.completed", `${command} — rehearsed, not executed`, {
+      emit("validation.completed", `${command}: rehearsed, not executed`, {
         command,
         executed: false,
       });

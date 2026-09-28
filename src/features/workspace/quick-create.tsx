@@ -330,7 +330,7 @@ function QuickCapture({ project, onClose }: { project?: string; onClose: () => v
         <div className="mt-5 grid gap-5 sm:grid-cols-2 [&>label]:mt-0">
           <Field label="Workspace">
             <select value={slug} onChange={(event) => setSlug(event.target.value)} className={SELECT}>
-              <option value="">{asTask ? "Choose a workspace" : "None — just the inbox"}</option>
+              <option value="">{asTask ? "Choose a workspace" : "None, just the inbox"}</option>
               {projects.map((entry) => (
                 <option key={entry.slug} value={entry.slug}>
                   {entry.name}

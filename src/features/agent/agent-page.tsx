@@ -62,7 +62,7 @@ const FAILURE_COPY: Record<string, { title: string; hint: string }> = {
   },
   "timed-out": {
     title: "Hermes ran out of time.",
-    hint: "It was reached and was still working. A large request — a review carrying a whole diff — can outlast the window; try again, or send it less to read.",
+    hint: "It was reached and was still working. A large request (a review carrying a whole diff) can outlast the window; try again, or send it less to read.",
   },
   failed: {
     title: "Hermes could not complete the request.",

@@ -131,7 +131,7 @@ function BillCard({ data }: { data: OperationsData }) {
             <span className="font-medium text-paper-moss tabular-nums">~{formatCost(pace)}</span> by month end at this pace
           </p>
         ) : null}
-        <p className="text-paper-sage">{cost.incomplete ? "A floor — some runs reported no price." : "Every run this month was priced."}</p>
+        <p className="text-paper-sage">{cost.incomplete ? "A floor. Some runs reported no price." : "Every run this month was priced."}</p>
       </div>
     </PaperCard>
   );
@@ -214,7 +214,7 @@ export function PlansPanel({ data, onManage }: { data: OperationsData; onManage:
         plans.length === 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-dashed border-paper-mist bg-paper-cream px-4 py-5">
             <p className="max-w-[56ch] text-[14px] leading-6 text-paper-char">
-              No plans recorded. Add what you pay flat each month — Claude, ChatGPT, Gemini — and it shows here beside what was metered.
+              No plans recorded. Add what you pay flat each month (Claude, ChatGPT, Gemini) and it shows here beside what was metered.
             </p>
             <PaperButton variant="amber" onClick={onManage}>
               Add a plan
@@ -280,7 +280,7 @@ function PlanCard({ plan, tint }: { plan: Subscription; tint: string }) {
       </div>
 
       <p className="mt-4 flex items-baseline justify-between gap-2">
-        <span className="font-paper-display text-[20px] font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{price?.amount ?? "—"}</span>
+        <span className="font-paper-display text-[20px] font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{price?.amount ?? "-"}</span>
         {price ? <span className="text-[12px] text-paper-sage">{price.unit}</span> : null}
       </p>
     </div>

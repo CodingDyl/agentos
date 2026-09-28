@@ -1,4 +1,4 @@
-import { ExternalLink, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ExternalLink, PenLine, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { SOURCE_LABELS, type Prospect, type ProspectStage, type TractionData } from "@shared/traction-types";
@@ -108,7 +108,7 @@ export function TractionProspectsTab({
         {rows.length === 0 ? (
           <p className="text-[14px] leading-6 text-paper-char">
             {data.prospects.length === 0
-              ? `No prospects yet. Start with ten that fit${data.icp ? ` “${data.icp.name}”` : " one ICP"} — quality over volume.`
+              ? `No prospects yet. Start with ten that fit${data.icp ? ` “${data.icp.name}”` : " one ICP"}. Ten good ones beat fifty cold ones.`
               : "No prospect matches."}
           </p>
         ) : (
@@ -138,10 +138,10 @@ export function TractionProspectsTab({
                       </button>
                       {prospect.contact ? <span className="block text-[12.5px] text-paper-sage">{prospect.contact}</span> : null}
                     </td>
-                    <td className="py-2.5 pr-3">{prospect.fit ? <Tag tone={FIT_TONE[prospect.fit]}>{FIT_LABEL[prospect.fit]}</Tag> : <span className="text-paper-ash">—</span>}</td>
+                    <td className="py-2.5 pr-3">{prospect.fit ? <Tag tone={FIT_TONE[prospect.fit]}>{FIT_LABEL[prospect.fit]}</Tag> : <span className="text-paper-ash">-</span>}</td>
                     <td className="py-2.5 pr-3 text-paper-char">{stageLabel(prospect.stage)}</td>
                     <td className="py-2.5 text-paper-char">
-                      {prospect.nextAction ?? <span className="text-paper-ash">—</span>}
+                      {prospect.nextAction ?? <span className="text-paper-ash">-</span>}
                       {prospect.nextActionDate ? (
                         <span className={cn("ml-2 text-[12.5px] tabular-nums", prospect.nextActionDate <= data.today ? "font-semibold text-paper-flame-deep" : "text-paper-sage")}>
                           {formatShortDate(prospect.nextActionDate)}
@@ -280,7 +280,7 @@ function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospe
               PAPER_FOCUS,
             )}
           >
-            <Sparkles className="size-3.5" aria-hidden="true" />
+            {ask.kind === "research" ? <Search className="size-3.5" aria-hidden="true" /> : <PenLine className="size-3.5" aria-hidden="true" />}
             {ask.kind === "research" ? "Run website review" : "Draft outreach"}
           </Link>
         ) : null}

@@ -56,7 +56,7 @@ export const WORKSPACE_TYPE_DESCRIPTIONS: Record<WorkspaceType, string> = {
   business: "A company or line of work: clients, delivery, revenue.",
   client: "Work delivered for one client, against milestones.",
   software: "A codebase first. Repository and agents up front.",
-  personal: "Admin, health, money — life outside the work.",
+  personal: "Admin, health, money: life outside the work.",
   research: "Questions being investigated and what was found.",
   general: "Anything else. The full set, without assumptions.",
 };

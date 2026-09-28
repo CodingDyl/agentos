@@ -59,7 +59,7 @@ export function buildDocumentPacket(input: DocumentProposalInput): string {
     "headings, lists, tables and code blocks. No front matter; AgentOS adds it.",
     "",
     `PROJECT: ${input.project}`,
-    input.taskId ? `TASK: ${input.taskId}${input.taskTitle ? ` — ${input.taskTitle}` : ""}` : undefined,
+    input.taskId ? `TASK: ${input.taskId}${input.taskTitle ? `: ${input.taskTitle}` : ""}` : undefined,
     "",
     "--- BRIEF ---",
     input.brief.trim(),

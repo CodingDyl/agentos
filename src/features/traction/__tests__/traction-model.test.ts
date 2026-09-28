@@ -41,7 +41,7 @@ describe("hermesPrompt", () => {
     assert.match(result.prompt, /first outreach/);
     assert.match(result.prompt, /viewing-enquiry CTA on mobile/);
     assert.match(result.prompt, /Conversion-focused site/);
-    assert.match(result.prompt, /never send/);
+    assert.match(result.prompt, /never send/i);
   });
 
   it("drafts a follow-up for a follow-up item", () => {

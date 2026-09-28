@@ -225,7 +225,7 @@ export async function reviewJob(jobId: string): Promise<ActionResult> {
   await record(
     jobId,
     "review.completed",
-    `Hermes: ${review.verdict.replace(/_/g, " ")} — ${review.summary}`,
+    `Hermes: ${review.verdict.replace(/_/g, " ")}. ${review.summary}`,
     { verdict: review.verdict, issues: review.issues.length },
   );
 
@@ -417,7 +417,7 @@ export async function integrationBlockerDetails(
         ? `AgentOS' validation did not pass: ${validation.failed.join(", ")} failed.`
         : (job.validationCommands ?? []).length > 0
           ? "AgentOS' validation has not been run."
-          : "Nothing was verified — this job had no validation commands.",
+          : "Nothing was verified: this job had no validation commands.",
       // Only offer to run it when there is something to run. A job with no
       // commands needs them configured, which is a different screen.
       cure:
@@ -649,7 +649,7 @@ async function integrate(job: WorkerJob): Promise<ActionResult> {
   // separation the whole design rests on.
   await recordActivity({
     type: "worker.validated",
-    description: `${job.objective} — validated in ${job.targetBranch ?? "the source repository"}`,
+    description: `${job.objective}. Validated in ${job.targetBranch ?? "the source repository"}`,
     project: job.project,
     metadata: { jobId: job.id, commit: integratedCommit },
   });
@@ -688,7 +688,7 @@ export async function rejectJob(
   await record(jobId, "job.rejected", reason?.trim() || "Rejected by the operator");
   await recordActivity({
     type: "worker.rejected",
-    description: reason?.trim() ? `${job.objective} — ${reason.trim()}` : job.objective,
+    description: reason?.trim() ? `${job.objective}: ${reason.trim()}` : job.objective,
     project: job.project,
     metadata: { jobId },
   });

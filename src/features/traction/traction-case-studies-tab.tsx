@@ -1,4 +1,4 @@
-import { Check, Copy, MessageSquareQuote, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, Copy, MessageSquareQuote, PenLine, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { CaseStudy, CaseStudyStatus, TractionData } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
@@ -84,7 +84,7 @@ export function TractionCaseStudiesTab({ data, openId }: { data: TractionData; o
       >
         {data.caseStudies.length === 0 ? (
           <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">
-            None yet. A portfolio of real evidence does more for acquisition than another pass at the homepage — start with the most recent
+            None yet. A portfolio of real evidence does more for acquisition than another pass at the homepage. Start with the most recent
             finished project.
           </p>
         ) : (
@@ -157,7 +157,7 @@ function toDraft(study: CaseStudy): Draft {
 }
 
 const SECTIONS: readonly { key: "problem" | "solution" | "implementation" | "result"; label: string; hint: string }[] = [
-  { key: "problem", label: "The problem", hint: "What was costing them — in their terms, not ours." },
+  { key: "problem", label: "The problem", hint: "What was costing them, in their terms." },
   { key: "solution", label: "What we built", hint: "The thing, named plainly." },
   { key: "implementation", label: "How", hint: "The few decisions that mattered." },
   { key: "result", label: "The result", hint: "What changed. Unmeasured results stay [NEEDS DATA]." },
@@ -221,18 +221,18 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
 
         <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
           <PaperButton variant="ghost" disabled={hermes.isPending || dirty} onClick={() => hermes.mutate(study.id)} title={dirty ? "Save your edits first" : undefined}>
-            <Sparkles className="size-3.5" aria-hidden="true" />
+            <PenLine className="size-3.5" aria-hidden="true" />
             {hermes.isPending ? "Hermes is drafting… (up to 2 min)" : study.draftedAt ? "Redraft empty sections" : "Draft with Hermes"}
           </PaperButton>
           <span className="text-[12.5px] text-paper-sage">
-            {dirty ? "Save first — Hermes fills only sections that are empty on the server." : "Fills empty sections only. Your text is never replaced."}
+            {dirty ? "Save first. Hermes fills only sections that are empty on the server." : "Fills empty sections only. Your text is never replaced."}
           </span>
         </div>
 
         {SECTIONS.map((section) => (
           <label key={section.key} className="block">
             <FieldLabel>
-              {section.label} <span className="font-normal text-paper-ash">— {section.hint}</span>
+              {section.label} <span className="font-normal text-paper-ash">({section.hint})</span>
             </FieldLabel>
             <textarea rows={4} maxLength={6000} className={cn(PAPER_INPUT, "w-full py-2 leading-6")} value={draft[section.key]} onChange={set(section.key)} />
           </label>
@@ -240,14 +240,14 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
 
         <label className="block">
           <FieldLabel>
-            Testimonial <span className="font-normal text-paper-ash">— the client's own words, pasted in. Never drafted.</span>
+            Testimonial <span className="font-normal text-paper-ash">(the client's own words, pasted in; never drafted)</span>
           </FieldLabel>
           <textarea rows={3} maxLength={6000} className={cn(PAPER_INPUT, "w-full py-2 leading-6")} value={draft.testimonial} onChange={set("testimonial")} />
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <FieldLabel>Still missing — one per line</FieldLabel>
+            <FieldLabel>Still missing (one per line)</FieldLabel>
             <textarea rows={3} className={cn(PAPER_INPUT, "w-full py-2")} value={draft.missing} onChange={set("missing")} />
           </label>
           <label className="block">

@@ -105,7 +105,7 @@ export function RoutingDecision({
             of past jobs is not the same claim as a considered recommendation. */}
         {decision.decidedBy === "agentos" ? (
           <p className="mt-3 text-[13px] leading-5 text-os-subtle">
-            Chosen from the job history — Hermes did not answer.
+            Chosen from the job history; Hermes did not answer.
           </p>
         ) : null}
 
@@ -163,7 +163,7 @@ export function RoutingDecision({
                   <span className="text-foreground">
                     {name(alternative.worker)}
                   </span>{" "}
-                  — {alternative.reason}
+                  · {alternative.reason}
                 </li>
               ))}
             </ul>
@@ -182,7 +182,7 @@ export function RoutingDecision({
                   key={entry.worker}
                   className="max-w-[62ch] text-[13px] leading-5 text-os-subtle"
                 >
-                  <span className="text-os-muted">{name(entry.worker)}</span> —{" "}
+                  <span className="text-os-muted">{name(entry.worker)}</span> ·{" "}
                   {entry.reason}
                 </li>
               ))}

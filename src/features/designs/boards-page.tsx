@@ -110,7 +110,7 @@ export function BoardsPage() {
                     if (event.key === "Enter") submit();
                     if (event.key === "Escape") setIsNaming(false);
                   }}
-                  placeholder="Pantry Pilot — Chef Inspiration"
+                  placeholder="Pantry Pilot: Chef Inspiration"
                   className="os-focus-ring mt-3 min-h-10 w-full rounded-md border border-os-border bg-transparent px-3 text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
                 />
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -136,7 +136,7 @@ export function BoardsPage() {
             {boards.length === 0 ? (
               <EmptyState
                 label="No boards"
-                description="A board is a set of references gathered for one purpose — a redesign, a direction, a feeling."
+                description="A board is a set of references gathered for one purpose: a redesign, a direction, a feeling."
                 className="mt-10"
               />
             ) : (

@@ -1,4 +1,4 @@
-import { ArrowLeft, Sparkles, X } from "lucide-react";
+import { ArrowLeft, PenLine, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
@@ -175,7 +175,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
     mode === "choose"
       ? "By hand, or from a plan Hermes proposes. Either way, nothing is written until you create it."
       : mode === "brief"
-        ? "Describe the idea. Hermes proposes a goal, scope, milestones and first tasks — you edit before anything exists."
+        ? "Describe the idea. Hermes proposes a goal, scope, milestones and first tasks. You edit before anything exists."
         : mode === "review"
           ? plan?.plannedBy === "hermes"
             ? "Everything below is editable. Creating writes the files; nothing has been written yet."
@@ -225,7 +225,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
             <ChoiceCard
               title="Plan with Hermes"
               body="Describe the idea in a paragraph. Hermes proposes the shape; you approve it."
-              icon={<Sparkles className="size-4 text-os-amber" strokeWidth={1.5} aria-hidden="true" />}
+              icon={<PenLine className="size-4 text-os-amber" strokeWidth={1.5} aria-hidden="true" />}
               onClick={() => setMode("brief")}
             />
           </div>
@@ -270,7 +270,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
               <CommandButton
                 type="submit"
                 variant="primary"
-                icon={Sparkles}
+                icon={PenLine}
                 iconPosition="start"
                 disabled={brief.trim().length === 0}
                 loading={planProject.isPending}

@@ -202,7 +202,7 @@ describe("the review packet", () => {
   });
 
   it("labels the worker's summary as a claim to be checked", () => {
-    assert.match(packet, /its own account — verify it against the diff/);
+    assert.match(packet, /its own account; verify it against the diff/);
     assert.match(packet, /I added the grid and everything passes\./);
   });
 

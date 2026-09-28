@@ -63,7 +63,7 @@ function quietSince(prospect: Prospect): string {
 }
 
 function who(prospect: Prospect): string {
-  return prospect.contact ? `${prospect.contact} — ${prospect.company}` : prospect.company;
+  return prospect.contact ? `${prospect.contact} (${prospect.company})` : prospect.company;
 }
 
 function plural(count: number, one: string, many = `${one}s`): string {
@@ -121,7 +121,7 @@ export function buildQueue(
     push(
       "due",
       prospect,
-      `${prospect.nextAction ?? "Next step"} — ${prospect.contact ?? prospect.company}`,
+      `${prospect.nextAction ?? "Next step"}: ${prospect.contact ?? prospect.company}`,
       [
         prospect.contact ? prospect.company : STAGE_WORDS[prospect.stage],
         late === 0 ? "Due today" : `Overdue by ${plural(late, "day")}`,
@@ -147,7 +147,7 @@ export function buildQueue(
       kind: "waiting",
       prospectId: item.prospectId,
       waitingId: item.id,
-      title: `Chase ${item.who} — ${item.what}`,
+      title: `Chase ${item.who}: ${item.what}`,
       detail: [`Waiting ${waited <= 0 ? "since today" : plural(waited, "day")}`, item.workspace ? `Workspace ${item.workspace}` : "No reply yet"],
       rank: 1.5,
     });

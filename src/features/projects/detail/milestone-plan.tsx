@@ -1,4 +1,4 @@
-import { AlertTriangle, Plus, Sparkles, X } from "lucide-react";
+import { AlertTriangle, PenLine, Plus, X } from "lucide-react";
 import { useState } from "react";
 import type { MilestonePlan, ProjectTaskSection, RoadmapMilestone } from "@shared/agentos-types";
 import { CommandButton, SectionLabel } from "@/components/os";
@@ -69,7 +69,7 @@ export function MilestonePlanPanel({
       {!proposal ? (
         <div className="mt-5">
           {plan.error ? <p className="mb-3 text-[13px] leading-5 text-os-warning">{plan.error.message}</p> : null}
-          <CommandButton variant="primary" icon={Sparkles} iconPosition="start" loading={plan.isPending} loadingLabel="Planning" onClick={request}>
+          <CommandButton variant="primary" icon={PenLine} iconPosition="start" loading={plan.isPending} loadingLabel="Planning" onClick={request}>
             Ask Hermes to plan {milestone.title}
           </CommandButton>
         </div>

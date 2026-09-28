@@ -82,7 +82,7 @@ export function buildReviewPacket(input: ReviewPacketInput): string {
       ? `Project context:\n\n${input.projectContext}\n`
       : undefined,
     "Inspect every reference with vision_analyze before answering. Describe",
-    "only what is actually visible — do not infer a screen you cannot see.",
+    "only what is actually visible. Do not infer a screen you cannot see.",
     "Keep what you observed separate from what you recommend.",
   ]
     .filter((line): line is string => line !== undefined)

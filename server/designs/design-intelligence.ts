@@ -228,7 +228,7 @@ export async function proposeBrief(
     `${BRIEF_SKILL}`,
     "",
     `Write a design brief for "${feature}" in the ${review.project} project,`,
-    "from the design review below. Do not analyse any images again — the",
+    "from the design review below. Do not analyse any images again; the",
     "review is the input. Keep it to what the review actually supports.",
     "",
     "Return markdown only, with these headings:",

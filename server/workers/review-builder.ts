@@ -125,7 +125,7 @@ export function buildReviewPacket(job: WorkerJob, diff: WorkerDiff): string {
       : "\nVALIDATION\nNothing was verified. Weigh that in your verdict.",
     // Labelled as a claim on purpose: noticing where this and the diff diverge
     // is one of the more useful things a reviewer can do.
-    `\nWHAT THE WORKER SAID IT DID (its own account — verify it against the diff)\n${
+    `\nWHAT THE WORKER SAID IT DID (its own account; verify it against the diff)\n${
       job.result?.summary ?? "It said nothing."
     }`,
     (job.result?.blockers ?? []).length > 0
@@ -216,7 +216,7 @@ export function buildVisualRevisionRequest(
     "",
     "Your implementation was run and photographed, and the screenshots were",
     "reviewed against the approved design direction. The work is functionally",
-    "correct — this is not a bug report. It is still in the same checkout;",
+    "correct. This is not a bug report. It is still in the same checkout;",
     "continue from it rather than starting again.",
     "",
     `ORIGINAL OBJECTIVE\n${job.objective}`,
@@ -235,7 +235,7 @@ export function buildVisualRevisionRequest(
     "",
     "Then reply with a short summary of what you changed in response to each",
     "finding. The implementation will be run and photographed again, and the",
-    "new screenshots reviewed — saying it is fixed is not what closes this.",
+    "new screenshots reviewed. Saying it is fixed is not what closes this.",
   ]
     .filter((part) => part.length > 0)
     .join("\n");

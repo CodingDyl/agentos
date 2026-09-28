@@ -1,4 +1,4 @@
-import { CircleHelp, Sparkles, SquareCheck, X } from "lucide-react";
+import { CircleHelp, PenLine, SquareCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RoadmapMilestone } from "@shared/agentos-types";
 import { CommandButton, ProgressBar, SectionLabel } from "@/components/os";
@@ -120,7 +120,7 @@ export function MilestoneReview({
                 }
                 className="os-focus-ring os-meta inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-os-muted transition-colors duration-150 hover:text-foreground disabled:opacity-50"
               >
-                <Sparkles className={cn("size-3.5", draft.isPending && "motion-safe:animate-pulse")} strokeWidth={1.5} aria-hidden="true" />
+                <PenLine className={cn("size-3.5", draft.isPending && "motion-safe:animate-pulse")} strokeWidth={1.5} aria-hidden="true" />
                 {draft.isPending ? "Drafting" : "Draft with Hermes"}
               </button>
             </div>

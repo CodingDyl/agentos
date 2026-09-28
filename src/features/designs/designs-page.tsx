@@ -1,4 +1,4 @@
-import { ImagePlus, Search, Sparkles, Upload } from "lucide-react";
+import { ImagePlus, PenLine, Search, Upload } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { DesignAsset } from "@shared/agentos-types";
@@ -242,7 +242,7 @@ export function DesignsPage() {
 
                 <CommandButton
                   variant="secondary"
-                  icon={Sparkles}
+                  icon={PenLine}
                   iconPosition="start"
                   onClick={() => setGenerating((current) => !current)}
                 >
@@ -472,7 +472,7 @@ function SelectionBar({
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <span className="os-meta text-os-subtle">
         {count} of {MAX_REVIEW_ASSETS} selected
-        {count >= MAX_REVIEW_ASSETS ? " — that is the most one review takes" : ""}
+        {count >= MAX_REVIEW_ASSETS ? " (the most one review takes)" : ""}
       </span>
       <div className="flex flex-wrap gap-2">
         <CommandButton

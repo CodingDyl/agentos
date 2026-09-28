@@ -122,7 +122,7 @@ export function TaskPanel({
         <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-muted">
           This task has no id, so there is nothing to file a worker job under or
           to tick off afterwards. Give it one in{" "}
-          <span className="font-mono text-os-subtle">TASKS.md</span> — for
+          <span className="font-mono text-os-subtle">TASKS.md</span>, for
           example{" "}
           <span className="font-mono text-os-subtle">
             - [ ] [PP-014] {task.title}
@@ -204,7 +204,7 @@ export function TaskPanel({
           <SectionLabel>Worker job</SectionLabel>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <span className="text-[13px] leading-5 text-os-muted">
-              {delegation.worker ?? "worker"} —{" "}
+              {delegation.worker ?? "worker"} ·{" "}
               {taskJobState(delegation.status)?.label ?? "unknown"}
             </span>
             {delegation.reviewVerdict ? (
@@ -289,7 +289,7 @@ export function TaskPanel({
                 />
               </div>
               <p className="os-meta mt-3 text-os-subtle">
-                Hermes scopes the task into a plan first — nothing runs until
+                Hermes scopes the task into a plan first. Nothing runs until
                 you approve it
               </p>
               <div className="mt-4">
@@ -310,7 +310,7 @@ export function TaskPanel({
               {plan.scopedBy === "agentos" ? (
                 <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-subtle">
                   Hermes did not answer, so this is only the task restated. Edit
-                  it before delegating — nothing has been scoped for you.
+                  it before delegating: nothing has been scoped for you.
                 </p>
               ) : null}
 
@@ -384,7 +384,7 @@ export function TaskPanel({
                       // Named, because "no failures" and "nothing was checked"
                       // look identical on a screen otherwise.
                       <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-subtle">
-                        None. Nothing will be verified — add a command if this
+                        None. Nothing will be verified. Add a command if this
                         repository has one.
                       </p>
                     ) : (
@@ -476,7 +476,7 @@ export function TaskPanel({
 
       {active ? (
         <p className="os-meta mt-4 text-os-subtle">
-          Worker job active — this task cannot be delegated again until it
+          Worker job active. This task cannot be delegated again until it
           finishes
         </p>
       ) : null}

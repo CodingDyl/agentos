@@ -162,7 +162,7 @@ export async function runValidation(
     if (command.length === 0) continue;
 
     if (signal.aborted) {
-      results.push({ command, success: false, detail: "Not run — cancelled." });
+      results.push({ command, success: false, detail: "Not run (cancelled)." });
       continue;
     }
 
@@ -173,7 +173,7 @@ export async function runValidation(
 
     emit(
       "validation.completed",
-      `${command} — ${result.success ? "passed" : "failed"}`,
+      `${command}: ${result.success ? "passed" : "failed"}`,
       { command, success: result.success, executed: true },
     );
   }

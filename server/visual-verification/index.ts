@@ -113,7 +113,7 @@ export async function verifyJobVisually(
 
     emit(
       "visual.completed",
-      `Visual verification: ${verification.verdict.replace(/_/g, " ")} — ${verification.summary}`,
+      `Visual verification: ${verification.verdict.replace(/_/g, " ")}. ${verification.summary}`,
       {
         revision,
         verdict: verification.verdict,

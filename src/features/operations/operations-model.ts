@@ -24,7 +24,7 @@ import type {
  */
 
 /** The em dash the whole screen uses for "nobody knows". */
-export const UNKNOWN = "—";
+export const UNKNOWN = "-";
 
 /**
  * A figure, and how much to trust it.

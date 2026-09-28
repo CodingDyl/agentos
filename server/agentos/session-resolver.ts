@@ -22,7 +22,7 @@ const TITLE_PREFIX = "AgentOS";
 
 /** `pantry-pilot` → `AgentOS — Pantry Pilot`. */
 export function sessionTitleFor(lane: string, projectName?: string): string {
-  if (lane === GENERAL_LANE) return `${TITLE_PREFIX} — General`;
+  if (lane === GENERAL_LANE) return `${TITLE_PREFIX}: General`;
 
   const readable =
     projectName ??
@@ -32,7 +32,7 @@ export function sessionTitleFor(lane: string, projectName?: string): string {
       .map((word) => word[0].toUpperCase() + word.slice(1))
       .join(" ");
 
-  return `${TITLE_PREFIX} — ${readable}`;
+  return `${TITLE_PREFIX}: ${readable}`;
 }
 
 async function startSessionForLane(

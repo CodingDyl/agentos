@@ -331,7 +331,7 @@ export class ClaudeStream {
       emissions.push(
         ...this.tool({
           type: "tool.completed",
-          message: failed ? `${title} — failed` : title,
+          message: failed ? `${title}: failed` : title,
           metadata: { toolUseId: id, status: failed ? "failed" : "completed" },
         }),
       );
@@ -387,7 +387,7 @@ export class ClaudeStream {
       const tool = asString(record.tool_name) ?? "A tool";
       const reason = asString(record.decision_reason);
 
-      const message = `Refused: ${tool}${reason ? ` — ${reason}` : ""}`;
+      const message = `Refused: ${tool}${reason ? ` (${reason})` : ""}`;
 
       this.issues.push(message);
 
@@ -503,7 +503,7 @@ export class ClaudeStream {
       {
         type: "job.progress",
         message:
-          "Further Claude events are not being recorded — too many to log",
+          "Further Claude events are not being recorded (too many to log)",
       },
     ];
   }

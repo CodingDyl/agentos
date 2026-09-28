@@ -194,7 +194,7 @@ export function DelegateJobForm({
           />
           {selection === "auto" && !decision ? (
             <span className="os-meta mt-2 block text-os-subtle">
-              Hermes picks the worker — you see the reasoning before anything
+              Hermes picks the worker, and you see the reasoning before anything
               runs
             </span>
           ) : null}
@@ -254,7 +254,7 @@ export function DelegateJobForm({
           />
           {/* The reassurance that makes delegating a coding job reasonable. */}
           <span className="os-meta mt-2 block text-os-subtle">
-            Given a repository, the worker gets its own git worktree — never your
+            Given a repository, the worker gets its own git worktree, never your
             working copy
           </span>
         </label>

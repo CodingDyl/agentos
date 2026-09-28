@@ -64,7 +64,7 @@ export async function refinePrompt(
     "layout, mood, colour and typography in visual terms. Do not invent",
     "product features the project has not asked for.",
     "",
-    "Reply with the prompt itself and nothing else — no preamble, no quotes,",
+    "Reply with the prompt itself and nothing else: no preamble, no quotes,",
     "no explanation.",
   ]
     .filter(Boolean)

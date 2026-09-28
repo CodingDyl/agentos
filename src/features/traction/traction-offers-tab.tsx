@@ -157,7 +157,7 @@ function OfferForm({ offer, onDone, canCancel }: { offer?: Offer; onDone: () => 
           <input maxLength={60} placeholder="R45,000" className={cn(PAPER_INPUT, "w-full")} value={price} onChange={(event) => setPrice(event.target.value)} />
         </label>
         <label className="block">
-          <FieldLabel>Upsells — one per line</FieldLabel>
+          <FieldLabel>Upsells (one per line)</FieldLabel>
           <textarea rows={3} placeholder={"SEO\nContent\nHosting\nMaintenance"} className={cn(PAPER_INPUT, "w-full py-2")} value={upsells} onChange={(event) => setUpsells(event.target.value)} />
         </label>
       </div>

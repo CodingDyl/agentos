@@ -69,7 +69,7 @@ describe("buildQueue", () => {
     const [item] = buildQueue([quiet], [], TODAY);
 
     assert.equal(item.kind, "follow_up");
-    assert.equal(item.title, "Follow up with Sarah — Vaja");
+    assert.equal(item.title, "Follow up with Sarah (Vaja)");
     assert.deepEqual(item.detail, ["Proposal sent 8 days ago", "No response"]);
   });
 
@@ -286,7 +286,7 @@ describe("waiting on", () => {
 
     assert.equal(queue.length, 1);
     assert.equal(queue[0].id, `waiting:${owed.id}`);
-    assert.equal(queue[0].title, "Chase Story Keeper — Reply to proposal");
+    assert.equal(queue[0].title, "Chase Story Keeper: Reply to proposal");
     assert.equal(queue[0].waitingId, owed.id);
   });
 

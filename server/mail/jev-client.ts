@@ -107,7 +107,7 @@ const CATEGORY_CRITERIA: Record<MailCategory, string> = {
   client: "From or about a paying client or prospective client",
   sales: "A sales inquiry, pricing question, or new business lead",
   finance: "Invoices, payments, receipts, or other money matters",
-  admin: "Operational or administrative — vendors, tools, scheduling",
+  admin: "Operational or administrative: vendors, tools, scheduling",
   notification: "An automated notification from a service or platform",
   newsletter: "A subscribed newsletter or digest",
   personal: "Personal correspondence unrelated to work",
@@ -194,7 +194,7 @@ export async function classifyThread(input: ClassifyThreadInput): Promise<Classi
       },
       financial: {
         type: "noul",
-        instructions: "Does this email involve money — an invoice, payment, receipt, or financial decision?",
+        instructions: "Does this email involve money: an invoice, payment, receipt, or financial decision?",
         criteria: {
           true: "Involves an invoice, payment, receipt, or financial decision",
           false: "Not related to money",

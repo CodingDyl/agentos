@@ -64,7 +64,7 @@ export function SprintPanel({ job }: { job: WorkerJob }) {
           <SectionLabel>Validation sprint</SectionLabel>
           <p className="mt-2 max-w-[70ch] text-[14px] leading-5 text-os-muted">
             Track this job to record what had to be done by hand. Everything
-            else — revisions, timings, cost, routing — is read from the job.
+            else (revisions, timings, cost, routing) is read from the job.
           </p>
         </div>
 
@@ -124,7 +124,7 @@ function TrackedTask({
 
       <div className="mt-5">
         <p className="text-[13px] leading-5 text-os-subtle">
-          Record each time you had to step in. Appends only — there is no undo.
+          Record each time you had to step in. Appends only; there is no undo.
         </p>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -213,7 +213,7 @@ function VerdictQuestion({ task }: { task: ValidationTaskView }) {
       />
 
       <label className="mt-6 block">
-        <SectionLabel>Biggest friction — optional</SectionLabel>
+        <SectionLabel>Biggest friction (optional)</SectionLabel>
         <textarea
           value={note}
           onChange={(event) => setNote(event.target.value)}

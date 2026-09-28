@@ -100,13 +100,13 @@ function ExperimentCard({ experiment, progress, onEdit }: { experiment: Experime
       </p>
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px] sm:grid-cols-4">
-        <Stat label="Budget" value={experiment.budget ?? "—"} />
+        <Stat label="Budget" value={experiment.budget ?? "-"} />
         <Stat
           label="Window"
-          value={experiment.startedOn || experiment.endsOn ? `${experiment.startedOn ? formatShortDate(experiment.startedOn) : "?"} – ${experiment.endsOn ? formatShortDate(experiment.endsOn) : "?"}` : "—"}
+          value={experiment.startedOn || experiment.endsOn ? `${experiment.startedOn ? formatShortDate(experiment.startedOn) : "?"} – ${experiment.endsOn ? formatShortDate(experiment.endsOn) : "?"}` : "-"}
         />
-        <Stat label="Target" value={experiment.targetContacts !== undefined ? `${experiment.targetContacts} contacts` : "—"} />
-        <Stat label="Success" value={experiment.successConversations !== undefined ? `${experiment.successConversations} conversations` : "—"} />
+        <Stat label="Target" value={experiment.targetContacts !== undefined ? `${experiment.targetContacts} contacts` : "-"} />
+        <Stat label="Success" value={experiment.successConversations !== undefined ? `${experiment.successConversations} conversations` : "-"} />
       </dl>
 
       <div className="mt-4 space-y-3">

@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { addDays } from "@shared/traction-dates";
@@ -53,7 +53,7 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
             PAPER_FOCUS,
           )}
         >
-          <Sparkles className="size-3.5" aria-hidden="true" />
+          <MessageSquare className="size-3.5" aria-hidden="true" />
           Ask Hermes to interpret
         </Link>
       </div>
@@ -92,7 +92,7 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
               </p>
             </PaperCard>
           ) : (
-            <p className="text-[14px] leading-6 text-paper-char">Not enough leads yet to compare sources — it takes at least two from one source, with a conversation.</p>
+            <p className="text-[14px] leading-6 text-paper-char">Not enough leads yet to compare sources. It takes at least two from one source, with a conversation.</p>
           )}
 
           {review.sources.length > 0 ? (

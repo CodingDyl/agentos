@@ -202,7 +202,7 @@ describe("diagnosing a connection that does not work", () => {
     await assert.rejects(getVirtec(VIRTEC_PATHS.leads), (error: unknown) => {
       assert.ok(error instanceof VirtecError);
       assert.equal(error.reason, "redirected");
-      assert.match(error.message, /https:\/\/www\.virtec\.example — set VIRTEC_BASE_URL/);
+      assert.match(error.message, /https:\/\/www\.virtec\.example\. Set VIRTEC_BASE_URL/);
       return true;
     });
     assert.equal(followed, false);
@@ -245,7 +245,7 @@ describe("diagnosing a connection that does not work", () => {
 
     const failures = logged.filter((line) => line.includes("virtec leads:"));
     assert.equal(failures.length, 1, "the second identical failure is not reprinted");
-    assert.match(failures[0], /HTTP 404 — .*wrong domain/);
+    assert.match(failures[0], /HTTP 404: .*wrong domain/);
     assert.ok(logged.some((line) => /0\/6 sources read from localhost:\d+ in \d+ms/.test(line)));
     assert.equal(logged.some((line) => line.includes(KEY)), false);
   });

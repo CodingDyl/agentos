@@ -79,7 +79,7 @@ describe("buildOpportunities", () => {
     const queue = buildQueue([], [], "2026-09-28", [], [], caseStudyQueueItems([opportunity]));
 
     assert.equal(queue[0].id, "case_study:virtec:project:p1");
-    assert.equal(queue[0].title, "Start a case study — Vaja");
+    assert.equal(queue[0].title, "Start a case study: Vaja");
     assert.deepEqual(buildQueue([], [{ itemId: "case_study:virtec:project:p1", until: "2026-09-29" }], "2026-09-28", [], [], caseStudyQueueItems([opportunity])), []);
   });
 });

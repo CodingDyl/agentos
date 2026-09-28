@@ -1,4 +1,4 @@
-import { Plus, Search, Sparkles, X } from "lucide-react";
+import { PenLine, Plus, Search, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ArtifactType, DocumentProposal, ProjectDetail } from "@shared/agentos-types";
@@ -231,7 +231,7 @@ function NewDocument({
 
         <Field label="Task" hint="Optional. Files it under the task as an artifact.">
           <select value={taskId} onChange={(event) => setTaskId(event.target.value)} className={SELECT}>
-            <option value="">None — project document</option>
+            <option value="">None (project document)</option>
             {openTasks.map((task) => (
               <option key={task.id} value={task.id}>
                 {task.id} · {task.title.slice(0, 48)}
@@ -258,7 +258,7 @@ function NewDocument({
           {propose.error ? <p className="mb-3 text-[13px] leading-5 text-os-warning">{propose.error.message}</p> : null}
           <CommandButton
             variant="primary"
-            icon={Sparkles}
+            icon={PenLine}
             iconPosition="start"
             disabled={!brief.trim()}
             loading={propose.isPending}

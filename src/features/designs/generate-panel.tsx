@@ -224,7 +224,7 @@ export function GeneratePanel({
               <span className="os-meta text-os-subtle">
                 {project
                   ? "Let Hermes rewrite this using the project's own context"
-                  : "Hermes rewrites prompts from a project's context — choose a project to use it"}
+                  : "Hermes rewrites prompts from a project's context. Choose a project to use it"}
               </span>
             </label>
 
@@ -303,7 +303,7 @@ export function GeneratePanel({
               {cost.data?.unavailable
                 ? cost.data.unavailable
                 : cost.data
-                  ? `${cost.data.total} credit${cost.data.total === 1 ? "" : "s"} — ${cost.data.perJob} per variation, each its own job`
+                  ? `${cost.data.total} credit${cost.data.total === 1 ? "" : "s"}: ${cost.data.perJob} per variation, each its own job`
                   : "Pricing this generation…"}
               {account.data?.credits !== undefined ? (
                 <span className={account.data.credits < (cost.data?.total ?? 0) ? "text-os-danger" : undefined}>

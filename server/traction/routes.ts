@@ -77,7 +77,7 @@ function parse<T>(schema: ZodType<T>, body: unknown, response: Response, what: s
   if (parsed.success) return parsed.data;
 
   const issue = parsed.error.issues[0];
-  response.status(400).json({ error: `Invalid ${what}${issue ? `: ${issue.path.join(".") || "body"} — ${issue.message}` : ""}` });
+  response.status(400).json({ error: `Invalid ${what}${issue ? `: ${issue.path.join(".") || "body"}: ${issue.message}` : ""}` });
   return undefined;
 }
 
@@ -413,7 +413,7 @@ tractionRouter.post("/crm/import", async (request, response) => {
 function startFromOpportunity(opportunity: Awaited<ReturnType<typeof currentOpportunities>>[number]) {
   return startCaseStudy(
     {
-      title: `${opportunity.client} — ${opportunity.title}`,
+      title: `${opportunity.client}: ${opportunity.title}`,
       client: opportunity.client,
       source: opportunity.source,
       workspace: opportunity.workspace,

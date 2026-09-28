@@ -140,7 +140,7 @@ export function claudeCodeReader(): CliOutputReader {
 export const claudeCodeWorker = createCliWorker({
   id: "claude-code",
   name: "Claude Code",
-  role: "Implementation on your Claude plan — writes code in an isolated checkout",
+  role: "Implementation on your Claude plan. Writes code in an isolated checkout",
   capabilities: ["code", "review", "research"],
   binary: "claude",
   installHint: "Install Claude Code: https://docs.claude.com/claude-code.",
@@ -253,7 +253,7 @@ export function codexReader(model?: string): CliOutputReader {
 export const codexWorker = createCliWorker({
   id: "codex",
   name: "Codex",
-  role: "Implementation on your ChatGPT plan — writes code in a sandboxed checkout",
+  role: "Implementation on your ChatGPT plan. Writes code in a sandboxed checkout",
   capabilities: ["code", "review"],
   binary: "codex",
   installHint: "Install it with `npm install -g @openai/codex`.",
@@ -272,7 +272,7 @@ export const codexWorker = createCliWorker({
 export const geminiWorker = createCliWorker({
   id: "gemini",
   name: "Gemini CLI",
-  role: "Implementation on your Google plan — writes code in an isolated checkout",
+  role: "Implementation on your Google plan. Writes code in an isolated checkout",
   capabilities: ["code", "research"],
   binary: "gemini",
   installHint: "Install it with `npm install -g @google/gemini-cli`, then run `gemini` once to sign in.",
@@ -316,7 +316,7 @@ export function hermesUsage(report: unknown): WorkerProviderMetrics {
 export const hermesWorker = createCliWorker({
   id: "hermes-worker",
   name: "Hermes Agent",
-  role: "Implementation through Hermes' own tools — writes code in an isolated checkout",
+  role: "Implementation through Hermes' own tools. Writes code in an isolated checkout",
   capabilities: ["code", "research"],
   binary: "hermes",
   installHint: "Install Hermes Agent and make sure `hermes` is on your PATH.",

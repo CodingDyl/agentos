@@ -80,15 +80,15 @@ describe("session store", () => {
 
 describe("session titles", () => {
   it("names the general lane", () => {
-    assert.equal(sessionTitleFor("general"), "AgentOS — General");
+    assert.equal(sessionTitleFor("general"), "AgentOS: General");
   });
 
   it("humanises a slug", () => {
-    assert.equal(sessionTitleFor("pantry-pilot"), "AgentOS — Pantry Pilot");
+    assert.equal(sessionTitleFor("pantry-pilot"), "AgentOS: Pantry Pilot");
   });
 
   it("prefers the project's real name when known", () => {
-    assert.equal(sessionTitleFor("voxmachine", "VoxMachine"), "AgentOS — VoxMachine");
+    assert.equal(sessionTitleFor("voxmachine", "VoxMachine"), "AgentOS: VoxMachine");
   });
 });
 
@@ -96,7 +96,7 @@ describe("session payloads", () => {
   it("accepts snake_case and camelCase", () => {
     const session = readSession({
       session_id: "s1",
-      title: "AgentOS — General",
+      title: "AgentOS: General",
       created_at: "2026-09-06T10:00:00Z",
       message_count: 4,
     });

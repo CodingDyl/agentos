@@ -150,7 +150,7 @@ function FrictionDialog({
 
         <div className="min-h-0 overflow-y-auto px-5 py-5">
           <label className="block">
-            <SectionLabel>Note — optional</SectionLabel>
+            <SectionLabel>Note (optional)</SectionLabel>
             <textarea
               autoFocus
               value={note}

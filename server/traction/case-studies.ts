@@ -106,8 +106,8 @@ export function caseStudyQueueItems(opportunities: readonly CaseStudyOpportunity
     id: `case_study:${opportunity.source}`,
     kind: "case_study",
     caseStudySource: opportunity.source,
-    title: `Start a case study — ${opportunity.client}`,
-    detail: [opportunity.detail, waiting > 1 ? `1 of ${waiting} finished projects without one — the rest are in Case studies` : "Evidence goes stale — capture it while it is fresh"],
+    title: `Start a case study: ${opportunity.client}`,
+    detail: [opportunity.detail, waiting > 1 ? `1 of ${waiting} finished projects without one; the rest are in Case studies` : "Easier to write while the project is fresh"],
     rank: 3.3,
   }));
 }
@@ -157,7 +157,7 @@ export function buildDraftPacket(context: CaseStudyContext): string {
     "",
     `CLIENT: ${study.client}`,
     `WORKING TITLE: ${study.title}`,
-    context.icp ? `VIRTARA'S FOCUS: ${context.icp.name} — ${context.icp.offer}` : undefined,
+    context.icp ? `VIRTARA'S FOCUS: ${context.icp.name}, ${context.icp.offer}` : undefined,
     context.virtecProject
       ? [
           "--- PROJECT (from Virtec) ---",

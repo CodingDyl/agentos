@@ -103,7 +103,7 @@ function IcpForm({ icp, onDone }: { icp: Icp | undefined; onDone: () => void }) 
           <input maxLength={120} className={cn(PAPER_INPUT, "w-full")} value={geography} onChange={(event) => setGeography(event.target.value)} />
         </label>
         <label className="block">
-          <FieldLabel>Ideal prospect — one trait per line</FieldLabel>
+          <FieldLabel>Ideal prospect (one trait per line)</FieldLabel>
           <textarea rows={4} className={cn(PAPER_INPUT, "w-full py-2")} value={ideal} onChange={(event) => setIdeal(event.target.value)} />
         </label>
         <div className="flex gap-2 pt-1">
