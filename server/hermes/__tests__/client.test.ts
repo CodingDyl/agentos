@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
+import { NO_EM_DASH_RULE } from "../../../shared/plain-text";
 import { getHermesStatus, HermesError, sendToHermes } from "../client";
 
 /**
@@ -67,7 +68,7 @@ describe("sending", () => {
     assert.equal(await sendToHermes("ping"), "AGENTOS CONNECTED");
   });
 
-  it("sends the prompt as a single user message with the configured model", async () => {
+  it("sends the prompt with the house-style rule and the configured model", async () => {
     let body: string | undefined;
     globalThis.fetch = mock.fn((_url: string, init: RequestInit) => {
       body = init.body as string;
@@ -78,8 +79,19 @@ describe("sending", () => {
 
     assert.deepEqual(JSON.parse(body ?? "{}"), {
       model: "hermes",
-      messages: [{ role: "user", content: "hello" }],
+      messages: [
+        { role: "system", content: NO_EM_DASH_RULE },
+        { role: "user", content: "hello" },
+      ],
     });
+  });
+
+  it("returns the reply without em dashes, whatever Hermes wrote", async () => {
+    globalThis.fetch = mock.fn(() =>
+      jsonResponse({ choices: [{ message: { content: "Fast — and it converts. Code: `a — b`" } }] }),
+    ) as unknown as typeof fetch;
+
+    assert.equal(await sendToHermes("hello"), "Fast, and it converts. Code: `a — b`");
   });
 });
 
@@ -187,12 +199,12 @@ describe("instructions that must outrank the persona", () => {
     await sendToHermes("the packet", { operation: "code-review", system: "the schema" });
 
     assert.deepEqual(sent, [
-      { role: "system", content: "the schema" },
+      { role: "system", content: `the schema\n\n${NO_EM_DASH_RULE}` },
       { role: "user", content: "the packet" },
     ]);
   });
 
-  it("sends the prompt alone when there is nothing to override", async () => {
+  it("sends only the house-style rule as system when there is nothing else to override", async () => {
     let sent: { role: string; content: string }[] = [];
 
     stubFetch(async (...args: unknown[]) => {
@@ -203,6 +215,9 @@ describe("instructions that must outrank the persona", () => {
 
     await sendToHermes("just asking", { operation: "other" });
 
-    assert.deepEqual(sent, [{ role: "user", content: "just asking" }]);
+    assert.deepEqual(sent, [
+      { role: "system", content: NO_EM_DASH_RULE },
+      { role: "user", content: "just asking" },
+    ]);
   });
 });

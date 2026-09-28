@@ -1,6 +1,7 @@
 import { ArrowRight, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { withoutEmDashes } from "@shared/plain-text";
 import type {
   AgentMessage,
   AgentSessionMessage,
@@ -438,10 +439,10 @@ export function AgentPage() {
                       not repeated here as raw markdown. */}
                   {proposal ? (
                     proposal.preamble ? (
-                      <Markdown content={proposal.preamble} className="mt-6" />
+                      <Markdown content={withoutEmDashes(proposal.preamble)} className="mt-6" />
                     ) : null
                   ) : run.state.output ? (
-                    <Markdown content={run.state.output} className="mt-6" />
+                    <Markdown content={withoutEmDashes(run.state.output)} className="mt-6" />
                   ) : run.isRunning ? (
                     <p className="mt-6 text-[15px] leading-6 text-os-subtle">
                       Working on your request…

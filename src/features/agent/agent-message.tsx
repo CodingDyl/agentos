@@ -1,4 +1,5 @@
 import type { AgentMessage as AgentMessageModel } from "@shared/agentos-types";
+import { withoutEmDashes } from "@shared/plain-text";
 import { Markdown, SectionLabel } from "@/components/os";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +33,9 @@ export function AgentMessage({ message }: AgentMessageProps) {
             {message.content}
           </p>
         ) : (
-          <Markdown content={message.content} />
+          // Hermes' words, shown in AgentOS's house style (no em dashes).
+          // Hermes' own transcript is not changed; only what is displayed.
+          <Markdown content={withoutEmDashes(message.content)} />
         )}
       </div>
     </article>

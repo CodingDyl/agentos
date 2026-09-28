@@ -2,6 +2,7 @@ import type { AgentFailureReason, AgentStatus } from "../../shared/agentos-types
 import type { UsageContext, UsageOperation } from "../../shared/usage-types";
 import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 import { collectHermesUsage } from "../usage/collector";
+import { NO_EM_DASH_RULE, withoutEmDashes } from "../../shared/plain-text";
 
 /**
  * The only place the Hermes API key exists.
@@ -237,12 +238,12 @@ export async function sendToHermes(
     timeoutMs: call.timeoutMs,
     body: {
       model: model(),
-      messages: call.system
-        ? [
-            { role: "system", content: call.system },
-            { role: "user", content: message },
-          ]
-        : [{ role: "user", content: message }],
+      // The house style rides on every call as a system message, which
+      // outranks Hermes' persona where a line of user text would not.
+      messages: [
+        { role: "system", content: call.system ? `${call.system}\n\n${NO_EM_DASH_RULE}` : NO_EM_DASH_RULE },
+        { role: "user", content: message },
+      ],
     },
   });
 
@@ -275,5 +276,7 @@ export async function sendToHermes(
     console.error("[agentos] could not record Hermes usage:", error);
   }
 
-  return readReplyText(payload);
+  // The guarantee behind the system rule: nothing Hermes returns here is
+  // stored or shown with an em dash. Code in the reply is left untouched.
+  return withoutEmDashes(readReplyText(payload));
 }
