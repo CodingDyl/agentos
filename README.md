@@ -68,6 +68,9 @@ happens only when you send a message or run a command.
 | `server/usage/providers/` | One module per runner: its usage, normalised |
 | `server/validation-sprint/store.ts` | What a person noticed; the only thing the sprint writes |
 | `server/validation-sprint/sprint.ts` | Joins that onto the job record and scores it |
+| `server/traction/store.ts` | Prospects, ICP, offers, experiments — the local CRM, outside the vault |
+| `server/traction/engine.ts` | The daily queue, warnings and weekly figures — deterministic, no model |
+| `server/traction/crm-provider.ts` | `CrmProvider`: local today, Virtec later, no UI change |
 | `shared/agentos-types.ts` | The wire contract (zod schemas + derived types) |
 | `src/lib/agentos/` | React client and queries |
 
@@ -164,6 +167,7 @@ to browse everything, so it reads detail for the whole portfolio.
 | Route | Screen |
 | --- | --- |
 | `/` | Mission Control — what matters, what needs you, what is running, what is broken |
+| `/traction` | Customer acquisition: today's queue, prospects, pipeline, offers, experiments |
 | `/projects` | Portfolio, grouped by state |
 | `/projects/:slug` | Project workspace (Overview, Tasks, Decisions, Sessions, Git) |
 | `/agent` | Hermes operator console |
@@ -224,6 +228,11 @@ to browse everything, so it reads detail for the whole portfolio.
 | `/api/validation/tasks` | Starts tracking a task (POST) |
 | `/api/validation/tasks/:id` | Records an outcome, a verdict, or one intervention (PATCH) |
 | `/api/validation/friction` | Files one friction report (POST) |
+| `/api/traction` | Traction in one read: queue, pipeline, warnings, week, experiments |
+| `/api/traction/prospects` | Adds a prospect (POST); `/:id` edits (PATCH) or removes (DELETE) |
+| `/api/traction/queue/:itemId` | Marks a queue item done or snoozes it (POST) |
+| `/api/traction/icp` · `/targets` | The active ICP and the weekly commitment (PUT) |
+| `/api/traction/offers` · `/experiments` | Adds (POST); `/:id` replaces (PUT) or removes (DELETE) |
 | `/api/activity` | The unified timeline; `?source=`, `?project=`, `?limit=` |
 | `/api/activity` | Records an outcome only the browser witnessed (POST) |
 | `/api/automations` | Hermes' scheduled jobs, with `cron doctor`'s verdict |

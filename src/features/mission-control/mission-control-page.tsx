@@ -4,6 +4,7 @@ import { AppShell, ErrorState, LoadingState, Section } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatTime, sourceLabel, toneFor } from "@/features/activity";
 import { UsageSummary } from "@/features/operations";
+import { TractionToday } from "@/features/traction";
 import { FrictionButton, SprintScorecard } from "@/features/validation";
 import { useCaptures, useMissionControl, useProjects, useValidationSprint } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -133,6 +134,12 @@ function MissionControl({ data }: { data: MissionControlData }) {
 
       <div className="mt-12 border-t border-os-border pt-10">
         <AttentionList items={data.attention} />
+      </div>
+
+      {/* Acquisition beside the build, and above it: otherwise the work that
+          feels productive always wins over the work that brings customers. */}
+      <div className="mt-12 border-t border-os-border pt-10">
+        <TractionToday />
       </div>
 
       {data.focus ? (

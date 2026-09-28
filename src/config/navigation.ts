@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Sun,
   SwatchBook,
+  Target,
 } from "lucide-react";
 import type { AppShellNavigationItem } from "@/components/os";
 
@@ -18,7 +19,8 @@ import type { AppShellNavigationItem } from "@/components/os";
  * Organised around the operator's work, not around the agents doing it:
  *
  * ```text
- * Today · Inbox                       where the day starts, what arrived
+ * Today · Inbox · Traction            where the day starts, what arrived,
+ *                                     and the customers to go and get
  * WORK    Workspaces · Knowledge · Creative
  * SYSTEM  Automations · Operations · Activity
  * ```
@@ -33,6 +35,9 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Today", href: "/", icon: Sun, section: "primary" },
   // An attention source, the same layer as Today — not a project tool.
   { label: "Inbox", href: "/inbox", icon: Inbox, section: "primary" },
+  // Customer acquisition, at the same level as the day itself. In the work
+  // list it would sit below the build and lose to it every time.
+  { label: "Traction", href: "/traction", icon: Target, section: "primary" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "work" },
   // Still `/designs` underneath. Creative, because product imagery, brand
