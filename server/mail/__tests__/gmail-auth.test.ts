@@ -55,14 +55,24 @@ describe("configuration", () => {
 });
 
 describe("buildConsentUrl", () => {
-  it("points at Google's consent screen with a read-only scope", () => {
+  it("points at Google's consent screen with the modify scope — never full mail access", () => {
     const url = new URL(buildConsentUrl());
 
     assert.equal(url.origin + url.pathname, "https://accounts.google.com/o/oauth2/v2/auth");
     assert.equal(url.searchParams.get("client_id"), "client-id");
-    assert.equal(url.searchParams.get("scope"), "https://www.googleapis.com/auth/gmail.readonly");
+    assert.equal(url.searchParams.get("scope"), "https://www.googleapis.com/auth/gmail.modify");
     assert.equal(url.searchParams.get("access_type"), "offline");
     assert.equal(url.searchParams.get("prompt"), "consent");
+  });
+
+  it("carries a loopback return origin through Google in state", () => {
+    const url = new URL(buildConsentUrl("http://localhost:1420/inbox"));
+    assert.equal(url.searchParams.get("state"), "http://localhost:1420");
+  });
+
+  it("never carries a non-loopback origin, so the callback can't be an open redirect", () => {
+    assert.equal(new URL(buildConsentUrl("https://evil.example/inbox")).searchParams.get("state"), null);
+    assert.equal(new URL(buildConsentUrl("not a url")).searchParams.get("state"), null);
   });
 
   it("throws not-configured when there is no client id", () => {

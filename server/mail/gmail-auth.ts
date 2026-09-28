@@ -9,11 +9,16 @@ import { uiStateDir } from "../agentos/session-store";
  * The refresh token is the only secret this module stores, and it never
  * leaves this process — the browser is only ever redirected, never handed
  * the token itself.
+ *
+ * Access is `gmail.modify`: read, change labels (mark read), and move to
+ * Trash. It cannot permanently delete, and nothing here sends mail. A
+ * connection made under the older read-only grant keeps working for reading
+ * and reports `canModifyGmail() === false` until the person reconnects.
  */
 
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
-const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
 
 export class GmailAuthError extends Error {
   constructor(
@@ -32,6 +37,8 @@ function authFile(): string {
 interface StoredMailAuth {
   refreshToken: string;
   obtainedAt: string;
+  /** Space-separated scopes Google actually granted. Absent on connections made before this was recorded (read-only). */
+  scope?: string;
 }
 
 export function isGmailConfigured(): boolean {
@@ -58,8 +65,30 @@ function redirectUri(): string {
   return `http://127.0.0.1:${port}/api/mail/oauth/callback`;
 }
 
-/** Where the browser is sent to grant read-only Gmail access. */
-export function buildConsentUrl(): string {
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * The web app's origin to return to after consent, or undefined when
+ * `value` isn't a loopback http origin. Only loopback is accepted, so the
+ * OAuth `state` round trip can never be turned into an open redirect.
+ */
+export function loopbackOrigin(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname) ? url.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Where the browser is sent to grant Gmail access. `returnOrigin` rides
+ * through Google in `state` so the callback lands back on the exact address
+ * the person started from — Vite may be listening on `localhost`/`[::1]`
+ * only, where a hard-coded `127.0.0.1` is refused.
+ */
+export function buildConsentUrl(returnOrigin?: string): string {
   const { clientId } = requireClientCredentials();
 
   const params = new URLSearchParams({
@@ -72,6 +101,8 @@ export function buildConsentUrl(): string {
     // an account that has consented before.
     prompt: "consent",
   });
+  const origin = loopbackOrigin(returnOrigin);
+  if (origin) params.set("state", origin);
 
   return `${AUTH_ENDPOINT}?${params.toString()}`;
 }
@@ -104,6 +135,12 @@ export async function isGmailConnected(): Promise<boolean> {
   return (await readStoredAuth()) !== undefined;
 }
 
+/** Whether the stored grant covers marking read and moving to Trash. */
+export async function canModifyGmail(): Promise<boolean> {
+  const stored = await readStoredAuth();
+  return Boolean(stored?.scope?.split(" ").includes(GMAIL_SCOPE));
+}
+
 export async function disconnectGmail(): Promise<void> {
   try {
     await fs.unlink(authFile());
@@ -116,6 +153,7 @@ interface TokenResponse {
   access_token: string;
   expires_in: number;
   refresh_token?: string;
+  scope?: string;
 }
 
 /** Exchanges a consent code for tokens and stores the refresh token. */
@@ -152,7 +190,12 @@ export async function completeGmailConnection(code: string): Promise<void> {
     );
   }
 
-  await writeStoredAuth({ refreshToken: payload.refresh_token, obtainedAt: new Date().toISOString() });
+  await writeStoredAuth({
+    refreshToken: payload.refresh_token,
+    obtainedAt: new Date().toISOString(),
+    scope: payload.scope,
+  });
+  cachedAccessToken = undefined;
 }
 
 let cachedAccessToken: { token: string; expiresAt: number } | undefined;

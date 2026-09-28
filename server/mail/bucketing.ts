@@ -1,8 +1,9 @@
-import type { MailThread } from "../../shared/mail-types";
+import type { MailBucket, MailThread } from "../../shared/mail-types";
 
-export type MailBucketKey = "needs_you" | "fyi" | "low_priority";
+export type MailBucketKey = MailBucket;
 
 const NEEDS_REPLY_THRESHOLD = 0.5;
+const AUTOMATED_THRESHOLD = 0.5;
 const FINANCIAL_THRESHOLD = 0.5;
 const FYI_CATEGORIES = new Set(["client", "sales", "finance", "admin"]);
 
@@ -13,20 +14,28 @@ const FYI_CATEGORIES = new Set(["client", "sales", "finance", "admin"]);
  * An unclassified thread (Jev hasn't succeeded yet) goes to `fyi` rather than
  * `low_priority`, so a failed classification stays visible instead of being
  * mistaken for something genuinely unimportant.
+ *
+ * A person's correction always wins. Otherwise "needs a reply" only counts
+ * when a person sent it — nobody replies to a watchdog alert or a security
+ * code — while "needs an action" counts whoever sent it.
  */
 export function bucketFor(thread: MailThread): MailBucketKey {
+  if (thread.userBucket) return thread.userBucket;
   if (!thread.classified) return "fyi";
 
+  const fromAPerson = (thread.automated ?? 0) < AUTOMATED_THRESHOLD;
+
   if (
-    (thread.needsReply ?? 0) >= NEEDS_REPLY_THRESHOLD ||
+    ((thread.needsReply ?? 0) >= NEEDS_REPLY_THRESHOLD && fromAPerson) ||
     (thread.actionRequired ?? 0) >= NEEDS_REPLY_THRESHOLD
   ) {
     return "needs_you";
   }
 
+  const category = thread.userCategory ?? thread.category;
   if (
     (thread.financial ?? 0) >= FINANCIAL_THRESHOLD ||
-    (thread.category !== undefined && FYI_CATEGORIES.has(thread.category))
+    (category !== undefined && FYI_CATEGORIES.has(category))
   ) {
     return "fyi";
   }

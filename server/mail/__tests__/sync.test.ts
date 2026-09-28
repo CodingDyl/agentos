@@ -30,6 +30,7 @@ function fakeSummary(threadId: string): GmailThreadSummary {
     subject: `Subject for ${threadId}`,
     snippet: "A snippet",
     messageDate: "2026-09-23T09:00:00.000Z",
+    unread: false,
   };
 }
 
@@ -40,6 +41,7 @@ const alwaysNeedsReply: ClassificationResult = {
   business: "none",
   financial: 0.1,
   actionRequired: 0.1,
+  automated: 0.1,
 };
 
 describe("runMailSync", () => {
@@ -88,5 +90,33 @@ describe("runMailSync", () => {
     const data = readMailData();
     const pending = data.fyi.find((thread) => thread.threadId === "t3");
     assert.equal(pending?.classified, false);
+  });
+
+  it("fetches, classifies, and shows only the newest 150 threads", async () => {
+    let summaryCalls = 0;
+    let classifyCalls = 0;
+    const remote = Array.from({ length: 200 }, (_, index) => `w${index}`);
+
+    const result = await runMailSync({
+      listInboxThreadIds: async () => remote,
+      getThreadSummary: async (id: string) => {
+        summaryCalls += 1;
+        // Newer than every earlier fixture, so t3 (still unclassified) falls outside the window.
+        const minute = String(Number(id.slice(1)) % 60).padStart(2, "0");
+        return { ...fakeSummary(id), messageDate: `2026-09-27T10:${minute}:00.000Z` };
+      },
+      classifyThread: async () => {
+        classifyCalls += 1;
+        return alwaysNeedsReply;
+      },
+    });
+
+    assert.equal(summaryCalls, 150);
+    assert.equal(classifyCalls, 150);
+    assert.deepEqual(result, { added: 150, classified: 150, failed: 0 });
+
+    const data = readMailData();
+    assert.equal(data.needsYou.length + data.fyi.length + data.lowPriority.length, 150);
+    assert.equal(data.fyi.find((thread) => thread.threadId === "t3"), undefined);
   });
 });

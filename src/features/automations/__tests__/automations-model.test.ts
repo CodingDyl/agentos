@@ -11,6 +11,7 @@ import {
   labelFor,
   needsAttention,
   selectAlerts,
+  stateTag,
   statusFor,
 } from "../automations-model";
 
@@ -240,5 +241,28 @@ describe("running one by hand", () => {
 
   it("offers no command for a job that runs no skill", () => {
     assert.equal(commandFor(automation({ skill: undefined, skills: [] })), undefined);
+  });
+});
+
+describe("stateTag", () => {
+  const base = {
+    id: "a1",
+    name: "Morning brief",
+    schedule: "weekdays at 7:30am",
+    enabled: true,
+    state: "active" as const,
+    skills: [],
+    warnings: [],
+  };
+
+  it("uses the paper tones for each state", () => {
+    assert.deepEqual(stateTag(base), { tone: "green", label: "Active" });
+    assert.deepEqual(stateTag({ ...base, state: "paused", enabled: false }), { tone: "marigold", label: "Paused" });
+    assert.deepEqual(stateTag({ ...base, state: "completed", enabled: false }), { tone: "muted", label: "Finished" });
+  });
+
+  it("flags a failing job in flame, whatever its state", () => {
+    const failing = { ...base, lastRun: { status: "failed" as const, timestamp: "2026-09-28T07:30:00Z", detail: "boom" } };
+    assert.deepEqual(stateTag(failing), { tone: "flame", label: "Failing" });
   });
 });

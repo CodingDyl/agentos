@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { MailThread } from "@shared/mail-types";
-import { threadInitial, threadSender, threadTags } from "../mail-model";
+import { lowPriorityCountdown, threadInitial, threadSender, threadTags } from "../mail-model";
 
 function thread(overrides: Partial<MailThread>): MailThread {
   return {
@@ -10,6 +10,7 @@ function thread(overrides: Partial<MailThread>): MailThread {
     snippet: "Snippet",
     messageDate: "2026-09-23T09:00:00.000Z",
     classified: true,
+    unread: false,
     ...overrides,
   };
 }
@@ -62,5 +63,49 @@ describe("threadTags", () => {
     assert.deepEqual(threadTags(thread({ category: "newsletter", needsReply: 0, financial: 0 })), [
       { label: "NEWSLETTER", tone: "muted" },
     ]);
+  });
+});
+
+describe("threadTags with corrections and automated mail", () => {
+  it("does not ask for a reply to an automated alert, but flags an action", () => {
+    assert.deepEqual(
+      threadTags(thread({ category: "notification", needsReply: 0.9, automated: 0.9, actionRequired: 0.7 })).map(
+        (tag) => tag.label,
+      ),
+      ["NOTIFICATION", "ACTION NEEDED"],
+    );
+  });
+
+  it("shows the corrected category and marks it as set by you", () => {
+    assert.deepEqual(
+      threadTags(thread({ category: "admin", userCategory: "finance", userBucket: "fyi", needsReply: 0.9 })).map(
+        (tag) => tag.label,
+      ),
+      ["FINANCE", "SET BY YOU"],
+    );
+  });
+
+  it("shows a correction even before Jev has classified the thread", () => {
+    assert.deepEqual(
+      threadTags(thread({ classified: false, userBucket: "needs_you" })).map((tag) => tag.label),
+      ["SET BY YOU"],
+    );
+  });
+});
+
+describe("lowPriorityCountdown", () => {
+  const now = new Date("2026-09-28T12:00:00.000Z");
+
+  it("is absent for a thread that isn't on the Low priority clock", () => {
+    assert.equal(lowPriorityCountdown(thread({}), now), undefined);
+  });
+
+  it("counts down the 24 hours from when it became Low priority, rounded up", () => {
+    assert.equal(lowPriorityCountdown(thread({ lowPrioritySince: "2026-09-28T06:30:00.000Z" }), now), "TRASH IN 19H");
+  });
+
+  it("says within the hour at the end, including when a clean-up run is due", () => {
+    assert.equal(lowPriorityCountdown(thread({ lowPrioritySince: "2026-09-27T12:30:00.000Z" }), now), "TRASH WITHIN THE HOUR");
+    assert.equal(lowPriorityCountdown(thread({ lowPrioritySince: "2026-09-26T12:00:00.000Z" }), now), "TRASH WITHIN THE HOUR");
   });
 });

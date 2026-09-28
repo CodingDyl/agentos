@@ -21,7 +21,21 @@ import {
   type MilestoneAction,
 } from "./client";
 import { retryWorkerJob } from "./client";
-import { disconnectMail, getMail, getMailStatus, getMailThreadBody, removeMailThread, syncMail } from "./client";
+import {
+  clearMailCorrection,
+  correctMailThread,
+  disconnectMail,
+  getMail,
+  getMailStatus,
+  getMailProgress,
+  getMailThreadBody,
+  removeMailThread,
+  runMailBulkAction,
+  setMailThreadRead,
+  syncMail,
+} from "./client";
+import type { MailBulkAction, MailCorrection } from "@shared/mail-types";
+import type { AutomationControl } from "@shared/agentos-types";
 import { getAiStack, setAiEnabled, setAiModel } from "./client";
 import {
   createTaskFromSeoFinding,
@@ -104,7 +118,7 @@ import type {
   StartValidationTask,
   UpdateValidationTask,
 } from "@shared/validation-sprint-types";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   forkAgentSession,
@@ -119,7 +133,10 @@ import {
   deleteDesignAsset,
   deleteDesignBoard,
   getActivity,
+  controlAutomation,
+  controlCurator,
   getAutomation,
+  getAutomationSurfaces,
   getAutomations,
   getDesignLibrary,
   setDesignBoardMembership,
@@ -179,6 +196,9 @@ export const agentosKeys = {
   mail: () => [...agentosKeys.all, "mail"] as const,
   mailStatus: () => [...agentosKeys.all, "mail-status"] as const,
   mailBody: (threadId: string) => [...agentosKeys.all, "mail-body", threadId] as const,
+  mailProgress: () => [...agentosKeys.all, "mail-progress"] as const,
+  /** Tags every mail mutation, so the progress bar knows when to start watching. */
+  mailAction: () => [...agentosKeys.all, "mail-action"] as const,
   aiStack: () => [...agentosKeys.all, "ai-stack"] as const,
   vercelProjects: () => [...agentosKeys.all, "vercel-projects"] as const,
   projectVercel: (slug: string) => [...agentosKeys.all, "project-vercel", slug] as const,
@@ -187,6 +207,7 @@ export const agentosKeys = {
   projects: () => [...agentosKeys.all, "projects"] as const,
   project: (slug: string) => [...agentosKeys.all, "project", slug] as const,
   automations: () => [...agentosKeys.all, "automations"] as const,
+  automationSurfaces: () => [...agentosKeys.all, "automation-surfaces"] as const,
   activity: (query: ActivityQuery) =>
     [...agentosKeys.all, "activity", query] as const,
   designs: () => [...agentosKeys.all, "designs"] as const,
@@ -331,11 +352,12 @@ export function useMailThreadBody(threadId: string, enabled: boolean) {
   });
 }
 
-/** The only thing that ever triggers a live Gmail + Jev call. */
+/** Fetches and classifies new mail. Besides this, only the explicit mail actions below reach Gmail or Jev. */
 export function useSyncMail() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: agentosKeys.mailAction(),
     mutationFn: syncMail,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mail() });
@@ -468,6 +490,60 @@ export function useFileSeoFindingTask(slug: string) {
   });
 }
 
+/**
+ * How far the current Refresh or "Ask Jev again" has got. Polled quickly
+ * only while a mail action from this page is in flight or the server says a
+ * job is still running (e.g. after a reload mid-job); otherwise it sits idle.
+ */
+export function useMailProgress() {
+  const mailActionsInFlight = useIsMutating({ mutationKey: agentosKeys.mailAction() }) > 0;
+
+  return useQuery({
+    queryKey: agentosKeys.mailProgress(),
+    queryFn: getMailProgress,
+    refetchInterval: (query) => (mailActionsInFlight || query.state.data?.running ? 700 : false),
+    networkMode: "always",
+  });
+}
+
+/** Every mail action changes what the list shows; this is the one refetch they share. */
+function useMailMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: agentosKeys.mailAction(),
+    mutationFn,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mail() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useCorrectMailThread() {
+  return useMailMutation(({ threadId, correction }: { threadId: string; correction: MailCorrection }) =>
+    correctMailThread(threadId, correction),
+  );
+}
+
+export function useClearMailCorrection() {
+  return useMailMutation(clearMailCorrection);
+}
+
+export function useSetMailThreadRead() {
+  return useMailMutation(({ threadId, read }: { threadId: string; read: boolean }) =>
+    setMailThreadRead(threadId, read),
+  );
+}
+
+/** Mark read / move to Gmail Trash / ask Jev again, over the current filter's threads. */
+export function useMailBulkAction() {
+  return useMailMutation(({ action, threadIds }: { action: MailBulkAction; threadIds: string[] }) =>
+    runMailBulkAction(action, threadIds),
+  );
+}
+
 /** Hides one thread from the Mail view. Local only — never touches the Gmail message. */
 export function useRemoveMailThread() {
   const queryClient = useQueryClient();
@@ -519,6 +595,49 @@ export function useAutomations() {
     staleTime: 15_000,
     retry: 1,
     networkMode: "always",
+  });
+}
+
+/** Hermes' curator, kanban, hooks, webhooks, scheduler and emergency stop — each read on its own. */
+export function useAutomationSurfaces() {
+  return useQuery({
+    queryKey: agentosKeys.automationSurfaces(),
+    queryFn: getAutomationSurfaces,
+    staleTime: 15_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+/**
+ * Pause / resume / run-now on a job. Refreshes the list and that job's page
+ * afterwards — the CLI reports success loosely, so the screen shows what
+ * Hermes actually did rather than what was asked.
+ */
+export function useControlAutomation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, control }: { id: string; control: AutomationControl }) => controlAutomation(id, control),
+    onSettled: (_data, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.automations() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.automation(id) });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useControlCurator() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: controlCurator,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.automationSurfaces() });
+    },
+    networkMode: "always",
+    retry: 0,
   });
 }
 

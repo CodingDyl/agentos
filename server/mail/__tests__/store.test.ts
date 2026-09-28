@@ -70,6 +70,7 @@ describe("storeClassification", () => {
       business: "Vaja",
       financial: 0.1,
       actionRequired: 0.2,
+      automated: 0.1,
     });
 
     assert.deepEqual(listUnclassifiedThreadIds(), []);

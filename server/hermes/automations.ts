@@ -1,7 +1,12 @@
 import { execFile } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { promisify } from "node:util";
 import type {
   Automation,
+  AutomationControl,
+  AutomationRecipe,
   AutomationExecution,
   AutomationHealth,
   AutomationRunStatus,
@@ -34,15 +39,15 @@ const CLI_TIMEOUT_MS = 20_000;
 const RUN_HISTORY_LIMIT = 25;
 
 /**
- * Runs one `hermes cron` subcommand and returns its stdout.
+ * Runs one `hermes` command and returns its stdout.
  *
  * A non-zero exit is not automatically a failure: `cron doctor` exits 1 when it
  * finds issues, which is a result rather than an error. Output is kept whenever
  * there is output, and only a CLI that produced none is treated as unreachable.
  */
-async function runCron(args: string[]): Promise<string> {
+export async function runHermesCli(args: string[]): Promise<string> {
   try {
-    const { stdout } = await execFileAsync(HERMES_CLI, ["cron", ...args], {
+    const { stdout } = await execFileAsync(HERMES_CLI, args, {
       timeout: CLI_TIMEOUT_MS,
       maxBuffer: 4 * 1024 * 1024,
     });
@@ -55,10 +60,14 @@ async function runCron(args: string[]): Promise<string> {
     }
 
     throw new HermesError(
-      `Could not run \`${HERMES_CLI} cron ${args.join(" ")}\`.`,
+      `Could not run \`${HERMES_CLI} ${args.join(" ")}\`.`,
       failure.code === "ENOENT" ? "not-configured" : "offline",
     );
   }
+}
+
+function runCron(args: string[]): Promise<string> {
+  return runHermesCli(["cron", ...args]);
 }
 
 /** The CLI colours its output when it is attached to a terminal. */
@@ -290,6 +299,71 @@ export function readAutomationHealth(stdout: string): AutomationHealth {
   return { ok: false, issues };
 }
 
+/** Hermes' home — where its job records and emergency-stop sentinel live. */
+export function hermesHome(): string {
+  return process.env.HERMES_HOME?.trim() || path.join(os.homedir(), ".hermes");
+}
+
+function optionalText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+/**
+ * Reads each job's recipe from `cron/jobs.json` — the prompt, script and
+ * delivery the CLI listing doesn't print. Tolerant like the rest of this
+ * module: an unreadable file or an odd record costs only the recipe, never
+ * the listing.
+ */
+export function readJobRecipes(json: string): Map<string, AutomationRecipe> {
+  const recipes = new Map<string, AutomationRecipe>();
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return recipes;
+  }
+
+  const container = parsed as { jobs?: unknown };
+  const jobs = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(container?.jobs)
+      ? container.jobs
+      : container?.jobs && typeof container.jobs === "object"
+        ? Object.values(container.jobs)
+        : [];
+
+  for (const entry of jobs) {
+    if (!entry || typeof entry !== "object") continue;
+    const job = entry as Record<string, unknown>;
+    const id = optionalText(job.id);
+    if (!id) continue;
+
+    recipes.set(id, {
+      prompt: optionalText(job.prompt),
+      script: optionalText(job.script),
+      noAgent: job.no_agent === true ? true : undefined,
+      deliver: optionalText(job.deliver),
+      workdir: optionalText(job.workdir),
+      model: optionalText(job.model),
+      provider: optionalText(job.provider),
+      toolsets: Array.isArray(job.enabled_toolsets)
+        ? job.enabled_toolsets.filter((value): value is string => typeof value === "string")
+        : [],
+    });
+  }
+
+  return recipes;
+}
+
+async function loadJobRecipes(): Promise<Map<string, AutomationRecipe>> {
+  try {
+    return readJobRecipes(await fs.readFile(path.join(hermesHome(), "cron", "jobs.json"), "utf8"));
+  } catch {
+    return new Map();
+  }
+}
+
 export interface AutomationsResult {
   automations: Automation[];
   health: AutomationHealth;
@@ -303,14 +377,18 @@ export interface AutomationsResult {
  * exists.
  */
 export async function getAutomations(): Promise<AutomationsResult> {
-  const [listing, doctor] = await Promise.all([
+  const [listing, doctor, recipes] = await Promise.all([
     runCron(["list", "--all"]),
     // The doctor is advisory: a health check that fails must not empty the list.
     runCron(["doctor"]).catch(() => ""),
+    loadJobRecipes(),
   ]);
 
   return {
-    automations: readAutomations(listing),
+    automations: readAutomations(listing).map((automation) => ({
+      ...automation,
+      recipe: recipes.get(automation.id),
+    })),
     health: doctor
       ? readAutomationHealth(doctor)
       : { ok: false, issues: ["Hermes could not report automation health."] },
@@ -353,4 +431,21 @@ export async function getAutomation(
   ]).catch(() => "");
 
   return { automation, runs: readAutomationRuns(history) };
+}
+
+/**
+ * Pause, resume, or run a job now — the only changes AgentOS makes to Hermes'
+ * schedule. Creating, editing and deleting jobs stay in Hermes.
+ *
+ * The id is matched against Hermes' own listing first, so an unknown id is a
+ * `false` rather than an argument handed to the CLI. "Run" queues the job for
+ * the scheduler's next tick, which is within a minute while the gateway runs.
+ */
+export async function controlAutomation(id: string, control: AutomationControl): Promise<boolean> {
+  const { automations } = await getAutomations();
+  const automation = automations.find((entry) => entry.id === id);
+  if (!automation) return false;
+
+  await runCron([control, automation.id]);
+  return true;
 }

@@ -1,4 +1,5 @@
 import type { AgentFailureReason } from "../../shared/agentos-types";
+import { MAIL_THREAD_LIMIT } from "../../shared/mail-types";
 import { getAccessToken } from "./gmail-auth";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -13,13 +14,18 @@ export class GmailError extends Error {
   }
 }
 
-async function gmailFetch(path: string): Promise<unknown> {
+async function gmailFetch(path: string, init?: { method: "POST"; body?: unknown }): Promise<unknown> {
   const token = await getAccessToken();
 
   let response: Response;
   try {
     response = await fetch(`${GMAIL_API}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      method: init?.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(init?.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
     });
   } catch {
     throw new GmailError("Could not reach Gmail.", "offline");
@@ -39,10 +45,47 @@ interface GmailThreadListResponse {
   threads?: { id: string }[];
 }
 
-/** Up to 100 most recent INBOX thread ids, newest first. */
+/** Up to `MAIL_THREAD_LIMIT` most recent INBOX thread ids, newest first. One call — Gmail allows up to 500. */
 export async function listInboxThreadIds(): Promise<string[]> {
-  const payload = (await gmailFetch("/threads?labelIds=INBOX&maxResults=100")) as GmailThreadListResponse;
-  return (payload.threads ?? []).map((thread) => thread.id);
+  const payload = (await gmailFetch(
+    `/threads?labelIds=INBOX&maxResults=${MAIL_THREAD_LIMIT}`,
+  )) as GmailThreadListResponse;
+  return (payload.threads ?? []).slice(0, MAIL_THREAD_LIMIT).map((thread) => thread.id);
+}
+
+/**
+ * Which of the `MAIL_THREAD_LIMIT` most recent INBOX threads are unread.
+ * One list call, so Refresh can mirror read state without refetching every thread.
+ */
+export async function listUnreadInboxThreadIds(): Promise<Set<string>> {
+  const payload = (await gmailFetch(
+    `/threads?labelIds=INBOX&labelIds=UNREAD&maxResults=${MAIL_THREAD_LIMIT}`,
+  )) as GmailThreadListResponse;
+  return new Set((payload.threads ?? []).map((thread) => thread.id));
+}
+
+/** Marks every message in a thread read (or unread) in Gmail. Needs `gmail.modify`. */
+export async function setThreadRead(threadId: string, read: boolean): Promise<void> {
+  await gmailFetch(`/threads/${encodeURIComponent(threadId)}/modify`, {
+    method: "POST",
+    body: read ? { removeLabelIds: ["UNREAD"] } : { addLabelIds: ["UNREAD"] },
+  });
+}
+
+/** Archives a thread: out of Gmail's inbox, kept in All Mail. Needs `gmail.modify`. */
+export async function archiveThread(threadId: string): Promise<void> {
+  await gmailFetch(`/threads/${encodeURIComponent(threadId)}/modify`, {
+    method: "POST",
+    body: { removeLabelIds: ["INBOX"] },
+  });
+}
+
+/**
+ * Moves a thread to Gmail's Trash — recoverable there for 30 days. Never a
+ * permanent delete: this module has no call that can do that.
+ */
+export async function trashThread(threadId: string): Promise<void> {
+  await gmailFetch(`/threads/${encodeURIComponent(threadId)}/trash`, { method: "POST" });
 }
 
 interface GmailHeader {
@@ -58,6 +101,7 @@ interface GmailMessagePart {
 
 interface GmailMessage {
   snippet?: string;
+  labelIds?: string[];
   payload?: { headers?: GmailHeader[] } & GmailMessagePart;
 }
 
@@ -73,6 +117,8 @@ export interface GmailThreadSummary {
   snippet: string;
   /** ISO 8601. */
   messageDate: string;
+  /** True when any message in the thread carries Gmail's UNREAD label. */
+  unread: boolean;
 }
 
 function header(message: GmailMessage, name: string): string | undefined {
@@ -115,6 +161,7 @@ export async function getThreadSummary(threadId: string): Promise<GmailThreadSum
     subject: header(latest, "Subject") ?? "(no subject)",
     snippet: latest.snippet ?? "",
     messageDate: dateHeader ? new Date(dateHeader).toISOString() : new Date().toISOString(),
+    unread: messages.some((message) => message.labelIds?.includes("UNREAD") ?? false),
   };
 }
 

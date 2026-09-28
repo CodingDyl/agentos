@@ -46,6 +46,17 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE mail_threads ADD COLUMN removed INTEGER NOT NULL DEFAULT 0;
   `,
+  `
+  ALTER TABLE mail_threads ADD COLUMN unread INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE mail_threads ADD COLUMN automated REAL;
+  ALTER TABLE mail_threads ADD COLUMN user_bucket TEXT;
+  ALTER TABLE mail_threads ADD COLUMN user_category TEXT;
+  ALTER TABLE mail_threads ADD COLUMN corrected_at TEXT;
+  CREATE INDEX IF NOT EXISTS idx_mail_threads_corrected ON mail_threads(corrected_at);
+  `,
+  `
+  ALTER TABLE mail_threads ADD COLUMN low_priority_since TEXT;
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

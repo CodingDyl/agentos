@@ -10,11 +10,29 @@ function thread(overrides: Partial<MailThread>): MailThread {
     snippet: "Snippet",
     messageDate: "2026-09-20T09:00:00.000Z",
     classified: true,
+    unread: false,
     ...overrides,
   };
 }
 
 describe("bucketFor", () => {
+  it("lets a person's correction win over everything Jev said", () => {
+    assert.equal(bucketFor(thread({ needsReply: 0.95, actionRequired: 0.9, userBucket: "low_priority" })), "low_priority");
+    assert.equal(bucketFor(thread({ classified: false, userBucket: "needs_you" })), "needs_you");
+  });
+
+  it("does not treat an automated alert's 'reply' as needing you", () => {
+    assert.equal(bucketFor(thread({ needsReply: 0.9, actionRequired: 0.1, automated: 0.95, category: "notification" })), "low_priority");
+  });
+
+  it("still surfaces an automated message that needs an action", () => {
+    assert.equal(bucketFor(thread({ needsReply: 0.1, actionRequired: 0.8, automated: 0.95 })), "needs_you");
+  });
+
+  it("uses the corrected category when deciding FYI", () => {
+    assert.equal(bucketFor(thread({ category: "newsletter", userCategory: "finance" })), "fyi");
+  });
+
   it("puts an unclassified thread in fyi", () => {
     assert.equal(bucketFor(thread({ classified: false })), "fyi");
   });

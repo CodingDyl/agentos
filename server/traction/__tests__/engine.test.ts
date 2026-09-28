@@ -298,7 +298,7 @@ describe("waiting on", () => {
 });
 
 function thread(overrides: Partial<MailThread>): MailThread {
-  return { threadId: "t1", subject: "Re: your website", snippet: "", messageDate: daysAgo(0), classified: false, ...overrides };
+  return { threadId: "t1", subject: "Re: your website", snippet: "", messageDate: daysAgo(0), classified: false, unread: false, ...overrides };
 }
 
 describe("suggestMailLinks", () => {

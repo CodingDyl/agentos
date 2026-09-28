@@ -1,136 +1,115 @@
-import { TriangleAlert } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useMemo } from "react";
-import {
-  AppShell,
-  EmptyState,
-  ErrorState,
-  HairlineCard,
-  LoadingState,
-  PageHeader,
-  SystemIndicator,
-} from "@/components/os";
+import { AppShell } from "@/components/os";
+import { PaperButton, PaperSection, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
-import { useAutomations } from "@/lib/agentos/queries";
+import { useAutomationSurfaces, useAutomations } from "@/lib/agentos/queries";
 import { AutomationRow } from "./automation-row";
 import { countActive } from "./automations-model";
-
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
+import { BackgroundWork, HermesSwitches } from "./hermes-surfaces";
 
 /**
- * What Hermes runs without being asked.
+ * Everything Hermes does on its own: scheduled jobs, the skill curator,
+ * kanban dispatch, shell hooks and webhooks — and the two switches that decide
+ * whether any of it fires.
  *
- * The screen is a read of Hermes' own schedule: it starts nothing, changes
- * nothing, and costs no model call to display. Editing schedules deliberately
- * lives in Hermes, not here.
+ * Reading costs no model call. The only changes made from here are pause,
+ * resume and run-now on a job, and pause/resume on the curator; creating and
+ * editing jobs stays in Hermes.
  */
 export function AutomationsPage() {
   const navigationItems = useNavigationItems();
-  const { data, isPending, isFetching, error, refetch } = useAutomations();
+  const jobs = useAutomations();
+  const surfaces = useAutomationSurfaces();
 
-  const automations = useMemo(() => data?.automations ?? [], [data]);
+  const automations = useMemo(() => jobs.data?.automations ?? [], [jobs.data]);
   const active = countActive(automations);
+  const refreshing = jobs.isFetching || surfaces.isFetching;
+
+  const refresh = () => {
+    void jobs.refetch();
+    void surfaces.refetch();
+  };
 
   return (
-    <AppShell
-      navigationItems={navigationItems}
-      pageId="automations"
-      activeHref="/automations"
-      modelLabel="Model / AgentOS V1"
-    >
-      <div className={PAGE_PADDING}>
-        {isPending ? (
-          <LoadingState
-            label="Automations"
-            message="Reading Hermes' schedule…"
-            detail="Hermes / cron"
-          />
-        ) : !data ? (
-          <ErrorState
-            label="Schedule unavailable"
-            title="Could not read Hermes' scheduled jobs."
-            detail={error?.message}
-            hint={
-              <>
-                Automations are read through the Hermes CLI. Check that{" "}
-                <span className="font-mono text-os-subtle">hermes</span> is on
-                the adapter's PATH, or set{" "}
-                <span className="font-mono text-os-subtle">HERMES_CLI_PATH</span>.
-              </>
-            }
-            onRetry={() => void refetch()}
-            isRetrying={isFetching}
-          />
-        ) : (
-          <>
-            <PageHeader
-              title="Automations"
-              description="The work Hermes does on its own schedule. Read from Hermes; changed in Hermes."
-              actions={
-                automations.length > 0 ? (
-                  <SystemIndicator
-                    state={active > 0 ? "online" : "idle"}
-                    label={`${active} active`}
-                    detail={
-                      automations.length > active
-                        ? `${automations.length} total`
-                        : undefined
-                    }
-                  />
-                ) : null
-              }
-            />
+    <AppShell navigationItems={navigationItems} pageId="automations" activeHref="/automations" modelLabel="Model / AgentOS V1">
+      <PaperStage>
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">
+              Automations
+            </h1>
+            <p className="mt-1 text-[13px] text-paper-sage" aria-live="polite">
+              What Hermes does on its own
+              {jobs.data ? ` · ${automations.length} scheduled, ${active} active` : ""}
+              {refreshing ? " · Updating…" : ""}
+            </p>
+          </div>
+          <PaperButton variant="quiet" onClick={refresh} disabled={refreshing}>
+            <RefreshCw className={refreshing ? "size-3.5 motion-safe:animate-spin" : "size-3.5"} aria-hidden="true" />
+            Refresh
+          </PaperButton>
+        </header>
 
-            {/* The doctor's verdict, and only when it has something to say. */}
-            {!data.health.ok ? (
-              <HairlineCard className="mt-10 max-w-[72ch] p-5 md:p-6" role="status">
-                <div className="flex gap-3">
-                  <TriangleAlert
-                    className="mt-0.5 size-4 shrink-0 text-os-warning"
-                    strokeWidth={1.5}
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0">
-                    <p className="os-meta text-os-subtle">Cron doctor</p>
-                    {data.health.issues.length > 0 ? (
-                      <ul className="mt-3 space-y-2">
-                        {data.health.issues.map((issue) => (
-                          <li
-                            key={issue}
-                            className="text-[15px] leading-6 text-os-muted"
-                          >
-                            {issue}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-3 text-[15px] leading-6 text-os-muted">
-                        Hermes could not confirm the health of these jobs.
-                      </p>
-                    )}
-                  </div>
+        {surfaces.data ? <HermesSwitches surfaces={surfaces.data} /> : null}
+
+        <PaperSection label="Scheduled jobs" count={jobs.data ? automations.length : undefined} className="mt-10">
+          {jobs.isPending ? (
+            <p className="text-[14px] text-paper-sage">Reading Hermes' schedule…</p>
+          ) : !jobs.data ? (
+            <div className="rounded-[4px] border border-paper-mist px-5 py-4">
+              <p className="font-semibold text-paper-moss">Hermes' schedule couldn't be read.</p>
+              <p className="mt-1 max-w-[72ch] text-[13.5px] leading-6 text-paper-char">
+                {jobs.error?.message} Automations are read through the Hermes CLI. Check that <code className="font-mono text-[12.5px]">hermes</code> is on
+                the server's PATH, or set <code className="font-mono text-[12.5px]">HERMES_CLI_PATH</code>.
+              </p>
+              <PaperButton variant="amber" className="mt-4" disabled={jobs.isFetching} onClick={() => void jobs.refetch()}>
+                {jobs.isFetching ? "Trying again…" : "Try again"}
+              </PaperButton>
+            </div>
+          ) : (
+            <>
+              {!jobs.data.health.ok ? (
+                <div role="status" className="mb-4 rounded-[4px] border border-paper-flame-deep px-5 py-4">
+                  <p className="text-[13px] font-semibold text-paper-flame-deep">Hermes' job check found problems</p>
+                  <ul className="mt-2 space-y-1 text-[13.5px] leading-6 text-paper-char">
+                    {(jobs.data.health.issues.length > 0
+                      ? jobs.data.health.issues
+                      : ["Hermes could not confirm the health of these jobs."]
+                    ).map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
                 </div>
-              </HairlineCard>
-            ) : null}
-
-            {automations.length === 0 ? (
-              <EmptyState
-                label="No automations"
-                description="Hermes has no scheduled jobs. Create one with `hermes cron create`."
-                className="mt-10"
-              />
-            ) : (
-              <HairlineCard className="mt-10 overflow-hidden">
-                <ul className="divide-y divide-os-border">
+              ) : null}
+              {automations.length === 0 ? (
+                <p className="text-[14px] text-paper-sage">
+                  Hermes has no scheduled jobs. Create one with{" "}
+                  <code className="font-mono text-[12.5px] text-paper-moss">hermes cron create</code>.
+                </p>
+              ) : (
+                <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
                   {automations.map((automation) => (
                     <AutomationRow key={automation.id} automation={automation} />
                   ))}
                 </ul>
-              </HairlineCard>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </PaperSection>
+
+        <PaperSection label="Background work" className="mt-12">
+          {surfaces.data ? (
+            <BackgroundWork surfaces={surfaces.data} />
+          ) : surfaces.isPending ? (
+            <p className="text-[14px] text-paper-sage">Asking Hermes what else it runs…</p>
+          ) : (
+            <p className="text-[14px] text-paper-sage">
+              Hermes couldn't report its other automations. {surfaces.error?.message}
+            </p>
+          )}
+        </PaperSection>
+      </PaperStage>
     </AppShell>
   );
 }

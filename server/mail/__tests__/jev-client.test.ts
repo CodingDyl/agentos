@@ -30,6 +30,7 @@ function fullAnswerSet() {
       business: { type: "choice", choice: "none", probabilities: { none: 1 }, confidence: 0.6 },
       financial: { type: "noul", noul: 0.1 },
       action_required: { type: "noul", noul: 0.2 },
+      automated: { type: "noul", noul: 0.05 },
     },
   };
 }
@@ -70,20 +71,56 @@ describe("classifyThread", () => {
     });
 
     const parsed = JSON.parse(sentBody ?? "{}");
-    assert.deepEqual(parsed.state, {
+    assert.deepEqual(parsed.state.email, {
       from: "gavin@example.com",
       subject: "Vaja configurator",
       snippet: "Can we push pricing live?",
       date: "2026-09-23T09:42:00.000Z",
     });
+    assert.deepEqual(Object.keys(parsed.state).sort(), ["email", "recipient"]);
     assert.deepEqual(Object.keys(parsed.questions).sort(), [
       "action_required",
+      "automated",
       "business",
       "category",
       "financial",
       "needs_reply",
       "urgency",
     ]);
+  });
+
+  it("sends the recipient's corrections as worked examples and points the questions at them", async () => {
+    let sentBody: string | undefined;
+    globalThis.fetch = mock.fn((_url: string, init: RequestInit) => {
+      sentBody = init.body as string;
+      return jsonResponse(fullAnswerSet());
+    }) as unknown as typeof fetch;
+
+    await classifyThread({
+      from: "alerts@sentry.io",
+      subject: "Watchdog termination",
+      snippet: "Your app was terminated",
+      date: "2026-09-23T09:42:00.000Z",
+      corrections: [
+        {
+          from: "alerts@sentry.io",
+          subject: "New issue",
+          snippet: "TypeError in checkout",
+          bucket: "fyi",
+          category: "notification",
+        },
+      ],
+    });
+
+    const parsed = JSON.parse(sentBody ?? "{}");
+    assert.deepEqual(parsed.state.recipient_corrections, [
+      {
+        email: { from: "alerts@sentry.io", subject: "New issue", snippet: "TypeError in checkout" },
+        recipient_said: "FYI: worth knowing, no reply or action needed",
+        correct_category: "notification",
+      },
+    ]);
+    assert.match(parsed.questions.needs_reply.instructions.guidance, /recipient_corrections/);
   });
 
   it("posts to the Jev endpoint with a bearer token", async () => {
@@ -118,6 +155,7 @@ describe("classifyThread", () => {
       business: "none",
       financial: 0.1,
       actionRequired: 0.2,
+      automated: 0.05,
     });
   });
 

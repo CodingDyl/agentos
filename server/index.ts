@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import express from "express";
+import { AutomationControlSchema, CuratorControlSchema } from "../shared/agentos-types";
+import { MailBulkRequestSchema, MailCorrectionSchema } from "../shared/mail-types";
 import { ZodError } from "zod";
 import {
   ApplyMilestonePlanRequestSchema,
@@ -232,11 +234,14 @@ import {
   VisualAcceptanceContextSchema,
   type VisualAcceptanceContext,
 } from "../shared/visual-verification-types";
-import { getAutomation, getAutomations } from "./hermes/automations";
+import { controlAutomation, getAutomation, getAutomations } from "./hermes/automations";
+import { controlCurator, getAutomationSurfaces } from "./hermes/automation-surfaces";
 import { getCapabilities } from "./hermes/capabilities";
 import { getHermesStatus, HermesError, sendToHermes } from "./hermes/client";
 import {
   buildConsentUrl,
+  loopbackOrigin,
+  canModifyGmail,
   completeGmailConnection,
   disconnectGmail,
   GmailAuthError,
@@ -250,7 +255,18 @@ import { activeMailClassifier } from "./mail/classifier";
 import { captureNote, CAPTURE_PATH, parseCaptures } from "./agentos/capture";
 import { getKnowledge } from "./agentos/knowledge";
 import { CaptureRequestSchema } from "../shared/agentos-types";
-import { lastSyncedAt, readMailData, removeThread, threadCount } from "./mail/store";
+import {
+  clearCorrection,
+  lastSyncedAt,
+  readMailData,
+  removeThread,
+  storeCorrection,
+  threadCount,
+  visibleThreadIds,
+} from "./mail/store";
+import { markThreadsRead, runBulkAction, trashThreads } from "./mail/actions";
+import { readProgress } from "./mail/progress";
+import { scheduleLowPriorityCleanup } from "./mail/auto-clean";
 import { setAiEnabled, setAiModel } from "./ai-stack/settings";
 import { hasConfigurableModel, isToggleable, readAiStack } from "./ai-stack/stack";
 import { SetAiEnabledRequestSchema } from "../shared/ai-stack-types";
@@ -333,9 +349,10 @@ app.get("/api/dashboard", async (_request, response) => {
 /**
  * Mail: Gmail, read-only, classified by Jev.
  *
- * Opening the page never calls Gmail or Jev — every route here except
- * `/sync` reads from `mail.db`. Access is `gmail.readonly` only; nothing in
- * this file can send, label, or delete anything in the connected account.
+ * Opening the page never calls Gmail or Jev — only Refresh and the explicit
+ * actions below do. Access is `gmail.modify`: marking read and moving to
+ * Trash are the only changes made in Gmail, and only when the person asks.
+ * Nothing here sends mail or deletes permanently.
  */
 app.get("/api/mail/status", async (_request, response) => {
   try {
@@ -348,6 +365,7 @@ app.get("/api/mail/status", async (_request, response) => {
       configured,
       classifier: activeMailClassifier(),
       connected,
+      canModify: connected && (await canModifyGmail()),
       lastSyncedAt: lastSyncedAt(),
       threadCount: threadCount(),
     });
@@ -357,9 +375,10 @@ app.get("/api/mail/status", async (_request, response) => {
   }
 });
 
-app.get("/api/mail/connect", (_request, response) => {
+app.get("/api/mail/connect", (request, response) => {
   try {
-    response.redirect(buildConsentUrl());
+    // The proxy rewrites Host, so the page the person clicked from (Referer) is the reliable origin.
+    response.redirect(buildConsentUrl(request.get("referer")));
   } catch (error) {
     response.status(409).json({
       error: error instanceof Error ? error.message : "Gmail is not configured.",
@@ -378,7 +397,9 @@ app.get("/api/mail/oauth/callback", async (request, response) => {
 
   try {
     await completeGmailConnection(code);
-    response.redirect(`${process.env.AGENTOS_WEB_ORIGIN ?? "http://127.0.0.1:1420"}/inbox`);
+    const state = typeof request.query.state === "string" ? request.query.state : undefined;
+    const webOrigin = loopbackOrigin(state) ?? process.env.AGENTOS_WEB_ORIGIN ?? "http://localhost:1420";
+    response.redirect(`${webOrigin}/inbox`);
   } catch (error) {
     console.error("[agentos] gmail connection failed:", error);
     response.status(502).send("Could not complete the Gmail connection. Return to AgentOS and try again.");
@@ -404,6 +425,13 @@ app.post("/api/mail/sync", async (_request, response) => {
   }
 });
 
+scheduleLowPriorityCleanup();
+
+/** How far the current Refresh or "Ask Jev again" has got. Cheap to poll — memory only. */
+app.get("/api/mail/progress", (_request, response) => {
+  response.json(readProgress());
+});
+
 app.get("/api/mail", (_request, response) => {
   try {
     response.json(readMailData());
@@ -424,6 +452,73 @@ app.post("/api/mail/:threadId/remove", (request, response) => {
   } catch (error) {
     console.error("[agentos] mail remove failed:", error);
     response.status(500).json({ error: "Unable to remove that thread" });
+  }
+});
+
+/** Answers a Gmail/Jev failure as a 409 the page can explain; anything else is a 500. */
+function sendMailActionError(response: express.Response, error: unknown, fallback: string): void {
+  if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof JevError) {
+    response.status(409).json({ error: error.message, reason: error.reason });
+    return;
+  }
+  console.error(`[agentos] ${fallback}:`, error);
+  response.status(500).json({ error: fallback });
+}
+
+/** A person's correction of Jev. Stored locally and sent to Jev as an example on later calls. */
+app.post("/api/mail/:threadId/correct", (request, response) => {
+  const parsed = MailCorrectionSchema.safeParse(request.body);
+  if (!parsed.success || (!parsed.data.bucket && !parsed.data.category)) {
+    response.status(400).json({ error: "Send a bucket, a category, or both." });
+    return;
+  }
+  if (visibleThreadIds([request.params.threadId]).length === 0) {
+    response.status(404).json({ error: "That thread is not in the Inbox." });
+    return;
+  }
+  storeCorrection(request.params.threadId, parsed.data);
+  response.json({ ok: true });
+});
+
+/** Undoes a correction, handing the thread back to Jev's own judgment. */
+app.post("/api/mail/:threadId/correct/clear", (request, response) => {
+  clearCorrection(request.params.threadId);
+  response.json({ ok: true });
+});
+
+app.post("/api/mail/:threadId/read", async (request, response) => {
+  const read = (request.body as { read?: unknown } | undefined)?.read;
+  if (typeof read !== "boolean") {
+    response.status(400).json({ error: "Send { read: true | false }." });
+    return;
+  }
+  try {
+    response.json(await markThreadsRead([request.params.threadId], read));
+  } catch (error) {
+    sendMailActionError(response, error, "Unable to change read state");
+  }
+});
+
+/** Moves one thread to Gmail's Trash — recoverable there for 30 days. */
+app.post("/api/mail/:threadId/trash", async (request, response) => {
+  try {
+    response.json(await trashThreads([request.params.threadId]));
+  } catch (error) {
+    sendMailActionError(response, error, "Unable to move that thread to Trash");
+  }
+});
+
+/** Mark read / Trash / ask Jev again for a list of threads — the page sends the current filter's ids. */
+app.post("/api/mail/bulk", async (request, response) => {
+  const parsed = MailBulkRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: "Send an action and up to 150 thread ids." });
+    return;
+  }
+  try {
+    response.json(await runBulkAction(parsed.data.action, parsed.data.threadIds));
+  } catch (error) {
+    sendMailActionError(response, error, "Unable to run that action");
   }
 });
 
@@ -3360,13 +3455,54 @@ app.post("/api/validation/friction", async (request, response) => {
 /**
  * The scheduled jobs Hermes already runs.
  *
- * Read-only, and deliberately so: the console shows what Hermes has scheduled
- * and never edits it. Displaying automations costs no model call — this is a
- * CLI read, not a run.
+ * Displaying automations costs no model call — this is a CLI read, not a
+ * run. The only changes AgentOS makes are pause / resume / run-now on a job
+ * and pause / resume on the curator; creating and editing stay in Hermes.
  */
 app.get("/api/automations", async (_request, response) => {
   try {
     response.json(await getAutomations());
+  } catch (error) {
+    respondWithFailure(response, error);
+  }
+});
+
+/** Hermes' other automation surfaces: curator, kanban, hooks, webhooks, scheduler, emergency stop. */
+app.get("/api/hermes/automation-surfaces", async (_request, response) => {
+  try {
+    response.json(await getAutomationSurfaces());
+  } catch (error) {
+    respondWithFailure(response, error);
+  }
+});
+
+app.post("/api/hermes/curator/:control", async (request, response) => {
+  const control = CuratorControlSchema.safeParse(request.params.control);
+  if (!control.success) {
+    response.status(400).json({ error: "The curator can only be paused or resumed from here." });
+    return;
+  }
+  try {
+    await controlCurator(control.data);
+    response.json({ ok: true });
+  } catch (error) {
+    respondWithFailure(response, error);
+  }
+});
+
+/** Pause, resume, or run a scheduled job now. */
+app.post("/api/automations/:id/:control", async (request, response) => {
+  const control = AutomationControlSchema.safeParse(request.params.control);
+  if (!control.success) {
+    response.status(400).json({ error: "A job can only be paused, resumed, or run from here." });
+    return;
+  }
+  try {
+    if (!(await controlAutomation(request.params.id, control.data))) {
+      response.status(404).json({ error: "Unknown automation" });
+      return;
+    }
+    response.json({ ok: true });
   } catch (error) {
     respondWithFailure(response, error);
   }

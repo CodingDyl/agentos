@@ -200,3 +200,17 @@ export function describeAlert(
     href: `/automations/${automation.id}`,
   };
 }
+
+export type AutomationTagTone = "green" | "marigold" | "flame" | "muted";
+
+/**
+ * The paper tag beside a job's name: the same words as `labelFor`, in the
+ * paper world's tones. Failing is flame — the one state asking for action.
+ */
+export function stateTag(automation: Automation): { tone: AutomationTagTone; label: string } {
+  const label = labelFor(automation);
+  if (needsAttention(automation)) return { tone: "flame", label };
+  if (automation.state === "active") return { tone: "green", label };
+  if (automation.state === "paused") return { tone: "marigold", label };
+  return { tone: "muted", label };
+}

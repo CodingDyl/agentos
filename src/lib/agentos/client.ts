@@ -23,6 +23,7 @@ import {
   DesignBoardResponseSchema,
   DesignLibrarySchema,
   AutomationsResponseSchema,
+  HermesAutomationSurfacesSchema,
   DashboardDataSchema,
   ProjectDetailSchema,
   ProjectsResponseSchema,
@@ -77,6 +78,9 @@ import {
   type DesignBoard,
   type DesignLibrary,
   type AutomationsResponse,
+  type AutomationControl,
+  type CuratorControl,
+  type HermesAutomationSurfaces,
   type DashboardData,
   type ProjectDetail,
   type ProjectsResponse,
@@ -174,11 +178,17 @@ import {
   ValidationTaskResponseSchema,
 } from "@shared/validation-sprint-types";
 import {
+  MailBulkResultSchema,
   MailDataSchema,
+  MailProgressSchema,
   MailStatusSchema,
   MailSyncResultSchema,
   MailThreadBodySchema,
+  type MailBulkAction,
+  type MailBulkResult,
+  type MailCorrection,
   type MailData,
+  type MailProgress,
   type MailStatus,
   type MailSyncResult,
 } from "@shared/mail-types";
@@ -314,6 +324,39 @@ export function disconnectMail(): Promise<unknown> {
   return workerRequest("/api/mail/disconnect", { method: "POST" });
 }
 
+/** How far the current Refresh or "Ask Jev again" has got. */
+export function getMailProgress(): Promise<MailProgress> {
+  return readVault("/api/mail/progress", (value) => MailProgressSchema.safeParse(value));
+}
+
+function postJson(body: unknown): RequestInit {
+  return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
+
+/** Corrects Jev's profile of one thread. Local, and sent to Jev as an example on later calls. */
+export function correctMailThread(threadId: string, correction: MailCorrection): Promise<unknown> {
+  return workerRequest(`/api/mail/${encodeURIComponent(threadId)}/correct`, postJson(correction));
+}
+
+/** Drops a correction, handing the thread back to Jev's judgment. */
+export function clearMailCorrection(threadId: string): Promise<unknown> {
+  return workerRequest(`/api/mail/${encodeURIComponent(threadId)}/correct/clear`, { method: "POST" });
+}
+
+/** Marks one thread read or unread — in Gmail, then locally. */
+export function setMailThreadRead(threadId: string, read: boolean): Promise<MailBulkResult> {
+  return workerRequest(`/api/mail/${encodeURIComponent(threadId)}/read`, postJson({ read }), (value) =>
+    MailBulkResultSchema.safeParse(value),
+  );
+}
+
+/** Mark read / move to Gmail Trash / ask Jev again, for a list of threads. */
+export function runMailBulkAction(action: MailBulkAction, threadIds: string[]): Promise<MailBulkResult> {
+  return workerRequest("/api/mail/bulk", postJson({ action, threadIds }), (value) =>
+    MailBulkResultSchema.safeParse(value),
+  );
+}
+
 /** Hides a thread from the Mail view. Local only — the Gmail message itself is never touched. */
 export function removeMailThread(threadId: string): Promise<unknown> {
   return workerRequest(`/api/mail/${encodeURIComponent(threadId)}/remove`, { method: "POST" });
@@ -407,6 +450,20 @@ export function getAutomations(): Promise<AutomationsResponse> {
   return readVault("/api/automations", (value) =>
     AutomationsResponseSchema.safeParse(value),
   );
+}
+
+/** Hermes' other automation surfaces: curator, kanban, hooks, webhooks, scheduler, emergency stop. */
+export function getAutomationSurfaces(): Promise<HermesAutomationSurfaces> {
+  return readVault("/api/hermes/automation-surfaces", (value) => HermesAutomationSurfacesSchema.safeParse(value));
+}
+
+/** Pause, resume, or run a scheduled job now — in Hermes. */
+export function controlAutomation(id: string, control: AutomationControl): Promise<unknown> {
+  return workerRequest(`/api/automations/${encodeURIComponent(id)}/${control}`, { method: "POST" });
+}
+
+export function controlCurator(control: CuratorControl): Promise<unknown> {
+  return workerRequest(`/api/hermes/curator/${control}`, { method: "POST" });
 }
 
 /** One automation and the execution attempts Hermes recorded for it. */

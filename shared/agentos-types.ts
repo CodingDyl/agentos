@@ -843,6 +843,26 @@ export const AutomationRunSummarySchema = z.object({
   detail: z.string().optional(),
 });
 
+/**
+ * What a job actually does, from Hermes' job record: the instruction it is
+ * given and where its output goes. Read-only — AgentOS never writes it.
+ */
+export const AutomationRecipeSchema = z.object({
+  /** The instruction Hermes runs, verbatim. */
+  prompt: z.string().optional(),
+  /** A script the job runs instead of, or before, the agent. */
+  script: z.string().optional(),
+  /** True for a script-only job that never calls the model. */
+  noAgent: z.boolean().optional(),
+  /** Where the result is delivered, e.g. `local` or a platform. */
+  deliver: z.string().optional(),
+  workdir: z.string().optional(),
+  /** A per-job model override; absent means Hermes' default model. */
+  model: z.string().optional(),
+  provider: z.string().optional(),
+  toolsets: z.array(z.string()),
+});
+
 export const AutomationSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -860,6 +880,8 @@ export const AutomationSchema = z.object({
   nextRun: z.string().optional(),
   /** Per-job warnings Hermes raised, e.g. a missed fire. Shown verbatim. */
   warnings: z.array(z.string()),
+  /** Absent when Hermes' job record couldn't be read; the listing still stands. */
+  recipe: AutomationRecipeSchema.optional(),
 });
 
 /** One durable execution attempt, for the run history. */
@@ -884,6 +906,47 @@ export const AutomationsResponseSchema = z.object({
   automations: z.array(AutomationSchema),
   health: AutomationHealthSchema,
 });
+
+/**
+ * Everything else in Hermes that acts on its own, beyond scheduled jobs —
+ * each read independently, so one unreadable surface never hides the rest.
+ */
+export const HermesCuratorSchema = z.object({
+  state: z.enum(["enabled", "paused", "disabled", "unknown"]),
+  /** e.g. `every 7d`. */
+  interval: z.string().optional(),
+  /** e.g. `4d ago`. */
+  lastRun: z.string().optional(),
+  lastSummary: z.string().optional(),
+  skills: z
+    .object({ active: z.number().int(), stale: z.number().int(), archived: z.number().int() })
+    .optional(),
+});
+
+export const HermesAutomationSurfacesSchema = z.object({
+  /** `hermes pause`: halts all new cron, kanban and gateway work until `hermes resume`. */
+  emergencyStop: z.object({ engaged: z.boolean(), reason: z.string().optional() }),
+  /** Whether the gateway's scheduler is running, so jobs will actually fire. */
+  scheduler: z.object({ running: z.boolean(), detail: z.string().optional() }),
+  curator: HermesCuratorSchema,
+  kanban: z.object({
+    readable: z.boolean(),
+    byStatus: z.record(z.string(), z.number().int()),
+  }),
+  hooks: z.object({
+    configured: z.boolean(),
+    /** Hermes' own listing lines, verbatim, when any hooks exist. */
+    entries: z.array(z.string()),
+  }),
+  webhooks: z.object({
+    enabled: z.boolean(),
+    entries: z.array(z.string()),
+  }),
+});
+
+/** A control AgentOS may use on a scheduled job. Creating and editing stay in Hermes. */
+export const AutomationControlSchema = z.enum(["pause", "resume", "run"]);
+export const CuratorControlSchema = z.enum(["pause", "resume"]);
 
 export const AutomationDetailSchema = z.object({
   automation: AutomationSchema,
@@ -1141,6 +1204,11 @@ export type AutomationExecution = z.infer<typeof AutomationExecutionSchema>;
 export type AutomationHealth = z.infer<typeof AutomationHealthSchema>;
 export type AutomationsResponse = z.infer<typeof AutomationsResponseSchema>;
 export type AutomationDetail = z.infer<typeof AutomationDetailSchema>;
+export type AutomationRecipe = z.infer<typeof AutomationRecipeSchema>;
+export type HermesCurator = z.infer<typeof HermesCuratorSchema>;
+export type HermesAutomationSurfaces = z.infer<typeof HermesAutomationSurfacesSchema>;
+export type AutomationControl = z.infer<typeof AutomationControlSchema>;
+export type CuratorControl = z.infer<typeof CuratorControlSchema>;
 export type ActivitySource = z.infer<typeof ActivitySourceSchema>;
 export type ActivityLevel = z.infer<typeof ActivityLevelSchema>;
 export type ActivityEvent = z.infer<typeof ActivityEventSchema>;
