@@ -180,3 +180,20 @@ you may want to revisit as volume grows.
 - The newsletter list (Virtec > Subscriptions) is now written server-side.
   Unsubscribing takes only an email address, as it always did, so anyone can
   unsubscribe an address; it is rate limited per visitor.
+
+## Emailing a prospect from the outreach mailbox
+
+Drafts only: nothing is sent from AgentOS.
+
+1. Use a second Google account for outreach. In Google Cloud, if the OAuth
+   app is in "Testing", add that account as a test user first.
+2. Traction > Prospects > pick a prospect > "Connect outreach mailbox". In
+   Google's account list choose the outreach account, not your main inbox
+   (AgentOS refuses the main one).
+3. Write your signature and opt-out line once ("Not for you? Reply no thanks
+   and I will not email you again"). Cold emails must keep it.
+4. "Draft with Hermes" writes from public facts only. Edit the subject and
+   body, then "Create Gmail draft". "Open in Gmail" takes you to it; you read
+   it and press Send there.
+5. The prospect needs an email address and enough context (same gaps as
+   "Draft outreach"). Pick prospects by hand, one at a time.

@@ -72,6 +72,8 @@ import {
 import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
+import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
+import { outreachRouter } from "./outreach/routes";
 import { financeRouter } from "./finance/routes";
 import {
   archiveTask,
@@ -317,6 +319,7 @@ app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
 app.use("/api/traction", tractionRouter);
+app.use("/api/outreach", outreachRouter);
 
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
 app.use("/api/finance", financeRouter);
@@ -483,8 +486,24 @@ app.get("/api/mail/oauth/callback", async (request, response) => {
   }
 
   try {
-    await completeGmailConnection(code);
     const state = typeof request.query.state === "string" ? request.query.state : undefined;
+
+    // The outreach mailbox shares this address with Google (one registered
+    // redirect), and says which connection this is in `state`.
+    const outreach = parseOutreachState(state);
+    if (outreach) {
+      const origin = outreach.origin ?? process.env.AGENTOS_WEB_ORIGIN ?? "http://localhost:1420";
+      try {
+        await completeOutreachConnection(code);
+        response.redirect(`${origin}/traction?tab=prospects&outreach=connected`);
+      } catch (error) {
+        const reason = error instanceof OutreachAuthError ? error.message : "Could not connect the outreach mailbox.";
+        response.redirect(`${origin}/traction?tab=prospects&outreach=${encodeURIComponent(reason)}`);
+      }
+      return;
+    }
+
+    await completeGmailConnection(code);
     const webOrigin = loopbackOrigin(state) ?? process.env.AGENTOS_WEB_ORIGIN ?? "http://localhost:1420";
     response.redirect(`${webOrigin}/inbox`);
   } catch (error) {

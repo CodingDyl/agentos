@@ -1,4 +1,5 @@
 import { LeadMagnetSchema } from "../../shared/lead-magnet-types";
+import { OUTREACH_LOG_LIMIT, OutreachLogEntrySchema, type OutreachLogEntry } from "../../shared/outreach-types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -82,6 +83,10 @@ const StateSchema = z.object({
   leadProfiles: z.record(z.string(), LeadProfileSchema).default({}),
   /** Profiles spent today, so a loop or a stuck button cannot run up Jev's bill. */
   leadProfileBudget: z.object({ date: z.string(), used: z.number().int() }).default({ date: "", used: 0 }),
+  /** Outreach mailbox settings. The signature is who you are and how to opt out. */
+  outreach: z.object({ signature: z.string().default("") }).default({ signature: "" }),
+  /** What was created in the outreach mailbox, newest last. */
+  outreachLog: z.array(OutreachLogEntrySchema).default([]),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -114,6 +119,8 @@ function emptyState(): TractionState {
     leadMagnets: [],
     leadProfiles: {},
     leadProfileBudget: { date: "", used: 0 },
+    outreach: { signature: "" },
+    outreachLog: [],
   };
 }
 
@@ -716,6 +723,22 @@ export function saveLeadProfiles(profiles: Record<string, LeadProfile>, today: s
     for (const [leadId, profile] of Object.entries(profiles)) state.leadProfiles[`virtec:lead:${leadId}`] = profile;
     state.leadProfileBudget = { date: today, used: used + Object.keys(profiles).length };
     return { result: { usedToday: state.leadProfileBudget.used } };
+  });
+}
+
+export function saveOutreachSignature(signature: string): Promise<string> {
+  return mutate((state) => {
+    state.outreach = { signature };
+    return { result: signature };
+  });
+}
+
+/** Records what was done in the outreach mailbox, against the prospect it was for. */
+export function logOutreach(entry: Omit<OutreachLogEntry, "id" | "at">): Promise<OutreachLogEntry> {
+  return mutate((state) => {
+    const logged: OutreachLogEntry = { ...entry, id: newId("ol"), at: new Date().toISOString() };
+    state.outreachLog = [...state.outreachLog, logged].slice(-OUTREACH_LOG_LIMIT);
+    return { result: logged };
   });
 }
 
