@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { formatChange, goalStatusLabel, upcomingPayments } from "../finance-model";
+import { debtPayState, formatChange, goalStatusLabel, subscriptionPayState, upcomingPayments, utilisationTone } from "../finance-model";
+import { pageWindow, sliceForPage, clampPage, pageCountFor } from "../finance-pagination-model";
 
 describe("formatChange", () => {
   it("signs a change and admits when there is nothing to compare", () => {
@@ -52,5 +53,61 @@ describe("upcomingPayments with bills", () => {
 describe("goalStatusLabel", () => {
   it("names the shortfall when behind", () => {
     assert.equal(goalStatusLabel({ status: "behind", shortfall: 3_800 } as never), "Behind by R 3,800");
+  });
+});
+
+describe("subscriptionPayState", () => {
+  const sub = (lastPaid: string, frequency: "monthly" | "annual" = "monthly") => ({ lastPaid, frequency });
+
+  it("is paid when a monthly payment cleared this month", () => {
+    assert.equal(subscriptionPayState(sub("2026-09-05"), "2026-09-29").state, "paid");
+  });
+
+  it("is due when this month's payment has not cleared yet, and gives it grace before saying not seen", () => {
+    assert.equal(subscriptionPayState(sub("2026-08-05"), "2026-09-03").state, "due");
+    assert.equal(subscriptionPayState(sub("2026-08-28"), "2026-09-29").state, "due");
+    assert.equal(subscriptionPayState(sub("2026-08-05"), "2026-09-29").state, "late");
+  });
+
+  it("treats a yearly one as paid until its anniversary is close, then due, then not seen", () => {
+    assert.equal(subscriptionPayState(sub("2026-03-01", "annual"), "2026-09-29").state, "paid");
+    assert.equal(subscriptionPayState(sub("2025-10-15", "annual"), "2026-09-29").state, "due");
+    assert.equal(subscriptionPayState(sub("2025-08-01", "annual"), "2026-09-29").state, "late");
+  });
+});
+
+describe("debtPayState", () => {
+  it("says a payment was made, none was, or that it cannot know without a statement", () => {
+    assert.equal(debtPayState({ paidThisMonth: 3_000, hasStatement: true }).state, "paid");
+    assert.equal(debtPayState({ paidThisMonth: 0, hasStatement: true }).state, "late");
+    assert.equal(debtPayState({ paidThisMonth: 0, hasStatement: false }).state, "unknown");
+  });
+});
+
+describe("utilisationTone", () => {
+  it("is comfortable under 30%, worrying from 75%", () => {
+    assert.equal(utilisationTone(0.2), "good");
+    assert.equal(utilisationTone(0.5), "watch");
+    assert.equal(utilisationTone(0.79), "act");
+  });
+});
+
+describe("pagination", () => {
+  const items = Array.from({ length: 53 }, (_, index) => index + 1);
+
+  it("slices pages and never runs past the end", () => {
+    assert.deepEqual(sliceForPage(items, 1, 25).length, 25);
+    assert.deepEqual(sliceForPage(items, 3, 25), [51, 52, 53]);
+    assert.deepEqual(sliceForPage(items, 99, 25), [51, 52, 53]);
+    assert.equal(pageCountFor(0, 25), 1);
+    assert.equal(pageCountFor(53, 25), 3);
+    assert.equal(clampPage(0, 53, 25), 1);
+  });
+
+  it("shows every page when there are few, and a window with gaps when there are many", () => {
+    assert.deepEqual(pageWindow(2, 5), [1, 2, 3, 4, 5]);
+    assert.deepEqual(pageWindow(1, 20), [1, 2, 3, 4, "gap", 20]);
+    assert.deepEqual(pageWindow(10, 20), [1, "gap", 9, 10, 11, "gap", 20]);
+    assert.deepEqual(pageWindow(20, 20), [1, "gap", 17, 18, 19, 20]);
   });
 });

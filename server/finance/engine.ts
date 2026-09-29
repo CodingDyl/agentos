@@ -602,7 +602,7 @@ export function computeFinance(input: EngineInput): EngineOutput {
   const accountNames = new Map(input.accounts.map((account) => [account.id, account.name]));
   const rows: FinanceTransactionRow[] = [...ledger]
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
-    .slice(0, 120)
+    .slice(0, 400)
     .map((t) => ({
       id: t.id,
       accountId: t.accountId,
@@ -638,7 +638,7 @@ export function computeFinance(input: EngineInput): EngineOutput {
   const billItems = buildBillStatuses(input.bills ?? [], input.billMarks ?? [], ledger, input.today);
   const bills = { items: billItems, ...billTotals(billItems, summary.income), suggestions: suggestBills(recurring, input.bills ?? [], isCancellable) };
 
-  const debts = buildDebts(input.accounts, freeCashFlow);
+  const debts = buildDebts(input.accounts, freeCashFlow, ledger, month);
   const reimbursed = ledger.filter((t) => monthOf(t.date) === month && t.amount > 0 && t.category === "Reimbursement").reduce((total, t) => total + t.amount, 0);
   const split = incomeSplit(categories, summary, reimbursed);
   const shared = buildShared({ partner: input.partner, rules: input.splitRules ?? [], settlements: input.settlements ?? [], ledger, today: input.today });

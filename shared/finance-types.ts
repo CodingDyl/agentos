@@ -484,6 +484,10 @@ export const DebtSchema = z.object({
   monthlyInterest: z.number().optional(),
   /** Months to clear at your recent free cash flow, if that is enough to make headway. */
   monthsAtFreeCashFlow: z.number().optional(),
+  /** Money paid into this card this month, from its own imported transactions. */
+  paidThisMonth: z.number().default(0),
+  /** Whether any of this card's transactions are known. Without them "no payment" means "not known", not "none". */
+  hasStatement: z.boolean().default(false),
   options: z.array(z.object({ months: z.number(), monthly: z.number(), interest: z.number() })),
 });
 export type Debt = z.infer<typeof DebtSchema>;

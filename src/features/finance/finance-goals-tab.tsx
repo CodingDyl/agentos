@@ -2,11 +2,14 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { RISK_PROFILE_INFO } from "@shared/finance-profiler";
 import { GOAL_TYPES, type FinanceData, type GoalInput, type GoalProgress } from "@shared/finance-types";
-import { FieldLabel, Meter, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
+import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { useCreateGoal, useDeleteGoal, useUpdateGoal } from "@/lib/agentos/finance";
+import { MiniBar } from "./finance-badges";
+import { CloseButton, FoldCard, FoldControls } from "./finance-fold";
 import { GoalProfiler } from "./finance-goal-profiler";
 import { Line, MutationError } from "./finance-kit";
 import { formatDay, goalStatusLabel, money } from "./finance-model";
+import { useDismiss, useFold } from "./finance-ui-hooks";
 
 const TYPE_LABEL: Record<(typeof GOAL_TYPES)[number], string> = {
   travel: "Travel",
@@ -30,25 +33,33 @@ export function FinanceGoalsTab({ data }: { data: FinanceData }) {
   const goals = data.goals.filter((goal) => goal.kind === "goal");
   const funds = data.goals.filter((goal) => goal.kind === "sinking");
   const sample = data.source.kind === "sample";
+  // A goal that is behind or past its date starts open. The rest fold away once there are more than three.
+  const fold = useFold(
+    data.goals.map((goal) => goal.id),
+    (id) => {
+      const goal = data.goals.find((entry) => entry.id === id);
+      return goal?.status === "behind" || goal?.status === "overdue" || data.goals.length <= 3;
+    },
+  );
 
   return (
     <div className="space-y-12">
+      {/* Both buttons stay put while a panel is open, so closing it can hand focus back to the one that opened it. */}
+      <div className="flex flex-wrap gap-2">
+        <PaperButton variant="amber" onClick={() => setAdding(true)} aria-expanded={adding} disabled={adding}>
+          <Plus className="size-3.5" aria-hidden="true" />
+          Savings goal
+        </PaperButton>
+        <PaperButton variant="ghost" onClick={() => setProfiling((open) => !open)} aria-expanded={profiling}>
+          Goal profiler
+        </PaperButton>
+      </div>
+
       {adding ? (
         <PaperCard className="max-w-2xl p-5">
-          <h2 className="mb-4 font-paper-display text-[17px] font-bold text-paper-moss">New savings goal</h2>
           <GoalForm onDone={() => setAdding(false)} />
         </PaperCard>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <PaperButton variant="amber" onClick={() => setAdding(true)}>
-            <Plus className="size-3.5" aria-hidden="true" />
-            Savings goal
-          </PaperButton>
-          <PaperButton variant="ghost" onClick={() => setProfiling((open) => !open)} aria-expanded={profiling}>
-            Goal profiler
-          </PaperButton>
-        </div>
-      )}
+      ) : null}
 
       {profiling ? <NewGoalProfiler today={data.today} onClose={() => setProfiling(false)} /> : null}
 
@@ -59,22 +70,34 @@ export function FinanceGoalsTab({ data }: { data: FinanceData }) {
       ) : null}
 
       {goals.length > 0 ? (
-        <PaperSection label="Goals" count={goals.length}>
-          <div className="grid gap-4 xl:grid-cols-2">
+        <PaperSection
+          label="Goals"
+          count={goals.length}
+          action={<FoldControls count={goals.length} allOpen={goals.every((goal) => fold.isOpen(goal.id))} onSetAll={(open) => fold.setAll(open, goals.map((goal) => goal.id))} />}
+        >
+          <ul className="space-y-3">
             {goals.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} data={data} readOnly={sample && goal.id.startsWith("sample-")} />
+              <li key={goal.id}>
+                <GoalCard goal={goal} data={data} open={fold.isOpen(goal.id)} onToggle={() => fold.toggle(goal.id)} readOnly={sample && goal.id.startsWith("sample-")} />
+              </li>
             ))}
-          </div>
+          </ul>
         </PaperSection>
       ) : null}
 
       {funds.length > 0 ? (
-        <PaperSection label="Sinking funds" count={funds.length}>
-          <div className="grid gap-4 xl:grid-cols-2">
+        <PaperSection
+          label="Sinking funds"
+          count={funds.length}
+          action={<FoldControls count={funds.length} allOpen={funds.every((goal) => fold.isOpen(goal.id))} onSetAll={(open) => fold.setAll(open, funds.map((goal) => goal.id))} />}
+        >
+          <ul className="space-y-3">
             {funds.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} data={data} readOnly={sample && goal.id.startsWith("sample-")} />
+              <li key={goal.id}>
+                <GoalCard goal={goal} data={data} open={fold.isOpen(goal.id)} onToggle={() => fold.toggle(goal.id)} readOnly={sample && goal.id.startsWith("sample-")} />
+              </li>
             ))}
-          </div>
+          </ul>
         </PaperSection>
       ) : null}
 
@@ -87,7 +110,7 @@ export function FinanceGoalsTab({ data }: { data: FinanceData }) {
   );
 }
 
-function GoalCard({ goal, data, readOnly }: { goal: GoalProgress; data: FinanceData; readOnly: boolean }) {
+function GoalCard({ goal, data, open, onToggle, readOnly }: { goal: GoalProgress; data: FinanceData; open: boolean; onToggle: () => void; readOnly: boolean }) {
   const update = useUpdateGoal();
   const remove = useDeleteGoal();
   const [saved, setSaved] = useState(String(goal.currentAmount));
@@ -99,22 +122,31 @@ function GoalCard({ goal, data, readOnly }: { goal: GoalProgress; data: FinanceD
   const savedValue = Number(saved);
   const savedChanged = saved.trim() !== "" && Number.isFinite(savedValue) && savedValue >= 0 && savedValue !== goal.currentAmount;
 
+  const worry = goal.status === "behind" || goal.status === "overdue";
+
   return (
-    <PaperCard className="p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-paper-display text-[19px] font-bold tracking-[-0.01em] text-paper-moss">{goal.name}</h3>
-          <p className="text-[12.5px] text-paper-sage">{goal.kind === "sinking" ? "Sinking fund" : TYPE_LABEL[goal.type]}</p>
-        </div>
-        <Tag tone={goal.status === "behind" || goal.status === "overdue" ? "marigold" : goal.status === "no-date" ? "muted" : "green"}>{goalStatusLabel(goal)}</Tag>
-      </div>
-
-      <div className="mt-4 flex items-center gap-3">
-        <Meter value={goal.progress} label={`${goal.name} funded`} tone={goal.status === "behind" || goal.status === "overdue" ? "amber" : "green"} size="md" />
-        <span className="shrink-0 text-[13px] font-medium text-paper-char tabular-nums">{Math.round(goal.progress * 100)}%</span>
-      </div>
-
-      <dl className="mt-3 divide-y divide-paper-stone">
+    <FoldCard
+      open={open}
+      onToggle={onToggle}
+      accent={worry ? "amber" : goal.status === "done" || goal.status === "on-track" ? "green" : "none"}
+      title={goal.name}
+      meta={
+        <>
+          <Tag tone={worry ? "marigold" : goal.status === "no-date" ? "muted" : "green"}>{goalStatusLabel(goal)}</Tag>
+          <span>{goal.kind === "sinking" ? "Sinking fund" : TYPE_LABEL[goal.type]}</span>
+          <MiniBar value={goal.progress} label={`${goal.name} is ${Math.round(goal.progress * 100)}% funded`} tone={worry ? "amber" : "green"} />
+        </>
+      }
+      figure={
+        <>
+          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{Math.round(goal.progress * 100)}%</span>
+          <span className="block text-[12px] text-paper-sage tabular-nums">
+            {money(goal.currentAmount)} of {money(goal.targetAmount)}
+          </span>
+        </>
+      }
+    >
+      <dl className="divide-y divide-paper-stone">
         <Line label="Target" value={money(goal.targetAmount)} />
         {goal.targetDate ? <Line label="Date" value={formatDay(goal.targetDate)} /> : null}
         <Line label="Saved" value={money(goal.currentAmount)} />
@@ -203,12 +235,13 @@ function GoalCard({ goal, data, readOnly }: { goal: GoalProgress; data: FinanceD
         <p className="mt-4 text-[12.5px] text-paper-sage">A sample goal. Add your own to track real money.</p>
       )}
       <MutationError error={update.error ?? remove.error} />
-    </PaperCard>
+    </FoldCard>
   );
 }
 
 function GoalForm({ onDone }: { onDone: () => void }) {
   const create = useCreateGoal();
+  useDismiss(onDone);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [saved, setSaved] = useState("0");
@@ -229,8 +262,13 @@ function GoalForm({ onDone }: { onDone: () => void }) {
           { onSuccess: onDone },
         );
       }}
+      aria-label="New savings goal"
       className="grid gap-4 sm:grid-cols-2"
     >
+      <div className="flex items-center justify-between gap-3 sm:col-span-2">
+        <h2 className="font-paper-display text-[17px] font-bold text-paper-moss">New savings goal</h2>
+        <CloseButton label="Close the new goal form" onClick={onDone} showLabel />
+      </div>
       <label className="block sm:col-span-2">
         <FieldLabel>Name</FieldLabel>
         <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="UK trip" className={`${PAPER_INPUT} w-full`} maxLength={80} />

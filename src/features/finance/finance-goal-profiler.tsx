@@ -12,6 +12,8 @@ import {
 import { GOAL_TYPES, type GoalType } from "@shared/finance-types";
 import { FieldLabel, PAPER_INPUT, PaperButton, Tag } from "@/components/paper";
 import { cn } from "@/lib/utils";
+import { CloseButton } from "./finance-fold";
+import { useDismiss } from "./finance-ui-hooks";
 import { money } from "./finance-model";
 
 /**
@@ -75,6 +77,8 @@ export function GoalProfiler({
   onApply: (applied: ProfilerApplied) => void;
   onClose: () => void;
 }) {
+  useDismiss(onClose);
+
   const initialDate = start?.date ?? (() => {
     const date = new Date(`${today}T12:00:00Z`);
     date.setUTCFullYear(date.getUTCFullYear() + 1);
@@ -121,9 +125,7 @@ export function GoalProfiler({
             Work out how much to put aside each month, and how the money could be held to get there. Returns are assumptions you can change, not forecasts.
           </p>
         </div>
-        <PaperButton onClick={onClose} aria-label="Close the profiler">
-          Close
-        </PaperButton>
+        <CloseButton label="Close the profiler" onClick={onClose} showLabel />
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

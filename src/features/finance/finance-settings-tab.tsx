@@ -2,6 +2,8 @@ import type { FinanceData } from "@shared/finance-types";
 import { PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { useRemoveCorrection, useSyncInvestec } from "@/lib/agentos/finance";
 import { MutationError } from "./finance-kit";
+import { Pagination } from "./finance-pagination";
+import { usePagination } from "./finance-ui-hooks";
 
 const PRIVACY: readonly string[] = [
   "Investec credentials are read by the server only. They are never sent to the browser or written to disk.",
@@ -16,6 +18,7 @@ export function FinanceSettingsTab({ data }: { data: FinanceData }) {
   const sync = useSyncInvestec();
   const remove = useRemoveCorrection();
   const { source } = data;
+  const corrections = usePagination(data.corrections, "", 10);
 
   return (
     <div className="grid gap-x-12 gap-y-12 lg:grid-cols-2">
@@ -64,7 +67,7 @@ INVESTEC_API_KEY=...`}
             <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">None yet. Change a payment's category on the Spending tab and Finance remembers it for that merchant, past and future.</p>
           ) : (
             <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
-              {data.corrections.map((correction) => (
+              {corrections.pageItems.map((correction) => (
                 <li key={correction.merchant} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14.5px]">
                   <span className="min-w-0 truncate text-paper-moss">
                     {correction.merchant} <span className="text-paper-sage">→</span> {correction.category}
@@ -76,6 +79,7 @@ INVESTEC_API_KEY=...`}
               ))}
             </ul>
           )}
+          <Pagination label="Categories you taught it pages" {...corrections} onPage={corrections.setPage} onSize={corrections.setSize} />
           <MutationError error={remove.error} />
         </PaperSection>
       </div>

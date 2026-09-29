@@ -1,4 +1,4 @@
-import type { Debt, Finding, FinancialAccount, GoalProgress, MonthSummary, Subscription } from "../../shared/finance-types";
+import type { Debt, Finding, FinancialAccount, GoalProgress, MonthSummary, Subscription, Transaction } from "../../shared/finance-types";
 import { formatRandAmount } from "../../shared/finance-types";
 import { monthsToClear, monthlyInterest, payoffOptions } from "../../shared/finance-debt";
 
@@ -31,7 +31,12 @@ const pct = (value: number) => `${Math.round(value * 100)}%`;
 const mean = (values: readonly number[]) => (values.length === 0 ? undefined : values.reduce((a, b) => a + b, 0) / values.length);
 
 /** Each card or loan, with what it costs and what clearing it would take. */
-export function buildDebts(accounts: readonly FinancialAccount[], freeCashFlow: number | undefined): Debt[] {
+export function buildDebts(
+  accounts: readonly FinancialAccount[],
+  freeCashFlow: number | undefined,
+  ledger: readonly Pick<Transaction, "accountId" | "date" | "amount">[] = [],
+  month = "",
+): Debt[] {
   return accounts
     .filter((account) => account.type === "credit" && account.balance < 0)
     .map((account): Debt => {
@@ -46,6 +51,9 @@ export function buildDebts(accounts: readonly FinancialAccount[], freeCashFlow: 
         utilisation: account.creditLimit && account.creditLimit > 0 ? owed / account.creditLimit : undefined,
         monthlyInterest: rate === undefined ? undefined : Math.round(monthlyInterest(owed, rate)),
         monthsAtFreeCashFlow: freeCashFlow !== undefined && freeCashFlow > 0 ? monthsToClear(owed, rate ?? 0, freeCashFlow) : undefined,
+        // Only the card's own statement can say what was paid into it, so a card with none is "not known".
+        paidThisMonth: Math.round(ledger.filter((t) => t.accountId === account.id && t.amount > 0 && t.date.startsWith(month)).reduce((total, t) => total + t.amount, 0)),
+        hasStatement: ledger.some((t) => t.accountId === account.id),
         options: payoffOptions(owed, rate ?? 0),
       };
     })

@@ -3,8 +3,11 @@ import { CATEGORIES, type FinanceData } from "@shared/finance-types";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection } from "@/components/paper";
 import { useCreateSplitRule, useDeleteSettlement, useDeleteSplitRule, useRecordSettlement, useSavePartner, useStopSharing } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
+import { CloseButton, FoldCard, FoldControls } from "./finance-fold";
 import { Figure, Line, MutationError } from "./finance-kit";
+import { PayBadge } from "./finance-badges";
 import { formatDay, formatMonthShort, money } from "./finance-model";
+import { useDismiss, useFold } from "./finance-ui-hooks";
 
 /**
  * Shared costs.
@@ -108,6 +111,16 @@ function SetUp({ month }: { month: string }) {
   );
 }
 
+function AddRuleHeader({ onClose }: { onClose: () => void }) {
+  useDismiss(onClose);
+  return (
+    <div className="flex items-center justify-between gap-3 sm:col-span-2">
+      <h3 className="font-paper-display text-[16px] font-bold text-paper-moss">Add a shared cost</h3>
+      <CloseButton label="Close the shared cost form" onClick={onClose} showLabel />
+    </div>
+  );
+}
+
 function RulesSection({ data }: { data: FinanceData }) {
   const { shared } = data;
   const create = useCreateSplitRule();
@@ -152,6 +165,7 @@ function RulesSection({ data }: { data: FinanceData }) {
             if (valid) create.mutate({ label: label.trim(), kind, value: value.trim(), share: sharePct / 100 }, { onSuccess: () => { setLabel(""); setValue(""); setShare("50"); setAdding(false); } });
           }}
         >
+          <AddRuleHeader onClose={() => setAdding(false)} />
           <label className="block">
             <FieldLabel>Name</FieldLabel>
             <input required value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Rent" className={`${PAPER_INPUT} w-full`} maxLength={60} />
@@ -194,7 +208,7 @@ function RulesSection({ data }: { data: FinanceData }) {
         </form>
       ) : (
         <PaperButton variant="ghost" onClick={() => setAdding(true)}>
-          Add another
+          {shared.rules.length > 0 ? "Add another" : "Add a shared cost"}
         </PaperButton>
       )}
     </PaperSection>
@@ -203,31 +217,48 @@ function RulesSection({ data }: { data: FinanceData }) {
 
 function MonthsSection({ data }: { data: FinanceData }) {
   const { shared } = data;
+  const months = [...shared.months].reverse();
+  // This month, and any month she still owes for, starts open. Settled past months fold away.
+  const fold = useFold(
+    months.map((entry) => entry.month),
+    (id) => id === data.month || (months.find((entry) => entry.month === id)?.balance ?? 0) > 0,
+  );
+
   return (
-    <PaperSection label="Month by month">
-      {shared.months.length === 0 ? (
+    <PaperSection
+      label="Month by month"
+      action={<FoldControls count={months.length} allOpen={months.every((entry) => fold.isOpen(entry.month))} onSetAll={(open) => fold.setAll(open)} />}
+    >
+      {months.length === 0 ? (
         <p className="text-[14px] leading-6 text-paper-char">Nothing to show yet.</p>
       ) : (
-        <ul className="space-y-4">
-          {[...shared.months].reverse().map((entry) => (
+        <ul className="space-y-3">
+          {months.map((entry) => (
             <li key={entry.month}>
-              <PaperCard className="p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-paper-display text-[16px] font-bold text-paper-moss">
+              <FoldCard
+                open={fold.isOpen(entry.month)}
+                onToggle={() => fold.toggle(entry.month)}
+                accent={entry.balance > 0 ? "amber" : "green"}
+                title={
+                  <>
                     {formatMonthShort(entry.month)}
                     {entry.month === data.month ? <span className="ml-2 font-paper-ui text-[12.5px] font-normal text-paper-sage">so far</span> : null}
-                  </p>
-                  <p className={cn("text-[14.5px] font-semibold tabular-nums", entry.balance > 0 ? "text-paper-moss" : "text-paper-char")}>
+                  </>
+                }
+                meta={<PayBadge state={entry.balance > 0 ? "due" : "paid"}>{entry.balance > 0 ? "Still owed" : entry.balance < 0 ? "Paid ahead" : "Settled"}</PayBadge>}
+                figure={
+                  <span className={cn("block text-[15px] font-semibold tabular-nums", entry.balance > 0 ? "text-paper-moss" : "text-paper-char")}>
                     {entry.balance > 0 ? `${money(entry.balance)} owed` : entry.balance < 0 ? `${money(-entry.balance)} ahead` : "Settled"}
-                  </p>
-                </div>
-                <dl className="mt-2 divide-y divide-paper-stone">
+                  </span>
+                }
+              >
+                <dl className="divide-y divide-paper-stone">
                   {entry.rows.map((row) => (
                     <Line key={row.ruleId} label={`${row.label}: you paid ${money(row.paid)}`} value={`her share ${money(row.herShare)}`} />
                   ))}
                   <Line label="She sent" value={money(entry.received)} />
                 </dl>
-              </PaperCard>
+              </FoldCard>
             </li>
           ))}
         </ul>

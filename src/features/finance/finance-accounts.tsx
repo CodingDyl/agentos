@@ -3,8 +3,11 @@ import type { FinanceData, FinancialAccount } from "@shared/finance-types";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperSection, Tag } from "@/components/paper";
 import { useCreateAccount, useDeleteAccount, useImportStatement, useUpdateAccount, type StatementImportResult } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
+import { MiniBar, PayBadge } from "./finance-badges";
+import { CloseButton } from "./finance-fold";
 import { Line, MutationError } from "./finance-kit";
-import { money } from "./finance-model";
+import { debtPayState, money, utilisationTone } from "./finance-model";
+import { useDismiss } from "./finance-ui-hooks";
 
 /**
  * Accounts: what Investec reports, and the ones you add yourself.
@@ -47,6 +50,7 @@ export function AccountsSection({ data }: { data: FinanceData }) {
               </p>
               <p className={cn("shrink-0 text-[14px] tabular-nums", account.balance < 0 ? "text-paper-flame-deep" : "text-paper-moss")}>{account.type === "credit" && account.balance < 0 ? `${money(-account.balance)} owed` : money(account.balance)}</p>
             </div>
+            {account.type === "credit" ? <DebtIndicators debt={data.debts.find((entry) => entry.accountId === account.id)} /> : null}
             {!sample && (account.provider === "manual" || account.type === "credit") ? (
               <button
                 type="button"
@@ -54,10 +58,10 @@ export function AccountsSection({ data }: { data: FinanceData }) {
                 aria-expanded={open === account.id}
                 className="mt-1 cursor-pointer rounded-[4px] text-[12.5px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue"
               >
-                {open === account.id ? "Close" : "Manage"}
+                Manage
               </button>
             ) : null}
-            {open === account.id ? <ManageAccount account={account} /> : null}
+            {open === account.id ? <ManageAccount account={account} onClose={() => setOpen(undefined)} /> : null}
           </li>
         ))}
       </ul>
@@ -70,8 +74,28 @@ export function AccountsSection({ data }: { data: FinanceData }) {
   );
 }
 
+/** Whether a card has been paid into this month, and how much of its limit is in use, without opening it. */
+function DebtIndicators({ debt }: { debt: FinanceData["debts"][number] | undefined }) {
+  if (!debt) return null;
+  const pay = debtPayState(debt);
+  const tone = debt.utilisation === undefined ? undefined : utilisationTone(debt.utilisation);
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <PayBadge state={pay.state}>{pay.label}</PayBadge>
+      {debt.utilisation !== undefined ? (
+        <span className="flex min-w-[10rem] flex-1 items-center gap-2 text-[12.5px] text-paper-char sm:max-w-[16rem]">
+          <MiniBar value={debt.utilisation} label={`${Math.round(debt.utilisation * 100)}% of the limit used`} tone={tone === "good" ? "green" : tone === "watch" ? "amber" : "flame"} />
+          <span className={tone === "act" ? "font-semibold whitespace-nowrap text-paper-flame-deep" : "whitespace-nowrap"}>{Math.round(debt.utilisation * 100)}% used</span>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function AddAccountForm({ onDone }: { onDone: () => void }) {
   const create = useCreateAccount();
+  useDismiss(onDone);
   const [name, setName] = useState("");
   const [type, setType] = useState<FinancialAccount["type"]>("credit");
   const [balance, setBalance] = useState("");
@@ -91,12 +115,17 @@ function AddAccountForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form
+      aria-label="Add an account"
       className="mb-6 grid gap-4 rounded-[4px] bg-paper-cream p-4 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (valid) create.mutate({ name: name.trim(), type, balance: balanceValue, interestRate: type === "credit" ? rateValue : undefined, creditLimit: type === "credit" ? limitValue : undefined }, { onSuccess: onDone });
       }}
     >
+      <div className="flex items-center justify-between gap-3 sm:col-span-2">
+        <h3 className="font-paper-display text-[16px] font-bold text-paper-moss">Add an account</h3>
+        <CloseButton label="Close the add account form" onClick={onDone} showLabel />
+      </div>
       <label className="block sm:col-span-2">
         <FieldLabel>Name</FieldLabel>
         <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Discovery credit card" className={`${PAPER_INPUT} w-full`} maxLength={80} />
@@ -140,7 +169,8 @@ function AddAccountForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function ManageAccount({ account }: { account: FinancialAccount }) {
+function ManageAccount({ account, onClose }: { account: FinancialAccount; onClose: () => void }) {
+  useDismiss(onClose);
   const update = useUpdateAccount();
   const remove = useDeleteAccount();
   const importer = useImportStatement();
@@ -164,7 +194,11 @@ function ManageAccount({ account }: { account: FinancialAccount }) {
     });
 
   return (
-    <div className="mt-3 space-y-4 rounded-[4px] bg-paper-cream p-4">
+    <div className="mt-3 space-y-4 rounded-[4px] bg-paper-cream p-4" role="group" aria-label={`Manage ${account.name}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-paper-display text-[16px] font-bold text-paper-moss">Manage {account.name}</p>
+        <CloseButton label={`Close managing ${account.name}`} onClick={onClose} showLabel />
+      </div>
       <div className="flex flex-wrap items-end gap-3">
         {manual ? (
           <label className="block">

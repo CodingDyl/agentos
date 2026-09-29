@@ -5,12 +5,16 @@ import { useSaveCorrection } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
 import { CategorySuggest, MutationError } from "./finance-kit";
 import { CATEGORY_CHOICES, formatDay, money } from "./finance-model";
+import { Pagination } from "./finance-pagination";
+import { usePagination } from "./finance-ui-hooks";
 import { CategoryList, IncomeSplit } from "./finance-where-it-goes";
 
 /** Where it went, and the place to say what a payment really was. */
 export function FinanceSpendingTab({ data }: { data: FinanceData }) {
   const [filter, setFilter] = useState<"all" | "review">("all");
   const rows = filter === "review" ? data.transactions.filter((row) => row.flagged || row.categorySource === "none") : data.transactions;
+  // Back to the first page whenever the filter changes, so a shorter list never leaves you on an empty page.
+  const pager = usePagination(rows, filter);
 
   return (
     <div className="space-y-12">
@@ -41,11 +45,14 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
         {rows.length === 0 ? (
           <p className="text-[14px] leading-6 text-paper-char">{filter === "review" ? "Nothing needs a look." : "No payments yet."}</p>
         ) : (
-          <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
-            {rows.map((row) => (
-              <TransactionLine key={row.id} row={row} jev={data.jev.configured} readOnlySample={data.source.kind === "sample"} />
-            ))}
-          </ul>
+          <>
+            <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+              {pager.pageItems.map((row) => (
+                <TransactionLine key={row.id} row={row} jev={data.jev.configured} readOnlySample={data.source.kind === "sample"} />
+              ))}
+            </ul>
+            <Pagination label="Recent payments pages" {...pager} onPage={pager.setPage} onSize={pager.setSize} />
+          </>
         )}
       </PaperSection>
     </div>

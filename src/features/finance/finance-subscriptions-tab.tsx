@@ -3,7 +3,10 @@ import type { FinanceData, Subscription } from "@shared/finance-types";
 import { PaperButton, PaperCard, PaperSection, Tag, PAPER_INPUT } from "@/components/paper";
 import { useAssessSubscriptions, useSaveDecision } from "@/lib/agentos/finance";
 import { Figure, Line, MutationError } from "./finance-kit";
-import { formatDay, TIER_LABEL, money } from "./finance-model";
+import { PayBadge } from "./finance-badges";
+import { FoldCard, FoldControls } from "./finance-fold";
+import { subscriptionPayState, TIER_LABEL, money } from "./finance-model";
+import { useFold } from "./finance-ui-hooks";
 
 const TIERS: readonly Subscription["tier"][] = ["high", "medium", "low", "unassessed"];
 
@@ -20,6 +23,18 @@ export function FinanceSubscriptionsTab({ data }: { data: FinanceData }) {
   const unassessed = data.subscriptions.filter((subscription) => !subscription.assessment).length;
   const sample = data.source.kind === "sample";
 
+  // What needs a look starts open: a subscription not seen this month, or one worth reviewing. The rest start folded.
+  const states = new Map(data.subscriptions.map((subscription) => [subscription.merchant, subscriptionPayState(subscription, data.today)]));
+  const fold = useFold(
+    data.subscriptions.map((subscription) => subscription.merchant),
+    (id) => {
+      const subscription = data.subscriptions.find((entry) => entry.merchant === id);
+      return states.get(id)?.state === "late" || subscription?.tier === "high" || data.subscriptions.length <= 3;
+    },
+  );
+  const tally = { paid: 0, due: 0, late: 0 };
+  for (const entry of states.values()) if (entry.state === "paid" || entry.state === "due" || entry.state === "late") tally[entry.state] += 1;
+
   return (
     <div className="grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
       <div className="min-w-0 space-y-12">
@@ -33,11 +48,22 @@ export function FinanceSubscriptionsTab({ data }: { data: FinanceData }) {
           const group = data.subscriptions.filter((subscription) => subscription.tier === tier);
           if (group.length === 0) return null;
           return (
-            <PaperSection key={tier} label={TIER_LABEL[tier]} count={group.length}>
-              <ul className="space-y-4">
+            <PaperSection
+              key={tier}
+              label={TIER_LABEL[tier]}
+              count={group.length}
+              action={<FoldControls count={group.length} allOpen={group.every((entry) => fold.isOpen(entry.merchant))} onSetAll={(open) => fold.setAll(open, group.map((entry) => entry.merchant))} />}
+            >
+              <ul className="space-y-3">
                 {group.map((subscription) => (
                   <li key={subscription.merchant}>
-                    <SubscriptionCard subscription={subscription} readOnly={sample} />
+                    <SubscriptionCard
+                      subscription={subscription}
+                      pay={states.get(subscription.merchant) ?? { state: "unknown", label: "" }}
+                      open={fold.isOpen(subscription.merchant)}
+                      onToggle={() => fold.toggle(subscription.merchant)}
+                      readOnly={sample}
+                    />
                   </li>
                 ))}
               </ul>
@@ -49,6 +75,16 @@ export function FinanceSubscriptionsTab({ data }: { data: FinanceData }) {
       <div className="min-w-0 space-y-12">
         <PaperCard className="bg-paper-cream p-5">
           <Figure label="Subscriptions" value={`${money(data.subscriptionMonthly)} / month`} note={`${money(data.subscriptionAnnual)} a year`} />
+          {data.subscriptions.length > 0 ? (
+            <div className="mt-4 border-t border-paper-stone pt-4" role="group" aria-label="This month's payments">
+              <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">This month</p>
+              <p className="mt-2 flex flex-wrap gap-2">
+                <PayBadge state="paid">{tally.paid} paid</PayBadge>
+                <PayBadge state="due">{tally.due} due</PayBadge>
+                {tally.late > 0 ? <PayBadge state="late">{tally.late} not seen</PayBadge> : null}
+              </p>
+            </div>
+          ) : null}
         </PaperCard>
 
         <PaperSection label="If you cancelled the review candidates">
@@ -95,7 +131,19 @@ export function FinanceSubscriptionsTab({ data }: { data: FinanceData }) {
   );
 }
 
-function SubscriptionCard({ subscription, readOnly }: { subscription: Subscription; readOnly: boolean }) {
+function SubscriptionCard({
+  subscription,
+  pay,
+  open,
+  onToggle,
+  readOnly,
+}: {
+  subscription: Subscription;
+  pay: { state: "paid" | "due" | "late" | "unknown"; label: string };
+  open: boolean;
+  onToggle: () => void;
+  readOnly: boolean;
+}) {
   const save = useSaveDecision();
   const [note, setNote] = useState(subscription.decisionNote ?? "");
   const { assessment } = subscription;
@@ -105,34 +153,39 @@ function SubscriptionCard({ subscription, readOnly }: { subscription: Subscripti
     save.mutate({ merchant: subscription.merchant, decision, note: decision === "keep" && note.trim() ? note.trim() : undefined });
 
   return (
-    <PaperCard className="p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">{subscription.merchant}</h3>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[12.5px] text-paper-sage">
-            <Tag>{assessment?.kind ?? subscription.kind}</Tag>
-            {subscription.frequency === "annual" ? <Tag>Yearly</Tag> : null}
-            last paid {formatDay(subscription.lastPaid)}
-            {rise !== undefined && rise > 0 ? <Tag tone="flame">Up {money(rise)}</Tag> : null}
-            {subscription.decision === "keep" ? <Tag tone="green">Kept</Tag> : null}
-            {subscription.decision === "reviewing" ? <Tag tone="marigold">Reviewing</Tag> : null}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="font-paper-display text-[22px] leading-none font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(subscription.monthly)}</p>
-          <p className="mt-1 text-[12.5px] text-paper-sage tabular-nums">{money(subscription.annual)} a year</p>
-        </div>
-      </div>
-
+    <FoldCard
+      open={open}
+      onToggle={onToggle}
+      accent={pay.state === "paid" ? "green" : pay.state === "late" ? "flame" : "amber"}
+      title={subscription.merchant}
+      meta={
+        <>
+          <PayBadge state={pay.state}>{pay.label}</PayBadge>
+          <Tag>{assessment?.kind ?? subscription.kind}</Tag>
+          {subscription.frequency === "annual" ? <Tag>Yearly</Tag> : null}
+          {rise !== undefined && rise > 0 ? <Tag tone="flame">Up {money(rise)}</Tag> : null}
+          {subscription.decision === "keep" ? <Tag tone="green">Kept</Tag> : null}
+          {subscription.decision === "reviewing" ? <Tag tone="marigold">Reviewing</Tag> : null}
+        </>
+      }
+      figure={
+        <>
+          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(subscription.monthly)}</span>
+          <span className="block text-[12px] text-paper-sage tabular-nums">{money(subscription.annual)} a year</span>
+        </>
+      }
+    >
       {assessment ? (
-        <dl className="mt-4 grid gap-x-8 sm:grid-cols-2">
+        <dl className="grid gap-x-8 sm:grid-cols-2">
           <Line label="Likely essential" value={`${assessment.essential} / 5`} />
           <Line label="Likely underused" value={`${assessment.underused} / 5`} />
           <Line label="Overlaps another service" value={assessment.duplicate ? "Yes" : "No"} />
           <Line label="Review priority" value={`${assessment.priority} / 5`} />
           <Line label="Jev's confidence" value={`${Math.round(assessment.confidence * 100)}%`} />
         </dl>
-      ) : null}
+      ) : (
+        <p className="text-[13.5px] leading-6 text-paper-sage">Not ranked yet. Ask Jev on the right to say whether this deserves a review.</p>
+      )}
 
       {subscription.decisionNote ? <p className="mt-3 text-[13.5px] leading-6 text-paper-char">Your note: {subscription.decisionNote}</p> : null}
 
@@ -163,6 +216,6 @@ function SubscriptionCard({ subscription, readOnly }: { subscription: Subscripti
         </div>
       ) : null}
       <MutationError error={save.error} />
-    </PaperCard>
+    </FoldCard>
   );
 }

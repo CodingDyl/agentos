@@ -65,6 +65,25 @@ describe("findings", () => {
     assert.equal(noRate.debts[0].monthlyInterest, undefined);
   });
 
+  it("reports what was paid into the card this month, and says when there is no statement to know", () => {
+    const card = account({ id: "card", type: "credit", name: "Card", balance: -10_000, interestRate: 0.2 });
+    const withStatement = computeFinance({
+      accounts: [account({}), card],
+      transactions: [tx("2026-09-08", "PAYMENT THANK YOU", 3_000), tx("2026-08-08", "PAYMENT THANK YOU", 2_000), tx("2026-09-02", "FLYSAFAIR", -500)].map((t) => ({ ...t, accountId: "card" })),
+      corrections: new Map(),
+      decisions: new Map(),
+      assessments: new Map(),
+      goals: [],
+      today: TODAY,
+    });
+    assert.equal(withStatement.debts[0].paidThisMonth, 3_000);
+    assert.equal(withStatement.debts[0].hasStatement, true);
+
+    const without = compute([account({}), card], []);
+    assert.equal(without.debts[0].paidThisMonth, 0);
+    assert.equal(without.debts[0].hasStatement, false);
+  });
+
   it("does not raise debt when there is none", () => {
     assert.equal(compute([account({})]).findings.some((f) => f.id === "debt"), false);
   });

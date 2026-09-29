@@ -54,13 +54,16 @@ export interface UpcomingPayment {
   amount: number;
 }
 
-function addOneMonth(date: string): string {
+/** `date` plus a number of months, clamped to the end of a shorter month (31 Jan + 1 month is 28 Feb). */
+function addMonthsTo(date: string, months: number): string {
   const [year, month, day] = date.split("-").map(Number);
-  const target = new Date(Date.UTC(year, month, 1));
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
   const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
   target.setUTCDate(Math.min(day, last));
   return target.toISOString().slice(0, 10);
 }
+
+const addOneMonth = (date: string) => addMonthsTo(date, 1);
 
 /**
  * Payments expected in the next `days`: subscriptions from the rhythm already
@@ -113,3 +116,51 @@ export function sourceLabel(source: FinanceData["source"], accounts: FinanceData
 
 /** Real money is on the page: Investec's, or an account you added. Sample data and an empty page are not. */
 export const isLiveSource = (source: FinanceData["source"]) => source.kind === "investec" || source.kind === "manual";
+
+// ------------------------------------------------------------- pay state
+
+export type PayState = "paid" | "due" | "late" | "unknown";
+
+const DAY = 86_400_000;
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / DAY);
+
+/** Days after the expected date before a payment that has not turned up counts as "not seen". Debit orders land a day or two late. */
+const GRACE_DAYS = 3;
+
+/**
+ * Has this subscription been paid, is it due, or has it not turned up?
+ *
+ * Worked out from the last payment Finance saw and its rhythm, so it is as good
+ * as the statement: a payment from an account Finance cannot see reads as "not
+ * seen". A monthly one is paid if it cleared this month; a yearly one is paid
+ * until the month before its anniversary.
+ */
+export function subscriptionPayState(subscription: Pick<Subscription, "lastPaid" | "frequency">, today: string): { state: PayState; label: string } {
+  const { lastPaid, frequency } = subscription;
+
+  if (frequency === "monthly") {
+    if (lastPaid.slice(0, 7) === today.slice(0, 7)) return { state: "paid", label: `Paid ${formatDay(lastPaid)}` };
+    const nextDue = addOneMonth(lastPaid);
+    const late = daysBetween(nextDue, today);
+    if (late > GRACE_DAYS) return { state: "late", label: `Not seen since ${formatDay(lastPaid)}` };
+    return { state: "due", label: late <= 0 ? `Due ${formatDay(nextDue)}` : `Was due ${formatDay(nextDue)}` };
+  }
+
+  const nextDue = addMonthsTo(lastPaid, 12);
+  const untilDue = daysBetween(today, nextDue);
+  if (untilDue < -GRACE_DAYS) return { state: "late", label: `Not seen since ${formatDay(lastPaid)}` };
+  if (untilDue <= 30) return { state: "due", label: `Due ${formatDay(nextDue)}` };
+  return { state: "paid", label: `Paid ${formatDay(lastPaid)}, yearly` };
+}
+
+/** How a card's payment this month reads. Without its statement, "no payment" is not known, so it says so. */
+export function debtPayState(debt: Pick<FinanceData["debts"][number], "paidThisMonth" | "hasStatement">): { state: PayState; label: string } {
+  if (!debt.hasStatement) return { state: "unknown", label: "No statement imported" };
+  if (debt.paidThisMonth > 0) return { state: "paid", label: `${money(debt.paidThisMonth)} paid this month` };
+  return { state: "late", label: "No payment this month" };
+}
+
+/** How worried to be about the share of a limit in use: under 30% is comfortable, over 75% is a problem. */
+export function utilisationTone(utilisation: number): "good" | "watch" | "act" {
+  return utilisation < 0.3 ? "good" : utilisation < 0.75 ? "watch" : "act";
+}

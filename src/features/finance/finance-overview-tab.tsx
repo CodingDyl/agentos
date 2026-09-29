@@ -2,8 +2,9 @@ import { investecCashOf, netCashOf, type FinanceData, type FinanceTab } from "@s
 import { Meter, PaperButton, PaperCard, PaperSection, StackedMeter, Tag } from "@/components/paper";
 import { useLiveBalances } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
+import { PayBadge } from "./finance-badges";
 import { Figure, Line, SignalDot } from "./finance-kit";
-import { formatDay, formatChange, goalStatusLabel, upcomingPayments, money } from "./finance-model";
+import { debtPayState, formatDay, formatChange, goalStatusLabel, upcomingPayments, money } from "./finance-model";
 
 /**
  * Finance's first screen. It answers six questions in order: how much do I
@@ -237,6 +238,16 @@ function ExactNetCash({ data }: { data: FinanceData }) {
           <Tag>{PROVIDER_LABEL[a.provider]}</Tag>
         </span>
         {a.provider === "manual" ? <span className="ml-2 text-[12px] text-paper-sage">as you last entered it</span> : null}
+        {a.type === "credit" ? (
+          <span className="ml-2 align-middle">
+            {(() => {
+              const debt = data.debts.find((entry) => entry.accountId === a.id);
+              if (!debt) return null;
+              const pay = debtPayState(debt);
+              return <PayBadge state={pay.state}>{pay.label}</PayBadge>;
+            })()}
+          </span>
+        ) : null}
       </dt>
       <dd className={cn("shrink-0 tabular-nums", a.balance < 0 ? "text-paper-flame-deep" : "text-paper-moss")}>{a.type === "credit" ? `- ${money(-a.balance, true)}` : money(a.balance, true)}</dd>
     </div>

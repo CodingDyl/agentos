@@ -154,7 +154,7 @@ describe("the savings plan", () => {
   });
 
   it("asks for more than you have, and says by how much, rather than pretending", () => {
-    const result = plan({ debts: [{ accountId: "c", name: "Card", owed: 31_400, interestRate: 0.22, options: [] }], goals: [goal({})] });
+    const result = plan({ debts: [{ accountId: "c", name: "Card", owed: 31_400, interestRate: 0.22, paidThisMonth: 0, hasStatement: false, options: [] }], goals: [goal({})] });
     assert.ok(result.totalNeeded > result.capacity);
     assert.equal(result.gap, result.totalNeeded - result.capacity);
     assert.equal(result.recommended, result.capacity);
@@ -166,7 +166,7 @@ describe("the savings plan", () => {
   });
 
   it("puts expensive debt ahead of the starter buffer, so the buffer only gets what debt leaves", () => {
-    const result = plan({ debts: [{ accountId: "c", name: "Card", owed: 20_000, interestRate: 0.22, options: [] }] });
+    const result = plan({ debts: [{ accountId: "c", name: "Card", owed: 20_000, interestRate: 0.22, paidThisMonth: 0, hasStatement: false, options: [] }] });
     assert.deepEqual(result.steps.slice(0, 2).map((s) => s.id), ["debt", "starter"]);
     const debt = result.steps[0];
     assert.equal(debt.funded, Math.min(debt.needed, result.capacity));
@@ -177,7 +177,7 @@ describe("the savings plan", () => {
     const result = plan({
       accounts: accounts(90_000),
       goals: [goal({ id: "e", type: "emergency", name: "Emergency", requiredMonthly: 3_000 })],
-      debts: [{ accountId: "c", name: "Card", owed: 20_000, interestRate: 0.08, options: [] }],
+      debts: [{ accountId: "c", name: "Card", owed: 20_000, interestRate: 0.08, paidThisMonth: 0, hasStatement: false, options: [] }],
     });
     assert.equal(result.steps.some((s) => s.id === "goal:e"), false);
     assert.equal(result.steps.find((s) => s.id === "debt")?.needed, 0);

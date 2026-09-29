@@ -1,10 +1,13 @@
 import { useState } from "react";
 import type { Debt, FinanceData, Finding } from "@shared/finance-types";
-import { PaperButton, PaperCard, PaperSection, PAPER_INPUT, Tag } from "@/components/paper";
+import { PaperButton, PaperSection, PAPER_INPUT, Tag } from "@/components/paper";
 import { useAnalyse, useAskAnalyser } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
-import { Figure, Line, MutationError } from "./finance-kit";
-import { money } from "./finance-model";
+import { MiniBar, PayBadge, UtilisationBar } from "./finance-badges";
+import { FoldCard, FoldControls } from "./finance-fold";
+import { Line, MutationError } from "./finance-kit";
+import { debtPayState, money, utilisationTone } from "./finance-model";
+import { useFold } from "./finance-ui-hooks";
 
 /**
  * The analyser.
@@ -29,6 +32,18 @@ export function FinanceAnalyserTab({ data }: { data: FinanceData }) {
   const focused = focus.map((id) => byId.get(id)).filter((finding): finding is Finding => finding !== undefined);
   const rest = findings.filter((finding) => !focus.includes(finding.id));
 
+  // What to act on starts open; what is going well starts folded. Debts open when they need attention.
+  const fold = useFold(
+    [...findings.map((finding) => finding.id), ...data.debts.map((debt) => `debt:${debt.accountId}`)],
+    (id) => {
+      if (id.startsWith("debt:")) {
+        const debt = data.debts.find((entry) => `debt:${entry.accountId}` === id);
+        return debt === undefined || debt.utilisation === undefined || utilisationTone(debt.utilisation) !== "good" || data.debts.length === 1;
+      }
+      return focus.includes(id);
+    },
+  );
+
   if (findings.length === 0) {
     return (
       <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">
@@ -44,10 +59,10 @@ export function FinanceAnalyserTab({ data }: { data: FinanceData }) {
           {focused.length === 0 ? (
             <p className="text-[14px] leading-6 text-paper-char">Nothing needs action. Everything checked is going well.</p>
           ) : (
-            <ol className="space-y-4">
+            <ol className="space-y-3">
               {focused.map((finding, index) => (
                 <li key={finding.id}>
-                  <FindingCard finding={finding} rank={index + 1} />
+                  <FindingCard finding={finding} rank={index + 1} open={fold.isOpen(finding.id)} onToggle={() => fold.toggle(finding.id)} />
                 </li>
               ))}
             </ol>
@@ -55,22 +70,30 @@ export function FinanceAnalyserTab({ data }: { data: FinanceData }) {
         </PaperSection>
 
         {data.debts.length > 0 ? (
-          <PaperSection label="Debt" count={data.debts.length}>
-            <ul className="space-y-4">
+          <PaperSection
+            label="Debt"
+            count={data.debts.length}
+            action={<FoldControls count={data.debts.length} allOpen={data.debts.every((debt) => fold.isOpen(`debt:${debt.accountId}`))} onSetAll={(open) => fold.setAll(open, data.debts.map((debt) => `debt:${debt.accountId}`))} />}
+          >
+            <ul className="space-y-3">
               {data.debts.map((debt) => (
                 <li key={debt.accountId}>
-                  <DebtCard debt={debt} freeCashFlow={data.freeCashFlow} />
+                  <DebtCard debt={debt} freeCashFlow={data.freeCashFlow} open={fold.isOpen(`debt:${debt.accountId}`)} onToggle={() => fold.toggle(`debt:${debt.accountId}`)} />
                 </li>
               ))}
             </ul>
           </PaperSection>
         ) : null}
 
-        <PaperSection label="Everything checked" count={findings.length}>
+        <PaperSection
+          label="Everything checked"
+          count={findings.length}
+          action={<FoldControls count={findings.length} allOpen={(focused.length > 0 ? rest : findings).every((finding) => fold.isOpen(finding.id))} onSetAll={(open) => fold.setAll(open, (focused.length > 0 ? rest : findings).map((finding) => finding.id))} />}
+        >
           <ul className="space-y-3">
             {(focused.length > 0 ? rest : findings).map((finding) => (
               <li key={finding.id}>
-                <FindingCard finding={finding} compact />
+                <FindingCard finding={finding} open={fold.isOpen(finding.id)} onToggle={() => fold.toggle(finding.id)} />
               </li>
             ))}
           </ul>
@@ -84,19 +107,31 @@ export function FinanceAnalyserTab({ data }: { data: FinanceData }) {
   );
 }
 
-function FindingCard({ finding, rank, compact }: { finding: Finding; rank?: number; compact?: boolean }) {
+const FINDING_ACCENT = { act: "flame", watch: "amber", good: "green" } as const;
+
+function FindingCard({ finding, rank, open, onToggle }: { finding: Finding; rank?: number; open: boolean; onToggle: () => void }) {
   const status = STATUS[finding.status];
   return (
-    <PaperCard className={cn(compact ? "p-4" : "p-5")}>
-      <div className="flex flex-wrap items-center gap-2">
-        {rank ? <span className="font-paper-display text-[20px] leading-none font-extrabold text-paper-moss tabular-nums">{rank}</span> : null}
-        <h3 className="font-paper-display text-[16px] font-bold tracking-[-0.01em] text-paper-moss">{finding.title}</h3>
-        <Tag tone={status.tone}>{status.label}</Tag>
-        <span className="text-[12.5px] text-paper-sage">{finding.principle}</span>
-      </div>
-      <p className="mt-2 text-[14.5px] leading-6 text-paper-moss">{finding.summary}</p>
+    <FoldCard
+      open={open}
+      onToggle={onToggle}
+      accent={FINDING_ACCENT[finding.status]}
+      title={
+        <>
+          {rank ? <span className="mr-2 text-paper-sage tabular-nums">{rank}</span> : null}
+          {finding.title}
+        </>
+      }
+      meta={
+        <>
+          <Tag tone={status.tone}>{status.label}</Tag>
+          <span>{finding.principle}</span>
+          <span className="block basis-full pt-1 text-[14px] leading-6 text-paper-char">{finding.summary}</span>
+        </>
+      }
+    >
       {finding.evidence.length > 0 ? (
-        <ul className="mt-2 space-y-1">
+        <ul className="space-y-1">
           {finding.evidence.map((line) => (
             <li key={line} className="text-[13.5px] leading-6 text-paper-char">
               {line}
@@ -105,31 +140,50 @@ function FindingCard({ finding, rank, compact }: { finding: Finding; rank?: numb
         </ul>
       ) : null}
       {finding.action ? (
-        <p className="mt-3 text-[14px] leading-6 text-paper-moss">
+        <p className={cn("text-[14px] leading-6 text-paper-moss", finding.evidence.length > 0 && "mt-3")}>
           <span className="font-semibold">What to do: </span>
           {finding.action}
         </p>
-      ) : null}
-    </PaperCard>
+      ) : (
+        <p className="text-[13.5px] leading-6 text-paper-sage">Nothing to do here.</p>
+      )}
+    </FoldCard>
   );
 }
 
-function DebtCard({ debt, freeCashFlow }: { debt: Debt; freeCashFlow: number | undefined }) {
+function DebtCard({ debt, freeCashFlow, open, onToggle }: { debt: Debt; freeCashFlow: number | undefined; open: boolean; onToggle: () => void }) {
+  const pay = debtPayState(debt);
+  const tone = debt.utilisation === undefined ? undefined : utilisationTone(debt.utilisation);
+  // The stripe is the worst of the two signals: a heavily used limit, or a month with no payment.
+  const accent = tone === "act" || pay.state === "late" ? "flame" : tone === "watch" ? "amber" : pay.state === "paid" ? "green" : "none";
+
   return (
-    <PaperCard className="p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">{debt.name}</h3>
-          <p className="text-[12.5px] text-paper-sage">
-            {debt.interestRate === undefined ? "No interest rate set: the cost below is understated" : `${(debt.interestRate * 100).toFixed(1).replace(/\.0$/, "")}% a year`}
-          </p>
-        </div>
-        <Figure label="Owed" value={money(debt.owed)} />
-      </div>
+    <FoldCard
+      open={open}
+      onToggle={onToggle}
+      accent={accent}
+      title={debt.name}
+      meta={
+        <>
+          <PayBadge state={pay.state}>{pay.label}</PayBadge>
+          <span>{debt.interestRate === undefined ? "No rate set" : `${(debt.interestRate * 100).toFixed(1).replace(/\.0$/, "")}% a year`}</span>
+          {debt.utilisation !== undefined ? <MiniBar value={debt.utilisation} label={`${Math.round(debt.utilisation * 100)}% of the limit used`} tone={tone === "good" ? "green" : tone === "watch" ? "amber" : "flame"} /> : null}
+        </>
+      }
+      figure={
+        <>
+          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(debt.owed)}</span>
+          <span className="block text-[12px] text-paper-sage">owed</span>
+        </>
+      }
+    >
+      {debt.interestRate === undefined ? <p className="mb-3 text-[13.5px] leading-6 font-semibold text-paper-flame-deep">No interest rate set, so the cost below is understated.</p> : null}
+
+      {debt.utilisation !== undefined && debt.creditLimit ? <UtilisationBar value={debt.utilisation} label={`Limit used (${money(debt.creditLimit)})`} /> : null}
 
       <dl className="mt-3 divide-y divide-paper-stone">
         {debt.monthlyInterest !== undefined ? <Line label="Interest added each month" value={money(debt.monthlyInterest)} /> : null}
-        {debt.utilisation !== undefined && debt.creditLimit ? <Line label="Limit used" value={`${Math.round(debt.utilisation * 100)}% of ${money(debt.creditLimit)}`} /> : null}
+        {debt.hasStatement ? <Line label="Paid into it this month" value={money(debt.paidThisMonth)} /> : null}
         {freeCashFlow !== undefined && freeCashFlow > 0 ? (
           <Line
             label={`At your free cash flow (${money(freeCashFlow)} a month)`}
@@ -137,6 +191,8 @@ function DebtCard({ debt, freeCashFlow }: { debt: Debt; freeCashFlow: number | u
           />
         ) : null}
       </dl>
+
+      {!debt.hasStatement ? <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Import this card's statement (Cash flow → Accounts → Manage) and Finance can show whether you have paid into it this month.</p> : null}
 
       <div className="mt-4 overflow-x-auto rounded-[4px] border border-paper-mist">
         <table className="w-full min-w-[22rem] text-left text-[14px]">
@@ -161,7 +217,7 @@ function DebtCard({ debt, freeCashFlow }: { debt: Debt; freeCashFlow: number | u
       <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">
         An estimate: interest is worked out monthly at the rate you entered. Real cards work it out daily and may add fees, so the true cost is a little higher. Set the rate and limit under Cash flow → Accounts → Manage.
       </p>
-    </PaperCard>
+    </FoldCard>
   );
 }
 

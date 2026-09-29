@@ -5,7 +5,10 @@ import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } fr
 import { useCreateBill, useDeleteBill, useMarkBillPaid, useUnmarkBillPaid, useUpdateBill } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
 import { Figure, MutationError } from "./finance-kit";
+import { PayBadge } from "./finance-badges";
+import { CloseButton, FoldCard, FoldControls } from "./finance-fold";
 import { CATEGORY_CHOICES, formatDay, formatMonthShort, money } from "./finance-model";
+import { useDismiss, useFold } from "./finance-ui-hooks";
 
 /**
  * Bills: the fixed things you pay every month. Rent, water and electricity,
@@ -30,12 +33,25 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
   const [prefill, setPrefill] = useState<BillSuggestion | undefined>();
   const { bills } = data;
   const sample = data.source.kind === "sample";
+  // What needs attention starts open: not seen, or due within days. Paid and far-off bills start folded.
+  const fold = useFold(
+    bills.items.map((bill) => bill.id),
+    (id) => {
+      const bill = bills.items.find((entry) => entry.id === id);
+      return bill?.status === "missing" || bill?.status === "due-soon" || bills.items.length <= 3;
+    },
+  );
 
   return (
     <div className="space-y-12">
+      {/* The button stays put while the form is open, so closing the form can hand focus back to it. */}
+      <PaperButton variant="amber" onClick={() => setAdding(true)} aria-expanded={adding} disabled={adding}>
+        <Plus className="size-3.5" aria-hidden="true" />
+        Add a bill
+      </PaperButton>
+
       {adding ? (
         <PaperCard className="max-w-2xl p-5">
-          <h2 className="mb-4 font-paper-display text-[17px] font-bold text-paper-moss">New bill</h2>
           <BillForm
             initial={prefill ? { name: prefill.merchant, amount: prefill.amount, dueDay: prefill.dueDay, category: prefill.category, match: prefill.merchant } : undefined}
             onDone={() => {
@@ -44,12 +60,7 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
             }}
           />
         </PaperCard>
-      ) : (
-        <PaperButton variant="amber" onClick={() => setAdding(true)}>
-          <Plus className="size-3.5" aria-hidden="true" />
-          Add a bill
-        </PaperButton>
-      )}
+      ) : null}
 
       {bills.items.length > 0 ? (
         <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border border-paper-mist bg-paper-mist lg:grid-cols-4">
@@ -105,11 +116,16 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
         const items = bills.items.filter((bill) => bill.status === group.status).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
         if (items.length === 0) return null;
         return (
-          <PaperSection key={group.status} label={group.label} count={items.length}>
-            <ul className="space-y-4">
+          <PaperSection
+            key={group.status}
+            label={group.label}
+            count={items.length}
+            action={<FoldControls count={items.length} allOpen={items.every((bill) => fold.isOpen(bill.id))} onSetAll={(open) => fold.setAll(open, items.map((bill) => bill.id))} />}
+          >
+            <ul className="space-y-3">
               {items.map((bill) => (
                 <li key={bill.id}>
-                  <BillCard bill={bill} readOnly={sample && bill.id.startsWith("sample-")} />
+                  <BillCard bill={bill} open={fold.isOpen(bill.id)} onToggle={() => fold.toggle(bill.id)} readOnly={sample && bill.id.startsWith("sample-")} />
                 </li>
               ))}
             </ul>
@@ -122,7 +138,9 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
 
 const ordinal = (day: number) => (day % 100 >= 11 && day % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[day % 10] ?? "th");
 
-function BillCard({ bill, readOnly }: { bill: BillStatus; readOnly: boolean }) {
+const BILL_PAY = { paid: "paid", "due-soon": "due", upcoming: "due", missing: "late" } as const;
+
+function BillCard({ bill, open, onToggle, readOnly }: { bill: BillStatus; open: boolean; onToggle: () => void; readOnly: boolean }) {
   const [editing, setEditing] = useState(false);
   const mark = useMarkBillPaid();
   const unmark = useUnmarkBillPaid();
@@ -138,26 +156,42 @@ function BillCard({ bill, readOnly }: { bill: BillStatus; readOnly: boolean }) {
 
   const seen = bill.history.some((entry) => entry.amount !== undefined);
   const dear = bill.variance !== undefined && bill.variance > 0 && bill.variance / bill.amount >= 0.05;
+  const state = BILL_PAY[bill.status];
+  const badge =
+    bill.status === "paid"
+      ? `${bill.marked ? "Marked paid" : "Paid"}${bill.paidOn ? ` ${formatDay(bill.paidOn)}` : ""}`
+      : bill.status === "missing"
+        ? "Not seen yet"
+        : bill.daysUntil === 0
+          ? "Due today"
+          : bill.daysUntil < 0
+            ? `Was due ${formatDay(bill.dueDate)}`
+            : `Due ${formatDay(bill.dueDate)}`;
 
   return (
-    <PaperCard className="p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-paper-display text-[18px] font-bold tracking-[-0.01em] text-paper-moss">{bill.name}</h3>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[12.5px] text-paper-sage">
-            <Tag>{bill.category}</Tag>
+    <FoldCard
+      open={open}
+      onToggle={onToggle}
+      accent={bill.status === "paid" ? "green" : bill.status === "missing" ? "flame" : bill.status === "due-soon" ? "amber" : "none"}
+      title={bill.name}
+      meta={
+        <>
+          <PayBadge state={state}>{badge}</PayBadge>
+          <Tag>{bill.category}</Tag>
+          <span>
             due the {bill.dueDay}
             {ordinal(bill.dueDay)}
-            {bill.match ? <span>· looks for “{bill.match}”</span> : null}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="font-paper-display text-[22px] leading-none font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(bill.amount)}</p>
-          <p className="mt-1 text-[12.5px] text-paper-sage">expected</p>
-        </div>
-      </div>
-
-      <p className={cn("mt-3 text-[14.5px] leading-6", bill.status === "missing" ? "font-semibold text-paper-flame-deep" : "text-paper-moss")} role="status">
+          </span>
+        </>
+      }
+      figure={
+        <>
+          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(bill.paidAmount ?? bill.amount)}</span>
+          <span className="block text-[12px] text-paper-sage tabular-nums">{bill.paidAmount === undefined ? "expected" : bill.variance !== undefined && Math.abs(bill.variance) >= 1 ? `expected ${money(bill.amount)}` : "as expected"}</span>
+        </>
+      }
+    >
+      <p className={cn("text-[14.5px] leading-6", bill.status === "missing" ? "font-semibold text-paper-flame-deep" : "text-paper-moss")} role="status">
         {bill.status === "paid" ? (
           <>
             {bill.marked ? "Marked paid" : "Paid"} {money(bill.paidAmount ?? 0)}
@@ -178,6 +212,7 @@ function BillCard({ bill, readOnly }: { bill: BillStatus; readOnly: boolean }) {
           `Due ${formatDay(bill.dueDate)}, in ${bill.daysUntil} ${bill.daysUntil === 1 ? "day" : "days"}.`
         )}
       </p>
+      {bill.match ? <p className="mt-1 text-[12.5px] text-paper-sage">Looks for “{bill.match}” in your payments.</p> : null}
 
       {seen ? (
         <div className="mt-3">
@@ -221,7 +256,7 @@ function BillCard({ bill, readOnly }: { bill: BillStatus; readOnly: boolean }) {
         <p className="mt-4 text-[12.5px] text-paper-sage">A sample bill. Add your own to track real ones.</p>
       )}
       <MutationError error={mark.error ?? unmark.error ?? remove.error} />
-    </PaperCard>
+    </FoldCard>
   );
 }
 
@@ -249,9 +284,11 @@ function BillForm({ bill, initial, onDone }: { bill?: BillStatus; initial?: Bill
   const valid = name.trim().length > 0 && Number.isFinite(amountValue) && amountValue > 0 && Number.isInteger(dayValue) && dayValue >= 1 && dayValue <= 31;
   const pending = create.isPending || update.isPending;
   const error = create.error ?? update.error;
+  useDismiss(onDone);
 
   return (
     <form
+      aria-label={bill ? `Edit ${bill.name}` : "New bill"}
       className="grid gap-4 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
@@ -263,6 +300,10 @@ function BillForm({ bill, initial, onDone }: { bill?: BillStatus; initial?: Bill
         }
       }}
     >
+      <div className="flex items-center justify-between gap-3 sm:col-span-2">
+        <h2 className="font-paper-display text-[17px] font-bold text-paper-moss">{bill ? `Edit ${bill.name}` : "New bill"}</h2>
+        <CloseButton label={bill ? `Close editing ${bill.name}` : "Close the new bill form"} onClick={onDone} showLabel />
+      </div>
       <label className="block sm:col-span-2">
         <FieldLabel>What is it?</FieldLabel>
         <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Rent, Water and electricity, Wifi" className={`${PAPER_INPUT} w-full`} maxLength={60} />
