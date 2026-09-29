@@ -10,6 +10,7 @@ import {
   Sun,
   SwatchBook,
   Target,
+  Wallet,
 } from "lucide-react";
 import type { AppShellNavigationItem } from "@/components/os";
 
@@ -19,8 +20,8 @@ import type { AppShellNavigationItem } from "@/components/os";
  * Organised around the operator's work, not around the agents doing it:
  *
  * ```text
- * Today · Inbox · Traction            where the day starts, what arrived,
- *                                     and the customers to go and get
+ * Today · Inbox · Traction · Finance  where the day starts, what arrived,
+ *                                     the customers to go and get, and the money
  * WORK    Workspaces · Knowledge · Creative
  * SYSTEM  Automations · Operations · Activity
  * ```
@@ -38,6 +39,9 @@ export const navigationItems: AppShellNavigationItem[] = [
   // Customer acquisition, at the same level as the day itself. In the work
   // list it would sit below the build and lose to it every time.
   { label: "Traction", href: "/traction", icon: Target, section: "primary" },
+  // Money as its own pillar: read-only from Investec, so it can sit at the
+  // same level as the day without ever being able to act on it.
+  { label: "Finance", href: "/finance", icon: Wallet, section: "primary" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "work" },
   // Still `/designs` underneath. Creative, because product imagery, brand
