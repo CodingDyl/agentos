@@ -187,6 +187,12 @@ export const useDeleteLeadMagnet = () =>
 export const useDraftLeadMagnet = () =>
   useTractionMutation((leadMagnetId: string) => request(`/api/traction/lead-magnets/${id(leadMagnetId)}/draft`, { method: "POST" }));
 
+/** Switches a magnet's signup email on (publishing it to Virtec) or off. */
+export const useSetLeadMagnetEmail = () =>
+  useTractionMutation(({ leadMagnetId, enabled }: { leadMagnetId: string; enabled: boolean }) =>
+    request(`/api/traction/lead-magnets/${id(leadMagnetId)}/email`, json("POST", { enabled })),
+  );
+
 export const useStartLeadMagnetExperiment = () =>
   useTractionMutation((leadMagnetId: string) => request(`/api/traction/lead-magnets/${id(leadMagnetId)}/experiment`, { method: "POST" }));
 

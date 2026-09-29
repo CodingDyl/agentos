@@ -166,6 +166,8 @@ export function normaliseInboundLeads(payload: unknown): Normalised<VirtecInboun
         message: text(raw.message)?.slice(0, 4000),
         details: answers(raw.details),
         page: text(raw.page),
+        nurtureSentAt: timestamp(raw.nurtureSentAt),
+        nurtureError: text(raw.nurtureError)?.slice(0, 300),
         createdAt: timestamp(raw.createdAt),
       }),
     VirtecInboundLeadSchema,

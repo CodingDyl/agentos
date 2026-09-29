@@ -1,8 +1,11 @@
-import { ArrowDown, ArrowUp, Check, Download, FlaskConical, PenLine, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Download, FlaskConical, Mail, PenLine, Plus, Trash2, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
+  emailChangedSincePublish,
   leadMagnetBlockers,
+  leadMagnetEmailBlockers,
+  leadMagnetReadUrl,
   leadMagnetSource,
   MAX_LEAD_MAGNET_SECTIONS,
   type LeadMagnet,
@@ -19,6 +22,7 @@ import {
   useDeleteLeadMagnet,
   useDraftLeadMagnet,
   useSaveLeadMagnet,
+  useSetLeadMagnetEmail,
   useStartLeadMagnetExperiment,
 } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
@@ -49,7 +53,7 @@ const FORMATS: readonly { value: LeadMagnetFormat; label: string; hint: string }
 const STATUS_LABEL: Record<LeadMagnetStatus, string> = { draft: "Draft", ready: "Ready", live: "Live" };
 const STATUS_TONE: Record<LeadMagnetStatus, "muted" | "marigold" | "green"> = { draft: "muted", ready: "marigold", live: "green" };
 
-const EMPTY_STATS: LeadMagnetStats = { signups: 0, signupsLast7Days: 0, followedUp: 0, conversations: 0 };
+const EMPTY_STATS: LeadMagnetStats = { signups: 0, signupsLast7Days: 0, emailed: 0, emailFailed: 0, followedUp: 0, conversations: 0 };
 
 export function TractionLeadMagnetsTab({ data }: { data: TractionData }) {
   const [open, setOpen] = useState<string | undefined>(data.leadMagnets[0]?.id);
@@ -74,6 +78,7 @@ export function TractionLeadMagnetsTab({ data }: { data: TractionData }) {
                     stats={data.leadMagnetStats[magnet.id] ?? EMPTY_STATS}
                     experimentName={data.experiments.find((experiment) => experiment.id === magnet.experimentId)?.name}
                     virtec={!data.crm.configured ? "off" : data.crm.sources?.inbound?.ok === false ? "failed" : "ok"}
+                    writable={data.crm.writable}
                     onClose={() => setOpen(undefined)}
                   />
                 </li>
@@ -206,6 +211,8 @@ type Draft = {
   seoDescription: string;
   sections: { heading: string; body: string }[];
   nextStep: string;
+  emailSubject: string;
+  emailBody: string;
   coverAssetId: string;
   missing: string;
   liveUrl: string;
@@ -228,6 +235,8 @@ function toDraft(magnet: LeadMagnet): Draft {
     seoDescription: magnet.seoDescription ?? "",
     sections: magnet.sections.map((section) => ({ ...section })),
     nextStep: magnet.nextStep ?? "",
+    emailSubject: magnet.emailSubject ?? "",
+    emailBody: magnet.emailBody ?? "",
     coverAssetId: magnet.coverAssetId ?? "",
     missing: magnet.missing.join("\n"),
     liveUrl: magnet.liveUrl ?? "",
@@ -256,6 +265,8 @@ function toInput(draft: Draft, magnet: LeadMagnet, status: LeadMagnetStatus): Le
       .filter((section) => section.heading || section.body)
       .map((section) => ({ heading: section.heading || "Untitled", body: section.body })),
     nextStep: optional(draft.nextStep),
+    emailSubject: optional(draft.emailSubject.replace(/[\r\n]+/g, " ")),
+    emailBody: optional(draft.emailBody),
     coverAssetId: optional(draft.coverAssetId),
     missing: toList(draft.missing),
     liveUrl: optional(draft.liveUrl),
@@ -268,6 +279,7 @@ function LeadMagnetEditor({
   stats,
   experimentName,
   virtec,
+  writable,
   onClose,
 }: {
   magnet: LeadMagnet;
@@ -275,6 +287,7 @@ function LeadMagnetEditor({
   stats: LeadMagnetStats;
   experimentName?: string;
   virtec: "ok" | "off" | "failed";
+  writable: boolean;
   onClose: () => void;
 }) {
   // Re-seeded whenever the server's copy changes, after a Hermes draft most of all.
@@ -508,6 +521,17 @@ function LeadMagnetEditor({
           </label>
         </fieldset>
 
+        <SignupEmail
+          magnet={magnet}
+          subject={draft.emailSubject}
+          body={draft.emailBody}
+          liveUrl={draft.liveUrl}
+          dirty={dirty}
+          writable={writable}
+          onSubject={set("emailSubject")}
+          onBody={set("emailBody")}
+        />
+
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <FieldLabel>Still missing (one per line)</FieldLabel>
@@ -612,12 +636,13 @@ function Results({ stats, virtec, source }: { stats: LeadMagnetStats; virtec: "o
   const cells: [string, number][] = [
     ["Signups", stats.signups],
     ["Last 7 days", stats.signupsLast7Days],
+    ["Emailed", stats.emailed],
     ["Followed up", stats.followedUp],
     ["Conversations", stats.conversations],
   ];
   return (
     <div>
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {cells.map(([label, value]) => (
           <div key={label} className="rounded-[4px] border border-paper-mist px-3 py-2">
             <dt className="text-[11.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
@@ -635,6 +660,12 @@ function Results({ stats, virtec, source }: { stats: LeadMagnetStats; virtec: "o
         ) : (
           "Virtec's website leads could not be read, so these are not current."
         )}
+        {stats.emailFailed > 0 ? (
+          <span className="text-paper-flame-deep">
+            {" "}
+            {stats.emailFailed} signup {stats.emailFailed === 1 ? "email was" : "emails were"} not sent; the reason is on the lead in Virtec.
+          </span>
+        ) : null}
       </p>
     </div>
   );
@@ -674,5 +705,114 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
     >
       {children}
     </button>
+  );
+}
+
+/** The email a signup gets at once, sent by Virtec. Written here; switched on and off here. */
+function SignupEmail({
+  magnet,
+  subject,
+  body,
+  liveUrl,
+  dirty,
+  writable,
+  onSubject,
+  onBody,
+}: {
+  magnet: LeadMagnet;
+  subject: string;
+  body: string;
+  liveUrl: string;
+  dirty: boolean;
+  writable: boolean;
+  onSubject: (event: { target: { value: string } }) => void;
+  onBody: (event: { target: { value: string } }) => void;
+}) {
+  const toggle = useSetLeadMagnetEmail();
+  const saved = { emailSubject: magnet.emailSubject, emailBody: magnet.emailBody, liveUrl: magnet.liveUrl };
+  const blockers = leadMagnetEmailBlockers({ emailSubject: optional(subject), emailBody: optional(body), liveUrl: optional(liveUrl) });
+  const published = magnet.emailPublished;
+  const on = published?.enabled === true;
+  const changed = emailChangedSincePublish({ ...saved, emailPublished: published });
+  const readUrl = leadMagnetReadUrl(optional(liveUrl)) ?? "https://…/read";
+  const preview = body.replaceAll("{{firstName}}", "Jane").replaceAll("{{link}}", `${readUrl}?via=email`);
+
+  const state = !published
+    ? "Not published. Signups get no email until you switch it on."
+    : on
+      ? `On in Virtec since ${new Date(published.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.${changed ? " You have changed it since; publish to update what signups get." : ""}`
+      : "Off in Virtec. Signups get no email.";
+
+  return (
+    <fieldset className="space-y-3">
+      <legend className="mb-1 font-paper-display text-[15px] font-bold text-paper-moss">
+        Signup email{" "}
+        <span className="text-[12.5px] font-normal text-paper-sage">
+          Sent by Virtec the moment someone signs up. Use <code>{"{{firstName}}"}</code> and <code>{"{{link}}"}</code>.
+        </span>
+      </legend>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="space-y-3">
+          <label className="block">
+            <FieldLabel>Subject</FieldLabel>
+            <input maxLength={150} className={cn(PAPER_INPUT, "w-full")} value={subject} onChange={onSubject} />
+          </label>
+          <label className="block">
+            <FieldLabel>Email</FieldLabel>
+            <textarea
+              rows={9}
+              maxLength={3000}
+              placeholder={"Hi {{firstName}},\n\nHere is your checklist: {{link}}\n\n…\n\nDylan"}
+              className={cn(PAPER_INPUT, "w-full py-2 font-mono text-[13px] leading-6")}
+              value={body}
+              onChange={onBody}
+            />
+          </label>
+        </div>
+        <div>
+          <FieldLabel>Preview</FieldLabel>
+          <div className="rounded-[4px] border border-paper-mist bg-paper-white p-4 text-[13.5px] leading-6 text-paper-char">
+            <p className="font-semibold text-paper-moss">{subject.replaceAll("{{firstName}}", "Jane") || "No subject yet"}</p>
+            <p className="mt-2 break-words whitespace-pre-wrap">{preview || "Nothing written yet."}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+        <Mail className="size-3.5 text-paper-sage" aria-hidden="true" />
+        <span className="text-[12.5px] text-paper-char">{state}</span>
+        <span className="ml-auto flex gap-1.5">
+          {!on || changed ? (
+            <PaperButton
+              variant="ghost"
+              disabled={!writable || dirty || blockers.length > 0 || toggle.isPending}
+              title={
+                !writable
+                  ? "Needs Virtec write-back (VIRTEC_WRITE_API_KEY)"
+                  : dirty
+                    ? "Save first; Virtec gets the saved email"
+                    : blockers.length > 0
+                      ? blockers.join("; ")
+                      : undefined
+              }
+              onClick={() => toggle.mutate({ leadMagnetId: magnet.id, enabled: true })}
+            >
+              {toggle.isPending ? "Publishing…" : on ? "Publish changes" : "Switch on in Virtec"}
+            </PaperButton>
+          ) : null}
+          {on ? (
+            <PaperButton disabled={!writable || toggle.isPending} onClick={() => toggle.mutate({ leadMagnetId: magnet.id, enabled: false })}>
+              Switch off
+            </PaperButton>
+          ) : null}
+        </span>
+      </div>
+      {blockers.length > 0 && !on ? <p className="text-[12.5px] text-paper-sage">Before it can go out: {blockers.join("; ")}.</p> : null}
+      {toggle.error ? (
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
+          {toggle.error.message}
+        </p>
+      ) : null}
+    </fieldset>
   );
 }

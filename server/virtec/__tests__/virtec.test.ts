@@ -333,6 +333,21 @@ describe("write-back", () => {
     assert.equal(url, "https://crm.example.test/api/agentos/inbound-leads/in1");
   });
 
+  it("publishes a lead magnet email with PUT, to its own route", async () => {
+    const { patchVirtec } = await import("../client");
+    let seen: { url: string; method?: string } | undefined;
+    const fetcher = (async (target: URL, init?: RequestInit) => {
+      seen = { url: String(target), method: init?.method };
+      return respond(200, { email: { slug: "intake" } });
+    }) as unknown as typeof fetch;
+
+    await patchVirtec(
+      { kind: "magnet-email", id: "intake", body: { track: "jurivo", subject: "S", body: "B {{link}}", readUrl: "https://x.test/r", enabled: true } },
+      fetcher,
+    );
+    assert.deepEqual(seen, { url: "https://crm.example.test/api/agentos/lead-magnet-emails/intake", method: "PUT" });
+  });
+
   it("refuses an id that is not a record id, before any request", async () => {
     const { patchVirtec } = await import("../client");
     const fetcher = (async () => {

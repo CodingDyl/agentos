@@ -1,5 +1,5 @@
 import type { VirtecSnapshot } from "../../shared/virtec-types";
-import { patchVirtec, VirtecError, type InboundLeadWriteStatus } from "./client";
+import { patchVirtec, VirtecError, type InboundLeadWriteStatus, type MagnetEmailWrite } from "./client";
 import { patchCachedSnapshot } from "./snapshot";
 
 /**
@@ -70,4 +70,8 @@ export async function setInboundLeadStatus(id: string, status: InboundLeadWriteS
     }));
   }
   return outcome;
+}
+
+export async function publishMagnetEmail(slug: string, email: MagnetEmailWrite): Promise<WriteOutcome> {
+  return attempt(() => patchVirtec({ kind: "magnet-email", id: slug, body: email }), `lead magnet email ${slug} ${email.enabled ? "on" : "off"}`);
 }

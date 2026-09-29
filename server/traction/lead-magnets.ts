@@ -48,6 +48,8 @@ export function leadMagnetStats(
       return [
         magnet.id,
         {
+          emailed: signups.filter((lead) => lead.nurtureSentAt).length,
+          emailFailed: signups.filter((lead) => !lead.nurtureSentAt && lead.nurtureError).length,
           signups: signups.length,
           signupsLast7Days: signups.filter((lead) => lead.createdAt && now.getTime() - Date.parse(lead.createdAt) <= WEEK_MS).length,
           followedUp: signups.filter((lead) => PAST_FIRST_REPLY.has(lead.status ?? "") || prospectOf(lead)).length,
@@ -110,6 +112,7 @@ export function buildLeadMagnetPacket(context: { magnet: LeadMagnet; icp?: Icp; 
     "- Plain, direct English. No hype (\"revolutionary\", \"seamless\", \"unlock\", \"game-changer\").",
     "- Section bodies are plain text: blank lines between paragraphs, `- ` bullets, `- [ ] ` checklist items, `**bold**` sparingly. No HTML, no headings inside a body.",
     "- Mention the product at most once, in `nextStep`, as the natural next step, not a pitch.",
+    "- The email goes out the moment someone signs up. Under 100 words, plain text, from Dylan in the first person: the link, one sentence on how to get the most from it, and one easy question they can answer by replying. Use `{{firstName}}` for their name and `{{link}}` exactly once where the link goes. No sales pitch, no second link.",
     "",
     `SITE: ${SITE_CONTEXT[magnet.track]}`,
     `FORMAT: ${FORMAT_GUIDE[magnet.format]}`,
@@ -131,6 +134,8 @@ export function buildLeadMagnetPacket(context: { magnet: LeadMagnet; icp?: Icp; 
     '  "seoDescription": "under 155 characters",',
     '  "sections": [{ "heading": "…", "body": "…" }],',
     '  "nextStep": "one or two sentences pointing at the offer",',
+    '  "emailSubject": "the signup email subject, under 8 words",',
+    '  "emailBody": "the signup email, plain text, with {{firstName}} and {{link}}",',
     '  "missing": ["each fact the resource needs and nobody has given yet"]',
     "}",
   ]
@@ -179,6 +184,9 @@ export function readLeadMagnetDraft(payload: unknown): LeadMagnetDraft | undefin
     seoTitle: asText(record.seoTitle, 70),
     seoDescription: asText(record.seoDescription, 170),
     nextStep: asText(record.nextStep, 300),
+    emailSubject: asText(record.emailSubject, 150)?.replace(/[\r\n]+/g, " "),
+    // Without the link placeholder the email cannot go out; better empty than wrong.
+    emailBody: asText(record.emailBody, 3000)?.includes("{{link}}") ? asText(record.emailBody, 3000) : undefined,
     bullets: asList(record.bullets, 160, 6),
     sections,
     missing: asList(record.missing, 300, 20),

@@ -125,6 +125,9 @@ export const VirtecInboundLeadSchema = z.object({
   message: z.string().optional(),
   details: z.record(z.string(), z.string()).default({}),
   page: z.string().optional(),
+  /** For a lead magnet signup: when Virtec sent the magnet's email, or why it could not. */
+  nurtureSentAt: z.string().optional(),
+  nurtureError: z.string().optional(),
   createdAt: z.string().optional(),
 });
 

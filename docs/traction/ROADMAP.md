@@ -16,12 +16,14 @@ sophisticated the module gets.
 | 6 | Screenshots on case studies: up to 12 Creative images per study (picked from the workspace first, or uploaded from the editor), ordered, exported as a ZIP of `case-study.md` plus `images/` with matching paths. Hermes carries a no-em-dash house style on every call, with replies cleaned as a guarantee |
 | 7 | Website lead capture: every form on Virtara (start a project, contact, SEO, packages, health check, audit) and Jurivo's demo request lands in Virtec's `inbound_leads` through a keyed server-to-server route (one key per site; the key sets the track). Unanswered leads sit at the top of the Traction queue; "Replied" makes them a prospect in conversation and marks them replied in Virtec. Virtec has a Website sub-tab to triage them |
 | 8 | Lead magnets: a Traction tab where Hermes drafts a checklist, scorecard, guide or template plus its landing page (empty fields only; unknown facts become `[NEEDS DATA]` and block shipping), a Creative cover, a linked offer and a one-click experiment. Export is a ZIP (`<slug>.json`, cover, README) the Virtara or Jurivo repo takes as-is; both sites render `/guides`, `/guides/<slug>` and a soft-gated, printable `/guides/<slug>/read`. Signups reach Virtec as `magnet-<slug>`, are counted per magnet, and carry the magnet's experiment and offer when taken into Traction |
+| 9 | Signup email: each magnet has a short plain-text email (Hermes drafts it with the rest; `{{firstName}}`, `{{link}}`) that Virtec sends through Resend the moment someone signs up. Switched on, updated and off from AgentOS (PUT to Virtec, audited); it links to the read page with `?via=email`, which both sites let straight in. Sent and failed counts per magnet; the outcome is on each lead in Virtec |
 
 ## Next
 
-1. **Nurture after signup**: a short follow-up email per magnet (drafted by
-   Hermes, sent by Virtec's Resend), so a signup hears from us the same day
-   even before a person replies.
+1. **A second touch**: if a signup has not replied and nobody has written to
+   them after 3 days, a queue item to send a short, personal follow-up
+   (Hermes drafts from what they downloaded). Deliberately a person's send,
+   not an automated sequence.
 
 ## Parked — noted, not started
 

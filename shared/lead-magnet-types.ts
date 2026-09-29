@@ -75,15 +75,30 @@ const fields = {
   nextStep: Text(300).optional(),
   coverAssetId: AssetIdSchema.optional(),
 
+  // The email a signup gets at once, sent by Virtec.
+  emailSubject: z.string().trim().min(1).max(150).regex(/^[^\r\n]*$/, "One line").optional(),
+  /** Plain text with `{{link}}` where the link to the resource goes, and optionally `{{firstName}}`. */
+  emailBody: z.string().trim().min(1).max(3000).optional(),
+
   /** What the draft could not know. Cleared by a person, not by Hermes. */
   missing: z.array(Text(300)).max(20).default([]),
   /** Where it is published, once it is. */
   liveUrl: z.string().trim().url().max(300).optional(),
 };
 
+/** What Virtec is sending right now, as last published from here. */
+export const PublishedMagnetEmailSchema = z.object({
+  subject: z.string(),
+  body: z.string(),
+  readUrl: z.string(),
+  enabled: z.boolean(),
+  at: z.string(),
+});
+
 export const LeadMagnetSchema = z.object({
   id: z.string(),
   ...fields,
+  emailPublished: PublishedMagnetEmailSchema.optional(),
   draftedAt: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -107,6 +122,10 @@ export const NewLeadMagnetSchema = z
 
 /** How a magnet is doing, counted from Virtec's website leads. Never typed in. */
 export const LeadMagnetStatsSchema = z.object({
+  /** Signups Virtec sent the magnet's email to. */
+  emailed: z.number().int().default(0),
+  /** Signups whose email Virtec could not send. */
+  emailFailed: z.number().int().default(0),
   /** Signups under `magnet-<slug>`, all time (within what Virtec returned). */
   signups: z.number().int(),
   signupsLast7Days: z.number().int(),
@@ -150,6 +169,7 @@ export type LeadMagnetInput = z.input<typeof LeadMagnetInputSchema>;
 export type NewLeadMagnet = z.infer<typeof NewLeadMagnetSchema>;
 export type LeadMagnetStats = z.infer<typeof LeadMagnetStatsSchema>;
 export type LeadMagnetFile = z.infer<typeof LeadMagnetFileSchema>;
+export type PublishedMagnetEmail = z.infer<typeof PublishedMagnetEmailSchema>;
 
 /** The Virtec source a magnet's signups carry. */
 export function leadMagnetSource(slug: string): string {
@@ -195,4 +215,40 @@ export function leadMagnetBlockers(
   if (text.some((entry) => entry && GAP.test(entry))) blockers.push("Resolve every [NEEDS DATA] marker");
   if (magnet.missing.length > 0) blockers.push("Clear the missing-facts list");
   return blockers;
+}
+
+/** Where the email links to: the read page next to the live landing page. */
+export function leadMagnetReadUrl(liveUrl: string | undefined): string | undefined {
+  if (!liveUrl) return undefined;
+  try {
+    const url = new URL(liveUrl);
+    if (url.protocol !== "https:") return undefined;
+    url.pathname = `${url.pathname.replace(/\/+$/, "")}/read`;
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * What stops the signup email from being switched on. It links to the live
+ * page, so the magnet must be live somewhere first.
+ */
+export function leadMagnetEmailBlockers(magnet: Pick<LeadMagnet, "emailSubject" | "emailBody" | "liveUrl">): string[] {
+  const blockers: string[] = [];
+  if (!magnet.emailSubject) blockers.push("Add the email subject");
+  if (!magnet.emailBody) blockers.push("Write the email");
+  else if (!magnet.emailBody.includes("{{link}}")) blockers.push("Put {{link}} in the email where the link goes");
+  if ([magnet.emailSubject, magnet.emailBody].some((entry) => entry && GAP.test(entry))) blockers.push("Resolve the [NEEDS DATA] in the email");
+  if (!leadMagnetReadUrl(magnet.liveUrl)) blockers.push("Add the https address it is live at");
+  return blockers;
+}
+
+/** Whether the email Virtec sends differs from what is written here. */
+export function emailChangedSincePublish(magnet: Pick<LeadMagnet, "emailSubject" | "emailBody" | "liveUrl" | "emailPublished">): boolean {
+  const published = magnet.emailPublished;
+  if (!published) return false;
+  return published.subject !== magnet.emailSubject || published.body !== magnet.emailBody || published.readUrl !== leadMagnetReadUrl(magnet.liveUrl);
 }

@@ -6,6 +6,7 @@ import {
   type LeadMagnet,
   type LeadMagnetInput,
   type NewLeadMagnet,
+  type PublishedMagnetEmail,
 } from "../../shared/lead-magnet-types";
 import { ExperimentSchema, type Experiment } from "../../shared/traction-types";
 import { compact, mutate, newId, readState, TractionConflictError, TractionNotFoundError, type TractionState } from "./store";
@@ -93,6 +94,7 @@ export function replaceLeadMagnet(id: string, raw: LeadMagnetInput): Promise<Lea
         ...input,
         ...checkedLinks(state, input),
         id,
+        emailPublished: existing.emailPublished,
         draftedAt: existing.draftedAt,
         createdAt: existing.createdAt,
         updatedAt: new Date().toISOString(),
@@ -110,7 +112,10 @@ export function replaceLeadMagnet(id: string, raw: LeadMagnetInput): Promise<Lea
 }
 
 export type LeadMagnetDraft = Partial<
-  Pick<LeadMagnet, "title" | "promise" | "audience" | "headline" | "subhead" | "cta" | "seoTitle" | "seoDescription" | "nextStep">
+  Pick<
+    LeadMagnet,
+    "title" | "promise" | "audience" | "headline" | "subhead" | "cta" | "seoTitle" | "seoDescription" | "nextStep" | "emailSubject" | "emailBody"
+  >
 > & {
   bullets: string[];
   sections: LeadMagnet["sections"];
@@ -141,6 +146,8 @@ export function applyLeadMagnetDraft(id: string, draft: LeadMagnetDraft): Promis
         seoTitle: fill(existing.seoTitle, draft.seoTitle),
         seoDescription: fill(existing.seoDescription, draft.seoDescription),
         nextStep: fill(existing.nextStep, draft.nextStep),
+        emailSubject: fill(existing.emailSubject, draft.emailSubject),
+        emailBody: fill(existing.emailBody, draft.emailBody),
         bullets: existing.bullets.length > 0 ? existing.bullets : draft.bullets,
         sections: existing.sections.length > 0 ? existing.sections : draft.sections,
         missing: [...new Set([...existing.missing, ...draft.missing])].slice(0, 20),
@@ -154,10 +161,21 @@ export function applyLeadMagnetDraft(id: string, draft: LeadMagnetDraft): Promis
   });
 }
 
+/** Remembers what Virtec is now sending, after a publish succeeded there. */
+export function recordEmailPublished(id: string, published: PublishedMagnetEmail): Promise<LeadMagnet> {
+  return mutate((state) => {
+    const existing = findMagnet(state, id);
+    const next: LeadMagnet = { ...existing, emailPublished: published, updatedAt: new Date().toISOString() };
+    state.leadMagnets[state.leadMagnets.indexOf(existing)] = next;
+    return { result: next };
+  });
+}
+
 export function deleteLeadMagnet(id: string): Promise<void> {
   return mutate((state) => {
     const magnet = findMagnet(state, id);
     if (magnet.status === "live") throw new TractionConflictError("Take it off the site and set it back to draft before deleting it");
+    if (magnet.emailPublished?.enabled) throw new TractionConflictError("Switch its email off in Virtec before deleting it");
     state.leadMagnets = state.leadMagnets.filter((entry) => entry.id !== id);
     return { result: undefined };
   });

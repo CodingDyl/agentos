@@ -10,7 +10,9 @@ import type { VirtecInboundLead } from "../../../shared/virtec-types";
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-magnets-"));
 process.env.AGENTOS_UI_DIR = directory;
 
-const { leadMagnetBlockers, LeadMagnetFileSchema, slugFromTitle } = await import("../../../shared/lead-magnet-types");
+const { emailChangedSincePublish, leadMagnetBlockers, leadMagnetEmailBlockers, LeadMagnetFileSchema, leadMagnetReadUrl, slugFromTitle } = await import(
+  "../../../shared/lead-magnet-types"
+);
 const { buildLeadMagnetPacket, leadMagnetFiles, leadMagnetStats, LeadMagnetNotReadyError, magnetForLead, readLeadMagnetDraft } = await import("../lead-magnets");
 const magnetStore = await import("../lead-magnet-store");
 const store = await import("../store");
@@ -94,7 +96,7 @@ describe("stats", () => {
       prospects,
       NOW,
     );
-    assert.deepEqual(stats.lm_1, { signups: 3, signupsLast7Days: 2, followedUp: 2, conversations: 1 });
+    assert.deepEqual(stats.lm_1, { emailed: 0, emailFailed: 0, signups: 3, signupsLast7Days: 2, followedUp: 2, conversations: 1 });
   });
 
   it("finds the magnet a lead came from, and none for an ordinary form", () => {
@@ -193,5 +195,53 @@ describe("lead magnet store", () => {
 
     const [item] = inboundQueueItems([signup], [], "2026-09-29", [linked]);
     assert.match(item.detail[0], /^Jurivo "After hours intake"/);
+  });
+});
+
+describe("signup email", () => {
+  it("links to the read page next to the live page, https only", () => {
+    assert.equal(leadMagnetReadUrl("https://jurivo.test/guides/intake/"), "https://jurivo.test/guides/intake/read");
+    assert.equal(leadMagnetReadUrl("https://jurivo.test/guides/intake?utm=x#top"), "https://jurivo.test/guides/intake/read");
+    assert.equal(leadMagnetReadUrl("http://jurivo.test/guides/intake"), undefined);
+    assert.equal(leadMagnetReadUrl(undefined), undefined);
+  });
+
+  it("will not go out without a subject, a {{link}}, and a live https page", () => {
+    assert.deepEqual(leadMagnetEmailBlockers({}), ["Add the email subject", "Write the email", "Add the https address it is live at"]);
+    assert.deepEqual(leadMagnetEmailBlockers({ emailSubject: "Here it is", emailBody: "Hi", liveUrl: "https://x.test/guides/a" }), [
+      "Put {{link}} in the email where the link goes",
+    ]);
+    assert.deepEqual(leadMagnetEmailBlockers({ emailSubject: "Here it is", emailBody: "Hi {{link}}", liveUrl: "https://x.test/guides/a" }), []);
+  });
+
+  it("notices when what Virtec sends differs from what is written", () => {
+    const base = { emailSubject: "S", emailBody: "B {{link}}", liveUrl: "https://x.test/guides/a" };
+    const published = { subject: "S", body: "B {{link}}", readUrl: "https://x.test/guides/a/read", enabled: true, at: NOW.toISOString() };
+    assert.equal(emailChangedSincePublish({ ...base, emailPublished: published }), false);
+    assert.equal(emailChangedSincePublish({ ...base, emailBody: "New {{link}}", emailPublished: published }), true);
+    assert.equal(emailChangedSincePublish(base), false);
+  });
+
+  it("drops a drafted email with no link placeholder, and counts emails sent", () => {
+    const draft = readLeadMagnetDraft({ sections: [{ heading: "A", body: "B" }], emailSubject: "Your\nchecklist", emailBody: "No link here" });
+    assert.equal(draft?.emailBody, undefined);
+    assert.equal(draft?.emailSubject, "Your checklist");
+
+    const stats = leadMagnetStats(
+      [magnet()],
+      [lead({ nurtureSentAt: NOW.toISOString() }), lead({ id: "in2", nurtureError: "domain not verified" }), lead({ id: "in3" })],
+      [],
+      NOW,
+    );
+    assert.equal(stats.lm_1.emailed, 1);
+    assert.equal(stats.lm_1.emailFailed, 1);
+  });
+
+  it("keeps what was published across edits, and blocks deleting while it is on", async () => {
+    const created = await magnetStore.createLeadMagnet({ track: "jurivo", format: "checklist", title: "Email test" });
+    await magnetStore.recordEmailPublished(created.id, { subject: "S", body: "B {{link}}", readUrl: "https://x.test/guides/a/read", enabled: true, at: NOW.toISOString() });
+    const edited = await magnetStore.replaceLeadMagnet(created.id, { ...created, emailSubject: "New subject" });
+    assert.equal(edited.emailPublished?.subject, "S");
+    await assert.rejects(magnetStore.deleteLeadMagnet(created.id), /Switch its email off/);
   });
 });

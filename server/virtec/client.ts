@@ -6,7 +6,7 @@
  * read by the Node server only. The key is attached to requests here and
  * nowhere else — it never reaches a response, an error message or a log line.
  *
- * GET for reads with `VIRTEC_API_KEY`. Writes (three fixed PATCH routes) use
+ * GET for reads with `VIRTEC_API_KEY`. Writes (four fixed routes) use
  * a separate `VIRTEC_WRITE_API_KEY`, and only when it is set.
  */
 
@@ -130,7 +130,17 @@ const DOC_ID = /^[A-Za-z0-9_-]{1,128}$/;
 export type VirtecWrite =
   | { kind: "follow-up"; id: string; body: { status: "sent" | "dismissed" } | { status: "snoozed"; snoozedUntil: string } }
   | { kind: "lead"; id: string; body: { status: "new" | "reviewing" | "qualified" | "disqualified" } }
-  | { kind: "inbound-lead"; id: string; body: { status: InboundLeadWriteStatus } };
+  | { kind: "inbound-lead"; id: string; body: { status: InboundLeadWriteStatus } }
+  /** Publishes a lead magnet's signup email. The id is the magnet's slug. */
+  | { kind: "magnet-email"; id: string; body: MagnetEmailWrite };
+
+export interface MagnetEmailWrite {
+  track: "virtara" | "jurivo";
+  subject: string;
+  body: string;
+  readUrl: string;
+  enabled: boolean;
+}
 
 /** What AgentOS may set on a website lead. `won` is decided in Virtec. */
 export type InboundLeadWriteStatus = "reviewing" | "replied" | "not_a_fit" | "spam";
@@ -139,6 +149,7 @@ const WRITE_PATHS: Record<VirtecWrite["kind"], string> = {
   "follow-up": "/api/agentos/follow-ups/",
   lead: "/api/agentos/leads/",
   "inbound-lead": "/api/agentos/inbound-leads/",
+  "magnet-email": "/api/agentos/lead-magnet-emails/",
 };
 
 export async function patchVirtec(write: VirtecWrite, fetcher: typeof fetch = fetch): Promise<unknown> {
@@ -148,11 +159,12 @@ export async function patchVirtec(write: VirtecWrite, fetcher: typeof fetch = fe
   }
 
   const path = `${WRITE_PATHS[write.kind]}${write.id}`;
-  return requestVirtec("PATCH", path, process.env.VIRTEC_WRITE_API_KEY?.trim(), write.body, fetcher);
+  // A magnet email is replaced whole; everything else changes one field.
+  return requestVirtec(write.kind === "magnet-email" ? "PUT" : "PATCH", path, process.env.VIRTEC_WRITE_API_KEY?.trim(), write.body, fetcher);
 }
 
 async function requestVirtec(
-  method: "GET" | "PATCH",
+  method: "GET" | "PATCH" | "PUT",
   path: string,
   key: string | undefined,
   body: unknown,

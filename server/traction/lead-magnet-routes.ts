@@ -1,11 +1,14 @@
 import express from "express";
-import { LeadMagnetInputSchema, NewLeadMagnetSchema } from "../../shared/lead-magnet-types";
+import { leadMagnetEmailBlockers, LeadMagnetInputSchema, leadMagnetReadUrl, NewLeadMagnetSchema } from "../../shared/lead-magnet-types";
+import { isVirtecWritable } from "../virtec/client";
+import { publishMagnetEmail } from "../virtec/writes";
 import { findStoredAsset } from "../designs/library";
 import { draftLeadMagnet } from "./lead-magnet-draft";
 import {
   createLeadMagnet,
   deleteLeadMagnet,
   readLeadMagnet,
+  recordEmailPublished,
   replaceLeadMagnet,
   startLeadMagnetExperiment,
 } from "./lead-magnet-store";
@@ -76,6 +79,56 @@ leadMagnetRouter.post("/:id/experiment", async (request, response) => {
     response.status(201).json(await startLeadMagnetExperiment(request.params.id));
   } catch (error) {
     fail(response, error, "start the experiment");
+  }
+});
+
+/**
+ * Switches the signup email on (publishing what is written here) or off, in
+ * Virtec. Virtec sends it; this only says what to send. Recorded here only
+ * once Virtec has taken it, so the screen never claims an email that is not
+ * going out.
+ */
+leadMagnetRouter.post("/:id/email", async (request, response) => {
+  const enabled = (request.body as { enabled?: unknown } | undefined)?.enabled;
+  if (typeof enabled !== "boolean") {
+    response.status(400).json({ error: 'Expected { "enabled": true | false }' });
+    return;
+  }
+  if (!isVirtecWritable()) {
+    response.status(409).json({ error: "Write-back to Virtec is off (VIRTEC_WRITE_API_KEY is not set)" });
+    return;
+  }
+
+  try {
+    const magnet = await readLeadMagnet(request.params.id);
+    let email;
+    if (enabled) {
+      const blockers = leadMagnetEmailBlockers(magnet);
+      if (blockers.length > 0) {
+        response.status(422).json({ error: `The email cannot go out yet: ${blockers.join("; ")}` });
+        return;
+      }
+      email = { track: magnet.track, subject: magnet.emailSubject as string, body: magnet.emailBody as string, readUrl: leadMagnetReadUrl(magnet.liveUrl) as string, enabled };
+    } else {
+      // Off keeps the last published words, so switching back on is the same email.
+      if (!magnet.emailPublished) {
+        response.status(409).json({ error: "This magnet has no email in Virtec to switch off" });
+        return;
+      }
+      const { subject, body, readUrl } = magnet.emailPublished;
+      email = { track: magnet.track, subject, body, readUrl, enabled };
+    }
+
+    const outcome = await publishMagnetEmail(magnet.slug, email);
+    if (!outcome.ok) {
+      response.status(502).json({ error: outcome.error });
+      return;
+    }
+    const { track, ...published } = email;
+    void track;
+    response.json({ leadMagnet: await recordEmailPublished(magnet.id, { ...published, at: new Date().toISOString() }) });
+  } catch (error) {
+    fail(response, error, "update the signup email");
   }
 });
 
