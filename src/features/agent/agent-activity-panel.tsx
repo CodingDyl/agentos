@@ -1,6 +1,6 @@
 import { Check, ChevronDown, CircleDot, Circle, X } from "lucide-react";
 import { useState } from "react";
-import { SectionLabel } from "@/components/os";
+import { PAPER_FOCUS } from "@/components/paper";
 import { cn } from "@/lib/utils";
 import type { ActivityState, RunState } from "./run-events";
 
@@ -11,9 +11,9 @@ const STEP_ICON = {
 } as const;
 
 const STEP_TONE: Record<ActivityState, string> = {
-  running: "text-os-amber",
-  complete: "text-os-success",
-  error: "text-os-danger",
+  running: "text-paper-amber-deep",
+  complete: "text-paper-char",
+  error: "text-paper-flame-deep",
 };
 
 interface ActivityLineProps {
@@ -27,35 +27,21 @@ function ActivityLine({ label, state, nested = false }: ActivityLineProps) {
   const Icon = STEP_ICON[state] ?? Circle;
 
   return (
-    <li
-      className={cn(
-        "flex min-h-8 items-center gap-3 text-[13px] leading-5",
-        nested && "ps-5",
-      )}
-    >
+    <li className={cn("flex min-h-8 items-center gap-3 text-[13.5px] leading-5", nested && "ps-5")}>
       {nested ? (
-        <span className="font-mono text-os-subtle" aria-hidden="true">
+        <span className="font-mono text-paper-sage" aria-hidden="true">
           └
         </span>
       ) : null}
       <Icon
-        className={cn(
-          "size-3.5 shrink-0",
-          STEP_TONE[state],
-          state === "running" && "motion-safe:animate-pulse",
-        )}
+        className={cn("size-3.5 shrink-0", STEP_TONE[state], state === "running" && "motion-safe:animate-pulse")}
         strokeWidth={1.75}
         aria-hidden="true"
       />
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate",
-          state === "running" ? "text-foreground" : "text-os-muted",
-        )}
-      >
+      <span className={cn("min-w-0 flex-1 truncate", state === "running" ? "font-medium text-paper-moss" : "text-paper-char")}>
         {label}
       </span>
-      <span className="os-meta shrink-0 text-os-subtle">{state}</span>
+      <span className="shrink-0 text-[12.5px] text-paper-sage">{state}</span>
     </li>
   );
 }
@@ -72,12 +58,7 @@ export interface AgentActivityPanelProps {
  * What Hermes is doing. Expanded while a run is live, collapsed once it ends so
  * a finished transcript does not stay noisy.
  */
-export function AgentActivityPanel({
-  state,
-  isRunning,
-  showUnrecognised = false,
-  className,
-}: AgentActivityPanelProps) {
+export function AgentActivityPanel({ state, isRunning, showUnrecognised = false, className }: AgentActivityPanelProps) {
   // Expanded while running, collapsed when the run ends — but a manual toggle
   // still wins until the run state changes again. Adjusted during render rather
   // than in an effect, so there is no extra pass.
@@ -93,44 +74,35 @@ export function AgentActivityPanel({
   if (total === 0) return null;
 
   return (
-    <section className={cn("min-w-0", className)}>
+    <section aria-label="Activity" className={cn("min-w-0 rounded-[4px] border border-paper-mist", className)}>
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
-        className="os-focus-ring flex w-full cursor-pointer items-center justify-between gap-4 rounded-md py-1"
+        className={cn(
+          "flex w-full cursor-pointer items-center justify-between gap-4 rounded-[4px] px-4 py-2.5 transition-colors duration-150 hover:bg-paper-cream",
+          PAPER_FOCUS,
+        )}
       >
-        <SectionLabel>Activity</SectionLabel>
-        <span className="os-meta flex shrink-0 items-center gap-2 text-os-subtle">
+        <span className="text-[13.5px] font-semibold text-paper-moss">Activity</span>
+        <span className="flex shrink-0 items-center gap-2 text-[12.5px] text-paper-sage">
           {total} {total === 1 ? "event" : "events"}
-          <ChevronDown
-            className={cn(
-              "size-3.5 transition-transform duration-150",
-              isOpen && "rotate-180",
-            )}
-            aria-hidden="true"
-          />
+          <ChevronDown className={cn("size-3.5 transition-transform duration-150", isOpen && "rotate-180")} aria-hidden="true" />
         </span>
       </button>
 
       {isOpen ? (
-        <ul className="mt-3 space-y-0.5 border-t border-os-border pt-3">
+        <ul className="space-y-0.5 border-t border-paper-mist px-4 py-3">
           {state.steps.map((step) => (
             <ActivityLine key={step.id} label={step.label} state={step.state} />
           ))}
           {state.subagents.map((agent) => (
-            <ActivityLine
-              key={agent.name}
-              label={agent.name}
-              state={agent.state}
-              nested
-            />
+            <ActivityLine key={agent.name} label={agent.name} state={agent.state} nested />
           ))}
 
           {showUnrecognised && state.unrecognised.length > 0 ? (
-            <li className="os-meta pt-3 text-os-subtle">
-              {state.unrecognised.length} unrecognised{" "}
-              {state.unrecognised.length === 1 ? "event" : "events"}:{" "}
+            <li className="pt-3 text-[12.5px] text-paper-sage">
+              {state.unrecognised.length} unrecognised {state.unrecognised.length === 1 ? "event" : "events"}:{" "}
               {[...new Set(state.unrecognised.map((event) => event.type))].join(", ")}
             </li>
           ) : null}

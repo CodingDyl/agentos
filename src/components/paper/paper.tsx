@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -77,11 +77,15 @@ export function PaperSection({
 }
 
 /** A top-level card on the window. Never nested inside another. */
-export function PaperCard({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("rounded-[4px] border border-paper-mist bg-paper-white p-4", className)}>{children}</div>;
+export function PaperCard({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...props} className={cn("rounded-[4px] border border-paper-mist bg-paper-white p-4", className)}>
+      {children}
+    </div>
+  );
 }
 
-type ButtonVariant = "amber" | "ghost" | "quiet";
+type ButtonVariant = "amber" | "ghost" | "quiet" | "danger";
 
 const BUTTON: Record<ButtonVariant, string> = {
   amber: "bg-paper-amber text-paper-moss hover:bg-paper-amber-deep hover:text-paper-white",
@@ -89,6 +93,8 @@ const BUTTON: Record<ButtonVariant, string> = {
   // because gold text on white is 3.6:1 and fails AA at this size.
   ghost: "border-[1.5px] border-paper-gold text-paper-moss hover:bg-paper-linen",
   quiet: "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+  // Refusing or stopping something. Flame-deep is the AA-safe flame for text.
+  danger: "border-[1.5px] border-paper-flame-deep text-paper-flame-deep hover:bg-paper-linen",
 };
 
 export function PaperButton({

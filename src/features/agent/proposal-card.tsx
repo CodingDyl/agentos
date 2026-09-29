@@ -1,7 +1,7 @@
 import { ArrowRight, Check, Minus, Pencil, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ApprovalRequest } from "@shared/agentos-types";
-import { HairlineCard, CommandButton, SectionLabel } from "@/components/os";
+import { PaperButton, PaperCard } from "@/components/paper";
 import { cn } from "@/lib/utils";
 import { ApprovalOutcome, GatedCommand } from "./approval-card";
 import { changedFileCount, type ChangeKind, type ChangeProposal } from "./proposal";
@@ -15,10 +15,10 @@ const CHANGE_ICON: Record<ChangeKind, LucideIcon> = {
 
 /** Colour carries the kind, but the icon and text carry it too — never colour alone. */
 const CHANGE_TONE: Record<ChangeKind, string> = {
-  add: "text-os-amber",
-  complete: "text-os-success",
-  remove: "text-os-danger",
-  edit: "text-os-subtle",
+  add: "text-paper-amber-deep",
+  complete: "text-paper-char",
+  remove: "text-paper-flame-deep",
+  edit: "text-paper-sage",
 };
 
 export interface ProposalCardProps {
@@ -50,65 +50,39 @@ export interface ProposalCardProps {
  * nothing is written locally — approving lets Hermes act, and the console
  * re-reads the vault afterwards to find out what actually happened.
  */
-export function ProposalCard({
-  proposal,
-  approval,
-  onApply,
-  onReject,
-  isResponding = false,
-  error,
-  className,
-}: ProposalCardProps) {
+export function ProposalCard({ proposal, approval, onApply, onReject, isResponding = false, error, className }: ProposalCardProps) {
   const changed = changedFileCount(proposal);
   const isPending = approval?.status === "pending";
 
   return (
-    <HairlineCard
-      className={cn("max-w-[74ch] p-5 md:p-6", className)}
+    <PaperCard
+      className={cn("max-w-[74ch] p-5", isPending && "border-paper-gold", className)}
       role={isPending ? "alertdialog" : undefined}
       aria-label="Proposed update to AgentOS"
     >
-      <SectionLabel
-        className="text-os-amber"
-        action={
-          <span className="text-os-subtle">
-            {changed} {changed === 1 ? "file" : "files"}
-          </span>
-        }
-      >
-        Proposed update
-      </SectionLabel>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Proposed update</h2>
+        <span className="text-[12.5px] text-paper-sage">
+          {changed} {changed === 1 ? "file" : "files"}
+        </span>
+      </div>
 
-      <ul className="mt-5 space-y-6">
+      <ul className="mt-4 space-y-5">
         {proposal.files.map((file) => (
           <li key={file.file} className="min-w-0">
-            <p className="font-mono text-[13px] leading-5 text-foreground">
-              {file.file}
-            </p>
+            <p className="font-mono text-[13px] leading-5 text-paper-moss">{file.file}</p>
 
             {file.unchanged || file.changes.length === 0 ? (
-              <p className="mt-2 text-[13px] leading-5 text-os-subtle">
-                No change
-              </p>
+              <p className="mt-1.5 text-[13.5px] leading-5 text-paper-sage">No change</p>
             ) : (
               <ul className="mt-2 space-y-1.5">
                 {file.changes.map((change, index) => {
                   const Icon = CHANGE_ICON[change.kind];
 
                   return (
-                    <li
-                      key={`${change.kind}-${index}-${change.text}`}
-                      className="flex items-start gap-3 text-[15px] leading-6"
-                    >
-                      <Icon
-                        className={cn(
-                          "mt-1 size-3.5 shrink-0",
-                          CHANGE_TONE[change.kind],
-                        )}
-                        strokeWidth={1.75}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 text-os-muted">
+                    <li key={`${change.kind}-${index}-${change.text}`} className="flex items-start gap-3 text-[15px] leading-6">
+                      <Icon className={cn("mt-1 size-3.5 shrink-0", CHANGE_TONE[change.kind])} strokeWidth={1.75} aria-hidden="true" />
+                      <span className="min-w-0 text-paper-char">
                         <span className="sr-only">{change.kind}: </span>
                         {change.text}
                       </span>
@@ -122,51 +96,33 @@ export function ProposalCard({
       </ul>
 
       {approval ? (
-        <div className="mt-6 border-t border-os-border pt-5">
+        <div className="mt-5 border-t border-paper-mist pt-4">
           {/* The second, separate question: not "is this edit right?" but
               "may Hermes run this?". Both are shown, so approving the change
               is never a blind approval of the command that performs it. */}
-          <SectionLabel className="text-os-warning">System approval</SectionLabel>
-          <p className="mt-3 text-[13px] leading-5 text-os-subtle">
-            Applying runs this, once:
-          </p>
+          <h3 className="text-[13.5px] font-semibold text-paper-moss">System approval</h3>
+          <p className="mt-1.5 text-[13.5px] leading-5 text-paper-sage">Applying runs this, once:</p>
           <GatedCommand request={approval} className="mt-2" />
         </div>
       ) : null}
 
       {isPending ? (
-        <div className="mt-6 flex flex-wrap items-center gap-2">
-          <CommandButton
-            variant="primary"
-            icon={ArrowRight}
-            disabled={isResponding}
-            loading={isResponding}
-            loadingLabel="Applying"
-            onClick={onApply}
-          >
-            Apply changes
-          </CommandButton>
-          <CommandButton
-            variant="danger"
-            disabled={isResponding}
-            onClick={onReject}
-          >
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <PaperButton variant="amber" disabled={isResponding} onClick={onApply}>
+            {isResponding ? "Applying…" : "Apply changes"}
+            {isResponding ? null : <ArrowRight className="size-3.5" aria-hidden="true" />}
+          </PaperButton>
+          <PaperButton variant="danger" disabled={isResponding} onClick={onReject}>
             Reject
-          </CommandButton>
+          </PaperButton>
         </div>
       ) : approval ? (
-        <ApprovalOutcome request={approval} className="mt-6" />
+        <ApprovalOutcome request={approval} className="mt-5" />
       ) : (
-        <p className="mt-6 text-[13px] leading-5 text-os-subtle">
-          Hermes has not asked for a decision on this yet.
-        </p>
+        <p className="mt-5 text-[13.5px] leading-5 text-paper-sage">Hermes has not asked for a decision on this yet.</p>
       )}
 
-      {error ? (
-        <p className="mt-4 text-[13px] leading-5 text-os-danger">
-          {error} Nothing has been changed.
-        </p>
-      ) : null}
-    </HairlineCard>
+      {error ? <p className="mt-4 text-[13.5px] leading-5 text-paper-flame-deep">{error} Nothing has been changed.</p> : null}
+    </PaperCard>
   );
 }

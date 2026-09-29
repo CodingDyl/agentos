@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AgentSkill } from "@shared/agentos-types";
-import { AgentCommandInput } from "@/components/os";
+import { PaperCommandInput } from "@/components/paper";
 import { buildCommands, searchCommands } from "./command-catalog";
 
 export interface AgentInputProps {
@@ -21,8 +21,8 @@ export interface AgentInputProps {
 const MAX_SUGGESTIONS = 6;
 
 /**
- * The console's command line. Wraps the design system's `AgentCommandInput` and
- * offers the skills Hermes reported as slash suggestions, narrowed as you type.
+ * The console's command line. Wraps `PaperCommandInput` and offers the skills
+ * Hermes reported as slash suggestions, narrowed as you type.
  */
 export function AgentInput({
   onSubmit,
@@ -51,7 +51,7 @@ export function AgentInput({
     : [];
 
   return (
-    <AgentCommandInput
+    <PaperCommandInput
       className={className}
       value={value}
       onValueChange={setValue}
@@ -59,12 +59,8 @@ export function AgentInput({
         onSubmit(submitted);
         setValue("");
       }}
-      placeholder={
-        isSteering ? "Steer the active run…" : "Ask Hermes or run a command…"
-      }
-      activeContext={
-        isSteering ? `Steering / ${projectName ?? "active run"}` : projectName
-      }
+      placeholder={isSteering ? "Steer the active run…" : "Ask Hermes or run a command…"}
+      activeContext={isSteering ? `Steering ${projectName ?? "active run"}` : projectName}
       suggestions={isSteering ? [] : suggestions}
       showSuggestions={!isSteering && isCommand}
       running={running}

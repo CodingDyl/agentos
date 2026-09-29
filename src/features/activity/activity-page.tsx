@@ -1,15 +1,14 @@
-import { Info } from "lucide-react";
 import { useMemo, useState } from "react";
+import { AppShell } from "@/components/os";
 import {
-  AppShell,
-  EmptyState,
-  ErrorState,
-  HairlineCard,
-  LoadingState,
-  PageHeader,
-  SectionLabel,
-  SystemIndicator,
-} from "@/components/os";
+  PaperEmpty,
+  PaperError,
+  PaperLoading,
+  PaperNotice,
+  PaperPageHeader,
+  PaperSection,
+  PaperStage,
+} from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useActivity, useProjects } from "@/lib/agentos/queries";
 import {
@@ -19,9 +18,6 @@ import {
 } from "./activity-filters";
 import { groupByDay, sourceLabel } from "./activity-model";
 import { ActivityRow } from "./activity-row";
-
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
 
 /** One screenful of history. The timeline is a recent view, not an archive. */
 const ACTIVITY_LIMIT = 50;
@@ -60,17 +56,12 @@ export function ActivityPage() {
       activeHref="/activity"
       modelLabel="Model / AgentOS V1"
     >
-      <div className={PAGE_PADDING}>
+      <PaperStage>
         {isPending ? (
-          <LoadingState
-            label="Activity"
-            message="Assembling the timeline…"
-            detail="Vault / Hermes / automations"
-          />
+          <PaperLoading title="Activity" message="Assembling the timeline from the vault, Hermes and automations…" />
         ) : !data ? (
-          <ErrorState
-            label="Timeline unavailable"
-            title="Could not assemble the activity timeline."
+          <PaperError
+            title="The activity timeline could not be assembled."
             detail={error?.message}
             hint="The adapter reads the vault, Hermes and its cron history. Check that it is running."
             onRetry={() => void refetch()}
@@ -78,15 +69,11 @@ export function ActivityPage() {
           />
         ) : (
           <>
-            <PageHeader
+            <PaperPageHeader
               title="Activity"
-              description="Everything you, Hermes, and its automations have done, in one order."
-              actions={
-                <SystemIndicator
-                  state={data.events.length > 0 ? "online" : "idle"}
-                  label={`${data.events.length} event${data.events.length === 1 ? "" : "s"}`}
-                />
-              }
+              description={`Everything you, Hermes, and its automations have done, in one order · ${data.events.length} event${
+                data.events.length === 1 ? "" : "s"
+              }`}
             />
 
             <ActivityFilters
@@ -101,25 +88,14 @@ export function ActivityPage() {
             {/* A partial timeline says so. Silence would read as "nothing
                 happened", which is a different claim entirely. */}
             {data.unavailable.length > 0 ? (
-              <HairlineCard
-                className="mt-8 flex max-w-[72ch] gap-3 p-5 md:p-6"
-                role="status"
-              >
-                <Info
-                  className="mt-0.5 size-4 shrink-0 text-os-subtle"
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                />
-                <p className="text-[15px] leading-6 text-os-muted">
-                  {data.unavailable.map(sourceLabel).join(" and ")} could not be
-                  read, so this timeline is incomplete.
-                </p>
-              </HairlineCard>
+              <PaperNotice className="mt-6 max-w-[72ch]">
+                {data.unavailable.map(sourceLabel).join(" and ")} could not be read, so this timeline is incomplete.
+              </PaperNotice>
             ) : null}
 
             {days.length === 0 ? (
-              <EmptyState
-                label="No activity"
+              <PaperEmpty
+                title="No activity"
                 description={
                   isFiltered
                     ? "Nothing matches these filters."
@@ -128,24 +104,21 @@ export function ActivityPage() {
                 className="mt-10"
               />
             ) : (
-              <div className="mt-10 space-y-8 pb-4">
+              <div className="mt-10 space-y-10 pb-4">
                 {days.map((day) => (
-                  <section key={day.key} aria-label={day.label}>
-                    <SectionLabel>{day.label}</SectionLabel>
-                    <HairlineCard className="mt-4 overflow-hidden">
-                      <ul className="divide-y divide-os-border">
-                        {day.events.map((event) => (
-                          <ActivityRow key={event.id} event={event} />
-                        ))}
-                      </ul>
-                    </HairlineCard>
-                  </section>
+                  <PaperSection key={day.key} label={day.label}>
+                    <ul className="divide-y divide-paper-mist overflow-hidden rounded-[4px] border border-paper-mist">
+                      {day.events.map((event) => (
+                        <ActivityRow key={event.id} event={event} />
+                      ))}
+                    </ul>
+                  </PaperSection>
                 ))}
               </div>
             )}
           </>
         )}
-      </div>
+      </PaperStage>
     </AppShell>
   );
 }

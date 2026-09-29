@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import type { ProjectSummary } from "@shared/agentos-types";
-import { SectionLabel } from "@/components/os";
+import { FieldLabel, PAPER_FOCUS, PaperFilterBar } from "@/components/paper";
 import { cn } from "@/lib/utils";
 
 export interface AgentContextProps {
@@ -15,49 +15,37 @@ export interface AgentContextProps {
  * The project every request is scoped to. Naming it lets Hermes load that
  * project's own context from the vault rather than the UI assembling it.
  */
-export function AgentContext({
-  projects,
-  value,
-  onChange,
-  className,
-}: AgentContextProps) {
+export function AgentContext({ projects, value, onChange, className }: AgentContextProps) {
   const selected = projects.find((project) => project.slug === value);
 
   return (
     <div className={cn("min-w-0", className)}>
-      <SectionLabel>Project context</SectionLabel>
+      <FieldLabel>Workspace context</FieldLabel>
 
       {selected ? (
-        <div className="mt-3 flex items-center gap-3">
-          <span className="truncate text-[15px] leading-6">{selected.name}</span>
+        <div className="flex items-center gap-2">
+          <span className="truncate text-[15px] leading-6 font-medium text-paper-moss">{selected.name}</span>
           <button
             type="button"
             onClick={() => onChange(undefined)}
-            aria-label={`Clear ${selected.name} as project context`}
-            className="os-focus-ring inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-os-subtle transition-colors duration-150 hover:bg-os-surface-raised hover:text-foreground"
+            aria-label={`Clear ${selected.name} as workspace context`}
+            className={cn(
+              "inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-[4px] text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+              PAPER_FOCUS,
+            )}
           >
             <X className="size-3.5" aria-hidden="true" />
           </button>
         </div>
+      ) : projects.length === 0 ? (
+        <span className="text-[14px] leading-6 text-paper-sage">No workspaces available</span>
       ) : (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {projects.length === 0 ? (
-            <span className="text-[15px] leading-6 text-os-subtle">
-              No projects available
-            </span>
-          ) : (
-            projects.map((project) => (
-              <button
-                key={project.slug}
-                type="button"
-                onClick={() => onChange(project.slug)}
-                className="os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center rounded-md border border-transparent px-3 text-os-muted transition-colors duration-150 hover:border-os-border hover:text-foreground"
-              >
-                {project.name}
-              </button>
-            ))
-          )}
-        </div>
+        <PaperFilterBar<string>
+          label="Choose a workspace as context"
+          value=""
+          onChange={onChange}
+          options={projects.map((project) => ({ value: project.slug, label: project.name }))}
+        />
       )}
     </div>
   );

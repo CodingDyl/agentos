@@ -1,5 +1,5 @@
 import type { ActivitySource, ProjectSummary } from "@shared/agentos-types";
-import { FilterBar, SectionLabel } from "@/components/os";
+import { FieldLabel, PaperFilterBar } from "@/components/paper";
 import { sourceLabel, SOURCE_FILTERS } from "./activity-model";
 
 /** `all` is not a source — it is the absence of a source filter. */
@@ -32,7 +32,7 @@ export function ActivityFilters({
 }: ActivityFiltersProps) {
   return (
     <div className={className}>
-      <FilterBar<SourceFilter>
+      <PaperFilterBar<SourceFilter>
         label="Filter activity by source"
         value={source}
         onChange={onSourceChange}
@@ -47,12 +47,11 @@ export function ActivityFilters({
 
       {projects.length > 0 ? (
         <div className="mt-6">
-          <SectionLabel>Project</SectionLabel>
-          <FilterBar<ProjectFilter>
+          <FieldLabel>Workspace</FieldLabel>
+          <PaperFilterBar<ProjectFilter>
             label="Filter activity by project"
             value={project}
             onChange={onProjectChange}
-            className="mt-3"
             options={[
               { value: "all", label: "All workspaces" },
               ...projects.map((entry) => ({
