@@ -5,7 +5,7 @@ import path from "node:path";
 import { after, beforeEach, describe, it } from "node:test";
 import type { Icp } from "../../../shared/traction-types";
 import type { VirtecLead, VirtecSnapshot } from "../../../shared/virtec-types";
-import { JevError } from "../../mail/jev-client";
+import { JevError, type sendToJev } from "../../mail/jev-client";
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-profile-"));
 process.env.AGENTOS_UI_DIR = directory;
@@ -44,15 +44,15 @@ function lead(id: string, overrides: Partial<VirtecLead> = {}): VirtecLead {
   } as VirtecLead;
 }
 
-/** A Jev that answers a fit score, or throws. */
-function jev(score: number, confidence = 0.8, gap = 1) {
+/** A Jev that answers a fit score. */
+function jev(score: number, confidence = 0.8, gap = 1): typeof sendToJev {
   return (async () => ({
     model: "jev-latest",
     answers: {
       fit: { type: "score", score, legend: {}, probabilities: {}, confidence },
       gap: { type: "noul", noul: gap },
     },
-  })) as never;
+  })) as unknown as typeof sendToJev;
 }
 
 describe("what is sent to Jev", () => {
@@ -73,7 +73,9 @@ describe("what is sent to Jev", () => {
   });
 
   it("gives a different key when what a fit means changes", () => {
-    assert.equal(icpKey(icp), icpKey({ ...icp, updatedAt: "later" }));
+    const { updatedAt, ...withoutStamp } = icp;
+    void updatedAt;
+    assert.equal(icpKey(icp), icpKey(withoutStamp), "the edit time is not part of what a fit means");
     assert.notEqual(icpKey(icp), icpKey({ ...icp, idealProspect: ["Something else"] }));
     assert.notEqual(icpKey(icp), icpKey({ ...icp, geography: "Cape Town" }));
   });
@@ -91,8 +93,8 @@ describe("scoring", () => {
     const flaky = (async () => {
       calls += 1;
       if (calls === 2) throw new JevError("Jev did not answer", "timed-out");
-      return jev(2)();
-    }) as never;
+      return jev(2)({} as never);
+    }) as unknown as typeof sendToJev;
     const partial = await runProfiling([lead("a"), lead("b"), lead("c"), lead("d")], icp, 10, flaky, NOW);
     assert.equal(Object.keys(partial.profiles).length, 3);
     assert.equal(partial.failed, 1);
@@ -102,7 +104,7 @@ describe("scoring", () => {
     const denied = (async () => {
       rejected += 1;
       throw new JevError("Jev rejected the API key.", "unauthorized");
-    }) as never;
+    }) as unknown as typeof sendToJev;
     const stopped = await runProfiling(Array.from({ length: 12 }, (_, i) => lead(`x${i}`)), icp, 12, denied, NOW);
     assert.ok(rejected <= 3, `stopped after the in-flight calls, made ${rejected}`);
     assert.equal(Object.keys(stopped.profiles).length, 0);
