@@ -280,3 +280,31 @@ export async function readInvestec(fromDate: string, toDate: string): Promise<In
 
   return { accounts, transactions, skipped };
 }
+
+/**
+ * Just the accounts and their balances, with no transactions: a handful of
+ * small reads, so it can run every couple of minutes while a page is open.
+ * Same tolerance as a full read: one account that will not answer is skipped,
+ * and nothing at all answering is an error. Reads only.
+ */
+export async function readInvestecBalances(): Promise<{ accounts: FinancialAccount[]; skipped: string[] }> {
+  const listed = await investecGet<{ accounts: RawInvestecAccount[] }>("/za/pb/v1/accounts");
+  const accounts: FinancialAccount[] = [];
+  const skipped: string[] = [];
+  let lastError: unknown;
+
+  for (const raw of listed.accounts ?? []) {
+    try {
+      const balance = await investecGet<RawInvestecBalance>(`/za/pb/v1/accounts/${encodeURIComponent(raw.accountId)}/balance`);
+      accounts.push(normaliseAccount(raw, balance));
+    } catch (error) {
+      if (error instanceof InvestecError && error.reason === "unauthorized") throw error;
+      lastError = error;
+      skipped.push(raw.referenceName?.trim() || raw.accountName?.trim() || raw.productName?.trim() || "an account");
+    }
+  }
+
+  if ((listed.accounts ?? []).length === 0) throw new InvestecError("Investec signed in but lists no accounts for these credentials.", "failed");
+  if (accounts.length === 0) throw lastError instanceof Error ? lastError : new InvestecError("No account balance could be read.", "failed");
+  return { accounts, skipped };
+}

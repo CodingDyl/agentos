@@ -170,3 +170,30 @@ export const useDeleteSplitRule = () => useFinanceMutation((ruleId: string) => r
 export const useRecordSettlement = () => useFinanceMutation((input: SettlementInput) => request("/api/finance/shared/settlements", json("POST", input)));
 
 export const useDeleteSettlement = () => useFinanceMutation((settlementId: string) => request(`/api/finance/shared/settlements/${id(settlementId)}`, { method: "DELETE" }));
+
+/**
+ * Keeps the Investec balances live while a page that shows them is open.
+ *
+ * Reads the bank's balances (not transactions) on arrival and every two
+ * minutes, and puts the answer straight into the Finance query so the numbers
+ * on screen move. The server refuses to read more often than every fifteen
+ * seconds however many tabs are open. It pauses while the window is in the
+ * background, and does nothing unless Investec is connected.
+ */
+export function useLiveBalances(enabled: boolean) {
+  const queryClient = useQueryClient();
+
+  return useQuery({
+    queryKey: [...agentosKeys.all, "finance-balances"] as const,
+    queryFn: async () => {
+      const result = await request<{ read: boolean; data: unknown }>("/api/finance/balances/refresh", { method: "POST" });
+      queryClient.setQueryData(financeKey(), parseFinance(result.data));
+      return { read: result.read, at: new Date().toISOString() };
+    },
+    enabled,
+    refetchInterval: 120_000,
+    staleTime: 0,
+    retry: 0,
+    networkMode: "always",
+  });
+}

@@ -1,6 +1,6 @@
 import { FinanceDataSchema, type FinanceData } from "../../shared/finance-types";
 import { computeFinance } from "./engine";
-import { InvestecError, isInvestecConfigured, missingInvestecVariables, readInvestec } from "./investec";
+import { InvestecError, isInvestecConfigured, missingInvestecVariables, readInvestec, readInvestecBalances } from "./investec";
 import { isJevConfigured } from "../mail/jev-client";
 import { readAnalysisNarrative } from "./analyser";
 import { readNarrative } from "./review";
@@ -80,6 +80,43 @@ export function syncFinance(): Promise<void> {
   return syncing;
 }
 
+/** The shortest gap between two balance reads. Several open tabs must not become several reads a minute. */
+const BALANCE_MIN_GAP_MS = 15_000;
+
+let refreshingBalances: Promise<boolean> | undefined;
+
+/**
+ * Reads Investec's balances now and saves them, so what the page shows is what
+ * is in the account rather than what it was at the last sync. Returns whether
+ * it actually read (false when a read a moment ago is still fresh).
+ *
+ * Only balances: transactions wait for the regular sync. Reads only.
+ */
+export function refreshBalances(): Promise<boolean> {
+  if (refreshingBalances) return refreshingBalances;
+  if (syncing) return syncing.then(() => true);
+
+  const last = readMeta("balancesAt");
+  if (last && Date.now() - Date.parse(last) < BALANCE_MIN_GAP_MS) return Promise.resolve(false);
+
+  refreshingBalances = (async () => {
+    try {
+      const { accounts, skipped } = await readInvestecBalances();
+      saveSnapshot(accounts, []);
+      writeMeta("balancesAt", new Date().toISOString());
+      if (skipped.length > 0) console.warn(`[agentos] finance: balances skipped for ${skipped.length} account(s)`);
+      return true;
+    } catch (error) {
+      console.error(`[agentos] finance: balance refresh failed: ${error instanceof InvestecError ? error.message : "unknown error"}`);
+      throw error;
+    } finally {
+      refreshingBalances = undefined;
+    }
+  })();
+
+  return refreshingBalances;
+}
+
 function refreshInBackground(): void {
   const last = readMeta("lastSyncAt");
   if (syncing || (last && Date.now() - Date.parse(last) < STALE_AFTER_MS)) return;
@@ -131,6 +168,7 @@ export function getFinance(): FinanceData {
       kind: useSample ? "sample" : accounts.some((a) => a.provider === "investec") ? "investec" : accounts.length > 0 ? "manual" : "none",
       configured,
       missing: missingInvestecVariables(),
+      balancesUpdatedAt: readMeta("balancesAt") || undefined,
       lastSyncedAt: lastSyncAt || undefined,
       error: lastSyncError || undefined,
     },

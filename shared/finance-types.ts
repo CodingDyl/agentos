@@ -178,6 +178,8 @@ export const FinanceSourceSchema = z.object({
    */
   kind: z.enum(["investec", "manual", "sample", "none"]),
   configured: z.boolean(),
+  /** When Investec's balances were last read, which is more often than a full sync. */
+  balancesUpdatedAt: z.string().optional(),
   /** Names of the Investec variables that are not set. Names only, never values. */
   missing: z.array(z.string()).default([]),
   lastSyncedAt: z.string().optional(),
@@ -612,4 +614,26 @@ export function formatRandAmount(value: number, options?: { cents?: boolean; sig
   const text = magnitude.toLocaleString("en-US", { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: cents ? 2 : 0 });
   const prefix = value < 0 ? "-" : options?.sign && value > 0 ? "+" : "";
   return `${prefix}R ${text}`;
+}
+
+/**
+ * What is in the accounts Investec reports: current and savings, live. Cards
+ * and investments are not "in" an account, so they are left out. Undefined when
+ * there are no Investec accounts, so a page with none does not show a zero
+ * that would read as "you have nothing".
+ */
+export function investecCashOf(accounts: readonly FinancialAccount[]): number | undefined {
+  const held = accounts.filter((account) => account.provider === "investec" && (account.type === "current" || account.type === "savings"));
+  if (held.length === 0) return undefined;
+  return Math.round(held.reduce((total, account) => total + account.balance, 0) * 100) / 100;
+}
+
+/**
+ * Net cash, exactly: everything you hold in current and savings accounts, less
+ * everything you owe on cards and loans, across every account Finance knows
+ * about. Investments are not cash and are counted on their own tab. A card's
+ * balance is stored negative, so the sum is the whole calculation.
+ */
+export function netCashOf(accounts: readonly FinancialAccount[]): number {
+  return Math.round(accounts.filter((account) => account.type !== "investment").reduce((total, account) => total + account.balance, 0) * 100) / 100;
 }

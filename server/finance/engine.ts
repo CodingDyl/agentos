@@ -22,7 +22,7 @@ import type {
   SubscriptionDecision,
   Transaction,
 } from "../../shared/finance-types";
-import { CATEGORY_GROUP, formatRandAmount } from "../../shared/finance-types";
+import { CATEGORY_GROUP, formatRandAmount, netCashOf } from "../../shared/finance-types";
 import { monthsBetween, requiredMonthly as profilerRequiredMonthly, futureValueOfContributions, futureValueOfLump, RISK_PROFILE_INFO, type RiskProfile } from "../../shared/finance-profiler";
 import { analyse, buildDebts } from "./analyse";
 import { billTotals, buildBillStatuses, suggestBills } from "./bills";
@@ -582,8 +582,7 @@ export function computeFinance(input: EngineInput): EngineOutput {
   const averageMonthlySpend = mean(lastThree.map((m) => m.spent));
   const freeCashFlow = lastThree.length > 0 ? r0(mean(lastThree.map((m) => m.saved)) ?? 0) : undefined;
 
-  const cashAccounts = input.accounts.filter((account) => account.type !== "investment");
-  const netCash = r2(sum(cashAccounts.map((account) => account.balance)));
+  const netCash = netCashOf(input.accounts);
 
   const categories = categoryTotals(ledger, month, input.budgets);
   const previousCategories = categoryTotals(ledger, addMonths(month, -1));

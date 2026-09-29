@@ -2,7 +2,7 @@ import express, { type Response } from "express";
 import type { ZodType } from "zod";
 import { PartnerInputSchema, SettlementInputSchema, SplitRuleInputSchema, AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
 import { merchantKey } from "./categorise";
-import { getFinance, localToday, syncFinance } from "./finance";
+import { getFinance, localToday, refreshBalances, syncFinance } from "./finance";
 import { InvestecError, isInvestecConfigured } from "./investec";
 import { assessSubscriptions, suggestCategory } from "./jev";
 import { JevError } from "../mail/jev-client";
@@ -72,6 +72,23 @@ financeRouter.post("/sync", async (_request, response) => {
     response.json(getFinance());
   } catch (error) {
     fail(response, error, "sync Investec");
+  }
+});
+
+/**
+ * Reads Investec's balances now, so the page can show what is in the account.
+ * Balances only, and only reads. A read a few seconds ago is not repeated.
+ */
+financeRouter.post("/balances/refresh", async (_request, response) => {
+  if (!isInvestecConfigured()) {
+    response.status(409).json({ error: "Investec is not configured." });
+    return;
+  }
+  try {
+    const read = await refreshBalances();
+    response.json({ read, data: getFinance() });
+  } catch (error) {
+    fail(response, error, "read the balances");
   }
 });
 
