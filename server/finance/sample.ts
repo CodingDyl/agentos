@@ -1,4 +1,5 @@
 import type { FinancialAccount, Transaction } from "../../shared/finance-types";
+import type { StoredBill } from "./store";
 import { cleanMerchant } from "./categorise";
 import { addMonths, monthOf } from "./engine";
 import type { StoredGoal } from "./store";
@@ -85,4 +86,15 @@ export function sampleTransactions(today: string): Transaction[] {
   add(0, 22, "APPLE.COM/BILL", -1_899);
 
   return out;
+}
+
+/** Bills that match the sample ledger, so the Bills tab has something to show. Never saved. */
+export function sampleBills(): StoredBill[] {
+  return [
+    { id: "sample-rent", name: "Rent", amount: 9_500, dueDay: 2, category: "Housing", match: "rent" },
+    { id: "sample-medical", name: "Medical aid", amount: 3_150, dueDay: 3, category: "Health", match: "discovery health" },
+    { id: "sample-car", name: "Car finance", amount: 4_650, dueDay: 1, category: "Debt", match: "wesbank" },
+    { id: "sample-phone", name: "Phone", amount: 699, dueDay: 4, category: "Utilities", match: "vodacom" },
+    { id: "sample-wifi", name: "Wifi", amount: 899, dueDay: 25, category: "Utilities" },
+  ];
 }

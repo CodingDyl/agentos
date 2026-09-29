@@ -293,7 +293,7 @@ export const AttentionSchema = z.object({
   tone: z.enum(["warn", "note"]),
   text: z.string(),
   /** Which tab it points at. */
-  tab: z.enum(["overview", "cash-flow", "spending", "subscriptions", "goals", "investments", "insights", "analyser", "settings"]),
+  tab: z.enum(["overview", "cash-flow", "spending", "subscriptions", "bills", "goals", "investments", "insights", "analyser", "settings"]),
 });
 export type Attention = z.infer<typeof AttentionSchema>;
 
@@ -328,6 +328,56 @@ export const FinanceTransactionRowSchema = TransactionSchema.extend({
   flagged: z.boolean(),
 });
 export type FinanceTransactionRow = z.infer<typeof FinanceTransactionRowSchema>;
+
+/**
+ * A fixed monthly commitment you pay: rent, water and electricity, wifi. You
+ * say what it is and roughly what it costs; Finance looks for the payment each
+ * month. `match` is the word to look for in the payment (it defaults to the
+ * name), matched as a whole word so "rent" does not find "current account".
+ */
+export const BillInputSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  amount: z.number().positive().max(100_000_000),
+  dueDay: z.number().int().min(1).max(31),
+  category: CategorySchema.default("Other"),
+  match: z.string().trim().max(60).optional(),
+});
+export type BillInput = z.infer<typeof BillInputSchema>;
+
+export const BillPatchSchema = BillInputSchema.partial().extend({ match: z.string().trim().max(60).nullable().optional() });
+export type BillPatch = z.infer<typeof BillPatchSchema>;
+
+/** Marking a bill paid by hand, for one paid in cash or from an account Finance cannot see. */
+export const BillMarkSchema = z.object({ amount: z.number().positive().max(100_000_000).optional() });
+
+export const BillStatusSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  amount: z.number(),
+  dueDay: z.number(),
+  category: CategorySchema,
+  match: z.string().optional(),
+  /** `paid`; `due-soon` (due within three days, or just past); `upcoming`; `missing` (past its date and not seen). */
+  status: z.enum(["paid", "due-soon", "upcoming", "missing"]),
+  /** This month's due date, `YYYY-MM-DD`. */
+  dueDate: z.string(),
+  /** Days until it is due. Negative once the date has passed. */
+  daysUntil: z.number(),
+  paidAmount: z.number().optional(),
+  paidOn: z.string().optional(),
+  /** True when you marked it paid yourself rather than Finance finding the payment. */
+  marked: z.boolean(),
+  /** What was paid less what was expected. Positive means it cost more. */
+  variance: z.number().optional(),
+  /** The last few months, oldest first. A month with nothing found has no amount. */
+  history: z.array(z.object({ month: z.string(), amount: z.number().optional() })),
+  /** The average of the months that have an amount. */
+  average: z.number().optional(),
+});
+export type BillStatus = z.infer<typeof BillStatusSchema>;
+
+export const BillSuggestionSchema = z.object({ merchant: z.string(), amount: z.number(), dueDay: z.number(), category: CategorySchema });
+export type BillSuggestion = z.infer<typeof BillSuggestionSchema>;
 
 export const DebtSchema = z.object({
   accountId: z.string(),
@@ -414,6 +464,18 @@ export const FinanceDataSchema = z.object({
   jev: z.object({ configured: z.boolean(), assessedCount: z.number() }),
   debts: z.array(DebtSchema),
   analysis: AnalysisSchema,
+  bills: z.object({
+    items: z.array(BillStatusSchema),
+    /** What every tracked bill adds up to in a month. */
+    committedMonthly: z.number(),
+    paidThisMonth: z.number(),
+    /** Expected amounts of the bills not yet seen this month. */
+    remaining: z.number(),
+    /** Committed bills as a share of this month's income, when there is income. */
+    incomeShare: z.number().optional(),
+    /** Recurring payments Finance found that you are not tracking yet. */
+    suggestions: z.array(BillSuggestionSchema),
+  }),
 });
 export type FinanceData = z.infer<typeof FinanceDataSchema>;
 
@@ -445,7 +507,7 @@ export const BudgetInputSchema = z.object({
 });
 export type BudgetInput = z.infer<typeof BudgetInputSchema>;
 
-export const FINANCE_TABS = ["overview", "cash-flow", "spending", "subscriptions", "goals", "investments", "insights", "analyser", "settings"] as const;
+export const FINANCE_TABS = ["overview", "cash-flow", "spending", "subscriptions", "bills", "goals", "investments", "insights", "analyser", "settings"] as const;
 export type FinanceTab = (typeof FINANCE_TABS)[number];
 
 /** Whole rand with comma thousands, as Finance writes it: `R 84,320`. Locale-fixed so the server and page agree. */

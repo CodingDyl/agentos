@@ -146,7 +146,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
               ))}
             </ul>
           )}
-          <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Projected from each subscription's monthly rhythm. It is not a schedule from the bank.</p>
+          <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Bills are the ones you track; subscriptions are projected from their monthly rhythm. Neither is a schedule from the bank.</p>
         </PaperSection>
 
         <PaperSection label="Subscriptions">

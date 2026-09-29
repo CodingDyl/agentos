@@ -3,6 +3,8 @@ import {
   FinanceDataSchema,
   type AccountInput,
   type AccountPatch,
+  type BillInput,
+  type BillPatch,
   type BudgetInput,
   type CategoryCorrection,
   type FinanceData,
@@ -141,3 +143,14 @@ export const useAnalyse = () => useFinanceMutation(() => request("/api/finance/a
 
 /** A question answered from the same figures. Nothing is kept, so nothing needs re-reading. */
 export const useAskAnalyser = () => useMutation({ mutationFn: (question: string) => request<{ answer: string }>("/api/finance/analyse/ask", json("POST", { question })), networkMode: "always", retry: 0 });
+
+export const useCreateBill = () => useFinanceMutation((input: BillInput) => request("/api/finance/bills", json("POST", input)));
+
+export const useUpdateBill = () => useFinanceMutation(({ billId, patch }: { billId: string; patch: BillPatch }) => request(`/api/finance/bills/${id(billId)}`, json("PATCH", patch)));
+
+export const useDeleteBill = () => useFinanceMutation((billId: string) => request(`/api/finance/bills/${id(billId)}`, { method: "DELETE" }));
+
+/** Marks this month's bill paid, for one paid in cash or from an account Finance cannot see. */
+export const useMarkBillPaid = () => useFinanceMutation(({ billId, amount }: { billId: string; amount?: number }) => request(`/api/finance/bills/${id(billId)}/paid`, json("POST", amount === undefined ? {} : { amount })));
+
+export const useUnmarkBillPaid = () => useFinanceMutation((billId: string) => request(`/api/finance/bills/${id(billId)}/paid`, { method: "DELETE" }));

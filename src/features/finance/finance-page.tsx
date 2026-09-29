@@ -5,6 +5,7 @@ import { PaperButton, PaperStage, PaperTabs } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useFinance } from "@/lib/agentos/finance";
 import { FinanceAnalyserTab } from "./finance-analyser-tab";
+import { FinanceBillsTab } from "./finance-bills-tab";
 import { FinanceCashFlowTab } from "./finance-cash-flow-tab";
 import { FinanceGoalsTab } from "./finance-goals-tab";
 import { FinanceInsightsTab } from "./finance-insights-tab";
@@ -103,6 +104,7 @@ function Finance({ data, tab, onTab }: { data: FinanceData; tab: FinanceTab; onT
         {tab === "cash-flow" ? <FinanceCashFlowTab data={data} /> : null}
         {tab === "spending" ? <FinanceSpendingTab data={data} /> : null}
         {tab === "subscriptions" ? <FinanceSubscriptionsTab data={data} /> : null}
+        {tab === "bills" ? <FinanceBillsTab data={data} /> : null}
         {tab === "goals" ? <FinanceGoalsTab data={data} /> : null}
         {tab === "investments" ? <FinanceInvestmentsTab data={data} /> : null}
         {tab === "insights" ? <FinanceInsightsTab data={data} /> : null}

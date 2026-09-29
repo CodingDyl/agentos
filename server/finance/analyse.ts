@@ -62,6 +62,7 @@ export interface AnalyseInput {
   subscriptionMonthly: number;
   goals: readonly GoalProgress[];
   debts: readonly Debt[];
+  bills: { committedMonthly: number; incomeShare?: number; count: number };
   averageMonthlySpend: number | undefined;
   freeCashFlow: number | undefined;
   /** `YYYY-MM`. */
@@ -145,6 +146,20 @@ export function analyse(input: AnalyseInput): { findings: Finding[]; focus: stri
       action: rateKnown
         ? "Pay the highest-rate balance down first while covering the minimum on the rest (the avalanche method). Debt at a high rate usually costs more than savings or investments earn."
         : "Add each account's interest rate so the real cost shows, then decide the order to pay them.",
+    });
+  }
+
+  // ---- Fixed costs
+  if (input.bills.count > 0 && input.bills.incomeShare !== undefined) {
+    const share = input.bills.incomeShare;
+    findings.push({
+      id: "fixed-costs",
+      principle: "Keep fixed costs low",
+      title: "Fixed monthly bills",
+      status: share <= 0.4 ? "good" : share <= 0.55 ? "watch" : "act",
+      summary: `Your ${input.bills.count} tracked bills come to ${R(input.bills.committedMonthly)} a month, ${pct(share)} of income.`,
+      evidence: ["Bills are the hardest costs to cut in a bad month, so the lower their share, the more room you have. Under 40% is comfortable."],
+      action: share <= 0.4 ? undefined : "Look at the biggest bill first. Renegotiating or replacing one large fixed cost usually saves more than trimming many small ones.",
     });
   }
 

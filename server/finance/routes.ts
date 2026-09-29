@@ -1,15 +1,15 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
-import { AccountInputSchema, AccountPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
+import { AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
 import { merchantKey } from "./categorise";
-import { getFinance, syncFinance } from "./finance";
+import { getFinance, localToday, syncFinance } from "./finance";
 import { InvestecError, isInvestecConfigured } from "./investec";
 import { assessSubscriptions, suggestCategory } from "./jev";
 import { JevError } from "../mail/jev-client";
 import { AnalyserError, askAnalyser, writeAnalysis } from "./analyser";
 import { CsvImportError, readStatement, type SignRule } from "./csv-import";
 import { ReviewError, writeNarrative } from "./review";
-import { createGoal, createManualAccount, deleteCorrection, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
+import { createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
 
 /**
  * `/api/finance`.
@@ -262,5 +262,60 @@ financeRouter.post("/analyse/ask", async (request, response) => {
     response.json({ answer: await askAnalyser(getFinance(), question) });
   } catch (error) {
     fail(response, error, "answer that");
+  }
+});
+
+// ----------------------------------------------------------------- bills
+
+financeRouter.post("/bills", (request, response) => {
+  const input = parse(BillInputSchema, request.body, response, "bill");
+  if (!input) return;
+  try {
+    response.status(201).json({ bill: createBill(input) });
+  } catch (error) {
+    fail(response, error, "add the bill");
+  }
+});
+
+financeRouter.patch("/bills/:id", (request, response) => {
+  const patch = parse(BillPatchSchema, request.body, response, "bill change");
+  if (!patch) return;
+  try {
+    response.json({ bill: updateBill(request.params.id, patch) });
+  } catch (error) {
+    fail(response, error, "update the bill");
+  }
+});
+
+financeRouter.delete("/bills/:id", (request, response) => {
+  try {
+    deleteBill(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "remove the bill");
+  }
+});
+
+/** Marks this month's bill paid, for one paid in cash or from an account Finance cannot see. */
+financeRouter.post("/bills/:id/paid", (request, response) => {
+  const mark = parse(BillMarkSchema, request.body, response, "payment");
+  if (!mark) return;
+  try {
+    const bill = readBill(request.params.id);
+    const today = localToday();
+    markBillPaid(bill.id, today.slice(0, 7), mark.amount ?? bill.amount, today);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "mark the bill paid");
+  }
+});
+
+financeRouter.delete("/bills/:id/paid", (request, response) => {
+  try {
+    readBill(request.params.id);
+    unmarkBillPaid(request.params.id, localToday().slice(0, 7));
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "undo that");
   }
 });

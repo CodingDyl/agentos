@@ -28,6 +28,27 @@ describe("upcomingPayments", () => {
   });
 });
 
+describe("upcomingPayments with bills", () => {
+  const bills = (items: object[]) => ({ items, committedMonthly: 0, paidThisMonth: 0, remaining: 0, suggestions: [] }) as never;
+
+  it("lists a bill by its due date when unpaid and inside the window, not when paid or long overdue", () => {
+    const result = upcomingPayments(
+      {
+        today: "2026-09-29",
+        subscriptions: [],
+        bills: bills([
+          { name: "Rent", dueDate: "2026-10-02", amount: 9_500, status: "upcoming" },
+          { name: "Wifi", dueDate: "2026-10-03", amount: 899, status: "paid" },
+          { name: "Old", dueDate: "2026-10-04", amount: 100, status: "missing" },
+          { name: "Later", dueDate: "2026-11-20", amount: 100, status: "upcoming" },
+        ]),
+      },
+      14,
+    );
+    assert.deepEqual(result.map((payment) => [payment.merchant, payment.date]), [["Rent", "2026-10-02"]]);
+  });
+});
+
 describe("goalStatusLabel", () => {
   it("names the shortfall when behind", () => {
     assert.equal(goalStatusLabel({ status: "behind", shortfall: 3_800 } as never), "Behind by R 3,800");

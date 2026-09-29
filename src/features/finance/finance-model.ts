@@ -9,6 +9,7 @@ export const FINANCE_TAB_OPTIONS: readonly { value: FinanceTab; label: string }[
   { value: "cash-flow", label: "Cash flow" },
   { value: "spending", label: "Spending" },
   { value: "subscriptions", label: "Subscriptions" },
+  { value: "bills", label: "Bills" },
   { value: "goals", label: "Goals" },
   { value: "investments", label: "Investments" },
   { value: "insights", label: "Insights" },
@@ -60,19 +61,27 @@ function addOneMonth(date: string): string {
 }
 
 /**
- * Recurring payments expected in the next `days`, from the rhythm already
- * detected. A monthly charge is expected one month after it last cleared; an
+ * Payments expected in the next `days`: subscriptions from the rhythm already
+ * detected, and the bills you track. A monthly charge is expected one month after it last cleared; an
  * annual one is left out (a year's notice is not "coming up"). It is a
  * projection of a pattern, not a schedule the bank gave us, and is labelled so.
  */
-export function upcomingPayments(data: Pick<FinanceData, "subscriptions" | "today">, days = 14): UpcomingPayment[] {
+export function upcomingPayments(data: Pick<FinanceData, "subscriptions" | "today"> & { bills?: FinanceData["bills"] }, days = 14): UpcomingPayment[] {
   const horizon = new Date(`${data.today}T12:00:00Z`);
   horizon.setUTCDate(horizon.getUTCDate() + days);
   const limit = horizon.toISOString().slice(0, 10);
 
-  return data.subscriptions
+  const projected = data.subscriptions
     .filter((subscription) => subscription.frequency === "monthly")
-    .map((subscription) => ({ merchant: subscription.merchant, date: addOneMonth(subscription.lastPaid), amount: subscription.monthly }))
+    .map((subscription) => ({ merchant: subscription.merchant, date: addOneMonth(subscription.lastPaid), amount: subscription.monthly }));
+
+  // A tracked bill is not a projection: you told Finance its due day, and it
+  // is still to come only if this month's payment has not been seen.
+  const bills = (data.bills?.items ?? [])
+    .filter((bill) => bill.status !== "paid" && bill.status !== "missing")
+    .map((bill) => ({ merchant: bill.name, date: bill.dueDate, amount: bill.amount }));
+
+  return [...projected, ...bills]
     .filter((payment) => payment.date > data.today && payment.date <= limit)
     .sort((a, b) => a.date.localeCompare(b.date));
 }

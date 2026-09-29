@@ -9,7 +9,7 @@ import type {
   SubscriptionDecision,
   Transaction,
 } from "../../shared/finance-types";
-import { CategorySchema, JevSubscriptionAssessmentSchema, type AccountInput, type AccountPatch, type BudgetInput } from "../../shared/finance-types";
+import { CategorySchema, JevSubscriptionAssessmentSchema, type AccountInput, type AccountPatch, type BillInput, type BillPatch, type BudgetInput } from "../../shared/finance-types";
 import { isRiskProfile, type RiskProfile } from "../../shared/finance-profiler";
 import { merchantKey } from "./categorise";
 import { financeDatabase } from "./db";
@@ -364,4 +364,92 @@ export function saveBudget(input: BudgetInput): void {
     return;
   }
   db.prepare("INSERT INTO budgets (category, amount) VALUES (?, ?) ON CONFLICT(category) DO UPDATE SET amount = excluded.amount").run(input.category, input.amount);
+}
+
+// ----------------------------------------------------------------- bills
+
+export interface StoredBill {
+  id: string;
+  name: string;
+  amount: number;
+  dueDay: number;
+  category: Category;
+  match?: string;
+}
+
+export interface BillMarkRow {
+  billId: string;
+  month: string;
+  amount: number;
+  paidOn: string;
+}
+
+interface BillRow {
+  id: string;
+  name: string;
+  amount: number;
+  due_day: number;
+  category: string;
+  match: string | null;
+}
+
+const toBill = (row: BillRow): StoredBill => ({
+  id: row.id,
+  name: row.name,
+  amount: row.amount,
+  dueDay: row.due_day,
+  category: CategorySchema.safeParse(row.category).data ?? "Other",
+  match: row.match ?? undefined,
+});
+
+export function readBills(): StoredBill[] {
+  return (financeDatabase().prepare("SELECT * FROM bills ORDER BY due_day, name").all() as unknown as BillRow[]).map(toBill);
+}
+
+export function readBill(id: string): StoredBill {
+  const row = financeDatabase().prepare("SELECT * FROM bills WHERE id = ?").get(id) as unknown as BillRow | undefined;
+  if (!row) throw new FinanceNotFoundError("That bill does not exist.");
+  return toBill(row);
+}
+
+export function createBill(input: BillInput): StoredBill {
+  const id = randomUUID();
+  financeDatabase()
+    .prepare("INSERT INTO bills (id, name, amount, due_day, category, match, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(id, input.name, input.amount, input.dueDay, input.category, input.match?.trim() || null, new Date().toISOString());
+  return readBill(id);
+}
+
+export function updateBill(id: string, patch: BillPatch): StoredBill {
+  const current = readBill(id);
+  const match = patch.match === undefined ? current.match : patch.match?.trim() || undefined;
+  const next = { ...current, ...patch, match };
+  financeDatabase()
+    .prepare("UPDATE bills SET name = ?, amount = ?, due_day = ?, category = ?, match = ? WHERE id = ?")
+    .run(next.name, next.amount, next.dueDay, next.category, match ?? null, id);
+  return readBill(id);
+}
+
+export function deleteBill(id: string): void {
+  readBill(id);
+  const db = financeDatabase();
+  db.prepare("DELETE FROM bill_marks WHERE bill_id = ?").run(id);
+  db.prepare("DELETE FROM bills WHERE id = ?").run(id);
+}
+
+export function readBillMarks(): BillMarkRow[] {
+  const rows = financeDatabase().prepare("SELECT bill_id, month, amount, paid_on FROM bill_marks").all() as unknown as { bill_id: string; month: string; amount: number; paid_on: string }[];
+  return rows.map((row) => ({ billId: row.bill_id, month: row.month, amount: row.amount, paidOn: row.paid_on }));
+}
+
+/** Marks a bill paid for a month, for a payment Finance cannot see. */
+export function markBillPaid(id: string, month: string, amount: number, paidOn: string): void {
+  readBill(id);
+  financeDatabase()
+    .prepare("INSERT INTO bill_marks (bill_id, month, amount, paid_on) VALUES (?, ?, ?, ?) ON CONFLICT(bill_id, month) DO UPDATE SET amount = excluded.amount, paid_on = excluded.paid_on")
+    .run(id, month, amount, paidOn);
+}
+
+export function unmarkBillPaid(id: string, month: string): void {
+  financeDatabase().prepare("DELETE FROM bill_marks WHERE bill_id = ? AND month = ?").run(id, month);
 }

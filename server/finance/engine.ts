@@ -1,6 +1,8 @@
 import type {
   Anomaly,
   Attention,
+  BillStatus,
+  BillSuggestion,
   Debt,
   Finding,
   Category,
@@ -21,7 +23,9 @@ import type {
 import { CATEGORY_GROUP, formatRandAmount } from "../../shared/finance-types";
 import { monthsBetween, requiredMonthly as profilerRequiredMonthly, futureValueOfContributions, futureValueOfLump, RISK_PROFILE_INFO, type RiskProfile } from "../../shared/finance-profiler";
 import { analyse, buildDebts } from "./analyse";
+import { billTotals, buildBillStatuses, suggestBills } from "./bills";
 import { guessSubscriptionKind, isInvestmentTransfer, merchantKey, ruleCategory } from "./categorise";
+import type { BillMarkRow, StoredBill } from "./store";
 
 /**
  * Finance's arithmetic.
@@ -127,7 +131,7 @@ function activeMonths(transactions: readonly CategorisedTransaction[]): string[]
  */
 const CANCELLABLE: ReadonlySet<Category> = new Set<Category>(["Subscriptions", "Business", "Other"]);
 
-const isCancellable = (entry: { category: Category; merchant: string }) =>
+export const isCancellable = (entry: { category: Category; merchant: string }) =>
   CANCELLABLE.has(entry.category) || (entry.category === "Health" && guessSubscriptionKind(entry.merchant) === "fitness");
 
 export interface RecurringMerchant {
@@ -506,6 +510,8 @@ export interface EngineInput {
   assessments: ReadonlyMap<string, JevSubscriptionAssessment>;
   goals: readonly EngineGoal[];
   budgets?: ReadonlyMap<Category, number>;
+  bills?: readonly StoredBill[];
+  billMarks?: readonly BillMarkRow[];
   /** `YYYY-MM-DD`. */
   today: string;
 }
@@ -535,6 +541,7 @@ export interface EngineOutput {
   debts: Debt[];
   findings: Finding[];
   focus: string[];
+  bills: { items: BillStatus[]; committedMonthly: number; paidThisMonth: number; remaining: number; incomeShare?: number; suggestions: BillSuggestion[] };
 }
 
 export function computeFinance(input: EngineInput): EngineOutput {
@@ -608,6 +615,9 @@ export function computeFinance(input: EngineInput): EngineOutput {
     anomalies,
   });
 
+  const billItems = buildBillStatuses(input.bills ?? [], input.billMarks ?? [], ledger, input.today);
+  const bills = { items: billItems, ...billTotals(billItems, summary.income), suggestions: suggestBills(recurring, input.bills ?? [], isCancellable) };
+
   const debts = buildDebts(input.accounts, freeCashFlow);
   const split = incomeSplit(categories, summary);
   const analysis = analyse({
@@ -620,12 +630,13 @@ export function computeFinance(input: EngineInput): EngineOutput {
     subscriptionMonthly,
     goals,
     debts,
+    bills: { committedMonthly: bills.committedMonthly, incomeShare: bills.incomeShare, count: billItems.length },
     averageMonthlySpend,
     freeCashFlow,
     month,
   });
 
-  const attention = buildAttention({ today: input.today, subscriptions, categories, goals, anomalies, uncategorised: rows.filter((r) => r.categorySource === "none" && r.amount < 0).length });
+  const attention = buildAttention({ today: input.today, bills: billItems, subscriptions, categories, goals, anomalies, uncategorised: rows.filter((r) => r.categorySource === "none" && r.amount < 0).length });
   const health = buildHealth({ summary, emergencyMonths, subscriptionMonthly, goals, investments });
 
   return {
@@ -653,11 +664,13 @@ export function computeFinance(input: EngineInput): EngineOutput {
     debts,
     findings: analysis.findings,
     focus: analysis.focus,
+    bills,
   };
 }
 
 export function buildAttention(input: {
   today: string;
+  bills: readonly BillStatus[];
   subscriptions: readonly Subscription[];
   categories: readonly CategoryTotal[];
   goals: readonly GoalProgress[];
@@ -684,6 +697,13 @@ export function buildAttention(input: {
   }
   for (const goal of input.goals.filter((g) => g.status === "overdue")) {
     attention.push({ id: `goal:${goal.id}`, tone: "note", text: `${goal.name} passed its date with ${formatRandAmount(goal.remaining)} to go`, tab: "goals" });
+  }
+
+  for (const bill of input.bills.filter((entry) => entry.status === "missing")) {
+    attention.push({ id: `bill:${bill.id}`, tone: "warn", text: `${bill.name} not seen yet (due ${Number(bill.dueDate.slice(8, 10))} ${monthName(bill.dueDate.slice(0, 7), "short")})`, tab: "bills" });
+  }
+  for (const bill of input.bills.filter((entry) => entry.variance !== undefined && Math.abs(entry.variance) >= 100 && Math.abs(entry.variance) / entry.amount >= 0.15 && !entry.marked)) {
+    attention.push({ id: `bill-amount:${bill.id}`, tone: "note", text: `${bill.name} was ${formatRandAmount(Math.abs(bill.variance ?? 0))} ${(bill.variance ?? 0) > 0 ? "more" : "less"} than expected`, tab: "bills" });
   }
 
   if (input.uncategorised >= 3) {

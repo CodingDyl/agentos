@@ -106,6 +106,27 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE accounts ADD COLUMN interest_rate REAL;
   ALTER TABLE accounts ADD COLUMN credit_limit REAL;
   `,
+  `
+  -- Fixed monthly commitments you track: rent, water and electricity, wifi.
+  CREATE TABLE IF NOT EXISTS bills (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    amount      REAL NOT NULL,
+    due_day     INTEGER NOT NULL,
+    category    TEXT NOT NULL,
+    match       TEXT,
+    created_at  TEXT NOT NULL
+  );
+
+  -- A bill you marked paid yourself for a month, when Finance cannot see the payment.
+  CREATE TABLE IF NOT EXISTS bill_marks (
+    bill_id  TEXT NOT NULL,
+    month    TEXT NOT NULL,
+    amount   REAL NOT NULL,
+    paid_on  TEXT NOT NULL,
+    PRIMARY KEY (bill_id, month)
+  );
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

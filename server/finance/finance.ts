@@ -4,12 +4,14 @@ import { InvestecError, isInvestecConfigured, missingInvestecVariables, readInve
 import { isJevConfigured } from "../mail/jev-client";
 import { readAnalysisNarrative } from "./analyser";
 import { readNarrative } from "./review";
-import { sampleAccounts, sampleGoals, sampleTransactions } from "./sample";
+import { sampleAccounts, sampleBills, sampleGoals, sampleTransactions } from "./sample";
 import {
   correctionMap,
   countTransactions,
   readAccounts,
   readAssessments,
+  readBillMarks,
+  readBills,
   readBudgets,
   readCorrections,
   readDecisions,
@@ -97,6 +99,7 @@ export function getFinance(): FinanceData {
   const goalsStored: StoredGoal[] = readGoals();
   const goals: StoredGoal[] = useSample && goalsStored.length === 0 ? sampleGoals(today) : goalsStored;
 
+  const billsStored = readBills();
   const assessments = new Map([...readAssessments()].map(([key, value]) => [key, value.assessment]));
 
   const result = computeFinance({
@@ -107,6 +110,8 @@ export function getFinance(): FinanceData {
     assessments,
     goals,
     budgets: readBudgets(),
+    bills: useSample && billsStored.length === 0 ? sampleBills() : billsStored,
+    billMarks: readBillMarks(),
     today,
   });
 
@@ -149,6 +154,7 @@ export function getFinance(): FinanceData {
     corrections: readCorrections(),
     jev: { configured: isJevConfigured(), assessedCount: assessments.size },
     debts: result.debts,
+    bills: result.bills,
     analysis: { findings: result.findings, focus: result.focus, narrative: analysisNarrative?.text, narrativeAt: analysisNarrative?.at },
   });
 }
