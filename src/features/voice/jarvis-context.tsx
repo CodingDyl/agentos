@@ -182,7 +182,6 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     }
     if (!voiceReady || phase === "transcribing" || phase === "thinking") return;
 
-    setIsOpen(true);
     setError(undefined);
     setAutoSendAt(undefined);
     setTranscriptState("");
@@ -233,7 +232,14 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const api: JarvisApi = {
     isOpen,
     open: () => setIsOpen(true),
-    close: () => setIsOpen(false),
+    close: () => {
+      setIsOpen(false);
+      // Closing acknowledges an error; the words you said stay in the box.
+      if (error) {
+        setError(undefined);
+        setPhase("idle");
+      }
+    },
     phase,
     level: recorder.level,
     transcript,
