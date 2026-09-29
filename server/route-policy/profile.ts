@@ -3,6 +3,7 @@ import type {
   RequiredCapability,
   TaskCategory,
   TaskComplexity,
+  TaskMetadata,
   TaskProfile,
 } from "../../shared/route-policy-types";
 
@@ -30,18 +31,7 @@ export interface TaskProfileInput {
   contextFiles?: string[];
   repoPath?: string;
   validationCommands?: string[];
-  metadata?: {
-    category?: TaskCategory;
-    complexity?: TaskComplexity;
-    capabilities?: RequiredCapability[];
-    localOnly?: boolean;
-    deadlineMs?: number;
-    budgetUsd?: number;
-    reviewRequired?: boolean;
-    /** Expected deliverable, e.g. a JSON schema forces structured output. */
-    deliverable?: "text" | "json" | "code_change";
-    outputBudgetTokens?: number;
-  };
+  metadata?: TaskMetadata;
 }
 
 export function estimateTokens(text: string | undefined): number {

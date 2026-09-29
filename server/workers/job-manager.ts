@@ -19,8 +19,15 @@ import {
 import type { WorkerRoutingDecision } from "../../shared/worker-routing-types";
 import { collectWorkerUsage } from "../usage/collector";
 import { buildContextPacket, resolveContextFiles } from "./context-builder";
-import { retrieveMemoryContext } from "../memory/retrieval";
-import { memoryService } from "../memory/service";
+import {
+  beginAttempt,
+  failureInfo,
+  finishAttempt,
+  initialOption,
+  nextFallback,
+  planRoute,
+} from "../route-policy/dispatch";
+import { validateOutput } from "./providers/ollama-worker";
 import { routeJob } from "./router";
 import {
   appendEvent,
@@ -54,6 +61,20 @@ import { changedFiles, createWorktree, isRepository } from "./worktree";
  * claiming to be live with nothing running it. A stall watch turns silence
  * into a visible warning in between.
  */
+
+/**
+ * A worker returned something that does not meet the task's output rules.
+ * Carries a `kind` so failure handling can tell it from a crash.
+ */
+class OutputRejected extends Error {
+  readonly kind = "invalid_output";
+  readonly fallbackEligible = true;
+
+  constructor(reason: string) {
+    super(`The result was rejected: ${reason}`);
+    this.name = "OutputRejected";
+  }
+}
 
 /** Live runs, so a job can be cancelled and its events subscribed to. */
 interface RunningJob {
@@ -159,11 +180,34 @@ export async function startJob(
   /** Fields the job carries from birth that are not part of the request, e.g. `retryOf`. */
   extra: Pick<Partial<WorkerJob>, "retryOf"> = {},
 ): Promise<StartJobResult> {
-  const resolved = await resolveWorkerId(
-    request.worker,
-    { objective: request.objective, project: request.project },
-    request.routing,
-  );
+  let resolved: Awaited<ReturnType<typeof resolveWorkerId>>;
+
+  // The route policy plans a job once, here, before anything runs. A decision
+  // the caller already holds (the console showed it) is honoured as-is, and a
+  // plain explicit worker with no routing mode keeps its legacy behaviour.
+  const wantsPolicy =
+    !request.routing?.policy && (request.routingMode !== undefined || request.worker === "auto");
+
+  const planned = wantsPolicy
+    ? await planRoute({
+        ...request,
+        manualOptionId:
+          request.manualOptionId ?? (request.worker !== "auto" ? request.worker : undefined),
+      })
+    : undefined;
+
+  if (planned) {
+    if (planned.record.status === "blocked" || !planned.decision) {
+      return { error: planned.record.blockedReason ?? planned.record.reason };
+    }
+    resolved = { id: planned.decision.selectedWorker, routing: planned.decision };
+  } else {
+    resolved = await resolveWorkerId(
+      request.worker,
+      { objective: request.objective, project: request.project },
+      request.routing,
+    );
+  }
 
   if (!resolved.id) return { error: resolved.error };
 
@@ -181,7 +225,7 @@ export async function startJob(
     return { error: health.reason ?? `${worker.name} is not available.` };
   }
 
-  const job: WorkerJob = {
+  let job: WorkerJob = {
     ...request,
     // Whatever named these — Hermes scoping, a retry, a hand-typed form — the
     // worker gets paths that exist, or none.
@@ -191,22 +235,6 @@ export async function startJob(
           repoPath: request.repoPath,
         })
       : undefined,
-    // Retrieved now and kept on the record: the brief this job runs with is
-    // fixed at birth, whatever is edited in the vault afterwards.
-    memoryContext: await retrieveMemoryContext(memoryService(), {
-      project: request.project,
-      query: request.objective,
-    }).catch((error: unknown) => ({
-      status: "unavailable" as const,
-      retrievedAt: new Date().toISOString(),
-      budgetTokens: 0,
-      usedTokens: 0,
-      query: request.objective,
-      sources: [],
-      missing: [],
-      warnings: [`Vault memory could not be retrieved: ${(error as Error).message}`],
-      text: "",
-    })),
     id: createJobId(),
     status: "queued",
     resolvedWorker: worker.id,
@@ -217,6 +245,11 @@ export async function startJob(
     createdAt: new Date().toISOString(),
     ...extra,
   };
+
+  // First attempt of a policy-routed job: the exact option, recorded before
+  // it runs so a crash still shows where the work was sent.
+  const first = initialOption(job);
+  if (first) job = beginAttempt(job, first, "initial");
 
   await saveJob(job);
 
@@ -644,7 +677,10 @@ async function run(
   briefOverride?: string,
 ): Promise<void> {
   const controller = new AbortController();
-  running.set(initial.id, { worker, controller, listeners: new Set() });
+  // A fallback attempt is a second run of the same job. Whoever is watching
+  // its stream keeps watching.
+  const priorListeners = running.get(initial.id)?.listeners;
+  running.set(initial.id, { worker, controller, listeners: priorListeners ?? new Set() });
 
   let job = initial;
 
@@ -700,6 +736,15 @@ async function run(
       signal: controller.signal,
     });
 
+    // A text job's deliverable is checked here for every worker, not just the
+    // local one: invalid JSON must never become a successful result, whoever
+    // produced it.
+    if (!job.worktreePath && job.expectedOutput) {
+      const check = validateOutput(result.summary, job.expectedOutput);
+      if (!check.ok) throw new OutputRejected(check.reason);
+      result.summary = check.value;
+    }
+
     // What actually changed on disk is read from git, not taken on trust —
     // and read before validation runs, so a build's own output cannot be
     // mistaken for something the worker wrote.
@@ -754,7 +799,7 @@ async function run(
       ? await collectArtifacts(job, worker, worktree, result.summary, changed ?? [])
       : [];
 
-    if (!validated) {
+    if (!validated && !(job.routing?.policy && !job.worktreePath)) {
       // Said out loud, because "no failures" and "nothing was checked" look
       // identical on a screen otherwise.
       blockers.push(
@@ -804,6 +849,23 @@ async function run(
           ? "changes_required"
           : "awaiting_review",
       visualVerification: visual,
+      attempts: finishAttempt(job, {
+        outcome: failed ? "failed" : "succeeded",
+        modelDigest: result.providerMetrics?.modelDigest,
+        inputTokens: result.providerMetrics?.inputTokens,
+        outputTokens: result.providerMetrics?.outputTokens,
+        queueMs: result.providerMetrics?.queueMs,
+        loadMs: result.providerMetrics?.loadMs,
+        totalMs: result.providerMetrics?.totalMs,
+        validation: job.routing?.policy
+          ? {
+              passed: !failed,
+              detail: job.expectedOutput
+                ? "Output matched the expected format."
+                : "Output was non-empty.",
+            }
+          : undefined,
+      }).attempts,
       completedAt: new Date().toISOString(),
       error: failed
         ? `Validation failed: ${validation.results
@@ -885,6 +947,40 @@ async function run(
     const cancelled = controller.signal.aborted;
     const detail =
       error instanceof Error ? error.message : "The job failed for an unknown reason.";
+
+    const failure = failureInfo(error);
+    job = finishAttempt(job, {
+      outcome: cancelled ? "cancelled" : "failed",
+      failureKind: cancelled ? "cancelled" : failure.kind,
+      failureReason: cancelled ? undefined : failure.message,
+    });
+
+    // At most one fallback, and never after a cancellation: a cancelled job
+    // makes no further attempts anywhere. Everything that could cause a loop
+    // or send a local-only task to the cloud is checked in `nextFallback`.
+    const fallback = cancelled ? undefined : await nextFallback(job, failure, cancelled).catch(() => undefined);
+    const fallbackWorker = fallback ? getWorker(fallback.workerId) : undefined;
+    const fallbackHealth = fallbackWorker
+      ? await fallbackWorker.healthCheck().catch(() => ({ available: false }))
+      : undefined;
+
+    if (fallback && fallbackWorker && fallbackHealth?.available && !controller.signal.aborted) {
+      const message = `${failure.kind}: ${failure.message} Falling back to ${fallback.optionId}.`;
+      job = await update(beginAttempt(job, fallback, "fallback"), {
+        status: "queued",
+        resolvedWorker: fallback.workerId,
+        error: undefined,
+      });
+      emit(job.id, "job.progress", message, { fallbackTo: fallback.optionId, failureKind: failure.kind });
+      await recordActivity({
+        type: "worker.fallback",
+        description: `${worker.name} failed (${failure.kind}); ${fallbackWorker.name} took over: ${job.objective}`,
+        project: job.project,
+        metadata: { jobId: job.id, from: worker.id, to: fallback.optionId, failureKind: failure.kind },
+      });
+      await run(job, fallbackWorker);
+      return;
+    }
 
     job = await update(job, {
       status: cancelled ? "cancelled" : "failed",

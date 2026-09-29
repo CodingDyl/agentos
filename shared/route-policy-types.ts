@@ -43,6 +43,22 @@ export const RequiredCapabilitySchema = z.enum([
 
 export const RoutingModeSchema = z.enum(["auto", "local_only", "manual"]);
 
+/**
+ * Explicit task metadata. Anything set here beats what the profiler infers.
+ * Sent with a job request; never derived from model output.
+ */
+export const TaskMetadataSchema = z.object({
+  category: TaskCategorySchema.optional(),
+  complexity: TaskComplexitySchema.optional(),
+  capabilities: z.array(RequiredCapabilitySchema).optional(),
+  localOnly: z.boolean().optional(),
+  deadlineMs: z.number().positive().optional(),
+  budgetUsd: z.number().nonnegative().optional(),
+  reviewRequired: z.boolean().optional(),
+  deliverable: z.enum(["text", "json", "code_change"]).optional(),
+  outputBudgetTokens: z.number().int().positive().optional(),
+});
+
 export const ExecutionLocationSchema = z.enum(["local", "cloud"]);
 
 export const ExecutionConstraintsSchema = z.object({
@@ -144,6 +160,34 @@ export const RoutePolicyRecordSchema = z.object({
 });
 
 /**
+ * One execution attempt of a job. A job that fell back has several; the list
+ * is the whole story of where its work went and why.
+ */
+export const ExecutionAttemptSchema = z.object({
+  attempt: z.number().int().positive(),
+  optionId: z.string(),
+  workerId: WorkerIdSchema,
+  modelId: z.string().optional(),
+  modelDigest: z.string().optional(),
+  location: ExecutionLocationSchema,
+  startedAt: z.string(),
+  endedAt: z.string().optional(),
+  outcome: z.enum(["running", "succeeded", "failed", "cancelled"]),
+  /** Machine-readable cause (e.g. `offline`, `invalid_output`) when it failed. */
+  failureKind: z.string().optional(),
+  failureReason: z.string().optional(),
+  /** Why this attempt happened: the first choice, or which failure led here. */
+  trigger: z.enum(["initial", "fallback"]),
+  inputTokens: z.number().optional(),
+  outputTokens: z.number().optional(),
+  queueMs: z.number().optional(),
+  loadMs: z.number().optional(),
+  totalMs: z.number().optional(),
+  /** Task-specific validation of the output: did it pass, and what it said. */
+  validation: z.object({ passed: z.boolean(), detail: z.string().optional() }).optional(),
+});
+
+/**
  * Local model configuration. Discovery never enables anything: a model is
  * routable only while it has an entry here with `enabled: true`.
  */
@@ -168,6 +212,8 @@ export const OllamaSettingsSchema = z.object({
   models: z.record(z.string(), OllamaModelConfigSchema),
 });
 
+export type TaskMetadata = z.infer<typeof TaskMetadataSchema>;
+export type ExecutionAttempt = z.infer<typeof ExecutionAttemptSchema>;
 export type TaskCategory = z.infer<typeof TaskCategorySchema>;
 export type TaskComplexity = z.infer<typeof TaskComplexitySchema>;
 export type RequiredCapability = z.infer<typeof RequiredCapabilitySchema>;
