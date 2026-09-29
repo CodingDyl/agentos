@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { mergeNews, parseFeed, parseHackerNews } from "../news";
-import { readTrendingRepos, trendingQuery } from "../trending";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { mergeCandidates, readTrendingRepos, trendingQuery } from "../trending";
+import { KEEP_DAYS, rankTrending, readSnapshots, recordDay, writeSnapshots } from "../trending-snapshots";
+import type { TrendingRepo } from "../../../shared/today-types";
 
 const RSS = `<?xml version="1.0"?><rss><channel>
 <item><title><![CDATA[Claude &amp; friends]]></title><link>https://example.com/a</link><pubDate>Mon, 28 Sep 2026 10:00:00 GMT</pubDate></item>
@@ -62,5 +67,71 @@ describe("github trending", () => {
     const query = trendingQuery(new Date("2026-09-29T12:00:00Z"));
     assert.equal(query.get("q"), "created:>2026-09-22");
     assert.equal(query.get("sort"), "stars");
+  });
+});
+
+const repo = (fullName: string, stars: number, createdAt = "2026-01-01T00:00:00Z"): TrendingRepo => ({
+  fullName,
+  url: `https://github.com/${fullName}`,
+  stars,
+  forks: 0,
+  createdAt,
+});
+
+describe("trending snapshots", () => {
+  it("orders by total stars when there is no earlier day", () => {
+    const ranked = rankTrending([repo("a/a", 10), repo("b/b", 50)], {}, "2026-09-29", 10);
+    assert.deepEqual(ranked.repos.map((r) => r.fullName), ["b/b", "a/a"]);
+    assert.equal(ranked.baselineDate, undefined);
+    assert.equal(ranked.repos[0].starsGained, undefined);
+  });
+
+  it("ranks by gain against the latest earlier day, and treats a repo created since as all gain", () => {
+    const days = { "2026-09-27": { "a/a": 100 }, "2026-09-28": { "a/a": 1000, "b/b": 5000 } };
+    const ranked = rankTrending(
+      [repo("a/a", 1400), repo("b/b", 5100), repo("new/new", 300, "2026-09-28T12:00:00Z"), repo("old/unseen", 99999)],
+      days,
+      "2026-09-29",
+      10,
+    );
+    assert.deepEqual(ranked.repos.map((r) => [r.fullName, r.starsGained]), [
+      ["a/a", 400],
+      ["new/new", 300],
+      ["b/b", 100],
+      ["old/unseen", undefined],
+    ]);
+    assert.equal(ranked.repos[1].isNew, true);
+    assert.equal(ranked.baselineDate, "2026-09-28");
+    assert.equal(ranked.sinceDays, 1);
+  });
+
+  it("overwrites the same day, keeps the days apart, and prunes old ones", () => {
+    let days = recordDay({}, "2026-01-01", [repo("a/a", 1)]);
+    days = recordDay(days, "2026-01-01", [repo("a/a", 2)]);
+    assert.equal(days["2026-01-01"]["a/a"], 2);
+    for (let i = 2; i <= KEEP_DAYS + 5; i++) days = recordDay(days, `2026-02-${String(i).padStart(2, "0")}`, [repo("a/a", i)]);
+    assert.equal(Object.keys(days).length, KEEP_DAYS);
+    assert.equal(days["2026-01-01"], undefined);
+  });
+
+  it("round-trips through disk and treats a corrupt file as empty", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-trending-"));
+    const previous = process.env.AGENTOS_UI_DIR;
+    process.env.AGENTOS_UI_DIR = dir;
+    try {
+      assert.deepEqual(await readSnapshots(), {});
+      await writeSnapshots({ "2026-09-28": { "a/a": 7 } });
+      assert.deepEqual(await readSnapshots(), { "2026-09-28": { "a/a": 7 } });
+      await fs.writeFile(path.join(dir, "github-trending.json"), "{nope", "utf8");
+      assert.deepEqual(await readSnapshots(), {});
+    } finally {
+      if (previous === undefined) delete process.env.AGENTOS_UI_DIR;
+      else process.env.AGENTOS_UI_DIR = previous;
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("counts a repo found by both searches once", () => {
+    assert.equal(mergeCandidates([repo("a/a", 1)], [repo("a/a", 2), repo("b/b", 3)]).length, 2);
   });
 });

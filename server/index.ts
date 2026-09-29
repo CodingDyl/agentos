@@ -25,7 +25,7 @@ import { formatAgenda } from "./today/agenda";
 import { getMorningBrief } from "./today/brief";
 import { getDayWrap } from "./today/wrap";
 import { getTodayNews } from "./today/news";
-import { getTodayTrending } from "./today/trending";
+import { getTodayTrending, startTrendingTracker } from "./today/trending";
 import { AttentionDismissRequestSchema, AttentionRestoreRequestSchema } from "../shared/mission-control-types";
 import { agentOSRoot, readOptionalFile } from "./agentos/filesystem";
 import {
@@ -3982,6 +3982,7 @@ app.get("/api/agent/sessions", async (_request, response) => {
 app.listen(PORT, HOST, () => {
   console.log(`AgentOS data adapter: http://${HOST}:${PORT}`);
   console.log(`Vault: ${agentOSRoot()}`);
+  startTrendingTracker();
 
   // Jobs run inside this process, so a restart kills them. Settle whatever the
   // last process left claiming to be live, then start watching for silence.

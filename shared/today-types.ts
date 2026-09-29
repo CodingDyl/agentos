@@ -144,6 +144,10 @@ export const TrendingRepoSchema = z.object({
   forks: z.number().int(),
   /** ISO 8601. */
   createdAt: z.string(),
+  /** Stars gained since the last day we recorded; absent when there is nothing to compare with. */
+  starsGained: z.number().int().optional(),
+  /** Created since the last recorded day, so every star is a gain. */
+  isNew: z.boolean().optional(),
 });
 
 export const TodayTrendingSchema = z.object({
@@ -152,6 +156,18 @@ export const TodayTrendingSchema = z.object({
   repos: z.array(TrendingRepoSchema),
   /** How far back "new" reaches, in days. */
   windowDays: z.number().int(),
+  /**
+   * What the gains are measured against. Absent until a second day has been
+   * recorded; the list is then ordered by total stars, not by gain.
+   */
+  tracking: z
+    .object({
+      baselineDate: z.string().optional(),
+      sinceDays: z.number().int().optional(),
+      /** How many days of history are stored. */
+      daysRecorded: z.number().int(),
+    })
+    .optional(),
   fetchedAt: z.string(),
 });
 

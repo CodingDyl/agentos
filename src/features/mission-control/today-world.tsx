@@ -91,6 +91,12 @@ function RepoRow({ repo, rank }: { repo: TrendingRepo; rank: number }) {
           </span>
           {repo.language ? <span>{repo.language}</span> : null}
           <span>{formatRelativeTime(repo.createdAt)}</span>
+          {repo.starsGained !== undefined ? (
+            <span className="font-semibold text-paper-moss tabular-nums">
+              +{compact(repo.starsGained)}
+              {repo.isNew ? " · new" : ""}
+            </span>
+          ) : null}
         </span>
       </span>
     </li>
@@ -115,7 +121,11 @@ export function TodayTrending({ className }: { className?: string }) {
               <RepoRow key={repo.fullName} repo={repo} rank={index + 1} />
             ))}
           </ol>
-          <p className="mt-2 text-[12px] text-paper-sage">Repositories created in the last {data.windowDays} days, most starred first.</p>
+          <p className="mt-2 text-[12px] leading-5 text-paper-sage">
+            {data.tracking?.baselineDate
+              ? `Stars gained ${data.tracking.sinceDays === 1 ? "since yesterday" : `in ${data.tracking.sinceDays} days`}, among the year's most-starred young repos and this week's new ones.`
+              : "Tracking started today: star gains appear tomorrow. For now, ordered by total stars."}
+          </p>
         </>
       )}
     </PaperSection>
