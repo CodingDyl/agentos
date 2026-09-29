@@ -1,4 +1,4 @@
-import { FinanceDataSchema, type FinanceData, type FinancialGoal } from "../../shared/finance-types";
+import { FinanceDataSchema, type FinanceData } from "../../shared/finance-types";
 import { computeFinance } from "./engine";
 import { InvestecError, isInvestecConfigured, missingInvestecVariables, readInvestec } from "./investec";
 import { isJevConfigured } from "../mail/jev-client";
@@ -9,6 +9,7 @@ import {
   countTransactions,
   readAccounts,
   readAssessments,
+  readBudgets,
   readCorrections,
   readDecisions,
   readGoals,
@@ -92,7 +93,7 @@ export function getFinance(): FinanceData {
   const transactions = useSample ? sampleTransactions(today) : readTransactions();
 
   const goalsStored: StoredGoal[] = readGoals();
-  const goals: (FinancialGoal & { kind: "goal" | "sinking" })[] = useSample && goalsStored.length === 0 ? sampleGoals(today) : goalsStored;
+  const goals: StoredGoal[] = useSample && goalsStored.length === 0 ? sampleGoals(today) : goalsStored;
 
   const assessments = new Map([...readAssessments()].map(([key, value]) => [key, value.assessment]));
 
@@ -103,6 +104,7 @@ export function getFinance(): FinanceData {
     decisions: readDecisions(),
     assessments,
     goals,
+    budgets: readBudgets(),
     today,
   });
 
@@ -126,6 +128,7 @@ export function getFinance(): FinanceData {
     months: result.months,
     averageMonthlySpend: result.averageMonthlySpend,
     categories: result.categories,
+    split: result.split,
     transactions: result.rows,
     subscriptions: result.subscriptions,
     subscriptionMonthly: result.subscriptionMonthly,

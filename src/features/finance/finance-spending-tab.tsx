@@ -4,7 +4,8 @@ import { PaperSection, Tag } from "@/components/paper";
 import { useSaveCorrection } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
 import { CategorySuggest, MutationError } from "./finance-kit";
-import { CATEGORY_CHOICES, formatChange, formatDay, money } from "./finance-model";
+import { CATEGORY_CHOICES, formatDay, money } from "./finance-model";
+import { CategoryList, IncomeSplit } from "./finance-where-it-goes";
 
 /** Where it went, and the place to say what a payment really was. */
 export function FinanceSpendingTab({ data }: { data: FinanceData }) {
@@ -13,31 +14,9 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
 
   return (
     <div className="space-y-12">
-      <PaperSection label="This month by category">
-        <div className="overflow-x-auto rounded-[4px] border border-paper-mist">
-          <table className="w-full min-w-[28rem] text-left text-[14px]">
-            <thead className="bg-paper-linen text-[12.5px] text-paper-char">
-              <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">Category</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">This month</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">Typical</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">Change</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-paper-stone tabular-nums">
-              {data.categories.map((entry) => (
-                <tr key={entry.category}>
-                  <th scope="row" className="px-4 py-2.5 font-medium text-paper-moss">{entry.category}</th>
-                  <td className="px-4 py-2.5 text-right">{money(entry.amount)}</td>
-                  <td className="px-4 py-2.5 text-right text-paper-char">{entry.typical === undefined ? "-" : money(entry.typical)}</td>
-                  <td className={cn("px-4 py-2.5 text-right", entry.change !== undefined && entry.change >= 0.3 ? "font-semibold text-paper-flame-deep" : "text-paper-char")}>{formatChange(entry.change)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Typical is the average of the previous three months, and shows a dash until there is a month to compare with.</p>
-      </PaperSection>
+      <IncomeSplit data={data} />
+
+      <CategoryList data={data} />
 
       <PaperSection
         label="Recent payments"

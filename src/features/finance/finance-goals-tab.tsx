@@ -1,8 +1,10 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { RISK_PROFILE_INFO } from "@shared/finance-profiler";
 import { GOAL_TYPES, type FinanceData, type GoalInput, type GoalProgress } from "@shared/finance-types";
 import { FieldLabel, Meter, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { useCreateGoal, useDeleteGoal, useUpdateGoal } from "@/lib/agentos/finance";
+import { GoalProfiler } from "./finance-goal-profiler";
 import { Line, MutationError } from "./finance-kit";
 import { formatDay, goalStatusLabel, money } from "./finance-model";
 
@@ -24,6 +26,7 @@ const TYPE_LABEL: Record<(typeof GOAL_TYPES)[number], string> = {
  */
 export function FinanceGoalsTab({ data }: { data: FinanceData }) {
   const [adding, setAdding] = useState(false);
+  const [profiling, setProfiling] = useState(false);
   const goals = data.goals.filter((goal) => goal.kind === "goal");
   const funds = data.goals.filter((goal) => goal.kind === "sinking");
   const sample = data.source.kind === "sample";
@@ -36,11 +39,18 @@ export function FinanceGoalsTab({ data }: { data: FinanceData }) {
           <GoalForm onDone={() => setAdding(false)} />
         </PaperCard>
       ) : (
-        <PaperButton variant="amber" onClick={() => setAdding(true)}>
-          <Plus className="size-3.5" aria-hidden="true" />
-          Savings goal
-        </PaperButton>
+        <div className="flex flex-wrap gap-2">
+          <PaperButton variant="amber" onClick={() => setAdding(true)}>
+            <Plus className="size-3.5" aria-hidden="true" />
+            Savings goal
+          </PaperButton>
+          <PaperButton variant="ghost" onClick={() => setProfiling((open) => !open)} aria-expanded={profiling}>
+            Goal profiler
+          </PaperButton>
+        </div>
       )}
+
+      {profiling ? <NewGoalProfiler today={data.today} onClose={() => setProfiling(false)} /> : null}
 
       {data.goals.length === 0 && !adding ? (
         <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">
@@ -82,6 +92,7 @@ function GoalCard({ goal, data, readOnly }: { goal: GoalProgress; data: FinanceD
   const remove = useDeleteGoal();
   const [saved, setSaved] = useState(String(goal.currentAmount));
   const [finding, setFinding] = useState(false);
+  const [profiling, setProfiling] = useState(false);
 
   const opportunityTotal = data.opportunities.reduce((total, entry) => total + entry.monthly, 0);
   const behind = goal.status === "behind" && (goal.extraMonthlyNeeded ?? 0) > 0;
@@ -108,7 +119,11 @@ function GoalCard({ goal, data, readOnly }: { goal: GoalProgress; data: FinanceD
         {goal.targetDate ? <Line label="Date" value={formatDay(goal.targetDate)} /> : null}
         <Line label="Saved" value={money(goal.currentAmount)} />
         <Line label="Remaining" value={money(goal.remaining)} />
+        {goal.riskProfile ? (
+          <Line label="Held as" value={`${RISK_PROFILE_INFO[goal.riskProfile].label} · ${((goal.assumedReturn ?? 0) * 100).toFixed(1).replace(/\.0$/, "")}% assumed`} />
+        ) : null}
         {goal.requiredMonthly !== undefined ? <Line strong label={goal.kind === "sinking" ? "Reserve each month" : "Required monthly contribution"} value={money(goal.requiredMonthly)} /> : null}
+        {goal.requiredMonthlyNoGrowth !== undefined && (goal.assumedReturn ?? 0) > 0 ? <Line label="With no growth at all" value={money(goal.requiredMonthlyNoGrowth)} /> : null}
         {goal.projected !== undefined && goal.paceMonthly !== undefined ? <Line label="Projected at current pace" value={money(goal.projected)} /> : null}
         {goal.shortfall !== undefined && goal.paceMonthly !== undefined && goal.shortfall > 0 ? <Line strong label="Shortfall" value={money(goal.shortfall)} /> : null}
       </dl>
@@ -137,6 +152,31 @@ function GoalCard({ goal, data, readOnly }: { goal: GoalProgress; data: FinanceD
               </p>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {goal.status !== "done" && goal.status !== "no-date" && goal.status !== "overdue" && goal.targetDate ? (
+        <div className="mt-4">
+          <PaperButton variant="ghost" onClick={() => setProfiling((open) => !open)} aria-expanded={profiling}>
+            {goal.riskProfile ? "Change profile" : "Profile this goal"}
+          </PaperButton>
+        </div>
+      ) : null}
+      {profiling && goal.targetDate ? (
+        <div className="mt-4">
+          <GoalProfiler
+            today={data.today}
+            start={{ name: goal.name, target: goal.targetAmount, saved: goal.currentAmount, date: goal.targetDate, type: goal.type, riskProfile: goal.riskProfile, annualReturn: goal.annualReturn }}
+            applyLabel={readOnly ? "Sample goal" : "Use this for the goal"}
+            applyDisabled={readOnly || update.isPending}
+            onApply={(applied) =>
+              update.mutate(
+                { goalId: goal.id, patch: { riskProfile: applied.profile, annualReturn: applied.annualReturn ?? null } },
+                { onSuccess: () => setProfiling(false) },
+              )
+            }
+            onClose={() => setProfiling(false)}
+          />
         </div>
       ) : null}
 
@@ -234,5 +274,33 @@ function GoalForm({ onDone }: { onDone: () => void }) {
         <MutationError error={create.error} />
       </div>
     </form>
+  );
+}
+
+/** The profiler on its own: try a goal, then keep it as a goal if it looks right. */
+function NewGoalProfiler({ today, onClose }: { today: string; onClose: () => void }) {
+  const create = useCreateGoal();
+  const [name, setName] = useState("");
+
+  return (
+    <div>
+      <label className="mb-4 block max-w-md">
+        <FieldLabel>Name (needed to save it as a goal)</FieldLabel>
+        <input value={name} onChange={(event) => setName(event.target.value)} placeholder="House deposit" className={`${PAPER_INPUT} w-full`} maxLength={80} />
+      </label>
+      <GoalProfiler
+        today={today}
+        applyLabel={create.isPending ? "Saving…" : "Save as a goal"}
+        applyDisabled={name.trim().length === 0 || create.isPending}
+        onApply={(applied) =>
+          create.mutate(
+            { name: name.trim(), targetAmount: applied.target, currentAmount: applied.saved, targetDate: applied.date, type: applied.type, kind: "goal", riskProfile: applied.profile, annualReturn: applied.annualReturn },
+            { onSuccess: onClose },
+          )
+        }
+        onClose={onClose}
+      />
+      <MutationError error={create.error} />
+    </div>
   );
 }

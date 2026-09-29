@@ -88,6 +88,18 @@ const MIGRATIONS: readonly string[] = [
     value  TEXT NOT NULL
   );
   `,
+  `
+  -- How a goal's money is held, which sets the return its projection assumes.
+  -- Null means no growth is assumed.
+  ALTER TABLE goals ADD COLUMN risk_profile TEXT;
+  ALTER TABLE goals ADD COLUMN annual_return REAL;
+
+  -- A monthly limit per category, set by you.
+  CREATE TABLE IF NOT EXISTS budgets (
+    category  TEXT PRIMARY KEY,
+    amount    REAL NOT NULL
+  );
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

@@ -1,5 +1,4 @@
-import type { Category, FinanceData, FinanceTab, Subscription } from "@shared/finance-types";
-import { formatRandAmount } from "@shared/finance-types";
+import { CATEGORIES, formatRandAmount, type Category, type FinanceData, type FinanceTab, type Subscription } from "@shared/finance-types";
 
 /** Finance's presentation rules, as plain functions. */
 
@@ -38,23 +37,12 @@ export const TIER_LABEL: Record<Subscription["tier"], string> = {
   unassessed: "Not assessed yet",
 };
 
-/** The categories a person can move a payment into. Income and Transfer are included: a refund is not spending. */
-export const CATEGORY_CHOICES: readonly Category[] = [
-  "Housing",
-  "Groceries",
-  "Dining",
-  "Transport",
-  "Subscriptions",
-  "Health",
-  "Shopping",
-  "Travel",
-  "Business",
-  "Insurance",
-  "Fees",
-  "Other",
-  "Transfer",
-  "Income",
-];
+/**
+ * The categories a person can move a payment into. Spending categories first;
+ * Transfer and Income last, because moving a payment there takes it out of
+ * spending altogether.
+ */
+export const CATEGORY_CHOICES: readonly Category[] = [...CATEGORIES.filter((category) => category !== "Income" && category !== "Transfer"), "Transfer", "Income"];
 
 export interface UpcomingPayment {
   merchant: string;

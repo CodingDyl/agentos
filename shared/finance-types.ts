@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RISK_PROFILES } from "./finance-profiler";
 
 /**
  * Finance's contract, shared by the server and the page.
@@ -62,15 +63,21 @@ export const CATEGORIES = [
   "Income",
   "Transfer",
   "Housing",
+  "Utilities",
   "Groceries",
   "Dining",
   "Transport",
-  "Subscriptions",
+  "Debt",
   "Health",
-  "Shopping",
-  "Travel",
-  "Business",
   "Insurance",
+  "Education",
+  "Subscriptions",
+  "Entertainment",
+  "Shopping",
+  "Personal care",
+  "Travel",
+  "Giving",
+  "Business",
   "Fees",
   "Other",
 ] as const;
@@ -78,6 +85,35 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number];
 
 export const CategorySchema = z.enum(CATEGORIES);
+
+/**
+ * Where a category sits when you ask "needs or wants?". A judgement, and a
+ * rough one: groceries are a need and a tasting menu is not, but both are
+ * "Dining" or "Groceries" here. `unsorted` is honest about `Other`.
+ */
+export const CATEGORY_GROUPS = ["needs", "wants", "business", "unsorted"] as const;
+export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
+
+export const CATEGORY_GROUP: Record<Exclude<Category, "Income" | "Transfer">, CategoryGroup> = {
+  Housing: "needs",
+  Utilities: "needs",
+  Groceries: "needs",
+  Transport: "needs",
+  Debt: "needs",
+  Health: "needs",
+  Insurance: "needs",
+  Education: "needs",
+  Fees: "needs",
+  Dining: "wants",
+  Subscriptions: "wants",
+  Entertainment: "wants",
+  Shopping: "wants",
+  "Personal care": "wants",
+  Travel: "wants",
+  Giving: "wants",
+  Business: "business",
+  Other: "unsorted",
+};
 
 export const SUBSCRIPTION_KINDS = ["software", "entertainment", "business", "fitness", "finance", "other"] as const;
 export type SubscriptionKind = (typeof SUBSCRIPTION_KINDS)[number];
@@ -112,10 +148,18 @@ export const GoalInputSchema = z.object({
   type: z.enum(GOAL_TYPES).default("other"),
   /** A sinking fund reserves money for an expense you know is coming, rather than chasing a milestone. */
   kind: z.enum(["goal", "sinking"]).default("goal"),
+  /** How the goal's money is held. Unset means no growth is assumed, which is the cautious reading. */
+  riskProfile: z.enum(RISK_PROFILES).optional(),
+  /** Overrides the profile's assumed annual return (a fraction, so 0.09 is 9%). */
+  annualReturn: z.number().min(0).max(0.3).optional(),
 });
 export type GoalInput = z.infer<typeof GoalInputSchema>;
 
-export const GoalPatchSchema = GoalInputSchema.partial();
+/** A patch may also clear the profile (`null`). */
+export const GoalPatchSchema = GoalInputSchema.partial().extend({
+  riskProfile: z.enum(RISK_PROFILES).nullable().optional(),
+  annualReturn: z.number().min(0).max(0.3).nullable().optional(),
+});
 export type GoalPatch = z.infer<typeof GoalPatchSchema>;
 
 // ----------------------------------------------------------------- reads
@@ -153,6 +197,10 @@ export const CategoryTotalSchema = z.object({
   typical: z.number().optional(),
   /** `(amount - typical) / typical`. */
   change: z.number().optional(),
+  /** What you set as the monthly limit for this category. */
+  budget: z.number().optional(),
+  /** Where it went: the largest merchants this month. */
+  merchants: z.array(z.object({ merchant: z.string(), amount: z.number(), payments: z.number() })).default([]),
 });
 export type CategoryTotal = z.infer<typeof CategoryTotalSchema>;
 
@@ -192,6 +240,8 @@ export type Subscription = z.infer<typeof SubscriptionSchema>;
 
 export const GoalProgressSchema = FinancialGoalSchema.extend({
   kind: z.enum(["goal", "sinking"]),
+  riskProfile: z.enum(RISK_PROFILES).optional(),
+  annualReturn: z.number().optional(),
   remaining: z.number(),
   /** 0–1. */
   progress: z.number(),
@@ -206,6 +256,10 @@ export const GoalProgressSchema = FinancialGoalSchema.extend({
   paceMonthly: z.number().optional(),
   /** What would have to be found on top of the pace, per month, to arrive on the date. */
   extraMonthlyNeeded: z.number().optional(),
+  /** The return the projection assumes, as a fraction. Zero when the goal has no profile. */
+  assumedReturn: z.number().optional(),
+  /** What the monthly contribution would be with no growth at all, for comparison. */
+  requiredMonthlyNoGrowth: z.number().optional(),
   status: z.enum(["done", "on-track", "behind", "no-date", "overdue"]),
 });
 export type GoalProgress = z.infer<typeof GoalProgressSchema>;
@@ -283,6 +337,16 @@ export const FinanceDataSchema = z.object({
   months: z.array(MonthSummarySchema),
   averageMonthlySpend: z.number().optional(),
   categories: z.array(CategoryTotalSchema),
+  /** Where each rand of this month's income went. */
+  split: z.object({
+    income: z.number(),
+    needs: z.number(),
+    wants: z.number(),
+    business: z.number(),
+    unsorted: z.number(),
+    /** Income less all spending: kept, moved to savings, or invested. */
+    saved: z.number(),
+  }),
   transactions: z.array(FinanceTransactionRowSchema),
   subscriptions: z.array(SubscriptionSchema),
   subscriptionMonthly: z.number(),
@@ -306,6 +370,13 @@ export const FinanceDataSchema = z.object({
   jev: z.object({ configured: z.boolean(), assessedCount: z.number() }),
 });
 export type FinanceData = z.infer<typeof FinanceDataSchema>;
+
+/** A monthly limit for one category. `null` amount removes it. */
+export const BudgetInputSchema = z.object({
+  category: CategorySchema,
+  amount: z.number().min(0).max(100_000_000).nullable(),
+});
+export type BudgetInput = z.infer<typeof BudgetInputSchema>;
 
 export const FINANCE_TABS = ["overview", "cash-flow", "spending", "subscriptions", "goals", "investments", "insights", "settings"] as const;
 export type FinanceTab = (typeof FINANCE_TABS)[number];

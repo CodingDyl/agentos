@@ -9,7 +9,8 @@ import type {
   SubscriptionDecision,
   Transaction,
 } from "../../shared/finance-types";
-import { JevSubscriptionAssessmentSchema } from "../../shared/finance-types";
+import { CategorySchema, JevSubscriptionAssessmentSchema, type BudgetInput } from "../../shared/finance-types";
+import { isRiskProfile, type RiskProfile } from "../../shared/finance-profiler";
 import { merchantKey } from "./categorise";
 import { financeDatabase } from "./db";
 
@@ -17,7 +18,7 @@ import { financeDatabase } from "./db";
 
 export class FinanceNotFoundError extends Error {}
 
-export type StoredGoal = FinancialGoal & { kind: "goal" | "sinking" };
+export type StoredGoal = FinancialGoal & { kind: "goal" | "sinking"; riskProfile?: RiskProfile; annualReturn?: number };
 
 // ---------------------------------------------------------------- ledger
 
@@ -104,6 +105,8 @@ interface GoalRow {
   target_date: string | null;
   type: FinancialGoal["type"];
   kind: "goal" | "sinking";
+  risk_profile: string | null;
+  annual_return: number | null;
 }
 
 const toGoal = (row: GoalRow): StoredGoal => ({
@@ -114,6 +117,8 @@ const toGoal = (row: GoalRow): StoredGoal => ({
   targetDate: row.target_date ?? undefined,
   type: row.type,
   kind: row.kind,
+  riskProfile: isRiskProfile(row.risk_profile) ? row.risk_profile : undefined,
+  annualReturn: row.annual_return ?? undefined,
 });
 
 export function readGoals(): StoredGoal[] {
@@ -125,10 +130,10 @@ export function createGoal(input: GoalInput): StoredGoal {
   const id = randomUUID();
   financeDatabase()
     .prepare(
-      `INSERT INTO goals (id, name, target_amount, current_amount, target_date, type, kind, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO goals (id, name, target_amount, current_amount, target_date, type, kind, created_at, risk_profile, annual_return)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(id, input.name, input.targetAmount, input.currentAmount, input.targetDate ?? null, input.type, input.kind, new Date().toISOString());
+    .run(id, input.name, input.targetAmount, input.currentAmount, input.targetDate ?? null, input.type, input.kind, new Date().toISOString(), input.riskProfile ?? null, input.annualReturn ?? null);
   return readGoal(id);
 }
 
@@ -140,10 +145,13 @@ export function readGoal(id: string): StoredGoal {
 
 export function updateGoal(id: string, patch: GoalPatch): StoredGoal {
   const current = readGoal(id);
-  const next = { ...current, ...patch };
+  // `null` in a patch clears the profile; absent leaves it as it was.
+  const riskProfile = patch.riskProfile === undefined ? current.riskProfile : (patch.riskProfile ?? undefined);
+  const annualReturn = patch.annualReturn === undefined ? current.annualReturn : (patch.annualReturn ?? undefined);
+  const next = { ...current, ...patch, riskProfile, annualReturn };
   financeDatabase()
-    .prepare("UPDATE goals SET name = ?, target_amount = ?, current_amount = ?, target_date = ?, type = ?, kind = ? WHERE id = ?")
-    .run(next.name, next.targetAmount, next.currentAmount, next.targetDate ?? null, next.type, next.kind, id);
+    .prepare("UPDATE goals SET name = ?, target_amount = ?, current_amount = ?, target_date = ?, type = ?, kind = ?, risk_profile = ?, annual_return = ? WHERE id = ?")
+    .run(next.name, next.targetAmount, next.currentAmount, next.targetDate ?? null, next.type, next.kind, riskProfile ?? null, annualReturn ?? null, id);
   return readGoal(id);
 }
 
@@ -242,4 +250,26 @@ export function saveAssessment(merchant: string, signature: string, assessment: 
        ON CONFLICT(merchant_key) DO UPDATE SET signature = excluded.signature, assessment = excluded.assessment, assessed_at = excluded.assessed_at`,
     )
     .run(merchantKey(merchant), signature, JSON.stringify(assessment), assessment.assessedAt);
+}
+
+// --------------------------------------------------------------- budgets
+
+export function readBudgets(): Map<Category, number> {
+  const rows = financeDatabase().prepare("SELECT category, amount FROM budgets").all() as unknown as { category: string; amount: number }[];
+  const budgets = new Map<Category, number>();
+  for (const row of rows) {
+    const parsed = CategorySchema.safeParse(row.category);
+    if (parsed.success) budgets.set(parsed.data, row.amount);
+  }
+  return budgets;
+}
+
+/** Sets a category's monthly limit; a `null` amount removes it. */
+export function saveBudget(input: BudgetInput): void {
+  const db = financeDatabase();
+  if (input.amount === null) {
+    db.prepare("DELETE FROM budgets WHERE category = ?").run(input.category);
+    return;
+  }
+  db.prepare("INSERT INTO budgets (category, amount) VALUES (?, ?) ON CONFLICT(category) DO UPDATE SET amount = excluded.amount").run(input.category, input.amount);
 }

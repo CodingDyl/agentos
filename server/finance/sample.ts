@@ -49,7 +49,12 @@ export function sampleTransactions(today: string): Transaction[] {
     const dining = back === 0 ? 4_820 : 2_950;
     add(back, 1, "SALARY TYPEDSAFE", 42_000);
     add(back, 2, "RENT CAPE TOWN", -9_500);
-    add(back, 3, "DISCOVERY INSURE", -1_150);
+    add(back, 3, "DISCOVERY HEALTH", -3_150);
+    add(back, 3, "OUTSURANCE PREMIUM", -820);
+    add(back, 1, "WESBANK VEHICLE FINANCE", -4_650);
+    add(back, 4, "VODACOM", -699);
+    add(back, 16, "STER-KINEKOR", back === 0 ? -260 : -180);
+    add(back, 18, "SALON 27 HAIR", -380);
     add(back, 5, "NETFLIX.COM", back >= 0 ? -229 : -199);
     add(back, 6, "SPOTIFY", -69);
     add(back, 7, "ADOBE CREATIVE CLOUD", -899);

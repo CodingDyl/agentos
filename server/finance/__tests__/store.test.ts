@@ -56,6 +56,23 @@ describe("goals, corrections and decisions", () => {
   });
 });
 
+describe("budgets and goal profiles", () => {
+  it("sets, shows and removes a monthly limit", () => {
+    store.saveBudget({ category: "Dining", amount: 2_500 });
+    assert.equal(getFinance().categories.find((c) => c.category === "Dining")?.budget, 2_500);
+    store.saveBudget({ category: "Dining", amount: null });
+    assert.equal(getFinance().categories.find((c) => c.category === "Dining")?.budget, undefined);
+  });
+
+  it("stores a goal's profile, and a null patch clears it", () => {
+    const goal = store.createGoal({ name: "Deposit", targetAmount: 100_000, currentAmount: 0, type: "purchase", kind: "goal", riskProfile: "balanced" });
+    assert.equal(store.readGoal(goal.id).riskProfile, "balanced");
+    assert.equal(store.updateGoal(goal.id, { annualReturn: 0.07 }).riskProfile, "balanced");
+    assert.equal(store.updateGoal(goal.id, { riskProfile: null, annualReturn: null }).riskProfile, undefined);
+    store.deleteGoal(goal.id);
+  });
+});
+
 describe("saving a snapshot", () => {
   it("is idempotent: the same row twice is one row", () => {
     const account = { id: "a", provider: "investec" as const, name: "Current", type: "current" as const, currency: "ZAR", balance: 10 };

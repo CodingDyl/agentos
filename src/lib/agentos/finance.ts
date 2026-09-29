@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FinanceDataSchema,
+  type BudgetInput,
   type CategoryCorrection,
   type FinanceData,
   type GoalInput,
@@ -83,6 +84,8 @@ export const useSyncInvestec = () => useFinanceMutation(() => request("/api/fina
 export const useSaveCorrection = () => useFinanceMutation((correction: CategoryCorrection) => request("/api/finance/corrections", json("PUT", correction)));
 
 export const useRemoveCorrection = () => useFinanceMutation((merchant: string) => request(`/api/finance/corrections/${id(merchant)}`, { method: "DELETE" }));
+
+export const useSaveBudget = () => useFinanceMutation((budget: BudgetInput) => request("/api/finance/budgets", json("PUT", budget)));
 
 export const useSaveDecision = () => useFinanceMutation((decision: SubscriptionDecision) => request("/api/finance/subscriptions/decision", json("PUT", decision)));
 

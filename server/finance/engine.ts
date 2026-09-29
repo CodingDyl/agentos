@@ -16,7 +16,8 @@ import type {
   SubscriptionDecision,
   Transaction,
 } from "../../shared/finance-types";
-import { formatRandAmount } from "../../shared/finance-types";
+import { CATEGORY_GROUP, formatRandAmount } from "../../shared/finance-types";
+import { monthsBetween, requiredMonthly as profilerRequiredMonthly, futureValueOfContributions, futureValueOfLump, RISK_PROFILE_INFO, type RiskProfile } from "../../shared/finance-profiler";
 import { guessSubscriptionKind, isInvestmentTransfer, merchantKey, ruleCategory } from "./categorise";
 
 /**
@@ -254,8 +255,11 @@ export function reviewSavings(subscriptions: readonly Subscription[]) {
 
 // ------------------------------------------------------------------ goals
 
+/** A stored goal: the shared fields, its kind, and how its money is held. */
+export type EngineGoal = FinancialGoal & { kind: "goal" | "sinking"; riskProfile?: RiskProfile; annualReturn?: number };
+
 export function goalProgress(
-  goals: readonly (FinancialGoal & { kind: "goal" | "sinking" })[],
+  goals: readonly EngineGoal[],
   freeCashFlow: number | undefined,
   today: string,
 ): GoalProgress[] {
@@ -275,19 +279,29 @@ export function goalProgress(
     if (days <= 0) return { ...base, status: "overdue" as const };
 
     const monthsLeft = days / 30.4375;
-    const requiredMonthly = remaining / Math.max(monthsLeft, 1);
+    const months = monthsBetween(today, goal.targetDate);
+    // No profile means no growth is assumed: the cautious reading, and the one the page names.
+    const assumedReturn = goal.annualReturn ?? (goal.riskProfile ? RISK_PROFILE_INFO[goal.riskProfile].annualReturn : 0);
+
+    const required = profilerRequiredMonthly({ target: goal.targetAmount, saved: goal.currentAmount, annualReturn: assumedReturn, months });
+    const requiredNoGrowth = profilerRequiredMonthly({ target: goal.targetAmount, saved: goal.currentAmount, annualReturn: 0, months });
     // Past the target is not a projection anyone needs: it reached it.
-    const projected = Math.min(goal.targetAmount, share === undefined ? goal.currentAmount : goal.currentAmount + share * monthsLeft);
+    const projected = Math.min(
+      goal.targetAmount,
+      futureValueOfLump(goal.currentAmount, assumedReturn, months) + (share === undefined ? 0 : futureValueOfContributions(share, assumedReturn, months)),
+    );
     const shortfall = Math.max(0, goal.targetAmount - projected);
 
     return {
       ...base,
       monthsLeft,
-      requiredMonthly: r0(requiredMonthly),
+      requiredMonthly: r0(required),
+      requiredMonthlyNoGrowth: r0(requiredNoGrowth),
+      assumedReturn,
       paceMonthly: share === undefined ? undefined : r0(share),
       projected: r0(projected),
       shortfall: r0(shortfall),
-      extraMonthlyNeeded: r0(Math.max(0, requiredMonthly - (share ?? 0))),
+      extraMonthlyNeeded: r0(Math.max(0, required - (share ?? 0))),
       status: shortfall <= 0 ? ("on-track" as const) : ("behind" as const),
     };
   });
@@ -296,7 +310,7 @@ export function goalProgress(
 // ------------------------------------------------------------ opportunities
 
 /** Categories where a cut is a choice rather than a bill. */
-const DISCRETIONARY: readonly Category[] = ["Shopping", "Other"];
+const DISCRETIONARY: readonly Category[] = ["Shopping", "Entertainment", "Personal care", "Other"];
 
 export function findOpportunities(
   categories: readonly CategoryTotal[],
@@ -316,14 +330,14 @@ export function findOpportunities(
   }
 
   const discretionary = sum(categories.filter((c) => DISCRETIONARY.includes(c.category)).map((c) => c.amount));
-  if (discretionary * 0.15 >= 50) found.push({ id: "discretionary", label: "Reduce shopping and other spend by 15%", monthly: r0(discretionary * 0.15) });
+  if (discretionary * 0.15 >= 50) found.push({ id: "discretionary", label: "Reduce shopping, entertainment and other spend by 15%", monthly: r0(discretionary * 0.15) });
 
   return found;
 }
 
 // ------------------------------------------------------------- anomalies
 
-const NOT_UNUSUAL: ReadonlySet<Category> = new Set<Category>(["Housing", "Insurance", "Transfer", "Income", "Travel"]);
+const NOT_UNUSUAL: ReadonlySet<Category> = new Set<Category>(["Housing", "Utilities", "Debt", "Insurance", "Education", "Transfer", "Income", "Travel"]);
 
 export function findAnomalies(
   transactions: readonly CategorisedTransaction[],
@@ -380,22 +394,59 @@ export function findAnomalies(
 
 // ------------------------------------------------------- categories, health
 
-export function categoryTotals(transactions: readonly CategorisedTransaction[], month: string): CategoryTotal[] {
+export function categoryTotals(
+  transactions: readonly CategorisedTransaction[],
+  month: string,
+  budgets: ReadonlyMap<Category, number> = new Map(),
+): CategoryTotal[] {
   const history = activeMonths(transactions).filter((m) => m < month).slice(-3);
   const totalFor = (target: string, category: Category) =>
     -sum(transactions.filter((t) => monthOf(t.date) === target && t.category === category && isSpending(t)).map((t) => t.amount));
 
-  const categories = [...new Set(transactions.filter((t) => monthOf(t.date) === month && isSpending(t)).map((t) => t.category))];
+  const spendingThisMonth = transactions.filter((t) => monthOf(t.date) === month && isSpending(t));
+  // A category with a budget is shown even before anything is spent in it.
+  const categories = [...new Set([...spendingThisMonth.map((t) => t.category), ...budgets.keys()])];
 
   return categories
     .map((category) => {
       const amount = totalFor(month, category);
       const typical = history.length > 0 ? mean(history.map((m) => totalFor(m, category))) : undefined;
       const change = typical !== undefined && typical > 0 ? (amount - typical) / typical : undefined;
-      return { category, amount: r2(amount), typical: typical === undefined ? undefined : r2(typical), change };
+
+      // Where it went: the biggest merchants, so "Groceries R4,400" can be opened up.
+      const byMerchant = new Map<string, { merchant: string; amount: number; payments: number }>();
+      for (const t of spendingThisMonth.filter((entry) => entry.category === category)) {
+        const key = merchantKey(t.merchant);
+        const entry = byMerchant.get(key) ?? { merchant: t.merchant, amount: 0, payments: 0 };
+        entry.amount += -t.amount;
+        entry.payments += 1;
+        byMerchant.set(key, entry);
+      }
+      const merchants = [...byMerchant.values()]
+        .map((entry) => ({ ...entry, amount: r2(entry.amount) }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 6);
+
+      // `+ 0` turns the -0 that negating an empty sum gives into a plain 0.
+      return { category, amount: r2(amount) + 0, typical: typical === undefined ? undefined : r2(typical), change, budget: budgets.get(category), merchants };
     })
-    .filter((entry) => entry.amount > 0)
+    .filter((entry) => entry.amount > 0 || entry.budget !== undefined)
     .sort((a, b) => b.amount - a.amount);
+}
+
+/** Where each rand of income went: needs, wants, business, unsorted, and what was left. */
+export function incomeSplit(categories: readonly CategoryTotal[], summary: MonthSummary) {
+  const groupTotal = (group: "needs" | "wants" | "business" | "unsorted") =>
+    r2(sum(categories.filter((entry) => entry.category !== "Income" && entry.category !== "Transfer" && CATEGORY_GROUP[entry.category] === group).map((entry) => entry.amount)));
+
+  return {
+    income: summary.income,
+    needs: groupTotal("needs"),
+    wants: groupTotal("wants"),
+    business: groupTotal("business"),
+    unsorted: groupTotal("unsorted"),
+    saved: summary.saved,
+  };
 }
 
 export function buildReview(input: {
@@ -450,7 +501,8 @@ export interface EngineInput {
   corrections: ReadonlyMap<string, Category>;
   decisions: ReadonlyMap<string, { decision: NonNullable<SubscriptionDecision["decision"]>; note?: string }>;
   assessments: ReadonlyMap<string, JevSubscriptionAssessment>;
-  goals: readonly (FinancialGoal & { kind: "goal" | "sinking" })[];
+  goals: readonly EngineGoal[];
+  budgets?: ReadonlyMap<Category, number>;
   /** `YYYY-MM-DD`. */
   today: string;
 }
@@ -462,6 +514,7 @@ export interface EngineOutput {
   months: MonthSummary[];
   averageMonthlySpend?: number;
   categories: CategoryTotal[];
+  split: ReturnType<typeof incomeSplit>;
   rows: FinanceTransactionRow[];
   subscriptions: Subscription[];
   subscriptionMonthly: number;
@@ -498,7 +551,7 @@ export function computeFinance(input: EngineInput): EngineOutput {
   const cashAccounts = input.accounts.filter((account) => account.type !== "investment");
   const netCash = r2(sum(cashAccounts.map((account) => account.balance)));
 
-  const categories = categoryTotals(ledger, month);
+  const categories = categoryTotals(ledger, month, input.budgets);
   const previousCategories = categoryTotals(ledger, addMonths(month, -1));
 
   const subscriptions = sortSubscriptions(buildSubscriptions(recurring, input.decisions, input.assessments));
@@ -559,6 +612,7 @@ export function computeFinance(input: EngineInput): EngineOutput {
     months,
     averageMonthlySpend: averageMonthlySpend === undefined ? undefined : r2(averageMonthlySpend),
     categories,
+    split: incomeSplit(categories, summary),
     rows,
     subscriptions,
     subscriptionMonthly,

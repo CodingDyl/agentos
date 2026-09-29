@@ -72,7 +72,9 @@ function Finance({ data, tab, onTab }: { data: FinanceData; tab: FinanceTab; onT
   const month = new Date(`${data.month}-15T12:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
 
   return (
-    <div>
+    // The app sets `color-scheme: dark`, which turns native radios, checkboxes
+    // and date pickers dark inside a white page. This page is paper, so it says so.
+    <div className="[color-scheme:light]">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">Finance</h1>

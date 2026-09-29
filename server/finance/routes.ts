@@ -1,13 +1,13 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
-import { CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
+import { BudgetInputSchema, CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
 import { merchantKey } from "./categorise";
 import { getFinance, syncFinance } from "./finance";
 import { InvestecError, isInvestecConfigured } from "./investec";
 import { assessSubscriptions, suggestCategory } from "./jev";
 import { JevError } from "../mail/jev-client";
 import { ReviewError, writeNarrative } from "./review";
-import { createGoal, deleteCorrection, deleteGoal, FinanceNotFoundError, saveCorrection, saveDecision, updateGoal } from "./store";
+import { createGoal, deleteCorrection, deleteGoal, FinanceNotFoundError, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
 
 /**
  * `/api/finance`.
@@ -73,6 +73,18 @@ financeRouter.put("/corrections", (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "save the correction");
+  }
+});
+
+/** A monthly limit for one category. A null amount takes it away. */
+financeRouter.put("/budgets", (request, response) => {
+  const budget = parse(BudgetInputSchema, request.body, response, "budget");
+  if (!budget) return;
+  try {
+    saveBudget(budget);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "save the budget");
   }
 });
 
