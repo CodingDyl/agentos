@@ -164,3 +164,50 @@ export function debtPayState(debt: Pick<FinanceData["debts"][number], "paidThisM
 export function utilisationTone(utilisation: number): "good" | "watch" | "act" {
   return utilisation < 0.3 ? "good" : utilisation < 0.75 ? "watch" : "act";
 }
+
+// ------------------------------------------------------ the written review
+
+const REVIEW_HEADINGS = ["what changed", "going well", "worth a look", "next month"];
+
+/**
+ * One section of Hermes' review, by heading ("Next month"), or undefined when it
+ * is not there. Hermes is asked for four headings on their own lines but it is
+ * a model, so this reads what it can and lets the caller fall back.
+ */
+export function narrativeSection(narrative: string, heading: string): string | undefined {
+  const lines = narrative.split("\n");
+  const isHeading = (line: string) => REVIEW_HEADINGS.includes(line.trim().replace(/:$/, "").toLowerCase());
+  const start = lines.findIndex((line) => line.trim().replace(/:$/, "").toLowerCase() === heading.toLowerCase());
+  if (start < 0) return undefined;
+
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex(isHeading);
+  const text = (end < 0 ? rest : rest.slice(0, end)).join("\n").trim();
+  return text === "" ? undefined : text;
+}
+
+/** A short piece of text cut at a word, with an ellipsis, for a card that has room for a couple of lines. */
+export function excerpt(text: string, max = 260): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= max) return flat;
+  return `${flat.slice(0, max).replace(/\s+\S*$/, "")}…`;
+}
+
+/**
+ * Hermes' review as blocks, one per heading, so the headings can look like
+ * headings. Text before any heading (or a reply with no headings at all, which
+ * a model can give) comes through as a single block with no heading.
+ */
+export function splitNarrative(narrative: string): { heading?: string; text: string }[] {
+  const blocks: { heading?: string; lines: string[] }[] = [{ lines: [] }];
+
+  for (const line of narrative.split("\n")) {
+    const match = REVIEW_HEADINGS.find((heading) => line.trim().replace(/:$/, "").toLowerCase() === heading);
+    if (match) blocks.push({ heading: line.trim().replace(/:$/, ""), lines: [] });
+    else blocks[blocks.length - 1].lines.push(line);
+  }
+
+  return blocks
+    .map((block) => ({ heading: block.heading, text: block.lines.join("\n").trim() }))
+    .filter((block) => block.text !== "" || block.heading !== undefined);
+}

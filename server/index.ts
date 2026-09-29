@@ -75,10 +75,12 @@ import {
 import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
+import { voiceRouter } from "./voice/routes";
 import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
 import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
 import { financeRouter } from "./finance/routes";
+import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
   bulkTasks,
@@ -327,6 +329,9 @@ app.use("/api/outreach", outreachRouter);
 
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
 app.use("/api/finance", financeRouter);
+
+/** Voice: speech to text and text to speech only. Words still go through Hermes. */
+app.use("/api/voice", voiceRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
@@ -3996,6 +4001,8 @@ app.listen(PORT, HOST, () => {
 
   startStallWatch();
   startOutreachSyncTimer();
+  // Finance's monthly review writes itself once a month is over. See server/finance/monthly-review.ts.
+  startMonthlyReviewSchedule();
 });
 
 /**

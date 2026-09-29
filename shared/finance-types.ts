@@ -515,6 +515,20 @@ export const AnalysisSchema = z.object({
 });
 export type Analysis = z.infer<typeof AnalysisSchema>;
 
+/**
+ * Last month's review, once the month is over. Hermes writes its part on its
+ * own at the start of the month; the numbers are the engine's, worked out as at
+ * the last day of that month. `seen` is whether you have marked it read, which
+ * is what clears it from Today.
+ */
+export const PreviousReviewSchema = z.object({
+  review: MonthlyReviewSchema,
+  seen: z.boolean(),
+  /** Why Hermes could not write it, when its last try failed. It tries again on its own. */
+  error: z.string().optional(),
+});
+export type PreviousReview = z.infer<typeof PreviousReviewSchema>;
+
 export const FinanceDataSchema = z.object({
   source: FinanceSourceSchema,
   /** `YYYY-MM-DD`. */
@@ -563,6 +577,8 @@ export const FinanceDataSchema = z.object({
   jev: z.object({ configured: z.boolean(), assessedCount: z.number() }),
   debts: z.array(DebtSchema),
   analysis: AnalysisSchema,
+  /** Absent on sample data, and when last month had nothing in it to review. */
+  previousReview: PreviousReviewSchema.optional(),
   shared: SharedSchema,
   savings: SavingsPlanSchema,
   bills: z.object({

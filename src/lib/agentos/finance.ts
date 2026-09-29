@@ -197,3 +197,9 @@ export function useLiveBalances(enabled: boolean) {
     networkMode: "always",
   });
 }
+
+/** Asks Hermes to write last month's review now. It normally writes it on its own at the start of the month. */
+export const useWritePreviousReview = () => useFinanceMutation(() => request("/api/finance/review/previous", { method: "POST" }));
+
+/** Marks last month's review read, which clears it from Today. */
+export const useMarkReviewSeen = () => useFinanceMutation(() => request("/api/finance/review/previous/seen", { method: "POST" }));

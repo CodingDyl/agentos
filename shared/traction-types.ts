@@ -392,6 +392,27 @@ export const MAX_CASE_STUDY_IMAGES = 12;
 /** Creative asset ids are UUIDs; nothing else is accepted, so an id can never become a path. */
 const AssetIdSchema = z.string().regex(/^[A-Za-z0-9-]{8,64}$/);
 
+/**
+ * What was read off a client's website. Their words about themselves, not
+ * measured results: it is context for a draft, never proof of an outcome.
+ */
+export const SiteFactsSchema = z.object({
+  url: z.string(),
+  fetchedAt: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  headings: z.array(z.string()).max(20).default([]),
+  text: z.string().max(3500).default(""),
+  signals: z.object({
+    https: z.boolean(),
+    mobileViewport: z.boolean(),
+    hasForm: z.boolean(),
+    hasPhoneOrWhatsApp: z.boolean(),
+    images: z.number().int(),
+  }),
+});
+export type SiteFacts = z.infer<typeof SiteFactsSchema>;
+
 export const CaseStudySchema = z.object({
   id: z.string(),
   title: Text(160),
@@ -410,6 +431,10 @@ export const CaseStudySchema = z.object({
   /** What the draft could not know. Cleared by a person, not by Hermes. */
   missing: z.array(Text(300)).max(20).default([]),
   publishedUrl: WebsiteSchema.optional(),
+  /** The client's own website, read on request for facts to draft from. */
+  websiteUrl: WebsiteSchema.optional(),
+  /** What the last read of `websiteUrl` found. Set by the server, never by a request. */
+  siteFacts: SiteFactsSchema.optional(),
   /** The title is still the automatic working title, so a draft may replace it. */
   autoTitle: z.boolean().optional(),
   draftedAt: z.string().optional(),
@@ -431,6 +456,7 @@ export const CaseStudyInputSchema = z.object({
   assetIds: z.array(AssetIdSchema).max(MAX_CASE_STUDY_IMAGES).default([]),
   missing: z.array(Text(300)).max(20).default([]),
   publishedUrl: WebsiteSchema.optional(),
+  websiteUrl: WebsiteSchema.optional(),
 });
 
 /** A finished project that has earned a case study and does not have one. */

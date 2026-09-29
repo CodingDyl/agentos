@@ -126,7 +126,8 @@ export function summariseMonth(transactions: readonly CategorisedTransaction[], 
   return {
     month,
     income: r2(income),
-    spent: r2(spent),
+    // `+ 0` turns the -0 that negating an empty sum gives into a plain 0.
+    spent: r2(spent) + 0,
     saved: r2(income - spent),
     savingsRate: income > 0 ? (income - spent) / income : undefined,
   };
@@ -741,9 +742,6 @@ export function buildAttention(input: {
   if (input.uncategorised >= 3) {
     attention.push({ id: "uncategorised", tone: "note", text: `${input.uncategorised} payments need a category`, tab: "spending" });
   }
-
-  const day = Number(input.today.slice(8, 10));
-  if (day >= 25) attention.push({ id: "review", tone: "note", text: `${monthName(monthOf(input.today))} review is ready`, tab: "insights" });
 
   return attention;
 }

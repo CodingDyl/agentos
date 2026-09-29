@@ -6,6 +6,7 @@ import {
   useDeleteCaseStudy,
   useDismissOpportunity,
   useDraftCaseStudy,
+  useReadCaseStudyWebsite,
   useRequestTestimonial,
   useSaveCaseStudy,
   useStartCaseStudy,
@@ -20,7 +21,8 @@ import { optional, toList } from "./traction-model";
  * A finished project raises an opportunity; starting one opens a draft; Hermes
  * fills the sections nobody has written yet from what Virtec and the
  * workspace know. It never invents a result: what was not measured stays a
- * visible `[NEEDS DATA]` gap, and a study with gaps cannot be marked ready.
+ * visible `[NEEDS DATA]` marker, and a study still holding one cannot be marked ready.
+ * Nothing else is required: screenshots, sections and the missing note are optional.
  * The testimonial is the client's — AgentOS can only put the ask on Waiting On.
  */
 
@@ -139,6 +141,7 @@ type Draft = {
   testimonial: string;
   missing: string;
   publishedUrl: string;
+  websiteUrl: string;
   status: CaseStudyStatus;
   assetIds: string[];
 };
@@ -154,6 +157,7 @@ function toDraft(study: CaseStudy): Draft {
     testimonial: study.testimonial ?? "",
     missing: study.missing.join("\n"),
     publishedUrl: study.publishedUrl ?? "",
+    websiteUrl: study.websiteUrl ?? "",
     status: study.status,
     assetIds: [...study.assetIds],
   };
@@ -178,13 +182,18 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
   const [copied, setCopied] = useState(false);
   const save = useSaveCaseStudy();
   const hermes = useDraftCaseStudy();
+  const readSite = useReadCaseStudyWebsite();
   const testimonial = useRequestTestimonial();
   const remove = useDeleteCaseStudy();
 
   const set = (key: keyof Draft) => (event: { target: { value: string } }) => setDraft((current) => ({ ...current, [key]: event.target.value }));
-  const gaps = toList(draft.missing).length > 0 || SECTIONS.some((section) => /\[NEEDS DATA/i.test(draft[section.key]));
+  // Each marker still in a section, with where it is: a hole buried in a long paragraph is easy to miss.
+  const markers = SECTIONS.flatMap((section) =>
+    [...draft[section.key].matchAll(/\[NEEDS DATA[^\]]*\]?/gi)].map((match) => ({ section: section.label, text: match[0].slice(0, 120) })),
+  );
+  const gaps = markers.length > 0;
   const dirty = JSON.stringify(draft) !== JSON.stringify(toDraft(study));
-  const error = save.error ?? hermes.error ?? testimonial.error ?? remove.error;
+  const error = save.error ?? hermes.error ?? readSite.error ?? testimonial.error ?? remove.error;
 
   const input = (status: CaseStudyStatus = draft.status) => ({
     title: draft.title.trim(),
@@ -197,6 +206,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
     testimonial: optional(draft.testimonial),
     missing: toList(draft.missing),
     publishedUrl: optional(draft.publishedUrl),
+    websiteUrl: optional(draft.websiteUrl),
     assetIds: draft.assetIds,
   });
 
@@ -221,6 +231,44 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
             </label>
           </div>
           <PaperButton onClick={onClose}>Close</PaperButton>
+        </div>
+
+        {gaps ? (
+          <div role="status" className="rounded-[4px] border border-paper-gold px-3 py-2.5 text-[13px] leading-5 text-paper-char">
+            <p className="font-semibold">Ready is blocked by {markers.length === 1 ? "one marker" : `${markers.length} markers`} still in the text:</p>
+            <ul className="mt-1 list-disc pl-5">
+              {markers.map((marker, index) => (
+                <li key={`${marker.section}-${index}`}>
+                  <span className="font-semibold">{marker.section}:</span> {marker.text}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-paper-sage">Replace each with the real fact, or delete the sentence. Nothing else blocks Ready.</p>
+          </div>
+        ) : null}
+
+        <div className="space-y-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+          <label className="block">
+            <FieldLabel>
+              Client website <span className="font-normal text-paper-ash">(read once, when you ask, to help answer the questions below)</span>
+            </FieldLabel>
+            <input type="url" maxLength={300} placeholder="https://client.co.za" className={cn(PAPER_INPUT, "w-full")} value={draft.websiteUrl} onChange={set("websiteUrl")} />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <PaperButton
+              variant="ghost"
+              disabled={readSite.isPending || dirty || !study.websiteUrl}
+              title={dirty ? "Save first; the saved address is the one that is read" : !study.websiteUrl ? "Add and save the address first" : undefined}
+              onClick={() => readSite.mutate(study.id)}
+            >
+              {readSite.isPending ? "Reading…" : study.siteFacts ? "Read again" : "Read website"}
+            </PaperButton>
+            <span className="text-[12.5px] text-paper-sage">
+              {study.siteFacts
+                ? `Read ${study.siteFacts.fetchedAt.slice(0, 10)}: ${study.siteFacts.title ?? study.siteFacts.url}, ${study.siteFacts.headings.length} headings. Draft with Hermes will use it. It is what the client says about itself, so results still need your numbers.`
+                : "Public websites only. It reads the one page at that address."}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
@@ -257,7 +305,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <FieldLabel>Still missing (one per line)</FieldLabel>
+            <FieldLabel>Still missing <span className="font-normal text-paper-ash">(a note to yourself, one per line; it does not block Ready)</span></FieldLabel>
             <textarea rows={3} className={cn(PAPER_INPUT, "w-full py-2")} value={draft.missing} onChange={set("missing")} />
           </label>
           <label className="block">
@@ -274,7 +322,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
             <PaperButton
               variant="ghost"
               disabled={gaps || save.isPending}
-              title={gaps ? "Fill every [NEEDS DATA] and clear the missing list first" : undefined}
+              title={gaps ? "Replace or delete every [NEEDS DATA] marker in the sections first" : undefined}
               onClick={() => save.mutate({ caseStudyId: study.id, input: input("ready") })}
             >
               <Check className="size-3.5" aria-hidden="true" />

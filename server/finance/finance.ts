@@ -1,5 +1,5 @@
 import { FinanceDataSchema, type FinanceData } from "../../shared/finance-types";
-import { computeFinance } from "./engine";
+import { addMonths, computeFinance, monthName } from "./engine";
 import { InvestecError, isInvestecConfigured, missingInvestecVariables, readInvestec, readInvestecBalances } from "./investec";
 import { isJevConfigured } from "../mail/jev-client";
 import { readAnalysisNarrative } from "./analyser";
@@ -124,10 +124,31 @@ function refreshInBackground(): void {
   syncFinance().catch(() => undefined);
 }
 
-export function getFinance(): FinanceData {
-  const today = localToday();
+/** True when there is real data to work from: Investec configured, or something saved. Sample data is not. */
+export function hasRealData(): boolean {
+  return isInvestecConfigured() || countTransactions() > 0 || readAccounts().length > 0;
+}
+
+const lastDayOf = (month: string) => {
+  const [year, number] = month.split("-").map(Number);
+  return `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2, "0")}`;
+};
+
+/** Finance as it stood on the last day of `month`: what a monthly review is written from. */
+export function getFinanceForMonth(month: string): FinanceData {
+  return buildFinance(lastDayOf(month), false);
+}
+
+export const getFinance = (): FinanceData => buildFinance(localToday(), true);
+
+/**
+ * `live` is the page you are looking at right now, which may kick off a sync
+ * and carries last month's review. A look back at a past month is neither: it
+ * must not trigger network calls or recurse.
+ */
+function buildFinance(today: string, live: boolean): FinanceData {
   const configured = isInvestecConfigured();
-  if (configured) refreshInBackground();
+  if (configured && live) refreshInBackground();
 
   // Real data is anything saved: Investec's, or an account you added and imported.
   const stored = countTransactions() > 0 || readAccounts().length > 0;
@@ -163,6 +184,20 @@ export function getFinance(): FinanceData {
   const lastSyncAt = readMeta("lastSyncAt");
   const lastSyncError = readMeta("lastSyncError");
 
+  // Last month's review, once there is one to show. Not on sample data, which is not anyone's month.
+  let previousReview: FinanceData["previousReview"];
+  if (live && !useSample) {
+    const previousMonth = addMonths(result.month, -1);
+    const { review } = buildFinance(lastDayOf(previousMonth), false);
+    if (review.income > 0 || review.spent > 0) {
+      previousReview = { review, seen: readMeta(`review-seen:${previousMonth}`) === "1", error: readMeta(`review-error:${previousMonth}`) || undefined };
+    }
+  }
+  const attention = [...result.attention];
+  if (previousReview && !previousReview.seen && previousReview.review.narrative) {
+    attention.push({ id: "review", tone: "note", text: `${monthName(previousReview.review.month)} review is ready`, tab: "insights" });
+  }
+
   return FinanceDataSchema.parse({
     source: {
       kind: useSample ? "sample" : accounts.some((a) => a.provider === "investec") ? "investec" : accounts.length > 0 ? "manual" : "none",
@@ -191,9 +226,10 @@ export function getFinance(): FinanceData {
     emergencyMonths: result.emergencyMonths,
     opportunities: result.opportunities,
     anomalies: result.anomalies,
-    attention: result.attention,
+    attention,
     health: result.health,
     review: { ...result.review, narrative: narrative?.text, narrativeAt: narrative?.at },
+    previousReview,
     investments: result.investments,
     corrections: readCorrections(),
     jev: { configured: isJevConfigured(), assessedCount: assessments.size },

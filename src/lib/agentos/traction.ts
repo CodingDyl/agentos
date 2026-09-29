@@ -267,6 +267,9 @@ export const useDeleteCaseStudy = () =>
 export const useDraftCaseStudy = () =>
   useTractionMutation((caseStudyId: string) => request(`/api/traction/case-studies/${id(caseStudyId)}/draft`, { method: "POST" }));
 
+export const useReadCaseStudyWebsite = () =>
+  useTractionMutation((caseStudyId: string) => request(`/api/traction/case-studies/${id(caseStudyId)}/read-website`, { method: "POST" }));
+
 export const useRequestTestimonial = () =>
   useTractionMutation((caseStudyId: string) => request(`/api/traction/case-studies/${id(caseStudyId)}/testimonial-request`, { method: "POST" }));
 

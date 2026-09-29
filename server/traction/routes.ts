@@ -24,6 +24,7 @@ import { getVirtecSnapshot } from "../virtec/snapshot";
 import { getScanInfo, requestsFor, runScan } from "../virtec/scan";
 import { buildCrmView, clientToProspect, currentProfile, inboundToProspect, leadToProspect } from "./crm";
 import { icpKey, PROFILE_BATCH, PROFILE_DAILY_CAP, profilingBlocker, runProfiling } from "./lead-profile";
+import { CaseStudySiteError, readCaseStudyWebsite } from "./case-study-site";
 import { draftCaseStudy } from "./case-study-draft";
 import { magnetForLead } from "./lead-magnets";
 import { leadMagnetRouter } from "./lead-magnet-routes";
@@ -491,6 +492,19 @@ tractionRouter.delete("/case-studies/:id", async (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "remove the case study");
+  }
+});
+
+/** Reads the study's saved client website (public sites only) and keeps the facts. Nothing else changes. */
+tractionRouter.post("/case-studies/:id/read-website", async (request, response) => {
+  try {
+    response.json({ caseStudy: await readCaseStudyWebsite(request.params.id) });
+  } catch (error) {
+    if (error instanceof CaseStudySiteError) {
+      response.status(422).json({ error: error.message });
+      return;
+    }
+    fail(response, error, "read the website");
   }
 });
 

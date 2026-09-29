@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { debtPayState, formatChange, goalStatusLabel, subscriptionPayState, upcomingPayments, utilisationTone } from "../finance-model";
+import { debtPayState, excerpt, formatChange, narrativeSection, splitNarrative, goalStatusLabel, subscriptionPayState, upcomingPayments, utilisationTone } from "../finance-model";
 import { pageWindow, sliceForPage, clampPage, pageCountFor } from "../finance-pagination-model";
 
 describe("formatChange", () => {
@@ -109,5 +109,46 @@ describe("pagination", () => {
     assert.deepEqual(pageWindow(1, 20), [1, 2, 3, 4, "gap", 20]);
     assert.deepEqual(pageWindow(10, 20), [1, "gap", 9, 10, 11, "gap", 20]);
     assert.deepEqual(pageWindow(20, 20), [1, "gap", 17, 18, 19, 20]);
+  });
+});
+
+describe("narrativeSection", () => {
+  const text = "What changed\nDining rose.\n\nGoing well\nSavings held.\n\nWorth a look\nNothing urgent.\n\nNext month\nKeep putting R5,000 aside.\nReview the card.";
+
+  it("finds a section by its heading and stops at the next one", () => {
+    assert.equal(narrativeSection(text, "Going well"), "Savings held.");
+    assert.equal(narrativeSection(text, "Next month"), "Keep putting R5,000 aside.\nReview the card.");
+  });
+
+  it("copes with a trailing colon and different case, and says so when a heading is missing", () => {
+    assert.equal(narrativeSection("NEXT MONTH:\nSave.", "Next month"), "Save.");
+    assert.equal(narrativeSection("Just a paragraph.", "Next month"), undefined);
+    assert.equal(narrativeSection("Next month\n", "Next month"), undefined);
+  });
+});
+
+describe("excerpt", () => {
+  it("leaves short text alone and cuts long text at a word", () => {
+    assert.equal(excerpt("Short."), "Short.");
+    const cut = excerpt("word ".repeat(100), 20);
+    assert.ok(cut.endsWith("…") && cut.length <= 21 && !cut.includes("  "));
+  });
+});
+
+describe("splitNarrative", () => {
+  it("makes a block per heading, in order", () => {
+    const blocks = splitNarrative("What changed\nDining rose.\n\nNext month\nSave.\nReview the card.");
+    assert.deepEqual(blocks, [
+      { heading: "What changed", text: "Dining rose." },
+      { heading: "Next month", text: "Save.\nReview the card." },
+    ]);
+  });
+
+  it("keeps a reply with no headings, and text before the first heading", () => {
+    assert.deepEqual(splitNarrative("Just a paragraph."), [{ heading: undefined, text: "Just a paragraph." }]);
+    assert.deepEqual(splitNarrative("Intro.\nGoing well:\nFine."), [
+      { heading: undefined, text: "Intro." },
+      { heading: "Going well", text: "Fine." },
+    ]);
   });
 });

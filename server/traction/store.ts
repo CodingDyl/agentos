@@ -32,6 +32,7 @@ import {
   WeeklyTargetsSchema,
   type CaseStudy,
   type CaseStudyInput,
+  type SiteFacts,
   type LeadProfile,
   type ConfirmMailLink,
   type Experiment,
@@ -1200,8 +1201,10 @@ export function startCaseStudy(
 /**
  * Replaces a case study's content with what the editor holds.
  *
- * "Ready" and "published" need nothing missing: a study that still says
- * `[NEEDS DATA]` somewhere is not evidence yet, however good the rest reads.
+ * "Ready" and "published" need no `[NEEDS DATA]` marker left in a section: a
+ * claim with a hole in it is not evidence yet. Nothing else is required. An
+ * empty section, no screenshots and a non-empty "still missing" note are all
+ * the author's call; that note is a reminder, not a gate.
  */
 export function replaceCaseStudy(
   id: string,
@@ -1220,15 +1223,30 @@ export function replaceCaseStudy(
           existing.autoTitle && input.title === existing.title
             ? true
             : undefined,
+        // What was read from the website stays only while the address is the same one.
+        siteFacts:
+          existing.websiteUrl && existing.websiteUrl === input.websiteUrl
+            ? existing.siteFacts
+            : undefined,
         draftedAt: existing.draftedAt,
         createdAt: existing.createdAt,
         updatedAt: new Date().toISOString(),
       }),
     );
 
-    if (next.status !== "draft" && (next.missing.length > 0 || hasGaps(next))) {
+    if (next.status !== "draft" && hasGaps(next)) {
+      const where = (
+        [
+          ["The problem", next.problem],
+          ["What we built", next.solution],
+          ["How", next.implementation],
+          ["The result", next.result],
+        ] as const
+      )
+        .filter(([, text]) => text && GAP.test(text))
+        .map(([label]) => label);
       throw new TractionConflictError(
-        "A case study with missing data cannot be marked ready or published",
+        `Replace or delete the [NEEDS DATA] marker in ${where.join(", ")} before marking this ready or published`,
       );
     }
 
@@ -1260,6 +1278,24 @@ export function hasGaps(
  * missing facts is added to, not replaced, so a gap someone noted by hand
  * survives a redraft.
  */
+/** Keeps what was read off the study's website, if the address is still the one that was read. */
+export function saveCaseStudySiteFacts(
+  id: string,
+  websiteUrl: string,
+  facts: SiteFacts,
+): Promise<CaseStudy> {
+  return mutate((state) => {
+    const existing = findCaseStudy(state, id);
+    if (existing.websiteUrl !== websiteUrl)
+      throw new TractionConflictError(
+        "The website address changed while it was being read",
+      );
+    const next = { ...existing, siteFacts: facts, updatedAt: new Date().toISOString() };
+    state.caseStudies[state.caseStudies.indexOf(existing)] = next;
+    return { result: next };
+  });
+}
+
 export function applyCaseStudyDraft(
   id: string,
   draft: Partial<
