@@ -9,6 +9,7 @@ import { getProjects } from "../agentos/projects";
 import { buildOpportunities, caseStudyQueueItems } from "./case-studies";
 import { buildCrmView, crmAttention, crmQueueItems, inboundQueueItems } from "./crm";
 import { leadMagnetStats } from "./lead-magnets";
+import { icpKey } from "./lead-profile";
 import { crmProvider } from "./crm-provider";
 import {
   addDays,
@@ -119,7 +120,10 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
   // Linking a thread acknowledges it; answering is what clears it. So the
   // queue looks at linked threads too, and only "not theirs" ones are out.
   const replies = unansweredReplies(suggestMailLinks(threads, prospects, [], state.dismissedMail), prospects, today).map((reply) => reply.suggestion);
-  const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem(), isVirtecWritable());
+  const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem(), isVirtecWritable(), {
+    icpKey: state.icp ? icpKey(state.icp) : undefined,
+    byCrmId: state.leadProfiles,
+  });
   const open = state.waiting.filter((item) => !item.resolvedAt).sort((a, b) => chaseDate(a).localeCompare(chaseDate(b)));
 
   return {

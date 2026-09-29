@@ -5,7 +5,7 @@ import { daysBetween, isoDate } from "@shared/traction-dates";
 import type { CrmView, TractionData } from "@shared/traction-types";
 import { formatRand, inboundOrigin, type VirtecSource } from "@shared/virtec-types";
 import { Meter, PAPER_FOCUS, PaperButton, PaperCard, PaperSection, SegmentedControl, Tag } from "@/components/paper";
-import { useImportCrm, useLeadNotAFit, useRefreshCrm, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
+import { useImportCrm, useLeadNotAFit, useProfileLeads, useRefreshCrm, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { crmFollowUpPrompt, formatShortDate, hermesHref, inboundReplyPrompt, prospectHref } from "./traction-model";
 
@@ -405,13 +405,18 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
   );
 }
 
+const FIT_WORDS = ["not a fit", "weak fit", "possible fit", "good fit", "strong fit"];
+
 function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
   const tracks = new Set(crm.leads.map((lead) => lead.track).filter(Boolean));
   const [track, setTrack] = useState<Track>(tracks.has("virtara") ? "virtara" : "all");
   const importLead = useImportCrm();
   const notAFit = useLeadNotAFit();
+  const profile = useProfileLeads();
 
   const shown = useMemo(() => crm.leads.filter((lead) => track === "all" || lead.track === track), [crm.leads, track]);
+  const unscored = shown.filter((lead) => !lead.profile).length;
+  const result = profile.data;
 
   return (
     <PaperSection
@@ -432,10 +437,33 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
         ) : null
       }
     >
-      <p className="-mt-2 mb-4 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
-        Virtec's best-scored leads{icpName ? `. Import the ones that fit “${icpName}”` : ""}. Importing adds them to Traction's queue. Virtec's score is not a
-        specific observation, so you will still need one before outreach is drafted.
+      <p className="-mt-2 mb-3 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
+        Virtec's best-scored leads{icpName ? `. Import the ones that fit “${icpName}”` : ""}. Virtec's score is about its own signals. Scoring with Jev asks a
+        different question: does this one look like your ICP? Good fits move to the top. It sends only public business details, never an email or phone number.
+        Importing adds them to Traction's queue; you will still need a specific observation before outreach is drafted.
       </p>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <PaperButton
+          variant="amber"
+          disabled={profile.isPending || unscored === 0}
+          onClick={() => profile.mutate(track === "all" ? undefined : track)}
+          title="Scores up to 15 unscored candidates, and at most 60 a day"
+        >
+          {profile.isPending ? "Scoring with Jev…" : unscored === 0 ? "All scored" : `Score ${Math.min(unscored, 15)} against the ICP`}
+        </PaperButton>
+        {result ? (
+          <span className="text-[12.5px] text-paper-sage" role="status">
+            Scored {result.profiled}
+            {result.failed > 0 ? `, ${result.failed} failed` : ""}. {result.left > 0 ? `${result.left} left; ` : ""}
+            {result.remainingToday} more allowed today.
+          </span>
+        ) : null}
+      </div>
+      {profile.error ?? result?.error ? (
+        <p role="alert" className="mb-4 text-[13px] text-paper-flame-deep">
+          {profile.error?.message ?? result?.error}
+        </p>
+      ) : null}
       {shown.length === 0 ? (
         <Empty>No leads to import.</Empty>
       ) : (
@@ -444,6 +472,7 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
             <thead>
               <tr className="border-b border-paper-mist text-[12px] tracking-[0.06em] text-paper-sage uppercase">
                 <th scope="col" className="py-2 text-left font-semibold">Business</th>
+                <th scope="col" className="py-2 text-right font-semibold">Fit</th>
                 <th scope="col" className="py-2 text-right font-semibold">Score</th>
                 <th scope="col" className="py-2 pl-4 text-left font-semibold">Why</th>
                 <th scope="col" className="py-2 text-right font-semibold">
@@ -462,6 +491,17 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
                         {[lead.category, lead.area, lead.websiteSignal ? `website: ${lead.websiteSignal}` : undefined].filter(Boolean).join(" · ")}
                       </span>
                     </th>
+                    <td className="py-2.5 text-right tabular-nums">
+                      {lead.profile ? (
+                        <span
+                          title={`Jev: ${FIT_WORDS[Math.min(4, Math.round(lead.profile.fit))]}. ${lead.profile.gap ? "The data shows a checkable gap. " : ""}Confidence ${Math.round(lead.profile.confidence * 100)}%`}
+                        >
+                          <Tag tone={lead.profile.fit >= 3 ? "green" : lead.profile.fit >= 2 ? "marigold" : "muted"}>{lead.profile.fit.toFixed(1)} / 4</Tag>
+                        </span>
+                      ) : (
+                        <span className="text-paper-ash">-</span>
+                      )}
+                    </td>
                     <td className="py-2.5 text-right font-paper-display font-bold text-paper-moss tabular-nums">{lead.score ?? "-"}</td>
                     <td className="py-2.5 pl-4 text-paper-char">{lead.scoreReasons.slice(0, 2).join(" · ") || "-"}</td>
                     <td className="py-2.5 text-right">

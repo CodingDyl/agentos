@@ -93,7 +93,26 @@ later and it links back to the read page.
    Confirming the move does not clear it; only answering does.
 5. The Inbox has to have synced. A reply from minutes ago may not show yet.
 
-## 7. Weekly
+## 7. Pick better local candidates (Jev fit scoring)
+
+1. **Traction > Virtec > Leads to import**. This is Virtec's Places
+   candidates, ordered by Virtec's own score.
+2. Make sure the **ICP** has its ideal-prospect traits filled in (Overview).
+   Jev scores candidates against those.
+3. Press **Score 15 against the ICP**. It scores the best unscored
+   candidates: 15 a click, 60 a day. If the list has a track switch, it
+   scores only the track you have selected.
+4. Read the **Fit** column: 3+ is green, 2 to 3 amber, under 2 grey. Hover
+   for the words, confidence and whether the data shows a checkable gap.
+   Good fits move to the top; poor fits sink to the bottom rather than vanish.
+5. **Import** the good ones. The prospect starts with Jev's fit (not Virtec's
+   score) and a first reason saying so. You still add a specific observation
+   before outreach is drafted.
+6. Change the ICP and the old scores stop counting; score again.
+
+Jev returns a number, not a reason: the "Why" column is still Virtec's own.
+
+## 8. Weekly
 
 - **Experiments**: each magnet's experiment counts contacted and conversations
   from real prospects.

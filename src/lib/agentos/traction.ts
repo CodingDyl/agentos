@@ -168,6 +168,21 @@ export const useSetCrmFollowUp = () =>
     request(`/api/traction/crm/follow-ups/${id(followUpId)}`, json("POST", { status })),
   );
 
+export interface ProfileLeadsResult {
+  profiled: number;
+  failed: number;
+  error?: string;
+  /** Candidates still unscored after this run. */
+  left: number;
+  remainingToday: number;
+}
+
+/** Scores the best unscored candidates against the ICP with Jev. Capped per click and per day. */
+export const useProfileLeads = () =>
+  useTractionMutation((track: string | undefined) =>
+    request<ProfileLeadsResult>("/api/traction/crm/profile-leads", json("POST", track ? { track } : {})),
+  );
+
 /** Marks a Virtec lead disqualified. Needs write-back on. */
 export const useLeadNotAFit = () =>
   useTractionMutation((leadId: string) => request(`/api/traction/crm/leads/${id(leadId)}/not-a-fit`, { method: "POST" }));

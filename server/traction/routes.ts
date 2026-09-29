@@ -20,7 +20,8 @@ import { readThreadSummary } from "../mail/store";
 import { isVirtecConfigured, isVirtecWritable } from "../virtec/client";
 import { dismissFollowUp, markFollowUpSent, setInboundLeadStatus, setLeadStatus, snoozeFollowUp, type WriteOutcome } from "../virtec/writes";
 import { getVirtecSnapshot } from "../virtec/snapshot";
-import { clientToProspect, inboundToProspect, leadToProspect } from "./crm";
+import { buildCrmView, clientToProspect, currentProfile, inboundToProspect, leadToProspect } from "./crm";
+import { icpKey, PROFILE_BATCH, PROFILE_DAILY_CAP, profilingBlocker, runProfiling } from "./lead-profile";
 import { draftCaseStudy } from "./case-study-draft";
 import { magnetForLead } from "./lead-magnets";
 import { leadMagnetRouter } from "./lead-magnet-routes";
@@ -57,6 +58,7 @@ import {
   importCrmProspect,
   readState,
   replyToInboundLead,
+  saveLeadProfiles,
   unlinkMailThread,
   updateProspect,
 } from "./store";
@@ -390,8 +392,10 @@ tractionRouter.post("/crm/import", async (request, response) => {
     const lead = input.kind === "lead" ? snapshot.leads.find((entry) => entry.id === input.id) : undefined;
     const client = input.kind === "client" ? snapshot.clients.find((entry) => entry.id === input.id) : undefined;
     const inbound = input.kind === "inbound" ? snapshot.inbound.find((entry) => entry.id === input.id) : undefined;
+    const state = await readState();
+    const profile = lead ? currentProfile({ icpKey: state.icp ? icpKey(state.icp) : undefined, byCrmId: state.leadProfiles }, lead.id) : undefined;
     const mapped = lead
-      ? leadToProspect(lead)
+      ? leadToProspect(lead, profile, state.icp?.name)
       : client
         ? clientToProspect(client)
         : inbound
@@ -549,6 +553,61 @@ tractionRouter.post("/crm/leads/:id/not-a-fit", async (request, response) => {
   const outcome = await setLeadStatus(id.data, "disqualified");
   if (outcome.ok) response.json({ ok: true });
   else response.status(502).json({ error: outcome.error });
+});
+
+/**
+ * Scores Virtec's candidates against the ICP with Jev.
+ *
+ * On demand only. Takes the best unscored candidates first (Virtec's own
+ * score orders them), at most PROFILE_BATCH a click and PROFILE_DAILY_CAP a
+ * day. Optional `{ track }` limits it to one site's leads, since scoring
+ * Jurivo candidates against a Virtara ICP would be spend for nothing.
+ */
+tractionRouter.post("/crm/profile-leads", async (request, response) => {
+  const track = (request.body as { track?: unknown } | undefined)?.track;
+  if (track !== undefined && (typeof track !== "string" || !/^[a-z]{1,20}$/.test(track))) {
+    response.status(400).json({ error: "track must be a short lower-case word" });
+    return;
+  }
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+
+  try {
+    const state = await readState();
+    const blocker = profilingBlocker(state.icp);
+    if (blocker || !state.icp) {
+      response.status(409).json({ error: blocker ?? "No ICP" });
+      return;
+    }
+
+    const today = isoDate(new Date());
+    const usedToday = state.leadProfileBudget.date === today ? state.leadProfileBudget.used : 0;
+    const remaining = Math.max(0, PROFILE_DAILY_CAP - usedToday);
+    if (remaining === 0) {
+      response.status(429).json({ error: `Today's limit of ${PROFILE_DAILY_CAP} scores is used. It resets tomorrow.` });
+      return;
+    }
+
+    const snapshot = await getVirtecSnapshot();
+    const profiles = { icpKey: icpKey(state.icp), byCrmId: state.leadProfiles };
+    const view = buildCrmView(snapshot, state.prospects, new Date(), undefined, false, profiles);
+    const unscored = view.leads.filter((lead) => !lead.profile && (track === undefined || lead.track === track));
+    // The view is already best-first; scoring follows the same order.
+    const run = await runProfiling(unscored, state.icp, Math.min(PROFILE_BATCH, remaining));
+    const saved = Object.keys(run.profiles).length > 0 ? await saveLeadProfiles(run.profiles, today) : { usedToday };
+
+    response.json({
+      profiled: Object.keys(run.profiles).length,
+      failed: run.failed,
+      error: run.error,
+      left: Math.max(0, unscored.length - Object.keys(run.profiles).length - run.failed),
+      remainingToday: Math.max(0, PROFILE_DAILY_CAP - saved.usedToday),
+    });
+  } catch (error) {
+    fail(response, error, "score the candidates");
+  }
 });
 
 const INBOUND_STATUSES = ["replied", "not_a_fit", "spam"] as const;

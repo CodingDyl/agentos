@@ -9,6 +9,7 @@ import {
   DEFAULT_WEEKLY_TARGETS,
   ExperimentSchema,
   IcpSchema,
+  LeadProfileSchema,
   MailLinkSchema,
   OfferSchema,
   ProspectSchema,
@@ -18,6 +19,7 @@ import {
   WeeklyTargetsSchema,
   type CaseStudy,
   type CaseStudyInput,
+  type LeadProfile,
   type ConfirmMailLink,
   type Experiment,
   type ExperimentInput,
@@ -76,6 +78,10 @@ const StateSchema = z.object({
   /** Finished projects a person said do not need a case study. */
   dismissedOpportunities: z.array(z.string()).default([]),
   leadMagnets: z.array(LeadMagnetSchema).default([]),
+  /** Jev's fit scores for Virtec leads, by `virtec:lead:<id>`. */
+  leadProfiles: z.record(z.string(), LeadProfileSchema).default({}),
+  /** Profiles spent today, so a loop or a stuck button cannot run up Jev's bill. */
+  leadProfileBudget: z.object({ date: z.string(), used: z.number().int() }).default({ date: "", used: 0 }),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -106,6 +112,8 @@ function emptyState(): TractionState {
     caseStudies: [],
     dismissedOpportunities: [],
     leadMagnets: [],
+    leadProfiles: {},
+    leadProfileBudget: { date: "", used: 0 },
   };
 }
 
@@ -683,6 +691,21 @@ export function replyToInboundLead(
 
     events.push(event(prospect.id, "followed_up", { viaQueue: true }));
     return { result: prospect, events };
+  });
+}
+
+/**
+ * Keeps Jev's fit scores and counts them against today's budget.
+ *
+ * Failures are not charged: only what Jev answered is spent. A new day
+ * resets the count.
+ */
+export function saveLeadProfiles(profiles: Record<string, LeadProfile>, today: string): Promise<{ usedToday: number }> {
+  return mutate((state) => {
+    const used = state.leadProfileBudget.date === today ? state.leadProfileBudget.used : 0;
+    for (const [leadId, profile] of Object.entries(profiles)) state.leadProfiles[`virtec:lead:${leadId}`] = profile;
+    state.leadProfileBudget = { date: today, used: used + Object.keys(profiles).length };
+    return { result: { usedToday: state.leadProfileBudget.used } };
   });
 }
 

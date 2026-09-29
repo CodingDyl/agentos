@@ -1,4 +1,4 @@
-import type { CrmView, ProspectFit, ProspectInput, ProspectStage, QueueItem, TractionAttention } from "../../shared/traction-types";
+import type { CrmView, LeadProfile, ProspectFit, ProspectInput, ProspectStage, QueueItem, TractionAttention } from "../../shared/traction-types";
 import { WebsiteSchema } from "../../shared/traction-types";
 import {
   formatRand,
@@ -37,11 +37,37 @@ function localDate(iso: string | undefined): string | undefined {
   return iso ? isoDate(new Date(iso)) : undefined;
 }
 
+/** A score, only while it is still about the current ICP. */
+export function currentProfile(profiles: LeadProfiles, leadId: string): LeadProfile | undefined {
+  const profile = profiles.byCrmId[`${VIRTEC_LEAD_PREFIX}${leadId}`];
+  return profile && profile.icpKey === profiles.icpKey ? profile : undefined;
+}
+
 /** Open follow-ups, and snoozed ones whose snooze has run out. */
 function isLive(followUp: VirtecFollowUp, now: Date): boolean {
   if (followUp.status === "open") return true;
   if (followUp.status === "snoozed") return !followUp.snoozedUntil || Date.parse(followUp.snoozedUntil) <= now.getTime();
   return false;
+}
+
+/** Jev's fit scores, and the ICP they are valid for. */
+export interface LeadProfiles {
+  icpKey?: string;
+  byCrmId: Readonly<Record<string, LeadProfile>>;
+}
+
+/**
+ * Where a candidate sits in the list to import.
+ *
+ * Judged good fits first, then the ones not yet judged (Virtec's own score
+ * orders those), and judged poor fits last: a weak fit should not outrank a
+ * candidate nobody has looked at, and it should not vanish either.
+ */
+export const GOOD_FIT = 2;
+
+function leadGroup(profile: LeadProfile | undefined): number {
+  if (!profile) return 1;
+  return profile.fit >= GOOD_FIT ? 0 : 2;
 }
 
 export function buildCrmView(
@@ -50,6 +76,7 @@ export function buildCrmView(
   now: Date,
   problem?: string,
   writable = false,
+  profiles: LeadProfiles = { byCrmId: {} },
 ): CrmView {
   if (!snapshot) {
     // Configured, but the first read has not come back inside the budget.
@@ -82,7 +109,8 @@ export function buildCrmView(
       .sort((a, b) => (a.completion ?? 0) - (b.completion ?? 0)),
     leads: snapshot.leads
       .filter((lead) => !imported.has(`${VIRTEC_LEAD_PREFIX}${lead.id}`) && !SETTLED_LEAD_STATUSES.has(lead.status ?? ""))
-      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+      .map((lead) => ({ ...lead, profile: currentProfile(profiles, lead.id) }))
+      .sort((a, b) => leadGroup(a.profile) - leadGroup(b.profile) || (b.profile?.fit ?? 0) - (a.profile?.fit ?? 0) || (b.score ?? -1) - (a.score ?? -1))
       .slice(0, IMPORTABLE_LEAD_LIMIT),
     inbound: snapshot.inbound
       .filter(isOpenInbound)
@@ -323,6 +351,10 @@ export function crmAttention(snapshot: VirtecSnapshot | undefined): TractionAtte
   return flags;
 }
 
+function fitFromJev(fit: number): ProspectFit {
+  return fit >= 3 ? "high" : fit >= GOOD_FIT ? "medium" : "low";
+}
+
 function fitFromScore(score: number | undefined): ProspectFit | undefined {
   if (score === undefined) return undefined;
   return score >= 70 ? "high" : score >= 40 ? "medium" : "low";
@@ -354,7 +386,7 @@ const clip = (value: string | undefined, max: number) => (value ? value.slice(0,
  * signal ("weak website") is not a specific thing noticed by a person, and
  * the outreach guard should keep asking for one.
  */
-export function leadToProspect(lead: VirtecLead): ProspectInput {
+export function leadToProspect(lead: VirtecLead, profile?: LeadProfile, icpName?: string): ProspectInput {
   const facts = [
     lead.score !== undefined ? `Virtec score ${lead.score}` : undefined,
     lead.websiteSignal ? `website signal: ${lead.websiteSignal}` : undefined,
@@ -367,10 +399,14 @@ export function leadToProspect(lead: VirtecLead): ProspectInput {
     email: validEmail(lead.ownerEmail),
     website: validWebsite(lead.websiteUrl),
     segment: clip(lead.category, 80),
-    fit: fitFromScore(lead.score),
+    // Jev judged it against the ICP; Virtec's score is only about its own signals.
+    fit: profile ? fitFromJev(profile.fit) : fitFromScore(lead.score),
     stage: stageFromLead(lead),
     source: "outbound",
-    reasons: lead.scoreReasons.slice(0, 6).map((reason) => reason.slice(0, 200)),
+    reasons: [
+      ...(profile ? [`Jev fit ${profile.fit.toFixed(1)} of 4${icpName ? ` for "${icpName}"` : ""}${profile.gap ? ", with a checkable gap" : ""}`.slice(0, 200)] : []),
+      ...lead.scoreReasons.slice(0, profile ? 5 : 6).map((reason) => reason.slice(0, 200)),
+    ],
     angle: clip(lead.outreachPitch, 300),
     notes: clip(`Imported from Virtec${lead.track ? ` (${lead.track})` : ""}. ${facts.join(" · ")}`, 4000),
     crmId: `${VIRTEC_LEAD_PREFIX}${lead.id}`,
