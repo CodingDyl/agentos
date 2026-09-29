@@ -31,6 +31,7 @@ import {
 } from "./auth";
 import {
   draftOutreachEmail,
+  draftReplyEmail,
   OutreachDraftError,
   recipientBlocker,
 } from "./draft";
@@ -41,6 +42,7 @@ import {
   sendMessage,
 } from "./gmail";
 import { buildMessage, isPlainAddress, MimeError } from "./mime";
+import { syncOutreachInbox } from "./sync";
 
 /**
  * `/api/outreach`: the separate mailbox, and writing to prospects from it.
@@ -96,6 +98,7 @@ outreachRouter.get("/status", async (_request, response) => {
       connected: address !== undefined,
       address,
       signature: state.outreach.signature,
+      lastSyncAt: state.outreachSync.lastSyncAt,
       sentToday: sentInLastDay(state),
       dailyCap: dailyCap(),
     };
@@ -268,31 +271,29 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
         });
       return;
     }
-    const cold = prospect.stage === "target" || prospect.stage === "contacted";
-    if (cold && !content.body.includes(signature)) {
-      response
-        .status(422)
-        .json({
-          error:
-            "Your signature and opt-out line must stay at the foot of an email to someone who has not replied.",
-        });
+    // Answering something they wrote: it must be theirs, from this prospect's own address.
+    const replyTo = content.replyToId
+      ? state.outreachReplies.find((entry) => entry.id === content.replyToId && entry.prospectId === prospect.id)
+      : undefined;
+    if (content.replyToId && !replyTo) {
+      response.status(422).json({ error: "That message is no longer here. Check for replies again." });
       return;
     }
+    const cold = !replyTo && (prospect.stage === "target" || prospect.stage === "contacted");
+    if (cold && !content.body.includes(signature)) {
+      response.status(422).json({
+        error: "Your signature and opt-out line must stay at the foot of an email to someone who has not replied.",
+      });
+      return;
+    }
+    const message = { to, subject: content.subject, body: content.body, inReplyTo: replyTo?.messageIdHeader };
     // Refuse a malformed email before a slot is reserved for it.
-    buildMessage({ to, subject: content.subject, body: content.body });
+    buildMessage(message);
 
     reservationId = (
-      await reserveSend({
-        prospectId: prospect.id,
-        subject: content.subject,
-        dailyCap: dailyCap(),
-      })
+      await reserveSend({ prospectId: prospect.id, subject: content.subject, dailyCap: dailyCap(), isReply: Boolean(replyTo) })
     ).id;
-    const sent = await sendMessage({
-      to,
-      subject: content.subject,
-      body: content.body,
-    });
+    const sent = await sendMessage(message, replyTo?.threadId);
     await settleSend(reservationId, {
       kind: "sent",
       gmailMessageId: sent.messageId,
@@ -358,5 +359,35 @@ outreachRouter.delete("/suppressions/:address", async (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "remove from the do-not-contact list");
+  }
+});
+
+// ─── Replies ───────────────────────────────────────────────────────────────
+
+/** Reads the outreach inbox now: replies, "stop" messages, bounces. Read-only against Gmail. */
+outreachRouter.post("/sync", async (_request, response) => {
+  try {
+    response.json(await syncOutreachInbox());
+  } catch (error) {
+    fail(response, error, "check the outreach mailbox");
+  }
+});
+
+/** What this prospect has written back, newest first. */
+outreachRouter.get("/prospects/:id/replies", async (request, response) => {
+  try {
+    const state = await readState();
+    response.json({ replies: state.outreachReplies.filter((entry) => entry.prospectId === request.params.id).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10) });
+  } catch (error) {
+    fail(response, error, "read the replies");
+  }
+});
+
+/** Hermes drafts the answer to one stored reply. Nothing is created or sent. */
+outreachRouter.post("/prospects/:id/replies/:replyId/draft", async (request, response) => {
+  try {
+    response.json(await draftReplyEmail(request.params.id, request.params.replyId));
+  } catch (error) {
+    fail(response, error, "draft the reply");
   }
 });

@@ -1,4 +1,5 @@
 import type { MailThread } from "../../shared/mail-types";
+import { outreachReplyThreads } from "../outreach/threads";
 import type { TractionData } from "../../shared/traction-types";
 import type { VirtecSnapshot } from "../../shared/virtec-types";
 import { readMailData } from "../mail/store";
@@ -119,7 +120,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
   const mailSuggestions = suggestMailLinks(threads, prospects, state.mailLinks, state.dismissedMail);
   // Linking a thread acknowledges it; answering is what clears it. So the
   // queue looks at linked threads too, and only "not theirs" ones are out.
-  const replies = unansweredReplies(suggestMailLinks(threads, prospects, [], state.dismissedMail), prospects, today).map((reply) => reply.suggestion);
+  const replies = unansweredReplies(suggestMailLinks([...threads, ...outreachReplyThreads(state.outreachReplies)], prospects, [], state.dismissedMail), prospects, today).map((reply) => reply.suggestion);
   const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem(), isVirtecWritable(), {
     icpKey: state.icp ? icpKey(state.icp) : undefined,
     byCrmId: state.leadProfiles,

@@ -201,7 +201,15 @@ Drafts only: nothing is sent from AgentOS.
    was emailed in the last 14 days, or you have hit the daily cap
    (`OUTREACH_DAILY_CAP`, default 10). If Gmail's answer is lost you are told
    to check the Sent folder; it counts as sent and is not retried.
-6. If someone replies "no thanks" or an email bounces, press "Do not contact"
-   on their prospect. Nothing detects these yet.
-7. The prospect needs an email address and enough context (same gaps as
+6. "Check for replies" reads the outreach inbox (Gmail is not changed) and it
+   runs by itself every 15 minutes. A reply from a prospect shows on their
+   panel and as "They replied" in the queue. "No thanks", "stop" and
+   "unsubscribe", and permanent bounces, add the address to do-not-contact
+   for you; you can remove it there if it was wrong. Only exact prospect
+   addresses count, so a colleague's reply is not picked up. It reads at most
+   50 messages per check.
+7. "Draft a reply with Hermes" answers one of their messages. Sending it
+   keeps it in their Gmail thread. You can still press "Do not contact"
+   yourself at any time.
+8. The prospect needs an email address and enough context (same gaps as
    "Draft outreach"). Pick prospects by hand, one at a time.

@@ -73,6 +73,7 @@ import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
 import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
+import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
 import { financeRouter } from "./finance/routes";
 import {
@@ -3963,6 +3964,7 @@ app.listen(PORT, HOST, () => {
   });
 
   startStallWatch();
+  startOutreachSyncTimer();
 });
 
 /**
