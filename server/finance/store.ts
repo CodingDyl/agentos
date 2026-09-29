@@ -1,0 +1,245 @@
+import { randomUUID } from "node:crypto";
+import type {
+  Category,
+  FinancialAccount,
+  FinancialGoal,
+  GoalInput,
+  GoalPatch,
+  JevSubscriptionAssessment,
+  SubscriptionDecision,
+  Transaction,
+} from "../../shared/finance-types";
+import { JevSubscriptionAssessmentSchema } from "../../shared/finance-types";
+import { merchantKey } from "./categorise";
+import { financeDatabase } from "./db";
+
+/** Everything Finance keeps, as small synchronous queries over `finance.db`. */
+
+export class FinanceNotFoundError extends Error {}
+
+export type StoredGoal = FinancialGoal & { kind: "goal" | "sinking" };
+
+// ---------------------------------------------------------------- ledger
+
+export function saveSnapshot(accounts: readonly FinancialAccount[], transactions: readonly Transaction[]): void {
+  const db = financeDatabase();
+  const now = new Date().toISOString();
+
+  db.exec("BEGIN");
+  try {
+    const account = db.prepare(
+      `INSERT INTO accounts (id, provider, name, type, currency, balance, mask, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET provider = excluded.provider, name = excluded.name, type = excluded.type,
+         currency = excluded.currency, balance = excluded.balance, mask = excluded.mask, updated_at = excluded.updated_at`,
+    );
+    for (const entry of accounts) {
+      account.run(entry.id, entry.provider, entry.name, entry.type, entry.currency, entry.balance, entry.mask ?? null, now);
+    }
+
+    // A row the bank re-sends is the same row; the description is the bank's, not ours to rewrite.
+    const insert = db.prepare(
+      `INSERT INTO transactions (id, account_id, date, description, amount, merchant)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET date = excluded.date, amount = excluded.amount`,
+    );
+    for (const entry of transactions) {
+      insert.run(entry.id, entry.accountId, entry.date, entry.description, entry.amount, entry.merchant ?? null);
+    }
+
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function readAccounts(): FinancialAccount[] {
+  const rows = financeDatabase().prepare("SELECT * FROM accounts ORDER BY name").all() as unknown as {
+    id: string;
+    provider: "investec" | "sample";
+    name: string;
+    type: FinancialAccount["type"];
+    currency: string;
+    balance: number;
+    mask: string | null;
+  }[];
+  return rows.map((row) => ({ id: row.id, provider: row.provider, name: row.name, type: row.type, currency: row.currency, balance: row.balance, mask: row.mask ?? undefined }));
+}
+
+export function readTransactions(): Transaction[] {
+  const rows = financeDatabase().prepare("SELECT * FROM transactions ORDER BY date DESC").all() as unknown as {
+    id: string;
+    account_id: string;
+    date: string;
+    description: string;
+    amount: number;
+    merchant: string | null;
+  }[];
+  return rows.map((row) => ({ id: row.id, accountId: row.account_id, date: row.date, description: row.description, amount: row.amount, merchant: row.merchant ?? undefined }));
+}
+
+export function countTransactions(): number {
+  return (financeDatabase().prepare("SELECT COUNT(*) AS n FROM transactions").get() as unknown as { n: number }).n;
+}
+
+// ------------------------------------------------------------------ meta
+
+export function readMeta(key: string): string | undefined {
+  const row = financeDatabase().prepare("SELECT value FROM meta WHERE key = ?").get(key) as unknown as { value: string } | undefined;
+  return row?.value;
+}
+
+export function writeMeta(key: string, value: string): void {
+  financeDatabase().prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
+
+// ----------------------------------------------------------------- goals
+
+interface GoalRow {
+  id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  target_date: string | null;
+  type: FinancialGoal["type"];
+  kind: "goal" | "sinking";
+}
+
+const toGoal = (row: GoalRow): StoredGoal => ({
+  id: row.id,
+  name: row.name,
+  targetAmount: row.target_amount,
+  currentAmount: row.current_amount,
+  targetDate: row.target_date ?? undefined,
+  type: row.type,
+  kind: row.kind,
+});
+
+export function readGoals(): StoredGoal[] {
+  const rows = financeDatabase().prepare("SELECT * FROM goals ORDER BY created_at").all() as unknown as GoalRow[];
+  return rows.map(toGoal);
+}
+
+export function createGoal(input: GoalInput): StoredGoal {
+  const id = randomUUID();
+  financeDatabase()
+    .prepare(
+      `INSERT INTO goals (id, name, target_amount, current_amount, target_date, type, kind, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(id, input.name, input.targetAmount, input.currentAmount, input.targetDate ?? null, input.type, input.kind, new Date().toISOString());
+  return readGoal(id);
+}
+
+export function readGoal(id: string): StoredGoal {
+  const row = financeDatabase().prepare("SELECT * FROM goals WHERE id = ?").get(id) as unknown as GoalRow | undefined;
+  if (!row) throw new FinanceNotFoundError("That goal does not exist.");
+  return toGoal(row);
+}
+
+export function updateGoal(id: string, patch: GoalPatch): StoredGoal {
+  const current = readGoal(id);
+  const next = { ...current, ...patch };
+  financeDatabase()
+    .prepare("UPDATE goals SET name = ?, target_amount = ?, current_amount = ?, target_date = ?, type = ?, kind = ? WHERE id = ?")
+    .run(next.name, next.targetAmount, next.currentAmount, next.targetDate ?? null, next.type, next.kind, id);
+  return readGoal(id);
+}
+
+export function deleteGoal(id: string): void {
+  readGoal(id);
+  financeDatabase().prepare("DELETE FROM goals WHERE id = ?").run(id);
+}
+
+// ----------------------------------------------------------- corrections
+
+export interface StoredCorrection {
+  merchant: string;
+  category: Category;
+  scope?: "personal" | "business";
+}
+
+export function readCorrections(): StoredCorrection[] {
+  const rows = financeDatabase().prepare("SELECT merchant, category, scope FROM corrections ORDER BY merchant").all() as unknown as {
+    merchant: string;
+    category: Category;
+    scope: "personal" | "business" | null;
+  }[];
+  return rows.map((row) => ({ merchant: row.merchant, category: row.category, scope: row.scope ?? undefined }));
+}
+
+export function correctionMap(): Map<string, Category> {
+  return new Map(readCorrections().map((correction) => [merchantKey(correction.merchant), correction.category]));
+}
+
+export function saveCorrection(correction: StoredCorrection): void {
+  financeDatabase()
+    .prepare(
+      `INSERT INTO corrections (merchant_key, merchant, category, scope, corrected_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(merchant_key) DO UPDATE SET merchant = excluded.merchant, category = excluded.category,
+         scope = excluded.scope, corrected_at = excluded.corrected_at`,
+    )
+    .run(merchantKey(correction.merchant), correction.merchant, correction.category, correction.scope ?? null, new Date().toISOString());
+}
+
+export function deleteCorrection(merchant: string): void {
+  financeDatabase().prepare("DELETE FROM corrections WHERE merchant_key = ?").run(merchantKey(merchant));
+}
+
+// ------------------------------------------------------------- decisions
+
+export function readDecisions(): Map<string, { decision: NonNullable<SubscriptionDecision["decision"]>; note?: string }> {
+  const rows = financeDatabase().prepare("SELECT merchant_key, decision, note FROM subscription_decisions").all() as unknown as {
+    merchant_key: string;
+    decision: NonNullable<SubscriptionDecision["decision"]>;
+    note: string | null;
+  }[];
+  return new Map(rows.map((row) => [row.merchant_key, { decision: row.decision, note: row.note ?? undefined }]));
+}
+
+/** Records what the person decided; `null` takes the decision back. */
+export function saveDecision(decision: SubscriptionDecision): void {
+  const key = merchantKey(decision.merchant);
+  const db = financeDatabase();
+
+  if (decision.decision === null) {
+    db.prepare("DELETE FROM subscription_decisions WHERE merchant_key = ?").run(key);
+    return;
+  }
+
+  db.prepare(
+    `INSERT INTO subscription_decisions (merchant_key, decision, note, decided_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(merchant_key) DO UPDATE SET decision = excluded.decision, note = excluded.note, decided_at = excluded.decided_at`,
+  ).run(key, decision.decision, decision.note ?? null, new Date().toISOString());
+}
+
+// ----------------------------------------------------------- assessments
+
+export function readAssessments(): Map<string, { signature: string; assessment: JevSubscriptionAssessment }> {
+  const rows = financeDatabase().prepare("SELECT merchant_key, signature, assessment FROM subscription_assessments").all() as unknown as {
+    merchant_key: string;
+    signature: string;
+    assessment: string;
+  }[];
+
+  const result = new Map<string, { signature: string; assessment: JevSubscriptionAssessment }>();
+  for (const row of rows) {
+    try {
+      const parsed = JevSubscriptionAssessmentSchema.safeParse(JSON.parse(row.assessment));
+      if (parsed.success) result.set(row.merchant_key, { signature: row.signature, assessment: parsed.data });
+    } catch {
+      // A row that no longer parses is a row to assess again, not a reason to fail.
+    }
+  }
+  return result;
+}
+
+export function saveAssessment(merchant: string, signature: string, assessment: JevSubscriptionAssessment): void {
+  financeDatabase()
+    .prepare(
+      `INSERT INTO subscription_assessments (merchant_key, signature, assessment, assessed_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(merchant_key) DO UPDATE SET signature = excluded.signature, assessment = excluded.assessment, assessed_at = excluded.assessed_at`,
+    )
+    .run(merchantKey(merchant), signature, JSON.stringify(assessment), assessment.assessedAt);
+}

@@ -72,6 +72,7 @@ import {
 import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
+import { financeRouter } from "./finance/routes";
 import {
   archiveTask,
   bulkTasks,
@@ -316,6 +317,9 @@ app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
 app.use("/api/traction", tractionRouter);
+
+/** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
+app.use("/api/finance", financeRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
