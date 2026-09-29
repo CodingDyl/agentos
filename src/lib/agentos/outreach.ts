@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
+  OutreachReplySchema,
   OutreachStatusSchema,
+  OutreachSyncResultSchema,
   SuppressionSchema,
   type EmailContent,
+  type OutreachReply,
   type OutreachStatus,
+  type OutreachSyncResult,
   type Suppression,
   type SuppressionReason,
 } from "@shared/outreach-types";
@@ -139,13 +143,15 @@ export function useSendOutreachEmail() {
     mutationFn: ({
       prospectId,
       content,
+      replyToId,
     }: {
       prospectId: string;
       content: EmailContent;
+      replyToId?: string;
     }) =>
       request<SendResult>(
         `/api/outreach/prospects/${id(prospectId)}/send`,
-        json("POST", { ...content, confirm: true }),
+        json("POST", { ...content, confirm: true, ...(replyToId ? { replyToId } : {}) }),
       ),
     // A send moves the prospect and uses a slot, whether or not the answer was clean.
     onSettled: () => {
@@ -198,3 +204,44 @@ export const useRemoveSuppression = () =>
   useSuppressionMutation((address: string) =>
     request(`/api/outreach/suppressions/${id(address)}`, { method: "DELETE" }),
   );
+
+/** What a prospect has written back, read from the outreach mailbox. */
+export function useProspectReplies(prospectId: string) {
+  return useQuery({
+    queryKey: [...outreachKey(), "replies", prospectId] as const,
+    queryFn: async (): Promise<OutreachReply[]> => {
+      const parsed = z.object({ replies: z.array(OutreachReplySchema) }).safeParse(await request(`/api/outreach/prospects/${id(prospectId)}/replies`));
+      if (!parsed.success) throw new AgentOSRequestError("The replies came back in an unexpected shape.");
+      return parsed.data.replies;
+    },
+    staleTime: 30_000,
+    networkMode: "always",
+  });
+}
+
+/** Reads the outreach inbox now. Read-only against Gmail. */
+export function useCheckReplies() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<OutreachSyncResult> => {
+      const parsed = OutreachSyncResultSchema.safeParse(await request("/api/outreach/sync", { method: "POST" }));
+      if (!parsed.success) throw new AgentOSRequestError("The mailbox check came back in an unexpected shape.");
+      return parsed.data;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: outreachKey() });
+      void queryClient.invalidateQueries({ queryKey: tractionKey() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Hermes answers one reply. Nothing is created or sent. */
+export const useDraftReply = () =>
+  useMutation({
+    mutationFn: ({ prospectId, replyId }: { prospectId: string; replyId: string }) =>
+      request<EmailContent>(`/api/outreach/prospects/${id(prospectId)}/replies/${id(replyId)}/draft`, { method: "POST" }),
+    networkMode: "always",
+    retry: 0,
+  });

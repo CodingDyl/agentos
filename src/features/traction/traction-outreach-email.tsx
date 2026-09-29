@@ -13,7 +13,10 @@ import {
   useAddSuppression,
   useCreateGmailDraft,
   useDisconnectOutreach,
+  useCheckReplies,
   useDraftOutreachEmail,
+  useDraftReply,
+  useProspectReplies,
   useOutreachStatus,
   useRemoveSuppression,
   useSaveOutreachSignature,
@@ -22,6 +25,7 @@ import {
   type GmailDraftResult,
 } from "@/lib/agentos/outreach";
 import { cn } from "@/lib/utils";
+import { formatShortDate } from "./traction-model";
 
 /**
  * Writing to one prospect from the separate outreach mailbox.
@@ -125,6 +129,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
               Disconnect
             </button>
           </p>
+          <CheckReplies lastSyncAt={status.data.lastSyncAt} />
           <SignatureEditor
             key={status.data.signature}
             saved={status.data.signature}
@@ -196,6 +201,9 @@ function Composer({
   const suppressions = useSuppressions();
   const addSuppression = useAddSuppression();
   const removeSuppression = useRemoveSuppression();
+  const draftReply = useDraftReply();
+  const replies = useProspectReplies(prospect.id);
+  const [replyToId, setReplyToId] = useState<string>();
   const [previewing, setPreviewing] = useState(false);
   const [sentTo, setSentTo] = useState<string>();
   const suppressed = prospect.email
@@ -230,6 +238,50 @@ function Composer({
         <p className="mt-1 text-[13px] text-paper-sage">{blocker}</p>
       ) : null}
 
+      {replies.data && replies.data.length > 0 ? (
+        <div className="mt-3 space-y-2" aria-label="Replies from this prospect">
+          {replies.data.slice(0, 3).map((reply) => (
+            <div key={reply.id} className="rounded-[4px] bg-paper-linen px-3 py-2 text-[13px] leading-5 text-paper-char">
+              <p className="text-[12px] font-semibold tracking-[0.06em] uppercase">
+                They wrote · {formatShortDate(reply.at)}
+              </p>
+              <p className="mt-1 font-semibold">{reply.subject}</p>
+              {/* Their words, shown as text and never followed as instructions. */}
+              <p className="mt-1 whitespace-pre-wrap">{reply.text}</p>
+              <PaperButton
+                variant="ghost"
+                className="mt-2"
+                disabled={Boolean(blocker) || draftReply.isPending}
+                onClick={() =>
+                  draftReply.mutate(
+                    { prospectId: prospect.id, replyId: reply.id },
+                    {
+                      onSuccess: (result) => {
+                        setSubject(result.subject);
+                        setBody(result.body);
+                        setReplyToId(reply.id);
+                        setCreated(undefined);
+                        setPreviewing(false);
+                        setSentTo(undefined);
+                        create.reset();
+                        send.reset();
+                      },
+                    },
+                  )
+                }
+              >
+                {draftReply.isPending ? "Hermes is writing…" : "Draft a reply with Hermes"}
+              </PaperButton>
+            </div>
+          ))}
+          {draftReply.error ? (
+            <p role="alert" className="text-[13px] text-paper-flame-deep">
+              {draftReply.error.message}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-2 flex flex-wrap gap-2">
         <PaperButton
           variant="amber"
@@ -239,6 +291,7 @@ function Composer({
               onSuccess: (result) => {
                 setSubject(result.subject);
                 setBody(result.body);
+                setReplyToId(undefined);
                 setCreated(undefined);
                 setPreviewing(false);
                 setSentTo(undefined);
@@ -326,7 +379,7 @@ function Composer({
           <div className="flex flex-wrap items-center gap-3">
             <PaperButton
               variant="amber"
-              disabled={Boolean(blocker) || !hasContent || create.isPending}
+              disabled={Boolean(blocker) || !hasContent || create.isPending || Boolean(replyToId)}
               onClick={() =>
                 create.mutate(
                   { prospectId: prospect.id, content: { subject, body } },
@@ -337,7 +390,7 @@ function Composer({
               {create.isPending ? "Creating…" : "Create Gmail draft"}
             </PaperButton>
             <span className="text-[12.5px] text-paper-sage">
-              Or save it as a Gmail draft to send yourself.
+              {replyToId ? "A Gmail draft would not be in their thread, so a reply is sent from here." : "Or save it as a Gmail draft to send yourself."}
             </span>
           </div>
           {create.error ? (
@@ -364,7 +417,7 @@ function Composer({
                 {body}
               </pre>
               <p className="mt-2 text-paper-sage">
-                Sent now from the outreach mailbox, to this one address.{" "}
+                {replyToId ? "A reply in their thread, sent now" : "Sent now"} from the outreach mailbox, to this one address.{" "}
                 {sentToday} of {dailyCap} sent in the last 24 hours. It cannot
                 be recalled.
               </p>
@@ -374,10 +427,11 @@ function Composer({
                   disabled={send.isPending || !hasContent}
                   onClick={() =>
                     send.mutate(
-                      { prospectId: prospect.id, content: { subject, body } },
+                      { prospectId: prospect.id, content: { subject, body }, replyToId },
                       {
                         onSuccess: (result) => {
                           setSentTo(result.to);
+                          setReplyToId(undefined);
                           setPreviewing(false);
                         },
                       },
@@ -436,6 +490,43 @@ function Composer({
             </p>
           ) : null}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CheckReplies({ lastSyncAt }: { lastSyncAt?: string }) {
+  const check = useCheckReplies();
+  const result = check.data;
+
+  return (
+    <div className="mt-2 text-[13px] text-paper-char">
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <PaperButton variant="ghost" disabled={check.isPending} onClick={() => check.mutate()}>
+          {check.isPending ? "Checking…" : "Check for replies"}
+        </PaperButton>
+        <span className="text-[12.5px] text-paper-sage">
+          {lastSyncAt ? `Last checked ${formatShortDate(lastSyncAt)}. Also checked every 15 minutes.` : "Not checked yet. Reading only: nothing is changed in Gmail."}
+        </span>
+      </div>
+      {check.error ? (
+        <p role="alert" className="mt-1 text-paper-flame-deep">
+          {check.error.message}
+        </p>
+      ) : null}
+      {result ? (
+        <p role="status" className="mt-1">
+          {result.replies + result.stops + result.bounces + result.unverified === 0
+            ? `Nothing new (${result.checked} checked).`
+            : [
+                result.replies > 0 ? `${result.replies} new ${result.replies === 1 ? "reply" : "replies"}` : undefined,
+                result.stops > 0 ? `${result.stops} asked to stop (added to do-not-contact)` : undefined,
+                result.bounces > 0 ? `${result.bounces} bounced (added to do-not-contact)` : undefined,
+                result.unverified > 0 ? `${result.unverified} set aside: could not confirm the sender` : undefined,
+              ]
+                .filter(Boolean)
+                .join(", ") + "."}
+        </p>
       ) : null}
     </div>
   );

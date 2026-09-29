@@ -111,9 +111,9 @@ export interface SentMessage {
  * An `offline` or `unreadable` failure means the email may have gone; the
  * caller must not treat it as "not sent".
  */
-export async function sendMessage(message: EmailMessage): Promise<SentMessage> {
+export async function sendMessage(message: EmailMessage, threadId?: string): Promise<SentMessage> {
   const raw = toRaw(buildMessage(message));
-  const result = (await gmailPost("/messages/send", { raw })) as {
+  const result = (await gmailPost("/messages/send", { raw, ...(threadId ? { threadId } : {}) })) as {
     id?: unknown;
     threadId?: unknown;
   };

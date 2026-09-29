@@ -1,11 +1,14 @@
 import { LeadMagnetSchema } from "../../shared/lead-magnet-types";
 import {
   OUTREACH_LOG_LIMIT,
+  OUTREACH_REPLY_LIMIT,
   OutreachLogEntrySchema,
+  OutreachReplySchema,
   REPEAT_WINDOW_DAYS,
   SEND_KINDS,
   SuppressionSchema,
   type OutreachLogEntry,
+  type OutreachReply,
   type Suppression,
   type SuppressionReason,
 } from "../../shared/outreach-types";
@@ -102,6 +105,9 @@ const StateSchema = z.object({
   outreachLog: z.array(OutreachLogEntrySchema).default([]),
   /** Addresses that must never be emailed from AgentOS. */
   suppressions: z.array(SuppressionSchema).default([]),
+  /** Messages from prospects, read from the outreach mailbox. */
+  outreachReplies: z.array(OutreachReplySchema).default([]),
+  outreachSync: z.object({ lastSyncAt: z.string().optional() }).default({}),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -137,6 +143,8 @@ function emptyState(): TractionState {
     outreach: { signature: "" },
     outreachLog: [],
     suppressions: [],
+    outreachReplies: [],
+    outreachSync: {},
   };
 }
 
@@ -1023,6 +1031,7 @@ export function reserveSend(input: {
   prospectId: string;
   subject: string;
   dailyCap: number;
+  isReply?: boolean;
 }): Promise<OutreachLogEntry> {
   return mutate((state) => {
     const prospect = findProspect(state, input.prospectId);
@@ -1036,7 +1045,8 @@ export function reserveSend(input: {
       );
 
     const now = Date.now();
-    const recent = state.outreachLog.find(
+    // Answering someone who wrote to us is not a repeat. The cap and the do-not-contact list still apply.
+    const recent = input.isReply ? undefined : state.outreachLog.find(
       (entry) =>
         SEND_KINDS.includes(entry.kind) &&
         sameAddress(entry.to, to) &&
@@ -1066,6 +1076,22 @@ export function reserveSend(input: {
       -OUTREACH_LOG_LIMIT,
     );
     return { result: entry };
+  });
+}
+
+/** Stores a message from a prospect. The same message is stored once. */
+export function recordOutreachReply(reply: OutreachReply): Promise<boolean> {
+  return mutate((state) => {
+    if (state.outreachReplies.some((entry) => entry.id === reply.id)) return { result: false };
+    state.outreachReplies = [...state.outreachReplies, reply].slice(-OUTREACH_REPLY_LIMIT);
+    return { result: true };
+  });
+}
+
+export function markOutreachSynced(at: string): Promise<void> {
+  return mutate((state) => {
+    state.outreachSync = { lastSyncAt: at };
+    return { result: undefined };
   });
 }
 
