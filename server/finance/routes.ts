@@ -8,6 +8,7 @@ import { assessSubscriptions, suggestCategory } from "./jev";
 import { JevError } from "../mail/jev-client";
 import { AnalyserError, askAnalyser, writeAnalysis } from "./analyser";
 import { CsvImportError, readStatement, type SignRule } from "./csv-import";
+import { ensureMonthlyReview, ensureMonthlyReviewInBackground, markReviewSeen, previousMonth, reviewError } from "./monthly-review";
 import { ReviewError, writeNarrative } from "./review";
 import { createSettlement, createSplitRule, deleteSettlement, deleteSplitRule, removePartner, savePartner, createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
 
@@ -55,6 +56,8 @@ function fail(response: Response, error: unknown, what: string): void {
 
 financeRouter.get("/", (_request, response) => {
   try {
+    // Last month's review, if it is due. Never waits for Hermes: the answer arrives on a later poll.
+    ensureMonthlyReviewInBackground();
     response.json(getFinance());
   } catch (error) {
     fail(response, error, "read Finance");
@@ -397,5 +400,35 @@ financeRouter.delete("/shared/settlements/:id", (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "remove the payment");
+  }
+});
+
+// -------------------------------------------------- last month's review
+
+/** Asks Hermes to write last month's review now, ignoring one already written or a recent failure. */
+financeRouter.post("/review/previous", async (_request, response) => {
+  try {
+    const outcome = await ensureMonthlyReview({ force: true });
+    if (outcome === "failed") {
+      response.status(422).json({ error: reviewError(previousMonth()) ?? "Hermes could not write the review." });
+      return;
+    }
+    if (outcome === "skipped") {
+      response.status(422).json({ error: "There is nothing from last month to review." });
+      return;
+    }
+    response.json(getFinance());
+  } catch (error) {
+    fail(response, error, "write last month's review");
+  }
+});
+
+/** Marks last month's review read, which clears it from Today. */
+financeRouter.post("/review/previous/seen", (_request, response) => {
+  try {
+    markReviewSeen(previousMonth());
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "mark the review read");
   }
 });

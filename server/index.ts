@@ -77,6 +77,7 @@ import { completeOutreachConnection, OutreachAuthError, parseOutreachState } fro
 import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
 import { financeRouter } from "./finance/routes";
+import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
   bulkTasks,
@@ -3973,6 +3974,8 @@ app.listen(PORT, HOST, () => {
 
   startStallWatch();
   startOutreachSyncTimer();
+  // Finance's monthly review writes itself once a month is over. See server/finance/monthly-review.ts.
+  startMonthlyReviewSchedule();
 });
 
 /**
