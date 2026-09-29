@@ -35,6 +35,10 @@ export interface JarvisApi {
   micPermission: MicPermission;
   /** The browser's permission dialog is open and waiting for an answer. */
   askingMic: boolean;
+  /** The last attempt failed at the microphone itself. */
+  micFailed: boolean;
+  /** The voice status could not be read at all: the data server is probably not running. */
+  voiceStatusError: boolean;
   voice?: VoiceStatus;
   setVoiceOn: (enabled: boolean) => void;
   run: UseAgentRunResult;

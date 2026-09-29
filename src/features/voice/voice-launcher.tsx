@@ -20,7 +20,11 @@ export function VoiceLauncher() {
   const caption =
     jarvis.voice?.enabled === false
       ? "Voice off"
-      : jarvis.askingMic
+      : jarvis.voiceStatusError
+        ? "Voice server unreachable"
+        : jarvis.voice && !jarvis.voice.configured
+          ? "No FISH_API_KEY on server"
+          : jarvis.askingMic
         ? "Allow the microphone in the browser prompt"
         : jarvis.phase === "confirming" && jarvis.transcript
         ? `"${jarvis.transcript}"`

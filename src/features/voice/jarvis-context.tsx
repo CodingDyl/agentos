@@ -50,6 +50,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const [micPermission, setMicPermission] = useState<MicPermission>("unknown");
   // True while the browser's own permission dialog is open, waiting on you.
   const [askingMic, setAskingMic] = useState(false);
+  // The last attempt to record failed at the microphone, so Try again applies.
+  const [micFailed, setMicFailed] = useState(false);
 
   // Follow the browser's microphone setting, so the launcher can say "tap to
   // allow" before the first press, and recover the moment it is switched on.
@@ -253,13 +255,22 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       setPhase(session.isWriting() ? "thinking" : "idle");
       return;
     }
-    if (!voiceReady || phase === "transcribing" || phase === "thinking") return;
+    if (phase === "transcribing" || phase === "thinking") return;
+    if (!voiceReady) {
+      // Nothing to record into yet. Look again (the server may have been
+      // restarted since the page loaded) and show why on the panel.
+      void voiceQuery.refetch();
+      setIsOpen(true);
+      return;
+    }
 
     setError(undefined);
+    setMicFailed(false);
     setAutoSendAt(undefined);
     setTranscriptState("");
     const unsupported = micSupportFailure();
     if (unsupported) {
+      setMicFailed(true);
       setError(unsupported.message);
       setPhase("error");
       return;
@@ -277,13 +288,18 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       },
       (failure: unknown) => {
         setAskingMic(false);
-        const problem = describeMicFailure(failure);
-        if (problem.blocked) setMicPermission("denied");
-        setError(problem.message);
-        setPhase("error");
+        // Ask the browser what it says about this site *now*: a refusal while
+        // the site shows "allowed" is the operating system's doing, not the site's.
+        void readMicPermission().then((state) => {
+          const problem = describeMicFailure(failure, state);
+          setMicPermission(state === "unknown" && problem.blocked ? "denied" : state);
+          setMicFailed(true);
+          setError(problem.detail ? `${problem.message} (${problem.detail})` : problem.message);
+          setPhase("error");
+        });
       },
     );
-  }, [handleRecorded, phase, recorder, session, silence, voiceReady]);
+  }, [handleRecorded, phase, recorder, session, silence, voiceQuery, voiceReady]);
 
   const cancelTranscript = useCallback(() => {
     recorder.cancel();
@@ -328,7 +344,12 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
 
   const api: JarvisApi = {
     isOpen,
-    open: () => setIsOpen(true),
+    open: () => {
+      setIsOpen(true);
+      // Opening is a good moment to look again: the server may have been
+      // restarted (or its key added) since this page first asked.
+      void voiceQuery.refetch();
+    },
     close: () => {
       setIsOpen(false);
       // Closing acknowledges an error; the words you said stay in the box.
@@ -360,6 +381,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     audioNote,
     micPermission,
     askingMic,
+    micFailed,
+    voiceStatusError: voiceQuery.isError,
     voice,
     setVoiceOn,
     run,

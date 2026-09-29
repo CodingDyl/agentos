@@ -7,6 +7,10 @@ import { MAX_RECORDING_MS } from "./voice-model";
  * `level` (0..1) is the live input loudness, for the visualiser. Silence
  * detection is deliberately simple: once speech has been heard, a second and a
  * half below the threshold ends the recording.
+ *
+ * Only getting the microphone can fail the recording. The level meter is a
+ * nicety: if the browser will not give us one, recording still works, it just
+ * ends when you press again (or at the time limit) instead of on silence.
  */
 
 const SPEECH_LEVEL = 0.06;
@@ -15,6 +19,39 @@ const SILENCE_MS = 1500;
 function preferredMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
   return ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((type) => MediaRecorder.isTypeSupported(type));
+}
+
+/** The best recorder the browser will give, falling back to its own default format. */
+function createRecorder(media: MediaStream): MediaRecorder {
+  const mimeType = preferredMimeType();
+  if (mimeType) {
+    try {
+      return new MediaRecorder(media, { mimeType });
+    } catch {
+      // Fall through to the browser's default.
+    }
+  }
+  return new MediaRecorder(media);
+}
+
+/** A function that reads the current input loudness, or undefined if metering is unavailable. */
+function createMeter(media: MediaStream, keep: (context: AudioContext) => void): (() => number) | undefined {
+  try {
+    const context = new AudioContext();
+    keep(context);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 512;
+    context.createMediaStreamSource(media).connect(analyser);
+    const samples = new Uint8Array(analyser.fftSize);
+    return () => {
+      analyser.getByteTimeDomainData(samples);
+      let peak = 0;
+      for (const sample of samples) peak = Math.max(peak, Math.abs(sample - 128) / 128);
+      return peak;
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 export interface VoiceRecorder {
@@ -35,6 +72,7 @@ export function useVoiceRecorder(onAutoStop: (audio: Blob | null) => void): Voic
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
   const frame = useRef<number>(0);
+  const maxTimer = useRef<number>(0);
   const audioContext = useRef<AudioContext | null>(null);
   const finish = useRef<((audio: Blob | null) => void) | null>(null);
   const discard = useRef(false);
@@ -46,6 +84,7 @@ export function useVoiceRecorder(onAutoStop: (audio: Blob | null) => void): Voic
 
   const teardown = useCallback(() => {
     cancelAnimationFrame(frame.current);
+    window.clearTimeout(maxTimer.current);
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
     void audioContext.current?.close().catch(() => undefined);
@@ -79,8 +118,15 @@ export function useVoiceRecorder(onAutoStop: (audio: Blob | null) => void): Voic
     chunks.current = [];
     discard.current = false;
 
-    const mimeType = preferredMimeType();
-    const active = new MediaRecorder(media, mimeType ? { mimeType } : undefined);
+    let active: MediaRecorder;
+    try {
+      active = createRecorder(media);
+    } catch (error) {
+      // Permission was granted; what failed is recording. Do not leave the
+      // microphone (and the browser's recording light) on.
+      teardown();
+      throw error;
+    }
     recorder.current = active;
 
     active.ondataavailable = (event) => {
@@ -95,40 +141,40 @@ export function useVoiceRecorder(onAutoStop: (audio: Blob | null) => void): Voic
       else if (!discard.current) autoStop.current(audio);
     };
 
-    const context = new AudioContext();
-    audioContext.current = context;
-    const analyser = context.createAnalyser();
-    analyser.fftSize = 512;
-    context.createMediaStreamSource(media).connect(analyser);
-    const samples = new Uint8Array(analyser.fftSize);
+    // The time limit does not depend on the meter, so it holds either way.
+    maxTimer.current = window.setTimeout(() => {
+      if (active.state === "recording") active.stop();
+    }, MAX_RECORDING_MS);
 
-    const startedAt = performance.now();
-    let heardSpeech = false;
-    let quietSince = performance.now();
+    const meter = createMeter(media, (context) => {
+      audioContext.current = context;
+    });
 
-    const tick = () => {
-      analyser.getByteTimeDomainData(samples);
-      let peak = 0;
-      for (const sample of samples) peak = Math.max(peak, Math.abs(sample - 128) / 128);
-      setLevel(Math.min(1, peak * 2));
+    if (meter) {
+      let heardSpeech = false;
+      let quietSince = performance.now();
 
-      const now = performance.now();
-      if (peak > SPEECH_LEVEL) {
-        heardSpeech = true;
-        quietSince = now;
-      }
+      const tick = () => {
+        const peak = meter();
+        setLevel(Math.min(1, peak * 2));
 
-      const silentLongEnough = heardSpeech && now - quietSince > SILENCE_MS;
-      if ((silentLongEnough || now - startedAt > MAX_RECORDING_MS) && active.state === "recording") {
-        active.stop();
-        return;
-      }
+        const now = performance.now();
+        if (peak > SPEECH_LEVEL) {
+          heardSpeech = true;
+          quietSince = now;
+        }
+
+        if (heardSpeech && now - quietSince > SILENCE_MS && active.state === "recording") {
+          active.stop();
+          return;
+        }
+        frame.current = requestAnimationFrame(tick);
+      };
       frame.current = requestAnimationFrame(tick);
-    };
+    }
 
     active.start();
     setIsRecording(true);
-    frame.current = requestAnimationFrame(tick);
   }, [teardown]);
 
   const cancel = useCallback(() => {

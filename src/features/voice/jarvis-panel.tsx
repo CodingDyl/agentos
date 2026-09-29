@@ -45,7 +45,9 @@ export function JarvisPanel() {
   const showComposer =
     typing || !voiceUsable || jarvis.transcript !== "" || jarvis.error !== undefined || jarvis.reply !== "" || jarvis.phase === "confirming";
 
-  const hint = !voiceOn
+  const hint = jarvis.voiceStatusError
+    ? "Can't reach the AgentOS data server, so voice can't start. Check that it is running, then reopen this."
+    : !voiceOn
     ? "Voice is off. Type below; answers stay text only."
     : !jarvis.voice?.configured
       ? "FISH_API_KEY isn't set on the server (restart it after editing .env). Type below; answers stay text only."
@@ -155,7 +157,7 @@ export function JarvisPanel() {
             </p>
             {/* Blocked access can only be fixed in the browser; this re-checks
                 (and asks again, if the browser has since reset to "prompt"). */}
-            {jarvis.micPermission === "denied" ? (
+            {jarvis.micFailed ? (
               <PaperButton variant="ghost" onClick={jarvis.toggleListening}>
                 Try again
               </PaperButton>
