@@ -1,13 +1,14 @@
-import { Mic, Send, Square, Volume2, VolumeX, X } from "lucide-react";
+import { Send, Square, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { withoutEmDashes } from "@shared/plain-text";
-import { CommandButton, Markdown, SectionLabel } from "@/components/os";
+import { Markdown } from "@/components/os";
+import { PAPER_FOCUS, PaperButton } from "@/components/paper";
 import { ApprovalCard } from "@/features/agent/approval-card";
 import { ProposalCard } from "@/features/agent/proposal-card";
 import { readProposal } from "@/features/agent/proposal";
 import { useProjects } from "@/lib/agentos/queries";
-import { cn } from "@/lib/utils";
 import { useJarvis } from "./jarvis-store";
+import { JarvisOrb } from "./jarvis-orb";
 import { AUTO_SEND_MS, PHASE_LABEL } from "./voice-model";
 
 /**
@@ -36,16 +37,26 @@ export function JarvisPanel() {
   const working = jarvis.phase === "thinking" || jarvis.run.isRunning;
   const listening = jarvis.phase === "listening";
 
+  const hint = !voiceOn
+    ? "Voice is off. Type below; answers stay text only."
+    : !jarvis.voice?.configured
+      ? "No Fish Audio key on the server. Type below; answers stay text only."
+      : listening
+        ? "Listening. It sends when you stop talking."
+        : jarvis.phase === "speaking"
+          ? "Speaking. Tap to stop."
+          : "Tap the orb to talk, or type below.";
+
   return (
     <section
       role="dialog"
       aria-label="Jarvis"
-      className="fixed right-4 bottom-14 z-40 flex max-h-[min(80dvh,720px)] w-[min(94vw,440px)] flex-col rounded-md border border-os-border-strong bg-os-surface"
+      className="fixed right-4 bottom-14 z-40 flex max-h-[min(84dvh,760px)] w-[min(94vw,440px)] flex-col overflow-hidden rounded-[6px] border border-paper-moss bg-paper-linen font-paper-ui text-paper-moss"
     >
-      <header className="flex items-center justify-between gap-3 border-b border-os-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <SectionLabel>Jarvis</SectionLabel>
-          <span className="os-meta text-os-subtle" role="status" aria-live="polite">
+      <header className="flex items-center justify-between gap-3 px-4 pt-3">
+        <div className="flex items-baseline gap-2">
+          <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em]">Jarvis</h2>
+          <span className="text-[12.5px] text-paper-sage" role="status" aria-live="polite">
             {PHASE_LABEL[jarvis.phase]}
           </span>
         </div>
@@ -56,7 +67,7 @@ export function JarvisPanel() {
             aria-pressed={voiceOn}
             aria-label={voiceOn ? "Turn voice off" : "Turn voice on"}
             title={voiceOn ? "Voice on" : "Voice off (text only)"}
-            className="os-focus-ring inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-os-muted hover:text-foreground"
+            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-[4px] text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
           >
             {voiceOn ? <Volume2 className="size-4" aria-hidden="true" /> : <VolumeX className="size-4" aria-hidden="true" />}
           </button>
@@ -64,42 +75,30 @@ export function JarvisPanel() {
             type="button"
             onClick={jarvis.close}
             aria-label="Close Jarvis"
-            className="os-focus-ring inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-os-muted hover:text-foreground"
+            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-[4px] text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
           >
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
-        <div className="flex items-center gap-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pt-1 pb-4">
+        <div className="flex flex-col items-center gap-1">
           <button
             type="button"
             onClick={jarvis.toggleListening}
             disabled={!voiceUsable || working}
             aria-label={listening ? "Stop listening" : jarvis.phase === "speaking" ? "Stop speaking" : "Start listening"}
-            className={cn(
-              "os-focus-ring relative inline-flex size-16 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40",
-              listening ? "border-os-amber text-os-amber" : "border-os-border-strong text-os-muted hover:text-foreground",
-            )}
-            style={listening ? { boxShadow: `0 0 0 ${Math.round(jarvis.level * 14)}px rgb(255 230 203 / 0.08)` } : undefined}
+            className={`cursor-pointer rounded-full disabled:cursor-not-allowed disabled:opacity-50 ${PAPER_FOCUS}`}
           >
-            {jarvis.phase === "speaking" ? <Square className="size-5" aria-hidden="true" /> : <Mic className="size-6" aria-hidden="true" />}
+            <JarvisOrb phase={jarvis.phase} level={jarvis.level} />
           </button>
-          <p className="text-[13px] leading-5 text-os-subtle">
-            {!voiceOn
-              ? "Voice is off. Type below; answers stay text only."
-              : !jarvis.voice?.configured
-                ? "No Fish Audio key on the server. Type below; answers stay text only."
-                : listening
-                  ? "Listening. It sends when you stop talking."
-                  : "Tap to talk, or type below."}
-          </p>
+          <p className="text-center text-[13px] leading-5 text-paper-sage">{hint}</p>
         </div>
 
         <div>
-          <label htmlFor="jarvis-transcript" className="os-meta text-os-subtle">
-            {jarvis.phase === "confirming" ? "Heard (edit to stop auto-send)" : "Your message"}
+          <label htmlFor="jarvis-transcript" className="text-[12.5px] font-medium text-paper-char">
+            {jarvis.phase === "confirming" ? "Heard. Edit to stop it sending." : "Your message"}
           </label>
           <textarea
             id="jarvis-transcript"
@@ -114,56 +113,64 @@ export function JarvisPanel() {
             rows={2}
             disabled={working || listening || jarvis.phase === "transcribing"}
             placeholder="Give me my morning brief"
-            className="os-focus-ring mt-2 w-full resize-none rounded-md border border-os-border bg-os-background p-3 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+            className={`mt-1.5 w-full resize-none rounded-[4px] border border-paper-mist bg-paper-white p-3 text-[15px] leading-6 text-paper-moss placeholder:text-paper-ash ${PAPER_FOCUS}`}
           />
           {jarvis.phase === "confirming" && jarvis.autoSendAt ? <SendCountdown key={jarvis.autoSendAt} /> : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <CommandButton variant="primary" icon={Send} disabled={working || listening} onClick={() => jarvis.send()}>
+            <PaperButton variant="amber" disabled={working || listening} onClick={() => jarvis.send()}>
               Send
-            </CommandButton>
-            <CommandButton variant="quiet" onClick={jarvis.cancelTranscript} disabled={!jarvis.transcript && jarvis.phase === "idle"}>
+              <Send className="size-3.5" aria-hidden="true" />
+            </PaperButton>
+            <PaperButton variant="quiet" onClick={jarvis.cancelTranscript} disabled={!jarvis.transcript && jarvis.phase === "idle"}>
               Cancel
-            </CommandButton>
-            {projectName ? <span className="os-meta ml-auto text-os-subtle">Project / {projectName}</span> : null}
+            </PaperButton>
+            {projectName ? <span className="ml-auto text-[12.5px] text-paper-sage">Project: {projectName}</span> : null}
           </div>
         </div>
 
         {jarvis.error ? (
-          <p role="alert" className="text-[14px] leading-6 text-os-danger">
+          <p role="alert" className="text-[14px] leading-6 font-medium text-paper-flame-deep">
             {jarvis.error}
           </p>
         ) : null}
 
-        {working && !jarvis.reply ? <p className="text-[14px] text-os-subtle">Hermes is working on it…</p> : null}
+        {working && !jarvis.reply ? <p className="text-[14px] text-paper-sage">Hermes is working on it…</p> : null}
 
-        {proposal ? (
-          <>
-            {proposal.preamble ? <Markdown content={withoutEmDashes(proposal.preamble)} /> : null}
-            <ProposalCard
-              proposal={proposal}
-              approval={jarvis.approval}
-              onApply={() => jarvis.respond("once")}
-              onReject={() => jarvis.respond("deny")}
-              isResponding={jarvis.isResponding}
-              error={jarvis.approvalError}
-            />
-          </>
-        ) : jarvis.reply ? (
-          <Markdown content={withoutEmDashes(jarvis.reply)} />
+        {/* Hermes' words and its decisions keep the console look they have
+            everywhere else: the approval cards are drawn for that surface. */}
+        {jarvis.reply || jarvis.approval ? (
+          <div className="os-environment space-y-4 rounded-[4px] p-4">
+            {proposal ? (
+              <>
+                {proposal.preamble ? <Markdown content={withoutEmDashes(proposal.preamble)} /> : null}
+                <ProposalCard
+                  proposal={proposal}
+                  approval={jarvis.approval}
+                  onApply={() => jarvis.respond("once")}
+                  onReject={() => jarvis.respond("deny")}
+                  isResponding={jarvis.isResponding}
+                  error={jarvis.approvalError}
+                />
+              </>
+            ) : jarvis.reply ? (
+              <Markdown content={withoutEmDashes(jarvis.reply)} />
+            ) : null}
+
+            {!proposal && jarvis.approval ? (
+              <ApprovalCard request={jarvis.approval} onRespond={jarvis.respond} isResponding={jarvis.isResponding} error={jarvis.approvalError} />
+            ) : null}
+          </div>
         ) : null}
 
-        {!proposal && jarvis.approval ? (
-          <ApprovalCard request={jarvis.approval} onRespond={jarvis.respond} isResponding={jarvis.isResponding} error={jarvis.approvalError} />
-        ) : null}
-
-        {jarvis.audioNote ? <p className="text-[13px] leading-5 text-os-subtle">{jarvis.audioNote}</p> : null}
+        {jarvis.audioNote ? <p className="text-[13px] leading-5 text-paper-sage">{jarvis.audioNote}</p> : null}
       </div>
 
       {working || jarvis.phase === "speaking" ? (
-        <footer className="border-t border-os-border px-4 py-3">
-          <CommandButton variant="danger" icon={Square} iconPosition="start" onClick={jarvis.stop}>
+        <footer className="border-t border-paper-mist px-4 py-3">
+          <PaperButton variant="ghost" onClick={jarvis.stop}>
+            <Square className="size-3.5" aria-hidden="true" />
             {jarvis.phase === "speaking" ? "Stop speaking" : "Stop run"}
-          </CommandButton>
+          </PaperButton>
         </footer>
       ) : null}
     </section>
@@ -179,9 +186,9 @@ function SendCountdown() {
   }, []);
 
   return (
-    <div className="mt-2 h-px w-full bg-os-border" aria-hidden="true">
+    <div className="mt-2 h-0.5 w-full bg-paper-mist" aria-hidden="true">
       <div
-        className="h-px origin-left bg-os-amber transition-transform ease-linear"
+        className="h-0.5 origin-left bg-paper-flame transition-transform ease-linear"
         style={{ transform: empty ? "scaleX(0)" : "scaleX(1)", transitionDuration: `${AUTO_SEND_MS}ms` }}
       />
     </div>
