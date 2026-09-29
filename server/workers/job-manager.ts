@@ -31,6 +31,7 @@ import {
 import { getWorker } from "./registry";
 import { runValidation } from "./validation";
 import { createWorkerEvent, type Worker } from "./worker";
+import { repositoryProblem } from "../agentos/git";
 import { changedFiles, createWorktree, isRepository } from "./worktree";
 
 /**
@@ -648,7 +649,7 @@ async function run(
       });
     } else if (job.repoPath && worker.capabilities.includes("code")) {
       if (!(await isRepository(job.repoPath))) {
-        throw new Error(`${job.repoPath} is not a git repository.`);
+        throw new Error(await repositoryProblem(job.repoPath));
       }
 
       const worktree = await createWorktree(job.repoPath, job.id, job.baseRef);

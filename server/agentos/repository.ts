@@ -12,6 +12,7 @@ import {
   isRepository,
   listBranches,
   readRecentCommits,
+  repositoryProblem,
   uncommittedFiles,
 } from "./git";
 import { readOptionalFile } from "./filesystem";
@@ -65,7 +66,7 @@ export async function writeBlocker(
   repoPath: string,
 ): Promise<string | undefined> {
   if (!(await isRepository(repoPath))) {
-    return `${repoPath} is not a git repository.`;
+    return repositoryProblem(repoPath);
   }
 
   const live = (await listJobs(200)).filter(
@@ -116,7 +117,7 @@ export async function readRepositoryStatus(
   }
 
   if (!(await isRepository(repositoryPath))) {
-    return { ...empty, unavailable: "That path is not a git repository." };
+    return { ...empty, unavailable: await repositoryProblem(repositoryPath) };
   }
 
   const [branch, head, clean, branches, uncommitted, recentCommits, jobs] =

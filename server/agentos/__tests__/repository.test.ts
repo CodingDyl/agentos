@@ -264,3 +264,22 @@ describe("repository actions", () => {
     assert.match(commits[0].date, /^\d{4}-\d{2}-\d{2}T/);
   });
 });
+
+describe("repository path problems", () => {
+  it("expands ~ in the linked repository path and leaves absolute paths alone", async () => {
+    const { parseRepositoryPath } = await import("../projects");
+    const os = await import("node:os");
+    assert.equal(parseRepositoryPath("## Connected Systems\n\n- Local repository: ~/dev/Aureya\n"), `${os.homedir()}/dev/Aureya`);
+    assert.equal(
+      parseRepositoryPath("## Connected Systems\n\n- Local repository: /Volumes/DylanSSD/dev/Aureya\n"),
+      "/Volumes/DylanSSD/dev/Aureya",
+    );
+  });
+
+  it("says the drive is missing when the mount point is absent, not that the path is not a repo", async () => {
+    const { repositoryProblem } = await import("../git");
+    assert.match(await repositoryProblem("/Volumes/NoSuchDrive-xyz/dev/Aureya"), /drive "NoSuchDrive-xyz" isn't connected/);
+    assert.match(await repositoryProblem("/tmp/definitely-not-here-xyz"), /doesn't exist/);
+    assert.match(await repositoryProblem("/tmp"), /is not a git repository/);
+  });
+});

@@ -10,7 +10,7 @@ import type {
   ProjectTaskSection,
 } from "../../shared/agentos-types";
 import { listDirectory, readOptionalFile, statNewest } from "./filesystem";
-import { readGitStatus } from "./git";
+import { expandHome, readGitStatus } from "./git";
 import { parseConfiguration } from "./mutations/configuration";
 import { resolveWorkspaceType } from "../../shared/workspace";
 import { getMilestoneSummary } from "./roadmap";
@@ -328,9 +328,10 @@ export function parseProjectDecisions(markdown: string): ProjectDecision[] {
 /** Local repository path linked from `PROJECT.md`'s Connected Systems. */
 export function parseRepositoryPath(markdown: string): string | undefined {
   const section = getFirstSection(markdown, ["Connected Systems"]) ?? markdown;
-  return (
-    getField(section, "Local repository") ?? getField(section, "Local repo")
-  );
+  const raw = getField(section, "Local repository") ?? getField(section, "Local repo");
+  // Expanded here, the one place the path is read, so no consumer has to
+  // remember: git runs with the path as `cwd`, and `~` is a shell feature.
+  return raw ? expandHome(raw) : raw;
 }
 
 /**

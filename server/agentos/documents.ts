@@ -12,6 +12,7 @@ import {
 } from "../../shared/agentos-types";
 import { agentOSRoot, readOptionalFile } from "./filesystem";
 import { revisionOfOptional } from "./mutations/revision";
+import { repositoryProblem } from "./git";
 import { parseRepositoryPath } from "./projects";
 
 /**
@@ -300,15 +301,13 @@ export async function getProjectDocuments(slug: string): Promise<ProjectDocument
     return { project: slug, canonical, agentos, repo: [], repoUnavailable: "No local repository is linked." };
   }
 
-  const expanded = repoPath.replace(/^~(?=$|\/)/, process.env.HOME ?? "~");
-
   try {
-    await fs.access(expanded);
+    await fs.access(repoPath);
   } catch {
-    return { project: slug, canonical, agentos, repo: [], repoUnavailable: `${repoPath} is not on this machine.` };
+    return { project: slug, canonical, agentos, repo: [], repoUnavailable: await repositoryProblem(repoPath) };
   }
 
-  return { project: slug, canonical, agentos, repo: await listRepoDocuments(slug, expanded) };
+  return { project: slug, canonical, agentos, repo: await listRepoDocuments(slug, repoPath) };
 }
 
 /**
@@ -362,7 +361,7 @@ export async function readProjectDocument(
   }
 
   const projectMarkdown = await readOptionalFile(`${PROJECTS_DIR}/${slug}/PROJECT.md`);
-  const repoPath = projectMarkdown ? parseRepositoryPath(projectMarkdown)?.replace(/^~(?=$|\/)/, process.env.HOME ?? "~") : undefined;
+  const repoPath = projectMarkdown ? parseRepositoryPath(projectMarkdown) : undefined;
   if (!repoPath || !isInside(repoPath, relativePath)) return undefined;
 
   try {

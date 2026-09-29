@@ -6,6 +6,7 @@ import {
   headCommit,
   isClean,
   isRepository,
+  repositoryProblem,
   uncommittedFiles,
 } from "../agentos/git";
 import { uiStateDir } from "../agentos/session-store";
@@ -56,7 +57,7 @@ export async function createWorktree(
   baseRef = "HEAD",
 ): Promise<WorktreeHandle> {
   if (!(await isRepository(repoPath))) {
-    throw new Error(`${repoPath} is not a git repository.`);
+    throw new Error(await repositoryProblem(repoPath));
   }
 
   let resolvedBase: string;

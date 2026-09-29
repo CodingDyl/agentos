@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { promisify } from "node:util";
 import type { GitFileChange, ProjectGit } from "../../shared/agentos-types";
 
@@ -83,6 +85,30 @@ async function isDirectory(target: string): Promise<boolean> {
 }
 
 /** Whether this path is a git repository we can work in. */
+/** `~` and `~/x` to the home directory. Nothing else is touched: a path that is already absolute stays as written. */
+export function expandHome(value: string): string {
+  return value.replace(/^~(?=$|\/)/, os.homedir());
+}
+
+/**
+ * Why a repository path can't be used, in words a person can act on.
+ *
+ * An external drive that isn't plugged in and a folder that was never a repo
+ * look identical to `git rev-parse`, and only one of them is fixed by looking
+ * at the path. `/Volumes/<name>` is where macOS mounts every external drive,
+ * so a missing mount point under it means the drive, not the project.
+ */
+export async function repositoryProblem(repoPath: string): Promise<string> {
+  const mount = /^\/Volumes\/([^/]+)/.exec(repoPath);
+  if (mount && !(await isDirectory(path.join("/Volumes", mount[1])))) {
+    return `The drive "${mount[1]}" isn't connected. Plug it in and reload; ${repoPath} will be read again.`;
+  }
+  if (!(await isDirectory(repoPath))) {
+    return `${repoPath} doesn't exist. If it moved, update Local repository in the workspace's settings.`;
+  }
+  return `${repoPath} is not a git repository.`;
+}
+
 export async function isRepository(repoPath: string): Promise<boolean> {
   if (!repoPath || !(await isDirectory(repoPath))) return false;
 
@@ -217,7 +243,7 @@ export async function readGitStatus(
     return {
       repositoryPath,
       changedFiles: [],
-      unavailable: "That path is not a git repository.",
+      unavailable: await repositoryProblem(repositoryPath),
     };
   }
 
