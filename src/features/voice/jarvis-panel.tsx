@@ -10,6 +10,7 @@ import { useProjects } from "@/lib/agentos/queries";
 import { useJarvis } from "./jarvis-store";
 import { JarvisOrb } from "./jarvis-orb";
 import { AUTO_SEND_MS, PHASE_LABEL } from "./voice-model";
+import { describeTimings } from "./voice-timings";
 
 /**
  * The conversation surface. Everything Hermes says is text first; audio is an
@@ -38,6 +39,7 @@ export function JarvisPanel() {
 
   const voiceOn = jarvis.voice?.enabled === true;
   const voiceUsable = voiceOn && jarvis.voice?.configured === true;
+  const timingLine = describeTimings(jarvis.timings);
   const working = jarvis.phase === "thinking" || jarvis.run.isRunning;
   const listening = jarvis.phase === "listening";
   // Speaking is the point, so the box stays out of the way until there is a
@@ -71,6 +73,15 @@ export function JarvisPanel() {
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={jarvis.testVoice}
+            disabled={!voiceUsable || working}
+            title="Speak a test line, without Hermes or the microphone"
+            className={`inline-flex min-h-9 cursor-pointer items-center rounded-none px-2 text-[12.5px] text-paper-char hover:bg-paper-stone disabled:cursor-not-allowed disabled:opacity-40 ${PAPER_FOCUS}`}
+          >
+            Test voice
+          </button>
           <button
             type="button"
             onClick={() => jarvis.setVoiceOn(!voiceOn)}
@@ -191,7 +202,13 @@ export function JarvisPanel() {
           </div>
         ) : null}
 
-        {jarvis.audioNote ? <p className="text-[13px] leading-5 text-paper-sage">{jarvis.audioNote}</p> : null}
+        {jarvis.audioNote ? (
+          <p role="status" className="text-[13px] leading-5 text-paper-flame-deep">
+            {jarvis.audioNote} To see exactly what Fish says, open <span className="font-mono">/api/voice/diagnose</span>.
+          </p>
+        ) : null}
+
+        {timingLine ? <p className="text-[12.5px] leading-5 text-paper-sage">Last exchange: {timingLine}.</p> : null}
       </div>
 
       {working || jarvis.phase === "speaking" ? (

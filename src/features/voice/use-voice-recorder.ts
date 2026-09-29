@@ -14,7 +14,7 @@ import { MAX_RECORDING_MS } from "./voice-model";
  */
 
 const SPEECH_LEVEL = 0.06;
-const SILENCE_MS = 1500;
+const SILENCE_MS = 1000;
 
 function preferredMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;

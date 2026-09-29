@@ -1,5 +1,6 @@
 import express from "express";
 import { VoiceSettingsInputSchema, VoiceSpeakInputSchema, type VoiceStatus } from "../../shared/voice-types";
+import { diagnoseVoice } from "./diagnose";
 import { isFishConfigured, synthesise, transcribe, VoiceError } from "./fish";
 import { isVoiceEnabled, setVoiceEnabled } from "./settings";
 import { toSpeechText } from "./speech-text";
@@ -31,6 +32,15 @@ function requireEnabled(): void {
 
 voiceRouter.get("/status", (_request, response) => {
   response.json(status());
+});
+
+/**
+ * Asks Fish directly whether speaking and listening work, with timings. Open
+ * it in a browser when voice misbehaves: it takes Hermes and the microphone
+ * out of the question.
+ */
+voiceRouter.get("/diagnose", async (_request, response) => {
+  response.json(await diagnoseVoice());
 });
 
 voiceRouter.put("/settings", (request, response) => {

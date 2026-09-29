@@ -13,7 +13,7 @@ export type VoicePhase =
   | "error";
 
 /** How long a transcript waits before it is sent. Send goes now; editing stops the clock. */
-export const AUTO_SEND_MS = 2000;
+export const AUTO_SEND_MS = 700;
 
 /** A recording longer than this is stopped for you. */
 export const MAX_RECORDING_MS = 60_000;
