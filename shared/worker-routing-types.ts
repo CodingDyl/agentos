@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RoutePolicyRecordSchema } from "./route-policy-types";
 import { WorkerIdSchema } from "./worker-ids";
 
 /**
@@ -67,6 +68,11 @@ export const WorkerRoutingDecisionSchema = z.object({
   decidedAt: z.string(),
   /** Workers ruled out before Hermes was asked, and what ruled them out. */
   excluded: z.array(RoutingAlternativeSchema).optional(),
+  /**
+   * The route-policy record: profile, eligibility rejections, fallback plan
+   * and any operator override. Optional so earlier jobs still parse.
+   */
+  policy: RoutePolicyRecordSchema.optional(),
 });
 
 /**

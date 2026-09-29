@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { uiStateDir } from "../agentos/session-store";
+import { OllamaSettingsSchema, type OllamaSettings } from "../../shared/route-policy-types";
 
 /**
  * Which AIs the operator has switched on or off, and which model each uses.
@@ -24,6 +25,8 @@ interface Settings {
   disabled: Set<string>;
   enabled: Set<string>;
   models: Record<string, string>;
+  /** Local Ollama routing configuration; undefined until the operator sets it. */
+  ollama?: OllamaSettings;
 }
 
 let settings: Settings | undefined;
@@ -50,7 +53,14 @@ function load(): Settings {
           )
         : {};
 
-    settings = { disabled: new Set(strings(parsed.disabled)), enabled: new Set(strings(parsed.enabled)), models };
+    const ollama = OllamaSettingsSchema.safeParse(parsed.ollama);
+
+    settings = {
+      disabled: new Set(strings(parsed.disabled)),
+      enabled: new Set(strings(parsed.enabled)),
+      models,
+      ollama: ollama.success ? ollama.data : undefined,
+    };
   } catch {
     settings = { disabled: new Set(), enabled: new Set(), models: {} };
   }
@@ -67,7 +77,11 @@ function save(next: Settings): void {
   const temporary = `${target}.${process.pid}.tmp`;
   fs.writeFileSync(
     temporary,
-    JSON.stringify({ disabled: [...next.disabled].sort(), enabled: [...next.enabled].sort(), models: next.models }, null, 2),
+    JSON.stringify(
+      { disabled: [...next.disabled].sort(), enabled: [...next.enabled].sort(), models: next.models, ollama: next.ollama },
+      null,
+      2,
+    ),
     "utf8",
   );
   fs.renameSync(temporary, target);
@@ -112,6 +126,15 @@ export function setAiModel(id: string, model: string | undefined): void {
   else delete models[id];
 
   save({ ...current, models });
+}
+
+/** Stored Ollama routing config, or undefined when the operator has set none. */
+export function ollamaSettings(): OllamaSettings | undefined {
+  return load().ollama;
+}
+
+export function setOllamaSettings(next: OllamaSettings): void {
+  save({ ...load(), ollama: OllamaSettingsSchema.parse(next) });
 }
 
 /** Only tests need this — forgets the in-memory copy so the file is read again. */

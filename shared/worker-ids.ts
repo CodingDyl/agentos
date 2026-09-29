@@ -20,7 +20,7 @@ import { z } from "zod";
  * driven headlessly on whatever plan each is signed into; they are off until
  * switched on in Operations → AI Stack.
  */
-export const WorkerIdSchema = z.enum(["grok", "claude", "mock", "claude-code", "codex", "gemini", "hermes-worker"]);
+export const WorkerIdSchema = z.enum(["grok", "claude", "mock", "claude-code", "codex", "gemini", "hermes-worker", "ollama"]);
 
 /** What a worker is *for*. Routing reads these to rule candidates out. */
 export const WorkerCapabilitySchema = z.enum([
