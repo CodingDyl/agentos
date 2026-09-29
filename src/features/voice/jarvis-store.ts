@@ -1,0 +1,45 @@
+import { createContext, useContext } from "react";
+import type { ApprovalDecision, ApprovalRequest } from "@shared/agentos-types";
+import type { VoiceStatus } from "@shared/voice-types";
+import type { UseAgentRunResult } from "@/features/agent/hooks/use-agent-run";
+import type { VoicePhase } from "./voice-model";
+
+export interface JarvisApi {
+  isOpen: boolean;
+  open: () => void;
+  close: () => void;
+  phase: VoicePhase;
+  /** Live microphone loudness, 0..1. */
+  level: number;
+  transcript: string;
+  /** Editing stops the auto-send clock. */
+  setTranscript: (text: string) => void;
+  /** When the transcript will send itself, if it is going to. */
+  autoSendAt?: number;
+  send: (text?: string) => void;
+  cancelTranscript: () => void;
+  toggleListening: () => void;
+  /** Stops playback and any run in flight. */
+  stop: () => void;
+  reply: string;
+  project?: string;
+  approval?: ApprovalRequest;
+  respond: (decision: ApprovalDecision) => void;
+  isResponding: boolean;
+  approvalError?: string;
+  error?: string;
+  /** Audio failed or is off, but the text answer is intact. */
+  audioNote?: string;
+  voice?: VoiceStatus;
+  setVoiceOn: (enabled: boolean) => void;
+  run: UseAgentRunResult;
+}
+
+export const JarvisContext = createContext<JarvisApi | null>(null);
+
+export function useJarvis(): JarvisApi {
+  const value = useContext(JarvisContext);
+  if (!value) throw new Error("useJarvis must be used inside JarvisProvider");
+  return value;
+}
+

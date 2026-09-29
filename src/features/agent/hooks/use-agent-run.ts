@@ -60,7 +60,7 @@ export interface UseAgentRunOptions {
    * Carries the run's id, because a run's outcome is known only here — the
    * adapter recorded that it started; only the stream knows how it ended.
    */
-  onFinished?: (status: AgentRunStatus, runId?: string) => void;
+  onFinished?: (status: AgentRunStatus, runId?: string, output?: string) => void;
 }
 
 export function useAgentRun({ onFinished }: UseAgentRunOptions = {}): UseAgentRunResult {
@@ -94,7 +94,7 @@ export function useAgentRun({ onFinished }: UseAgentRunOptions = {}): UseAgentRu
       setIsRunning(false);
       stateRef.current = settleRunState({ ...stateRef.current, status });
       setState(stateRef.current);
-      onFinished?.(status, runIdRef.current);
+      onFinished?.(status, runIdRef.current, stateRef.current.output);
     },
     // `onFinished` is only ever called, never subscribed to, so an unstable
     // handler costs nothing beyond recreating these callbacks.

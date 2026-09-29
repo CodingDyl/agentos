@@ -1,7 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { ActivityPage } from "@/features/activity";
 import { AgentPage, CommandPaletteProvider } from "@/features/agent";
-import { AppShellActionsContext } from "@/components/os";
+import { AppShellActionsContext, AppShellVoiceContext } from "@/components/os";
+import { JarvisPanel, JarvisProvider, VoiceLauncher } from "@/features/voice";
 import { QuickCreateProvider, ShellActions, WorkspaceFeedbackProvider } from "@/features/workspace";
 import {
   AutomationDetailPage,
@@ -37,6 +38,9 @@ function App() {
             the route it opens from is what makes its ranking context-aware. */}
         <CommandPaletteProvider>
         <AppShellActionsContext.Provider value={<ShellActions />}>
+        {/* Above the routes so a conversation survives navigating away. */}
+        <JarvisProvider>
+        <AppShellVoiceContext.Provider value={<VoiceLauncher />}>
         <Routes>
           {/* Today. Still Mission Control underneath — it replaced the old
               Dashboard rather than sitting beside it, because two screens both
@@ -81,6 +85,9 @@ function App() {
           <Route path="/design-system" element={<DesignSystemPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <JarvisPanel />
+        </AppShellVoiceContext.Provider>
+        </JarvisProvider>
         </AppShellActionsContext.Provider>
         </CommandPaletteProvider>
         </QuickCreateProvider>

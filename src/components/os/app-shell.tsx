@@ -3,6 +3,7 @@ import { useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppShellActionsContext } from "./app-shell-actions-context";
+import { AppShellVoiceContext } from "./app-shell-voice-context";
 import { SystemIndicator, type SystemState } from "./system-indicator";
 
 export interface AppShellNavigationItem {
@@ -104,6 +105,7 @@ export function AppShell({
   const navigationIsAvailable = isDesktop || isNavigationOpen;
   const location = useLocation();
   const shellActions = useContext(AppShellActionsContext);
+  const voiceLauncher = useContext(AppShellVoiceContext);
 
   return (
     <div
@@ -190,6 +192,7 @@ export function AppShell({
               );
             })}
           </nav>
+          {voiceLauncher ? <div className="border-t border-os-border p-3">{voiceLauncher}</div> : null}
           <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-os-border px-6 py-3">
             {navigationItems
               .filter((item) => item.section === "footer")

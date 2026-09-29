@@ -1,0 +1,264 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
+import type { AgentRunStatus, ApprovalDecision } from "@shared/agentos-types";
+import { projectInContext } from "@/features/agent/command-catalog";
+import { useAgentRun } from "@/features/agent/hooks/use-agent-run";
+import { reportActivity } from "@/lib/agentos/client";
+import { useAgentCapabilities, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
+import { getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
+import { JarvisContext, type JarvisApi } from "./jarvis-store";
+import { useVoicePlayback } from "./use-voice-playback";
+import { useVoiceRecorder } from "./use-voice-recorder";
+import { AUTO_SEND_MS, isSendable, resolveProject, type VoicePhase } from "./voice-model";
+
+/**
+ * Jarvis: a voice in front of the existing Hermes command flow.
+ *
+ * Nothing here decides anything. Speech becomes text, the text goes through
+ * the same run flow the Agent screen uses (`useAgentRun`, so the same skills,
+ * project sessions, task handling and approvals), and Hermes' answer is shown
+ * as text and, when voice is on, spoken. There is no store of its own: what is
+ * held here is what is on screen, and a reload forgets it. Hermes keeps the
+ * conversation.
+ */
+
+const RUN_OUTCOMES = { completed: "run.completed", failed: "run.failed", cancelled: "run.cancelled" } as const;
+
+export function JarvisProvider({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const refreshVault = useRefreshVault();
+  const { data: projectsData } = useProjects();
+  const { data: capabilities } = useAgentCapabilities();
+  const sendMessage = useSendAgentMessage();
+  const voiceQuery = useQuery({ queryKey: ["agentos", "voice", "status"], queryFn: getVoiceStatus, staleTime: 60_000, retry: 0 });
+  const voice = voiceQuery.data;
+  const voiceReady = voice?.enabled === true && voice.configured;
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [phase, setPhase] = useState<VoicePhase>("idle");
+  const [transcript, setTranscriptState] = useState("");
+  const [autoSendAt, setAutoSendAt] = useState<number>();
+  const [error, setError] = useState<string>();
+  const [audioNote, setAudioNote] = useState<string>();
+  const [project, setProject] = useState<string>();
+  const [fallbackReply, setFallbackReply] = useState("");
+
+  const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
+  const pageProject = projectInContext(location.pathname, location.search);
+
+  // The run's own callback outlives the render that started it, so it goes
+  // through a ref and always sees the current speak/project/voice state.
+  const finished = useRef<(status: AgentRunStatus, runId?: string, output?: string) => void>(() => undefined);
+
+  const run = useAgentRun({ onFinished: (status, runId, output) => finished.current(status, runId, output) });
+
+  const playback = useVoicePlayback(() => setPhase("idle"));
+
+  const speak = useCallback(
+    async (text: string) => {
+      setAudioNote(undefined);
+      if (!voiceReady) {
+        setPhase("idle");
+        return;
+      }
+      setPhase("speaking");
+      try {
+        await playback.play(await speakText(text));
+      } catch (failure) {
+        // The words are already on screen. Losing the voice must not lose them.
+        setAudioNote(
+          failure instanceof VoiceRequestError
+            ? `Voice unavailable (${failure.message}) Showing text only.`
+            : "The browser would not play audio. Showing text only.",
+        );
+        setPhase("idle");
+      }
+    },
+    [playback, voiceReady],
+  );
+
+  useEffect(() => {
+    finished.current = (status, runId, output) => {
+      void refreshVault();
+      const outcome = RUN_OUTCOMES[status as keyof typeof RUN_OUTCOMES];
+      if (outcome) void reportActivity({ type: outcome, project, runId });
+
+      // Speak the answer once, when the run has settled.
+      if (status === "completed" && output?.trim()) void speak(output);
+      else if (status === "failed") {
+        setError("Hermes could not complete that. Your words are still in the box, so you can send them again.");
+        setPhase("error");
+      } else setPhase("idle");
+    };
+  });
+
+  const send = useCallback(
+    (override?: string) => {
+      const text = (override ?? transcript).trim();
+      if (!isSendable(text)) return;
+
+      playback.stop();
+      setAutoSendAt(undefined);
+      setError(undefined);
+      setAudioNote(undefined);
+      setFallbackReply("");
+      const target = resolveProject(text, projects, pageProject);
+      setProject(target);
+      setTranscriptState(text);
+      setPhase("thinking");
+
+      // The same choice the Agent screen makes: a run where Hermes supports
+      // them, plain messaging where it does not.
+      if (capabilities?.runs === true) {
+        run.start({ message: text, project: target }).catch((failure: unknown) => {
+          setError(failure instanceof Error ? failure.message : "Hermes could not start the run.");
+          setPhase("error");
+        });
+        return;
+      }
+
+      run.reset();
+      sendMessage.mutate(
+        { message: text, project: target },
+        {
+          onSuccess: (response) => {
+            setFallbackReply(response.message.content);
+            void refreshVault();
+            void speak(response.message.content);
+          },
+          onError: (failure) => {
+            setError(failure.message);
+            setPhase("error");
+          },
+        },
+      );
+    },
+    [capabilities?.runs, pageProject, playback, projects, refreshVault, run, sendMessage, speak, transcript],
+  );
+
+  // A transcript sends itself unless you touch it. Send goes immediately.
+  useEffect(() => {
+    if (autoSendAt === undefined || phase !== "confirming") return;
+    const timer = window.setTimeout(() => send(), Math.max(0, autoSendAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [autoSendAt, phase, send]);
+
+  const handleRecorded = useCallback(
+    async (audio: Blob | null) => {
+      if (!audio) {
+        setPhase("idle");
+        return;
+      }
+      setPhase("transcribing");
+      try {
+        const text = await transcribeAudio(audio);
+        setTranscriptState(text);
+        setPhase("confirming");
+        setAutoSendAt(Date.now() + AUTO_SEND_MS);
+      } catch (failure) {
+        setError(
+          failure instanceof VoiceRequestError && failure.reason === "empty"
+            ? "I didn't catch anything. Try again, or type it."
+            : `Couldn't transcribe that (${failure instanceof Error ? failure.message : "unknown error"}) You can type instead.`,
+        );
+        setPhase("error");
+      }
+    },
+    [],
+  );
+
+  const recorder = useVoiceRecorder((audio) => void handleRecorded(audio));
+
+  const toggleListening = useCallback(() => {
+    if (phase === "listening") {
+      void recorder.stop().then(handleRecorded);
+      return;
+    }
+    if (phase === "speaking") {
+      playback.stop();
+      return;
+    }
+    if (!voiceReady) return;
+
+    setIsOpen(true);
+    setError(undefined);
+    setAutoSendAt(undefined);
+    setTranscriptState("");
+    recorder.start().then(
+      () => setPhase("listening"),
+      () => {
+        setError("The microphone isn't available. Allow microphone access for this page, or type instead.");
+        setPhase("error");
+      },
+    );
+  }, [handleRecorded, phase, playback, recorder, voiceReady]);
+
+  const cancelTranscript = useCallback(() => {
+    recorder.cancel();
+    playback.stop();
+    setAutoSendAt(undefined);
+    setTranscriptState("");
+    setError(undefined);
+    setPhase("idle");
+  }, [playback, recorder]);
+
+  const stop = useCallback(() => {
+    playback.stop();
+    if (run.isRunning) void run.stop();
+    else setPhase("idle");
+  }, [playback, run]);
+
+  const setVoiceOn = useCallback(
+    (enabled: boolean) => {
+      if (!enabled) {
+        recorder.cancel();
+        playback.stop();
+      }
+      void setVoiceEnabled(enabled).then((next) => queryClient.setQueryData(["agentos", "voice", "status"], next));
+    },
+    [playback, queryClient, recorder],
+  );
+
+  const respond = useCallback(
+    (decision: ApprovalDecision) => {
+      void run.respond(decision).catch(() => undefined);
+    },
+    [run],
+  );
+
+  const reply = run.runId ? run.state.output : fallbackReply;
+
+  const api: JarvisApi = {
+    isOpen,
+    open: () => setIsOpen(true),
+    close: () => setIsOpen(false),
+    phase,
+    level: recorder.level,
+    transcript,
+    setTranscript: (text) => {
+      setTranscriptState(text);
+      setAutoSendAt(undefined);
+      if (phase === "confirming") setPhase("idle");
+    },
+    autoSendAt,
+    send,
+    cancelTranscript,
+    toggleListening,
+    stop,
+    reply,
+    project,
+    approval: capabilities?.approvals === true ? run.state.approval : undefined,
+    respond,
+    isResponding: run.isResponding,
+    approvalError: run.approvalError,
+    error,
+    audioNote,
+    voice,
+    setVoiceOn,
+    run,
+  };
+
+  return <JarvisContext.Provider value={api}>{children}</JarvisContext.Provider>;
+}

@@ -3,6 +3,7 @@ export * from "./agent-activity";
 export * from "./agent-command-input";
 export * from "./app-shell";
 export * from "./app-shell-actions-context";
+export * from "./app-shell-voice-context";
 export * from "./command-button";
 export * from "./empty-state";
 export * from "./error-state";
