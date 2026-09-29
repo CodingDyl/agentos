@@ -72,6 +72,7 @@ import {
 import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
+import { voiceRouter } from "./voice/routes";
 import {
   archiveTask,
   bulkTasks,
@@ -316,6 +317,9 @@ app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
 app.use("/api/traction", tractionRouter);
+
+/** Voice: speech to text and text to speech only. Words still go through Hermes. */
+app.use("/api/voice", voiceRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
