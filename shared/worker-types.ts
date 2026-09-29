@@ -139,6 +139,21 @@ export const WorkerJobRequestSchema = z.object({
    * one recorded, rather than a second one made after the fact.
    */
   routing: WorkerRoutingDecisionSchema.optional(),
+  /**
+   * Material the objective works on, supplied inline (notes, a snippet).
+   * Text-only workers receive this in place of a repository context packet.
+   */
+  inputText: z.string().optional(),
+  /**
+   * What the deliverable must look like. `json` output is parsed, and checked
+   * against `schema` (JSON Schema) when one is given, before a result counts.
+   */
+  expectedOutput: z
+    .object({
+      format: z.enum(["text", "json"]),
+      schema: z.record(z.string(), z.unknown()).optional(),
+    })
+    .optional(),
 });
 
 export const WorkerValidationSchema = z.object({
@@ -261,6 +276,17 @@ export const WorkerProviderMetricsSchema = z.object({
   sessionId: z.string().optional(),
   /** The ceiling the run was given, so a cost can be read against something. */
   budgetUsd: z.number().optional(),
+  /** Exact model digest, for runners that report one (Ollama). */
+  modelDigest: z.string().optional(),
+  location: z.enum(["local", "cloud"]).optional(),
+  /** Time spent waiting for a concurrency slot before the run began. */
+  queueMs: z.number().optional(),
+  /** Time the provider spent loading the model. High on a cold start. */
+  loadMs: z.number().optional(),
+  /** Provider-reported total for the successful generation. */
+  totalMs: z.number().optional(),
+  /** Generation attempts made, including a structured-output repair. */
+  attempts: z.number().optional(),
 });
 
 /**

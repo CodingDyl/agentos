@@ -4,6 +4,7 @@ import { claudeWorker } from "./providers/claude-worker";
 import { claudeCodeWorker, codexWorker, geminiWorker, hermesWorker } from "./providers/cli-workers";
 import { grokWorker } from "./providers/grok-worker";
 import { mockWorker } from "./providers/mock-worker";
+import { ollamaWorker } from "./providers/ollama-worker";
 import type { Worker } from "./worker";
 
 /**
@@ -74,6 +75,12 @@ registerWorker(codexWorker);
 registerWorker(geminiWorker);
 
 registerWorker(hermesWorker);
+
+/**
+ * Local models. Unavailable until a model is enabled in the Ollama settings, so
+ * registering it changes nothing for an install that has not opted in.
+ */
+registerWorker(ollamaWorker);
 
 /** Every worker, with its health, for the workers screen. */
 export async function describeWorkers(): Promise<WorkerSummary[]> {
