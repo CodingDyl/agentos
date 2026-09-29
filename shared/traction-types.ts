@@ -307,6 +307,8 @@ export const TractionEventSchema = z.object({
   waitingId: z.string().optional(),
   /** A Virtec follow-up handled from the queue. */
   crmFollowUpId: z.string().optional(),
+  /** A client who opened their portal, contacted from the queue. */
+  crmProjectId: z.string().optional(),
   kind: TractionEventKindSchema,
   from: ProspectStageSchema.optional(),
   to: ProspectStageSchema.optional(),
@@ -448,7 +450,7 @@ export const StartFromOpportunitySchema = z.object({ fromOpportunity: CaseStudyS
 
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["reply", "inbound", "second_touch", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
+export const QueueItemKindSchema = z.enum(["viewed", "reply", "inbound", "second_touch", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({
@@ -460,6 +462,8 @@ export const QueueItemSchema = z.object({
   waitingId: z.string().optional(),
   /** A Virtec follow-up, when the item came from the CRM. */
   crmFollowUpId: z.string().optional(),
+  /** A Virtec project whose client opened their portal. */
+  crmProjectId: z.string().optional(),
   /** A website lead in Virtec, waiting for a first reply. */
   inboundLeadId: z.string().optional(),
   /** A finished project with no case study yet — `virtec:project:<id>` or `workspace:<slug>`. */

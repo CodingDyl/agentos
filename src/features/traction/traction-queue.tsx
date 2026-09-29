@@ -11,6 +11,7 @@ import {
   hermesHref,
   hermesPrompt,
   inboundReplyPrompt,
+  portalViewPrompt,
   prospectReplyPrompt,
   queueItemHref,
   secondTouchPrompt,
@@ -30,6 +31,7 @@ import {
  */
 
 const KIND_LABEL: Record<QueueItem["kind"], string> = {
+  viewed: "Opened",
   reply: "They replied",
   inbound: "Website lead",
   second_touch: "Second touch",
@@ -43,6 +45,7 @@ const KIND_LABEL: Record<QueueItem["kind"], string> = {
 };
 
 const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "muted" | "blue"> = {
+  viewed: "blue",
   reply: "flame",
   inbound: "flame",
   second_touch: "marigold",
@@ -89,7 +92,9 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
             item.kind === "reply"
               ? data.replies.filter((entry) => entry.prospectId === item.prospectId).sort((a, b) => b.messageDate.localeCompare(a.messageDate))[0]
               : undefined;
-          const ask = reply && prospect
+          const viewedClient = item.kind === "viewed" ? item.title.replace(/ opened their portal$/, "") : undefined;
+          const viewedAsk = item.kind === "viewed" ? { kind: "draft" as const, prompt: portalViewPrompt(viewedClient as string, item.detail.slice(1)) } : undefined;
+          const ask = viewedAsk ? viewedAsk : reply && prospect
             ? { kind: "draft" as const, prompt: prospectReplyPrompt(prospect, reply, { icp: data.icp, offers: data.offers }) }
             : inbound
             ? {
@@ -187,14 +192,14 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <Clock className="size-3.5" aria-hidden="true" />
                   Snooze
                 </PaperButton>
-                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? "item"}`}>
+                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? viewedClient ?? "item"}`}>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                   Open
                 </QueueLink>
                 {ask ? (
                   <QueueLink
                     to={hermesHref(ask.prompt)}
-                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? "this item"}`}
+                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? viewedClient ?? "this item"}`}
                     title={ask.kind === "research" ? "Not enough context to draft yet, so Hermes researches first" : "Hermes drafts; you review and send"}
                   >
                     {ask.kind === "research" ? <Search className="size-3.5" aria-hidden="true" /> : <PenLine className="size-3.5" aria-hidden="true" />}

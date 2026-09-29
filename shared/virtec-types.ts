@@ -79,6 +79,11 @@ export const VirtecProjectSchema = z.object({
   maintenanceFrequency: z.string().optional(),
   maintenanceAmount: z.number().optional(),
   serviceSku: z.string().optional(),
+  /**
+   * When a person last opened the client's portal (never a link preview or
+   * the operator's own preview). Only the latest view is kept, not a history.
+   */
+  portalLastViewedAt: z.string().optional(),
   createdAt: z.string().optional(),
 });
 

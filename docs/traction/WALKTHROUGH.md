@@ -112,7 +112,25 @@ later and it links back to the read page.
 
 Jev returns a number, not a reason: the "Why" column is still Virtec's own.
 
-## 8. Weekly
+## 8. A client opens their quote or agreement
+
+1. When a client opens their portal link while a quote or agreement is
+   waiting on them, an **Opened** item appears: "Acme opened their portal,
+   quote R 25 000 waiting". If Virtec already has a follow-up due for that
+   client, that follow-up says "They opened their portal today" and moves up
+   instead of a second item.
+2. **Ask Hermes** drafts a light check-in that offers a call. It is
+   deliberately not told when they opened it, and it will not hint at it.
+   Do not write "I saw you opened it": that reads as being watched.
+3. Send it yourself, then press **Done**. That holds the item for a week; a
+   view on a different day raises a new one.
+
+What it means and does not: a person opened the portal page. Not that they read
+it, and not that they will say yes. Only the latest view is kept, so it
+cannot show how many times. If you open a client's link yourself, use
+`?preview=1` on the end or it counts as their view.
+
+## 9. Weekly
 
 - **Experiments**: each magnet's experiment counts contacted and conversations
   from real prospects.

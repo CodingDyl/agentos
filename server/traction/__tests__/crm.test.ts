@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ProspectInputSchema, type Prospect } from "../../../shared/traction-types";
 import type { VirtecInboundLead, VirtecSnapshot } from "../../../shared/virtec-types";
-import { buildCrmView, clientToProspect, crmAttention, crmQueueItems, formatRand, inboundQueueItems, inboundToProspect, leadToProspect } from "../crm";
+import {
+  buildCrmView,
+  clientToProspect,
+  crmAttention,
+  crmQueueItems,
+  formatRand,
+  inboundQueueItems,
+  inboundToProspect,
+  leadToProspect,
+  portalViews,
+} from "../crm";
 import { buildQueue } from "../engine";
 
 const NOW = new Date(2026, 8, 28, 12);
@@ -214,5 +224,64 @@ describe("website leads", () => {
     assert.equal(replied.contact, undefined);
     assert.equal(replied.nextAction, undefined);
     assert.equal(replied.website, undefined);
+  });
+});
+
+describe("clients opening their portal", () => {
+  const at = (day: number, hour = 9) => new Date(2026, 8, day, hour).toISOString();
+  const project = (overrides: Record<string, unknown> = {}) => ({ id: "p1", clientId: "c1", clientName: "Acme", status: "active", portalLastViewedAt: at(27), agreementStatus: "signed", ...overrides });
+  const quote = (overrides: Record<string, unknown> = {}) => ({ id: "q1", projectId: "p1", totalAmount: 25000, status: "pending", features: [], createdAt: at(20), ...overrides });
+  const snap = (projects: unknown[], quotes: unknown[] = []) => snapshot({ projects, quotes } as never);
+
+  it("counts a view after the quote existed, while it is still pending", () => {
+    const [view] = portalViews(snap([project()], [quote()]), TODAY);
+    assert.equal(view.client, "Acme");
+    assert.equal(view.waiting.quote?.amount, 25000);
+    assert.equal(view.waiting.agreement, false);
+  });
+
+  it("ignores a view from before the quote was sent, a decided quote, and nothing waiting", () => {
+    assert.deepEqual(portalViews(snap([project({ portalLastViewedAt: at(18) })], [quote()]), TODAY), []);
+    assert.deepEqual(portalViews(snap([project()], [quote({ status: "accepted" })]), TODAY), []);
+    assert.deepEqual(portalViews(snap([project()], []), TODAY), [], "a client checking status is not a sales signal");
+  });
+
+  it("counts a pending agreement on its own, and ignores stale, finished and cancelled projects", () => {
+    assert.equal(portalViews(snap([project({ agreementStatus: "pending" })]), TODAY)[0].waiting.agreement, true);
+    assert.deepEqual(portalViews(snap([project({ portalLastViewedAt: at(10) })], [quote()]), TODAY), [], "older than a week");
+    assert.deepEqual(portalViews(snap([project({ status: "completed" })], [quote()]), TODAY), []);
+    assert.deepEqual(portalViews(snap([project({ status: "cancelled" })], [quote()]), TODAY), []);
+    assert.deepEqual(portalViews(undefined, TODAY), []);
+  });
+
+  it("stands as its own item when Virtec has nothing due for that client", () => {
+    const views = portalViews(snap([project()], [quote()]), TODAY);
+    const [item] = crmQueueItems([], TODAY, views);
+    assert.equal(item.id, "viewed:p1:20260927");
+    assert.equal(item.kind, "viewed");
+    assert.equal(item.title, "Acme opened their portal");
+    assert.deepEqual(item.detail, ["Opened yesterday", "Quote R 25 000 waiting"]);
+    assert.equal(item.customerId, "c1");
+  });
+
+  it("joins Virtec's own quote follow-up instead of doubling it, and moves it up", () => {
+    const views = portalViews(snap([project()], [quote()]), TODAY);
+    const followUp = { id: "f1", type: "quote_pending", status: "open", customerId: "c1", companyName: "Acme", reason: "No answer in 3 days", amount: 25000, dueAt: at(26) };
+    const items = crmQueueItems([followUp as never], TODAY, views);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, "crm:f1");
+    assert.equal(items[0].detail[0], "They opened their portal yesterday");
+    assert.ok(items[0].rank < 1, "above an ordinary quote follow-up");
+
+    const plain = crmQueueItems([followUp as never], TODAY);
+    assert.equal(plain[0].rank, 1);
+  });
+
+  it("lands on the client's prospect, so they are not shown twice", () => {
+    const client = prospect({ id: "pr_client01", crmId: "virtec:client:c1", stage: "won" });
+    const views = portalViews(snap([project()], [quote()]), TODAY);
+    const queue = buildQueue([client], [], TODAY, [], crmQueueItems([], TODAY, views));
+    assert.equal(queue.length, 1);
+    assert.equal(queue[0].prospectId, "pr_client01");
   });
 });
