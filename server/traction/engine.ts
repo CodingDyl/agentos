@@ -97,6 +97,8 @@ export function buildQueue(
   crm: readonly (QueueItem & { rank: number; customerId?: string })[] = [],
   /** Items about no single prospect — case-study opportunities — ranked by the caller. */
   other: readonly (QueueItem & { rank: number })[] = [],
+  /** Inbox messages matched to prospects (`suggestMailLinks`). */
+  replies: readonly MailSuggestion[] = [],
 ): QueueItem[] {
   const snoozed = new Set(snoozes.filter((snooze) => snooze.until > today).map((snooze) => snooze.itemId));
   const claimed = new Set<string>();
@@ -110,6 +112,24 @@ export function buildQueue(
     if (snoozed.has(id)) return;
     items.push({ id, kind, prospectId: prospect.id, title, detail, rank });
   };
+
+  // 0. Someone we are working on has written back since we last touched them.
+  // Above everything else a prospect could raise, and it claims the prospect:
+  // "no response" would be wrong, and a cold follow-up rude.
+  for (const reply of unansweredReplies(replies, prospects, today)) {
+    push(
+      "reply",
+      reply.prospect,
+      `Reply to ${who(reply.prospect)}`,
+      [
+        `Wrote back ${reply.days === 0 ? "today" : plural(reply.days, "day") + " ago"}`,
+        (reply.suggestion.snippet ?? reply.suggestion.subject).slice(0, 140),
+        // A colleague or a different person at the same firm looks identical to the prospect.
+        ...(reply.suggestion.match === "domain" ? [`From ${reply.suggestion.fromEmail ?? "another address"}, matched by their website`] : []),
+      ],
+      -1.2 - Math.min(reply.days, 30) / 1000,
+    );
+  }
 
   // 1. Promised actions that are due. The oldest promise first.
   const due = prospects
@@ -245,6 +265,36 @@ export function buildQueue(
     .map(({ rank, ...item }) => {
       void rank;
       return item;
+    });
+}
+
+/** Stages where a message from them is a conversation to keep going. Clients write about invoices, so they are left out. */
+const REPLY_STAGES: readonly ProspectStage[] = ["target", "contacted", "conversation", "proposal"];
+
+/**
+ * Inbox messages from prospects that nobody has answered.
+ *
+ * A message counts only if it is newer than the last time a person touched
+ * the prospect, so answering (which records a touch) clears it without
+ * anything else to remember. A thread the person linked or dismissed is
+ * already settled and never reaches here. Newest first, one per prospect.
+ */
+export function unansweredReplies(
+  suggestions: readonly MailSuggestion[],
+  prospects: readonly Prospect[],
+  today: string = isoDate(new Date()),
+): { suggestion: MailSuggestion; prospect: Prospect; days: number }[] {
+  const byId = new Map(prospects.map((prospect) => [prospect.id, prospect]));
+  const seen = new Set<string>();
+
+  return [...suggestions]
+    .sort((a, b) => b.messageDate.localeCompare(a.messageDate))
+    .flatMap((suggestion) => {
+      const prospect = byId.get(suggestion.prospectId);
+      if (!prospect || seen.has(prospect.id) || !REPLY_STAGES.includes(prospect.stage)) return [];
+      if (suggestion.messageDate <= (prospect.lastTouchAt ?? prospect.createdAt)) return [];
+      seen.add(prospect.id);
+      return [{ suggestion, prospect, days: Math.max(0, daysBetween(isoDate(new Date(suggestion.messageDate)), today)) }];
     });
 }
 
@@ -532,6 +582,7 @@ export function suggestMailLinks(
       prospectId: prospect.id,
       company: prospect.company,
       subject: thread.subject,
+      snippet: thread.snippet.trim() ? thread.snippet.trim().slice(0, 300) : undefined,
       fromName: thread.fromName,
       fromEmail: thread.fromEmail,
       messageDate: thread.messageDate,

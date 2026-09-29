@@ -17,6 +17,7 @@ import {
   linkedThreads,
   outreachGaps,
   suggestMailLinks,
+  unansweredReplies,
   weekStart,
 } from "../engine";
 
@@ -358,5 +359,68 @@ describe("buildReview", () => {
     assert.equal(review.bestSource, "referral");
     assert.equal(review.experiments[0].conversationRate, undefined);
     assert.equal(review.week.weekOf, TODAY);
+  });
+});
+
+describe("replies in the queue", () => {
+  const quiet = (overrides: Partial<Prospect> = {}) =>
+    prospect({ company: "XYZ Realty", stage: "contacted", email: "jane@xyzrealty.co.za", lastTouchAt: daysAgo(6), stageChangedAt: daysAgo(6), ...overrides });
+  const repliesFor = (prospects: Prospect[], threads: MailThread[], links: never[] = []) =>
+    unansweredReplies(suggestMailLinks(threads, prospects, links, []), prospects, TODAY).map((entry) => entry.suggestion);
+
+  it("turns a reply into the top queue item and stops the misleading 'no response' follow-up", () => {
+    const xyz = quiet();
+    const replies = repliesFor([xyz], [thread({ fromEmail: "jane@xyzrealty.co.za", snippet: "Sounds good, can you send a quote?", messageDate: daysAgo(1) })]);
+
+    const withoutReplies = buildQueue([xyz], [], TODAY);
+    assert.equal(withoutReplies[0].kind, "follow_up");
+
+    const queue = buildQueue([xyz, prospect({ nextAction: "Call", nextActionDate: addDays(TODAY, -3), stage: "conversation" })], [], TODAY, [], [], [], replies);
+    assert.equal(queue[0].id, `reply:${xyz.id}`);
+    assert.equal(queue[0].kind, "reply");
+    assert.equal(queue[0].detail[0], "Wrote back 1 day ago");
+    assert.equal(queue[0].detail[1], "Sounds good, can you send a quote?");
+    assert.equal(queue.filter((item) => item.prospectId === xyz.id).length, 1, "one item per prospect");
+  });
+
+  it("ignores a message from before the last touch: answering clears it", () => {
+    const xyz = quiet({ lastTouchAt: daysAgo(0) });
+    assert.deepEqual(repliesFor([xyz], [thread({ fromEmail: "jane@xyzrealty.co.za", messageDate: daysAgo(2) })]), []);
+  });
+
+  it("is about people we are selling to: not clients, not lost", () => {
+    for (const stage of ["won", "lost"] as const) {
+      assert.deepEqual(repliesFor([quiet({ stage })], [thread({ fromEmail: "jane@xyzrealty.co.za" })]), [], stage);
+    }
+    for (const stage of ["target", "contacted", "conversation", "proposal"] as const) {
+      assert.equal(repliesFor([quiet({ stage, lastTouchAt: undefined, createdAt: daysAgo(9) })], [thread({ fromEmail: "jane@xyzrealty.co.za" })]).length, 1, stage);
+    }
+  });
+
+  it("keeps a linked thread on the queue until it is answered, but never a dismissed one", () => {
+    const xyz = quiet();
+    const t = thread({ fromEmail: "jane@xyzrealty.co.za", messageDate: daysAgo(1) });
+    const link = { threadId: t.threadId, prospectId: xyz.id, linkedAt: daysAgo(0) };
+
+    assert.equal(suggestMailLinks([t], [xyz], [link], []).length, 0, "linking settles the overview suggestion");
+    assert.equal(unansweredReplies(suggestMailLinks([t], [xyz], [], []), [xyz], TODAY).length, 1, "but not the queue");
+    assert.equal(unansweredReplies(suggestMailLinks([t], [xyz], [], [t.threadId]), [xyz], TODAY).length, 0);
+  });
+
+  it("uses only the newest message per prospect, and honours a snooze", () => {
+    const xyz = quiet();
+    const replies = repliesFor(
+      [xyz],
+      [
+        thread({ threadId: "old", fromEmail: "jane@xyzrealty.co.za", messageDate: daysAgo(3) }),
+        thread({ threadId: "new", fromEmail: "jane@xyzrealty.co.za", messageDate: daysAgo(1), subject: "Newest" }),
+      ],
+    );
+    assert.equal(replies.length, 1, "already one per prospect, the newest");
+    const queue = buildQueue([xyz], [], TODAY, [], [], [], replies);
+    assert.equal(queue.length, 1);
+    assert.equal(queue[0].detail[1], "Newest");
+
+    assert.equal(buildQueue([xyz], [{ itemId: `reply:${xyz.id}`, until: addDays(TODAY, 1) }], TODAY, [], [], [], replies).length, 0);
   });
 });

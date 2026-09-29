@@ -79,6 +79,11 @@ export const VirtecProjectSchema = z.object({
   maintenanceFrequency: z.string().optional(),
   maintenanceAmount: z.number().optional(),
   serviceSku: z.string().optional(),
+  /**
+   * When a person last opened the client's portal (never a link preview or
+   * the operator's own preview). Only the latest view is kept, not a history.
+   */
+  portalLastViewedAt: z.string().optional(),
   createdAt: z.string().optional(),
 });
 
@@ -144,6 +149,36 @@ export const VirtecRevenueSchema = z.object({
   stalePendingQuoteCount: z.number().optional(),
 });
 
+/**
+ * What a Places scan can be pointed at, and what is left to spend.
+ *
+ * `cap` is null until Virtec's `PLACES_MONTHLY_REQUEST_CAP` is set; scans
+ * started from AgentOS are refused until then.
+ */
+export const VirtecScanInfoSchema = z.object({
+  areas: z.array(z.object({ key: z.string(), label: z.string() })),
+  categories: z.array(z.object({ category: z.string(), track: z.string(), types: z.array(z.string()) })),
+  budget: z.object({
+    month: z.string(),
+    used: z.number(),
+    cap: z.number().nullable(),
+    remaining: z.number().nullable(),
+  }),
+});
+
+export const VirtecScanResultSchema = z.object({
+  summary: z.object({
+    fetched: z.number().default(0),
+    upserted: z.number().default(0),
+    skipped: z.number().default(0),
+    requests: z.number().default(0),
+    errors: z.array(z.string()).default([]),
+    stoppedByCap: z.boolean().optional(),
+    message: z.string().optional(),
+  }),
+  budget: VirtecScanInfoSchema.shape.budget,
+});
+
 export const VirtecSourceSchema = z.enum(["leads", "inbound", "clients", "quotes", "projects", "followUps", "revenue"]);
 
 /** Whether one endpoint answered. A failed source degrades its section, never the whole screen. */
@@ -169,6 +204,8 @@ export const VirtecSnapshotSchema = z.object({
   revenue: VirtecRevenueSchema.optional(),
 });
 
+export type VirtecScanInfo = z.infer<typeof VirtecScanInfoSchema>;
+export type VirtecScanResult = z.infer<typeof VirtecScanResultSchema>;
 export type VirtecLead = z.infer<typeof VirtecLeadSchema>;
 export type VirtecInboundLead = z.infer<typeof VirtecInboundLeadSchema>;
 export type VirtecClient = z.infer<typeof VirtecClientSchema>;

@@ -489,7 +489,11 @@ export async function interruptRunningJobs(reason: string): Promise<void> {
  * review to respond to and possibly no work to continue — so it is a new job
  * that remembers which one it replaced.
  */
-export async function retryJob(jobId: string): Promise<StartJobResult> {
+/**
+ * Starts a fresh run of a finished job. `worker` hands it to someone else:
+ * the answer to a worker that ran out of quota is rarely the same worker.
+ */
+export async function retryJob(jobId: string, options: { worker?: WorkerId } = {}): Promise<StartJobResult> {
   const previous = await readJob(jobId);
   if (!previous) return { error: "That job does not exist." };
 
@@ -497,9 +501,10 @@ export async function retryJob(jobId: string): Promise<StartJobResult> {
     return { error: "Only a finished job can be retried. Cancel it first." };
   }
 
+  const worker = options.worker ?? previous.requestedWorker ?? previous.worker;
   const request: WorkerJobRequest = {
-    worker: previous.requestedWorker ?? previous.worker,
-    requestedWorker: previous.requestedWorker ?? previous.worker,
+    worker,
+    requestedWorker: worker,
     project: previous.project,
     objective: previous.objective,
     repoPath: previous.sourceRepoPath ?? previous.repoPath,

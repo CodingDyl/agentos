@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { Automation, ProjectSummary } from "../../../shared/agentos-types";
 import type { WorkerJob } from "../../../shared/worker-types";
 import {
+  failedJobAttention,
   automationAttention,
   buildAttention,
   jobAttention,
@@ -316,5 +317,51 @@ describe("the order the list is read in", () => {
     assert.equal(items.length, 1);
     assert.equal(items[0].type, "system");
     assert.match(items[0].title, /Automations could not be read/);
+  });
+});
+
+describe("repeat failures and retries", () => {
+  const failed = (id: string, createdAt: string, error = "Worker exited with code 1") =>
+    job({ id, status: "failed", createdAt, completedAt: createdAt, error });
+
+  it("shows two failed attempts at the same work as one card, latest first", () => {
+    const items = failedJobAttention([
+      failed("job_1111111111111111", "2026-09-14T10:00:00.000Z"),
+      failed("job_2222222222222222", "2026-09-16T10:00:00.000Z"),
+    ]);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].occurrences, 2);
+    assert.equal(items[0].retry?.jobId, "job_2222222222222222");
+  });
+
+  it("drops a failure a later attempt has taken over", () => {
+    const items = failedJobAttention(
+      [failed("job_1111111111111111", "2026-09-14T10:00:00.000Z")],
+      [job({ id: "job_3333333333333333", status: "running", createdAt: "2026-09-15T10:00:00.000Z" })],
+    );
+    assert.deepEqual(items, []);
+  });
+
+  it("keeps different work apart", () => {
+    const items = failedJobAttention([
+      failed("job_1111111111111111", "2026-09-14T10:00:00.000Z"),
+      job({ id: "job_4444444444444444", status: "failed", objective: "Something else entirely", createdAt: "2026-09-14T11:00:00.000Z" }),
+    ]);
+    assert.equal(items.length, 2);
+    assert.ok(items.every((item) => item.occurrences === undefined));
+  });
+
+  it("recognises a usage limit as a reason to try another worker", () => {
+    const [limited] = failedJobAttention([
+      failed(
+        "job_5555555555555555",
+        "2026-09-14T10:00:00.000Z",
+        "Grok exited with code 1: Error: You've reached your free Grok Build usage limit for now.",
+      ),
+    ]);
+    assert.deepEqual(limited.retry, { jobId: "job_5555555555555555", worker: "grok", limitHit: true });
+
+    const [broken] = failedJobAttention([failed("job_6666666666666666", "2026-09-14T10:00:00.000Z", "Tests failed")]);
+    assert.equal(broken.retry?.limitHit, false);
   });
 });

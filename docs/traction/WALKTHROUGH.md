@@ -1,0 +1,215 @@
+# Traction: how to use it, start to finish
+
+Three ways in, one place to work. Website forms, lead magnets and your own
+outreach all end up as items in **Traction > Overview > Today**. Work that
+list top to bottom.
+
+## 0. Once, before anything
+
+Check each of these. Nothing below works without them.
+
+| Where | What |
+|---|---|
+| AgentOS `.env` | `VIRTEC_BASE_URL`, `VIRTEC_API_KEY`, `VIRTEC_WRITE_API_KEY`. Restart AgentOS. The Virtec tab should say write-back is on. |
+| Virtec (Vercel) | `AGENTOS_API_KEY`, `AGENTOS_WRITE_API_KEY`, `VIRTARA_SITE_LEADS_KEY`, `JURIVO_SITE_LEADS_KEY`, `RESEND_API_KEY` |
+| Virtec (Vercel), emails | `VIRTARA_FROM_EMAIL`, `JURIVO_FROM_EMAIL` on a domain verified in Resend. Set `VIRTARA_REPLY_TO` and `JURIVO_REPLY_TO` to the Gmail inbox AgentOS syncs. Optional: `INBOUND_NOTIFY_EMAIL` for an alert per lead. |
+| Virtec, once | `firebase deploy --only firestore:rules` from the virtec-crm repo |
+| virtara-backend and Jurivo (Vercel) | `VIRTEC_BASE_URL` plus that site's key (`VIRTARA_SITE_LEADS_KEY` or `JURIVO_SITE_LEADS_KEY`) |
+| AgentOS Inbox | Gmail connected, so replies can be seen |
+
+Test it: submit the Jurivo demo form with your own email. It should appear
+in Virtec (Local leads > Website) and at the top of your Today list. Mark it
+Spam afterwards.
+
+## 1. A website form comes in
+
+Every form on Virtara (start a project, contact, SEO, the three packages,
+health check, audit) and Jurivo's demo request lands in Virtec.
+
+1. It appears at the top of Today as **Reply to Jane (Firm)**, with where it
+   came from and how long it has waited.
+2. **Ask Hermes** drafts a first reply. Their message is treated as their
+   words, never as instructions.
+3. Edit it and send it from your own mail.
+4. Press **Replied**. They become a prospect in conversation, it counts as
+   today's follow-up, and Virtec marks them replied.
+5. Not worth a reply? Open the Virtec tab, **Website leads**: Not a fit or Spam.
+
+## 2. Make a lead magnet
+
+1. **Traction > Lead magnets**. Working title, site, format (a checklist is
+   fastest), the offer it leads to. **Add**.
+2. **Track with an experiment**: one click, so signups are measured.
+3. **Draft with Hermes**. It fills only empty fields and marks anything it
+   cannot know as `[NEEDS DATA]`.
+4. Edit everything. Replace each `[NEEDS DATA]` with a real fact. Add a cover
+   (Choose from Creative, or Upload cover).
+5. **Save**, then **Mark ready**. It refuses while anything is missing.
+6. **Download for the site**. Unzip: put the `.json` in `content/lead-magnets/`
+   (Jurivo) or `src/content/lead-magnets/` (Virtara), the cover in
+   `public/lead-magnets/`. Commit and deploy.
+7. Open `/guides/<slug>` on the live site and check it.
+8. Back in AgentOS, paste that address into **Live at**, Save, **Mark live**.
+
+## 3. The signup email
+
+1. In the same magnet, **Signup email**: Hermes drafted it in step 3 above.
+   Keep `{{link}}` in it. `{{firstName}}` is optional.
+2. Check the preview. Save.
+3. **Switch on in Virtec** (needs the live address from step 8).
+4. From now on, each signup gets it at once. Edit the text later and press
+   **Publish changes**. **Switch off** stops it.
+
+The visitor sees the guide straight away; the email is a copy they can find
+later and it links back to the read page.
+
+## 4. A signup arrives
+
+- Today shows nothing yet for a signup who got the email. That is on purpose.
+- The magnet's row shows Signups, Last 7 days and Emailed. If some emails
+  failed, it says so and the lead in Virtec shows the reason.
+- If the email failed, Today shows **Reply to** straight away. Send them the
+  guide yourself.
+
+## 5. Three days later: second touch
+
+1. **Second touch: Sam (Partner Law)** appears, with "guide emailed 3 days
+   ago, no reply".
+2. **Ask Hermes**: a short personal note from you, built from the guide and
+   the email they already got.
+3. Send it from your mail, then press **Sent**. They become a contacted
+   prospect (counted as outreach, tagged with the magnet's experiment) and
+   ordinary follow-ups take over.
+
+## 6. They reply
+
+1. Any message from a prospect (target to proposal) that is newer than your
+   last touch becomes **Reply to X**, above everything else.
+2. It shows the start of their message. **Ask Hermes** drafts the answer.
+3. **Move to conversation** confirms the stage move. Nothing moves unless you
+   press it. **Not theirs** dismisses a wrong match (it flags matches made
+   only by website domain).
+4. Send your answer, press **Replied**. That clears it until they write again.
+   Confirming the move does not clear it; only answering does.
+5. The Inbox has to have synced. A reply from minutes ago may not show yet.
+
+## 7. Pick better local candidates (Jev fit scoring)
+
+1. **Traction > Virtec > Leads to import**. This is Virtec's Places
+   candidates, ordered by Virtec's own score.
+2. Make sure the **ICP** has its ideal-prospect traits filled in (Overview).
+   Jev scores candidates against those.
+3. Press **Score 15 against the ICP**. It scores the best unscored
+   candidates: 15 a click, 60 a day. If the list has a track switch, it
+   scores only the track you have selected.
+4. Read the **Fit** column: 3+ is green, 2 to 3 amber, under 2 grey. Hover
+   for the words, confidence and whether the data shows a checkable gap.
+   Good fits move to the top; poor fits sink to the bottom rather than vanish.
+5. **Import** the good ones. The prospect starts with Jev's fit (not Virtec's
+   score) and a first reason saying so. You still add a specific observation
+   before outreach is drafted.
+6. Change the ICP and the old scores stop counting; score again.
+
+### Finding more candidates
+
+1. In **Leads to import**, press **Find more candidates**.
+2. Choose an **area** (a named preset, such as Sandton or Rosebank) and the
+   **categories**. The panel shows how many Google Places requests that costs
+   at most and how many are left this month.
+3. **Scan**, and confirm. New places join the list; ones already there are
+   updated, not doubled. Then **Score against the ICP**.
+4. It refuses until Virtec has `PLACES_MONTHLY_REQUEST_CAP` set. That is the
+   most requests you will pay for in a calendar month, shared with the
+   operator scan. A full Virtara scan is about 17 requests; check Google's
+   current price and pick a number you are happy with.
+
+Jev returns a number, not a reason: the "Why" column is still Virtec's own.
+
+## 8. A client opens their quote or agreement
+
+1. When a client opens their portal link while a quote or agreement is
+   waiting on them, an **Opened** item appears: "Acme opened their portal,
+   quote R 25 000 waiting". If Virtec already has a follow-up due for that
+   client, that follow-up says "They opened their portal today" and moves up
+   instead of a second item.
+2. **Ask Hermes** drafts a light check-in that offers a call. It is
+   deliberately not told when they opened it, and it will not hint at it.
+   Do not write "I saw you opened it": that reads as being watched.
+3. Send it yourself, then press **Done**. That holds the item for a week; a
+   view on a different day raises a new one.
+
+What it means and does not: a person opened the portal page. Not that they read
+it, and not that they will say yes. Only the latest view is kept, so it
+cannot show how many times. If you open a client's link yourself, use
+`?preview=1` on the end or it counts as their view.
+
+## 9. Weekly
+
+- **Experiments**: each magnet's experiment counts contacted and conversations
+  from real prospects.
+- **Lead magnets**: signups, emailed, followed up, conversations per magnet.
+- **Weekly review**: Hermes interprets the numbers; the numbers are counted, not typed.
+
+## Known limits of the public forms
+
+These are the honest edges of what is built. None is a bug; each is a choice
+you may want to revisit as volume grows.
+
+- **Rate limits are per server instance.** Serverless instances do not share
+  memory, so a determined visitor can slip past the per-IP limits. The real
+  protections are the site keys, the per-address limit in Virtec (3 guide
+  emails a day) and the 10-minute duplicate check.
+- **No CAPTCHA and no double opt-in.** A bot can fill the forms with junk, and
+  the guide email goes to whatever address was typed. The footer says why it
+  arrived; junk shows up under Website leads to mark Spam. Add a CAPTCHA
+  (Cloudflare Turnstile is free) if junk becomes a chore.
+- **The honeypot only catches simple bots.**
+- **Guide content is not secret.** The `/read` page is a soft gate.
+- **A signup past the daily limit is saved but not emailed** and shows
+  "Email held back" in Virtec; it is not treated as a failed send.
+
+## Limits worth knowing
+
+- The `/read` page is a soft gate: the content ships with the site.
+- Anyone can type any address into a guide form, so keep the email plain.
+- Rate limits are per server instance. The site keys are the real protection.
+- `/api/send-email` on virtara-backend is deprecated and now locked down
+  (escaped, rate limited, fixed subject prefix). Each use logs "DEPRECATED
+  /api/send-email used". Once that stops appearing after the new Virtara site
+  is deployed, delete the route.
+- The newsletter list (Virtec > Subscriptions) is now written server-side.
+  Unsubscribing takes only an email address, as it always did, so anyone can
+  unsubscribe an address; it is rate limited per visitor.
+
+## Emailing a prospect from the outreach mailbox
+
+Drafts only: nothing is sent from AgentOS.
+
+1. Use a second Google account for outreach. In Google Cloud, if the OAuth
+   app is in "Testing", add that account as a test user first.
+2. Traction > Prospects > pick a prospect > "Connect outreach mailbox". In
+   Google's account list choose the outreach account, not your main inbox
+   (AgentOS refuses the main one).
+3. Write your signature and opt-out line once ("Not for you? Reply no thanks
+   and I will not email you again"). Cold emails must keep it.
+4. "Draft with Hermes" writes from public facts only. Edit the subject and
+   body, then "Create Gmail draft". "Open in Gmail" takes you to it; you read
+   it and press Send there.
+5. "Preview and send" shows exactly what goes out. "Send now" is a second,
+   deliberate click. It sends one email to that one prospect and marks them
+   contacted. It is refused if the address is on the do-not-contact list,
+   was emailed in the last 14 days, or you have hit the daily cap
+   (`OUTREACH_DAILY_CAP`, default 10). If Gmail's answer is lost you are told
+   to check the Sent folder; it counts as sent and is not retried.
+6. "Check for replies" reads the outreach inbox (Gmail is not changed) and it
+   runs by itself every 15 minutes. A reply from a prospect shows on their
+   panel and as "They replied" in the queue. "No thanks", "stop" and
+   "unsubscribe", and permanent bounces, add the address to do-not-contact
+   for you; you can remove it there if it was wrong. Only exact prospect
+   addresses count, so a colleague's reply is not picked up. It reads at most
+   50 messages per check.
+7. "Draft a reply with Hermes" answers one of their messages. Sending it
+   keeps it in their Gmail thread. You can still press "Do not contact"
+   yourself at any time.
+8. The prospect needs an email address and enough context (same gaps as
+   "Draft outreach"). Pick prospects by hand, one at a time.

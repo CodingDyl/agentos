@@ -245,3 +245,61 @@ describe("signup email", () => {
     await assert.rejects(magnetStore.deleteLeadMagnet(created.id), /Switch its email off/);
   });
 });
+
+describe("second touch", () => {
+  const TODAY = "2026-09-29";
+  const daysAgo = (days: number) => new Date(2026, 8, 29 - days, 9).toISOString();
+  const thread = (overrides: Record<string, unknown> = {}) =>
+    ({ threadId: "t1", fromEmail: "Jane@Firm.test", subject: "Re: your checklist", snippet: "", messageDate: daysAgo(0), classified: false, ...overrides }) as never;
+
+  it("waits after the guide email, then asks for a personal note", () => {
+    const early = inboundQueueItems([lead({ nurtureSentAt: daysAgo(2), createdAt: daysAgo(2) })], [], TODAY, [magnet()]);
+    assert.deepEqual(early, []);
+
+    const [item] = inboundQueueItems([lead({ nurtureSentAt: daysAgo(3), createdAt: daysAgo(3) })], [], TODAY, [magnet()]);
+    assert.equal(item.id, "second_touch:in1");
+    assert.equal(item.kind, "second_touch");
+    assert.match(item.detail[0], /guide emailed 3 days ago/);
+    assert.ok(item.rank > 1 && item.rank < 1.5, "after due actions, before chases");
+  });
+
+  it("asks for a reply at once when the guide email failed", () => {
+    const [item] = inboundQueueItems([lead({ nurtureError: "domain not verified" })], [], TODAY, [magnet()]);
+    assert.equal(item.kind, "inbound");
+    assert.equal(item.detail[1], "The guide email did not send; send it yourself");
+  });
+
+  it("puts a signup who wrote back at the very top, and ignores mail from before they signed up", () => {
+    const signup = lead({ nurtureSentAt: daysAgo(5), createdAt: daysAgo(5) });
+    const [item] = inboundQueueItems([signup], [], TODAY, [magnet()], [thread({ messageDate: daysAgo(1) })]);
+    assert.equal(item.id, "inbound:in1");
+    assert.equal(item.rank, -1.5);
+    assert.deepEqual(item.detail, ['Jurivo "The after-hours intake checklist" · they wrote back 1 day ago', "Re: your checklist"]);
+
+    const [stale] = inboundQueueItems([signup], [], TODAY, [magnet()], [thread({ messageDate: daysAgo(9) })]);
+    assert.equal(stale.kind, "second_touch");
+  });
+
+  it("makes a second-touch signup a contacted prospect, counted as outreach", async () => {
+    const { getTraction } = await import("../traction");
+    const mapped = inboundToProspect(lead({ id: "in9" }), TODAY, true, magnet());
+    const prospect = await store.replyToInboundLead({ ...mapped, crmId: "virtec:inbound:in9" } as never, "second_touch:in9", "second_touch");
+    assert.equal(prospect.stage, "contacted");
+    const data = await getTraction();
+    assert.equal(data.week.outreach, 1);
+    assert.equal(data.doneToday, 1);
+  });
+
+  it("moves an imported target to contacted rather than adding a prospect", async () => {
+    const imported = await store.importCrmProspect({ company: "Firm", stage: "target", source: "website", reasons: [], crmId: "virtec:inbound:in8" });
+    const touched = await store.replyToInboundLead({ company: "Firm", source: "website", reasons: [], crmId: "virtec:inbound:in8" }, "second_touch:in8", "second_touch");
+    assert.equal(touched.id, imported.id);
+    assert.equal(touched.stage, "contacted");
+    assert.equal((await store.readState()).prospects.filter((entry) => entry.crmId === "virtec:inbound:in8").length, 1);
+  });
+
+  it("parses the queue id, and refuses to complete it without Virtec's copy", async () => {
+    assert.deepEqual(store.parseQueueItemId("second_touch:abc"), { kind: "second_touch", inboundLeadId: "abc" });
+    await assert.rejects(store.completeQueueItem("second_touch:abc"), store.TractionNotFoundError);
+  });
+});

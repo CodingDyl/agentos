@@ -92,6 +92,18 @@ export const AttentionItemSchema = z.object({
     href: z.string(),
   }),
   createdAt: z.string(),
+  /** How many attempts at the same work this card stands for, when more than one failed. */
+  occurrences: z.number().int().min(1).optional(),
+  /** Present on a failed job: what a retry from the card would start. */
+  retry: z
+    .object({
+      jobId: z.string(),
+      /** The worker that failed, so the card can offer the others. */
+      worker: z.string(),
+      /** The failure was a usage or rate limit: another worker is the better retry. */
+      limitHit: z.boolean(),
+    })
+    .optional(),
 });
 
 /**

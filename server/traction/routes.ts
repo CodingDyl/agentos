@@ -4,6 +4,7 @@ import {
   StartFromOpportunitySchema,
   DismissOpportunitySchema,
   CrmImportSchema,
+  ScanCandidatesSchema,
   ConfirmMailLinkSchema,
   DismissMailSuggestionSchema,
   ExperimentInputSchema,
@@ -20,7 +21,10 @@ import { readThreadSummary } from "../mail/store";
 import { isVirtecConfigured, isVirtecWritable } from "../virtec/client";
 import { dismissFollowUp, markFollowUpSent, setInboundLeadStatus, setLeadStatus, snoozeFollowUp, type WriteOutcome } from "../virtec/writes";
 import { getVirtecSnapshot } from "../virtec/snapshot";
-import { clientToProspect, inboundToProspect, leadToProspect } from "./crm";
+import { getScanInfo, requestsFor, runScan } from "../virtec/scan";
+import { buildCrmView, clientToProspect, currentProfile, inboundToProspect, leadToProspect } from "./crm";
+import { icpKey, PROFILE_BATCH, PROFILE_DAILY_CAP, profilingBlocker, runProfiling } from "./lead-profile";
+import { CaseStudySiteError, readCaseStudyWebsite } from "./case-study-site";
 import { draftCaseStudy } from "./case-study-draft";
 import { magnetForLead } from "./lead-magnets";
 import { leadMagnetRouter } from "./lead-magnet-routes";
@@ -57,6 +61,7 @@ import {
   importCrmProspect,
   readState,
   replyToInboundLead,
+  saveLeadProfiles,
   unlinkMailThread,
   updateProspect,
 } from "./store";
@@ -149,10 +154,12 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
         return;
       }
       response.json({ caseStudy: await startFromOpportunity(opportunity) });
-    } else if (action.action === "done" && request.params.itemId.startsWith("inbound:")) {
-      // "Done" on a website lead means "I replied": it becomes a prospect in
-      // conversation, built from Virtec's copy of the lead, and Virtec is told.
-      const id = request.params.itemId.slice("inbound:".length);
+    } else if (action.action === "done" && /^(inbound|second_touch):/.test(request.params.itemId)) {
+      // "Done" on a website lead means a person wrote to them: a reply, or
+      // the second touch after a lead magnet. Either way they become a
+      // prospect built from Virtec's copy of the lead, and Virtec is told.
+      const secondTouch = request.params.itemId.startsWith("second_touch:");
+      const id = request.params.itemId.slice(request.params.itemId.indexOf(":") + 1);
       const lead = (await getVirtecSnapshot()).inbound.find((entry) => entry.id === id);
       if (!lead) {
         response.status(404).json({ error: "No such website lead in Virtec" });
@@ -160,7 +167,7 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
       }
       const magnet = magnetForLead((await readState()).leadMagnets, lead);
       const mapped = inboundToProspect(lead, isoDate(new Date()), true, magnet);
-      const prospect = await replyToInboundLead({ ...mapped, crmId: mapped.crmId as string }, request.params.itemId);
+      const prospect = await replyToInboundLead({ ...mapped, crmId: mapped.crmId as string }, request.params.itemId, secondTouch ? "second_touch" : "reply");
       const virtec = isVirtecWritable() ? await setInboundLeadStatus(lead.id, "replied") : undefined;
       response.json({ prospect, virtec });
     } else if (action.action === "done") {
@@ -388,8 +395,10 @@ tractionRouter.post("/crm/import", async (request, response) => {
     const lead = input.kind === "lead" ? snapshot.leads.find((entry) => entry.id === input.id) : undefined;
     const client = input.kind === "client" ? snapshot.clients.find((entry) => entry.id === input.id) : undefined;
     const inbound = input.kind === "inbound" ? snapshot.inbound.find((entry) => entry.id === input.id) : undefined;
+    const state = await readState();
+    const profile = lead ? currentProfile({ icpKey: state.icp ? icpKey(state.icp) : undefined, byCrmId: state.leadProfiles }, lead.id) : undefined;
     const mapped = lead
-      ? leadToProspect(lead)
+      ? leadToProspect(lead, profile, state.icp?.name)
       : client
         ? clientToProspect(client)
         : inbound
@@ -486,6 +495,19 @@ tractionRouter.delete("/case-studies/:id", async (request, response) => {
   }
 });
 
+/** Reads the study's saved client website (public sites only) and keeps the facts. Nothing else changes. */
+tractionRouter.post("/case-studies/:id/read-website", async (request, response) => {
+  try {
+    response.json({ caseStudy: await readCaseStudyWebsite(request.params.id) });
+  } catch (error) {
+    if (error instanceof CaseStudySiteError) {
+      response.status(422).json({ error: error.message });
+      return;
+    }
+    fail(response, error, "read the website");
+  }
+});
+
 /** One Hermes call, on request. Fills empty sections only. */
 tractionRouter.post("/case-studies/:id/draft", async (request, response) => {
   try {
@@ -547,6 +569,132 @@ tractionRouter.post("/crm/leads/:id/not-a-fit", async (request, response) => {
   const outcome = await setLeadStatus(id.data, "disqualified");
   if (outcome.ok) response.json({ ok: true });
   else response.status(502).json({ error: outcome.error });
+});
+
+/** What a scan can be pointed at, and what is left to spend this month. Read from Virtec each time. */
+tractionRouter.get("/crm/scan-info", async (_request, response) => {
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+  try {
+    response.json({ ...(await getScanInfo()), writable: isVirtecWritable() });
+  } catch (error) {
+    fail(response, error, "read the scan options");
+  }
+});
+
+/**
+ * Asks Virtec to scan an area for new candidates.
+ *
+ * Spends Google Places money, so AgentOS only asks and Virtec decides:
+ * it refuses until its monthly cap is set, and stops when the cap runs out.
+ * The request is checked here against Virtec's own list of areas and
+ * categories, so a stale screen or a typo costs nothing.
+ */
+tractionRouter.post("/crm/scan-candidates", async (request, response) => {
+  const input = parse(ScanCandidatesSchema, request.body, response, "scan");
+  if (!input) return;
+
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+  if (!isVirtecWritable()) {
+    response.status(409).json({ error: "Write-back to Virtec is off (VIRTEC_WRITE_API_KEY is not set)" });
+    return;
+  }
+
+  try {
+    const info = await getScanInfo();
+    if (!info.areas.some((area) => area.key === input.area)) {
+      response.status(400).json({ error: "That area is not one of Virtec's presets" });
+      return;
+    }
+    const known = new Set(info.categories.filter((entry) => entry.track === input.track).map((entry) => entry.category));
+    const unknown = input.categories.filter((name) => !known.has(name));
+    if (unknown.length > 0) {
+      response.status(400).json({ error: `Unknown categories for ${input.track}: ${unknown.join(", ")}` });
+      return;
+    }
+    if (info.budget.cap === null) {
+      response.status(409).json({ error: "Scans are off until PLACES_MONTHLY_REQUEST_CAP is set in Virtec: the most Places requests you will pay for in a month" });
+      return;
+    }
+    const wanted = requestsFor(info, input.track, input.categories);
+    if (info.budget.remaining !== null && info.budget.remaining < wanted) {
+      response.status(429).json({ error: `That needs up to ${wanted} requests and ${info.budget.remaining} are left this month (limit ${info.budget.cap})` });
+      return;
+    }
+
+    const result = await runScan(input);
+    response.json({
+      found: result.summary.fetched,
+      stored: result.summary.upserted,
+      requests: result.summary.requests,
+      stoppedByCap: result.summary.stoppedByCap === true,
+      message: result.summary.message,
+      errors: result.summary.errors.slice(0, 3),
+      budget: result.budget,
+    });
+  } catch (error) {
+    fail(response, error, "scan for candidates");
+  }
+});
+
+/**
+ * Scores Virtec's candidates against the ICP with Jev.
+ *
+ * On demand only. Takes the best unscored candidates first (Virtec's own
+ * score orders them), at most PROFILE_BATCH a click and PROFILE_DAILY_CAP a
+ * day. Optional `{ track }` limits it to one site's leads, since scoring
+ * Jurivo candidates against a Virtara ICP would be spend for nothing.
+ */
+tractionRouter.post("/crm/profile-leads", async (request, response) => {
+  const track = (request.body as { track?: unknown } | undefined)?.track;
+  if (track !== undefined && (typeof track !== "string" || !/^[a-z]{1,20}$/.test(track))) {
+    response.status(400).json({ error: "track must be a short lower-case word" });
+    return;
+  }
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+
+  try {
+    const state = await readState();
+    const blocker = profilingBlocker(state.icp);
+    if (blocker || !state.icp) {
+      response.status(409).json({ error: blocker ?? "No ICP" });
+      return;
+    }
+
+    const today = isoDate(new Date());
+    const usedToday = state.leadProfileBudget.date === today ? state.leadProfileBudget.used : 0;
+    const remaining = Math.max(0, PROFILE_DAILY_CAP - usedToday);
+    if (remaining === 0) {
+      response.status(429).json({ error: `Today's limit of ${PROFILE_DAILY_CAP} scores is used. It resets tomorrow.` });
+      return;
+    }
+
+    const snapshot = await getVirtecSnapshot();
+    const profiles = { icpKey: icpKey(state.icp), byCrmId: state.leadProfiles };
+    const view = buildCrmView(snapshot, state.prospects, new Date(), undefined, false, profiles);
+    const unscored = view.leads.filter((lead) => !lead.profile && (track === undefined || lead.track === track));
+    // The view is already best-first; scoring follows the same order.
+    const run = await runProfiling(unscored, state.icp, Math.min(PROFILE_BATCH, remaining));
+    const saved = Object.keys(run.profiles).length > 0 ? await saveLeadProfiles(run.profiles, today) : { usedToday };
+
+    response.json({
+      profiled: Object.keys(run.profiles).length,
+      failed: run.failed,
+      error: run.error,
+      left: Math.max(0, unscored.length - Object.keys(run.profiles).length - run.failed),
+      remainingToday: Math.max(0, PROFILE_DAILY_CAP - saved.usedToday),
+    });
+  } catch (error) {
+    fail(response, error, "score the candidates");
+  }
 });
 
 const INBOUND_STATUSES = ["replied", "not_a_fit", "spam"] as const;

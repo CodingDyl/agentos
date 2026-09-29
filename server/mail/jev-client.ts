@@ -4,7 +4,7 @@ import { getProjects } from "../agentos/projects";
 import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 
 const JEV_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
-const JEV_MODEL = "jev-latest";
+export const JEV_MODEL = "jev-latest";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export class JevError extends Error {
@@ -30,14 +30,14 @@ function requireApiKey(): string {
 }
 
 /** Jev accepts a string or a structured object/array wherever instructions or criteria go. */
-type JevText = string | Record<string, unknown> | unknown[];
+export type JevText = string | Record<string, unknown> | unknown[];
 
 type JevQuestion =
   | { type: "choice"; instructions: JevText; criteria: Record<string, JevText> }
   | { type: "noul"; instructions: JevText; criteria: Record<string, JevText> }
   | { type: "score"; instructions: JevText; criteria: JevText[] };
 
-interface JevRequestBody {
+export interface JevRequestBody {
   model: string;
   state: Record<string, unknown>;
   questions: Record<string, JevQuestion>;
@@ -60,14 +60,14 @@ interface JevNoulAnswer {
   type: "noul";
   noul: number;
 }
-type JevAnswer = JevChoiceAnswer | JevScoreAnswer | JevNoulAnswer;
+export type JevAnswer = JevChoiceAnswer | JevScoreAnswer | JevNoulAnswer;
 
 interface JevResponseBody {
   model: string;
   answers: Record<string, JevAnswer>;
 }
 
-async function sendToJev(body: JevRequestBody): Promise<JevResponseBody> {
+export async function sendToJev(body: JevRequestBody): Promise<JevResponseBody> {
   // Gated here, at the call, rather than in `isJevConfigured`: Mail treats an
   // unconfigured Jev as "Mail is not set up" and hides the inbox. Switching
   // classification off should stop classification, not the inbox.
@@ -182,7 +182,7 @@ export interface ClassificationResult {
   automated: number;
 }
 
-function answerAs<T extends JevAnswer["type"]>(
+export function answerAs<T extends JevAnswer["type"]>(
   answers: Record<string, JevAnswer>,
   key: string,
   type: T,

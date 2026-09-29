@@ -1,4 +1,17 @@
 import { LeadMagnetSchema } from "../../shared/lead-magnet-types";
+import {
+  OUTREACH_LOG_LIMIT,
+  OUTREACH_REPLY_LIMIT,
+  OutreachLogEntrySchema,
+  OutreachReplySchema,
+  REPEAT_WINDOW_DAYS,
+  SEND_KINDS,
+  SuppressionSchema,
+  type OutreachLogEntry,
+  type OutreachReply,
+  type Suppression,
+  type SuppressionReason,
+} from "../../shared/outreach-types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -9,6 +22,7 @@ import {
   DEFAULT_WEEKLY_TARGETS,
   ExperimentSchema,
   IcpSchema,
+  LeadProfileSchema,
   MailLinkSchema,
   OfferSchema,
   ProspectSchema,
@@ -18,6 +32,8 @@ import {
   WeeklyTargetsSchema,
   type CaseStudy,
   type CaseStudyInput,
+  type SiteFacts,
+  type LeadProfile,
   type ConfirmMailLink,
   type Experiment,
   type ExperimentInput,
@@ -76,6 +92,23 @@ const StateSchema = z.object({
   /** Finished projects a person said do not need a case study. */
   dismissedOpportunities: z.array(z.string()).default([]),
   leadMagnets: z.array(LeadMagnetSchema).default([]),
+  /** Jev's fit scores for Virtec leads, by `virtec:lead:<id>`. */
+  leadProfiles: z.record(z.string(), LeadProfileSchema).default({}),
+  /** Profiles spent today, so a loop or a stuck button cannot run up Jev's bill. */
+  leadProfileBudget: z
+    .object({ date: z.string(), used: z.number().int() })
+    .default({ date: "", used: 0 }),
+  /** Outreach mailbox settings. The signature is who you are and how to opt out. */
+  outreach: z
+    .object({ signature: z.string().default("") })
+    .default({ signature: "" }),
+  /** What was created in the outreach mailbox, newest last. */
+  outreachLog: z.array(OutreachLogEntrySchema).default([]),
+  /** Addresses that must never be emailed from AgentOS. */
+  suppressions: z.array(SuppressionSchema).default([]),
+  /** Messages from prospects, read from the outreach mailbox. */
+  outreachReplies: z.array(OutreachReplySchema).default([]),
+  outreachSync: z.object({ lastSyncAt: z.string().optional() }).default({}),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -106,6 +139,13 @@ function emptyState(): TractionState {
     caseStudies: [],
     dismissedOpportunities: [],
     leadMagnets: [],
+    leadProfiles: {},
+    leadProfileBudget: { date: "", used: 0 },
+    outreach: { signature: "" },
+    outreachLog: [],
+    suppressions: [],
+    outreachReplies: [],
+    outreachSync: {},
   };
 }
 
@@ -165,7 +205,11 @@ export async function readEvents(): Promise<TractionEvent[]> {
 async function appendEvents(events: readonly TractionEvent[]): Promise<void> {
   if (events.length === 0) return;
   await fs.mkdir(tractionDir(), { recursive: true });
-  await fs.appendFile(eventsFile(), events.map((event) => `${JSON.stringify(event)}\n`).join(""), "utf8");
+  await fs.appendFile(
+    eventsFile(),
+    events.map((event) => `${JSON.stringify(event)}\n`).join(""),
+    "utf8",
+  );
 }
 
 let queue: Promise<unknown> = Promise.resolve();
@@ -178,7 +222,9 @@ let queue: Promise<unknown> = Promise.resolve();
  * The other order could count outreach that never landed in the record.
  * Every change goes through here, `lead-magnet-store.ts` included.
  */
-export function mutate<T>(change: (state: TractionState) => { result: T; events?: TractionEvent[] }): Promise<T> {
+export function mutate<T>(
+  change: (state: TractionState) => { result: T; events?: TractionEvent[] },
+): Promise<T> {
   const run = queue.then(async () => {
     const state = await readState();
     const { result, events = [] } = change(state);
@@ -200,12 +246,20 @@ function event(
   kind: TractionEventKind,
   extra: Partial<Pick<TractionEvent, "from" | "to" | "viaQueue">> = {},
 ): TractionEvent {
-  return { id: newId("ev"), at: new Date().toISOString(), prospectId, kind, ...extra };
+  return {
+    id: newId("ev"),
+    at: new Date().toISOString(),
+    prospectId,
+    kind,
+    ...extra,
+  };
 }
 
 /** Removes `undefined` keys so a stored record never carries empty fields. */
 export function compact<T extends object>(value: T): T {
-  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as T;
 }
 
 function findProspect(state: TractionState, id: string): Prospect {
@@ -220,18 +274,29 @@ function findProspect(state: TractionState, id: string): Prospect {
  * Leaving `target` for the first time is outreach, whichever stage it lands
  * on — someone who replied to a message was, necessarily, contacted.
  */
-function stageEvents(prospect: Prospect, from: ProspectStage, to: ProspectStage, viaQueue?: boolean): TractionEvent[] {
+function stageEvents(
+  prospect: Prospect,
+  from: ProspectStage,
+  to: ProspectStage,
+  viaQueue?: boolean,
+): TractionEvent[] {
   if (from === to) return [];
   // One queue completion is one done item: only the first event carries the flag.
   if (from === "target" && to !== "lost") {
-    return [event(prospect.id, "contacted", { viaQueue }), event(prospect.id, "stage_changed", { from, to })];
+    return [
+      event(prospect.id, "contacted", { viaQueue }),
+      event(prospect.id, "stage_changed", { from, to }),
+    ];
   }
   return [event(prospect.id, "stage_changed", { from, to, viaQueue })];
 }
 
 // ─── Prospects ─────────────────────────────────────────────────────────────
 
-function newProspect(input: ProspectInput & { stage: ProspectStage }, now: string): Prospect {
+function newProspect(
+  input: ProspectInput & { stage: ProspectStage },
+  now: string,
+): Prospect {
   return ProspectSchema.parse(
     compact({
       ...input,
@@ -245,7 +310,9 @@ function newProspect(input: ProspectInput & { stage: ProspectStage }, now: strin
   );
 }
 
-export function createProspect(input: ProspectInput & { stage: ProspectStage }): Promise<Prospect> {
+export function createProspect(
+  input: ProspectInput & { stage: ProspectStage },
+): Promise<Prospect> {
   return mutate((state) => {
     const prospect = newProspect(input, new Date().toISOString());
     state.prospects.push(prospect);
@@ -253,7 +320,10 @@ export function createProspect(input: ProspectInput & { stage: ProspectStage }):
   });
 }
 
-export function updateProspect(id: string, patch: ProspectPatch): Promise<Prospect> {
+export function updateProspect(
+  id: string,
+  patch: ProspectPatch,
+): Promise<Prospect> {
   return mutate((state) => {
     const existing = findProspect(state, id);
     const now = new Date().toISOString();
@@ -265,7 +335,8 @@ export function updateProspect(id: string, patch: ProspectPatch): Promise<Prospe
       else merged[key] = value;
     }
 
-    const stageMoved = patch.stage !== undefined && patch.stage !== existing.stage;
+    const stageMoved =
+      patch.stage !== undefined && patch.stage !== existing.stage;
     if (stageMoved) {
       merged.stageChangedAt = now;
       if (existing.stage === "target") merged.lastTouchAt = now;
@@ -275,7 +346,10 @@ export function updateProspect(id: string, patch: ProspectPatch): Promise<Prospe
     const next = ProspectSchema.parse(merged);
     state.prospects[state.prospects.indexOf(existing)] = next;
 
-    return { result: next, events: stageMoved ? stageEvents(next, existing.stage, next.stage) : [] };
+    return {
+      result: next,
+      events: stageMoved ? stageEvents(next, existing.stage, next.stage) : [],
+    };
   });
 }
 
@@ -283,10 +357,14 @@ export function deleteProspect(id: string): Promise<void> {
   return mutate((state) => {
     findProspect(state, id);
     state.prospects = state.prospects.filter((prospect) => prospect.id !== id);
-    state.snoozes = state.snoozes.filter((snooze) => !snooze.itemId.endsWith(`:${id}`));
+    state.snoozes = state.snoozes.filter(
+      (snooze) => !snooze.itemId.endsWith(`:${id}`),
+    );
     state.mailLinks = state.mailLinks.filter((link) => link.prospectId !== id);
     // What they owed is still owed; it just stops pointing at a record that is gone.
-    state.waiting = state.waiting.map((item) => (item.prospectId === id ? { ...item, prospectId: undefined } : item));
+    state.waiting = state.waiting.map((item) =>
+      item.prospectId === id ? { ...item, prospectId: undefined } : item,
+    );
     return { result: undefined };
   });
 }
@@ -294,11 +372,19 @@ export function deleteProspect(id: string): Promise<void> {
 // ─── The daily queue ───────────────────────────────────────────────────────
 
 const QUEUE_ITEM =
-  /^(?:(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128})|case_study:(.+)|inbound:([A-Za-z0-9_-]{1,128}))$/;
+  /^(?:(due|follow_up|referral|contact|reply):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128})|case_study:(.+)|inbound:([A-Za-z0-9_-]{1,128})|second_touch:([A-Za-z0-9_-]{1,128})|viewed:([A-Za-z0-9_-]{1,128}):(\d{8}))$/;
 
 type ParsedQueueItem =
-  | { kind: Exclude<QueueItemKind, "waiting" | "crm" | "case_study" | "inbound">; prospectId: string }
+  | {
+      kind: Exclude<
+        QueueItemKind,
+        "waiting" | "crm" | "case_study" | "inbound" | "second_touch" | "viewed"
+      >;
+      prospectId: string;
+    }
+  | { kind: "viewed"; projectId: string; day: string }
   | { kind: "inbound"; inboundLeadId: string }
+  | { kind: "second_touch"; inboundLeadId: string }
   | { kind: "waiting"; waitingId: string }
   | { kind: "crm"; followUpId: string }
   | { kind: "case_study"; source: string };
@@ -309,11 +395,21 @@ export function parseQueueItemId(itemId: string): ParsedQueueItem | undefined {
   if (match[3]) return { kind: "waiting", waitingId: match[3] };
   if (match[4]) return { kind: "crm", followUpId: match[4] };
   if (match[6]) return { kind: "inbound", inboundLeadId: match[6] };
+  if (match[7]) return { kind: "second_touch", inboundLeadId: match[7] };
+  if (match[8]) return { kind: "viewed", projectId: match[8], day: match[9] };
   if (match[5]) {
     const source = CaseStudySourceSchema.safeParse(match[5]);
-    return source.success ? { kind: "case_study", source: source.data } : undefined;
+    return source.success
+      ? { kind: "case_study", source: source.data }
+      : undefined;
   }
-  return { kind: match[1] as Exclude<QueueItemKind, "waiting" | "crm" | "case_study" | "inbound">, prospectId: match[2] };
+  return {
+    kind: match[1] as Exclude<
+      QueueItemKind,
+      "waiting" | "crm" | "case_study" | "inbound" | "second_touch" | "viewed"
+    >,
+    prospectId: match[2],
+  };
 }
 
 /** After a Virtec follow-up is handled here, how long before it may reappear if Virtec still has it open. */
@@ -341,9 +437,13 @@ export const CRM_HANDLED_DAYS = 3;
  */
 export type QueueCompletion = { prospect?: Prospect; waiting?: WaitingOn };
 
-export function completeQueueItem(itemId: string, today: string = isoDate(new Date())): Promise<QueueCompletion> {
+export function completeQueueItem(
+  itemId: string,
+  today: string = isoDate(new Date()),
+): Promise<QueueCompletion> {
   const parsed = parseQueueItemId(itemId);
-  if (!parsed) return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
+  if (!parsed)
+    return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
 
   return mutate<QueueCompletion>((state) => {
     const now = new Date().toISOString();
@@ -352,41 +452,90 @@ export function completeQueueItem(itemId: string, today: string = isoDate(new Da
     if (parsed.kind === "case_study") {
       // Starting a case study needs the opportunity's details, which live in
       // Virtec and the vault — the route creates it with `startCaseStudy`.
-      throw new TractionNotFoundError("Start a case study from its opportunity");
+      throw new TractionNotFoundError(
+        "Start a case study from its opportunity",
+      );
     }
 
-    if (parsed.kind === "inbound") {
+    if (parsed.kind === "inbound" || parsed.kind === "second_touch") {
       // Replying needs the lead's details from Virtec: the route does it with `replyToInboundLead`.
-      throw new TractionNotFoundError("Reply to a website lead through its queue item");
+      throw new TractionNotFoundError(
+        "Reply to a website lead through its queue item",
+      );
+    }
+
+    if (parsed.kind === "viewed") {
+      // Held off for a week, but the id carries the day of the view: a client
+      // who opens it again on another day raises a new item.
+      state.snoozes.push({ itemId, until: addDays(today, 7) });
+      const handled: TractionEvent = {
+        id: newId("ev"),
+        at: now,
+        kind: "followed_up",
+        crmProjectId: parsed.projectId,
+        viaQueue: true,
+      };
+      return { result: {}, events: [handled] };
     }
 
     if (parsed.kind === "crm") {
       state.snoozes.push({ itemId, until: addDays(today, CRM_HANDLED_DAYS) });
-      const handled: TractionEvent = { id: newId("ev"), at: now, kind: "followed_up", crmFollowUpId: parsed.followUpId, viaQueue: true };
+      const handled: TractionEvent = {
+        id: newId("ev"),
+        at: now,
+        kind: "followed_up",
+        crmFollowUpId: parsed.followUpId,
+        viaQueue: true,
+      };
       return { result: {}, events: [handled] };
     }
 
     if (parsed.kind === "waiting") {
       const item = findWaiting(state, parsed.waitingId);
-      const next: WaitingOn = { ...item, nextFollowUp: addDays(today, WAITING_RECHASE_DAYS), updatedAt: now };
+      const next: WaitingOn = {
+        ...item,
+        nextFollowUp: addDays(today, WAITING_RECHASE_DAYS),
+        updatedAt: now,
+      };
       state.waiting[state.waiting.indexOf(item)] = next;
 
-      const chased: TractionEvent = { id: newId("ev"), at: now, prospectId: item.prospectId, waitingId: item.id, kind: "chased", viaQueue: true };
+      const chased: TractionEvent = {
+        id: newId("ev"),
+        at: now,
+        prospectId: item.prospectId,
+        waitingId: item.id,
+        kind: "chased",
+        viaQueue: true,
+      };
 
       // Chasing a prospect is also a follow-up with them, and counts as one.
-      const prospect = item.prospectId ? state.prospects.find((entry) => entry.id === item.prospectId) : undefined;
+      const prospect = item.prospectId
+        ? state.prospects.find((entry) => entry.id === item.prospectId)
+        : undefined;
       if (!prospect) return { result: { waiting: next }, events: [chased] };
 
-      const touched: Prospect = { ...prospect, lastTouchAt: now, updatedAt: now };
+      const touched: Prospect = {
+        ...prospect,
+        lastTouchAt: now,
+        updatedAt: now,
+      };
       state.prospects[state.prospects.indexOf(prospect)] = touched;
-      return { result: { waiting: next, prospect: touched }, events: [chased, event(prospect.id, "followed_up")] };
+      return {
+        result: { waiting: next, prospect: touched },
+        events: [chased, event(prospect.id, "followed_up")],
+      };
     }
 
     const prospect = findProspect(state, parsed.prospectId);
     const next: Prospect = { ...prospect, updatedAt: now };
 
     // A due action on a target is first contact; on anyone else it is a follow-up.
-    const kind = parsed.kind === "due" ? (prospect.stage === "target" ? "contact" : "follow_up") : parsed.kind;
+    const kind =
+      parsed.kind === "due"
+        ? prospect.stage === "target"
+          ? "contact"
+          : "follow_up"
+        : parsed.kind;
     if (parsed.kind === "due") {
       delete next.nextAction;
       delete next.nextActionDate;
@@ -413,18 +562,33 @@ export function completeQueueItem(itemId: string, today: string = isoDate(new Da
 }
 
 /** Puts an item off. It comes back on `today + days`; old snoozes are swept on the way. */
-export function snoozeQueueItem(itemId: string, today: string, days = 1): Promise<void> {
+export function snoozeQueueItem(
+  itemId: string,
+  today: string,
+  days = 1,
+): Promise<void> {
   const parsed = parseQueueItemId(itemId);
-  if (!parsed) return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
+  if (!parsed)
+    return Promise.reject(new TractionNotFoundError(`No queue item ${itemId}`));
 
   return mutate((state) => {
     // Virtec follow-ups and case-study opportunities are not held here, so
     // there is nothing local to check.
     if (parsed.kind === "waiting") findWaiting(state, parsed.waitingId);
-    else if (parsed.kind !== "crm" && parsed.kind !== "case_study" && parsed.kind !== "inbound") findProspect(state, parsed.prospectId);
+    else if (
+      parsed.kind !== "crm" &&
+      parsed.kind !== "viewed" &&
+      parsed.kind !== "case_study" &&
+      parsed.kind !== "inbound" &&
+      parsed.kind !== "second_touch"
+    ) {
+      findProspect(state, parsed.prospectId);
+    }
 
     state.snoozes = [
-      ...state.snoozes.filter((snooze) => snooze.itemId !== itemId && snooze.until > today),
+      ...state.snoozes.filter(
+        (snooze) => snooze.itemId !== itemId && snooze.until > today,
+      ),
       { itemId, until: addDays(today, days) },
     ];
     return { result: undefined };
@@ -440,7 +604,10 @@ function findWaiting(state: TractionState, id: string): WaitingOn {
 }
 
 /** A link to a prospect that does not exist is refused, not stored dangling. */
-function assertProspectLink(state: TractionState, prospectId: string | undefined): void {
+function assertProspectLink(
+  state: TractionState,
+  prospectId: string | undefined,
+): void {
   if (prospectId) findProspect(state, prospectId);
 }
 
@@ -448,19 +615,30 @@ export function createWaiting(input: WaitingOnInput): Promise<WaitingOn> {
   return mutate((state) => {
     assertProspectLink(state, input.prospectId);
     const now = new Date().toISOString();
-    const item = WaitingOnSchema.parse(compact({ ...input, id: newId("wo"), createdAt: now, updatedAt: now }));
+    const item = WaitingOnSchema.parse(
+      compact({ ...input, id: newId("wo"), createdAt: now, updatedAt: now }),
+    );
     state.waiting.push(item);
     return { result: item };
   });
 }
 
 /** Replaces an item's content. Resolution is its own call, so an edit cannot reopen or close one. */
-export function replaceWaiting(id: string, input: WaitingOnInput): Promise<WaitingOn> {
+export function replaceWaiting(
+  id: string,
+  input: WaitingOnInput,
+): Promise<WaitingOn> {
   return mutate((state) => {
     const existing = findWaiting(state, id);
     assertProspectLink(state, input.prospectId);
     const next = WaitingOnSchema.parse(
-      compact({ ...input, id, resolvedAt: existing.resolvedAt, createdAt: existing.createdAt, updatedAt: new Date().toISOString() }),
+      compact({
+        ...input,
+        id,
+        resolvedAt: existing.resolvedAt,
+        createdAt: existing.createdAt,
+        updatedAt: new Date().toISOString(),
+      }),
     );
     state.waiting[state.waiting.indexOf(existing)] = next;
     return { result: next };
@@ -472,9 +650,15 @@ export function resolveWaiting(id: string): Promise<WaitingOn> {
   return mutate((state) => {
     const existing = findWaiting(state, id);
     const now = new Date().toISOString();
-    const next: WaitingOn = { ...existing, resolvedAt: existing.resolvedAt ?? now, updatedAt: now };
+    const next: WaitingOn = {
+      ...existing,
+      resolvedAt: existing.resolvedAt ?? now,
+      updatedAt: now,
+    };
     state.waiting[state.waiting.indexOf(existing)] = next;
-    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `waiting:${id}`);
+    state.snoozes = state.snoozes.filter(
+      (snooze) => snooze.itemId !== `waiting:${id}`,
+    );
     return { result: next };
   });
 }
@@ -483,7 +667,9 @@ export function deleteWaiting(id: string): Promise<void> {
   return mutate((state) => {
     findWaiting(state, id);
     state.waiting = state.waiting.filter((entry) => entry.id !== id);
-    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `waiting:${id}`);
+    state.snoozes = state.snoozes.filter(
+      (snooze) => snooze.itemId !== `waiting:${id}`,
+    );
     return { result: undefined };
   });
 }
@@ -504,9 +690,12 @@ export function confirmMailLink(input: ConfirmMailLink): Promise<Prospect> {
       ...state.mailLinks.filter((link) => link.threadId !== input.threadId),
       { threadId: input.threadId, prospectId: prospect.id, linkedAt: now },
     ];
-    state.dismissedMail = state.dismissedMail.filter((threadId) => threadId !== input.threadId);
+    state.dismissedMail = state.dismissedMail.filter(
+      (threadId) => threadId !== input.threadId,
+    );
 
-    if (!input.moveTo || input.moveTo === prospect.stage) return { result: prospect };
+    if (!input.moveTo || input.moveTo === prospect.stage)
+      return { result: prospect };
 
     const next: Prospect = {
       ...prospect,
@@ -516,14 +705,18 @@ export function confirmMailLink(input: ConfirmMailLink): Promise<Prospect> {
       updatedAt: now,
     };
     state.prospects[state.prospects.indexOf(prospect)] = next;
-    return { result: next, events: stageEvents(next, prospect.stage, input.moveTo) };
+    return {
+      result: next,
+      events: stageEvents(next, prospect.stage, input.moveTo),
+    };
   });
 }
 
 /** "Not theirs." Remembered, so the same thread is not suggested again. */
 export function dismissMailSuggestion(threadId: string): Promise<void> {
   return mutate((state) => {
-    if (!state.dismissedMail.includes(threadId)) state.dismissedMail.push(threadId);
+    if (!state.dismissedMail.includes(threadId))
+      state.dismissedMail.push(threadId);
     // Bounded: old dismissals of threads long gone from the Inbox are worth nothing.
     state.dismissedMail = state.dismissedMail.slice(-2000);
     return { result: undefined };
@@ -532,7 +725,9 @@ export function dismissMailSuggestion(threadId: string): Promise<void> {
 
 export function unlinkMailThread(threadId: string): Promise<void> {
   return mutate((state) => {
-    state.mailLinks = state.mailLinks.filter((link) => link.threadId !== threadId);
+    state.mailLinks = state.mailLinks.filter(
+      (link) => link.threadId !== threadId,
+    );
     return { result: undefined };
   });
 }
@@ -541,7 +736,9 @@ export function unlinkMailThread(threadId: string): Promise<void> {
 
 export function saveIcp(input: IcpInput): Promise<Icp> {
   return mutate((state) => {
-    state.icp = IcpSchema.parse(compact({ ...input, updatedAt: new Date().toISOString() }));
+    state.icp = IcpSchema.parse(
+      compact({ ...input, updatedAt: new Date().toISOString() }),
+    );
     return { result: state.icp };
   });
 }
@@ -549,7 +746,9 @@ export function saveIcp(input: IcpInput): Promise<Icp> {
 export function createOffer(input: OfferInput): Promise<Offer> {
   return mutate((state) => {
     const now = new Date().toISOString();
-    const offer = OfferSchema.parse(compact({ ...input, id: newId("of"), createdAt: now, updatedAt: now }));
+    const offer = OfferSchema.parse(
+      compact({ ...input, id: newId("of"), createdAt: now, updatedAt: now }),
+    );
     state.offers.push(offer);
     return { result: offer };
   });
@@ -561,7 +760,9 @@ export function replaceOffer(id: string, input: OfferInput): Promise<Offer> {
     const existing = state.offers.find((offer) => offer.id === id);
     if (!existing) throw new TractionNotFoundError(`No offer ${id}`);
     const { createdAt } = existing;
-    const next = OfferSchema.parse(compact({ ...input, id, createdAt, updatedAt: new Date().toISOString() }));
+    const next = OfferSchema.parse(
+      compact({ ...input, id, createdAt, updatedAt: new Date().toISOString() }),
+    );
     state.offers[state.offers.indexOf(existing)] = next;
     return { result: next };
   });
@@ -570,9 +771,12 @@ export function replaceOffer(id: string, input: OfferInput): Promise<Offer> {
 /** Removes an offer and unlinks it from every prospect that pitched it. */
 export function deleteOffer(id: string): Promise<void> {
   return mutate((state) => {
-    if (!state.offers.some((offer) => offer.id === id)) throw new TractionNotFoundError(`No offer ${id}`);
+    if (!state.offers.some((offer) => offer.id === id))
+      throw new TractionNotFoundError(`No offer ${id}`);
     state.offers = state.offers.filter((offer) => offer.id !== id);
-    state.prospects = state.prospects.map((prospect) => (prospect.offerId === id ? { ...prospect, offerId: undefined } : prospect));
+    state.prospects = state.prospects.map((prospect) =>
+      prospect.offerId === id ? { ...prospect, offerId: undefined } : prospect,
+    );
     return { result: undefined };
   });
 }
@@ -580,19 +784,28 @@ export function deleteOffer(id: string): Promise<void> {
 export function createExperiment(input: ExperimentInput): Promise<Experiment> {
   return mutate((state) => {
     const now = new Date().toISOString();
-    const experiment = ExperimentSchema.parse(compact({ ...input, id: newId("ex"), createdAt: now, updatedAt: now }));
+    const experiment = ExperimentSchema.parse(
+      compact({ ...input, id: newId("ex"), createdAt: now, updatedAt: now }),
+    );
     state.experiments.push(experiment);
     return { result: experiment };
   });
 }
 
 /** Replaces an experiment's content, the same way offers are. */
-export function replaceExperiment(id: string, input: ExperimentInput): Promise<Experiment> {
+export function replaceExperiment(
+  id: string,
+  input: ExperimentInput,
+): Promise<Experiment> {
   return mutate((state) => {
-    const existing = state.experiments.find((experiment) => experiment.id === id);
+    const existing = state.experiments.find(
+      (experiment) => experiment.id === id,
+    );
     if (!existing) throw new TractionNotFoundError(`No experiment ${id}`);
     const { createdAt } = existing;
-    const next = ExperimentSchema.parse(compact({ ...input, id, createdAt, updatedAt: new Date().toISOString() }));
+    const next = ExperimentSchema.parse(
+      compact({ ...input, id, createdAt, updatedAt: new Date().toISOString() }),
+    );
     state.experiments[state.experiments.indexOf(existing)] = next;
     return { result: next };
   });
@@ -600,9 +813,16 @@ export function replaceExperiment(id: string, input: ExperimentInput): Promise<E
 
 export function deleteExperiment(id: string): Promise<void> {
   return mutate((state) => {
-    if (!state.experiments.some((experiment) => experiment.id === id)) throw new TractionNotFoundError(`No experiment ${id}`);
-    state.experiments = state.experiments.filter((experiment) => experiment.id !== id);
-    state.prospects = state.prospects.map((prospect) => (prospect.experimentId === id ? { ...prospect, experimentId: undefined } : prospect));
+    if (!state.experiments.some((experiment) => experiment.id === id))
+      throw new TractionNotFoundError(`No experiment ${id}`);
+    state.experiments = state.experiments.filter(
+      (experiment) => experiment.id !== id,
+    );
+    state.prospects = state.prospects.map((prospect) =>
+      prospect.experimentId === id
+        ? { ...prospect, experimentId: undefined }
+        : prospect,
+    );
     return { result: undefined };
   });
 }
@@ -621,41 +841,77 @@ export function saveTargets(targets: WeeklyTargets): Promise<WeeklyTargets> {
  * so a caller can name what to import but cannot supply its contents. The
  * duplicate check runs inside the write queue, so two quick clicks import once.
  */
-export function importCrmProspect(input: ProspectInput & { crmId: string }): Promise<Prospect> {
+export function importCrmProspect(
+  input: ProspectInput & { crmId: string },
+): Promise<Prospect> {
   return mutate((state) => {
     if (state.prospects.some((prospect) => prospect.crmId === input.crmId)) {
       throw new TractionConflictError("Already imported");
     }
-    const prospect = newProspect({ ...input, stage: input.stage ?? "target" }, new Date().toISOString());
+    const prospect = newProspect(
+      { ...input, stage: input.stage ?? "target" },
+      new Date().toISOString(),
+    );
     state.prospects.push(prospect);
     return { result: prospect, events: [event(prospect.id, "created")] };
   });
 }
 
 /**
- * "I replied" to a website lead, from the queue.
+ * A person wrote to a website lead, from the queue.
  *
- * The lead becomes a prospect in conversation (or, if it was already
- * imported, that prospect is used), with the reply counted as today's
- * follow-up. The queue item goes away because the lead is now imported; the
- * route also tells Virtec it was replied to.
+ * - `reply`: answering someone who asked or wrote back. They become a
+ *   prospect in conversation, and it counts as today's follow-up.
+ * - `second_touch`: the personal note after a lead magnet signup. They
+ *   have not engaged yet, so they become a prospect *contacted*, and it
+ *   counts as outreach; from here the ordinary follow-up rules take over.
+ *
+ * An already-imported lead keeps its prospect. The queue item goes away
+ * because the lead is now imported; the route also tells Virtec.
  */
-export function replyToInboundLead(input: ProspectInput & { crmId: string }, itemId: string): Promise<Prospect> {
+export function replyToInboundLead(
+  input: ProspectInput & { crmId: string },
+  itemId: string,
+  mode: "reply" | "second_touch" = "reply",
+): Promise<Prospect> {
   return mutate((state) => {
     const now = new Date().toISOString();
     state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== itemId);
 
-    const existing = state.prospects.find((prospect) => prospect.crmId === input.crmId);
+    const existing = state.prospects.find(
+      (prospect) => prospect.crmId === input.crmId,
+    );
     const events: TractionEvent[] = [];
     let prospect: Prospect;
 
     if (existing) {
+      // A second touch to an imported target is its first contact.
+      if (mode === "second_touch" && existing.stage === "target") {
+        prospect = {
+          ...existing,
+          stage: "contacted",
+          stageChangedAt: now,
+          lastTouchAt: now,
+          updatedAt: now,
+        };
+        state.prospects[state.prospects.indexOf(existing)] = prospect;
+        return {
+          result: prospect,
+          events: stageEvents(prospect, "target", "contacted", true),
+        };
+      }
       prospect = { ...existing, lastTouchAt: now, updatedAt: now };
       state.prospects[state.prospects.indexOf(existing)] = prospect;
     } else {
-      prospect = { ...newProspect({ ...input, stage: input.stage ?? "conversation" }, now), lastTouchAt: now };
+      const stage =
+        mode === "second_touch" ? "contacted" : (input.stage ?? "conversation");
+      prospect = { ...newProspect({ ...input, stage }, now), lastTouchAt: now };
       state.prospects.push(prospect);
       events.push(event(prospect.id, "created"));
+      if (mode === "second_touch") {
+        events.push(event(prospect.id, "contacted", { viaQueue: true }));
+        return { result: prospect, events };
+      }
     }
 
     events.push(event(prospect.id, "followed_up", { viaQueue: true }));
@@ -663,7 +919,236 @@ export function replyToInboundLead(input: ProspectInput & { crmId: string }, ite
   });
 }
 
+/**
+ * Keeps Jev's fit scores and counts them against today's budget.
+ *
+ * Failures are not charged: only what Jev answered is spent. A new day
+ * resets the count.
+ */
+export function saveLeadProfiles(
+  profiles: Record<string, LeadProfile>,
+  today: string,
+): Promise<{ usedToday: number }> {
+  return mutate((state) => {
+    const used =
+      state.leadProfileBudget.date === today ? state.leadProfileBudget.used : 0;
+    for (const [leadId, profile] of Object.entries(profiles))
+      state.leadProfiles[`virtec:lead:${leadId}`] = profile;
+    state.leadProfileBudget = {
+      date: today,
+      used: used + Object.keys(profiles).length,
+    };
+    return { result: { usedToday: state.leadProfileBudget.used } };
+  });
+}
+
+export function saveOutreachSignature(signature: string): Promise<string> {
+  return mutate((state) => {
+    state.outreach = { signature };
+    return { result: signature };
+  });
+}
+
+/** Records what was done in the outreach mailbox, against the prospect it was for. */
+export function logOutreach(
+  entry: Omit<OutreachLogEntry, "id" | "at">,
+): Promise<OutreachLogEntry> {
+  return mutate((state) => {
+    const logged: OutreachLogEntry = {
+      ...entry,
+      id: newId("ol"),
+      at: new Date().toISOString(),
+    };
+    state.outreachLog = [...state.outreachLog, logged].slice(
+      -OUTREACH_LOG_LIMIT,
+    );
+    return { result: logged };
+  });
+}
+
 export class TractionConflictError extends Error {}
+
+// ─── Sending from the outreach mailbox ─────────────────────────────────────
+
+/** A send the guardrails refuse, with the reason in words. */
+export class SendRefusedError extends Error {}
+
+const DAY_MS = 86_400_000;
+const sameAddress = (a: string, b: string) =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+
+export function isSuppressed(
+  state: Pick<TractionState, "suppressions">,
+  address: string,
+): Suppression | undefined {
+  return state.suppressions.find((entry) =>
+    sameAddress(entry.address, address),
+  );
+}
+
+/** Emails sent (or possibly sent) in the last 24 hours. */
+export function sentInLastDay(
+  state: Pick<TractionState, "outreachLog">,
+  now: number = Date.now(),
+): number {
+  return state.outreachLog.filter(
+    (entry) =>
+      SEND_KINDS.includes(entry.kind) && now - Date.parse(entry.at) < DAY_MS,
+  ).length;
+}
+
+export function addSuppression(
+  address: string,
+  reason: SuppressionReason,
+): Promise<Suppression> {
+  return mutate((state) => {
+    const existing = isSuppressed(state, address);
+    if (existing) return { result: existing };
+    const entry: Suppression = {
+      address: address.trim().toLowerCase(),
+      reason,
+      at: new Date().toISOString(),
+    };
+    state.suppressions = [...state.suppressions, entry];
+    return { result: entry };
+  });
+}
+
+export function removeSuppression(address: string): Promise<void> {
+  return mutate((state) => {
+    state.suppressions = state.suppressions.filter(
+      (entry) => !sameAddress(entry.address, address),
+    );
+    return { result: undefined };
+  });
+}
+
+/**
+ * Checks every guardrail and, in the same step, reserves the send, so two
+ * clicks (or two tabs) cannot both pass. The reservation counts against the
+ * cap and the repeat rule at once; `settleSend` turns it into the outcome.
+ */
+export function reserveSend(input: {
+  prospectId: string;
+  subject: string;
+  dailyCap: number;
+  isReply?: boolean;
+}): Promise<OutreachLogEntry> {
+  return mutate((state) => {
+    const prospect = findProspect(state, input.prospectId);
+    const to = prospect.email;
+    if (!to) throw new SendRefusedError("This prospect has no email address.");
+
+    const suppressed = isSuppressed(state, to);
+    if (suppressed)
+      throw new SendRefusedError(
+        `${to} is on the do-not-contact list (${suppressed.reason}).`,
+      );
+
+    const now = Date.now();
+    // Answering someone who wrote to us is not a repeat. The cap and the do-not-contact list still apply.
+    const recent = input.isReply ? undefined : state.outreachLog.find(
+      (entry) =>
+        SEND_KINDS.includes(entry.kind) &&
+        sameAddress(entry.to, to) &&
+        now - Date.parse(entry.at) < REPEAT_WINDOW_DAYS * DAY_MS,
+    );
+    if (recent) {
+      throw new SendRefusedError(
+        `${to} was emailed on ${recent.at.slice(0, 10)}. AgentOS waits ${REPEAT_WINDOW_DAYS} days between emails to one address.`,
+      );
+    }
+
+    if (sentInLastDay(state, now) >= input.dailyCap) {
+      throw new SendRefusedError(
+        `Daily limit reached (${input.dailyCap} emails in 24 hours). Try again later.`,
+      );
+    }
+
+    const entry: OutreachLogEntry = {
+      id: newId("ol"),
+      prospectId: prospect.id,
+      kind: "sending",
+      to,
+      subject: input.subject,
+      at: new Date(now).toISOString(),
+    };
+    state.outreachLog = [...state.outreachLog, entry].slice(
+      -OUTREACH_LOG_LIMIT,
+    );
+    return { result: entry };
+  });
+}
+
+/** Stores a message from a prospect. The same message is stored once. */
+export function recordOutreachReply(reply: OutreachReply): Promise<boolean> {
+  return mutate((state) => {
+    if (state.outreachReplies.some((entry) => entry.id === reply.id)) return { result: false };
+    state.outreachReplies = [...state.outreachReplies, reply].slice(-OUTREACH_REPLY_LIMIT);
+    return { result: true };
+  });
+}
+
+export function markOutreachSynced(at: string): Promise<void> {
+  return mutate((state) => {
+    state.outreachSync = { lastSyncAt: at };
+    return { result: undefined };
+  });
+}
+
+/**
+ * Records how a reserved send ended. `sent` also counts as contact with the
+ * prospect, the way marking them contacted does. `released` frees the
+ * reservation, for a send Gmail definitely did not accept.
+ */
+export function settleSend(
+  id: string,
+  outcome:
+    | { kind: "sent"; gmailMessageId: string; threadId?: string }
+    | { kind: "unconfirmed" }
+    | { kind: "released" },
+): Promise<void> {
+  return mutate((state) => {
+    const entry = state.outreachLog.find((candidate) => candidate.id === id);
+    if (!entry) return { result: undefined };
+
+    if (outcome.kind === "released") {
+      state.outreachLog = state.outreachLog.filter(
+        (candidate) => candidate.id !== id,
+      );
+      return { result: undefined };
+    }
+
+    const updated: OutreachLogEntry =
+      outcome.kind === "sent"
+        ? {
+            ...entry,
+            kind: "sent",
+            gmailMessageId: outcome.gmailMessageId,
+            threadId: outcome.threadId,
+          }
+        : { ...entry, kind: "unconfirmed" };
+    state.outreachLog[state.outreachLog.indexOf(entry)] = updated;
+
+    const prospect = state.prospects.find(
+      (candidate) => candidate.id === entry.prospectId,
+    );
+    if (!prospect) return { result: undefined };
+
+    const now = new Date().toISOString();
+    const next: Prospect = { ...prospect, lastTouchAt: now, updatedAt: now };
+    let events: TractionEvent[];
+    if (prospect.stage === "target") {
+      next.stage = "contacted";
+      next.stageChangedAt = now;
+      events = stageEvents(next, "target", "contacted");
+    } else {
+      events = [event(prospect.id, "followed_up")];
+    }
+    state.prospects[state.prospects.indexOf(prospect)] = next;
+    return { result: undefined, events };
+  });
+}
 
 // ─── Case studies ──────────────────────────────────────────────────────────
 
@@ -683,17 +1168,32 @@ export function readCaseStudy(id: string): Promise<CaseStudy> {
  * One per source: a finished project gets one case study, and a second
  * request for the same project returns the first rather than a duplicate.
  */
-export function startCaseStudy(input: CaseStudyInput, options: { autoTitle?: boolean } = {}): Promise<CaseStudy> {
+export function startCaseStudy(
+  input: CaseStudyInput,
+  options: { autoTitle?: boolean } = {},
+): Promise<CaseStudy> {
   return mutate((state) => {
-    const existing = input.source ? state.caseStudies.find((study) => study.source === input.source) : undefined;
+    const existing = input.source
+      ? state.caseStudies.find((study) => study.source === input.source)
+      : undefined;
     if (existing) return { result: existing };
 
     const now = new Date().toISOString();
     const study = CaseStudySchema.parse(
-      compact({ ...input, status: input.status ?? "draft", autoTitle: options.autoTitle || undefined, id: newId("cs"), createdAt: now, updatedAt: now }),
+      compact({
+        ...input,
+        status: input.status ?? "draft",
+        autoTitle: options.autoTitle || undefined,
+        id: newId("cs"),
+        createdAt: now,
+        updatedAt: now,
+      }),
     );
     state.caseStudies.push(study);
-    if (input.source) state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `case_study:${input.source}`);
+    if (input.source)
+      state.snoozes = state.snoozes.filter(
+        (snooze) => snooze.itemId !== `case_study:${input.source}`,
+      );
     return { result: study };
   });
 }
@@ -701,10 +1201,15 @@ export function startCaseStudy(input: CaseStudyInput, options: { autoTitle?: boo
 /**
  * Replaces a case study's content with what the editor holds.
  *
- * "Ready" and "published" need nothing missing: a study that still says
- * `[NEEDS DATA]` somewhere is not evidence yet, however good the rest reads.
+ * "Ready" and "published" need no `[NEEDS DATA]` marker left in a section: a
+ * claim with a hole in it is not evidence yet. Nothing else is required. An
+ * empty section, no screenshots and a non-empty "still missing" note are all
+ * the author's call; that note is a reminder, not a gate.
  */
-export function replaceCaseStudy(id: string, input: CaseStudyInput): Promise<CaseStudy> {
+export function replaceCaseStudy(
+  id: string,
+  input: CaseStudyInput,
+): Promise<CaseStudy> {
   return mutate((state) => {
     const existing = findCaseStudy(state, id);
     const next = CaseStudySchema.parse(
@@ -714,15 +1219,35 @@ export function replaceCaseStudy(id: string, input: CaseStudyInput): Promise<Cas
         id,
         source: existing.source,
         // Once a person has changed the title, it is theirs.
-        autoTitle: existing.autoTitle && input.title === existing.title ? true : undefined,
+        autoTitle:
+          existing.autoTitle && input.title === existing.title
+            ? true
+            : undefined,
+        // What was read from the website stays only while the address is the same one.
+        siteFacts:
+          existing.websiteUrl && existing.websiteUrl === input.websiteUrl
+            ? existing.siteFacts
+            : undefined,
         draftedAt: existing.draftedAt,
         createdAt: existing.createdAt,
         updatedAt: new Date().toISOString(),
       }),
     );
 
-    if (next.status !== "draft" && (next.missing.length > 0 || hasGaps(next))) {
-      throw new TractionConflictError("A case study with missing data cannot be marked ready or published");
+    if (next.status !== "draft" && hasGaps(next)) {
+      const where = (
+        [
+          ["The problem", next.problem],
+          ["What we built", next.solution],
+          ["How", next.implementation],
+          ["The result", next.result],
+        ] as const
+      )
+        .filter(([, text]) => text && GAP.test(text))
+        .map(([label]) => label);
+      throw new TractionConflictError(
+        `Replace or delete the [NEEDS DATA] marker in ${where.join(", ")} before marking this ready or published`,
+      );
     }
 
     state.caseStudies[state.caseStudies.indexOf(existing)] = next;
@@ -733,8 +1258,15 @@ export function replaceCaseStudy(id: string, input: CaseStudyInput): Promise<Cas
 const GAP = /\[NEEDS DATA/i;
 
 /** Whether any section still holds a `[NEEDS DATA: …]` marker. */
-export function hasGaps(study: Pick<CaseStudy, "problem" | "solution" | "implementation" | "result">): boolean {
-  return [study.problem, study.solution, study.implementation, study.result].some((section) => section && GAP.test(section));
+export function hasGaps(
+  study: Pick<CaseStudy, "problem" | "solution" | "implementation" | "result">,
+): boolean {
+  return [
+    study.problem,
+    study.solution,
+    study.implementation,
+    study.result,
+  ].some((section) => section && GAP.test(section));
 }
 
 /**
@@ -746,25 +1278,53 @@ export function hasGaps(study: Pick<CaseStudy, "problem" | "solution" | "impleme
  * missing facts is added to, not replaced, so a gap someone noted by hand
  * survives a redraft.
  */
+/** Keeps what was read off the study's website, if the address is still the one that was read. */
+export function saveCaseStudySiteFacts(
+  id: string,
+  websiteUrl: string,
+  facts: SiteFacts,
+): Promise<CaseStudy> {
+  return mutate((state) => {
+    const existing = findCaseStudy(state, id);
+    if (existing.websiteUrl !== websiteUrl)
+      throw new TractionConflictError(
+        "The website address changed while it was being read",
+      );
+    const next = { ...existing, siteFacts: facts, updatedAt: new Date().toISOString() };
+    state.caseStudies[state.caseStudies.indexOf(existing)] = next;
+    return { result: next };
+  });
+}
+
 export function applyCaseStudyDraft(
   id: string,
-  draft: Partial<Pick<CaseStudy, "title" | "problem" | "solution" | "implementation" | "result">> & { missing: string[] },
+  draft: Partial<
+    Pick<
+      CaseStudy,
+      "title" | "problem" | "solution" | "implementation" | "result"
+    >
+  > & { missing: string[] },
 ): Promise<CaseStudy> {
   return mutate((state) => {
     const existing = findCaseStudy(state, id);
     const now = new Date().toISOString();
-    const fill = (current: string | undefined, proposed: string | undefined) => (current && current.trim() ? current : proposed);
+    const fill = (current: string | undefined, proposed: string | undefined) =>
+      current && current.trim() ? current : proposed;
 
     const next = CaseStudySchema.parse(
       compact({
         ...existing,
         title: existing.autoTitle && draft.title ? draft.title : existing.title,
-        autoTitle: existing.autoTitle && draft.title ? undefined : existing.autoTitle,
+        autoTitle:
+          existing.autoTitle && draft.title ? undefined : existing.autoTitle,
         problem: fill(existing.problem, draft.problem),
         solution: fill(existing.solution, draft.solution),
         implementation: fill(existing.implementation, draft.implementation),
         result: fill(existing.result, draft.result),
-        missing: [...new Set([...existing.missing, ...draft.missing])].slice(0, 20),
+        missing: [...new Set([...existing.missing, ...draft.missing])].slice(
+          0,
+          20,
+        ),
         draftedAt: now,
         updatedAt: now,
       }),
@@ -786,8 +1346,11 @@ export function deleteCaseStudy(id: string): Promise<void> {
 /** "This one does not need a case study." Remembered, so it is not raised again. */
 export function dismissOpportunity(source: string): Promise<void> {
   return mutate((state) => {
-    if (!state.dismissedOpportunities.includes(source)) state.dismissedOpportunities.push(source);
-    state.snoozes = state.snoozes.filter((snooze) => snooze.itemId !== `case_study:${source}`);
+    if (!state.dismissedOpportunities.includes(source))
+      state.dismissedOpportunities.push(source);
+    state.snoozes = state.snoozes.filter(
+      (snooze) => snooze.itemId !== `case_study:${source}`,
+    );
     return { result: undefined };
   });
 }

@@ -4,6 +4,7 @@ import {
   leadMagnetBlockers,
   LeadMagnetFileSchema,
   leadMagnetSource,
+  magnetForSource,
   MAX_LEAD_MAGNET_SECTIONS,
   type LeadMagnet,
   type LeadMagnetFile,
@@ -65,7 +66,7 @@ export function leadMagnetStats(
 
 /** The magnet a website lead came from, if it came from one. */
 export function magnetForLead(magnets: readonly LeadMagnet[], lead: Pick<VirtecInboundLead, "source">): LeadMagnet | undefined {
-  return lead.source?.startsWith("magnet-") ? magnets.find((magnet) => leadMagnetSource(magnet.slug) === lead.source) : undefined;
+  return magnetForSource(magnets, lead.source);
 }
 
 // ─── Hermes ────────────────────────────────────────────────────────────────

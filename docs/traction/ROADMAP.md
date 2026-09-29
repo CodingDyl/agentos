@@ -11,64 +11,44 @@ sophisticated the module gets.
 | 1 | Traction page, daily acquisition queue (Done / Snooze / Open / Ask Hermes), prospects, pipeline, ICP, offer library, experiments, weekly targets, outreach guard, `CrmProvider` + local store, Traction on Today |
 | 2 | Waiting On (clients and prospects) with chases in the queue, Gmail reply → prospect suggestions that change nothing until confirmed, Clients & referrals tab, weekly review (deterministic numbers plus Hermes interpretation), linked threads on the prospect, Waiting On and replies on Today |
 | 3 | Read-only Virtec connector: money, follow-ups (in the daily queue), pending quotes, active projects, leads and clients to import. Cached five minutes; each endpoint degrades on its own |
-| 4 | Case-study engine: finished Virtec projects and completed workspaces become opportunities (and queue items); Hermes drafts empty sections only, marks unmeasured results `[NEEDS DATA]`, never writes the testimonial or mentions prices; a study with gaps cannot be marked ready; testimonial asks go on Waiting On; Markdown export |
+| 4 | Case-study engine: finished Virtec projects and completed workspaces become opportunities (and queue items); Hermes drafts empty sections only, marks unmeasured results `[NEEDS DATA]`, never writes the testimonial or mentions prices; a study with a `[NEEDS DATA]` marker left in a section cannot be marked ready (screenshots, empty sections and the missing note are optional); testimonial asks go on Waiting On; Markdown export |
 | 5 | Virtec write-back behind a separate write key: Done/Snooze on a Virtec follow-up marks it in Virtec, importing a lead moves it to reviewing, "Not a fit" disqualifies it. Virtec side: two allow-listed PATCH routes, constant-time key checks, audit record in the same transaction, per-instance rate limit |
 | 6 | Screenshots on case studies: up to 12 Creative images per study (picked from the workspace first, or uploaded from the editor), ordered, exported as a ZIP of `case-study.md` plus `images/` with matching paths. Hermes carries a no-em-dash house style on every call, with replies cleaned as a guarantee |
 | 7 | Website lead capture: every form on Virtara (start a project, contact, SEO, packages, health check, audit) and Jurivo's demo request lands in Virtec's `inbound_leads` through a keyed server-to-server route (one key per site; the key sets the track). Unanswered leads sit at the top of the Traction queue; "Replied" makes them a prospect in conversation and marks them replied in Virtec. Virtec has a Website sub-tab to triage them |
 | 8 | Lead magnets: a Traction tab where Hermes drafts a checklist, scorecard, guide or template plus its landing page (empty fields only; unknown facts become `[NEEDS DATA]` and block shipping), a Creative cover, a linked offer and a one-click experiment. Export is a ZIP (`<slug>.json`, cover, README) the Virtara or Jurivo repo takes as-is; both sites render `/guides`, `/guides/<slug>` and a soft-gated, printable `/guides/<slug>/read`. Signups reach Virtec as `magnet-<slug>`, are counted per magnet, and carry the magnet's experiment and offer when taken into Traction |
 | 9 | Signup email: each magnet has a short plain-text email (Hermes drafts it with the rest; `{{firstName}}`, `{{link}}`) that Virtec sends through Resend the moment someone signs up. Switched on, updated and off from AgentOS (PUT to Virtec, audited); it links to the read page with `?via=email`, which both sites let straight in. Sent and failed counts per magnet; the outcome is on each lead in Virtec |
+| 10 | Second touch: a magnet signup who got the guide email is left alone for 3 days, then becomes a "Second touch" queue item; Hermes drafts a short personal note from the guide and the email they already got, and "Sent" makes them a contacted prospect (counted as outreach, tagged with the magnet's experiment) so ordinary follow-ups take over. A signup who wrote back (a message from their address in the Inbox cache since signing up) jumps to "Reply" at the top; one whose guide email failed gets "Reply" at once |
+| 11 | Replies in the queue: a message from a prospect we are working on (target to proposal) that is newer than our last touch becomes a top-of-queue "They replied" item with the message preview, replacing the misleading "no response" follow-up. Ask Hermes drafts the answer (their words fenced, told to ask for the rest rather than guess); "Move to conversation" and "Not theirs" are in the item; "Replied" records the touch and clears it. Linking a thread does not clear it, only answering does |
+| 12 | ICP fit scoring: Jev scores Virtec's Places candidates against the ICP (0 to 4, plus whether the data shows a checkable gap). On demand, 15 a click and 60 a day, remembered until the ICP changes. Only public business details are sent (never an email or phone). The list re-ranks: good fits first, unscored by Virtec's score, poor fits last; importing carries Jev's fit into the prospect. Places discovery stays in Virtec, which already runs the scans and holds that key |
+| 13 | Client opens a quote or agreement: Virtec already stamped `portalLastViewedAt` per project; it now ignores link-preview bots, scanners and the operator's preview, so "opened" means a person. AgentOS reads it: a client who opened their portal within 7 days, after the quote existed, with the quote still pending or the agreement unanswered, gets an "Opened" queue item, or, when Virtec already has a quote or agreement follow-up due for them, that follow-up says so and moves up. Ask Hermes drafts a light note and is never told when they opened it, and is told not to hint at it. Done holds it a week; a view on another day raises a new item |
+| 14 | Loose ends: the blog newsletter signup and the Unsubscribe page wrote to Firestore from the browser, which the CRM's rules refuse, so both had never worked for visitors. They now go through virtara-backend to a new Virtec route (`/api/inbound/subscribers`, site key, same answer whether or not the list changed). The Firebase client and its hardcoded config are removed from the Virtara site. `/api/send-email`, which sent any caller's raw HTML as info@virtara.co.za, is escaped, size capped, rate limited and prefixed until it can be deleted |
+| 15 | Places scans for the ICP's area, capped: Virtec gets a shared monthly ceiling on Google Places requests (`PLACES_MONTHLY_REQUEST_CAP`, counted in a transaction before each call, a failed call still counts) and stops when it runs out. A scan now asks for each Places type once (Jurivo's four categories all search "lawyer" and were paid for four times). AgentOS gets "Find more candidates" in the Virtec tab: a named area, the categories, an honest request count, a confirm, and Virtec refuses until the cap is set. New candidates are then scored against the ICP with Jev (phase 12). When Virtec refuses a write, AgentOS now shows Virtec's own reason instead of guessing it was the write key |
+| 16 | Security review of the public endpoints. Fixed: anyone could make Virtec email a guide to someone else's address (now at most 3 a day per address across every guide and both sites, held back with `nurtureSkipped`, and every guide email says why it arrived); and an address like `jane?bcc=evil@attacker.example` was accepted and turned into a `mailto:` link with a hidden recipient (addresses are now limited to safe characters at all four entry points, and links are encoded in Virtec and AgentOS). Known and left: see "Known limits" in the walkthrough |
+| 17 | Outreach drafts from a separate mailbox. A second Gmail account is connected on its own (own token file, narrow `gmail.compose` + `gmail.readonly` scopes, refuses the main inbox's address, the inbox code never imports it). On a prospect: Hermes drafts from public facts only, you edit, and "Create Gmail draft" puts it in that mailbox's Drafts. Nothing is sent from AgentOS; you press Send in Gmail, one at a time. The recipient is never in a request, only the prospect's stored address. A cold email must keep your signature and opt-out line. Each draft is logged. Next phases, only when asked: send with guardrails (suppression list, no repeat within 14 days, daily cap), threaded replies and bounce detection |
+| 18 | Send from the outreach mailbox, with guardrails. "Preview and send" shows To, subject and body, then a second click sends that one email to that one prospect (the request has no recipient and needs `confirm: true`). Refused with the reason when: the address is on the do-not-contact list (manual, unsubscribed, bounced, stop; also blocks drafts); the address was emailed in the last 14 days (any prospect, any letter case); the daily cap is hit (`OUTREACH_DAILY_CAP`, default 10, max 50, rolling 24 hours); a cold email lacks the signature and opt-out line. The slot is reserved before Gmail is called so double clicks and two tabs cannot both send; Gmail refusing frees it, a lost connection or unreadable answer keeps it as "unconfirmed" (counts as sent, never retried blindly). A send marks the prospect contacted and logs it. Unsubscribe, bounce and "stop" replies are added by hand for now; reading them from the mailbox is phase 3 |
+| 19 | Replies, bounces and threaded answers. "Check for replies" (and every 15 minutes while the server runs) reads the outreach inbox, read-only, up to 50 messages. From an address we emailed or a prospect's address it keeps only: their reply (their own words, quoted email cut) which raises the existing "They replied" queue item; a "stop", "no thanks", "unsubscribe" at the start of a message, which adds them to do-not-contact; and a permanent bounce (5.x.x, user unknown) for an address we sent to, which does the same. Temporary bounces, out-of-office replies, strangers and colleagues at the same firm are looked at and forgotten. A message that fails both SPF and DKIM is set aside, so a forged sender cannot suppress anyone or put text in front of Hermes. "Draft a reply with Hermes" fences their words as data; sending it goes in their Gmail thread (In-Reply-To, threadId), is exempt from the 14-day rule and the cold signature, and still obeys do-not-contact and the daily cap |
+| 20 | Case study website reader: add the client's website to a case study, save, press "Read website". The server fetches that one page (public sites only: http/https on 80/443, no credentials; every IP the name resolves to is checked at connect time and on each of 3 redirects, so localhost, private ranges and cloud metadata are refused; 10 seconds, 1.5 MB, HTML only) and keeps the title, description, headings, up to 3,500 characters of visible text and a few checkable signals (https, mobile viewport tag, a form, phone/WhatsApp link, image count). "Draft with Hermes" then uses it, fenced as third-party data and labelled as what the client says about itself, never as a measured result. Changing the address discards the old read. One page, one click; no crawling |
 
 ## Next
 
-1. **A second touch**: if a signup has not replied and nobody has written to
-   them after 3 days, a queue item to send a short, personal follow-up
-   (Hermes drafts from what they downloaded). Deliberately a person's send,
-   not an automated sequence.
+1. **Per-quote views** would need Virtec to stamp each quote, not the project;
+   today a view means "the portal", and the item says so.
+2. **Signed unsubscribe links** in newsletters, once you send them, so an
+   address cannot be unsubscribed by someone else.
 
-## Parked — noted, not started
+## Parked, needs a decision from Dylan
 
-### Local prospect discovery: Google Places API (New) + Jev profiling
+### What Virtec stores from Places
 
-Requested by Dylan, to build once the manual loop is running daily.
+Virtec's scan keeps each place's full Places record (`raw`: phone, website,
+address, rating) in `localLeads` for good. Google Maps Platform terms limit
+how long most Places content may be stored; place IDs and coordinates are the
+exception. This is how the scan worked before AgentOS touched it, so it was
+left alone. Decide whether to keep only the place ID and re-fetch, or accept
+the terms as they are. Not verified against the current terms.
 
-**Update (phase 3):** Virtec's leads already carry `googlePlaceId`,
-`lat`/`lng`, `rating`, `reviewCount`, `scanRunId`, a 0–100 `score` and
-`scoreReasons` — Virtec appears to run Places scans itself. Before building
-discovery in AgentOS, check whether extending Virtec's scan (new areas, the
-ICP's category) and adding Jev scoring there is the better home; AgentOS
-already imports the results.
+### POPIA
 
-**Idea.** Pull candidate businesses near him that match the active ICP (e.g.
-estate agencies in Johannesburg) from the **Places API (New)**, then have
-**Jev** profile each one against the ICP so only good fits become prospects.
-
-**Shape it would likely take**
-
-```text
-ICP (segment + geography)
-   ↓
-Places API (New) — Text Search, e.g. "estate agency in Johannesburg"
-   ↓  name, address, website, rating, review count, place id
-Jev — score each candidate against the ICP's "ideal prospect" traits
-   ↓
-Candidate list in Traction → a person accepts → becomes a Prospect (source: other/outbound)
-```
-
-- Server-side only. `GOOGLE_PLACES_API_KEY` lives in `.env` beside
-  `JEV_API_KEY` and never reaches the browser — the same rule as Hermes.
-- Jev already has a client (`server/mail/jev-client.ts`) using `choice` /
-  `score` questions; profiling would reuse that pattern with ICP criteria.
-- Candidates are suggestions. Nothing enters the pipeline without a person
-  accepting it — the same rule as Gmail suggestions.
-- Use a field mask on every Places request; the new API bills by the
-  fields requested.
-
-**Check before building** (not verified yet):
-
-- Google Maps Platform terms limit how long most Places content may be
-  cached; place IDs are the exception. Store the place ID and re-fetch
-  details rather than keeping copies.
-- POPIA restricts unsolicited electronic direct marketing to individuals.
-  Business contacts are treated differently, but get this checked before
-  cold-emailing anyone found this way.
-- Cost: set a monthly cap on the Places key before it is used in a loop.
+Unsolicited electronic direct marketing to individuals is restricted.
+Business contacts are treated differently, but get this checked before
+cold-emailing anyone found through a scan.

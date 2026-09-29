@@ -8,6 +8,7 @@ import { useNavigationItems } from "@/config/use-navigation";
 import { formatTime, sourceLabel, toneFor } from "@/features/activity";
 import { UsageSummary } from "@/features/operations";
 import { documentHref, TYPE_LABELS } from "@/features/projects/documents-model";
+import { FinanceToday } from "@/features/finance";
 import { TractionToday } from "@/features/traction";
 import { FrictionButton, SprintScorecard } from "@/features/validation";
 import { formatRelativeTime } from "@/lib/format";
@@ -26,6 +27,7 @@ import { degradedSources, formatToday, greeting, isEvening } from "./mission-con
 import { TodayCaptured, TodayStrip, TodayWorkspaces } from "./today";
 import { DayWrapUp, MorningPlan, TodayCalendar } from "./today-day";
 import { TodayLink } from "./today-kit";
+import { TodayNews, TodayTrending } from "./today-world";
 
 /**
  * Today (Mission Control).
@@ -142,12 +144,13 @@ function MissionControl({ data }: { data: MissionControlData }) {
       <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-12">
           {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
-          <AttentionList items={data.attention} dismissed={data.dismissed} />
+          <AttentionList items={data.attention} dismissed={data.dismissed} workers={data.workers} />
           {data.focus ? <FocusBlock focus={data.focus} /> : null}
           <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
           {/* Acquisition beside the build: otherwise the work that feels
               productive always wins over the work that brings customers. */}
           <TractionToday />
+          <FinanceToday />
         </div>
 
         <div className="min-w-0 space-y-12">
@@ -158,6 +161,12 @@ function MissionControl({ data }: { data: MissionControlData }) {
           <UsageSummary />
           <RecentDocuments />
         </div>
+      </div>
+
+      {/* The outside world, below everything that is asking for something today. */}
+      <div className="mt-12 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <TodayNews className="min-w-0" />
+        <TodayTrending className="min-w-0" />
       </div>
 
       {/* Reflective rather than operational, so it sits below everything that

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Prospect } from "@shared/traction-types";
-import { hermesPrompt, NO_GENERIC_OUTREACH_RULE, queueProgress, toList } from "../traction-model";
+import { hermesPrompt, mailtoHref, NO_GENERIC_OUTREACH_RULE, portalViewPrompt, queueProgress, toList } from "../traction-model";
 
 const base: Prospect = {
   id: "pr_abc12345",
@@ -78,5 +78,31 @@ describe("helpers", () => {
 
   it("turns a textarea into a clean list", () => {
     assert.deepEqual(toList("- One\n\n• Two \n  Three"), ["One", "Two", "Three"]);
+  });
+});
+
+describe("portalViewPrompt", () => {
+  it("drafts a light note about what is waiting, and never hands over that they opened it", () => {
+    const prompt = portalViewPrompt("Acme Corp", ["Quote R 25 000 waiting"]);
+    assert.match(prompt, /Acme Corp has a quote or agreement/);
+    assert.match(prompt, /- Quote R 25 000 waiting/);
+    assert.match(prompt, /Do NOT say or hint that you know they opened anything/);
+    assert.match(prompt, /never send/i);
+    assert.equal(/opened yesterday|opened today/i.test(prompt), false);
+  });
+});
+
+describe("mailtoHref", () => {
+  it("leaves an ordinary address readable", () => {
+    assert.equal(mailtoHref("jane@firm.co.za"), "mailto:jane@firm.co.za");
+  });
+
+  it("cannot be made to carry a hidden recipient or subject", () => {
+    for (const hostile of ["jane?bcc=evil@attacker.example", "jane?subject=Hi&cc=x@y.co@attacker.example", "a&bcc=x@evil.co"]) {
+      const link = mailtoHref(hostile);
+      assert.equal(link.includes("?"), false, link);
+      assert.equal(link.includes("&"), false, link);
+      assert.equal(link.split("@").length, 2, "one real @");
+    }
   });
 });
