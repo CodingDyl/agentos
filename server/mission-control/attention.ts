@@ -46,6 +46,26 @@ function jobTitle(job: WorkerJob): string {
   return line.length > 90 ? `${line.slice(0, 89)}…` : line;
 }
 
+/** A usage or rate limit, not a broken task: the fix is another worker, not a rerun. */
+const LIMIT_HIT = /usage limit|rate.?limit|quota|out of credits|insufficient (?:credits|balance|quota)|too many requests|\b429\b/i;
+
+function retryFor(job: WorkerJob): NonNullable<AttentionItem["retry"]> {
+  return {
+    jobId: job.id,
+    worker: job.resolvedWorker ?? job.worker,
+    limitHit: LIMIT_HIT.test(job.error ?? ""),
+  };
+}
+
+/**
+ * The piece of work a job is an attempt at: its workspace and the first line
+ * of its objective. Retries and re-delegations of the same work share it.
+ */
+export function workKey(job: Pick<WorkerJob, "project" | "objective">): string {
+  const line = job.objective.split("\n")[0].trim().toLowerCase().replace(/\s+/g, " ");
+  return `${job.project ?? ""}|${line}`;
+}
+
 /** When this became the operator's problem, which is not when the job began. */
 function settledAt(job: WorkerJob): string {
   return job.completedAt ?? job.startedAt ?? job.createdAt;
@@ -77,7 +97,8 @@ export function jobAttention(job: WorkerJob): AttentionItem | undefined {
         severity: "warning",
         title: jobTitle(job),
         description: job.error ?? "The run was interrupted. Retry to start a fresh run.",
-        action: { label: "Open job to retry", href: jobHref(job) },
+        action: { label: "Open job", href: jobHref(job) },
+        retry: retryFor(job),
       };
     }
 
@@ -89,6 +110,7 @@ export function jobAttention(job: WorkerJob): AttentionItem | undefined {
       description:
         job.error ?? "The job failed. Nothing has been integrated.",
       action: { label: "Open job", href: jobHref(job) },
+      retry: retryFor(job),
     };
   }
 
@@ -242,6 +264,11 @@ export function projectAttention(
 
 export interface AttentionInput {
   jobs: readonly WorkerJob[];
+  /**
+   * Every recent job, finished ones included, so a failure that a later
+   * attempt has already taken over can be recognised and left out.
+   */
+  history?: readonly WorkerJob[];
   automations: readonly Automation[];
   projects: readonly ProjectSummary[];
   /** Subsystems that could not be read, each becoming one `system` item. */
@@ -254,9 +281,48 @@ export interface AttentionInput {
  * Ties break on age, oldest first: between two decisions of equal weight, the
  * one that has been waiting longer is the one that has been waiting longer.
  */
+/**
+ * Failed jobs, one card per piece of work.
+ *
+ * Two failed attempts at the same thing are one problem, so they are one card
+ * ("failed 2×") showing the latest attempt. And a failure that a newer attempt
+ * has already superseded (running now, or finished) is not a problem at all
+ * any more, so it is left out.
+ */
+export function failedJobAttention(
+  jobs: readonly WorkerJob[],
+  history: readonly WorkerJob[] = jobs,
+): AttentionItem[] {
+  const created = (job: WorkerJob) => Date.parse(job.createdAt);
+
+  const failedByWork = new Map<string, WorkerJob[]>();
+  for (const job of jobs) {
+    if (job.status !== "failed") continue;
+    const key = workKey(job);
+    failedByWork.set(key, [...(failedByWork.get(key) ?? []), job]);
+  }
+
+  const items: AttentionItem[] = [];
+  const everything = [...history, ...jobs];
+  for (const [key, failed] of failedByWork) {
+    const latest = failed.reduce((a, b) => (created(b) > created(a) ? b : a));
+
+    // Superseded: a later attempt at the same work that didn't fail.
+    const supersededBy = everything.find(
+      (job) => job.status !== "failed" && workKey(job) === key && created(job) > created(latest),
+    );
+    if (supersededBy) continue;
+
+    const item = jobAttention(latest);
+    if (item) items.push(failed.length > 1 ? { ...item, occurrences: failed.length } : item);
+  }
+  return items;
+}
+
 export function buildAttention(input: AttentionInput): AttentionItem[] {
   const items: AttentionItem[] = [
-    ...input.jobs.flatMap((job) => jobAttention(job) ?? []),
+    ...failedJobAttention(input.jobs, input.history),
+    ...input.jobs.filter((job) => job.status !== "failed").flatMap((job) => jobAttention(job) ?? []),
     ...input.automations.flatMap((entry) => automationAttention(entry) ?? []),
     ...input.projects.flatMap((project) => projectAttention(project) ?? []),
     ...input.degraded.map((source) => ({

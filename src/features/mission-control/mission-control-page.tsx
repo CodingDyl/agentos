@@ -143,7 +143,7 @@ function MissionControl({ data }: { data: MissionControlData }) {
       <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-12">
           {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
-          <AttentionList items={data.attention} dismissed={data.dismissed} />
+          <AttentionList items={data.attention} dismissed={data.dismissed} workers={data.workers} />
           {data.focus ? <FocusBlock focus={data.focus} /> : null}
           <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
           {/* Acquisition beside the build: otherwise the work that feels

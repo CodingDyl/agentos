@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import express from "express";
 import { AutomationControlSchema, CuratorControlSchema } from "../shared/agentos-types";
+import { WorkerIdSchema } from "../shared/worker-ids";
 import { MailBulkRequestSchema, MailCorrectionSchema } from "../shared/mail-types";
 import { ZodError } from "zod";
 import {
@@ -1851,7 +1852,14 @@ app.post("/api/worker-jobs/:id/cancel", async (request, response) => {
  * "failed". A new job with a fresh worktree that remembers what it replaced.
  */
 app.post("/api/worker-jobs/:id/retry", async (request, response) => {
-  const { job, error } = await retryJob(request.params.id);
+  // Optional: retry on a different worker. An unknown id is refused, never passed on.
+  const requested = (request.body as { worker?: unknown } | undefined)?.worker;
+  const worker = requested === undefined ? undefined : WorkerIdSchema.safeParse(requested);
+  if (worker && !worker.success) {
+    response.status(400).json({ error: "That isn't a worker AgentOS knows." });
+    return;
+  }
+  const { job, error } = await retryJob(request.params.id, { worker: worker?.data });
 
   if (!job) {
     response.status(409).json({ error: error ?? "That job could not be retried." });
