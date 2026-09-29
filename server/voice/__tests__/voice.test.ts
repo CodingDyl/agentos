@@ -47,11 +47,10 @@ describe("Fish Audio adapter", () => {
   const realFetch = globalThis.fetch;
   afterEach(() => {
     globalThis.fetch = realFetch;
-    delete process.env.FISH_AUDIO_API_KEY;
+    delete process.env.FISH_API_KEY;
   });
 
   it("refuses without a key and never calls out", async () => {
-    delete process.env.FISH_AUDIO_API_KEY;
     delete process.env.FISH_API_KEY;
     let called = false;
     globalThis.fetch = (async () => {
@@ -63,7 +62,7 @@ describe("Fish Audio adapter", () => {
   });
 
   it("sends the key and the Jarvis voice, and returns audio", async () => {
-    process.env.FISH_AUDIO_API_KEY = "secret";
+    process.env.FISH_API_KEY = "secret";
     let seen: { url: string; init: RequestInit } | undefined;
     globalThis.fetch = (async (url: string, init: RequestInit) => {
       seen = { url, init };
@@ -77,13 +76,13 @@ describe("Fish Audio adapter", () => {
   });
 
   it("classifies a rejected key without leaking it", async () => {
-    process.env.FISH_AUDIO_API_KEY = "secret";
+    process.env.FISH_API_KEY = "secret";
     globalThis.fetch = (async () => new Response("no", { status: 401 })) as typeof fetch;
     await assert.rejects(synthesise("hi"), (e: VoiceError) => e.reason === "unauthorized" && !e.message.includes("secret"));
   });
 
   it("reads a transcript and treats silence as empty", async () => {
-    process.env.FISH_AUDIO_API_KEY = "secret";
+    process.env.FISH_API_KEY = "secret";
     globalThis.fetch = (async () => Response.json({ text: " give me my morning brief " })) as typeof fetch;
     assert.equal(await transcribe(Buffer.from([1]), "audio/webm"), "give me my morning brief");
     globalThis.fetch = (async () => Response.json({ text: "" })) as typeof fetch;

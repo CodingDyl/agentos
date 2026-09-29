@@ -180,7 +180,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       playback.stop();
       return;
     }
-    if (!voiceReady) return;
+    if (!voiceReady || phase === "transcribing" || phase === "thinking") return;
 
     setIsOpen(true);
     setError(undefined);

@@ -20,6 +20,7 @@ export function JarvisPanel() {
   const { data: projectsData } = useProjects();
   const projectName = projectsData?.projects.find((entry) => entry.slug === jarvis.project)?.name;
   const proposal = useMemo(() => readProposal(jarvis.reply), [jarvis.reply]);
+  const [typing, setTyping] = useState(false);
 
   useEffect(() => {
     if (!jarvis.isOpen) return;
@@ -36,16 +37,20 @@ export function JarvisPanel() {
   const voiceUsable = voiceOn && jarvis.voice?.configured === true;
   const working = jarvis.phase === "thinking" || jarvis.run.isRunning;
   const listening = jarvis.phase === "listening";
+  // Speaking is the point, so the box stays out of the way until there is a
+  // transcript to check, an error to recover from, or you ask to type.
+  const showComposer =
+    typing || !voiceUsable || jarvis.transcript !== "" || jarvis.error !== undefined || jarvis.reply !== "" || jarvis.phase === "confirming";
 
   const hint = !voiceOn
     ? "Voice is off. Type below; answers stay text only."
     : !jarvis.voice?.configured
-      ? "No Fish Audio key on the server. Type below; answers stay text only."
+      ? "FISH_API_KEY isn't set on the server (restart it after editing .env). Type below; answers stay text only."
       : listening
         ? "Listening. It sends when you stop talking."
         : jarvis.phase === "speaking"
           ? "Speaking. Tap to stop."
-          : "Tap the orb to talk, or type below.";
+          : "Tap the orb to talk.";
 
   return (
     <section
@@ -96,6 +101,17 @@ export function JarvisPanel() {
           <p className="text-center text-[13px] leading-5 text-paper-sage">{hint}</p>
         </div>
 
+        {!showComposer ? (
+          <button
+            type="button"
+            onClick={() => setTyping(true)}
+            className={`mx-auto block cursor-pointer rounded-[4px] px-2 py-1 text-[13px] text-paper-sage underline-offset-2 hover:text-paper-moss hover:underline ${PAPER_FOCUS}`}
+          >
+            Type instead
+          </button>
+        ) : null}
+
+        {showComposer ? (
         <div>
           <label htmlFor="jarvis-transcript" className="text-[12.5px] font-medium text-paper-char">
             {jarvis.phase === "confirming" ? "Heard. Edit to stop it sending." : "Your message"}
@@ -127,6 +143,7 @@ export function JarvisPanel() {
             {projectName ? <span className="ml-auto text-[12.5px] text-paper-sage">Project: {projectName}</span> : null}
           </div>
         </div>
+        ) : null}
 
         {jarvis.error ? (
           <p role="alert" className="text-[14px] leading-6 font-medium text-paper-flame-deep">

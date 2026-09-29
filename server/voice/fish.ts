@@ -27,7 +27,7 @@ export class VoiceError extends Error {
 }
 
 function apiKey(): string | undefined {
-  return (process.env.FISH_AUDIO_API_KEY ?? process.env.FISH_API_KEY)?.trim() || undefined;
+  return process.env.FISH_API_KEY?.trim() || undefined;
 }
 
 export function isFishConfigured(): boolean {
@@ -35,17 +35,17 @@ export function isFishConfigured(): boolean {
 }
 
 function baseUrl(): string {
-  return (process.env.FISH_AUDIO_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, "");
+  return (process.env.FISH_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, "");
 }
 
 function voiceId(): string {
-  return process.env.FISH_AUDIO_VOICE_ID?.trim() || DEFAULT_VOICE_ID;
+  return process.env.FISH_VOICE_ID?.trim() || DEFAULT_VOICE_ID;
 }
 
 async function fishFetch(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const key = apiKey();
   if (!key) {
-    throw new VoiceError("FISH_AUDIO_API_KEY is not set in .env.", "not-configured");
+    throw new VoiceError("FISH_API_KEY is not set in .env.", "not-configured");
   }
 
   let response: Response;
@@ -75,7 +75,7 @@ export async function synthesise(text: string): Promise<Buffer> {
     "/v1/tts",
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", model: process.env.FISH_AUDIO_MODEL?.trim() || DEFAULT_MODEL },
+      headers: { "Content-Type": "application/json", model: process.env.FISH_MODEL?.trim() || DEFAULT_MODEL },
       body: JSON.stringify({ text, reference_id: voiceId(), format: "mp3", latency: "normal" }),
     },
     TTS_TIMEOUT_MS,
