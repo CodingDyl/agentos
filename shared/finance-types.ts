@@ -67,6 +67,7 @@ export type GoalType = (typeof GOAL_TYPES)[number];
 export const CATEGORIES = [
   "Income",
   "Transfer",
+  "Reimbursement",
   "Housing",
   "Utilities",
   "Groceries",
@@ -99,7 +100,7 @@ export const CategorySchema = z.enum(CATEGORIES);
 export const CATEGORY_GROUPS = ["needs", "wants", "business", "unsorted"] as const;
 export type CategoryGroup = (typeof CATEGORY_GROUPS)[number];
 
-export const CATEGORY_GROUP: Record<Exclude<Category, "Income" | "Transfer">, CategoryGroup> = {
+export const CATEGORY_GROUP: Record<Exclude<Category, "Income" | "Transfer" | "Reimbursement">, CategoryGroup> = {
   Housing: "needs",
   Utilities: "needs",
   Groceries: "needs",
@@ -293,7 +294,7 @@ export const AttentionSchema = z.object({
   tone: z.enum(["warn", "note"]),
   text: z.string(),
   /** Which tab it points at. */
-  tab: z.enum(["overview", "cash-flow", "spending", "subscriptions", "bills", "goals", "investments", "insights", "analyser", "settings"]),
+  tab: z.enum(["overview", "cash-flow", "spending", "subscriptions", "bills", "shared", "goals", "savings", "investments", "insights", "analyser", "settings"]),
 });
 export type Attention = z.infer<typeof AttentionSchema>;
 
@@ -379,6 +380,96 @@ export type BillStatus = z.infer<typeof BillStatusSchema>;
 export const BillSuggestionSchema = z.object({ merchant: z.string(), amount: z.number(), dueDay: z.number(), category: CategorySchema });
 export type BillSuggestion = z.infer<typeof BillSuggestionSchema>;
 
+/**
+ * Shared costs with a partner. You pay for rent and groceries; your partner
+ * sends her half back. A payment from her is not income (it is your own money
+ * coming back), so Finance files it as a reimbursement, which lowers what you
+ * spent instead of raising what you earned.
+ *
+ * `match` is the word to find in her payments (her name, as it shows on your
+ * statement).
+ */
+export const PartnerInputSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  match: z.string().trim().min(2).max(60),
+  /** `YYYY-MM`: the first month to count, so old months are not swept in. */
+  sinceMonth: z.string().regex(/^\d{4}-\d{2}$/),
+});
+export type PartnerInput = z.infer<typeof PartnerInputSchema>;
+
+/** A cost she shares: everything in a category, or every payment with a word in it. `share` is HER fraction. */
+export const SplitRuleInputSchema = z.object({
+  label: z.string().trim().min(1).max(60),
+  kind: z.enum(["category", "merchant"]),
+  value: z.string().trim().min(1).max(60),
+  share: z.number().min(0.01).max(1),
+});
+export type SplitRuleInput = z.infer<typeof SplitRuleInputSchema>;
+
+export const SettlementInputSchema = z.object({
+  amount: z.number().positive().max(100_000_000),
+  note: z.string().trim().max(120).optional(),
+});
+export type SettlementInput = z.infer<typeof SettlementInputSchema>;
+
+export const SharedSchema = z.object({
+  partner: z.object({ name: z.string(), match: z.string(), sinceMonth: z.string() }).optional(),
+  rules: z.array(z.object({ id: z.string(), label: z.string(), kind: z.enum(["category", "merchant"]), value: z.string(), share: z.number() })),
+  /** Oldest first, from `sinceMonth` to this month. */
+  months: z.array(
+    z.object({
+      month: z.string(),
+      /** What you paid, and her part of it, for each rule. */
+      rows: z.array(z.object({ ruleId: z.string(), label: z.string(), paid: z.number(), herShare: z.number() })),
+      herShare: z.number(),
+      /** What arrived from her, and what you recorded by hand. */
+      received: z.number(),
+      /** Her share less what she has sent, for this month alone. */
+      balance: z.number(),
+    }),
+  ),
+  /** What she owes you across every month since `sinceMonth`. Negative means she has paid ahead. */
+  owedBack: z.number(),
+  /** Her recent payments, so you can see what was counted. */
+  payments: z.array(z.object({ date: z.string(), description: z.string(), amount: z.number() })),
+  settlements: z.array(z.object({ id: z.string(), month: z.string(), amount: z.number(), note: z.string().optional() })),
+});
+export type Shared = z.infer<typeof SharedSchema>;
+
+export const SavingsStepSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  principle: z.string(),
+  /** What this step asks each month. */
+  needed: z.number(),
+  /** How much of it your spare money covers, in priority order. */
+  funded: z.number(),
+  note: z.string(),
+});
+
+export const SavingsPlanSchema = z.object({
+  /** False when there is not enough history to say anything honest. */
+  ready: z.boolean(),
+  income: z.number(),
+  spending: z.number(),
+  /** What is left after spending, on average: what there is to save. */
+  capacity: z.number(),
+  /** 20% of income, the usual aim, for reference. */
+  idealRate: z.number(),
+  steps: z.array(SavingsStepSchema),
+  totalNeeded: z.number(),
+  /** What to aim to save each month: what the plan asks, or what you have, whichever is less. */
+  recommended: z.number(),
+  /** How far short the plan is of what it asks. Zero when everything is covered. */
+  gap: z.number(),
+  liquidSavings: z.number(),
+  bufferMonths: z.number().optional(),
+  bufferTargetMonths: z.number(),
+  movedToSavingsThisMonth: z.number(),
+  savingsAccounts: z.array(z.object({ name: z.string(), balance: z.number() })),
+});
+export type SavingsPlan = z.infer<typeof SavingsPlanSchema>;
+
 export const DebtSchema = z.object({
   accountId: z.string(),
   name: z.string(),
@@ -440,6 +531,8 @@ export const FinanceDataSchema = z.object({
     unsorted: z.number(),
     /** Income less all spending: kept, moved to savings, or invested. */
     saved: z.number(),
+    /** Paid back to you this month by a partner. Already taken off what you spent. */
+    reimbursed: z.number(),
   }),
   transactions: z.array(FinanceTransactionRowSchema),
   subscriptions: z.array(SubscriptionSchema),
@@ -464,6 +557,8 @@ export const FinanceDataSchema = z.object({
   jev: z.object({ configured: z.boolean(), assessedCount: z.number() }),
   debts: z.array(DebtSchema),
   analysis: AnalysisSchema,
+  shared: SharedSchema,
+  savings: SavingsPlanSchema,
   bills: z.object({
     items: z.array(BillStatusSchema),
     /** What every tracked bill adds up to in a month. */
@@ -507,7 +602,7 @@ export const BudgetInputSchema = z.object({
 });
 export type BudgetInput = z.infer<typeof BudgetInputSchema>;
 
-export const FINANCE_TABS = ["overview", "cash-flow", "spending", "subscriptions", "bills", "goals", "investments", "insights", "analyser", "settings"] as const;
+export const FINANCE_TABS = ["overview", "cash-flow", "spending", "subscriptions", "bills", "shared", "goals", "savings", "investments", "insights", "analyser", "settings"] as const;
 export type FinanceTab = (typeof FINANCE_TABS)[number];
 
 /** Whole rand with comma thousands, as Finance writes it: `R 84,320`. Locale-fixed so the server and page agree. */

@@ -13,6 +13,9 @@ import {
   readBillMarks,
   readBills,
   readBudgets,
+  readPartner,
+  readSettlements,
+  readSplitRules,
   readCorrections,
   readDecisions,
   readGoals,
@@ -112,6 +115,9 @@ export function getFinance(): FinanceData {
     budgets: readBudgets(),
     bills: useSample && billsStored.length === 0 ? sampleBills() : billsStored,
     billMarks: readBillMarks(),
+    partner: readPartner(),
+    splitRules: readSplitRules(),
+    settlements: readSettlements(),
     today,
   });
 
@@ -155,6 +161,8 @@ export function getFinance(): FinanceData {
     jev: { configured: isJevConfigured(), assessedCount: assessments.size },
     debts: result.debts,
     bills: result.bills,
+    shared: result.shared,
+    savings: result.savings,
     analysis: { findings: result.findings, focus: result.focus, narrative: analysisNarrative?.text, narrativeAt: analysisNarrative?.at },
   });
 }

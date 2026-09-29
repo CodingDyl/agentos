@@ -59,6 +59,14 @@ export function cleanMerchant(description: string): string {
     .replace(/(^|[\s.])([a-z])/g, (_match, lead: string, letter: string) => `${lead}${letter.toUpperCase()}`);
 }
 
+/**
+ * A pattern that finds `term` as a whole word (or words) in text. Whole-word is
+ * the point: "rent" must find "RENT CAPE TOWN" and not "current account fee".
+ */
+export function wholeWord(term: string): RegExp {
+  return new RegExp(`(^|[^a-z0-9])${term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`, "i");
+}
+
 /** The stable key for a merchant: lower-case letters only, so `Woolworths` and `WOOLWORTHS 00329` meet. */
 export function merchantKey(merchant: string): string {
   return merchant.toLowerCase().replace(/[^a-z]+/g, "");

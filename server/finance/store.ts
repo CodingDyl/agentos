@@ -9,7 +9,7 @@ import type {
   SubscriptionDecision,
   Transaction,
 } from "../../shared/finance-types";
-import { CategorySchema, JevSubscriptionAssessmentSchema, type AccountInput, type AccountPatch, type BillInput, type BillPatch, type BudgetInput } from "../../shared/finance-types";
+import { CategorySchema, JevSubscriptionAssessmentSchema, type AccountInput, type AccountPatch, type BillInput, type BillPatch, type BudgetInput, type PartnerInput, type SettlementInput, type SplitRuleInput } from "../../shared/finance-types";
 import { isRiskProfile, type RiskProfile } from "../../shared/finance-profiler";
 import { merchantKey } from "./categorise";
 import { financeDatabase } from "./db";
@@ -452,4 +452,80 @@ export function markBillPaid(id: string, month: string, amount: number, paidOn: 
 
 export function unmarkBillPaid(id: string, month: string): void {
   financeDatabase().prepare("DELETE FROM bill_marks WHERE bill_id = ? AND month = ?").run(id, month);
+}
+
+// ------------------------------------------------------- shared costs
+
+export interface StoredPartner {
+  name: string;
+  match: string;
+  sinceMonth: string;
+}
+
+export interface StoredSplitRule {
+  id: string;
+  label: string;
+  kind: "category" | "merchant";
+  value: string;
+  share: number;
+}
+
+export interface StoredSettlement {
+  id: string;
+  month: string;
+  amount: number;
+  note?: string;
+}
+
+export function readPartner(): StoredPartner | undefined {
+  const row = financeDatabase().prepare("SELECT name, match, since_month FROM partner WHERE id = 1").get() as unknown as { name: string; match: string; since_month: string } | undefined;
+  return row ? { name: row.name, match: row.match, sinceMonth: row.since_month } : undefined;
+}
+
+export function savePartner(input: PartnerInput): void {
+  financeDatabase()
+    .prepare("INSERT INTO partner (id, name, match, since_month) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, match = excluded.match, since_month = excluded.since_month")
+    .run(input.name, input.match, input.sinceMonth);
+}
+
+/** Stops sharing costs. Her rules and recorded settlements go too: without her there is nothing to balance. */
+export function removePartner(): void {
+  const db = financeDatabase();
+  db.prepare("DELETE FROM partner").run();
+  db.prepare("DELETE FROM split_rules").run();
+  db.prepare("DELETE FROM partner_settlements").run();
+}
+
+export function readSplitRules(): StoredSplitRule[] {
+  const rows = financeDatabase().prepare("SELECT id, label, kind, value, share FROM split_rules ORDER BY label").all() as unknown as StoredSplitRule[];
+  return rows.map((row) => ({ id: row.id, label: row.label, kind: row.kind, value: row.value, share: row.share }));
+}
+
+export function createSplitRule(input: SplitRuleInput): StoredSplitRule {
+  if (input.kind === "category" && !CategorySchema.safeParse(input.value).success) throw new FinanceConflictError(`"${input.value}" is not a category.`);
+  const id = randomUUID();
+  financeDatabase().prepare("INSERT INTO split_rules (id, label, kind, value, share) VALUES (?, ?, ?, ?, ?)").run(id, input.label, input.kind, input.value, input.share);
+  return { id, ...input };
+}
+
+export function deleteSplitRule(id: string): void {
+  const result = financeDatabase().prepare("DELETE FROM split_rules WHERE id = ?").run(id);
+  if (Number(result.changes) === 0) throw new FinanceNotFoundError("That rule does not exist.");
+}
+
+export function readSettlements(): StoredSettlement[] {
+  const rows = financeDatabase().prepare("SELECT id, month, amount, note FROM partner_settlements ORDER BY month, created_at").all() as unknown as { id: string; month: string; amount: number; note: string | null }[];
+  return rows.map((row) => ({ id: row.id, month: row.month, amount: row.amount, note: row.note ?? undefined }));
+}
+
+/** Something she paid another way (cash, another bank), counted against what she owes for `month`. */
+export function createSettlement(month: string, input: SettlementInput): void {
+  financeDatabase()
+    .prepare("INSERT INTO partner_settlements (id, month, amount, note, created_at) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), month, input.amount, input.note ?? null, new Date().toISOString());
+}
+
+export function deleteSettlement(id: string): void {
+  const result = financeDatabase().prepare("DELETE FROM partner_settlements WHERE id = ?").run(id);
+  if (Number(result.changes) === 0) throw new FinanceNotFoundError("That payment does not exist.");
 }

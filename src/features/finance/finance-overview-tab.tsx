@@ -23,6 +23,11 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
             value={money(data.netCash)}
             note="Current and savings accounts, less what is owed on cards. Investments are counted on their own tab."
           />
+          {data.shared.partner && data.shared.owedBack >= 1 ? (
+            <p className="mt-4 text-[14px] leading-6 text-paper-char">
+              <span className="font-semibold text-paper-moss">+ {money(data.shared.owedBack)}</span> owed back to you by {data.shared.partner.name} for shared costs. It is not counted above until it arrives.
+            </p>
+          ) : null}
         </PaperCard>
 
         <PaperSection label="This month">

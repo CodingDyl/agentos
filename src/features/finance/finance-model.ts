@@ -10,7 +10,9 @@ export const FINANCE_TAB_OPTIONS: readonly { value: FinanceTab; label: string }[
   { value: "spending", label: "Spending" },
   { value: "subscriptions", label: "Subscriptions" },
   { value: "bills", label: "Bills" },
+  { value: "shared", label: "Shared" },
   { value: "goals", label: "Goals" },
+  { value: "savings", label: "Savings" },
   { value: "investments", label: "Investments" },
   { value: "insights", label: "Insights" },
   { value: "analyser", label: "Analyser" },
@@ -44,7 +46,7 @@ export const TIER_LABEL: Record<Subscription["tier"], string> = {
  * Transfer and Income last, because moving a payment there takes it out of
  * spending altogether.
  */
-export const CATEGORY_CHOICES: readonly Category[] = [...CATEGORIES.filter((category) => category !== "Income" && category !== "Transfer"), "Transfer", "Income"];
+export const CATEGORY_CHOICES: readonly Category[] = [...CATEGORIES.filter((category) => category !== "Income" && category !== "Transfer" && category !== "Reimbursement"), "Reimbursement", "Transfer", "Income"];
 
 export interface UpcomingPayment {
   merchant: string;

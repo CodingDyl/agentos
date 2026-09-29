@@ -179,6 +179,7 @@ export interface CategorySuggestion {
 const CATEGORY_MEANINGS: Record<Category, string> = {
   Income: "Money arriving: salary, client payments, refunds",
   Transfer: "Money moving between the owner's own accounts or into investments",
+  Reimbursement: "Money a partner or friend sends back for a cost the owner paid for both",
   Housing: "Rent, bond or home loan, levies, rates",
   Utilities: "Electricity, water, phone, internet and other household services",
   Groceries: "Food and household shopping",

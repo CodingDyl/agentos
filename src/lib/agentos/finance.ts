@@ -4,6 +4,9 @@ import {
   type AccountInput,
   type AccountPatch,
   type BillInput,
+  type PartnerInput,
+  type SettlementInput,
+  type SplitRuleInput,
   type BillPatch,
   type BudgetInput,
   type CategoryCorrection,
@@ -154,3 +157,16 @@ export const useDeleteBill = () => useFinanceMutation((billId: string) => reques
 export const useMarkBillPaid = () => useFinanceMutation(({ billId, amount }: { billId: string; amount?: number }) => request(`/api/finance/bills/${id(billId)}/paid`, json("POST", amount === undefined ? {} : { amount })));
 
 export const useUnmarkBillPaid = () => useFinanceMutation((billId: string) => request(`/api/finance/bills/${id(billId)}/paid`, { method: "DELETE" }));
+
+export const useSavePartner = () => useFinanceMutation((input: PartnerInput) => request("/api/finance/shared/partner", json("PUT", input)));
+
+export const useStopSharing = () => useFinanceMutation(() => request("/api/finance/shared/partner", { method: "DELETE" }));
+
+export const useCreateSplitRule = () => useFinanceMutation((input: SplitRuleInput) => request("/api/finance/shared/rules", json("POST", input)));
+
+export const useDeleteSplitRule = () => useFinanceMutation((ruleId: string) => request(`/api/finance/shared/rules/${id(ruleId)}`, { method: "DELETE" }));
+
+/** Something she paid another way, counted against what she owes this month. */
+export const useRecordSettlement = () => useFinanceMutation((input: SettlementInput) => request("/api/finance/shared/settlements", json("POST", input)));
+
+export const useDeleteSettlement = () => useFinanceMutation((settlementId: string) => request(`/api/finance/shared/settlements/${id(settlementId)}`, { method: "DELETE" }));

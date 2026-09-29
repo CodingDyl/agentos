@@ -2,6 +2,8 @@ import type {
   Anomaly,
   Attention,
   BillStatus,
+  SavingsPlan,
+  Shared,
   BillSuggestion,
   Debt,
   Finding,
@@ -24,8 +26,10 @@ import { CATEGORY_GROUP, formatRandAmount } from "../../shared/finance-types";
 import { monthsBetween, requiredMonthly as profilerRequiredMonthly, futureValueOfContributions, futureValueOfLump, RISK_PROFILE_INFO, type RiskProfile } from "../../shared/finance-profiler";
 import { analyse, buildDebts } from "./analyse";
 import { billTotals, buildBillStatuses, suggestBills } from "./bills";
-import { guessSubscriptionKind, isInvestmentTransfer, merchantKey, ruleCategory } from "./categorise";
-import type { BillMarkRow, StoredBill } from "./store";
+import { planSavings } from "./savings";
+import { buildShared } from "./shared-costs";
+import { guessSubscriptionKind, isInvestmentTransfer, merchantKey, ruleCategory, wholeWord } from "./categorise";
+import type { BillMarkRow, StoredBill, StoredPartner, StoredSettlement, StoredSplitRule } from "./store";
 
 /**
  * Finance's arithmetic.
@@ -78,15 +82,26 @@ export interface CategorisedTransaction extends Transaction {
   isTransfer: boolean;
 }
 
-/** A correction wins over a rule; a rule wins over nothing; nothing stays `Other` and says so. */
+/**
+ * A correction wins over a rule; a rule wins over nothing; nothing stays `Other` and says so.
+ *
+ * `partnerMatch` is the word that identifies a partner's payments to you. Money
+ * arriving from her is your own money coming back for a shared cost, so it is a
+ * `Reimbursement` (which lowers what you spent) and not `Income`. A correction
+ * of your own still wins, so a payment she sent for something else can be moved.
+ */
 export function categorise(
   transactions: readonly Transaction[],
   corrections: ReadonlyMap<string, Category>,
+  partnerMatch?: string,
 ): CategorisedTransaction[] {
+  const partner = partnerMatch?.trim() ? wholeWord(partnerMatch) : undefined;
+
   return transactions.map((transaction) => {
     const merchant = transaction.merchant ?? transaction.description;
     const corrected = corrections.get(merchantKey(merchant));
-    const byRule = ruleCategory(transaction.description, transaction.amount);
+    const fromPartner = transaction.amount > 0 && partner !== undefined && (partner.test(transaction.description) || partner.test(merchant));
+    const byRule = fromPartner ? ("Reimbursement" as const) : ruleCategory(transaction.description, transaction.amount);
     const category: Category = corrected ?? byRule ?? "Other";
 
     return {
@@ -442,9 +457,9 @@ export function categoryTotals(
 }
 
 /** Where each rand of income went: needs, wants, business, unsorted, and what was left. */
-export function incomeSplit(categories: readonly CategoryTotal[], summary: MonthSummary) {
+export function incomeSplit(categories: readonly CategoryTotal[], summary: MonthSummary, reimbursed = 0) {
   const groupTotal = (group: "needs" | "wants" | "business" | "unsorted") =>
-    r2(sum(categories.filter((entry) => entry.category !== "Income" && entry.category !== "Transfer" && CATEGORY_GROUP[entry.category] === group).map((entry) => entry.amount)));
+    r2(sum(categories.filter((entry) => entry.category !== "Income" && entry.category !== "Transfer" && entry.category !== "Reimbursement" && CATEGORY_GROUP[entry.category] === group).map((entry) => entry.amount)));
 
   return {
     income: summary.income,
@@ -453,6 +468,7 @@ export function incomeSplit(categories: readonly CategoryTotal[], summary: Month
     business: groupTotal("business"),
     unsorted: groupTotal("unsorted"),
     saved: summary.saved,
+    reimbursed: r2(reimbursed),
   };
 }
 
@@ -512,6 +528,9 @@ export interface EngineInput {
   budgets?: ReadonlyMap<Category, number>;
   bills?: readonly StoredBill[];
   billMarks?: readonly BillMarkRow[];
+  partner?: StoredPartner;
+  splitRules?: readonly StoredSplitRule[];
+  settlements?: readonly StoredSettlement[];
   /** `YYYY-MM-DD`. */
   today: string;
 }
@@ -541,12 +560,14 @@ export interface EngineOutput {
   debts: Debt[];
   findings: Finding[];
   focus: string[];
+  shared: Shared;
+  savings: SavingsPlan;
   bills: { items: BillStatus[]; committedMonthly: number; paidThisMonth: number; remaining: number; incomeShare?: number; suggestions: BillSuggestion[] };
 }
 
 export function computeFinance(input: EngineInput): EngineOutput {
   const month = monthOf(input.today);
-  const ledger = categorise(input.transactions, input.corrections);
+  const ledger = categorise(input.transactions, input.corrections, input.partner?.match);
 
   const recurring = detectRecurring(ledger, input.today);
   const recurringKeys = new Set(recurring.map((entry) => entry.key));
@@ -619,7 +640,9 @@ export function computeFinance(input: EngineInput): EngineOutput {
   const bills = { items: billItems, ...billTotals(billItems, summary.income), suggestions: suggestBills(recurring, input.bills ?? [], isCancellable) };
 
   const debts = buildDebts(input.accounts, freeCashFlow);
-  const split = incomeSplit(categories, summary);
+  const reimbursed = ledger.filter((t) => monthOf(t.date) === month && t.amount > 0 && t.category === "Reimbursement").reduce((total, t) => total + t.amount, 0);
+  const split = incomeSplit(categories, summary, reimbursed);
+  const shared = buildShared({ partner: input.partner, rules: input.splitRules ?? [], settlements: input.settlements ?? [], ledger, today: input.today });
   const analysis = analyse({
     accounts: input.accounts,
     summary,
@@ -631,12 +654,14 @@ export function computeFinance(input: EngineInput): EngineOutput {
     goals,
     debts,
     bills: { committedMonthly: bills.committedMonthly, incomeShare: bills.incomeShare, count: billItems.length },
+    owedBack: shared.owedBack,
+    partnerName: shared.partner?.name,
     averageMonthlySpend,
     freeCashFlow,
     month,
   });
 
-  const attention = buildAttention({ today: input.today, bills: billItems, subscriptions, categories, goals, anomalies, uncategorised: rows.filter((r) => r.categorySource === "none" && r.amount < 0).length });
+  const attention = buildAttention({ today: input.today, owedBack: shared.owedBack, partnerName: shared.partner?.name, bills: billItems, subscriptions, categories, goals, anomalies, uncategorised: rows.filter((r) => r.categorySource === "none" && r.amount < 0).length });
   const health = buildHealth({ summary, emergencyMonths, subscriptionMonthly, goals, investments });
 
   return {
@@ -664,12 +689,16 @@ export function computeFinance(input: EngineInput): EngineOutput {
     debts,
     findings: analysis.findings,
     focus: analysis.focus,
+    shared,
+    savings: planSavings({ month, months, accounts: input.accounts, goals, debts, averageMonthlySpend, ledger }),
     bills,
   };
 }
 
 export function buildAttention(input: {
   today: string;
+  owedBack: number;
+  partnerName: string | undefined;
   bills: readonly BillStatus[];
   subscriptions: readonly Subscription[];
   categories: readonly CategoryTotal[];
@@ -697,6 +726,10 @@ export function buildAttention(input: {
   }
   for (const goal of input.goals.filter((g) => g.status === "overdue")) {
     attention.push({ id: `goal:${goal.id}`, tone: "note", text: `${goal.name} passed its date with ${formatRandAmount(goal.remaining)} to go`, tab: "goals" });
+  }
+
+  if (input.owedBack >= 500) {
+    attention.push({ id: "owed-back", tone: "note", text: `${input.partnerName ?? "Your partner"} owes you ${formatRandAmount(input.owedBack)} for shared costs`, tab: "shared" });
   }
 
   for (const bill of input.bills.filter((entry) => entry.status === "missing")) {

@@ -63,6 +63,9 @@ export interface AnalyseInput {
   goals: readonly GoalProgress[];
   debts: readonly Debt[];
   bills: { committedMonthly: number; incomeShare?: number; count: number };
+  /** What a partner owes you for shared costs, and her name as you entered it. */
+  owedBack: number;
+  partnerName?: string;
   averageMonthlySpend: number | undefined;
   freeCashFlow: number | undefined;
   /** `YYYY-MM`. */
@@ -160,6 +163,19 @@ export function analyse(input: AnalyseInput): { findings: Finding[]; focus: stri
       summary: `Your ${input.bills.count} tracked bills come to ${R(input.bills.committedMonthly)} a month, ${pct(share)} of income.`,
       evidence: ["Bills are the hardest costs to cut in a bad month, so the lower their share, the more room you have. Under 40% is comfortable."],
       action: share <= 0.4 ? undefined : "Look at the biggest bill first. Renegotiating or replacing one large fixed cost usually saves more than trimming many small ones.",
+    });
+  }
+
+  // ---- Money owed back
+  if (input.owedBack >= 500) {
+    findings.push({
+      id: "owed-back",
+      principle: "Count only the money you have",
+      title: "Owed back to you",
+      status: "watch",
+      summary: `${input.partnerName ?? "Your partner"} owes you ${R(input.owedBack)} for shared costs.`,
+      evidence: ["Money you are owed is not savings yet: it is not counted in your savings rate or your buffer until it arrives."],
+      action: "Ask for it, or agree a regular date each month, so your own cash is not carrying her share.",
     });
   }
 

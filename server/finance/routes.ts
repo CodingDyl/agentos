@@ -1,6 +1,6 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
-import { AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
+import { PartnerInputSchema, SettlementInputSchema, SplitRuleInputSchema, AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
 import { merchantKey } from "./categorise";
 import { getFinance, localToday, syncFinance } from "./finance";
 import { InvestecError, isInvestecConfigured } from "./investec";
@@ -9,7 +9,7 @@ import { JevError } from "../mail/jev-client";
 import { AnalyserError, askAnalyser, writeAnalysis } from "./analyser";
 import { CsvImportError, readStatement, type SignRule } from "./csv-import";
 import { ReviewError, writeNarrative } from "./review";
-import { createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
+import { createSettlement, createSplitRule, deleteSettlement, deleteSplitRule, removePartner, savePartner, createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
 
 /**
  * `/api/finance`.
@@ -317,5 +317,68 @@ financeRouter.delete("/bills/:id/paid", (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "undo that");
+  }
+});
+
+// --------------------------------------------------------- shared costs
+
+/** Who your partner is, as her payments show on your statement, and the month to start counting from. */
+financeRouter.put("/shared/partner", (request, response) => {
+  const input = parse(PartnerInputSchema, request.body, response, "partner");
+  if (!input) return;
+  try {
+    savePartner(input);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "save the partner");
+  }
+});
+
+financeRouter.delete("/shared/partner", (_request, response) => {
+  try {
+    removePartner();
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "stop sharing costs");
+  }
+});
+
+financeRouter.post("/shared/rules", (request, response) => {
+  const input = parse(SplitRuleInputSchema, request.body, response, "rule");
+  if (!input) return;
+  try {
+    response.status(201).json({ rule: createSplitRule(input) });
+  } catch (error) {
+    fail(response, error, "add the rule");
+  }
+});
+
+financeRouter.delete("/shared/rules/:id", (request, response) => {
+  try {
+    deleteSplitRule(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "remove the rule");
+  }
+});
+
+/** Something she paid another way (cash, another bank), counted against this month. */
+financeRouter.post("/shared/settlements", (request, response) => {
+  const input = parse(SettlementInputSchema, request.body, response, "payment");
+  if (!input) return;
+  try {
+    createSettlement(localToday().slice(0, 7), input);
+    response.status(201).json({ ok: true });
+  } catch (error) {
+    fail(response, error, "record the payment");
+  }
+});
+
+financeRouter.delete("/shared/settlements/:id", (request, response) => {
+  try {
+    deleteSettlement(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "remove the payment");
   }
 });

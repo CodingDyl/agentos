@@ -1,7 +1,7 @@
 import type { BillStatus, BillSuggestion, Category, Transaction } from "../../shared/finance-types";
 import { addMonths, monthOf, type RecurringMerchant } from "./engine";
 import type { BillMarkRow, StoredBill } from "./store";
-import { merchantKey } from "./categorise";
+import { merchantKey, wholeWord } from "./categorise";
 
 /**
  * Bills: the fixed monthly payments you keep track of.
@@ -29,8 +29,6 @@ export function dueDateFor(month: string, dueDay: number): string {
   return `${month}-${String(Math.min(dueDay, last)).padStart(2, "0")}`;
 }
 
-const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 /**
  * Does this payment belong to the bill? A whole-word match of the bill's match
  * word (its name, if none was set) in the description or merchant. Whole-word
@@ -40,7 +38,7 @@ export function paymentMatchesBill(bill: Pick<StoredBill, "name" | "match">, tra
   if (transaction.amount >= 0) return false;
   const term = (bill.match?.trim() || bill.name).toLowerCase();
   if (!term) return false;
-  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegex(term)}([^a-z0-9]|$)`, "i");
+  const pattern = wholeWord(term);
   return pattern.test(transaction.description) || pattern.test(transaction.merchant ?? "");
 }
 

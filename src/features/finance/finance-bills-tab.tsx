@@ -278,7 +278,7 @@ function BillForm({ bill, initial, onDone }: { bill?: BillStatus; initial?: Bill
       <label className="block">
         <FieldLabel>Category</FieldLabel>
         <select value={category} onChange={(event) => setCategory(event.target.value as BillStatus["category"])} className={`${PAPER_INPUT} w-full`}>
-          {CATEGORY_CHOICES.filter((entry) => entry !== "Income" && entry !== "Transfer").map((entry) => (
+          {CATEGORY_CHOICES.filter((entry) => entry !== "Income" && entry !== "Transfer" && entry !== "Reimbursement").map((entry) => (
             <option key={entry} value={entry}>
               {entry}
             </option>

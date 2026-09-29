@@ -58,6 +58,7 @@ export function buildAnalysisPacket(data: FinanceData): string {
   }
 
   if (data.bills.items.length > 0) lines.push(`Fixed monthly bills tracked: ${data.bills.items.length}, totalling ${R(data.bills.committedMonthly)} a month${data.bills.incomeShare === undefined ? "" : ` (${Math.round(data.bills.incomeShare * 100)}% of income)`}.`);
+  if (data.shared.partner && Math.abs(data.shared.owedBack) >= 1) lines.push(`Owed back to the person by a partner for shared costs: ${round100(data.shared.owedBack)}.`);
   lines.push(`Recurring subscriptions: ${data.subscriptions.length}, costing ${R(data.subscriptionMonthly)} a month.`);
 
   const cash = data.accounts.filter((a) => a.type === "current" || a.type === "savings").reduce((total, a) => total + Math.max(0, a.balance), 0);

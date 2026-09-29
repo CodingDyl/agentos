@@ -100,7 +100,7 @@ function CategoryRow({ entry, open, onToggle, readOnly }: { entry: CategoryTotal
   const save = useSaveBudget();
   const [draft, setDraft] = useState(entry.budget === undefined ? "" : String(entry.budget));
   const over = entry.budget !== undefined && entry.amount > entry.budget;
-  const group = entry.category === "Income" || entry.category === "Transfer" ? undefined : CATEGORY_GROUP[entry.category];
+  const group = entry.category === "Income" || entry.category === "Transfer" || entry.category === "Reimbursement" ? undefined : CATEGORY_GROUP[entry.category];
   const draftValue = Number(draft);
   const draftValid = draft.trim() !== "" && Number.isFinite(draftValue) && draftValue >= 0 && draftValue !== entry.budget;
   const panelId = `category-${entry.category.replace(/\W+/g, "-")}`;

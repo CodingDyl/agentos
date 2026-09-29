@@ -200,7 +200,7 @@ describe("where the money goes", () => {
       ],
       today: TODAY,
     });
-    assert.deepEqual(output.split, { income: 20_000, needs: 8_000, wants: 300, business: 400, unsorted: 100, saved: 11_200 });
+    assert.deepEqual(output.split, { income: 20_000, needs: 8_000, wants: 300, business: 400, unsorted: 100, saved: 11_200, reimbursed: 0 });
   });
 
   it("lists the biggest merchants inside a category", () => {

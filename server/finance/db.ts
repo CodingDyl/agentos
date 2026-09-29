@@ -127,6 +127,33 @@ const MIGRATIONS: readonly string[] = [
     PRIMARY KEY (bill_id, month)
   );
   `,
+  `
+  -- Costs shared with a partner: who she is (as her payments show on your
+  -- statement), which costs she shares and her fraction of each, and anything
+  -- she settled some other way. One partner, so one row.
+  CREATE TABLE IF NOT EXISTS partner (
+    id           INTEGER PRIMARY KEY CHECK (id = 1),
+    name         TEXT NOT NULL,
+    match        TEXT NOT NULL,
+    since_month  TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS split_rules (
+    id      TEXT PRIMARY KEY,
+    label   TEXT NOT NULL,
+    kind    TEXT NOT NULL,
+    value   TEXT NOT NULL,
+    share   REAL NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS partner_settlements (
+    id          TEXT PRIMARY KEY,
+    month       TEXT NOT NULL,
+    amount      REAL NOT NULL,
+    note        TEXT,
+    created_at  TEXT NOT NULL
+  );
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

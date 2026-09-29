@@ -6,6 +6,8 @@ import { useNavigationItems } from "@/config/use-navigation";
 import { useFinance } from "@/lib/agentos/finance";
 import { FinanceAnalyserTab } from "./finance-analyser-tab";
 import { FinanceBillsTab } from "./finance-bills-tab";
+import { FinanceSavingsTab } from "./finance-savings-tab";
+import { FinanceSharedTab } from "./finance-shared-tab";
 import { FinanceCashFlowTab } from "./finance-cash-flow-tab";
 import { FinanceGoalsTab } from "./finance-goals-tab";
 import { FinanceInsightsTab } from "./finance-insights-tab";
@@ -105,6 +107,8 @@ function Finance({ data, tab, onTab }: { data: FinanceData; tab: FinanceTab; onT
         {tab === "spending" ? <FinanceSpendingTab data={data} /> : null}
         {tab === "subscriptions" ? <FinanceSubscriptionsTab data={data} /> : null}
         {tab === "bills" ? <FinanceBillsTab data={data} /> : null}
+        {tab === "shared" ? <FinanceSharedTab data={data} /> : null}
+        {tab === "savings" ? <FinanceSavingsTab data={data} /> : null}
         {tab === "goals" ? <FinanceGoalsTab data={data} /> : null}
         {tab === "investments" ? <FinanceInvestmentsTab data={data} /> : null}
         {tab === "insights" ? <FinanceInsightsTab data={data} /> : null}
