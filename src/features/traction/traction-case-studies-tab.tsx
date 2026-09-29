@@ -20,7 +20,8 @@ import { optional, toList } from "./traction-model";
  * A finished project raises an opportunity; starting one opens a draft; Hermes
  * fills the sections nobody has written yet from what Virtec and the
  * workspace know. It never invents a result: what was not measured stays a
- * visible `[NEEDS DATA]` gap, and a study with gaps cannot be marked ready.
+ * visible `[NEEDS DATA]` marker, and a study still holding one cannot be marked ready.
+ * Nothing else is required: screenshots, sections and the missing note are optional.
  * The testimonial is the client's — AgentOS can only put the ask on Waiting On.
  */
 
@@ -182,7 +183,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
   const remove = useDeleteCaseStudy();
 
   const set = (key: keyof Draft) => (event: { target: { value: string } }) => setDraft((current) => ({ ...current, [key]: event.target.value }));
-  const gaps = toList(draft.missing).length > 0 || SECTIONS.some((section) => /\[NEEDS DATA/i.test(draft[section.key]));
+  const gaps = SECTIONS.some((section) => /\[NEEDS DATA/i.test(draft[section.key]));
   const dirty = JSON.stringify(draft) !== JSON.stringify(toDraft(study));
   const error = save.error ?? hermes.error ?? testimonial.error ?? remove.error;
 
@@ -257,7 +258,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <FieldLabel>Still missing (one per line)</FieldLabel>
+            <FieldLabel>Still missing <span className="font-normal text-paper-ash">(a note to yourself, one per line; it does not block Ready)</span></FieldLabel>
             <textarea rows={3} className={cn(PAPER_INPUT, "w-full py-2")} value={draft.missing} onChange={set("missing")} />
           </label>
           <label className="block">
@@ -274,7 +275,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
             <PaperButton
               variant="ghost"
               disabled={gaps || save.isPending}
-              title={gaps ? "Fill every [NEEDS DATA] and clear the missing list first" : undefined}
+              title={gaps ? "Replace or delete every [NEEDS DATA] marker in the sections first" : undefined}
               onClick={() => save.mutate({ caseStudyId: study.id, input: input("ready") })}
             >
               <Check className="size-3.5" aria-hidden="true" />

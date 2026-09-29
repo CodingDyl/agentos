@@ -283,18 +283,22 @@ describe("case studies", () => {
     assert.equal(redrafted.title, "My own title");
   });
 
-  it("refuses to mark a study ready while data is missing", async () => {
+  it("refuses to mark a study ready while a [NEEDS DATA] marker is left", async () => {
     const study = await store.startCaseStudy({ title: "T", client: "C", result: "Enquiries up [NEEDS DATA: numbers]" });
     await assert.rejects(
       store.replaceCaseStudy(study.id, { title: "T", client: "C", result: study.result, status: "ready", missing: [] }),
       store.TractionConflictError,
     );
-    await assert.rejects(
-      store.replaceCaseStudy(study.id, { title: "T", client: "C", result: "Enquiries doubled", status: "ready", missing: ["Screenshots"] }),
-      store.TractionConflictError,
-    );
     const ready = await store.replaceCaseStudy(study.id, { title: "T", client: "C", result: "Enquiries doubled", status: "ready", missing: [] });
     assert.equal(ready.status, "ready");
+  });
+
+  it("lets a study be ready or published with no screenshots, empty sections and a missing note", async () => {
+    const study = await store.startCaseStudy({ title: "Thin", client: "C" });
+    const ready = await store.replaceCaseStudy(study.id, { title: "Thin", client: "C", problem: "Slow site", status: "ready", missing: ["Screenshots", "Creatives"], assetIds: [] });
+    assert.equal(ready.status, "ready");
+    const published = await store.replaceCaseStudy(study.id, { ...ready, status: "published", publishedUrl: "https://virtara.co.za/work/thin" });
+    assert.equal(published.status, "published");
   });
 
   it("will not draft from nothing, and never calls Hermes to find out", async () => {

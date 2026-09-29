@@ -1200,8 +1200,10 @@ export function startCaseStudy(
 /**
  * Replaces a case study's content with what the editor holds.
  *
- * "Ready" and "published" need nothing missing: a study that still says
- * `[NEEDS DATA]` somewhere is not evidence yet, however good the rest reads.
+ * "Ready" and "published" need no `[NEEDS DATA]` marker left in a section: a
+ * claim with a hole in it is not evidence yet. Nothing else is required. An
+ * empty section, no screenshots and a non-empty "still missing" note are all
+ * the author's call; that note is a reminder, not a gate.
  */
 export function replaceCaseStudy(
   id: string,
@@ -1226,9 +1228,9 @@ export function replaceCaseStudy(
       }),
     );
 
-    if (next.status !== "draft" && (next.missing.length > 0 || hasGaps(next))) {
+    if (next.status !== "draft" && hasGaps(next)) {
       throw new TractionConflictError(
-        "A case study with missing data cannot be marked ready or published",
+        "Replace or delete every [NEEDS DATA] marker in the sections before marking this ready or published",
       );
     }
 

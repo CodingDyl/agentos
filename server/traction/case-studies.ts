@@ -149,7 +149,7 @@ export function buildDraftPacket(context: CaseStudyContext): string {
     "",
     "Rules:",
     "- Use only the facts given. Never invent numbers, quotes, timelines or outcomes.",
-    "- Any result that was not measured becomes `[NEEDS DATA: what would prove it]`, and is listed in `missing`.",
+    "- Any result that was not measured becomes `[NEEDS DATA: what would prove it]`, and is listed in `missing`. Do not list screenshots, images or creatives as missing: they are optional.",
     "- Do not mention prices, fees or what the client paid.",
     "- Plain, confident English. No hype words (\"revolutionary\", \"seamless\", \"cutting-edge\").",
     "- Each section 2–5 sentences. Markdown allowed inside a section (short lists are fine).",
