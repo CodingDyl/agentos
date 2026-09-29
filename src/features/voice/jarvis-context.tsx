@@ -8,8 +8,11 @@ import { reportActivity } from "@/lib/agentos/client";
 import { useAgentCapabilities, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
 import { getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
 import { JarvisContext, type JarvisApi } from "./jarvis-store";
+import { describeMicFailure, micSupportFailure, readMicPermission, watchMicPermission, type MicPermission } from "./mic-permission";
+import { SpeechQueue } from "./speech-queue";
 import { useVoicePlayback } from "./use-voice-playback";
 import { useVoiceRecorder } from "./use-voice-recorder";
+import { VoiceSession } from "./voice-session";
 import { AUTO_SEND_MS, isSendable, resolveProject, type VoicePhase } from "./voice-model";
 
 /**
@@ -44,6 +47,29 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const [audioNote, setAudioNote] = useState<string>();
   const [project, setProject] = useState<string>();
   const [fallbackReply, setFallbackReply] = useState("");
+  const [micPermission, setMicPermission] = useState<MicPermission>("unknown");
+  // True while the browser's own permission dialog is open, waiting on you.
+  const [askingMic, setAskingMic] = useState(false);
+  // The last attempt to record failed at the microphone, so Try again applies.
+  const [micFailed, setMicFailed] = useState(false);
+
+  // Follow the browser's microphone setting, so the launcher can say "tap to
+  // allow" before the first press, and recover the moment it is switched on.
+  useEffect(() => {
+    let live = true;
+    let unwatch: () => void = () => undefined;
+    void readMicPermission().then((state) => {
+      if (live) setMicPermission(state);
+    });
+    void watchMicPermission((state) => setMicPermission(state)).then((stop) => {
+      if (live) unwatch = stop;
+      else stop();
+    });
+    return () => {
+      live = false;
+      unwatch();
+    };
+  }, []);
 
   const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
   const pageProject = projectInContext(location.pathname, location.search);
@@ -54,30 +80,58 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
 
   const run = useAgentRun({ onFinished: (status, runId, output) => finished.current(status, runId, output) });
 
-  const playback = useVoicePlayback(() => setPhase("idle"));
+  const playback = useVoicePlayback();
 
-  const speak = useCallback(
-    async (text: string) => {
-      setAudioNote(undefined);
-      if (!voiceReady) {
-        setPhase("idle");
-        return;
-      }
-      setPhase("speaking");
-      try {
-        await playback.play(await speakText(text));
-      } catch (failure) {
+  // What is being said while Hermes is still writing. `muted` lasts until the
+  // next question: once you have silenced Jarvis, later text is not spoken.
+  const [session] = useState(() => new VoiceSession());
+
+  const [queue] = useState(
+    () =>
+      new SpeechQueue({
+      synthesise: (text) => speakText(text),
+      play: playback.play,
+      stopPlayback: playback.stop,
+      isSkippable: (failure) => failure instanceof VoiceRequestError && failure.reason === "empty",
+      onSpeaking: (speaking) => {
+        if (speaking) setPhase("speaking");
+        else if (session.isWriting()) setPhase("thinking");
+      },
+      onDrained: () => setPhase("idle"),
+      onError: (failure) => {
         // The words are already on screen. Losing the voice must not lose them.
+        session.mute();
         setAudioNote(
           failure instanceof VoiceRequestError
             ? `Voice unavailable (${failure.message}) Showing text only.`
             : "The browser would not play audio. Showing text only.",
         );
-        setPhase("idle");
-      }
-    },
-    [playback, voiceReady],
+        setPhase(session.isWriting() ? "thinking" : "idle");
+      },
+    }),
   );
+
+  /** Silences Jarvis now and for the rest of this answer. */
+  const silence = useCallback(() => {
+    session.mute();
+    queue.reset();
+  }, [queue, session]);
+
+  useEffect(() => () => queue.reset(), [queue]);
+
+  const say = useCallback(
+    (text: string, final: boolean) => {
+      if (session.isMuted() || !voiceReady) return;
+      for (const piece of session.feed(text, final)) queue.enqueue(piece);
+    },
+    [queue, session, voiceReady],
+  );
+
+  // Speak each finished sentence as it arrives, not after the whole answer.
+  useEffect(() => {
+    if (!run.runId || !run.isRunning) return;
+    say(run.state.output, false);
+  }, [run.runId, run.isRunning, run.state.output, say]);
 
   useEffect(() => {
     finished.current = (status, runId, output) => {
@@ -85,11 +139,24 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       const outcome = RUN_OUTCOMES[status as keyof typeof RUN_OUTCOMES];
       if (outcome) void reportActivity({ type: outcome, project, runId });
 
-      // Speak the answer once, when the run has settled.
-      if (status === "completed" && output?.trim()) void speak(output);
-      else if (status === "failed") {
+      session.end();
+
+      if (status === "failed") {
+        queue.reset();
         setError("Hermes could not complete that. Your words are still in the box, so you can send them again.");
         setPhase("error");
+        return;
+      }
+      if (status !== "completed") {
+        queue.reset();
+        setPhase("idle");
+        return;
+      }
+
+      // Flush what was still being written, then let the queue run dry.
+      if (voiceReady && !session.isMuted()) {
+        say(output ?? "", true);
+        queue.close();
       } else setPhase("idle");
     };
   });
@@ -99,7 +166,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       const text = (override ?? transcript).trim();
       if (!isSendable(text)) return;
 
-      playback.stop();
+      queue.reset();
+      session.begin();
       setAutoSendAt(undefined);
       setError(undefined);
       setAudioNote(undefined);
@@ -113,6 +181,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       // them, plain messaging where it does not.
       if (capabilities?.runs === true) {
         run.start({ message: text, project: target }).catch((failure: unknown) => {
+          session.end();
           setError(failure instanceof Error ? failure.message : "Hermes could not start the run.");
           setPhase("error");
         });
@@ -124,18 +193,23 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         { message: text, project: target },
         {
           onSuccess: (response) => {
+            session.end();
             setFallbackReply(response.message.content);
             void refreshVault();
-            void speak(response.message.content);
+            if (voiceReady) {
+              say(response.message.content, true);
+              queue.close();
+            } else setPhase("idle");
           },
           onError: (failure) => {
+            session.end();
             setError(failure.message);
             setPhase("error");
           },
         },
       );
     },
-    [capabilities?.runs, pageProject, playback, projects, refreshVault, run, sendMessage, speak, transcript],
+    [capabilities?.runs, pageProject, projects, queue, refreshVault, run, say, sendMessage, session, transcript, voiceReady],
   );
 
   // A transcript sends itself unless you touch it. Send goes immediately.
@@ -177,47 +251,86 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (phase === "speaking") {
-      playback.stop();
+      silence();
+      setPhase(session.isWriting() ? "thinking" : "idle");
       return;
     }
-    if (!voiceReady || phase === "transcribing" || phase === "thinking") return;
+    if (phase === "transcribing" || phase === "thinking") return;
+    if (!voiceReady) {
+      // Nothing to record into yet. Look again (the server may have been
+      // restarted since the page loaded) and show why on the panel.
+      void voiceQuery.refetch();
+      setIsOpen(true);
+      return;
+    }
 
     setError(undefined);
+    setMicFailed(false);
     setAutoSendAt(undefined);
     setTranscriptState("");
+    const unsupported = micSupportFailure();
+    if (unsupported) {
+      setMicFailed(true);
+      setError(unsupported.message);
+      setPhase("error");
+      return;
+    }
+
+    // While the browser's answer is still "prompt", this call is what raises
+    // its permission dialog. Once blocked it fails at once, and we say where
+    // to switch it back on instead.
+    setAskingMic(true);
     recorder.start().then(
-      () => setPhase("listening"),
       () => {
-        setError("The microphone isn't available. Allow microphone access for this page, or type instead.");
-        setPhase("error");
+        setAskingMic(false);
+        setMicPermission("granted");
+        setPhase("listening");
+      },
+      (failure: unknown) => {
+        setAskingMic(false);
+        // Ask the browser what it says about this site *now*: a refusal while
+        // the site shows "allowed" is the operating system's doing, not the site's.
+        void readMicPermission().then((state) => {
+          const problem = describeMicFailure(failure, state);
+          setMicPermission(state === "unknown" && problem.blocked ? "denied" : state);
+          setMicFailed(true);
+          setError(problem.detail ? `${problem.message} (${problem.detail})` : problem.message);
+          setPhase("error");
+        });
       },
     );
-  }, [handleRecorded, phase, playback, recorder, voiceReady]);
+  }, [handleRecorded, phase, recorder, session, silence, voiceQuery, voiceReady]);
 
   const cancelTranscript = useCallback(() => {
     recorder.cancel();
-    playback.stop();
+    silence();
     setAutoSendAt(undefined);
     setTranscriptState("");
     setError(undefined);
     setPhase("idle");
-  }, [playback, recorder]);
+  }, [recorder, silence]);
 
   const stop = useCallback(() => {
-    playback.stop();
+    // While Jarvis is talking, stop means stop talking. A second press stops the run.
+    if (phase === "speaking") {
+      silence();
+      setPhase(session.isWriting() ? "thinking" : "idle");
+      return;
+    }
+    silence();
     if (run.isRunning) void run.stop();
     else setPhase("idle");
-  }, [playback, run]);
+  }, [phase, run, session, silence]);
 
   const setVoiceOn = useCallback(
     (enabled: boolean) => {
       if (!enabled) {
         recorder.cancel();
-        playback.stop();
+        silence();
       }
       void setVoiceEnabled(enabled).then((next) => queryClient.setQueryData(["agentos", "voice", "status"], next));
     },
-    [playback, queryClient, recorder],
+    [queryClient, recorder, silence],
   );
 
   const respond = useCallback(
@@ -231,7 +344,12 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
 
   const api: JarvisApi = {
     isOpen,
-    open: () => setIsOpen(true),
+    open: () => {
+      setIsOpen(true);
+      // Opening is a good moment to look again: the server may have been
+      // restarted (or its key added) since this page first asked.
+      void voiceQuery.refetch();
+    },
     close: () => {
       setIsOpen(false);
       // Closing acknowledges an error; the words you said stay in the box.
@@ -261,6 +379,10 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     approvalError: run.approvalError,
     error,
     audioNote,
+    micPermission,
+    askingMic,
+    micFailed,
+    voiceStatusError: voiceQuery.isError,
     voice,
     setVoiceOn,
     run,

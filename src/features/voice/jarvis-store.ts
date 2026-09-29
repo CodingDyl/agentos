@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { ApprovalDecision, ApprovalRequest } from "@shared/agentos-types";
 import type { VoiceStatus } from "@shared/voice-types";
 import type { UseAgentRunResult } from "@/features/agent/hooks/use-agent-run";
+import type { MicPermission } from "./mic-permission";
 import type { VoicePhase } from "./voice-model";
 
 export interface JarvisApi {
@@ -30,6 +31,14 @@ export interface JarvisApi {
   error?: string;
   /** Audio failed or is off, but the text answer is intact. */
   audioNote?: string;
+  /** The browser's microphone setting. `prompt` means pressing record will ask. */
+  micPermission: MicPermission;
+  /** The browser's permission dialog is open and waiting for an answer. */
+  askingMic: boolean;
+  /** The last attempt failed at the microphone itself. */
+  micFailed: boolean;
+  /** The voice status could not be read at all: the data server is probably not running. */
+  voiceStatusError: boolean;
   voice?: VoiceStatus;
   setVoiceOn: (enabled: boolean) => void;
   run: UseAgentRunResult;
