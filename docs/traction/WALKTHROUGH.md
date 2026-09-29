@@ -142,5 +142,10 @@ cannot show how many times. If you open a client's link yourself, use
 - The `/read` page is a soft gate: the content ships with the site.
 - Anyone can type any address into a guide form, so keep the email plain.
 - Rate limits are per server instance. The site keys are the real protection.
-- `/api/send-email` on virtara-backend is unused and should be deleted once
-  the new Virtara site is live.
+- `/api/send-email` on virtara-backend is deprecated and now locked down
+  (escaped, rate limited, fixed subject prefix). Each use logs "DEPRECATED
+  /api/send-email used". Once that stops appearing after the new Virtara site
+  is deployed, delete the route.
+- The newsletter list (Virtec > Subscriptions) is now written server-side.
+  Unsubscribing takes only an email address, as it always did, so anyone can
+  unsubscribe an address; it is rate limited per visitor.
