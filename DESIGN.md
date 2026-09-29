@@ -843,7 +843,7 @@ Every screen should make the next useful action obvious.
 
 ## 27. Paper — the migration world (in progress)
 
-AgentOS is moving, one screen at a time, from Editorial Terminal to **Paper**, a world derived from PostHog's desktop-OS style: a document opened on a sandy desk. Everything above still governs every screen that has not moved. As of 2026-09-25 these have moved: **Inbox** (formerly Mail; scoped trial, `src/styles/mail.css`), **Operations** including its agent detail page and System tab, and — with Step 59 — **Workspaces**, **Knowledge**, and the **workspace page's header, tabs, Overview and Clients tab**. **Automations** (list and job detail) and **Today** moved on 2026-09-28. **Finance** (Step 61) was built on Paper from the start: it has never existed in Editorial Terminal. A workspace's working tabs (Tasks, Roadmap, Documents, Repository, …) have not moved yet: they sit on the dark desk directly beneath the paper header. The application shell (sidebar, top bar, status bar) stays in Editorial Terminal until the migration reaches it.
+AgentOS is moving, one screen at a time, from Editorial Terminal to **Paper**, a world derived from PostHog's desktop-OS style: a document opened on a sandy desk. Everything above still governs every screen that has not moved. As of 2026-09-25 these have moved: **Inbox** (formerly Mail; scoped trial, `src/styles/mail.css`), **Operations** including its agent detail page and System tab, and — with Step 59 — **Workspaces**, **Knowledge**, and the **workspace page's header, tabs, Overview and Clients tab**. **Automations** (list and job detail) and **Today** moved on 2026-09-28. **Activity** moved on 2026-09-29. **Finance** (Step 61) was built on Paper from the start: it has never existed in Editorial Terminal. A workspace's working tabs (Tasks, Roadmap, Documents, Repository, …) have not moved yet: they sit on the dark desk directly beneath the paper header. The application shell (sidebar, top bar, status bar) stays in Editorial Terminal until the migration reaches it.
 
 ### Tokens
 
@@ -876,7 +876,7 @@ Faces: `font-paper-display` is Inter Tight Variable (headings and numerals), sta
 
 ### Components (`src/components/paper/paper.tsx`, promoted from Operations in Step 59)
 
-`PaperStage` (the full white page), `PaperSection`, `PaperCard`, `PaperButton` (amber / ghost / quiet), `Tag`, `SegmentedControl`, `PaperTabs`, `Meter` (a single share), `StackedMeter` (parts of a whole with a legend, used instead of a pie), `RadialMeter` (a beaded track with a solid arc, number and word), `Sparkline`, `PaperSwitch`, `PAPER_INPUT`, `FieldLabel`.
+`PaperStage` (the full white page), `PaperSection`, `PaperCard`, `PaperButton` (amber / ghost / quiet), `Tag`, `SegmentedControl`, `PaperTabs`, `Meter` (a single share), `StackedMeter` (parts of a whole with a legend, used instead of a pie), `RadialMeter` (a beaded track with a solid arc, number and word), `Sparkline`, `PaperSwitch`, `PAPER_INPUT`, `FieldLabel`. Page furniture lives beside them in `paper-states.tsx`: `PaperPageHeader`, `PaperFilterBar`, `PaperLoading`, `PaperEmpty`, `PaperError`, `PaperNotice`. These replace `PageHeader`, `FilterBar`, `LoadingState`, `EmptyState` and `ErrorState` from `components/os` as each screen moves.
 
 ### Motion
 
