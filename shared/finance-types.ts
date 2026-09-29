@@ -128,6 +128,8 @@ export const FinanceSourceSchema = z.object({
    */
   kind: z.enum(["investec", "sample", "none"]),
   configured: z.boolean(),
+  /** Names of the Investec variables that are not set. Names only, never values. */
+  missing: z.array(z.string()).default([]),
   lastSyncedAt: z.string().optional(),
   error: z.string().optional(),
 });

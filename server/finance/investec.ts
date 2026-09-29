@@ -37,8 +37,29 @@ export class InvestecError extends Error {
   }
 }
 
+const REQUIRED_VARIABLES = ["INVESTEC_CLIENT_ID", "INVESTEC_SECRET", "INVESTEC_API_KEY"] as const;
+
+/** The names (never the values) of the variables that are not set. */
+export function missingInvestecVariables(): string[] {
+  return REQUIRED_VARIABLES.filter((name) => !process.env[name]?.trim());
+}
+
 export function isInvestecConfigured(): boolean {
-  return Boolean(process.env.INVESTEC_CLIENT_ID?.trim() && process.env.INVESTEC_SECRET?.trim() && process.env.INVESTEC_API_KEY?.trim());
+  return missingInvestecVariables().length === 0;
+}
+
+/**
+ * What the bank said about a failure, short and safe to show. Investec's error
+ * bodies explain themselves ("invalid_client", "Invalid API key"), which is the
+ * difference between "it does not work" and knowing which of three values is
+ * wrong. Anything that looks like one of our own secrets is blanked first.
+ */
+async function bankReason(response: Response): Promise<string> {
+  const secrets = REQUIRED_VARIABLES.map((name) => process.env[name]?.trim()).filter((value): value is string => Boolean(value));
+  let text = (await response.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 240);
+  for (const secret of secrets) text = text.split(secret).join("[hidden]");
+  if (cachedToken) text = text.split(cachedToken.value).join("[hidden]");
+  return text ? `: ${text}` : "";
 }
 
 function baseUrl(): string {
@@ -84,9 +105,9 @@ async function accessToken(): Promise<string> {
   }
 
   if (response.status === 400 || response.status === 401 || response.status === 403) {
-    throw new InvestecError("Investec rejected the credentials.", "unauthorized");
+    throw new InvestecError(`Investec rejected the credentials when signing in (${response.status})${await bankReason(response)}. Check the client id, secret and API key belong together.`, "unauthorized");
   }
-  if (!response.ok) throw new InvestecError(`Investec responded with ${response.status}.`, "failed");
+  if (!response.ok) throw new InvestecError(`Investec sign-in failed (${response.status})${await bankReason(response)}.`, "failed");
 
   const payload = (await response.json().catch(() => null)) as { access_token?: unknown; expires_in?: unknown } | null;
   if (!payload || typeof payload.access_token !== "string") throw new InvestecError("Investec returned an unreadable token.", "failed");
@@ -115,9 +136,9 @@ export async function investecGet<T>(path: string, query?: Record<string, string
 
   if (response.status === 401 || response.status === 403) {
     forgetInvestecToken();
-    throw new InvestecError("Investec rejected the access token.", "unauthorized");
+    throw new InvestecError(`Investec refused ${path} (${response.status})${await bankReason(response)}.`, "unauthorized");
   }
-  if (!response.ok) throw new InvestecError(`Investec responded with ${response.status}.`, "failed");
+  if (!response.ok) throw new InvestecError(`Investec failed on ${path} (${response.status})${await bankReason(response)}.`, "failed");
 
   const payload = (await response.json().catch(() => null)) as { data?: T } | null;
   if (!payload || payload.data === undefined) throw new InvestecError("Investec returned an unreadable response.", "failed");
@@ -212,30 +233,50 @@ export function normaliseTransaction(accountId: string, raw: RawInvestecTransact
 export interface InvestecSnapshot {
   accounts: FinancialAccount[];
   transactions: Transaction[];
+  /** Accounts that could not be read, by name, so a partial sync says so instead of pretending. */
+  skipped: string[];
 }
 
-/** Everything the bank will tell us since `fromDate` (`YYYY-MM-DD`). Reads only. */
+/**
+ * Everything the bank will tell us since `fromDate` (`YYYY-MM-DD`). Reads only.
+ *
+ * One account that will not answer (a product the API does not expose, say)
+ * does not sink the rest: the others are saved and the skipped one is named.
+ * If nothing at all could be read, that is a failure and it is thrown.
+ */
 export async function readInvestec(fromDate: string, toDate: string): Promise<InvestecSnapshot> {
   const listed = await investecGet<{ accounts: RawInvestecAccount[] }>("/za/pb/v1/accounts");
 
   const accounts: FinancialAccount[] = [];
   const transactions: Transaction[] = [];
+  const skipped: string[] = [];
+  let lastError: unknown;
 
   for (const raw of listed.accounts ?? []) {
-    const balance = await investecGet<RawInvestecBalance>(`/za/pb/v1/accounts/${encodeURIComponent(raw.accountId)}/balance`);
-    const account = normaliseAccount(raw, balance);
-    accounts.push(account);
+    try {
+      const balance = await investecGet<RawInvestecBalance>(`/za/pb/v1/accounts/${encodeURIComponent(raw.accountId)}/balance`);
+      const account = normaliseAccount(raw, balance);
 
-    const rows = await investecGet<{ transactions: RawInvestecTransaction[] }>(
-      `/za/pb/v1/accounts/${encodeURIComponent(raw.accountId)}/transactions`,
-      { fromDate, toDate },
-    );
+      const rows = await investecGet<{ transactions: RawInvestecTransaction[] }>(
+        `/za/pb/v1/accounts/${encodeURIComponent(raw.accountId)}/transactions`,
+        { fromDate, toDate },
+      );
 
-    (rows.transactions ?? []).forEach((row, index) => {
-      const normalised = normaliseTransaction(account.id, row, index);
-      if (normalised) transactions.push(normalised);
-    });
+      accounts.push(account);
+      (rows.transactions ?? []).forEach((row, index) => {
+        const normalised = normaliseTransaction(account.id, row, index);
+        if (normalised) transactions.push(normalised);
+      });
+    } catch (error) {
+      // Credentials being wrong is not one account's problem: stop at once.
+      if (error instanceof InvestecError && error.reason === "unauthorized") throw error;
+      lastError = error;
+      skipped.push(raw.referenceName?.trim() || raw.accountName?.trim() || raw.productName?.trim() || "an account");
+    }
   }
 
-  return { accounts, transactions };
+  if ((listed.accounts ?? []).length === 0) throw new InvestecError("Investec signed in but lists no accounts for these credentials.", "failed");
+  if (accounts.length === 0) throw lastError instanceof Error ? lastError : new InvestecError("No account could be read.", "failed");
+
+  return { accounts, transactions, skipped };
 }

@@ -1,6 +1,6 @@
 import { FinanceDataSchema, type FinanceData, type FinancialGoal } from "../../shared/finance-types";
 import { computeFinance } from "./engine";
-import { InvestecError, isInvestecConfigured, readInvestec } from "./investec";
+import { InvestecError, isInvestecConfigured, missingInvestecVariables, readInvestec } from "./investec";
 import { isJevConfigured } from "../mail/jev-client";
 import { readNarrative } from "./review";
 import { sampleAccounts, sampleGoals, sampleTransactions } from "./sample";
@@ -56,9 +56,14 @@ export function syncFinance(): Promise<void> {
       const snapshot = await readInvestec(from, localToday());
       saveSnapshot(snapshot.accounts, snapshot.transactions);
       writeMeta("lastSyncAt", new Date().toISOString());
-      writeMeta("lastSyncError", "");
+      // A partial read is saved, and says which account it could not read.
+      writeMeta("lastSyncError", snapshot.skipped.length > 0 ? `Could not read: ${snapshot.skipped.join(", ")}.` : "");
+      console.log(`[agentos] finance: synced ${snapshot.accounts.length} accounts, ${snapshot.transactions.length} transactions${snapshot.skipped.length > 0 ? `, skipped ${snapshot.skipped.length}` : ""}`);
     } catch (error) {
-      writeMeta("lastSyncError", error instanceof InvestecError ? error.message : "Investec could not be read.");
+      const message = error instanceof InvestecError ? error.message : "Investec could not be read.";
+      writeMeta("lastSyncError", message);
+      // The log names the step and the bank's stated reason. Secrets are blanked before this point.
+      console.error(`[agentos] finance: sync failed: ${message}`);
       throw error;
     } finally {
       syncing = undefined;
@@ -109,6 +114,7 @@ export function getFinance(): FinanceData {
     source: {
       kind: useSample ? "sample" : accounts.length > 0 ? "investec" : "none",
       configured,
+      missing: missingInvestecVariables(),
       lastSyncedAt: lastSyncAt || undefined,
       error: lastSyncError || undefined,
     },

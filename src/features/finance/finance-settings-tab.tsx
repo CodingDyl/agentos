@@ -40,7 +40,12 @@ export function FinanceSettingsTab({ data }: { data: FinanceData }) {
               </>
             ) : (
               <div className="mt-3 text-[13.5px] leading-6 text-paper-char">
-                <p>Create API credentials in Investec's Programmable Banking portal, add them to the server's <code className="font-mono text-[12.5px]">.env</code> and restart it:</p>
+                {source.missing.length > 0 && source.missing.length < 3 ? (
+                  <p role="alert" className="mb-3 font-semibold text-paper-flame-deep">
+                    Still missing: {source.missing.join(", ")}. All three are needed.
+                  </p>
+                ) : null}
+                <p>Create API credentials in Investec's Programmable Banking portal, add them to the server's <code className="font-mono text-[12.5px]">.env</code> and <strong>restart the data server</strong> (it reads <code className="font-mono text-[12.5px]">.env</code> once, at startup):</p>
                 <pre className="mt-3 overflow-x-auto rounded-[4px] bg-paper-linen p-3 font-mono text-[12.5px] leading-6 text-paper-moss">
 {`INVESTEC_CLIENT_ID=...
 INVESTEC_SECRET=...
