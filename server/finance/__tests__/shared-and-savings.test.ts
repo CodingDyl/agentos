@@ -144,7 +144,7 @@ describe("the savings plan", () => {
     assert.equal(plan({ months: [{ month: "2026-09", income: 1, spent: 1, saved: 0 }], averageMonthlySpend: undefined }).ready, false);
   });
 
-  it("works out what there is to save and funds the buffer first", () => {
+  it("works out what there is to save and, with no debt, funds the buffer first", () => {
     const result = plan();
     assert.equal(result.capacity, 10_000);
     assert.equal(result.steps[0].id, "starter");
@@ -162,6 +162,15 @@ describe("the savings plan", () => {
     assert.ok(unfunded.length > 0);
     // Whatever runs out, it runs out at the bottom of the list, not the top.
     assert.equal(result.steps[0].funded, result.steps[0].needed);
+    assert.equal(result.steps[0].id, "debt");
+  });
+
+  it("puts expensive debt ahead of the starter buffer, so the buffer only gets what debt leaves", () => {
+    const result = plan({ debts: [{ accountId: "c", name: "Card", owed: 20_000, interestRate: 0.22, options: [] }] });
+    assert.deepEqual(result.steps.slice(0, 2).map((s) => s.id), ["debt", "starter"]);
+    const debt = result.steps[0];
+    assert.equal(debt.funded, Math.min(debt.needed, result.capacity));
+    assert.equal(result.steps[1].funded, Math.min(result.steps[1].needed, result.capacity - debt.funded));
   });
 
   it("does not count an emergency goal on top of the buffer, or a cheap loan as expensive", () => {

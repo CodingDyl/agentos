@@ -9,9 +9,9 @@ import { monthOf, type CategorisedTransaction } from "./engine";
  * most people would defend, and hands your spare money down that list until it
  * runs out:
  *
- * 1. A starter buffer: one month of spending, within three months.
- * 2. Expensive debt: cleared over twelve months, because a card charging 20%
- *    costs more than savings earn.
+ * 1. Expensive debt: cleared over twelve months, because a card charging 20%
+ *    costs more than savings earn. It comes first, ahead of any buffer.
+ * 2. A starter buffer: one month of spending, within three months.
  * 3. The full buffer: three months of spending (six if your income swings a
  *    lot), built over twelve months.
  * 4. Your dated goals, each at the monthly amount it needs.
@@ -67,15 +67,6 @@ export function planSavings(input: {
 
   const needs: { id: string; label: string; principle: string; needed: number; note: string }[] = [];
 
-  const starterShortfall = Math.max(0, spending - liquidSavings);
-  needs.push({
-    id: "starter",
-    label: "Starter buffer",
-    principle: "Emergency buffer",
-    needed: starterShortfall / 3,
-    note: starterShortfall > 0 ? `Reach one month of spending (${R(spending)}) in savings within three months. You have ${R(liquidSavings)}.` : "You already hold a month of spending in savings.",
-  });
-
   const dear = input.debts.filter((debt) => debt.interestRate === undefined || debt.interestRate >= HIGH_RATE);
   const debtNeeded = sum(dear.map((debt) => paymentToClear(debt.owed, debt.interestRate ?? 0, 12)));
   if (input.debts.length > 0) {
@@ -90,6 +81,15 @@ export function planSavings(input: {
           : `Clear ${dear.length === 1 ? "it" : "them"} over twelve months.${dear.some((debt) => debt.interestRate === undefined) ? " At least one has no rate set, so this understates the cost." : ""}`,
     });
   }
+
+  const starterShortfall = Math.max(0, spending - liquidSavings);
+  needs.push({
+    id: "starter",
+    label: "Starter buffer",
+    principle: "Emergency buffer",
+    needed: starterShortfall / 3,
+    note: starterShortfall > 0 ? `Reach one month of spending (${R(spending)}) in savings within three months. You have ${R(liquidSavings)}.` : "You already hold a month of spending in savings.",
+  });
 
   const target = spending * bufferTargetMonths;
   const beyondStarter = Math.max(0, target - Math.max(liquidSavings, spending));

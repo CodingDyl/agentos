@@ -8,8 +8,8 @@ import { formatMonthShort, money } from "./finance-model";
  * How much to save each month, and in what order.
  *
  * Not one rule of thumb. It takes what you actually have left after spending,
- * and hands it down a list most people would defend: a starter buffer, then
- * expensive debt, then the full buffer, then your dated goals, then long-term
+ * and hands it down a list most people would defend: expensive debt, then a
+ * starter buffer, then the full buffer, then your dated goals, then long-term
  * saving. If the list asks for more than you have, it says by how much, and
  * the steps at the bottom are the ones left unfunded.
  *
