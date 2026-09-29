@@ -289,6 +289,11 @@ describe("case studies", () => {
       store.replaceCaseStudy(study.id, { title: "T", client: "C", result: study.result, status: "ready", missing: [] }),
       store.TractionConflictError,
     );
+    await assert.rejects(
+      store.replaceCaseStudy(study.id, { title: "T", client: "C", problem: "Fine.", result: study.result, status: "ready", missing: [] }),
+      /marker in The result before/,
+      "the error names where the marker is",
+    );
     const ready = await store.replaceCaseStudy(study.id, { title: "T", client: "C", result: "Enquiries doubled", status: "ready", missing: [] });
     assert.equal(ready.status, "ready");
   });

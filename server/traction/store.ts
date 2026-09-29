@@ -1235,8 +1235,18 @@ export function replaceCaseStudy(
     );
 
     if (next.status !== "draft" && hasGaps(next)) {
+      const where = (
+        [
+          ["The problem", next.problem],
+          ["What we built", next.solution],
+          ["How", next.implementation],
+          ["The result", next.result],
+        ] as const
+      )
+        .filter(([, text]) => text && GAP.test(text))
+        .map(([label]) => label);
       throw new TractionConflictError(
-        "Replace or delete every [NEEDS DATA] marker in the sections before marking this ready or published",
+        `Replace or delete the [NEEDS DATA] marker in ${where.join(", ")} before marking this ready or published`,
       );
     }
 

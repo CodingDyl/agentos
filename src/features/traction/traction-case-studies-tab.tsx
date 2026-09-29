@@ -187,7 +187,11 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
   const remove = useDeleteCaseStudy();
 
   const set = (key: keyof Draft) => (event: { target: { value: string } }) => setDraft((current) => ({ ...current, [key]: event.target.value }));
-  const gaps = SECTIONS.some((section) => /\[NEEDS DATA/i.test(draft[section.key]));
+  // Each marker still in a section, with where it is: a hole buried in a long paragraph is easy to miss.
+  const markers = SECTIONS.flatMap((section) =>
+    [...draft[section.key].matchAll(/\[NEEDS DATA[^\]]*\]?/gi)].map((match) => ({ section: section.label, text: match[0].slice(0, 120) })),
+  );
+  const gaps = markers.length > 0;
   const dirty = JSON.stringify(draft) !== JSON.stringify(toDraft(study));
   const error = save.error ?? hermes.error ?? readSite.error ?? testimonial.error ?? remove.error;
 
@@ -228,6 +232,20 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
           </div>
           <PaperButton onClick={onClose}>Close</PaperButton>
         </div>
+
+        {gaps ? (
+          <div role="status" className="rounded-[4px] border border-paper-gold px-3 py-2.5 text-[13px] leading-5 text-paper-char">
+            <p className="font-semibold">Ready is blocked by {markers.length === 1 ? "one marker" : `${markers.length} markers`} still in the text:</p>
+            <ul className="mt-1 list-disc pl-5">
+              {markers.map((marker, index) => (
+                <li key={`${marker.section}-${index}`}>
+                  <span className="font-semibold">{marker.section}:</span> {marker.text}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-paper-sage">Replace each with the real fact, or delete the sentence. Nothing else blocks Ready.</p>
+          </div>
+        ) : null}
 
         <div className="space-y-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
           <label className="block">
