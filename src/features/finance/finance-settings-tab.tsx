@@ -1,6 +1,6 @@
 import type { FinanceData } from "@shared/finance-types";
 import { PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
-import { useRemoveCorrection, useSyncInvestec } from "@/lib/agentos/finance";
+import { useRemoveCorrection, useRestoreAlert, useSyncInvestec } from "@/lib/agentos/finance";
 import { MutationError } from "./finance-kit";
 import { Pagination } from "./finance-pagination";
 import { usePagination } from "./finance-ui-hooks";
@@ -17,6 +17,7 @@ const PRIVACY: readonly string[] = [
 export function FinanceSettingsTab({ data }: { data: FinanceData }) {
   const sync = useSyncInvestec();
   const remove = useRemoveCorrection();
+  const restore = useRestoreAlert();
   const { source } = data;
   const corrections = usePagination(data.corrections, "", 10);
 
@@ -84,6 +85,28 @@ INVESTEC_API_KEY=...`}
         </PaperSection>
       </div>
 
+      <div className="min-w-0 space-y-12">
+      <PaperSection label="Dismissed alerts" count={data.dismissedAlerts.length}>
+        {data.dismissedAlerts.length === 0 ? (
+          <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">None. Dismiss an alert that is not relevant to you and it waits here until you bring it back.</p>
+        ) : (
+          <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+            {data.dismissedAlerts.map((alert) => (
+              <li key={alert.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14.5px]">
+                <span className="min-w-0 text-paper-moss">
+                  <Tag>{alert.source}</Tag> {alert.text}
+                  <span className="block text-[12.5px] text-paper-sage">{alert.scope === "always" ? "Hidden for good" : "Hidden until next month"}</span>
+                </span>
+                <PaperButton disabled={restore.isPending} onClick={() => restore.mutate(alert.id)} aria-label={`Bring back: ${alert.text}`}>
+                  Bring back
+                </PaperButton>
+              </li>
+            ))}
+          </ul>
+        )}
+        <MutationError error={restore.error} />
+      </PaperSection>
+
       <PaperSection label="Privacy">
         <ul className="space-y-3">
           {PRIVACY.map((line) => (
@@ -94,6 +117,7 @@ INVESTEC_API_KEY=...`}
           ))}
         </ul>
       </PaperSection>
+      </div>
     </div>
   );
 }

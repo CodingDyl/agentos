@@ -529,3 +529,38 @@ export function deleteSettlement(id: string): void {
   const result = financeDatabase().prepare("DELETE FROM partner_settlements WHERE id = ?").run(id);
   if (Number(result.changes) === 0) throw new FinanceNotFoundError("That payment does not exist.");
 }
+
+// ---------------------------------------------------------------- alerts
+
+export interface StoredDismissal {
+  id: string;
+  scope: "month" | "always";
+  month: string;
+}
+
+export function readDismissals(): StoredDismissal[] {
+  const rows = financeDatabase().prepare("SELECT id, scope, month FROM dismissed_alerts").all() as unknown as StoredDismissal[];
+  return rows.map((row) => ({ id: row.id, scope: row.scope, month: row.month }));
+}
+
+/**
+ * Hides an alert: until `month` ends, or for good. A month-long dismissal from
+ * an earlier month can never hide anything again, so it is cleared out here
+ * rather than left to build up.
+ */
+export function saveDismissal(id: string, scope: "month" | "always", month: string): void {
+  const db = financeDatabase();
+  db.prepare("DELETE FROM dismissed_alerts WHERE scope = 'month' AND month < ?").run(month);
+  db.prepare(
+    `INSERT INTO dismissed_alerts (id, scope, month, dismissed_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET scope = excluded.scope, month = excluded.month, dismissed_at = excluded.dismissed_at`,
+  ).run(id, scope, month, new Date().toISOString());
+}
+
+export function deleteDismissal(id: string): void {
+  financeDatabase().prepare("DELETE FROM dismissed_alerts WHERE id = ?").run(id);
+}
+
+/** Is this alert hidden right now? A month-long dismissal only counts in the month it was made. */
+export const isDismissed = (dismissals: readonly StoredDismissal[], id: string, month: string) =>
+  dismissals.some((entry) => entry.id === id && (entry.scope === "always" || entry.month === month));

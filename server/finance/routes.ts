@@ -1,6 +1,6 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
-import { PartnerInputSchema, SettlementInputSchema, SplitRuleInputSchema, AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
+import { PartnerInputSchema, SettlementInputSchema, SplitRuleInputSchema, AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, DismissAlertInputSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
 import { merchantKey } from "./categorise";
 import { getFinance, localToday, refreshBalances, syncFinance } from "./finance";
 import { InvestecError, isInvestecConfigured } from "./investec";
@@ -10,7 +10,7 @@ import { AnalyserError, askAnalyser, writeAnalysis } from "./analyser";
 import { CsvImportError, readStatement, type SignRule } from "./csv-import";
 import { ensureMonthlyReview, ensureMonthlyReviewInBackground, markReviewSeen, previousMonth, reviewError } from "./monthly-review";
 import { ReviewError, writeNarrative } from "./review";
-import { createSettlement, createSplitRule, deleteSettlement, deleteSplitRule, removePartner, savePartner, createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
+import { createSettlement, createSplitRule, deleteSettlement, deleteSplitRule, removePartner, savePartner, createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteDismissal, saveDismissal, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
 
 /**
  * `/api/finance`.
@@ -430,5 +430,32 @@ financeRouter.post("/review/previous/seen", (_request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "mark the review read");
+  }
+});
+
+// -------------------------------------------------- alerts you said were not relevant
+
+/** Hides an alert until the month ends (or for good). The review alert has its own way to clear. */
+financeRouter.post("/alerts/dismiss", (request, response) => {
+  const input = parse(DismissAlertInputSchema, request.body, response, "alert");
+  if (!input) return;
+  if (input.id === "review") {
+    response.status(400).json({ error: "The review clears when you mark it read." });
+    return;
+  }
+  try {
+    saveDismissal(input.id, input.scope, localToday().slice(0, 7));
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "dismiss the alert");
+  }
+});
+
+financeRouter.delete("/alerts/dismiss/:id", (request, response) => {
+  try {
+    deleteDismissal(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "bring the alert back");
   }
 });

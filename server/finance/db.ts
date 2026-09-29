@@ -164,6 +164,16 @@ const MIGRATIONS: readonly string[] = [
   DELETE FROM transactions WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'investec');
   DELETE FROM meta WHERE key IN ('lastSyncAt', 'balancesAt');
   `,
+  `
+  -- Alerts you said were not relevant. "month" hides one until the month changes,
+  -- "always" hides it for good. The id is the alert's own, such as "bill:<id>".
+  CREATE TABLE IF NOT EXISTS dismissed_alerts (
+    id            TEXT PRIMARY KEY,
+    scope         TEXT NOT NULL,
+    month         TEXT NOT NULL,
+    dismissed_at  TEXT NOT NULL
+  );
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

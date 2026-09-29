@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { useMarkReviewSeen, useWritePreviousReview, useWriteReview } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
+import { AlertUndoBar, AttentionSection, DismissAlertButton } from "./finance-alerts";
 import { CategorySuggest, Figure, MutationError } from "./finance-kit";
 import { formatChange, money, splitNarrative } from "./finance-model";
 
@@ -15,6 +16,7 @@ export function FinanceInsightsTab({ data }: { data: FinanceData }) {
   return (
     <div className="grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
       <div className="min-w-0 space-y-12">
+        <AlertUndoBar />
         <PaperSection label="Unusual" count={data.anomalies.length}>
           {data.anomalies.length === 0 ? (
             <p className="text-[14px] leading-6 text-paper-char">Nothing unusual this month.</p>
@@ -23,10 +25,13 @@ export function FinanceInsightsTab({ data }: { data: FinanceData }) {
               {data.anomalies.map((anomaly) => (
                 <li key={anomaly.id}>
                   <PaperCard className="p-4">
-                    <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-paper-moss">
-                      <Tag tone="flame">{anomaly.kind === "category" ? "Spending" : "Payment"}</Tag>
-                      {anomaly.title}
-                    </p>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="flex min-w-0 flex-wrap items-center gap-2 text-[15px] font-semibold text-paper-moss">
+                        <Tag tone="flame">{anomaly.kind === "category" ? "Spending" : "Payment"}</Tag>
+                        {anomaly.title}
+                      </p>
+                      <DismissAlertButton id={anomaly.id} text={anomaly.title} />
+                    </div>
                     <p className="mt-1 text-[13.5px] leading-6 text-paper-char">{anomaly.detail}</p>
                     {anomaly.kind === "transaction" && anomaly.transactionId && anomaly.merchant && data.jev.configured && !sample ? (
                       <CategorySuggest transactionId={anomaly.transactionId} merchant={anomaly.merchant} />
@@ -38,20 +43,7 @@ export function FinanceInsightsTab({ data }: { data: FinanceData }) {
           )}
         </PaperSection>
 
-        {data.attention.filter((item) => item.id !== "review").length > 0 ? (
-          <PaperSection label="Attention" count={data.attention.filter((item) => item.id !== "review").length}>
-            <ul className="space-y-2">
-              {data.attention.filter((item) => item.id !== "review").map((item) => (
-                <li key={item.id} className={cn("flex items-start gap-2.5 text-[14.5px] leading-6", item.tone === "warn" ? "text-paper-moss" : "text-paper-char")}>
-                  <span aria-hidden="true" className={cn("w-4 shrink-0 text-center font-semibold", item.tone === "warn" ? "text-paper-flame-deep" : "text-paper-sage")}>
-                    {item.tone === "warn" ? "!" : "○"}
-                  </span>
-                  {item.text}
-                </li>
-              ))}
-            </ul>
-          </PaperSection>
-        ) : null}
+        <AttentionSection label="Attention" items={data.attention.filter((item) => item.id !== "review")} hrefFor={(tab) => `/finance?tab=${tab}`} />
       </div>
 
       <div className="min-w-0 space-y-12">

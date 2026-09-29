@@ -2,6 +2,7 @@ import { investecCashOf, netCashOf, type FinanceData, type FinanceTab } from "@s
 import { Meter, PaperButton, PaperCard, PaperSection, StackedMeter, Tag } from "@/components/paper";
 import { useLiveBalances } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
+import { AlertUndoBar, AttentionSection } from "./finance-alerts";
 import { PayBadge } from "./finance-badges";
 import { Figure, Line, SignalDot } from "./finance-kit";
 import { debtPayState, formatDay, formatChange, goalStatusLabel, upcomingPayments, money } from "./finance-model";
@@ -37,26 +38,8 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
           </ul>
         </PaperSection>
 
-        {data.attention.length > 0 ? (
-          <PaperSection label="Needs attention" count={data.attention.length}>
-            <ul className="space-y-2">
-              {data.attention.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => onTab(item.tab)}
-                    className="group flex w-full cursor-pointer items-start gap-2.5 rounded-none text-left text-[14.5px] leading-6 text-paper-moss hover:text-paper-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
-                  >
-                    <span aria-hidden="true" className={cn("w-4 shrink-0 text-center font-semibold", item.tone === "warn" ? "text-paper-flame-deep" : "text-paper-sage")}>
-                      {item.tone === "warn" ? "!" : "○"}
-                    </span>
-                    <span className={item.tone === "warn" ? "text-paper-moss" : "text-paper-char"}>{item.text}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </PaperSection>
-        ) : null}
+        <AlertUndoBar />
+        <AttentionSection label="Needs attention" items={data.attention} onOpen={onTab} />
 
         <PaperSection
           label="Goals"

@@ -97,6 +97,6 @@ describe("clearing the duplicates already saved", () => {
     assert.equal(store.readMeta("lastSyncAt"), undefined);
     assert.equal(store.readAccounts().length, 2);
     assert.equal(store.readCorrections().length, 1);
-    assert.equal((reopened.prepare("PRAGMA user_version").get() as { user_version: number }).user_version, 6);
+    assert.ok((reopened.prepare("PRAGMA user_version").get() as { user_version: number }).user_version >= 6, "migrated past the purge");
   });
 });

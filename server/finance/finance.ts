@@ -18,6 +18,8 @@ import {
   readSplitRules,
   readCorrections,
   readDecisions,
+  readDismissals,
+  isDismissed,
   readGoals,
   readMeta,
   readTransactions,
@@ -193,10 +195,18 @@ function buildFinance(today: string, live: boolean): FinanceData {
       previousReview = { review, seen: readMeta(`review-seen:${previousMonth}`) === "1", error: readMeta(`review-error:${previousMonth}`) || undefined };
     }
   }
-  const attention = [...result.attention];
+  const all = [...result.attention];
   if (previousReview && !previousReview.seen && previousReview.review.narrative) {
-    attention.push({ id: "review", tone: "note", text: `${monthName(previousReview.review.month)} review is ready`, tab: "insights" });
+    all.push({ id: "review", tone: "note", source: "Monthly review", text: `${monthName(previousReview.review.month)} review is ready`, detail: "Hermes has written last month's review.", dismissible: false, tab: "insights" });
   }
+
+  // Dismissals hide an alert here, on the server, so Overview, Insights, Today and
+  // the sidebar badge can never disagree about what is showing.
+  const dismissals = readDismissals();
+  const hidden = (id: string) => isDismissed(dismissals, id, today.slice(0, 7));
+  const attention = all.filter((item) => !item.dismissible || !hidden(item.id));
+  const dismissedAlerts = all.filter((item) => item.dismissible && hidden(item.id)).map((item) => ({ id: item.id, text: item.text, source: item.source, scope: dismissals.find((e) => e.id === item.id)?.scope ?? "month" }));
+  const anomalies = result.anomalies.filter((anomaly) => !hidden(anomaly.id));
 
   return FinanceDataSchema.parse({
     source: {
@@ -225,8 +235,9 @@ function buildFinance(today: string, live: boolean): FinanceData {
     freeCashFlow: result.freeCashFlow,
     emergencyMonths: result.emergencyMonths,
     opportunities: result.opportunities,
-    anomalies: result.anomalies,
+    anomalies,
     attention,
+    dismissedAlerts,
     health: result.health,
     review: { ...result.review, narrative: narrative?.text, narrativeAt: narrative?.at },
     previousReview,

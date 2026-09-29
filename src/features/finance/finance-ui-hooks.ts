@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { clampPage, pageCountFor, PAGE_SIZES, sliceForPage, type PageSize } from "./finance-pagination-model";
 
 /**
@@ -104,4 +104,46 @@ export function useOpen(initial = false): [boolean, () => void, (value: boolean)
   const [open, setOpen] = useState(initial);
   const toggle = useCallback(() => setOpen((value) => !value), []);
   return [open, toggle, setOpen];
+}
+
+/**
+ * The alert you just dismissed, kept for a few seconds so it can be undone. A
+ * module-level store rather than component state: the alert's own row is gone by
+ * the time the bar needs it, and Today, Overview and Insights all show alerts.
+ */
+export interface DismissedNotice {
+  id: string;
+  text: string;
+}
+
+const UNDO_WINDOW_MS = 10_000;
+let lastDismissed: DismissedNotice | undefined;
+let undoTimer: ReturnType<typeof setTimeout> | undefined;
+const noticeListeners = new Set<() => void>();
+
+const announce = () => noticeListeners.forEach((listener) => listener());
+
+export function rememberDismissed(notice: DismissedNotice): void {
+  lastDismissed = notice;
+  if (undoTimer) clearTimeout(undoTimer);
+  undoTimer = setTimeout(forgetDismissed, UNDO_WINDOW_MS);
+  announce();
+}
+
+export function forgetDismissed(): void {
+  if (undoTimer) clearTimeout(undoTimer);
+  undoTimer = undefined;
+  lastDismissed = undefined;
+  announce();
+}
+
+export function useDismissedNotice(): DismissedNotice | undefined {
+  return useSyncExternalStore(
+    (listener) => {
+      noticeListeners.add(listener);
+      return () => noticeListeners.delete(listener);
+    },
+    () => lastDismissed,
+    () => undefined,
+  );
 }

@@ -203,3 +203,12 @@ export const useWritePreviousReview = () => useFinanceMutation(() => request("/a
 
 /** Marks last month's review read, which clears it from Today. */
 export const useMarkReviewSeen = () => useFinanceMutation(() => request("/api/finance/review/previous/seen", { method: "POST" }));
+
+/** Hides an alert until the month ends (`month`), or for good (`always`). */
+export const useDismissAlert = () =>
+  useFinanceMutation(({ id, scope }: { id: string; scope: "month" | "always" }) =>
+    request("/api/finance/alerts/dismiss", json("POST", { id, scope })),
+  );
+
+/** Brings a dismissed alert back. */
+export const useRestoreAlert = () => useFinanceMutation((id: string) => request(`/api/finance/alerts/dismiss/${encodeURIComponent(id)}`, { method: "DELETE" }));

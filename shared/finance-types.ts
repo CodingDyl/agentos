@@ -291,14 +291,43 @@ export const AnomalySchema = z.object({
 });
 export type Anomaly = z.infer<typeof AnomalySchema>;
 
+/** Where an alert comes from: the part of Finance whose numbers raised it. */
+export const ALERT_SOURCES = ["Bills", "Subscriptions", "Spending", "Goals", "Shared costs", "Monthly review"] as const;
+export type AlertSource = (typeof ALERT_SOURCES)[number];
+
 export const AttentionSchema = z.object({
   id: z.string(),
   tone: z.enum(["warn", "note"]),
   text: z.string(),
+  /** Which part of Finance raised it. */
+  source: z.enum(ALERT_SOURCES),
+  /** Why you are seeing it: the numbers behind it, in a sentence. */
+  detail: z.string(),
+  /** False for an alert with its own way to clear, such as a review you mark read. */
+  dismissible: z.boolean().default(true),
   /** Which tab it points at. */
   tab: z.enum(["overview", "cash-flow", "spending", "subscriptions", "bills", "shared", "goals", "savings", "investments", "insights", "analyser", "settings"]),
 });
 export type Attention = z.infer<typeof AttentionSchema>;
+
+/**
+ * Saying an alert is not relevant. `month` hides it until the calendar month
+ * changes, because whatever raised it may well come back; `always` hides it for
+ * good, and is undone from Settings.
+ */
+export const DismissAlertInputSchema = z.object({
+  id: z.string().min(1).max(160),
+  scope: z.enum(["month", "always"]).default("month"),
+});
+export type DismissAlertInput = z.infer<typeof DismissAlertInputSchema>;
+
+export const DismissedAlertSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  source: z.enum(ALERT_SOURCES),
+  scope: z.enum(["month", "always"]),
+});
+export type DismissedAlert = z.infer<typeof DismissedAlertSchema>;
 
 export const HealthSignalSchema = z.object({
   id: z.string(),
@@ -567,6 +596,8 @@ export const FinanceDataSchema = z.object({
   opportunities: z.array(OpportunitySchema),
   anomalies: z.array(AnomalySchema),
   attention: z.array(AttentionSchema),
+  /** Alerts that would be showing but you dismissed, so you can bring them back. */
+  dismissedAlerts: z.array(DismissedAlertSchema).default([]),
   health: z.array(HealthSignalSchema),
   review: MonthlyReviewSchema,
   investments: z.object({

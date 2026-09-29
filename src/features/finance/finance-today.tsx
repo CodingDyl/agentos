@@ -3,6 +3,7 @@ import type { PreviousReview } from "@shared/finance-types";
 import { PaperButton, PaperSection, Tag } from "@/components/paper";
 import { useFinance, useMarkReviewSeen } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
+import { AlertUndoBar, DismissAlertButton, SourceTag } from "./finance-alerts";
 import { excerpt, isLiveSource, money, narrativeSection } from "./finance-model";
 
 /** How many alerts Today shows before pointing at Finance. */
@@ -45,6 +46,7 @@ export function FinanceToday({ className }: { className?: string }) {
         </Link>
       }
     >
+      <AlertUndoBar />
       {!live ? (
         <p className="text-[15px] leading-6 text-paper-char">
           Finance is not connected to a bank yet.{" "}
@@ -61,18 +63,24 @@ export function FinanceToday({ className }: { className?: string }) {
       ) : (
         <>
           {review ? <MonthlyReviewCard previous={review} /> : null}
-          <ul className="space-y-2.5">
-          {shown.map((item) => (
-            <li key={item.id} className="flex min-w-0 items-baseline gap-3">
-              <span aria-hidden="true" className={cn("w-3 shrink-0 text-center text-[13px] font-semibold", item.tone === "warn" ? "text-paper-flame-deep" : "text-paper-sage")}>
-                {item.tone === "warn" ? "!" : "○"}
-              </span>
-              <Link to={`/finance?tab=${item.tab}`} className="min-w-0 rounded-sm text-[16px] leading-7 text-paper-char transition-colors duration-150 hover:text-paper-moss">
-                {item.text}
-              </Link>
-            </li>
-          ))}
-          {alerts.length > shown.length ? <li className="pl-6 text-[12.5px] text-paper-sage">+{alerts.length - shown.length} more in Finance</li> : null}
+          <ul className="space-y-3">
+            {shown.map((item) => (
+              <li key={item.id} className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span aria-hidden="true" className={cn("w-3 shrink-0 text-center text-[13px] font-semibold", item.tone === "warn" ? "text-paper-flame-deep" : "text-paper-sage")}>
+                      {item.tone === "warn" ? "!" : "○"}
+                    </span>
+                    <SourceTag source={item.source} />
+                    <Link to={`/finance?tab=${item.tab}`} className="min-w-0 rounded-sm text-[16px] leading-7 text-paper-char transition-colors duration-150 hover:text-paper-moss">
+                      {item.text}
+                    </Link>
+                  </p>
+                </div>
+                {item.dismissible ? <DismissAlertButton id={item.id} text={item.text} /> : null}
+              </li>
+            ))}
+            {alerts.length > shown.length ? <li className="pl-6 text-[12.5px] text-paper-sage">+{alerts.length - shown.length} more in Finance</li> : null}
           </ul>
         </>
       )}

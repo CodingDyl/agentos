@@ -661,7 +661,7 @@ export function computeFinance(input: EngineInput): EngineOutput {
     month,
   });
 
-  const attention = buildAttention({ today: input.today, owedBack: shared.owedBack, partnerName: shared.partner?.name, bills: billItems, subscriptions, categories, goals, anomalies, uncategorised: rows.filter((r) => r.categorySource === "none" && r.amount < 0).length });
+  const attention = buildAttention({ today: input.today, owedBack: shared.owedBack, sharedTotals: { herShare: shared.months.reduce((n, m) => n + m.herShare, 0), received: shared.months.reduce((n, m) => n + m.received, 0) }, partnerName: shared.partner?.name, bills: billItems, subscriptions, categories, goals, anomalies, uncategorised: rows.filter((r) => r.categorySource === "none" && r.amount < 0).length });
   const health = buildHealth({ summary, emergencyMonths, subscriptionMonthly, goals, investments });
 
   return {
@@ -698,6 +698,8 @@ export function computeFinance(input: EngineInput): EngineOutput {
 export function buildAttention(input: {
   today: string;
   owedBack: number;
+  /** What she owes across all months, and what she has sent, for the sentence that explains the alert. */
+  sharedTotals?: { herShare: number; received: number };
   partnerName: string | undefined;
   bills: readonly BillStatus[];
   subscriptions: readonly Subscription[];
@@ -707,40 +709,109 @@ export function buildAttention(input: {
   uncategorised: number;
 }): Attention[] {
   const attention: Attention[] = [];
+  const add = (item: Omit<Attention, "dismissible">) => attention.push({ ...item, dismissible: true });
 
-  const raised = input.subscriptions.filter((s) => s.previousAmount !== undefined && s.decision !== "keep" && s.monthly > (s.frequency === "annual" ? s.previousAmount / 12 : s.previousAmount));
+  const monthlyOf = (s: Subscription, amount: number) => (s.frequency === "annual" ? amount / 12 : amount);
+  const raised = input.subscriptions.filter((s) => s.previousAmount !== undefined && s.decision !== "keep" && s.monthly > monthlyOf(s, s.previousAmount ?? 0));
   if (raised.length === 1) {
     const [only] = raised;
-    const rise = only.monthly - (only.frequency === "annual" ? (only.previousAmount ?? 0) / 12 : (only.previousAmount ?? 0));
-    attention.push({ id: `price:${only.merchant}`, tone: "warn", text: `${only.merchant} increased ${formatRandAmount(rise)} a month`, tab: "subscriptions" });
+    const before = monthlyOf(only, only.previousAmount ?? 0);
+    add({
+      id: `price:${only.merchant}`,
+      tone: "warn",
+      source: "Subscriptions",
+      text: `${only.merchant} increased ${formatRandAmount(only.monthly - before)} a month`,
+      detail: `${only.merchant} used to charge ${formatRandAmount(before)} a month and now charges ${formatRandAmount(only.monthly)}, going by its last payments.`,
+      tab: "subscriptions",
+    });
   } else if (raised.length > 1) {
-    attention.push({ id: "price", tone: "warn", text: `${raised.length} subscriptions increased in price`, tab: "subscriptions" });
+    add({
+      id: "price",
+      tone: "warn",
+      source: "Subscriptions",
+      text: `${raised.length} subscriptions increased in price`,
+      detail: `${raised.map((s) => s.merchant).join(", ")} now charge more than they did on their earlier payments.`,
+      tab: "subscriptions",
+    });
   }
 
   for (const anomaly of input.anomalies) {
-    attention.push({ id: anomaly.id, tone: "warn", text: anomaly.kind === "category" ? anomaly.title : `Unusual charge: ${anomaly.title}`, tab: anomaly.kind === "category" ? "spending" : "insights" });
+    add({
+      id: anomaly.id,
+      tone: "warn",
+      source: "Spending",
+      text: anomaly.kind === "category" ? anomaly.title : `Unusual charge: ${anomaly.title}`,
+      detail: anomaly.kind === "category" ? `${anomaly.detail} That is compared with the average of the previous three months.` : anomaly.detail,
+      tab: anomaly.kind === "category" ? "spending" : "insights",
+    });
   }
 
   for (const goal of input.goals.filter((g) => g.status === "behind")) {
-    attention.push({ id: `goal:${goal.id}`, tone: "note", text: `${goal.name} goal behind plan by ${formatRandAmount(goal.shortfall ?? 0)}`, tab: "goals" });
+    add({
+      id: `goal:${goal.id}`,
+      tone: "note",
+      source: "Goals",
+      text: `${goal.name} goal behind plan by ${formatRandAmount(goal.shortfall ?? 0)}`,
+      detail: `At your recent pace it reaches ${formatRandAmount(goal.projected ?? 0)} by ${goal.targetDate ?? "its date"}.${goal.extraMonthlyNeeded ? ` It needs ${formatRandAmount(goal.extraMonthlyNeeded)} more a month to arrive on time.` : ""}`,
+      tab: "goals",
+    });
   }
   for (const goal of input.goals.filter((g) => g.status === "overdue")) {
-    attention.push({ id: `goal:${goal.id}`, tone: "note", text: `${goal.name} passed its date with ${formatRandAmount(goal.remaining)} to go`, tab: "goals" });
+    add({
+      id: `goal:${goal.id}`,
+      tone: "note",
+      source: "Goals",
+      text: `${goal.name} passed its date with ${formatRandAmount(goal.remaining)} to go`,
+      detail: `Its date was ${goal.targetDate ?? "earlier"}, and ${formatRandAmount(goal.remaining)} is still to go.`,
+      tab: "goals",
+    });
   }
 
   if (input.owedBack >= 500) {
-    attention.push({ id: "owed-back", tone: "note", text: `${input.partnerName ?? "Your partner"} owes you ${formatRandAmount(input.owedBack)} for shared costs`, tab: "shared" });
+    const who = input.partnerName ?? "Your partner";
+    const totals = input.sharedTotals;
+    add({
+      id: "owed-back",
+      tone: "note",
+      source: "Shared costs",
+      text: `${who} owes you ${formatRandAmount(input.owedBack)} for shared costs`,
+      detail: totals
+        ? `${who}'s share comes to ${formatRandAmount(totals.herShare)} since you started counting, and ${formatRandAmount(totals.received)} has arrived.`
+        : `Her share of the costs you pay is more than she has sent since you started counting.`,
+      tab: "shared",
+    });
   }
 
   for (const bill of input.bills.filter((entry) => entry.status === "missing")) {
-    attention.push({ id: `bill:${bill.id}`, tone: "warn", text: `${bill.name} not seen yet (due ${Number(bill.dueDate.slice(8, 10))} ${monthName(bill.dueDate.slice(0, 7), "short")})`, tab: "bills" });
+    add({
+      id: `bill:${bill.id}`,
+      tone: "warn",
+      source: "Bills",
+      text: `${bill.name} not seen yet (due ${Number(bill.dueDate.slice(8, 10))} ${monthName(bill.dueDate.slice(0, 7), "short")})`,
+      detail: `Finance looks for \u201c${bill.match || bill.name}\u201d in your payments and has not found one this month. It may be late, or paid from an account Finance cannot see.`,
+      tab: "bills",
+    });
   }
   for (const bill of input.bills.filter((entry) => entry.variance !== undefined && Math.abs(entry.variance) >= 100 && Math.abs(entry.variance) / entry.amount >= 0.15 && !entry.marked)) {
-    attention.push({ id: `bill-amount:${bill.id}`, tone: "note", text: `${bill.name} was ${formatRandAmount(Math.abs(bill.variance ?? 0))} ${(bill.variance ?? 0) > 0 ? "more" : "less"} than expected`, tab: "bills" });
+    add({
+      id: `bill-amount:${bill.id}`,
+      tone: "note",
+      source: "Bills",
+      text: `${bill.name} was ${formatRandAmount(Math.abs(bill.variance ?? 0))} ${(bill.variance ?? 0) > 0 ? "more" : "less"} than expected`,
+      detail: `Paid ${formatRandAmount(bill.paidAmount ?? 0)} against ${formatRandAmount(bill.amount)} expected.`,
+      tab: "bills",
+    });
   }
 
   if (input.uncategorised >= 3) {
-    attention.push({ id: "uncategorised", tone: "note", text: `${input.uncategorised} payments need a category`, tab: "spending" });
+    add({
+      id: "uncategorised",
+      tone: "note",
+      source: "Spending",
+      text: `${input.uncategorised} payments need a category`,
+      detail: "Finance could not place these in a category. Set one on the Spending tab and it remembers it for that merchant.",
+      tab: "spending",
+    });
   }
 
   return attention;
