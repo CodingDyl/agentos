@@ -19,57 +19,30 @@ sophisticated the module gets.
 | 9 | Signup email: each magnet has a short plain-text email (Hermes drafts it with the rest; `{{firstName}}`, `{{link}}`) that Virtec sends through Resend the moment someone signs up. Switched on, updated and off from AgentOS (PUT to Virtec, audited); it links to the read page with `?via=email`, which both sites let straight in. Sent and failed counts per magnet; the outcome is on each lead in Virtec |
 | 10 | Second touch: a magnet signup who got the guide email is left alone for 3 days, then becomes a "Second touch" queue item; Hermes drafts a short personal note from the guide and the email they already got, and "Sent" makes them a contacted prospect (counted as outreach, tagged with the magnet's experiment) so ordinary follow-ups take over. A signup who wrote back (a message from their address in the Inbox cache since signing up) jumps to "Reply" at the top; one whose guide email failed gets "Reply" at once |
 | 11 | Replies in the queue: a message from a prospect we are working on (target to proposal) that is newer than our last touch becomes a top-of-queue "They replied" item with the message preview, replacing the misleading "no response" follow-up. Ask Hermes drafts the answer (their words fenced, told to ask for the rest rather than guess); "Move to conversation" and "Not theirs" are in the item; "Replied" records the touch and clears it. Linking a thread does not clear it, only answering does |
+| 12 | ICP fit scoring: Jev scores Virtec's Places candidates against the ICP (0 to 4, plus whether the data shows a checkable gap). On demand, 15 a click and 60 a day, remembered until the ICP changes. Only public business details are sent (never an email or phone). The list re-ranks: good fits first, unscored by Virtec's score, poor fits last; importing carries Jev's fit into the prospect. Places discovery stays in Virtec, which already runs the scans and holds that key |
 
 ## Next
 
-1. **Prospect email in Virtec sends**: a Traction prospect can be told the
-   same day a Virtec quote or agreement is opened by the client, once Virtec
-   records opens (not built; needs a Virtec change first).
-2. Places + Jev profiling of local candidates (parked below).
+1. **Client opens in Virtec**: tell a Traction prospect's owner the same day
+   a quote or agreement is opened. Needs Virtec to record opens first.
+2. **Places scan for the ICP** (parked below), once the two checks are done.
 
-## Parked — noted, not started
+## Parked, noted, not started
 
-### Local prospect discovery: Google Places API (New) + Jev profiling
+### Local prospect discovery in the ICP's own area (Virtec's scan)
 
-Requested by Dylan, to build once the manual loop is running daily.
-
-**Update (phase 3):** Virtec's leads already carry `googlePlaceId`,
-`lat`/`lng`, `rating`, `reviewCount`, `scanRunId`, a 0–100 `score` and
-`scoreReasons` — Virtec appears to run Places scans itself. Before building
-discovery in AgentOS, check whether extending Virtec's scan (new areas, the
-ICP's category) and adding Jev scoring there is the better home; AgentOS
-already imports the results.
-
-**Idea.** Pull candidate businesses near him that match the active ICP (e.g.
-estate agencies in Johannesburg) from the **Places API (New)**, then have
-**Jev** profile each one against the ICP so only good fits become prospects.
-
-**Shape it would likely take**
-
-```text
-ICP (segment + geography)
-   ↓
-Places API (New) — Text Search, e.g. "estate agency in Johannesburg"
-   ↓  name, address, website, rating, review count, place id
-Jev — score each candidate against the ICP's "ideal prospect" traits
-   ↓
-Candidate list in Traction → a person accepts → becomes a Prospect (source: other/outbound)
-```
-
-- Server-side only. `GOOGLE_PLACES_API_KEY` lives in `.env` beside
-  `JEV_API_KEY` and never reaches the browser — the same rule as Hermes.
-- Jev already has a client (`server/mail/jev-client.ts`) using `choice` /
-  `score` questions; profiling would reuse that pattern with ICP criteria.
-- Candidates are suggestions. Nothing enters the pipeline without a person
-  accepting it — the same rule as Gmail suggestions.
-- Use a field mask on every Places request; the new API bills by the
-  fields requested.
+Jev scoring is built (phase 12). What is not: starting a Places scan **for the
+active ICP** (its category and geography) from AgentOS. That belongs in
+Virtec, which runs the scans, holds the Places key and pays for it. It would
+be one Virtec route that takes a category and an area, with a monthly cap on
+the key. Before building it, get answers to the two checks below.
 
 **Check before building** (not verified yet):
 
 - Google Maps Platform terms limit how long most Places content may be
   cached; place IDs are the exception. Store the place ID and re-fetch
-  details rather than keeping copies.
+  details rather than keeping copies. (AgentOS keeps only scores, no Places
+  content.)
 - POPIA restricts unsolicited electronic direct marketing to individuals.
   Business contacts are treated differently, but get this checked before
   cold-emailing anyone found this way.

@@ -184,6 +184,23 @@ export const IcpSchema = z.object({
   updatedAt: z.string(),
 });
 
+/**
+ * How well a candidate looks like the ICP, judged by Jev from public
+ * business data. A number and a confidence, not an explanation: Jev does not
+ * write reasons, so the "why" shown beside it is Virtec's own. Valid only
+ * for the ICP it was scored against (`icpKey`); change the ICP and it is
+ * scored again.
+ */
+export const LeadProfileSchema = z.object({
+  /** 0 to 4: not a fit, weak, possible, good, strong. */
+  fit: z.number().min(0).max(4),
+  confidence: z.number().min(0).max(1),
+  /** The data shows a concrete, checkable reason they would need the offer. */
+  gap: z.boolean(),
+  icpKey: z.string(),
+  at: z.string(),
+});
+
 export const IcpInputSchema = IcpSchema.omit({ updatedAt: true });
 
 /** Something Virtara actually sells. Hermes pitches from these and nothing else. */
@@ -581,8 +598,8 @@ export const CrmViewSchema = z.object({
   quotes: z.array(VirtecQuoteSchema.extend({ clientName: z.string().optional() })),
   /** Projects not completed, least complete first. */
   projects: z.array(VirtecProjectSchema),
-  /** Leads not yet imported and still worth a look, best score first. */
-  leads: z.array(VirtecLeadSchema),
+  /** Leads not yet imported and still worth a look, best fit first, then best score. */
+  leads: z.array(VirtecLeadSchema.extend({ profile: LeadProfileSchema.optional() })),
   /** Website leads still open in Virtec (new or reviewing), newest first, with their prospect once imported. */
   inbound: z.array(VirtecInboundLeadSchema.extend({ prospectId: z.string().optional() })).default([]),
   /** Every client, with the prospect it was imported as, if any. */
@@ -684,6 +701,7 @@ export type SourceResult = z.infer<typeof SourceResultSchema>;
 export type ExperimentReview = z.infer<typeof ExperimentReviewSchema>;
 export type WeeklyReview = z.infer<typeof WeeklyReviewSchema>;
 export type CrmView = z.infer<typeof CrmViewSchema>;
+export type LeadProfile = z.infer<typeof LeadProfileSchema>;
 export type CaseStudyStatus = z.infer<typeof CaseStudyStatusSchema>;
 export type CaseStudy = z.infer<typeof CaseStudySchema>;
 export type CaseStudyInput = z.input<typeof CaseStudyInputSchema>;

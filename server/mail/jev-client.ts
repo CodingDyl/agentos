@@ -60,7 +60,7 @@ interface JevNoulAnswer {
   type: "noul";
   noul: number;
 }
-type JevAnswer = JevChoiceAnswer | JevScoreAnswer | JevNoulAnswer;
+export type JevAnswer = JevChoiceAnswer | JevScoreAnswer | JevNoulAnswer;
 
 interface JevResponseBody {
   model: string;
