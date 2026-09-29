@@ -1,4 +1,6 @@
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { PAPER_FOCUS, PaperButton } from "./paper";
 
@@ -37,6 +39,22 @@ export function PaperPageHeader({
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
+  );
+}
+
+/** A quiet way back to the parent screen, above a page's header. */
+export function PaperBackLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        "-mx-2 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[4px] px-2 text-[13.5px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+        PAPER_FOCUS,
+      )}
+    >
+      <ArrowLeft className="size-3.5" aria-hidden="true" />
+      {children}
+    </Link>
   );
 }
 

@@ -6,9 +6,16 @@ import type {
   DesignBoard,
   ProjectSummary,
 } from "@shared/agentos-types";
-import { CommandButton, SectionLabel } from "@/components/os";
+import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton } from "@/components/paper";
 import { cn } from "@/lib/utils";
 import { formatAdded, typeLabel } from "./designs-model";
+
+/** The same toggle chip `PaperFilterBar` draws, for choices inside a panel. */
+const CHIP =
+  "inline-flex min-h-8 cursor-pointer items-center rounded-[4px] border px-3 text-[13px] font-medium transition-colors duration-150 " +
+  PAPER_FOCUS;
+const CHIP_ON = "border-paper-moss bg-paper-moss text-paper-white";
+const CHIP_OFF = "border-paper-mist text-paper-char hover:bg-paper-linen hover:text-paper-moss";
 
 const TYPES: readonly DesignAssetType[] = [
   "uploaded",
@@ -97,16 +104,16 @@ export function AssetLightbox({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-os-background/92"
+        className="absolute inset-0 cursor-default bg-paper-moss/60"
       />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={asset.filename}
-        className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-xl border border-os-border-strong bg-os-surface lg:flex-row"
+        className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-[6px] border border-paper-moss bg-paper-white font-paper-ui text-paper-moss lg:flex-row"
       >
-        <div className="flex min-h-0 flex-1 items-center justify-center bg-os-background p-4 md:p-8">
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-paper-linen p-4 md:p-8">
           <img
             src={asset.url}
             alt={asset.filename}
@@ -114,13 +121,13 @@ export function AssetLightbox({
           />
         </div>
 
-        <div className="flex w-full shrink-0 flex-col gap-8 overflow-y-auto border-t border-os-border p-5 md:p-6 lg:w-96 lg:border-t-0 lg:border-l">
+        <div className="flex w-full shrink-0 flex-col gap-8 overflow-y-auto border-t border-paper-mist p-5 md:p-6 lg:w-96 lg:border-t-0 lg:border-l">
           <header className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="truncate text-base leading-6 font-medium">
+              <h2 className="truncate font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
                 {asset.filename}
               </h2>
-              <p className="os-meta mt-2 text-os-subtle">
+              <p className="mt-1 text-[12.5px] text-paper-sage">
                 Added {formatAdded(asset.createdAt)}
                 {asset.width && asset.height
                   ? ` · ${asset.width}×${asset.height}`
@@ -189,13 +196,13 @@ export function AssetLightbox({
                 if (event.key === "Enter") event.currentTarget.blur();
               }}
               placeholder="mobile, nutrition, dark"
-              className="os-focus-ring w-full rounded-md border border-os-border bg-transparent px-3 py-2 text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+              className={cn(PAPER_INPUT, "w-full")}
             />
           </Field>
 
           <Field label="Boards">
             {boards.length === 0 ? (
-              <p className="text-[13px] leading-5 text-os-subtle">
+              <p className="text-[13.5px] leading-5 text-paper-sage">
                 No boards yet. Create one from the Boards screen.
               </p>
             ) : (
@@ -210,10 +217,8 @@ export function AssetLightbox({
                       aria-pressed={member}
                       onClick={() => onToggleBoard(board.id, !member)}
                       className={cn(
-                        "os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center rounded-md border px-3 transition-colors duration-150",
-                        member
-                          ? "border-os-border-strong bg-os-surface-raised text-foreground"
-                          : "border-transparent text-os-muted hover:border-os-border hover:text-foreground",
+                        CHIP,
+                        member ? CHIP_ON : CHIP_OFF,
                       )}
                     >
                       {board.name}
@@ -226,7 +231,7 @@ export function AssetLightbox({
 
           {asset.source === "higgsfield" || asset.model || asset.prompt ? (
             <Field label="How it was made">
-              <p className="os-meta text-os-subtle">
+              <p className="text-[13px] text-paper-sage">
                 {asset.source === "higgsfield" ? "Higgsfield" : asset.source}
                 {asset.model ? ` · ${asset.model}` : ""}
                 {asset.referenceAssetIds.length > 0
@@ -234,7 +239,7 @@ export function AssetLightbox({
                   : ""}
               </p>
               {asset.prompt ? (
-                <p className="mt-2 max-w-[48ch] text-[13px] leading-5 text-os-muted">{asset.prompt}</p>
+                <p className="mt-2 max-w-[48ch] text-[13.5px] leading-5 text-paper-char">{asset.prompt}</p>
               ) : null}
             </Field>
           ) : null}
@@ -248,7 +253,7 @@ export function AssetLightbox({
                 if (next !== (asset.product ?? "")) onPatch({ product: next || null });
               }}
               placeholder="chef"
-              className="os-focus-ring w-full rounded-md border border-os-border bg-transparent px-3 py-2 text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+              className={cn(PAPER_INPUT, "w-full")}
             />
           </Field>
 
@@ -259,47 +264,34 @@ export function AssetLightbox({
               onBlur={commitNotes}
               rows={3}
               placeholder="What this reference is for."
-              className="os-focus-ring w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2 text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+              className={cn(PAPER_INPUT, "w-full resize-y py-2 leading-5")}
             />
           </Field>
 
-          <div className="mt-auto flex flex-col gap-3 border-t border-os-border pt-6">
+          <div className="mt-auto flex flex-col gap-3 border-t border-paper-mist pt-6">
             {/* Stubbed deliberately: Hermes review is its own step, and a
                 button that pretended to work would be worse than one that
                 says what it is waiting for. */}
-            <CommandButton
-              variant="secondary"
-              icon={PenLine}
-              iconPosition="start"
-              disabled
-              title="Hermes visual review is not built yet"
-            >
+            <PaperButton variant="ghost" disabled title="Hermes visual review is not built yet">
+              <PenLine className="size-3.5" aria-hidden="true" />
               Review with Hermes
-            </CommandButton>
-            <p className="os-meta text-os-subtle">Coming in a later step</p>
+            </PaperButton>
+            <p className="text-[12.5px] text-paper-sage">Coming in a later step</p>
 
             {confirmingDelete ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <CommandButton variant="danger" onClick={onDelete}>
+                <PaperButton variant="danger" onClick={onDelete}>
                   Delete for good
-                </CommandButton>
-                <CommandButton
-                  variant="quiet"
-                  onClick={() => setConfirmingDelete(false)}
-                >
+                </PaperButton>
+                <PaperButton variant="quiet" onClick={() => setConfirmingDelete(false)}>
                   Keep
-                </CommandButton>
+                </PaperButton>
               </div>
             ) : (
-              <CommandButton
-                variant="quiet"
-                icon={Trash2}
-                iconPosition="start"
-                className="mt-3 self-start"
-                onClick={() => setConfirmingDelete(true)}
-              >
+              <PaperButton variant="quiet" className="mt-3 self-start" onClick={() => setConfirmingDelete(true)}>
+                <Trash2 className="size-3.5" aria-hidden="true" />
                 Delete
-              </CommandButton>
+              </PaperButton>
             )}
           </div>
         </div>
@@ -317,8 +309,8 @@ function Field({
 }) {
   return (
     <div className="min-w-0">
-      <SectionLabel>{label}</SectionLabel>
-      <div className="mt-3">{children}</div>
+      <FieldLabel>{label}</FieldLabel>
+      <div>{children}</div>
     </div>
   );
 }
@@ -342,10 +334,8 @@ function ChoiceRow({ options, value, onChange }: ChoiceRowProps) {
             aria-pressed={isSelected}
             onClick={() => onChange(option.value)}
             className={cn(
-              "os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center rounded-md border px-3 transition-colors duration-150",
-              isSelected
-                ? "border-os-border-strong bg-os-surface-raised text-foreground"
-                : "border-transparent text-os-muted hover:border-os-border hover:text-foreground",
+              CHIP,
+              isSelected ? CHIP_ON : CHIP_OFF,
             )}
           >
             {option.label}
@@ -374,8 +364,9 @@ function IconButton({
       title={label}
       onClick={onClick}
       className={cn(
-        "os-focus-ring inline-flex size-9 cursor-pointer items-center justify-center rounded-md transition-colors duration-150 hover:bg-os-surface-raised",
-        active ? "text-os-amber" : "text-os-subtle hover:text-foreground",
+        "inline-flex size-9 cursor-pointer items-center justify-center rounded-[4px] transition-colors duration-150 hover:bg-paper-stone",
+        PAPER_FOCUS,
+        active ? "text-paper-amber-deep" : "text-paper-sage hover:text-paper-moss",
       )}
     >
       {children}
