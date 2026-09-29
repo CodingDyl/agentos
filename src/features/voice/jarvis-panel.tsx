@@ -149,9 +149,18 @@ export function JarvisPanel() {
         ) : null}
 
         {jarvis.error ? (
-          <p role="alert" className="text-[14px] leading-6 font-medium text-paper-flame-deep">
-            {jarvis.error}
-          </p>
+          <div className="space-y-2">
+            <p role="alert" className="text-[14px] leading-6 font-medium text-paper-flame-deep">
+              {jarvis.error}
+            </p>
+            {/* Blocked access can only be fixed in the browser; this re-checks
+                (and asks again, if the browser has since reset to "prompt"). */}
+            {jarvis.micPermission === "denied" ? (
+              <PaperButton variant="ghost" onClick={jarvis.toggleListening}>
+                Try again
+              </PaperButton>
+            ) : null}
+          </div>
         ) : null}
 
         {working && !jarvis.reply ? <p className="text-[14px] text-paper-sage">Hermes is working on it…</p> : null}

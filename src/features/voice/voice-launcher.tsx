@@ -20,11 +20,17 @@ export function VoiceLauncher() {
   const caption =
     jarvis.voice?.enabled === false
       ? "Voice off"
-      : jarvis.phase === "confirming" && jarvis.transcript
+      : jarvis.askingMic
+        ? "Allow the microphone in the browser prompt"
+        : jarvis.phase === "confirming" && jarvis.transcript
         ? `"${jarvis.transcript}"`
-        : jarvis.phase === "idle" && canRecord
-          ? "Ready. Tap to talk"
-          : PHASE_LABEL[jarvis.phase];
+        : jarvis.phase === "idle" && canRecord && jarvis.micPermission === "denied"
+          ? "Microphone blocked"
+          : jarvis.phase === "idle" && canRecord && jarvis.micPermission === "prompt"
+            ? "Tap to allow microphone"
+            : jarvis.phase === "idle" && canRecord
+              ? "Ready. Tap to talk"
+              : PHASE_LABEL[jarvis.phase];
 
   return (
     <div className="flex items-stretch gap-1.5">
