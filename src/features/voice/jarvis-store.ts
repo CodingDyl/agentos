@@ -4,6 +4,7 @@ import type { VoiceStatus } from "@shared/voice-types";
 import type { UseAgentRunResult } from "@/features/agent/hooks/use-agent-run";
 import type { MicPermission } from "./mic-permission";
 import type { VoicePhase } from "./voice-model";
+import type { TimingSummary } from "./voice-timings";
 
 export interface JarvisApi {
   isOpen: boolean;
@@ -31,6 +32,10 @@ export interface JarvisApi {
   error?: string;
   /** Audio failed or is off, but the text answer is intact. */
   audioNote?: string;
+  /** Where the time went on the last exchange. */
+  timings: TimingSummary;
+  /** Speaks a fixed line, skipping Hermes and the microphone, to test Fish alone. */
+  testVoice: () => void;
   /** The browser's microphone setting. `prompt` means pressing record will ask. */
   micPermission: MicPermission;
   /** The browser's permission dialog is open and waiting for an answer. */

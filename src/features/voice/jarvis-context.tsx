@@ -13,6 +13,7 @@ import { SpeechQueue } from "./speech-queue";
 import { useVoicePlayback } from "./use-voice-playback";
 import { useVoiceRecorder } from "./use-voice-recorder";
 import { VoiceSession } from "./voice-session";
+import { VoiceTimings } from "./voice-timings";
 import { toSpeechWav } from "./wav";
 import { AUTO_SEND_MS, isSendable, resolveProject, type VoicePhase } from "./voice-model";
 
@@ -86,6 +87,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   // What is being said while Hermes is still writing. `muted` lasts until the
   // next question: once you have silenced Jarvis, later text is not spoken.
   const [session] = useState(() => new VoiceSession());
+  // Measured on every exchange: which step is slow is otherwise a guess.
+  const [timings] = useState(() => new VoiceTimings());
 
   const [queue] = useState(
     () =>
@@ -95,11 +98,14 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       stopPlayback: playback.stop,
       isSkippable: (failure) => failure instanceof VoiceRequestError && failure.reason === "empty",
       onSpeaking: (speaking) => {
-        if (speaking) setPhase("speaking");
-        else if (session.isWriting()) setPhase("thinking");
+        if (speaking) {
+          timings.mark("firstAudio");
+          setPhase("speaking");
+        } else if (session.isWriting()) setPhase("thinking");
       },
       onDrained: () => setPhase("idle"),
       onError: (failure) => {
+        console.error("[jarvis] voice failed:", failure);
         // The words are already on screen. Losing the voice must not lose them.
         session.mute();
         setAudioNote(
@@ -131,8 +137,9 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   // Speak each finished sentence as it arrives, not after the whole answer.
   useEffect(() => {
     if (!run.runId || !run.isRunning) return;
+    if (run.state.output.length > 0) timings.mark("firstText");
     say(run.state.output, false);
-  }, [run.runId, run.isRunning, run.state.output, say]);
+  }, [run.runId, run.isRunning, run.state.output, say, timings]);
 
   useEffect(() => {
     finished.current = (status, runId, output) => {
@@ -169,6 +176,9 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
 
       queue.reset();
       session.begin();
+      // A spoken question carries its earlier marks; a typed one starts fresh.
+      if (phase !== "confirming") timings.reset();
+      timings.mark("sent");
       setAutoSendAt(undefined);
       setError(undefined);
       setAudioNote(undefined);
@@ -195,6 +205,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         {
           onSuccess: (response) => {
             session.end();
+            timings.mark("firstText");
             setFallbackReply(response.message.content);
             void refreshVault();
             if (voiceReady) {
@@ -210,7 +221,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         },
       );
     },
-    [capabilities?.runs, pageProject, projects, queue, refreshVault, run, say, sendMessage, session, transcript, voiceReady],
+    [capabilities?.runs, pageProject, phase, projects, queue, refreshVault, run, say, sendMessage, session, timings, transcript, voiceReady],
   );
 
   // A transcript sends itself unless you touch it. Send goes immediately.
@@ -226,10 +237,12 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         setPhase("idle");
         return;
       }
+      timings.mark("stopped");
       setPhase("transcribing");
       try {
         // Sent as 16 kHz mono WAV: the one format every recogniser reads.
         const text = await transcribeAudio(await toSpeechWav(audio));
+        timings.mark("transcribed");
         setTranscriptState(text);
         setPhase("confirming");
         setAutoSendAt(Date.now() + AUTO_SEND_MS);
@@ -242,7 +255,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         setPhase("error");
       }
     },
-    [],
+    [timings],
   );
 
   const recorder = useVoiceRecorder((audio) => void handleRecorded(audio));
@@ -268,6 +281,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
 
     setError(undefined);
     setMicFailed(false);
+    timings.reset();
     setAutoSendAt(undefined);
     setTranscriptState("");
     const unsupported = micSupportFailure();
@@ -301,7 +315,29 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         });
       },
     );
-  }, [handleRecorded, phase, recorder, session, silence, voiceQuery, voiceReady]);
+  }, [handleRecorded, phase, recorder, session, silence, timings, voiceQuery, voiceReady]);
+
+  /**
+   * Speaks one fixed line with Hermes and the microphone out of the picture.
+   * If this is silent, the fault is in Fish or the browser's audio; if it
+   * speaks, the fault is upstream of it. The timing shown is Fish alone.
+   */
+  const testVoice = useCallback(() => {
+    queue.reset();
+    session.begin();
+    session.end();
+    timings.reset();
+    // Only "sent" and the audio: there is no Hermes step, so the total is Fish alone.
+    timings.mark("sent");
+    setError(undefined);
+    setAudioNote(undefined);
+    if (!voiceReady) {
+      setAudioNote("Voice isn't ready: it is switched off, or the server has no FISH_API_KEY.");
+      return;
+    }
+    queue.enqueue("Good morning, sir. Voice check.");
+    queue.close();
+  }, [queue, session, timings, voiceReady]);
 
   const cancelTranscript = useCallback(() => {
     recorder.cancel();
@@ -381,6 +417,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     approvalError: run.approvalError,
     error,
     audioNote,
+    timings: timings.summary(),
+    testVoice,
     micPermission,
     askingMic,
     micFailed,

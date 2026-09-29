@@ -24,7 +24,9 @@ export function VoiceLauncher() {
         ? "Voice server unreachable"
         : jarvis.voice && !jarvis.voice.configured
           ? "No FISH_API_KEY on server"
-          : jarvis.askingMic
+          : jarvis.audioNote && jarvis.phase === "idle"
+            ? "Voice failed. Open text for why"
+            : jarvis.askingMic
         ? "Allow the microphone in the browser prompt"
         : jarvis.phase === "confirming" && jarvis.transcript
         ? `"${jarvis.transcript}"`
