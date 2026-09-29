@@ -18,10 +18,21 @@ export function CaseStudyScreenshots({
   assetIds,
   workspace,
   onChange,
+  max = MAX_CASE_STUDY_IMAGES,
+  label = "Screenshots",
+  hint = 'shown after "What we built", in this order',
+  empty = "None yet. A before, an after, and one detail that sells it is usually enough.",
+  uploadLabel = "Upload screenshot",
 }: {
   assetIds: readonly string[];
   workspace?: string;
   onChange: (assetIds: string[]) => void;
+  /** Also used for a lead magnet's single cover. */
+  max?: number;
+  label?: string;
+  hint?: string;
+  empty?: string;
+  uploadLabel?: string;
 }) {
   const { data: library, isPending } = useDesignLibrary();
   const upload = useUploadDesignAsset();
@@ -32,10 +43,12 @@ export function CaseStudyScreenshots({
   const images = (library?.assets ?? []).filter((asset) => asset.mediaType !== "video");
   const byId = new Map(images.map((asset) => [asset.id, asset]));
   const choices = images.filter((asset) => scope === "all" || asset.project === workspace);
-  const full = assetIds.length >= MAX_CASE_STUDY_IMAGES;
+  const full = assetIds.length >= max;
+  // With room for one image, choosing another replaces it instead of being refused.
+  const replaces = max === 1;
 
   const toggle = (id: string) =>
-    onChange(assetIds.includes(id) ? assetIds.filter((entry) => entry !== id) : full ? [...assetIds] : [...assetIds, id]);
+    onChange(assetIds.includes(id) ? assetIds.filter((entry) => entry !== id) : full ? (replaces ? [id] : [...assetIds]) : [...assetIds, id]);
   const moveEarlier = (index: number) => {
     if (index === 0) return;
     const next = [...assetIds];
@@ -46,7 +59,7 @@ export function CaseStudyScreenshots({
   return (
     <div>
       <FieldLabel>
-        Screenshots <span className="font-normal text-paper-ash">(shown after "What we built", in this order)</span>
+        {label} <span className="font-normal text-paper-ash">({hint})</span>
       </FieldLabel>
 
       {assetIds.length > 0 ? (
@@ -92,7 +105,7 @@ export function CaseStudyScreenshots({
           })}
         </ol>
       ) : (
-        <p className="mb-3 text-[13px] text-paper-sage">None yet. A before, an after, and one detail that sells it is usually enough.</p>
+        <p className="mb-3 text-[13px] text-paper-sage">{empty}</p>
       )}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -100,9 +113,9 @@ export function CaseStudyScreenshots({
           <ImagePlus className="size-3.5" aria-hidden="true" />
           {picking ? "Done choosing" : "Choose from Creative"}
         </PaperButton>
-        <PaperButton disabled={upload.isPending || full} onClick={() => fileInput.current?.click()}>
+        <PaperButton disabled={upload.isPending || (full && !replaces)} onClick={() => fileInput.current?.click()}>
           <Upload className="size-3.5" aria-hidden="true" />
-          {upload.isPending ? "Uploading…" : "Upload screenshot"}
+          {upload.isPending ? "Uploading…" : uploadLabel}
         </PaperButton>
         <input
           ref={fileInput}
@@ -117,11 +130,11 @@ export function CaseStudyScreenshots({
             if (!file) return;
             upload.mutate(
               { file, options: { project: workspace, type: "screenshot" } },
-              { onSuccess: (asset) => onChange([...assetIds, asset.id].slice(0, MAX_CASE_STUDY_IMAGES)) },
+              { onSuccess: (asset) => onChange([...assetIds, asset.id].slice(-max)) },
             );
           }}
         />
-        {full ? <span className="text-[12.5px] text-paper-sage">{MAX_CASE_STUDY_IMAGES} is the most a study holds.</span> : null}
+        {full && !replaces ? <span className="text-[12.5px] text-paper-sage">{max} is the most a study holds.</span> : null}
       </div>
       {upload.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
@@ -157,7 +170,7 @@ export function CaseStudyScreenshots({
                     <button
                       type="button"
                       onClick={() => toggle(asset.id)}
-                      disabled={!selected && full}
+                      disabled={!selected && full && !replaces}
                       aria-pressed={selected}
                       aria-label={`${selected ? "Remove" : "Add"} ${asset.filename}`}
                       className={cn(

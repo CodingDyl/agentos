@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LeadMagnetSchema, LeadMagnetStatsSchema } from "./lead-magnet-types";
 import {
   VirtecClientSchema,
   VirtecFollowUpSchema,
@@ -626,6 +627,9 @@ export const TractionDataSchema = z.object({
   crm: CrmViewSchema,
   caseStudies: z.array(CaseStudySchema),
   caseStudyOpportunities: z.array(CaseStudyOpportunitySchema),
+  leadMagnets: z.array(LeadMagnetSchema).default([]),
+  /** Per magnet id: signups and what became of them, counted from Virtec. */
+  leadMagnetStats: z.record(z.string(), LeadMagnetStatsSchema).default({}),
 });
 
 /** What a write to Virtec came to, reported alongside the local change it accompanied. */

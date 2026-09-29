@@ -31,6 +31,7 @@ export type TractionTab =
   | "waiting"
   | "clients"
   | "case-studies"
+  | "lead-magnets"
   | "crm"
   | "offers"
   | "experiments"
@@ -43,6 +44,7 @@ export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "waiting", label: "Waiting on" },
   { value: "clients", label: "Clients & referrals" },
   { value: "case-studies", label: "Case studies" },
+  { value: "lead-magnets", label: "Lead magnets" },
   { value: "crm", label: "Virtec" },
   { value: "offers", label: "Offers" },
   { value: "experiments", label: "Experiments" },

@@ -14,6 +14,8 @@ import {
 } from "../../shared/virtec-types";
 import type { Prospect } from "../../shared/traction-types";
 import { daysBetween, isoDate } from "../../shared/traction-dates";
+import type { LeadMagnet } from "../../shared/lead-magnet-types";
+import { magnetForLead } from "./lead-magnets";
 
 export { formatRand, inboundOrigin };
 
@@ -96,6 +98,12 @@ function isOpenInbound(lead: VirtecInboundLead): boolean {
   return lead.status === undefined || lead.status === "new" || lead.status === "reviewing";
 }
 
+/** Where a lead came from, naming the lead magnet when it was one. */
+function originOf(lead: VirtecInboundLead, magnets: readonly LeadMagnet[]): string {
+  const magnet = magnetForLead(magnets, lead);
+  return magnet ? `${magnet.track === "jurivo" ? "Jurivo" : "Virtara"} "${magnet.title}"` : inboundOrigin(lead);
+}
+
 /**
  * Website leads nobody has answered yet, as queue items.
  *
@@ -104,7 +112,12 @@ function isOpenInbound(lead: VirtecInboundLead): boolean {
  * than one the next day. A lead already imported is left to its prospect's
  * own queue item, so it never shows twice. The longest-waiting come first.
  */
-export function inboundQueueItems(inbound: readonly VirtecInboundLead[], prospects: readonly Prospect[], today: string): (QueueItem & { rank: number })[] {
+export function inboundQueueItems(
+  inbound: readonly VirtecInboundLead[],
+  prospects: readonly Prospect[],
+  today: string,
+  magnets: readonly LeadMagnet[] = [],
+): (QueueItem & { rank: number })[] {
   const imported = new Set(prospects.map((prospect) => prospect.crmId).filter(Boolean));
 
   return inbound
@@ -118,7 +131,7 @@ export function inboundQueueItems(inbound: readonly VirtecInboundLead[], prospec
         inboundLeadId: lead.id,
         title: `Reply to ${lead.company ? `${lead.name} (${lead.company})` : lead.name}`,
         detail: [
-          `${inboundOrigin(lead)} · ${waited === 0 ? "arrived today" : `waiting ${waited} ${waited === 1 ? "day" : "days"}`}`,
+          `${originOf(lead, magnets)} · ${waited === 0 ? "arrived today" : `waiting ${waited} ${waited === 1 ? "day" : "days"}`}`,
           firstLine ? (firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine) : lead.email ?? "No message",
         ],
         rank: -1 - waited / 100,
@@ -134,10 +147,10 @@ export function inboundQueueItems(inbound: readonly VirtecInboundLead[], prospec
  * they wrote them. `replied` says whether the first reply has already gone:
  * if not, replying is the prospect's next action, due today.
  */
-export function inboundToProspect(lead: VirtecInboundLead, today: string, replied: boolean): ProspectInput {
+export function inboundToProspect(lead: VirtecInboundLead, today: string, replied: boolean, magnet?: LeadMagnet): ProspectInput {
   const answers = Object.entries(lead.details).map(([key, value]) => `${key}: ${value}`);
   const notes = [
-    `From the ${inboundOrigin(lead)} form${lead.createdAt ? ` on ${isoDate(new Date(lead.createdAt))}` : ""}.`,
+    `From the ${originOf(lead, magnet ? [magnet] : [])} form${lead.createdAt ? ` on ${isoDate(new Date(lead.createdAt))}` : ""}.`,
     lead.phone ? `Phone: ${lead.phone}` : undefined,
     ...answers,
     lead.message ? `\nTheir message:\n${lead.message}` : undefined,
@@ -151,7 +164,10 @@ export function inboundToProspect(lead: VirtecInboundLead, today: string, replie
     segment: clip(lead.details.practiceArea ?? lead.details.industry, 80),
     stage: "conversation",
     source: "website",
-    reasons: [clip(`Asked us through the ${inboundOrigin(lead)} form`, 200) as string],
+    reasons: [clip(magnet ? `Downloaded "${magnet.title}"` : `Asked us through the ${inboundOrigin(lead)} form`, 200) as string],
+    // A magnet's signups count toward its experiment, and point at its offer.
+    experimentId: magnet?.experimentId,
+    offerId: magnet?.offerId,
     nextAction: replied ? undefined : "Reply to their enquiry",
     nextActionDate: replied ? undefined : today,
     notes: clip(notes.join("\n"), 4000),

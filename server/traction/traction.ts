@@ -8,6 +8,7 @@ import type { ProjectSummary } from "../../shared/agentos-types";
 import { getProjects } from "../agentos/projects";
 import { buildOpportunities, caseStudyQueueItems } from "./case-studies";
 import { buildCrmView, crmAttention, crmQueueItems, inboundQueueItems } from "./crm";
+import { leadMagnetStats } from "./lead-magnets";
 import { crmProvider } from "./crm-provider";
 import {
   addDays,
@@ -125,7 +126,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), [...inboundQueueItems(crm.inbound, prospects, today), ...caseStudyQueueItems(opportunities)]),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets), ...caseStudyQueueItems(opportunities)]),
     doneToday: countDoneToday(events, today),
     attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),
@@ -142,5 +143,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     crm,
     caseStudies: [...state.caseStudies].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     caseStudyOpportunities: opportunities,
+    leadMagnets: [...state.leadMagnets].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    leadMagnetStats: leadMagnetStats(state.leadMagnets, virtec?.inbound ?? [], prospects, now),
   };
 }

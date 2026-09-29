@@ -1,5 +1,4 @@
-import express, { type Response } from "express";
-import type { ZodType } from "zod";
+import express from "express";
 import {
   CaseStudyInputSchema,
   StartFromOpportunitySchema,
@@ -22,7 +21,10 @@ import { isVirtecConfigured, isVirtecWritable } from "../virtec/client";
 import { dismissFollowUp, markFollowUpSent, setInboundLeadStatus, setLeadStatus, snoozeFollowUp, type WriteOutcome } from "../virtec/writes";
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import { clientToProspect, inboundToProspect, leadToProspect } from "./crm";
-import { CaseStudyDraftError, draftCaseStudy } from "./case-study-draft";
+import { draftCaseStudy } from "./case-study-draft";
+import { magnetForLead } from "./lead-magnets";
+import { leadMagnetRouter } from "./lead-magnet-routes";
+import { fail, parse } from "./route-helpers";
 import { caseStudyFiles, exportFilename } from "./case-study-export";
 import { buildZip } from "./zip";
 import { findStoredAsset } from "../designs/library";
@@ -53,9 +55,8 @@ import {
   saveTargets,
   snoozeQueueItem,
   importCrmProspect,
+  readState,
   replyToInboundLead,
-  TractionConflictError,
-  TractionNotFoundError,
   unlinkMailThread,
   updateProspect,
 } from "./store";
@@ -76,34 +77,9 @@ import { getTraction } from "./traction";
  */
 export const tractionRouter = express.Router();
 
-function parse<T>(schema: ZodType<T>, body: unknown, response: Response, what: string): T | undefined {
-  const parsed = schema.safeParse(body ?? {});
-  if (parsed.success) return parsed.data;
+tractionRouter.use("/lead-magnets", leadMagnetRouter);
 
-  const issue = parsed.error.issues[0];
-  response.status(400).json({ error: `Invalid ${what}${issue ? `: ${issue.path.join(".") || "body"}: ${issue.message}` : ""}` });
-  return undefined;
-}
 
-function fail(response: Response, error: unknown, what: string): void {
-  if (error instanceof CaseStudyDraftError) {
-    response.status(422).json({ error: error.message });
-    return;
-  }
-
-  if (error instanceof TractionConflictError) {
-    response.status(409).json({ error: error.message });
-    return;
-  }
-
-  if (error instanceof TractionNotFoundError) {
-    response.status(404).json({ error: error.message });
-    return;
-  }
-
-  console.error(`[agentos] traction: ${what} failed:`, error);
-  response.status(500).json({ error: `Unable to ${what}` });
-}
 
 tractionRouter.get("/", async (_request, response) => {
   try {
@@ -182,7 +158,8 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
         response.status(404).json({ error: "No such website lead in Virtec" });
         return;
       }
-      const mapped = inboundToProspect(lead, isoDate(new Date()), true);
+      const magnet = magnetForLead((await readState()).leadMagnets, lead);
+      const mapped = inboundToProspect(lead, isoDate(new Date()), true, magnet);
       const prospect = await replyToInboundLead({ ...mapped, crmId: mapped.crmId as string }, request.params.itemId);
       const virtec = isVirtecWritable() ? await setInboundLeadStatus(lead.id, "replied") : undefined;
       response.json({ prospect, virtec });
@@ -416,7 +393,7 @@ tractionRouter.post("/crm/import", async (request, response) => {
       : client
         ? clientToProspect(client)
         : inbound
-          ? inboundToProspect(inbound, isoDate(new Date()), false)
+          ? inboundToProspect(inbound, isoDate(new Date()), false, magnetForLead((await readState()).leadMagnets, inbound))
           : undefined;
 
     if (!mapped?.crmId) {

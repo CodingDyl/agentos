@@ -14,6 +14,7 @@ import {
   type WaitingOnInput,
   type WeeklyTargets,
 } from "@shared/traction-types";
+import type { LeadMagnet, LeadMagnetInput, NewLeadMagnet } from "@shared/lead-magnet-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -170,6 +171,24 @@ export const useSetCrmFollowUp = () =>
 /** Marks a Virtec lead disqualified. Needs write-back on. */
 export const useLeadNotAFit = () =>
   useTractionMutation((leadId: string) => request(`/api/traction/crm/leads/${id(leadId)}/not-a-fit`, { method: "POST" }));
+
+export const useCreateLeadMagnet = () =>
+  useTractionMutation((input: NewLeadMagnet) => request<{ leadMagnet: LeadMagnet }>("/api/traction/lead-magnets", json("POST", input)));
+
+export const useSaveLeadMagnet = () =>
+  useTractionMutation(({ leadMagnetId, input }: { leadMagnetId: string; input: LeadMagnetInput }) =>
+    request<{ leadMagnet: LeadMagnet }>(`/api/traction/lead-magnets/${id(leadMagnetId)}`, json("PUT", input)),
+  );
+
+export const useDeleteLeadMagnet = () =>
+  useTractionMutation((leadMagnetId: string) => request(`/api/traction/lead-magnets/${id(leadMagnetId)}`, { method: "DELETE" }));
+
+/** One Hermes call; fills empty fields only. Slow. */
+export const useDraftLeadMagnet = () =>
+  useTractionMutation((leadMagnetId: string) => request(`/api/traction/lead-magnets/${id(leadMagnetId)}/draft`, { method: "POST" }));
+
+export const useStartLeadMagnetExperiment = () =>
+  useTractionMutation((leadMagnetId: string) => request(`/api/traction/lead-magnets/${id(leadMagnetId)}/experiment`, { method: "POST" }));
 
 /** Settles a website lead in Virtec: replied, not a fit, or spam. Needs write-back on. */
 export const useSetInboundLead = () =>

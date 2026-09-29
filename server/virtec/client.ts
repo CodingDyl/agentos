@@ -15,7 +15,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 /** Every path this client may request. Nothing from a request is ever appended. */
 export const VIRTEC_PATHS = {
   leads: "/api/agentos/leads?limit=500",
-  inbound: "/api/agentos/inbound-leads?limit=200",
+  inbound: "/api/agentos/inbound-leads?limit=500",
   clients: "/api/agentos/clients?limit=500",
   quotes: "/api/agentos/quotes?limit=500",
   projects: "/api/agentos/projects?limit=500",

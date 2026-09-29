@@ -1,3 +1,4 @@
+import { LeadMagnetSchema } from "../../shared/lead-magnet-types";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -74,6 +75,7 @@ const StateSchema = z.object({
   caseStudies: z.array(CaseStudySchema).default([]),
   /** Finished projects a person said do not need a case study. */
   dismissedOpportunities: z.array(z.string()).default([]),
+  leadMagnets: z.array(LeadMagnetSchema).default([]),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -103,6 +105,7 @@ function emptyState(): TractionState {
     dismissedMail: [],
     caseStudies: [],
     dismissedOpportunities: [],
+    leadMagnets: [],
   };
 }
 
@@ -173,8 +176,9 @@ let queue: Promise<unknown> = Promise.resolve();
  * State is written before events: if the process dies between the two, the
  * record is right and one event is missing, which undercounts a week by one.
  * The other order could count outreach that never landed in the record.
+ * Every change goes through here, `lead-magnet-store.ts` included.
  */
-function mutate<T>(change: (state: TractionState) => { result: T; events?: TractionEvent[] }): Promise<T> {
+export function mutate<T>(change: (state: TractionState) => { result: T; events?: TractionEvent[] }): Promise<T> {
   const run = queue.then(async () => {
     const state = await readState();
     const { result, events = [] } = change(state);
@@ -187,7 +191,7 @@ function mutate<T>(change: (state: TractionState) => { result: T; events?: Tract
   return run;
 }
 
-function newId(prefix: string): string {
+export function newId(prefix: string): string {
   return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 }
 
@@ -200,7 +204,7 @@ function event(
 }
 
 /** Removes `undefined` keys so a stored record never carries empty fields. */
-function compact<T extends object>(value: T): T {
+export function compact<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
 
