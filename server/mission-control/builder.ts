@@ -238,6 +238,7 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     ...(await applyDismissals(
       buildAttention({
         jobs: openJobs,
+        history: allJobs,
         automations: automationList,
         projects,
         degraded,

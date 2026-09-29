@@ -1874,9 +1874,14 @@ export async function draftMilestoneReviewWithHermes(slug: string, id: string): 
   return payload.review;
 }
 
-export function retryWorkerJob(id: string): Promise<{ job: WorkerJob }> {
-  return workerRequest(`/api/worker-jobs/${encodeURIComponent(id)}/retry`, { method: "POST" }, (value) =>
-    WorkerJobResponseSchema.safeParse(value),
+/** A fresh run of a finished job; `worker` hands it to a different worker. */
+export function retryWorkerJob(id: string, worker?: string): Promise<{ job: WorkerJob }> {
+  return workerRequest(
+    `/api/worker-jobs/${encodeURIComponent(id)}/retry`,
+    worker
+      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ worker }) }
+      : { method: "POST" },
+    (value) => WorkerJobResponseSchema.safeParse(value),
   );
 }
 
