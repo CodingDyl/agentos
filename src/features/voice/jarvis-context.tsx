@@ -13,6 +13,7 @@ import { SpeechQueue } from "./speech-queue";
 import { useVoicePlayback } from "./use-voice-playback";
 import { useVoiceRecorder } from "./use-voice-recorder";
 import { VoiceSession } from "./voice-session";
+import { toSpeechWav } from "./wav";
 import { AUTO_SEND_MS, isSendable, resolveProject, type VoicePhase } from "./voice-model";
 
 /**
@@ -227,7 +228,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       }
       setPhase("transcribing");
       try {
-        const text = await transcribeAudio(audio);
+        // Sent as 16 kHz mono WAV: the one format every recogniser reads.
+        const text = await transcribeAudio(await toSpeechWav(audio));
         setTranscriptState(text);
         setPhase("confirming");
         setAutoSendAt(Date.now() + AUTO_SEND_MS);

@@ -51,8 +51,7 @@ voiceRouter.post("/transcribe", express.raw({ type: () => true, limit: "10mb" })
     if (!Buffer.isBuffer(audio) || audio.length === 0) {
       throw new VoiceError("No audio was received.", "empty");
     }
-    const mime = (request.header("content-type") ?? "audio/webm").split(";")[0].trim();
-    response.json({ text: await transcribe(audio, mime) });
+    response.json({ text: await transcribe(audio) });
   } catch (error) {
     fail(response, error);
   }
