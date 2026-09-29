@@ -179,7 +179,13 @@ export function validateOutput(text: string, expected: WorkerJob["expectedOutput
 /* ------------------------------------------------------------------ */
 
 function resolveModelId(job: WorkerJob): string {
-  const modelId = job.routing?.policy?.selected?.modelId;
+  // The current attempt wins over the original decision: a fallback may move
+  // the job to a different local model.
+  const current = job.attempts?.at(-1);
+  const modelId =
+    current?.workerId === "ollama" && current.outcome === "running"
+      ? current.modelId
+      : job.routing?.policy?.selected?.modelId;
   if (!modelId) {
     throw new OllamaError(
       "not_configured",

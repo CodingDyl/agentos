@@ -4,6 +4,7 @@ import {
   VisualVerificationResultSchema,
 } from "./visual-verification-types";
 import { WorkerCapabilitySchema, WorkerIdSchema } from "./worker-ids";
+import { ExecutionAttemptSchema, RoutingModeSchema, TaskMetadataSchema } from "./route-policy-types";
 import { WorkerRoutingDecisionSchema } from "./worker-routing-types";
 
 /**
@@ -138,6 +139,15 @@ export const WorkerJobRequestSchema = z.object({
    * one recorded, rather than a second one made after the fact.
    */
   routing: WorkerRoutingDecisionSchema.optional(),
+  /**
+   * How the route policy should treat this job. Absent means the legacy
+   * behaviour: an explicit worker runs as asked, and `auto` asks Hermes.
+   */
+  routingMode: RoutingModeSchema.optional(),
+  /** With `manual`, the execution option (e.g. `ollama:qwen3:4b`) chosen by hand. */
+  manualOptionId: z.string().optional(),
+  /** Explicit task metadata for the profiler: local-only, budget, category, … */
+  routingHints: TaskMetadataSchema.optional(),
   /**
    * Material the objective works on, supplied inline (notes, a snippet).
    * Text-only workers receive this in place of a repository context packet.
@@ -350,6 +360,11 @@ export const WorkerJobSchema = WorkerJobRequestSchema.extend({
   /** When a person approved it, and the commit that carried it in. */
   approvedAt: z.string().optional(),
   integratedCommit: z.string().optional(),
+  /**
+   * Every execution attempt, in order: exact model, digest, usage, timings,
+   * validation and any fallback. Absent on jobs that predate route policy.
+   */
+  attempts: z.array(ExecutionAttemptSchema).optional(),
   /** Why the job failed, when it did. */
   error: z.string().optional(),
   result: WorkerJobResultSchema.optional(),

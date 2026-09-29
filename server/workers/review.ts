@@ -491,6 +491,44 @@ export async function integrationBlockerDetails(
  * explicit request. Everything after it is deterministic: commit what was
  * reviewed, fast-forward it on, and check the result in the real repository.
  */
+/**
+ * A policy-routed job that produced text rather than a checkout.
+ *
+ * Hermes' diff review does not apply (there is no diff), and it is not run
+ * here: sending a local-only task's output to a reviewing model would defeat
+ * the point of keeping it local. Task rules were already checked when the run
+ * finished; what remains is the person.
+ */
+function isTextResult(job: WorkerJob): boolean {
+  return !job.worktreePath && Boolean(job.routing?.policy) && Boolean(job.result);
+}
+
+async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
+  const last = job.attempts?.at(-1);
+
+  if (last?.outcome !== "succeeded" || last.validation?.passed === false) {
+    return { ok: false, error: "The last attempt did not produce a validated result, so there is nothing to approve." };
+  }
+
+  if (!job.result?.summary?.trim()) {
+    return { ok: false, error: "The result is empty, so there is nothing to approve." };
+  }
+
+  const now = new Date().toISOString();
+  const completed = await update(job, { status: "completed", approvedAt: now, completedAt: now });
+
+  await record(job.id, "job.approved", "Approved by the operator (text result, read by a person)");
+  await record(job.id, "job.completed", "Completed. No checkout to integrate.");
+  await recordActivity({
+    type: "worker.approved",
+    description: job.objective,
+    project: job.project,
+    metadata: { jobId: job.id, text: true },
+  });
+
+  return { ok: true, job: completed };
+}
+
 export async function approveJob(jobId: string): Promise<ActionResult> {
   const job = await readJob(jobId);
   if (!job) return { ok: false, error: "There is no such job." };
@@ -505,6 +543,10 @@ export async function approveJob(jobId: string): Promise<ActionResult> {
       error: `Only work waiting for review can be approved. This job is ${job.status}.`,
     };
   }
+
+  // A text result (a summary, an extraction) has no checkout to integrate. The
+  // review is the person reading it; there is nothing to fast-forward.
+  if (isTextResult(job)) return approveTextResult(job);
 
   const blockers = await integrationBlockers(job);
 

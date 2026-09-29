@@ -241,6 +241,11 @@ export const EVENT_TYPES = {
     level: "warning",
     title: "Worker job stalled",
   },
+  "worker.fallback": {
+    source: "worker",
+    level: "warning",
+    title: "Fell back to another worker",
+  },
   "worker.routed": {
     source: "hermes",
     level: "info",

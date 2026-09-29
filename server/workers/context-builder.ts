@@ -58,6 +58,20 @@ function list(items: readonly string[] | undefined): string | undefined {
  * too — which matters, because this is the exact brief a worker was given when
  * the time comes to judge what it did.
  */
+/** For a text task the final reply is the deliverable itself, not a report on it. */
+function textTaskInstructions(job: WorkerJob): string {
+  const json = job.expectedOutput?.format === "json";
+  return [
+    "This is a text task with no repository. Your final message must be the deliverable itself, and nothing else.",
+    json ? "It must be valid JSON." : undefined,
+    json && job.expectedOutput?.schema
+      ? `It must conform to this JSON Schema:\n${JSON.stringify(job.expectedOutput.schema)}`
+      : undefined,
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join("\n");
+}
+
 export function buildContextPacket(job: WorkerJob): string {
   const constraints = [...(job.constraints ?? []), ...STANDING_CONSTRAINTS];
 
@@ -65,6 +79,10 @@ export function buildContextPacket(job: WorkerJob): string {
     "JOB",
     section("\nProject:", job.project),
     section("\nObjective:", job.objective),
+    // Inline material for text tasks. Without it, a fallback worker would be
+    // handed the objective ("summarise these notes") but not the notes.
+    section("\nSupplied material:", job.inputText?.trim()),
+    job.inputText || job.expectedOutput ? section("\nOutput:", textTaskInstructions(job)) : undefined,
     section("\nRelevant context:", list(job.contextFiles)),
     section("\nConstraints:", list(constraints)),
     section("\nAcceptance:", list(job.acceptanceCriteria)),

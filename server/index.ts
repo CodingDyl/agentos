@@ -80,6 +80,7 @@ import { completeOutreachConnection, OutreachAuthError, parseOutreachState } fro
 import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
 import { financeRouter } from "./finance/routes";
+import { routePolicyRouter } from "./route-policy/routes";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -245,6 +246,8 @@ import { describeWorkers, getWorker, listWorkers } from "./workers/registry";
 import { workerPerformance } from "./workers/metrics";
 import { routeJob } from "./workers/router";
 import { WorkerRoutingDecisionSchema } from "../shared/worker-routing-types";
+import { RoutingModeSchema, TaskMetadataSchema } from "../shared/route-policy-types";
+import { WorkerJobRequestSchema } from "../shared/worker-types";
 import {
   VisualAcceptanceContextSchema,
   type VisualAcceptanceContext,
@@ -329,6 +332,7 @@ app.use("/api/outreach", outreachRouter);
 
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
 app.use("/api/finance", financeRouter);
+app.use("/api/route-policy", routePolicyRouter);
 
 /** Voice: speech to text and text to speech only. Words still go through Hermes. */
 app.use("/api/voice", voiceRouter);
@@ -1672,6 +1676,21 @@ function parsedRouting(value: unknown) {
   return result.success ? result.data : undefined;
 }
 
+/** Optional route-policy fields of a job request, each validated on its own. */
+function parsedRoutePolicyInputs(body: Record<string, unknown>) {
+  const mode = RoutingModeSchema.safeParse(body.routingMode);
+  const hints = TaskMetadataSchema.safeParse(body.routingHints);
+  const expected = WorkerJobRequestSchema.shape.expectedOutput.safeParse(body.expectedOutput);
+
+  return {
+    routingMode: mode.success ? mode.data : undefined,
+    manualOptionId: typeof body.manualOptionId === "string" ? body.manualOptionId : undefined,
+    routingHints: hints.success ? hints.data : undefined,
+    inputText: typeof body.inputText === "string" ? body.inputText : undefined,
+    expectedOutput: expected.success ? expected.data : undefined,
+  };
+}
+
 /**
  * A recommendation, made before anything is started.
  *
@@ -1771,6 +1790,10 @@ app.post("/api/worker-jobs", async (request, response) => {
       // override from a plain choice by looking at the worker alone.
       requestedWorker: body.requestedWorker,
       routing: parsedRouting(body.routing),
+      // Route-policy inputs. Parsed against the shared schema, not trusted: a
+      // malformed value is dropped, never half-applied, and `localOnly` in
+      // particular can only ever be honoured or refused, not misread.
+      ...parsedRoutePolicyInputs(body),
       // Parsed rather than trusted: this decides whether a browser is driven
       // and which local files a review is shown, so a malformed one is dropped
       // rather than half-applied.
