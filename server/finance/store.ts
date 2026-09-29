@@ -9,7 +9,7 @@ import type {
   SubscriptionDecision,
   Transaction,
 } from "../../shared/finance-types";
-import { CategorySchema, JevSubscriptionAssessmentSchema, type BudgetInput } from "../../shared/finance-types";
+import { CategorySchema, JevSubscriptionAssessmentSchema, type AccountInput, type AccountPatch, type BudgetInput } from "../../shared/finance-types";
 import { isRiskProfile, type RiskProfile } from "../../shared/finance-profiler";
 import { merchantKey } from "./categorise";
 import { financeDatabase } from "./db";
@@ -17,6 +17,9 @@ import { financeDatabase } from "./db";
 /** Everything Finance keeps, as small synchronous queries over `finance.db`. */
 
 export class FinanceNotFoundError extends Error {}
+
+/** A change that would be undone, or that is not yours to make. */
+export class FinanceConflictError extends Error {}
 
 export type StoredGoal = FinancialGoal & { kind: "goal" | "sinking"; riskProfile?: RiskProfile; annualReturn?: number };
 
@@ -55,17 +58,106 @@ export function saveSnapshot(accounts: readonly FinancialAccount[], transactions
   }
 }
 
+interface AccountRow {
+  id: string;
+  provider: FinancialAccount["provider"];
+  name: string;
+  type: FinancialAccount["type"];
+  currency: string;
+  balance: number;
+  mask: string | null;
+  interest_rate: number | null;
+  credit_limit: number | null;
+}
+
+const toAccount = (row: AccountRow): FinancialAccount => ({
+  id: row.id,
+  provider: row.provider,
+  name: row.name,
+  type: row.type,
+  currency: row.currency,
+  balance: row.balance,
+  mask: row.mask ?? undefined,
+  interestRate: row.interest_rate ?? undefined,
+  creditLimit: row.credit_limit ?? undefined,
+});
+
 export function readAccounts(): FinancialAccount[] {
-  const rows = financeDatabase().prepare("SELECT * FROM accounts ORDER BY name").all() as unknown as {
-    id: string;
-    provider: "investec" | "sample";
-    name: string;
-    type: FinancialAccount["type"];
-    currency: string;
-    balance: number;
-    mask: string | null;
-  }[];
-  return rows.map((row) => ({ id: row.id, provider: row.provider, name: row.name, type: row.type, currency: row.currency, balance: row.balance, mask: row.mask ?? undefined }));
+  return (financeDatabase().prepare("SELECT * FROM accounts ORDER BY name").all() as unknown as AccountRow[]).map(toAccount);
+}
+
+export function readAccount(id: string): FinancialAccount {
+  const row = financeDatabase().prepare("SELECT * FROM accounts WHERE id = ?").get(id) as unknown as AccountRow | undefined;
+  if (!row) throw new FinanceNotFoundError("That account does not exist.");
+  return toAccount(row);
+}
+
+/** An account you add yourself. A card's balance is entered as what you owe and stored as a negative. */
+export function createManualAccount(input: AccountInput): FinancialAccount {
+  const id = `manual-${randomUUID()}`;
+  financeDatabase()
+    .prepare(
+      `INSERT INTO accounts (id, provider, name, type, currency, balance, mask, updated_at, interest_rate, credit_limit)
+       VALUES (?, 'manual', ?, ?, 'ZAR', ?, NULL, ?, ?, ?)`,
+    )
+    .run(id, input.name, input.type, input.type === "credit" ? -input.balance : input.balance, new Date().toISOString(), input.interestRate ?? null, input.creditLimit ?? null);
+  return readAccount(id);
+}
+
+/**
+ * Changes what you told us about an account. A bank-reported balance is not
+ * yours to edit (the next sync would only put it back), so `balance` is
+ * accepted on manual accounts only. The rate and limit can be set on any.
+ */
+export function updateAccount(id: string, patch: AccountPatch): FinancialAccount {
+  const current = readAccount(id);
+  if (current.provider !== "manual" && (patch.balance !== undefined || patch.name !== undefined)) {
+    throw new FinanceConflictError("Investec reports that account's name and balance. Only its interest rate and limit can be changed here.");
+  }
+
+  const balance = patch.balance === undefined ? current.balance : current.type === "credit" ? -patch.balance : patch.balance;
+  const interestRate = patch.interestRate === undefined ? current.interestRate : (patch.interestRate ?? undefined);
+  const creditLimit = patch.creditLimit === undefined ? current.creditLimit : (patch.creditLimit ?? undefined);
+
+  financeDatabase()
+    .prepare("UPDATE accounts SET name = ?, balance = ?, interest_rate = ?, credit_limit = ?, updated_at = ? WHERE id = ?")
+    .run(patch.name ?? current.name, balance, interestRate ?? null, creditLimit ?? null, new Date().toISOString(), id);
+  return readAccount(id);
+}
+
+/** Removes a manual account and the payments imported into it. An Investec account cannot be removed: the next sync would bring it back. */
+export function deleteManualAccount(id: string): void {
+  const account = readAccount(id);
+  if (account.provider !== "manual") throw new FinanceConflictError("Only accounts you added yourself can be removed.");
+  const db = financeDatabase();
+  db.exec("BEGIN");
+  try {
+    db.prepare("DELETE FROM transactions WHERE account_id = ?").run(id);
+    db.prepare("DELETE FROM accounts WHERE id = ?").run(id);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+/** Adds imported payments. A row seen before is left alone, so importing the same statement twice changes nothing. */
+export function insertTransactions(transactions: readonly Transaction[]): number {
+  const db = financeDatabase();
+  const insert = db.prepare("INSERT OR IGNORE INTO transactions (id, account_id, date, description, amount, merchant) VALUES (?, ?, ?, ?, ?, ?)");
+  let added = 0;
+  db.exec("BEGIN");
+  try {
+    for (const entry of transactions) {
+      const result = insert.run(entry.id, entry.accountId, entry.date, entry.description, entry.amount, entry.merchant ?? null);
+      added += Number(result.changes);
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return added;
 }
 
 export function readTransactions(): Transaction[] {

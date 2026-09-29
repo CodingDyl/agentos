@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { PaperSection } from "@/components/paper";
 import { useFinance } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
+import { isLiveSource } from "./finance-model";
 
 /** How many alerts Today shows before pointing at Finance. */
 const TODAY_LIMIT = 4;
@@ -26,7 +27,7 @@ export function FinanceToday({ className }: { className?: string }) {
 
   if (!data) return null;
 
-  const live = data.source.kind === "investec";
+  const live = isLiveSource(data.source);
   const shown = live ? data.attention.slice(0, TODAY_LIMIT) : [];
 
   return (

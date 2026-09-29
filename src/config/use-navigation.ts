@@ -33,7 +33,7 @@ export function useNavigationItems(): AppShellNavigationItem[] {
   const needsReply = mail?.needsYou.length ?? 0;
   const tractionQueued = traction?.queue.length ?? 0;
   // Only alerts about real money: a sample ledger never raises a badge.
-  const financeWarnings = finance?.source.kind === "investec" ? finance.attention.filter((item) => item.tone === "warn").length : 0;
+  const financeWarnings = finance && (finance.source.kind === "investec" || finance.source.kind === "manual") ? finance.attention.filter((item) => item.tone === "warn").length : 0;
 
   const pinnedWorkspaces = useMemo(
     () =>

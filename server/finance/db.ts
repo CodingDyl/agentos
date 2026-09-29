@@ -100,6 +100,12 @@ const MIGRATIONS: readonly string[] = [
     amount    REAL NOT NULL
   );
   `,
+  `
+  -- What you told us about an account: the rate a card charges and its limit.
+  -- Kept apart from what the bank reports, so a sync never overwrites them.
+  ALTER TABLE accounts ADD COLUMN interest_rate REAL;
+  ALTER TABLE accounts ADD COLUMN credit_limit REAL;
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

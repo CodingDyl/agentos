@@ -16,13 +16,18 @@ import { RISK_PROFILES } from "./finance-profiler";
 
 export const FinancialAccountSchema = z.object({
   id: z.string(),
-  provider: z.enum(["investec", "sample"]),
+  /** `manual`: an account you added yourself, kept up to date by statement import. */
+  provider: z.enum(["investec", "sample", "manual"]),
   name: z.string(),
   type: z.enum(["current", "savings", "credit", "investment"]),
   currency: z.string(),
   balance: z.number(),
   /** Last four digits only, for telling two accounts apart on screen. */
   mask: z.string().optional(),
+  /** Annual interest rate as a fraction (0.22 is 22%), entered by you. Never guessed. */
+  interestRate: z.number().optional(),
+  /** A card's limit, for how much of it is in use. */
+  creditLimit: z.number().optional(),
 });
 
 export const TransactionSchema = z.object({
@@ -170,7 +175,7 @@ export const FinanceSourceSchema = z.object({
    * while Investec is not connected and never written to disk. `none`: nothing
    * to show.
    */
-  kind: z.enum(["investec", "sample", "none"]),
+  kind: z.enum(["investec", "manual", "sample", "none"]),
   configured: z.boolean(),
   /** Names of the Investec variables that are not set. Names only, never values. */
   missing: z.array(z.string()).default([]),
@@ -288,7 +293,7 @@ export const AttentionSchema = z.object({
   tone: z.enum(["warn", "note"]),
   text: z.string(),
   /** Which tab it points at. */
-  tab: z.enum(["overview", "cash-flow", "spending", "subscriptions", "goals", "investments", "insights", "settings"]),
+  tab: z.enum(["overview", "cash-flow", "spending", "subscriptions", "goals", "investments", "insights", "analyser", "settings"]),
 });
 export type Attention = z.infer<typeof AttentionSchema>;
 
@@ -323,6 +328,45 @@ export const FinanceTransactionRowSchema = TransactionSchema.extend({
   flagged: z.boolean(),
 });
 export type FinanceTransactionRow = z.infer<typeof FinanceTransactionRowSchema>;
+
+export const DebtSchema = z.object({
+  accountId: z.string(),
+  name: z.string(),
+  owed: z.number(),
+  interestRate: z.number().optional(),
+  creditLimit: z.number().optional(),
+  /** 0–1: how much of the limit is in use. */
+  utilisation: z.number().optional(),
+  /** What a month of interest adds, at the rate you entered. */
+  monthlyInterest: z.number().optional(),
+  /** Months to clear at your recent free cash flow, if that is enough to make headway. */
+  monthsAtFreeCashFlow: z.number().optional(),
+  options: z.array(z.object({ months: z.number(), monthly: z.number(), interest: z.number() })),
+});
+export type Debt = z.infer<typeof DebtSchema>;
+
+export const FindingSchema = z.object({
+  id: z.string(),
+  /** The named idea the check applies. */
+  principle: z.string(),
+  title: z.string(),
+  status: z.enum(["good", "watch", "act"]),
+  /** What the numbers say, in one sentence. */
+  summary: z.string(),
+  evidence: z.array(z.string()),
+  /** What to do about it, when there is something to do. Never a product. */
+  action: z.string().optional(),
+});
+export type Finding = z.infer<typeof FindingSchema>;
+
+export const AnalysisSchema = z.object({
+  findings: z.array(FindingSchema),
+  /** The ids of the findings to look at first: act before watch, worst first. */
+  focus: z.array(z.string()),
+  narrative: z.string().optional(),
+  narrativeAt: z.string().optional(),
+});
+export type Analysis = z.infer<typeof AnalysisSchema>;
 
 export const FinanceDataSchema = z.object({
   source: FinanceSourceSchema,
@@ -368,8 +412,31 @@ export const FinanceDataSchema = z.object({
   }),
   corrections: z.array(z.object({ merchant: z.string(), category: CategorySchema, scope: z.enum(["personal", "business"]).optional() })),
   jev: z.object({ configured: z.boolean(), assessedCount: z.number() }),
+  debts: z.array(DebtSchema),
+  analysis: AnalysisSchema,
 });
 export type FinanceData = z.infer<typeof FinanceDataSchema>;
+
+/**
+ * An account you add yourself: Discovery, or anything Investec cannot see. For a
+ * card or loan, `balance` is what you OWE, entered as a positive number.
+ */
+export const AccountInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  type: z.enum(["current", "savings", "credit", "investment"]),
+  balance: z.number().min(0).max(1_000_000_000),
+  interestRate: z.number().min(0).max(1).optional(),
+  creditLimit: z.number().min(0).max(1_000_000_000).optional(),
+});
+export type AccountInput = z.infer<typeof AccountInputSchema>;
+
+export const AccountPatchSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  balance: z.number().min(0).max(1_000_000_000).optional(),
+  interestRate: z.number().min(0).max(1).nullable().optional(),
+  creditLimit: z.number().min(0).max(1_000_000_000).nullable().optional(),
+});
+export type AccountPatch = z.infer<typeof AccountPatchSchema>;
 
 /** A monthly limit for one category. `null` amount removes it. */
 export const BudgetInputSchema = z.object({
@@ -378,7 +445,7 @@ export const BudgetInputSchema = z.object({
 });
 export type BudgetInput = z.infer<typeof BudgetInputSchema>;
 
-export const FINANCE_TABS = ["overview", "cash-flow", "spending", "subscriptions", "goals", "investments", "insights", "settings"] as const;
+export const FINANCE_TABS = ["overview", "cash-flow", "spending", "subscriptions", "goals", "investments", "insights", "analyser", "settings"] as const;
 export type FinanceTab = (typeof FINANCE_TABS)[number];
 
 /** Whole rand with comma thousands, as Finance writes it: `R 84,320`. Locale-fixed so the server and page agree. */

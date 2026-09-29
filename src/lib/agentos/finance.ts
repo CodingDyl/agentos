@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FinanceDataSchema,
+  type AccountInput,
+  type AccountPatch,
   type BudgetInput,
   type CategoryCorrection,
   type FinanceData,
@@ -112,3 +114,30 @@ export const useUpdateGoal = () => useFinanceMutation(({ goalId, patch }: { goal
 export const useDeleteGoal = () => useFinanceMutation((goalId: string) => request(`/api/finance/goals/${id(goalId)}`, { method: "DELETE" }));
 
 export const useWriteReview = () => useFinanceMutation(() => request("/api/finance/review", { method: "POST" }));
+
+export const useCreateAccount = () => useFinanceMutation((input: AccountInput) => request("/api/finance/accounts", json("POST", input)));
+
+export const useUpdateAccount = () => useFinanceMutation(({ accountId, patch }: { accountId: string; patch: AccountPatch }) => request(`/api/finance/accounts/${id(accountId)}`, json("PATCH", patch)));
+
+export const useDeleteAccount = () => useFinanceMutation((accountId: string) => request(`/api/finance/accounts/${id(accountId)}`, { method: "DELETE" }));
+
+export interface StatementImportResult {
+  added: number;
+  alreadyHad: number;
+  skipped: number;
+  from?: string;
+  to?: string;
+  positiveMeansOut: boolean;
+  signNote?: string;
+}
+
+/** Sends a statement's text to the server to be read into a manual account. The file never leaves this machine. */
+export const useImportStatement = () =>
+  useFinanceMutation(({ accountId, text, sign }: { accountId: string; text: string; sign: "auto" | "positive-is-out" | "positive-is-in" }) =>
+    request<StatementImportResult>(`/api/finance/accounts/${id(accountId)}/import?sign=${sign}`, { method: "POST", headers: { "Content-Type": "text/csv" }, body: text }),
+  );
+
+export const useAnalyse = () => useFinanceMutation(() => request("/api/finance/analyse", { method: "POST" }));
+
+/** A question answered from the same figures. Nothing is kept, so nothing needs re-reading. */
+export const useAskAnalyser = () => useMutation({ mutationFn: (question: string) => request<{ answer: string }>("/api/finance/analyse/ask", json("POST", { question })), networkMode: "always", retry: 0 });

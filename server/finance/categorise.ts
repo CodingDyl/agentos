@@ -71,7 +71,7 @@ interface Rule {
 }
 
 const RULES: readonly Rule[] = [
-  { category: "Transfer", pattern: /\b(transfer|own account|savings? (account|pocket)|internal|pocket|easyequities|etf|unit trust|tfsa|satrix|ashburton)\b/ },
+  { category: "Transfer", pattern: /\b(discovery (bank|card|credit)|payment (received|thank you)|thank you for your payment|transfer|own account|savings? (account|pocket)|internal|pocket|easyequities|etf|unit trust|tfsa|satrix|ashburton)\b/ },
   { category: "Income", pattern: /\b(salary|payroll|wages|invoice paid|dividend|interest received|refund)\b/ },
   { category: "Housing", pattern: /\b(rent|bond|levy|levies|rates|body corporate|property|home loan|bond repayment)\b/ },
   // Debt repayments are spending (interest and capital both leave), so they sit
@@ -96,7 +96,7 @@ const RULES: readonly Rule[] = [
   { category: "Giving", pattern: /\b(donation|donate|charity|church|tithe|gift|sanparks conservation|givengain|rise against hunger|spca|unicef|wwf)\b/ },
   { category: "Travel", pattern: /\b(airline|flysafair|british airways|emirates|kulula|lift|airbnb|booking\.com|hotel|lodge|travelstart|expedia|hostel|virgin atlantic|car hire|avis|budget rent|europcar|hertz|visa fee|vfs)\b/ },
   { category: "Business", pattern: /\b(aws|amazon web|digitalocean|cloudflare|namecheap|godaddy|hetzner|sars|cipc|accounting|domain|hosting|xero|quickbooks|stripe|paystack|payfast)\b/ },
-  { category: "Fees", pattern: /\b(fee|charge|service charge|monthly account|admin fee|cash handling|overdraft|interest charged)\b/ },
+  { category: "Fees", pattern: /\b(interest|fee|charge|service charge|monthly account|admin fee|cash handling|overdraft|interest charged)\b/ },
   { category: "Shopping", pattern: /\b(takealot|amazon|superbalist|zara|h&m|mr price|cotton on|game|builders|incredible connection|onedayonly|temu|shein|loot|pep|ackermans|edgars|decathlon|ikea|hifi corp|jet|foschini|tfg|sportscene)\b/ },
 ];
 

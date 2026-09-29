@@ -1,6 +1,8 @@
 import type {
   Anomaly,
   Attention,
+  Debt,
+  Finding,
   Category,
   CategoryTotal,
   FinanceTransactionRow,
@@ -18,6 +20,7 @@ import type {
 } from "../../shared/finance-types";
 import { CATEGORY_GROUP, formatRandAmount } from "../../shared/finance-types";
 import { monthsBetween, requiredMonthly as profilerRequiredMonthly, futureValueOfContributions, futureValueOfLump, RISK_PROFILE_INFO, type RiskProfile } from "../../shared/finance-profiler";
+import { analyse, buildDebts } from "./analyse";
 import { guessSubscriptionKind, isInvestmentTransfer, merchantKey, ruleCategory } from "./categorise";
 
 /**
@@ -529,6 +532,9 @@ export interface EngineOutput {
   health: HealthSignal[];
   review: MonthlyReview;
   investments: { portfolioValue?: number; monthlyContribution?: number };
+  debts: Debt[];
+  findings: Finding[];
+  focus: string[];
 }
 
 export function computeFinance(input: EngineInput): EngineOutput {
@@ -602,6 +608,23 @@ export function computeFinance(input: EngineInput): EngineOutput {
     anomalies,
   });
 
+  const debts = buildDebts(input.accounts, freeCashFlow);
+  const split = incomeSplit(categories, summary);
+  const analysis = analyse({
+    accounts: input.accounts,
+    summary,
+    months,
+    split,
+    categories,
+    subscriptions,
+    subscriptionMonthly,
+    goals,
+    debts,
+    averageMonthlySpend,
+    freeCashFlow,
+    month,
+  });
+
   const attention = buildAttention({ today: input.today, subscriptions, categories, goals, anomalies, uncategorised: rows.filter((r) => r.categorySource === "none" && r.amount < 0).length });
   const health = buildHealth({ summary, emergencyMonths, subscriptionMonthly, goals, investments });
 
@@ -612,7 +635,7 @@ export function computeFinance(input: EngineInput): EngineOutput {
     months,
     averageMonthlySpend: averageMonthlySpend === undefined ? undefined : r2(averageMonthlySpend),
     categories,
-    split: incomeSplit(categories, summary),
+    split,
     rows,
     subscriptions,
     subscriptionMonthly,
@@ -627,6 +650,9 @@ export function computeFinance(input: EngineInput): EngineOutput {
     health,
     review,
     investments,
+    debts,
+    findings: analysis.findings,
+    focus: analysis.focus,
   };
 }
 

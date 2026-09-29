@@ -2,6 +2,7 @@ import { FinanceDataSchema, type FinanceData } from "../../shared/finance-types"
 import { computeFinance } from "./engine";
 import { InvestecError, isInvestecConfigured, missingInvestecVariables, readInvestec } from "./investec";
 import { isJevConfigured } from "../mail/jev-client";
+import { readAnalysisNarrative } from "./analyser";
 import { readNarrative } from "./review";
 import { sampleAccounts, sampleGoals, sampleTransactions } from "./sample";
 import {
@@ -86,7 +87,8 @@ export function getFinance(): FinanceData {
   const configured = isInvestecConfigured();
   if (configured) refreshInBackground();
 
-  const stored = countTransactions() > 0;
+  // Real data is anything saved: Investec's, or an account you added and imported.
+  const stored = countTransactions() > 0 || readAccounts().length > 0;
   const useSample = !configured && !stored;
 
   const accounts = useSample ? sampleAccounts() : readAccounts();
@@ -109,12 +111,13 @@ export function getFinance(): FinanceData {
   });
 
   const narrative = readNarrative(result.month);
+  const analysisNarrative = readAnalysisNarrative(result.month);
   const lastSyncAt = readMeta("lastSyncAt");
   const lastSyncError = readMeta("lastSyncError");
 
   return FinanceDataSchema.parse({
     source: {
-      kind: useSample ? "sample" : accounts.length > 0 ? "investec" : "none",
+      kind: useSample ? "sample" : accounts.some((a) => a.provider === "investec") ? "investec" : accounts.length > 0 ? "manual" : "none",
       configured,
       missing: missingInvestecVariables(),
       lastSyncedAt: lastSyncAt || undefined,
@@ -145,5 +148,7 @@ export function getFinance(): FinanceData {
     investments: result.investments,
     corrections: readCorrections(),
     jev: { configured: isJevConfigured(), assessedCount: assessments.size },
+    debts: result.debts,
+    analysis: { findings: result.findings, focus: result.focus, narrative: analysisNarrative?.text, narrativeAt: analysisNarrative?.at },
   });
 }

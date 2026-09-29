@@ -12,6 +12,7 @@ export const FINANCE_TAB_OPTIONS: readonly { value: FinanceTab; label: string }[
   { value: "goals", label: "Goals" },
   { value: "investments", label: "Investments" },
   { value: "insights", label: "Insights" },
+  { value: "analyser", label: "Analyser" },
   { value: "settings", label: "Settings" },
 ];
 
@@ -92,8 +93,12 @@ export function goalStatusLabel(goal: FinanceData["goals"][number]): string {
   }
 }
 
-export function sourceLabel(source: FinanceData["source"]): string {
+export function sourceLabel(source: FinanceData["source"], accounts: FinanceData["accounts"] = []): string {
   if (source.kind === "sample") return "Sample data";
   if (source.kind === "none") return "No accounts yet";
-  return "Investec, read-only";
+  if (source.kind === "manual") return "Accounts you added";
+  return accounts.some((account) => account.provider === "manual") ? "Investec, read-only, and accounts you added" : "Investec, read-only";
 }
+
+/** Real money is on the page: Investec's, or an account you added. Sample data and an empty page are not. */
+export const isLiveSource = (source: FinanceData["source"]) => source.kind === "investec" || source.kind === "manual";

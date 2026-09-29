@@ -4,6 +4,7 @@ import { AppShell } from "@/components/os";
 import { PaperButton, PaperStage, PaperTabs } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useFinance } from "@/lib/agentos/finance";
+import { FinanceAnalyserTab } from "./finance-analyser-tab";
 import { FinanceCashFlowTab } from "./finance-cash-flow-tab";
 import { FinanceGoalsTab } from "./finance-goals-tab";
 import { FinanceInsightsTab } from "./finance-insights-tab";
@@ -79,7 +80,7 @@ function Finance({ data, tab, onTab }: { data: FinanceData; tab: FinanceTab; onT
         <div className="min-w-0">
           <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">Finance</h1>
           <p className="mt-1 text-[13px] text-paper-sage">
-            {sourceLabel(data.source)}
+            {sourceLabel(data.source, data.accounts)}
             {data.source.lastSyncedAt ? ` · synced ${new Date(data.source.lastSyncedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
           </p>
         </div>
@@ -105,6 +106,7 @@ function Finance({ data, tab, onTab }: { data: FinanceData; tab: FinanceTab; onT
         {tab === "goals" ? <FinanceGoalsTab data={data} /> : null}
         {tab === "investments" ? <FinanceInvestmentsTab data={data} /> : null}
         {tab === "insights" ? <FinanceInsightsTab data={data} /> : null}
+        {tab === "analyser" ? <FinanceAnalyserTab data={data} /> : null}
         {tab === "settings" ? <FinanceSettingsTab data={data} /> : null}
       </div>
     </div>

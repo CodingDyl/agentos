@@ -7,7 +7,7 @@ const PRIVACY: readonly string[] = [
   "Investec credentials are read by the server only. They are never sent to the browser or written to disk.",
   "The ledger lives in a local database on this machine, never in Markdown or the vault.",
   "Account numbers are cut to the last four digits on the way in.",
-  "Jev sees a merchant, an amount, a rhythm and a price history. Hermes sees monthly totals. Neither sees identifiers, balances or logins.",
+  "Jev sees a merchant, an amount, a rhythm and a price history. Hermes sees monthly totals, category totals and balances rounded to the nearest R100 (for the analyser). Neither sees account numbers, account names, logins or individual payments.",
   "The Investec connection is read-only. No part of AgentOS can pay, transfer or add a beneficiary.",
   "No autonomous transfers and no autonomous purchases, of anything.",
 ];

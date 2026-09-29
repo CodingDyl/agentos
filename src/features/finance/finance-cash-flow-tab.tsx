@@ -1,7 +1,8 @@
 import type { FinanceData } from "@shared/finance-types";
-import { PaperCard, PaperSection, Tag } from "@/components/paper";
+import { PaperCard, PaperSection } from "@/components/paper";
 import { cn } from "@/lib/utils";
-import { Figure, Line } from "./finance-kit";
+import { AccountsSection } from "./finance-accounts";
+import { Figure } from "./finance-kit";
 import { formatMonthShort, money } from "./finance-model";
 
 /** Six months of what came in and what went out, and where the money sits. */
@@ -81,25 +82,7 @@ export function FinanceCashFlowTab({ data }: { data: FinanceData }) {
           </div>
         </PaperCard>
 
-        <PaperSection label="Accounts" count={data.accounts.length}>
-          <dl className="divide-y divide-paper-stone">
-            {data.accounts.map((account) => (
-              <div key={account.id} className="flex items-baseline justify-between gap-4 py-2.5">
-                <dt className="min-w-0 text-[14px] text-paper-moss">
-                  {account.name}
-                  <span className="ml-2 inline-flex gap-1.5 align-middle">
-                    <Tag>{account.type}</Tag>
-                    {account.mask ? <span className="text-[12px] text-paper-sage">•••• {account.mask}</span> : null}
-                  </span>
-                </dt>
-                <dd className={cn("shrink-0 text-[14px] tabular-nums", account.balance < 0 ? "text-paper-flame-deep" : "text-paper-moss")}>{money(account.balance)}</dd>
-              </div>
-            ))}
-          </dl>
-          <dl className="mt-1 border-t border-paper-mist pt-1">
-            <Line strong label="Net cash" value={money(data.netCash)} />
-          </dl>
-        </PaperSection>
+        <AccountsSection data={data} />
       </div>
     </div>
   );
