@@ -302,10 +302,11 @@ export function deleteProspect(id: string): Promise<void> {
 // ─── The daily queue ───────────────────────────────────────────────────────
 
 const QUEUE_ITEM =
-  /^(?:(due|follow_up|referral|contact|reply):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128})|case_study:(.+)|inbound:([A-Za-z0-9_-]{1,128})|second_touch:([A-Za-z0-9_-]{1,128}))$/;
+  /^(?:(due|follow_up|referral|contact|reply):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128})|case_study:(.+)|inbound:([A-Za-z0-9_-]{1,128})|second_touch:([A-Za-z0-9_-]{1,128})|viewed:([A-Za-z0-9_-]{1,128}):(\d{8}))$/;
 
 type ParsedQueueItem =
-  | { kind: Exclude<QueueItemKind, "waiting" | "crm" | "case_study" | "inbound" | "second_touch">; prospectId: string }
+  | { kind: Exclude<QueueItemKind, "waiting" | "crm" | "case_study" | "inbound" | "second_touch" | "viewed">; prospectId: string }
+  | { kind: "viewed"; projectId: string; day: string }
   | { kind: "inbound"; inboundLeadId: string }
   | { kind: "second_touch"; inboundLeadId: string }
   | { kind: "waiting"; waitingId: string }
@@ -319,11 +320,12 @@ export function parseQueueItemId(itemId: string): ParsedQueueItem | undefined {
   if (match[4]) return { kind: "crm", followUpId: match[4] };
   if (match[6]) return { kind: "inbound", inboundLeadId: match[6] };
   if (match[7]) return { kind: "second_touch", inboundLeadId: match[7] };
+  if (match[8]) return { kind: "viewed", projectId: match[8], day: match[9] };
   if (match[5]) {
     const source = CaseStudySourceSchema.safeParse(match[5]);
     return source.success ? { kind: "case_study", source: source.data } : undefined;
   }
-  return { kind: match[1] as Exclude<QueueItemKind, "waiting" | "crm" | "case_study" | "inbound" | "second_touch">, prospectId: match[2] };
+  return { kind: match[1] as Exclude<QueueItemKind, "waiting" | "crm" | "case_study" | "inbound" | "second_touch" | "viewed">, prospectId: match[2] };
 }
 
 /** After a Virtec follow-up is handled here, how long before it may reappear if Virtec still has it open. */
@@ -368,6 +370,14 @@ export function completeQueueItem(itemId: string, today: string = isoDate(new Da
     if (parsed.kind === "inbound" || parsed.kind === "second_touch") {
       // Replying needs the lead's details from Virtec: the route does it with `replyToInboundLead`.
       throw new TractionNotFoundError("Reply to a website lead through its queue item");
+    }
+
+    if (parsed.kind === "viewed") {
+      // Held off for a week, but the id carries the day of the view: a client
+      // who opens it again on another day raises a new item.
+      state.snoozes.push({ itemId, until: addDays(today, 7) });
+      const handled: TractionEvent = { id: newId("ev"), at: now, kind: "followed_up", crmProjectId: parsed.projectId, viaQueue: true };
+      return { result: {}, events: [handled] };
     }
 
     if (parsed.kind === "crm") {
@@ -431,7 +441,7 @@ export function snoozeQueueItem(itemId: string, today: string, days = 1): Promis
     // Virtec follow-ups and case-study opportunities are not held here, so
     // there is nothing local to check.
     if (parsed.kind === "waiting") findWaiting(state, parsed.waitingId);
-    else if (parsed.kind !== "crm" && parsed.kind !== "case_study" && parsed.kind !== "inbound" && parsed.kind !== "second_touch") {
+    else if (parsed.kind !== "crm" && parsed.kind !== "viewed" && parsed.kind !== "case_study" && parsed.kind !== "inbound" && parsed.kind !== "second_touch") {
       findProspect(state, parsed.prospectId);
     }
 

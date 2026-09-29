@@ -7,7 +7,7 @@ import { getVirtecSnapshot } from "../virtec/snapshot";
 import type { ProjectSummary } from "../../shared/agentos-types";
 import { getProjects } from "../agentos/projects";
 import { buildOpportunities, caseStudyQueueItems } from "./case-studies";
-import { buildCrmView, crmAttention, crmQueueItems, inboundQueueItems } from "./crm";
+import { buildCrmView, crmAttention, crmQueueItems, inboundQueueItems, portalViews } from "./crm";
 import { leadMagnetStats } from "./lead-magnets";
 import { icpKey } from "./lead-profile";
 import { crmProvider } from "./crm-provider";
@@ -135,7 +135,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets, threads), ...caseStudyQueueItems(opportunities)], replies),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today, portalViews(virtec, today)), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets, threads), ...caseStudyQueueItems(opportunities)], replies),
     doneToday: countDoneToday(events, today),
     attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),

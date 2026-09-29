@@ -294,15 +294,94 @@ const FOLLOW_UP_RANK: Record<string, number> = {
   agreement_pending: 1.2,
 };
 
+/** A client who opened the portal while something of ours was waiting on them. */
+export interface PortalView {
+  projectId: string;
+  clientId?: string;
+  client: string;
+  viewedAt: string;
+  /** What is waiting on them: a quote (with its amount) and/or an agreement. */
+  waiting: { quote?: { amount?: number; since?: string }; agreement: boolean };
+}
+
+/** A view older than this is history, not a reason to write today. */
+export const PORTAL_VIEW_WINDOW_DAYS = 7;
+
 /**
- * Virtec's follow-ups due by the end of today, as queue items.
+ * Clients who opened their portal recently with something waiting on them.
  *
- * Only ever *surfaced*: Virtec already decided these are due, with its own
- * reason and a suggested message. AgentOS puts them in the same queue as
- * everything else so there is one list, not two.
+ * Only a view *after* the quote existed counts (opening it before we had
+ * sent anything says nothing), and only while the quote is still pending or
+ * the agreement still unanswered. A client checking a finished project's
+ * status is not a sales signal, so a project with nothing waiting is left
+ * out. Newest view first.
+ *
+ * Honest about what it is: someone opened a page. Not that they read it,
+ * and not that they mean to say yes.
  */
-export function crmQueueItems(followUps: readonly VirtecFollowUp[], today: string): (QueueItem & { rank: number; customerId?: string })[] {
-  return followUps
+export function portalViews(snapshot: VirtecSnapshot | undefined, today: string): PortalView[] {
+  if (!snapshot) return [];
+  const views: PortalView[] = [];
+
+  for (const project of snapshot.projects) {
+    if (!project.portalLastViewedAt || project.status === "cancelled" || project.status === "completed") continue;
+    const viewedOn = localDate(project.portalLastViewedAt);
+    if (!viewedOn || daysBetween(viewedOn, today) > PORTAL_VIEW_WINDOW_DAYS) continue;
+
+    const quote = snapshot.quotes
+      .filter((entry) => entry.projectId === project.id && entry.status === "pending" && (!entry.createdAt || entry.createdAt <= (project.portalLastViewedAt as string)))
+      .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+    const agreement = project.agreementStatus === "pending";
+    if (!quote && !agreement) continue;
+
+    views.push({
+      projectId: project.id,
+      clientId: project.clientId,
+      client: project.clientName ?? "A client",
+      viewedAt: project.portalLastViewedAt,
+      waiting: { quote: quote ? { amount: quote.totalAmount, since: quote.createdAt } : undefined, agreement },
+    });
+  }
+
+  return views.sort((a, b) => b.viewedAt.localeCompare(a.viewedAt));
+}
+
+function viewedWords(viewedAt: string, today: string): string {
+  const days = Math.max(0, daysBetween(localDate(viewedAt) as string, today));
+  return days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+}
+
+function waitingWords(waiting: PortalView["waiting"]): string {
+  const parts = [
+    waiting.quote ? `Quote${waiting.quote.amount ? ` ${formatRand(waiting.quote.amount)}` : ""} waiting` : undefined,
+    waiting.agreement ? "Agreement waiting" : undefined,
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
+/**
+ * Virtec's follow-ups due by the end of today, as queue items, and the
+ * clients who have just opened their portal.
+ *
+ * Follow-ups are only ever *surfaced*: Virtec already decided these are due,
+ * with its own reason and a suggested message. AgentOS puts them in the same
+ * queue as everything else so there is one list, not two.
+ *
+ * A portal view joins the follow-up it belongs to when there is one: the
+ * quote or agreement follow-up for that client says they opened it, and
+ * moves up. When Virtec has nothing due for them yet, the view stands as its
+ * own item, so a client who has just looked at your quote is not left
+ * waiting for the follow-up clock.
+ */
+export function crmQueueItems(
+  followUps: readonly VirtecFollowUp[],
+  today: string,
+  views: readonly PortalView[] = [],
+): (QueueItem & { rank: number; customerId?: string })[] {
+  const opened = new Map(views.filter((view) => view.clientId).map((view) => [view.clientId as string, view]));
+  const covered = new Set<string>();
+
+  const items: (QueueItem & { rank: number; customerId?: string })[] = followUps
     .filter((followUp) => {
       const due = localDate(followUp.dueAt);
       return due === undefined || due <= today;
@@ -310,16 +389,34 @@ export function crmQueueItems(followUps: readonly VirtecFollowUp[], today: strin
     .map((followUp) => {
       const who = followUp.companyName ?? followUp.customerName ?? "a client";
       const detail = [followUp.reason, formatRand(followUp.amount), followUp.projectName].filter((entry): entry is string => Boolean(entry));
+      const view =
+        followUp.customerId && (followUp.type === "quote_pending" || followUp.type === "agreement_pending") ? opened.get(followUp.customerId) : undefined;
+      if (view) covered.add(view.projectId);
       return {
         id: `crm:${followUp.id}`,
         kind: "crm" as const,
         crmFollowUpId: followUp.id,
         title: `${FOLLOW_UP_TITLES[followUp.type ?? ""] ?? "Follow up"}: ${who}`,
-        detail: detail.length > 0 ? detail.slice(0, 2) : ["From Virtec"],
-        rank: FOLLOW_UP_RANK[followUp.type ?? ""] ?? 1.8,
+        detail: view ? [`They opened their portal ${viewedWords(view.viewedAt, today)}`, ...detail.slice(0, 1)] : detail.length > 0 ? detail.slice(0, 2) : ["From Virtec"],
+        rank: view ? 0.8 : (FOLLOW_UP_RANK[followUp.type ?? ""] ?? 1.8),
         customerId: followUp.customerId,
       };
     });
+
+  for (const view of views) {
+    if (covered.has(view.projectId)) continue;
+    items.push({
+      id: `viewed:${view.projectId}:${(localDate(view.viewedAt) as string).replaceAll("-", "")}`,
+      kind: "viewed" as const,
+      crmProjectId: view.projectId,
+      title: `${view.client} opened their portal`,
+      detail: [`Opened ${viewedWords(view.viewedAt, today)}`, waitingWords(view.waiting)],
+      rank: 0.9,
+      customerId: view.clientId,
+    });
+  }
+
+  return items;
 }
 
 /** The CRM's own warnings, in Traction's vocabulary. Counts from Virtec, not recomputed. */

@@ -232,6 +232,7 @@ export function normaliseProjects(payload: unknown): Normalised<VirtecProject> {
         maintenanceFrequency: text(raw.maintenanceFrequency),
         maintenanceAmount: number(raw.maintenanceAmount),
         serviceSku: text(raw.serviceSku),
+        portalLastViewedAt: timestamp(raw.portalLastViewedAt),
         createdAt: timestamp(raw.createdAt),
       }),
     VirtecProjectSchema,

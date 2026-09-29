@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { getVirtec, isVirtecConfigured, VIRTEC_PATHS, VirtecError, virtecConfigurationProblem } from "../client";
-import { normaliseClients, normaliseFollowUps, normaliseInboundLeads, normaliseLeads, normaliseQuotes, normaliseRevenue, timestamp } from "../normalise";
+import { normaliseClients, normaliseFollowUps, normaliseInboundLeads, normaliseLeads, normaliseProjects, normaliseQuotes, normaliseRevenue, timestamp } from "../normalise";
 import { clearVirtecCache, getVirtecSnapshot } from "../snapshot";
 
 const KEY = "test-key-that-must-never-leak-0123456789";
@@ -79,6 +79,14 @@ describe("normalise", () => {
 function respond(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
+
+describe("portal views", () => {
+  it("reads when the client last opened the portal, and never the share link", () => {
+    const { items } = normaliseProjects({ projects: [{ id: "p1", portalToken: "SECRET-SHARE-LINK", portalLastViewedAt: { _seconds: 1790000000, _nanoseconds: 0 } }] });
+    assert.equal(items[0].portalLastViewedAt, new Date(1790000000 * 1000).toISOString());
+    assert.equal(JSON.stringify(items).includes("SECRET"), false);
+  });
+});
 
 describe("website leads", () => {
   it("keeps what a reply needs, drops malformed answers, and skips a lead with no name", () => {

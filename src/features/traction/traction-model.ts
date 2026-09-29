@@ -74,7 +74,7 @@ export function prospectHref(prospectId: string): string {
 
 /** Where a queue item opens: its prospect, or the Waiting On list. */
 export function queueItemHref(item: QueueItem): string {
-  if (item.kind === "crm" || item.kind === "inbound" || item.kind === "second_touch") return "/traction?tab=crm";
+  if (item.kind === "crm" || item.kind === "viewed" || item.kind === "inbound" || item.kind === "second_touch") return "/traction?tab=crm";
   if (item.kind === "case_study") return "/traction?tab=case-studies";
   return item.prospectId ? prospectHref(item.prospectId) : "/traction?tab=waiting";
 }
@@ -365,5 +365,27 @@ export function prospectReplyPrompt(
     "",
     "Draft a short reply that answers what they asked and proposes one concrete next step. Under 100 words. Plain text. I will review and send it myself.",
     "Rules: draft only. Never send anything. Do not promise prices, dates or features that are not stated above.",
+  ]);
+}
+
+/**
+ * A light note to a client who has just opened their portal with a quote or
+ * agreement waiting.
+ *
+ * `waiting` is only what is outstanding (the quote, the agreement); when
+ * they opened it is deliberately never passed in, so it cannot leak into the
+ * draft. Hermes is told not to mention that the opening was seen. "I noticed you
+ * looked at it" reads as being watched; a client who opened a page has not
+ * agreed to be told so. The note offers help instead.
+ */
+export function portalViewPrompt(client: string, waiting: readonly string[]): string {
+  return lines([
+    `${client} has a quote or agreement from me waiting for their answer.`,
+    ...waiting.map((line) => `- ${line}`),
+    "",
+    "Draft a short, warm note that checks whether they have any questions and offers a quick call to walk through it. Make it easy for them to say yes, not yet, or no.",
+    "Do NOT say or hint that you know they opened anything or looked at the portal.",
+    "Under 80 words. Plain text. I will review and send it myself.",
+    "Rules: draft only. Never send anything. Do not mention prices, dates or terms that are not in the lines above, and do not pressure or create urgency.",
   ]);
 }

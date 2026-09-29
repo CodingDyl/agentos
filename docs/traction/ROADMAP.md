@@ -20,12 +20,13 @@ sophisticated the module gets.
 | 10 | Second touch: a magnet signup who got the guide email is left alone for 3 days, then becomes a "Second touch" queue item; Hermes drafts a short personal note from the guide and the email they already got, and "Sent" makes them a contacted prospect (counted as outreach, tagged with the magnet's experiment) so ordinary follow-ups take over. A signup who wrote back (a message from their address in the Inbox cache since signing up) jumps to "Reply" at the top; one whose guide email failed gets "Reply" at once |
 | 11 | Replies in the queue: a message from a prospect we are working on (target to proposal) that is newer than our last touch becomes a top-of-queue "They replied" item with the message preview, replacing the misleading "no response" follow-up. Ask Hermes drafts the answer (their words fenced, told to ask for the rest rather than guess); "Move to conversation" and "Not theirs" are in the item; "Replied" records the touch and clears it. Linking a thread does not clear it, only answering does |
 | 12 | ICP fit scoring: Jev scores Virtec's Places candidates against the ICP (0 to 4, plus whether the data shows a checkable gap). On demand, 15 a click and 60 a day, remembered until the ICP changes. Only public business details are sent (never an email or phone). The list re-ranks: good fits first, unscored by Virtec's score, poor fits last; importing carries Jev's fit into the prospect. Places discovery stays in Virtec, which already runs the scans and holds that key |
+| 13 | Client opens a quote or agreement: Virtec already stamped `portalLastViewedAt` per project; it now ignores link-preview bots, scanners and the operator's preview, so "opened" means a person. AgentOS reads it: a client who opened their portal within 7 days, after the quote existed, with the quote still pending or the agreement unanswered, gets an "Opened" queue item, or, when Virtec already has a quote or agreement follow-up due for them, that follow-up says so and moves up. Ask Hermes drafts a light note and is never told when they opened it, and is told not to hint at it. Done holds it a week; a view on another day raises a new item |
 
 ## Next
 
-1. **Client opens in Virtec**: tell a Traction prospect's owner the same day
-   a quote or agreement is opened. Needs Virtec to record opens first.
-2. **Places scan for the ICP** (parked below), once the two checks are done.
+1. **Places scan for the ICP** (parked below), once the two checks are done.
+2. **Per-quote views** would need Virtec to stamp each quote, not the project;
+   today a view means "the portal", and the item says so.
 
 ## Parked, noted, not started
 
