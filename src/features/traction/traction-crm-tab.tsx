@@ -4,10 +4,10 @@ import { Link } from "react-router-dom";
 import { daysBetween, isoDate } from "@shared/traction-dates";
 import type { CrmView, TractionData } from "@shared/traction-types";
 import { formatRand, inboundOrigin, type VirtecSource } from "@shared/virtec-types";
-import { Meter, PAPER_FOCUS, PaperButton, PaperCard, PaperSection, SegmentedControl, Tag } from "@/components/paper";
-import { useImportCrm, useLeadNotAFit, useRefreshCrm, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
+import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, SegmentedControl, Tag } from "@/components/paper";
+import { useImportCrm, useLeadNotAFit, useProfileLeads, useRefreshCrm, useScanCandidates, useScanInfo, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { crmFollowUpPrompt, formatShortDate, hermesHref, inboundReplyPrompt, prospectHref } from "./traction-model";
+import { crmFollowUpPrompt, formatShortDate, hermesHref, inboundReplyPrompt, mailtoHref, prospectHref } from "./traction-model";
 
 /**
  * Virtec, read live.
@@ -324,7 +324,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
 
                   <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
                     {lead.email ? (
-                      <a className={cn("inline-flex items-center gap-1 text-paper-blue hover:underline", PAPER_FOCUS)} href={`mailto:${lead.email}`}>
+                      <a className={cn("inline-flex items-center gap-1 text-paper-blue hover:underline", PAPER_FOCUS)} href={mailtoHref(lead.email)}>
                         <Mail className="size-3.5" aria-hidden="true" />
                         {lead.email}
                       </a>
@@ -405,13 +405,136 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
   );
 }
 
+/**
+ * Ask Virtec to scan an area for new candidates.
+ *
+ * Spends Google Places money, so it is deliberate: closed until opened, an
+ * honest count of the requests a choice would make, a confirm before it
+ * runs, and Virtec's own monthly cap behind all of it. Virtec refuses
+ * outright until that cap is set.
+ */
+function FindCandidates({ track, writable }: { track: Track; writable: boolean }) {
+  const [open, setOpen] = useState(false);
+  const info = useScanInfo(open);
+  const scan = useScanCandidates();
+  const [area, setArea] = useState("");
+  const [chosen, setChosen] = useState<string[]>([]);
+
+  const site = track === "jurivo" ? "jurivo" : "virtara";
+  const data = info.data;
+  const categories = [...new Set((data?.categories ?? []).filter((entry) => entry.track === site).map((entry) => entry.category))];
+  const wanted = new Set((data?.categories ?? []).filter((entry) => entry.track === site && chosen.includes(entry.category)).flatMap((entry) => entry.types)).size;
+  const budget = data?.budget;
+  const cost = area && wanted > 0 ? wanted : 0;
+  const over = budget?.remaining !== null && budget?.remaining !== undefined && cost > budget.remaining;
+  const result = scan.data;
+
+  const reason = !writable
+    ? "Needs Virtec write-back (VIRTEC_WRITE_API_KEY)."
+    : budget && budget.cap === null
+      ? "Scans from here are off until PLACES_MONTHLY_REQUEST_CAP is set in Virtec: the most Places requests you are willing to pay for in a month."
+      : undefined;
+
+  return (
+    <div className="mb-4">
+      <PaperButton aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        {open ? "Close" : "Find more candidates"}
+      </PaperButton>
+      {open ? (
+        <div className="mt-3 max-w-2xl rounded-[4px] border border-paper-mist bg-paper-cream p-4">
+          <p className="text-[13px] leading-5 text-paper-sage">
+            Scans one area of Google Places for {site === "jurivo" ? "law firms" : "businesses"} and adds what it finds to this list. It costs money: each Places
+            type searched is one request, and Virtec stops at your monthly limit.
+          </p>
+          {info.isPending ? <p className="mt-3 text-[13px] text-paper-sage">Reading Virtec…</p> : null}
+          {info.error ? (
+            <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
+              {info.error.message}
+            </p>
+          ) : null}
+          {data ? (
+            <>
+              <label className="mt-3 block">
+                <FieldLabel>Area</FieldLabel>
+                <select className={cn(PAPER_INPUT, "w-full max-w-xs")} value={area} onChange={(event) => setArea(event.target.value)}>
+                  <option value="">Choose an area</option>
+                  {data.areas.map((entry) => (
+                    <option key={entry.key} value={entry.key}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <fieldset className="mt-3">
+                <legend className="mb-1.5 text-[12.5px] font-medium text-paper-char">Categories ({site === "jurivo" ? "Jurivo" : "Virtara"})</legend>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {categories.map((name) => (
+                    <label key={name} className="flex cursor-pointer items-center gap-1.5 text-[13.5px] text-paper-char">
+                      <input
+                        type="checkbox"
+                        checked={chosen.includes(name)}
+                        onChange={(event) => setChosen((current) => (event.target.checked ? [...current, name] : current.filter((entry) => entry !== name)))}
+                      />
+                      {name}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <p className="mt-3 text-[12.5px] text-paper-sage" role="status">
+                {budget?.cap === null
+                  ? `${budget.used} requests used this month, no limit set.`
+                  : budget
+                    ? `${budget.remaining} of ${budget.cap} requests left this month.`
+                    : ""}
+                {cost > 0 ? ` This scan: up to ${cost}.` : ""}
+                {over ? " That is more than is left." : ""}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <PaperButton
+                  variant="amber"
+                  disabled={scan.isPending || cost === 0 || over || Boolean(reason)}
+                  title={reason}
+                  onClick={() => {
+                    if (!window.confirm(`This makes up to ${cost} Google Places requests, and you have ${budget?.remaining ?? "no limit on"} left this month. Continue?`)) return;
+                    scan.mutate({ area, track: site, categories: chosen });
+                  }}
+                >
+                  {scan.isPending ? "Scanning… (up to a minute)" : "Scan"}
+                </PaperButton>
+                {reason ? <span className="text-[12.5px] text-paper-sage">{reason}</span> : null}
+              </div>
+            </>
+          ) : null}
+          {scan.error ? (
+            <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
+              {scan.error.message}
+            </p>
+          ) : null}
+          {result ? (
+            <p className="mt-3 text-[13px] text-paper-char" role="status">
+              Found {result.found} places ({result.requests} {result.requests === 1 ? "request" : "requests"}); those already in the list were updated, not doubled.{" "}
+              {result.stoppedByCap ? (result.message ?? "Stopped at the monthly limit.") : "Score them against the ICP to see which fit."}
+              {result.errors.length > 0 ? ` ${result.errors.length} search${result.errors.length === 1 ? "" : "es"} failed: ${result.errors[0]}` : ""}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const FIT_WORDS = ["not a fit", "weak fit", "possible fit", "good fit", "strong fit"];
+
 function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
   const tracks = new Set(crm.leads.map((lead) => lead.track).filter(Boolean));
   const [track, setTrack] = useState<Track>(tracks.has("virtara") ? "virtara" : "all");
   const importLead = useImportCrm();
   const notAFit = useLeadNotAFit();
+  const profile = useProfileLeads();
 
   const shown = useMemo(() => crm.leads.filter((lead) => track === "all" || lead.track === track), [crm.leads, track]);
+  const unscored = shown.filter((lead) => !lead.profile).length;
+  const result = profile.data;
 
   return (
     <PaperSection
@@ -432,10 +555,34 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
         ) : null
       }
     >
-      <p className="-mt-2 mb-4 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
-        Virtec's best-scored leads{icpName ? `. Import the ones that fit “${icpName}”` : ""}. Importing adds them to Traction's queue. Virtec's score is not a
-        specific observation, so you will still need one before outreach is drafted.
+      <p className="-mt-2 mb-3 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
+        Virtec's best-scored leads{icpName ? `. Import the ones that fit “${icpName}”` : ""}. Virtec's score is about its own signals. Scoring with Jev asks a
+        different question: does this one look like your ICP? Good fits move to the top. It sends only public business details, never an email or phone number.
+        Importing adds them to Traction's queue; you will still need a specific observation before outreach is drafted.
       </p>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <PaperButton
+          variant="amber"
+          disabled={profile.isPending || unscored === 0}
+          onClick={() => profile.mutate(track === "all" ? undefined : track)}
+          title="Scores up to 15 unscored candidates, and at most 60 a day"
+        >
+          {profile.isPending ? "Scoring with Jev…" : unscored === 0 ? "All scored" : `Score ${Math.min(unscored, 15)} against the ICP`}
+        </PaperButton>
+        {result ? (
+          <span className="text-[12.5px] text-paper-sage" role="status">
+            Scored {result.profiled}
+            {result.failed > 0 ? `, ${result.failed} failed` : ""}. {result.left > 0 ? `${result.left} left; ` : ""}
+            {result.remainingToday} more allowed today.
+          </span>
+        ) : null}
+      </div>
+      <FindCandidates track={track} writable={crm.writable} />
+      {profile.error ?? result?.error ? (
+        <p role="alert" className="mb-4 text-[13px] text-paper-flame-deep">
+          {profile.error?.message ?? result?.error}
+        </p>
+      ) : null}
       {shown.length === 0 ? (
         <Empty>No leads to import.</Empty>
       ) : (
@@ -444,6 +591,7 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
             <thead>
               <tr className="border-b border-paper-mist text-[12px] tracking-[0.06em] text-paper-sage uppercase">
                 <th scope="col" className="py-2 text-left font-semibold">Business</th>
+                <th scope="col" className="py-2 text-right font-semibold">Fit</th>
                 <th scope="col" className="py-2 text-right font-semibold">Score</th>
                 <th scope="col" className="py-2 pl-4 text-left font-semibold">Why</th>
                 <th scope="col" className="py-2 text-right font-semibold">
@@ -462,6 +610,17 @@ function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
                         {[lead.category, lead.area, lead.websiteSignal ? `website: ${lead.websiteSignal}` : undefined].filter(Boolean).join(" · ")}
                       </span>
                     </th>
+                    <td className="py-2.5 text-right tabular-nums">
+                      {lead.profile ? (
+                        <span
+                          title={`Jev: ${FIT_WORDS[Math.min(4, Math.round(lead.profile.fit))]}. ${lead.profile.gap ? "The data shows a checkable gap. " : ""}Confidence ${Math.round(lead.profile.confidence * 100)}%`}
+                        >
+                          <Tag tone={lead.profile.fit >= 3 ? "green" : lead.profile.fit >= 2 ? "marigold" : "muted"}>{lead.profile.fit.toFixed(1)} / 4</Tag>
+                        </span>
+                      ) : (
+                        <span className="text-paper-ash">-</span>
+                      )}
+                    </td>
                     <td className="py-2.5 text-right font-paper-display font-bold text-paper-moss tabular-nums">{lead.score ?? "-"}</td>
                     <td className="py-2.5 pl-4 text-paper-char">{lead.scoreReasons.slice(0, 2).join(" · ") || "-"}</td>
                     <td className="py-2.5 text-right">

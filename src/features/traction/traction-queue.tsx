@@ -3,9 +3,21 @@ import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { QueueItem, TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
-import { useQueueAction } from "@/lib/agentos/traction";
+import { useConfirmMailLink, useDismissMailSuggestion, useQueueAction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { crmFollowUpPrompt, hermesHref, hermesPrompt, inboundReplyPrompt, queueItemHref, waitingPrompt } from "./traction-model";
+import { magnetForSource } from "@shared/lead-magnet-types";
+import {
+  crmFollowUpPrompt,
+  hermesHref,
+  hermesPrompt,
+  inboundReplyPrompt,
+  portalViewPrompt,
+  prospectReplyPrompt,
+  queueItemHref,
+  secondTouchPrompt,
+  stageLabel,
+  waitingPrompt,
+} from "./traction-model";
 
 /**
  * Today's traction: the revenue work, one item at a time.
@@ -19,7 +31,10 @@ import { crmFollowUpPrompt, hermesHref, hermesPrompt, inboundReplyPrompt, queueI
  */
 
 const KIND_LABEL: Record<QueueItem["kind"], string> = {
+  viewed: "Opened",
+  reply: "They replied",
   inbound: "Website lead",
+  second_touch: "Second touch",
   due: "Due",
   follow_up: "Follow-up",
   waiting: "Waiting on",
@@ -30,7 +45,10 @@ const KIND_LABEL: Record<QueueItem["kind"], string> = {
 };
 
 const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "muted" | "blue"> = {
+  viewed: "blue",
+  reply: "flame",
   inbound: "flame",
+  second_touch: "marigold",
   due: "flame",
   follow_up: "marigold",
   waiting: "marigold",
@@ -42,6 +60,8 @@ const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "mut
 
 export function TractionQueue({ data, limit }: { data: TractionData; limit?: number }) {
   const action = useQueueAction();
+  const confirmReply = useConfirmMailLink();
+  const notTheirs = useDismissMailSuggestion();
   const navigate = useNavigate();
   const items = limit ? data.queue.slice(0, limit) : data.queue;
 
@@ -67,8 +87,21 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
           const owed = item.waitingId ? data.waiting.find((entry) => entry.id === item.waitingId) : undefined;
           const crmFollowUp = item.crmFollowUpId ? data.crm.followUps.find((entry) => entry.id === item.crmFollowUpId) : undefined;
           const inbound = item.inboundLeadId ? data.crm.inbound.find((entry) => entry.id === item.inboundLeadId) : undefined;
-          const ask = inbound
-            ? { kind: "draft" as const, prompt: inboundReplyPrompt(inbound) }
+          // The newest unsettled message from this prospect, for a "They replied" item.
+          const reply =
+            item.kind === "reply"
+              ? data.replies.filter((entry) => entry.prospectId === item.prospectId).sort((a, b) => b.messageDate.localeCompare(a.messageDate))[0]
+              : undefined;
+          const viewedClient = item.kind === "viewed" ? item.title.replace(/ opened their portal$/, "") : undefined;
+          const viewedAsk = item.kind === "viewed" ? { kind: "draft" as const, prompt: portalViewPrompt(viewedClient as string, item.detail.slice(1)) } : undefined;
+          const ask = viewedAsk ? viewedAsk : reply && prospect
+            ? { kind: "draft" as const, prompt: prospectReplyPrompt(prospect, reply, { icp: data.icp, offers: data.offers }) }
+            : inbound
+            ? {
+                kind: "draft" as const,
+                prompt:
+                  item.kind === "second_touch" ? secondTouchPrompt(inbound, magnetForSource(data.leadMagnets, inbound.source)) : inboundReplyPrompt(inbound),
+              }
             : crmFollowUp
             ? { kind: "draft" as const, prompt: crmFollowUpPrompt(crmFollowUp) }
             : owed
@@ -87,6 +120,28 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <Tag tone={KIND_TONE[item.kind]}>{KIND_LABEL[item.kind]}</Tag>
                 </div>
                 <p className="mt-0.5 text-[13px] leading-5 text-paper-sage">{item.detail.join(" · ")}</p>
+                {reply ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {reply.moveTo && reply.moveFrom ? (
+                      <PaperButton
+                        variant="amber"
+                        disabled={confirmReply.isPending || notTheirs.isPending}
+                        onClick={() => confirmReply.mutate({ threadId: reply.threadId, prospectId: reply.prospectId, moveTo: reply.moveTo })}
+                        aria-label={`Move ${prospect?.company ?? "them"} from ${stageLabel(reply.moveFrom)} to ${stageLabel(reply.moveTo)} and link this message`}
+                      >
+                        Move to {stageLabel(reply.moveTo).toLowerCase()}
+                      </PaperButton>
+                    ) : null}
+                    <PaperButton
+                      variant="ghost"
+                      disabled={confirmReply.isPending || notTheirs.isPending}
+                      onClick={() => notTheirs.mutate(reply.threadId)}
+                      aria-label={`This message is not from ${prospect?.company ?? "them"}`}
+                    >
+                      Not theirs
+                    </PaperButton>
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-1.5 sm:justify-end">
                 <PaperButton
@@ -105,11 +160,29 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                       },
                     )
                   }
-                  aria-label={item.kind === "case_study" ? item.title : item.kind === "inbound" ? `Replied: ${item.title}` : `Done: ${item.title}`}
-                  title={item.kind === "inbound" ? "You replied: they become a prospect in conversation" : undefined}
+                  aria-label={
+                    item.kind === "case_study"
+                      ? item.title
+                      : item.kind === "inbound"
+                        ? `Replied: ${item.title}`
+                        : item.kind === "second_touch"
+                          ? `Sent: ${item.title}`
+                          : item.kind === "reply"
+                            ? `Answered: ${item.title}`
+                            : `Done: ${item.title}`
+                  }
+                  title={
+                    item.kind === "inbound"
+                      ? "You replied: they become a prospect in conversation"
+                      : item.kind === "second_touch"
+                        ? "You sent it: they become a prospect you have contacted, and ordinary follow-ups take over"
+                        : item.kind === "reply"
+                          ? "You answered them: this clears until they write again"
+                          : undefined
+                  }
                 >
                   <Check className="size-3.5" aria-hidden="true" />
-                  {item.kind === "case_study" ? "Start" : item.kind === "inbound" ? "Replied" : "Done"}
+                  {item.kind === "case_study" ? "Start" : item.kind === "inbound" || item.kind === "reply" ? "Replied" : item.kind === "second_touch" ? "Sent" : "Done"}
                 </PaperButton>
                 <PaperButton
                   disabled={pending}
@@ -119,14 +192,14 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <Clock className="size-3.5" aria-hidden="true" />
                   Snooze
                 </PaperButton>
-                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? "item"}`}>
+                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? viewedClient ?? "item"}`}>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                   Open
                 </QueueLink>
                 {ask ? (
                   <QueueLink
                     to={hermesHref(ask.prompt)}
-                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? "this item"}`}
+                    label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? viewedClient ?? "this item"}`}
                     title={ask.kind === "research" ? "Not enough context to draft yet, so Hermes researches first" : "Hermes drafts; you review and send"}
                   >
                     {ask.kind === "research" ? <Search className="size-3.5" aria-hidden="true" /> : <PenLine className="size-3.5" aria-hidden="true" />}

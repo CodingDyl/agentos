@@ -1,9 +1,9 @@
-import { ArrowRight, RotateCcw, X } from "lucide-react";
+import { ArrowRight, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { AttentionItem } from "@shared/mission-control-types";
+import type { AttentionItem, MissionWorker } from "@shared/mission-control-types";
 import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
-import { useDismissAttention, useRestoreAttention } from "@/lib/agentos/queries";
+import { useDismissAttention, useRestoreAttention, useRetryWorkerJob } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { attentionTag } from "./mission-control-model";
 
@@ -23,6 +23,8 @@ import { attentionTag } from "./mission-control-model";
 export interface AttentionListProps {
   items: AttentionItem[];
   dismissed: AttentionItem[];
+  /** Who could take a retry: offered on failed cards, busy or not, but never an offline one. */
+  workers: MissionWorker[];
   className?: string;
 }
 
@@ -30,10 +32,11 @@ function ref(item: AttentionItem) {
   return { id: item.id, createdAt: item.createdAt };
 }
 
-export function AttentionList({ items, dismissed, className }: AttentionListProps) {
+export function AttentionList({ items, dismissed, workers, className }: AttentionListProps) {
   const dismiss = useDismissAttention();
   const restore = useRestoreAttention();
   const [lastCleared, setLastCleared] = useState<AttentionItem[]>([]);
+  const [retried, setRetried] = useState<string | undefined>();
   const [showCleared, setShowCleared] = useState(false);
 
   const clear = (cleared: AttentionItem[]) => {
@@ -66,13 +69,14 @@ export function AttentionList({ items, dismissed, className }: AttentionListProp
         <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
           {items.map((item) => (
             <li key={`${item.id}@${item.createdAt}`}>
-              <AttentionCard item={item} onClear={() => clear([item])} />
+              <AttentionCard item={item} workers={workers} onClear={() => clear([item])} onRetried={setRetried} />
             </li>
           ))}
         </ul>
       )}
 
       <div className="mt-3 flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-paper-sage" aria-live="polite">
+        {retried ? <span>{retried}</span> : null}
         {lastCleared.length > 0 ? (
           <span>
             {lastCleared.length === 1 ? "Cleared 1 card." : `Cleared ${lastCleared.length} cards.`}{" "}
@@ -127,16 +131,101 @@ export function AttentionList({ items, dismissed, className }: AttentionListProp
   );
 }
 
-/** One decision, where to go and make it, and a way to clear it. */
-function AttentionCard({ item, onClear }: { item: AttentionItem; onClear: () => void }) {
+/** Workers that could take a retry instead of the one that failed. `mock` is a test double, never offered. */
+function alternativesFor(item: AttentionItem, workers: readonly MissionWorker[]): MissionWorker[] {
+  return workers.filter((worker) => worker.id !== item.retry?.worker && worker.id !== "mock" && worker.status !== "offline");
+}
+
+/**
+ * A failed job's retry, right on the card. After a usage limit the other
+ * workers lead, because rerunning on the one that ran out would fail the same
+ * way; otherwise it is one Retry, with the others a click away.
+ */
+function RetryActions({
+  item,
+  workers,
+  onRetried,
+}: {
+  item: AttentionItem;
+  workers: readonly MissionWorker[];
+  onRetried: (message: string) => void;
+}) {
+  const retry = useRetryWorkerJob();
+  const [showOthers, setShowOthers] = useState(false);
+  if (!item.retry) return null;
+
+  const { jobId, worker, limitHit } = item.retry;
+  const nameOf = (id: string) => workers.find((entry) => entry.id === id)?.name ?? id;
+  const others = alternativesFor(item, workers).slice(0, 3);
+  const pendingOn = retry.isPending ? (retry.variables as { worker?: string } | undefined)?.worker ?? worker : undefined;
+
+  const run = (target?: string) =>
+    retry.mutate(
+      { id: jobId, worker: target },
+      { onSuccess: () => onRetried(`Retrying on ${nameOf(target ?? worker)}. It's under Active now.`) },
+    );
+
+  const otherButtons = others.map((entry) => (
+    <PaperButton key={entry.id} variant={limitHit ? "ghost" : "quiet"} disabled={retry.isPending} onClick={() => run(entry.id)}>
+      {pendingOn === entry.id ? "Starting…" : `Retry on ${entry.name}`}
+    </PaperButton>
+  ));
+
+  return (
+    <div className="mt-3">
+      {limitHit ? (
+        <p className="mb-2 text-[13px] text-paper-char">
+          {nameOf(worker)} hit a usage limit. {others.length > 0 ? "Another worker can take it:" : "No other worker is available right now."}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {limitHit ? otherButtons : null}
+        <PaperButton variant={limitHit ? "quiet" : "ghost"} disabled={retry.isPending} onClick={() => run()}>
+          <RefreshCw className="size-3.5" aria-hidden="true" />
+          {pendingOn === worker ? "Starting…" : limitHit ? `Retry on ${nameOf(worker)} anyway` : `Retry on ${nameOf(worker)}`}
+        </PaperButton>
+        {!limitHit && others.length > 0 ? (
+          showOthers ? (
+            otherButtons
+          ) : (
+            <PaperButton variant="quiet" onClick={() => setShowOthers(true)} aria-expanded={false}>
+              Another worker
+            </PaperButton>
+          )
+        ) : null}
+      </div>
+      {retry.isError ? (
+        <p className="mt-2 text-[13px] text-paper-flame-deep" role="alert">
+          {retry.error instanceof Error ? retry.error.message : "That retry didn't start."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** One decision, where to go and make it, a way to clear it, and, for a failed job, a retry. */
+function AttentionCard({
+  item,
+  workers,
+  onClear,
+  onRetried,
+}: {
+  item: AttentionItem;
+  workers: readonly MissionWorker[];
+  onClear: () => void;
+  onRetried: (message: string) => void;
+}) {
   const tag = attentionTag(item);
 
   return (
     <div className="group flex min-w-0 gap-4 px-5 py-4 transition-colors duration-150 hover:bg-paper-cream">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          <Tag tone={tag.tone}>{tag.label}</Tag>
+          <Tag tone={tag.tone}>{item.occurrences ? `${tag.label} ${item.occurrences}×` : tag.label}</Tag>
           {item.project ? <span className="text-[12.5px] font-medium text-paper-sage">{item.project}</span> : null}
+          {item.occurrences ? (
+            <span className="text-[12.5px] text-paper-sage">{item.occurrences} attempts, showing the latest</span>
+          ) : null}
         </div>
 
         <Link
@@ -163,6 +252,8 @@ function AttentionCard({ item, onClear }: { item: AttentionItem; onClear: () => 
           {item.action.label}
           <ArrowRight className="size-3.5" aria-hidden="true" />
         </Link>
+
+        <RetryActions item={item} workers={workers} onRetried={onRetried} />
       </div>
 
       <button

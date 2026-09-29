@@ -252,3 +252,8 @@ export function emailChangedSincePublish(magnet: Pick<LeadMagnet, "emailSubject"
   if (!published) return false;
   return published.subject !== magnet.emailSubject || published.body !== magnet.emailBody || published.readUrl !== leadMagnetReadUrl(magnet.liveUrl);
 }
+
+/** The magnet a website lead signed up through, if its source is `magnet-<slug>`. */
+export function magnetForSource<T extends Pick<LeadMagnet, "slug">>(magnets: readonly T[], source: string | undefined): T | undefined {
+  return source?.startsWith("magnet-") ? magnets.find((magnet) => leadMagnetSource(magnet.slug) === source) : undefined;
+}

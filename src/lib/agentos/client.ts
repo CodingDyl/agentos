@@ -209,9 +209,13 @@ import {
   DayWrapSchema,
   MorningBriefSchema,
   TodayCalendarSchema,
+  TodayNewsSchema,
+  TodayTrendingSchema,
   type DayWrap,
   type MorningBrief,
   type TodayCalendar,
+  type TodayNews,
+  type TodayTrending,
 } from "@shared/today-types";
 
 /**
@@ -302,6 +306,16 @@ export function getMorningBrief(): Promise<MorningBrief> {
 /** The end-of-day wrap: done today, and what tomorrow starts with. */
 export function getDayWrap(): Promise<DayWrap> {
   return readVault("/api/today/wrap", (value) => DayWrapSchema.safeParse(value));
+}
+
+/** Tech and AI news from Hacker News and trusted outlets. */
+export function getTodayNews(): Promise<TodayNews> {
+  return readVault("/api/today/news", (value) => TodayNewsSchema.safeParse(value));
+}
+
+/** New GitHub repositories taking off this week. */
+export function getTodayTrending(): Promise<TodayTrending> {
+  return readVault("/api/today/trending", (value) => TodayTrendingSchema.safeParse(value));
 }
 
 /** Clears cards from Today's Needs you. What's behind them is untouched. */
@@ -1874,9 +1888,14 @@ export async function draftMilestoneReviewWithHermes(slug: string, id: string): 
   return payload.review;
 }
 
-export function retryWorkerJob(id: string): Promise<{ job: WorkerJob }> {
-  return workerRequest(`/api/worker-jobs/${encodeURIComponent(id)}/retry`, { method: "POST" }, (value) =>
-    WorkerJobResponseSchema.safeParse(value),
+/** A fresh run of a finished job; `worker` hands it to a different worker. */
+export function retryWorkerJob(id: string, worker?: string): Promise<{ job: WorkerJob }> {
+  return workerRequest(
+    `/api/worker-jobs/${encodeURIComponent(id)}/retry`,
+    worker
+      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ worker }) }
+      : { method: "POST" },
+    (value) => WorkerJobResponseSchema.safeParse(value),
   );
 }
 

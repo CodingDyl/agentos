@@ -1,4 +1,5 @@
 import type { MailThread } from "../../shared/mail-types";
+import { outreachReplyThreads } from "../outreach/threads";
 import type { TractionData } from "../../shared/traction-types";
 import type { VirtecSnapshot } from "../../shared/virtec-types";
 import { readMailData } from "../mail/store";
@@ -7,8 +8,9 @@ import { getVirtecSnapshot } from "../virtec/snapshot";
 import type { ProjectSummary } from "../../shared/agentos-types";
 import { getProjects } from "../agentos/projects";
 import { buildOpportunities, caseStudyQueueItems } from "./case-studies";
-import { buildCrmView, crmAttention, crmQueueItems, inboundQueueItems } from "./crm";
+import { buildCrmView, crmAttention, crmQueueItems, inboundQueueItems, portalViews } from "./crm";
 import { leadMagnetStats } from "./lead-magnets";
+import { icpKey } from "./lead-profile";
 import { crmProvider } from "./crm-provider";
 import {
   addDays,
@@ -24,6 +26,7 @@ import {
   linkedThreads,
   outreachGaps,
   suggestMailLinks,
+  unansweredReplies,
 } from "./engine";
 import { readEvents, readState } from "./store";
 
@@ -114,7 +117,14 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
   ]);
   const opportunities = buildOpportunities(virtec, projects, state.caseStudies, state.dismissedOpportunities);
   const threads = cachedThreads();
-  const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem(), isVirtecWritable());
+  const mailSuggestions = suggestMailLinks(threads, prospects, state.mailLinks, state.dismissedMail);
+  // Linking a thread acknowledges it; answering is what clears it. So the
+  // queue looks at linked threads too, and only "not theirs" ones are out.
+  const replies = unansweredReplies(suggestMailLinks([...threads, ...outreachReplyThreads(state.outreachReplies)], prospects, [], state.dismissedMail), prospects, today).map((reply) => reply.suggestion);
+  const crm = buildCrmView(virtec, prospects, now, virtecConfigurationProblem(), isVirtecWritable(), {
+    icpKey: state.icp ? icpKey(state.icp) : undefined,
+    byCrmId: state.leadProfiles,
+  });
   const open = state.waiting.filter((item) => !item.resolvedAt).sort((a, b) => chaseDate(a).localeCompare(chaseDate(b)));
 
   return {
@@ -126,7 +136,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets), ...caseStudyQueueItems(opportunities)]),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today, portalViews(virtec, today)), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets, threads), ...caseStudyQueueItems(opportunities)], replies),
     doneToday: countDoneToday(events, today),
     attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),
@@ -134,7 +144,8 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     experimentProgress: buildExperimentProgress(state.experiments, prospects),
     outreachGaps: Object.fromEntries(prospects.map((prospect) => [prospect.id, outreachGaps(prospect, state.icp, state.offers)])),
     waiting: open,
-    mailSuggestions: suggestMailLinks(threads, prospects, state.mailLinks, state.dismissedMail),
+    mailSuggestions,
+    replies,
     mailThreads: linkedThreads(state.mailLinks, threads),
     reviews: {
       thisWeek: buildReview(events, prospects, state.experiments, today),

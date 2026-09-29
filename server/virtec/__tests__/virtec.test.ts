@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { getVirtec, isVirtecConfigured, VIRTEC_PATHS, VirtecError, virtecConfigurationProblem } from "../client";
-import { normaliseClients, normaliseFollowUps, normaliseInboundLeads, normaliseLeads, normaliseQuotes, normaliseRevenue, timestamp } from "../normalise";
+import { normaliseClients, normaliseFollowUps, normaliseInboundLeads, normaliseLeads, normaliseProjects, normaliseQuotes, normaliseRevenue, timestamp } from "../normalise";
 import { clearVirtecCache, getVirtecSnapshot } from "../snapshot";
 
 const KEY = "test-key-that-must-never-leak-0123456789";
@@ -79,6 +79,14 @@ describe("normalise", () => {
 function respond(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
+
+describe("portal views", () => {
+  it("reads when the client last opened the portal, and never the share link", () => {
+    const { items } = normaliseProjects({ projects: [{ id: "p1", portalToken: "SECRET-SHARE-LINK", portalLastViewedAt: { _seconds: 1790000000, _nanoseconds: 0 } }] });
+    assert.equal(items[0].portalLastViewedAt, new Date(1790000000 * 1000).toISOString());
+    assert.equal(JSON.stringify(items).includes("SECRET"), false);
+  });
+});
 
 describe("website leads", () => {
   it("keeps what a reply needs, drops malformed answers, and skips a lead with no name", () => {
@@ -346,6 +354,56 @@ describe("write-back", () => {
       fetcher,
     );
     assert.deepEqual(seen, { url: "https://crm.example.test/api/agentos/lead-magnet-emails/intake", method: "PUT" });
+  });
+
+  it("asks for a scan with POST to its fixed route, and only with the write key", async () => {
+    const { postVirtecScan } = await import("../client");
+    let seen: { url: string; method?: string; auth?: string; body?: string } | undefined;
+    const fetcher = (async (target: URL, init?: RequestInit) => {
+      seen = { url: String(target), method: init?.method, auth: (init?.headers as Record<string, string>).Authorization, body: String(init?.body) };
+      return respond(200, { summary: {}, budget: {} });
+    }) as unknown as typeof fetch;
+
+    await postVirtecScan({ area: "sandton", track: "virtara", categories: ["cafe"] }, fetcher);
+    assert.equal(seen?.url, "https://crm.example.test/api/agentos/local-leads/scan");
+    assert.equal(seen?.method, "POST");
+    assert.equal(seen?.auth, `Bearer ${WRITE_KEY}`);
+    assert.equal(seen?.body, '{"area":"sandton","track":"virtara","categories":["cafe"]}');
+
+    delete process.env.VIRTEC_WRITE_API_KEY;
+    await assert.rejects(postVirtecScan({ area: "sandton", track: "virtara", categories: ["cafe"] }, fetcher), /Write-back is off/);
+  });
+
+  it("passes Virtec's reason through when a scan is refused for want of a cap", async () => {
+    const { postVirtecScan } = await import("../client");
+    const off = (async () => respond(503, { error: "Scans from AgentOS are off until PLACES_MONTHLY_REQUEST_CAP is set" })) as unknown as typeof fetch;
+    await assert.rejects(postVirtecScan({ area: "sandton", track: "virtara", categories: ["cafe"] }, off), /Virtec says: Scans from AgentOS are off until PLACES_MONTHLY_REQUEST_CAP/);
+
+    // With no reason given, the old advice about the write key still applies.
+    const bare = (async () => new Response("", { status: 503 })) as unknown as typeof fetch;
+    await assert.rejects(postVirtecScan({ area: "sandton", track: "virtara", categories: ["cafe"] }, bare), /AGENTOS_WRITE_API_KEY is missing there/);
+  });
+
+  it("counts a scan's requests by distinct Places type, and drops the snapshot cache after one", async () => {
+    const { requestsFor, runScan } = await import("../scan");
+    const info = {
+      categories: [
+        { category: "attorneys", track: "jurivo", types: ["lawyer"] },
+        { category: "notaries", track: "jurivo", types: ["lawyer"] },
+        { category: "salon", track: "virtara", types: ["beauty_salon", "hair_care"] },
+        { category: "dental/aesthetics", track: "virtara", types: ["dentist", "beauty_salon"] },
+      ],
+    };
+    assert.equal(requestsFor(info, "jurivo", ["attorneys", "notaries"]), 1, "two categories, one request");
+    assert.equal(requestsFor(info, "virtara", ["salon", "dental/aesthetics"]), 3, "beauty_salon is shared");
+    assert.equal(requestsFor(info, "virtara", ["attorneys"]), 0, "a category from the other site is not counted");
+
+    const good = { summary: { fetched: 12, upserted: 12, skipped: 0, requests: 3, errors: [] }, budget: { month: "2026-10", used: 3, cap: 100, remaining: 97 } };
+    const ok = (async () => respond(200, good)) as unknown as typeof fetch;
+    assert.equal((await runScan({ area: "sandton", track: "virtara", categories: ["salon"] }, ok)).summary.requests, 3);
+
+    const odd = (async () => respond(200, { hello: "there" })) as unknown as typeof fetch;
+    await assert.rejects(runScan({ area: "sandton", track: "virtara", categories: ["salon"] }, odd), /not in a shape AgentOS can read/);
   });
 
   it("refuses an id that is not a record id, before any request", async () => {

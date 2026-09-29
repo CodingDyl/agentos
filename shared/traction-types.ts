@@ -184,6 +184,23 @@ export const IcpSchema = z.object({
   updatedAt: z.string(),
 });
 
+/**
+ * How well a candidate looks like the ICP, judged by Jev from public
+ * business data. A number and a confidence, not an explanation: Jev does not
+ * write reasons, so the "why" shown beside it is Virtec's own. Valid only
+ * for the ICP it was scored against (`icpKey`); change the ICP and it is
+ * scored again.
+ */
+export const LeadProfileSchema = z.object({
+  /** 0 to 4: not a fit, weak, possible, good, strong. */
+  fit: z.number().min(0).max(4),
+  confidence: z.number().min(0).max(1),
+  /** The data shows a concrete, checkable reason they would need the offer. */
+  gap: z.boolean(),
+  icpKey: z.string(),
+  at: z.string(),
+});
+
 export const IcpInputSchema = IcpSchema.omit({ updatedAt: true });
 
 /** Something Virtara actually sells. Hermes pitches from these and nothing else. */
@@ -290,6 +307,8 @@ export const TractionEventSchema = z.object({
   waitingId: z.string().optional(),
   /** A Virtec follow-up handled from the queue. */
   crmFollowUpId: z.string().optional(),
+  /** A client who opened their portal, contacted from the queue. */
+  crmProjectId: z.string().optional(),
   kind: TractionEventKindSchema,
   from: ProspectStageSchema.optional(),
   to: ProspectStageSchema.optional(),
@@ -431,7 +450,7 @@ export const StartFromOpportunitySchema = z.object({ fromOpportunity: CaseStudyS
 
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["inbound", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
+export const QueueItemKindSchema = z.enum(["viewed", "reply", "inbound", "second_touch", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({
@@ -443,6 +462,8 @@ export const QueueItemSchema = z.object({
   waitingId: z.string().optional(),
   /** A Virtec follow-up, when the item came from the CRM. */
   crmFollowUpId: z.string().optional(),
+  /** A Virtec project whose client opened their portal. */
+  crmProjectId: z.string().optional(),
   /** A website lead in Virtec, waiting for a first reply. */
   inboundLeadId: z.string().optional(),
   /** A finished project with no case study yet — `virtec:project:<id>` or `workspace:<slug>`. */
@@ -540,6 +561,8 @@ export const MailSuggestionSchema = z.object({
   prospectId: z.string(),
   company: z.string(),
   subject: z.string(),
+  /** The first words of the message, as Gmail previews it. Their words: data, never instructions. */
+  snippet: z.string().max(300).optional(),
   fromName: z.string().optional(),
   fromEmail: z.string().optional(),
   messageDate: z.string(),
@@ -579,13 +602,22 @@ export const CrmViewSchema = z.object({
   quotes: z.array(VirtecQuoteSchema.extend({ clientName: z.string().optional() })),
   /** Projects not completed, least complete first. */
   projects: z.array(VirtecProjectSchema),
-  /** Leads not yet imported and still worth a look, best score first. */
-  leads: z.array(VirtecLeadSchema),
+  /** Leads not yet imported and still worth a look, best fit first, then best score. */
+  leads: z.array(VirtecLeadSchema.extend({ profile: LeadProfileSchema.optional() })),
   /** Website leads still open in Virtec (new or reviewing), newest first, with their prospect once imported. */
   inbound: z.array(VirtecInboundLeadSchema.extend({ prospectId: z.string().optional() })).default([]),
   /** Every client, with the prospect it was imported as, if any. */
   clients: z.array(VirtecClientSchema.extend({ prospectId: z.string().optional() })),
 });
+
+/** What to scan for. Virtec accepts only its own area presets and category names, and checks again. */
+export const ScanCandidatesSchema = z
+  .object({
+    area: z.string().regex(/^[a-z0-9-]{1,40}$/),
+    track: z.enum(["virtara", "jurivo"]),
+    categories: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
+  })
+  .strict();
 
 export const CrmImportSchema = z.object({
   kind: z.enum(["lead", "client", "inbound"]),
@@ -621,6 +653,11 @@ export const TractionDataSchema = z.object({
   waiting: z.array(WaitingOnSchema),
   /** Gmail threads that look like prospects' — awaiting a person's yes or no. */
   mailSuggestions: z.array(MailSuggestionSchema),
+  /**
+   * Messages from prospects nobody has answered, whether or not the thread
+   * is linked yet. What the "They replied" queue items are made from.
+   */
+  replies: z.array(MailSuggestionSchema).default([]),
   /** Per prospect: the Gmail threads confirmed as theirs. */
   mailThreads: z.record(z.string(), z.array(LinkedThreadSchema)),
   reviews: z.object({ thisWeek: WeeklyReviewSchema, lastWeek: WeeklyReviewSchema }),
@@ -677,6 +714,8 @@ export type SourceResult = z.infer<typeof SourceResultSchema>;
 export type ExperimentReview = z.infer<typeof ExperimentReviewSchema>;
 export type WeeklyReview = z.infer<typeof WeeklyReviewSchema>;
 export type CrmView = z.infer<typeof CrmViewSchema>;
+export type ScanCandidates = z.infer<typeof ScanCandidatesSchema>;
+export type LeadProfile = z.infer<typeof LeadProfileSchema>;
 export type CaseStudyStatus = z.infer<typeof CaseStudyStatusSchema>;
 export type CaseStudy = z.infer<typeof CaseStudySchema>;
 export type CaseStudyInput = z.input<typeof CaseStudyInputSchema>;

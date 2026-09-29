@@ -122,6 +122,31 @@ describe("job liveness", () => {
     assert.ok(persisted?.lastEventAt, "a run that emitted events must record when it was last heard from");
   });
 
+  it("retries on a different worker when asked", async () => {
+    await store.saveJob(
+      job({
+        id: "job_grokfail0000000",
+        worker: "grok",
+        requestedWorker: "grok",
+        status: "failed",
+        error: "You've reached your free Grok Build usage limit",
+        completedAt: "2026-09-14T18:00:00.000Z",
+      }),
+    );
+
+    const { job: retried, error } = await manager.retryJob("job_grokfail0000000", { worker: "mock" });
+
+    assert.equal(error, undefined);
+    assert.ok(retried);
+    assert.equal(retried.retryOf, "job_grokfail0000000");
+    assert.equal(retried.requestedWorker, "mock");
+    assert.equal(retried.resolvedWorker ?? retried.worker, "mock");
+
+    for (let attempt = 0; attempt < 200 && manager.isRunning(retried.id); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  });
+
   it("refuses to retry a job that is still live", async () => {
     await store.saveJob(job({ id: "job_live00000000000", status: "running" }));
 

@@ -1,4 +1,4 @@
-import type { CrmView, ProspectFit, ProspectInput, ProspectStage, QueueItem, TractionAttention } from "../../shared/traction-types";
+import type { CrmView, LeadProfile, ProspectFit, ProspectInput, ProspectStage, QueueItem, TractionAttention } from "../../shared/traction-types";
 import { WebsiteSchema } from "../../shared/traction-types";
 import {
   formatRand,
@@ -15,6 +15,7 @@ import {
 import type { Prospect } from "../../shared/traction-types";
 import { daysBetween, isoDate } from "../../shared/traction-dates";
 import type { LeadMagnet } from "../../shared/lead-magnet-types";
+import type { MailThread } from "../../shared/mail-types";
 import { magnetForLead } from "./lead-magnets";
 
 export { formatRand, inboundOrigin };
@@ -36,11 +37,37 @@ function localDate(iso: string | undefined): string | undefined {
   return iso ? isoDate(new Date(iso)) : undefined;
 }
 
+/** A score, only while it is still about the current ICP. */
+export function currentProfile(profiles: LeadProfiles, leadId: string): LeadProfile | undefined {
+  const profile = profiles.byCrmId[`${VIRTEC_LEAD_PREFIX}${leadId}`];
+  return profile && profile.icpKey === profiles.icpKey ? profile : undefined;
+}
+
 /** Open follow-ups, and snoozed ones whose snooze has run out. */
 function isLive(followUp: VirtecFollowUp, now: Date): boolean {
   if (followUp.status === "open") return true;
   if (followUp.status === "snoozed") return !followUp.snoozedUntil || Date.parse(followUp.snoozedUntil) <= now.getTime();
   return false;
+}
+
+/** Jev's fit scores, and the ICP they are valid for. */
+export interface LeadProfiles {
+  icpKey?: string;
+  byCrmId: Readonly<Record<string, LeadProfile>>;
+}
+
+/**
+ * Where a candidate sits in the list to import.
+ *
+ * Judged good fits first, then the ones not yet judged (Virtec's own score
+ * orders those), and judged poor fits last: a weak fit should not outrank a
+ * candidate nobody has looked at, and it should not vanish either.
+ */
+export const GOOD_FIT = 2;
+
+function leadGroup(profile: LeadProfile | undefined): number {
+  if (!profile) return 1;
+  return profile.fit >= GOOD_FIT ? 0 : 2;
 }
 
 export function buildCrmView(
@@ -49,6 +76,7 @@ export function buildCrmView(
   now: Date,
   problem?: string,
   writable = false,
+  profiles: LeadProfiles = { byCrmId: {} },
 ): CrmView {
   if (!snapshot) {
     // Configured, but the first read has not come back inside the budget.
@@ -81,7 +109,8 @@ export function buildCrmView(
       .sort((a, b) => (a.completion ?? 0) - (b.completion ?? 0)),
     leads: snapshot.leads
       .filter((lead) => !imported.has(`${VIRTEC_LEAD_PREFIX}${lead.id}`) && !SETTLED_LEAD_STATUSES.has(lead.status ?? ""))
-      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+      .map((lead) => ({ ...lead, profile: currentProfile(profiles, lead.id) }))
+      .sort((a, b) => leadGroup(a.profile) - leadGroup(b.profile) || (b.profile?.fit ?? 0) - (a.profile?.fit ?? 0) || (b.score ?? -1) - (a.score ?? -1))
       .slice(0, IMPORTABLE_LEAD_LIMIT),
     inbound: snapshot.inbound
       .filter(isOpenInbound)
@@ -104,39 +133,114 @@ function originOf(lead: VirtecInboundLead, magnets: readonly LeadMagnet[]): stri
   return magnet ? `${magnet.track === "jurivo" ? "Jurivo" : "Virtara"} "${magnet.title}"` : inboundOrigin(lead);
 }
 
+/** A lead magnet signup who got the guide email is left alone this long before a personal follow-up. */
+export const SECOND_TOUCH_AFTER_DAYS = 3;
+
 /**
- * Website leads nobody has answered yet, as queue items.
+ * A message from the lead since they signed up, in the Inbox's cached
+ * threads. Local only: it sees what Gmail sync has already pulled, never
+ * Gmail itself, so a reply that has not synced yet is not seen yet.
+ */
+export function replyFrom(lead: Pick<VirtecInboundLead, "email" | "createdAt">, threads: readonly MailThread[]): MailThread | undefined {
+  const email = lead.email?.toLowerCase();
+  if (!email) return undefined;
+  const since = lead.createdAt ? Date.parse(lead.createdAt) : 0;
+  return threads
+    .filter((thread) => thread.fromEmail?.toLowerCase() === email && Date.parse(thread.messageDate) >= since)
+    .sort((a, b) => b.messageDate.localeCompare(a.messageDate))[0];
+}
+
+function daysSince(iso: string | undefined, today: string): number {
+  return iso ? Math.max(0, daysBetween(isoDate(new Date(iso)), today)) : 0;
+}
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function who(lead: VirtecInboundLead): string {
+  return lead.company ? `${lead.name} (${lead.company})` : lead.name;
+}
+
+/**
+ * Website leads nobody has handled yet, as queue items.
  *
- * They go to the top: a person who asked to hear from us today is worth more
- * than any cold contact, and a reply within the hour wins far more of them
- * than one the next day. A lead already imported is left to its prospect's
- * own queue item, so it never shows twice. The longest-waiting come first.
+ * - **They wrote back** (a message from them since signing up): reply, at
+ *   the very top. Someone answering is the warmest lead there is.
+ * - **A form enquiry, or a magnet signup whose guide email failed**: reply,
+ *   at the top. A person asked to hear from us and has heard nothing.
+ * - **A magnet signup who got the guide email**: nothing for
+ *   `SECOND_TOUCH_AFTER_DAYS`, then a second touch: one short, personal
+ *   note from Dylan. Written and sent by a person, never automated.
+ *
+ * A lead already imported is left to its prospect's own queue item, so it
+ * never shows twice.
  */
 export function inboundQueueItems(
   inbound: readonly VirtecInboundLead[],
   prospects: readonly Prospect[],
   today: string,
   magnets: readonly LeadMagnet[] = [],
+  threads: readonly MailThread[] = [],
 ): (QueueItem & { rank: number })[] {
   const imported = new Set(prospects.map((prospect) => prospect.crmId).filter(Boolean));
+  const items: (QueueItem & { rank: number })[] = [];
 
-  return inbound
-    .filter((lead) => (lead.status === undefined || lead.status === "new") && !imported.has(`${VIRTEC_INBOUND_PREFIX}${lead.id}`))
-    .map((lead) => {
-      const waited = lead.createdAt ? Math.max(0, daysBetween(isoDate(new Date(lead.createdAt)), today)) : 0;
-      const firstLine = lead.message?.split("\n").find((line) => line.trim())?.trim();
-      return {
+  for (const lead of inbound) {
+    if ((lead.status !== undefined && lead.status !== "new") || imported.has(`${VIRTEC_INBOUND_PREFIX}${lead.id}`)) continue;
+
+    const origin = originOf(lead, magnets);
+    const reply = replyFrom(lead, threads);
+    if (reply) {
+      items.push({
         id: `inbound:${lead.id}`,
-        kind: "inbound" as const,
+        kind: "inbound",
         inboundLeadId: lead.id,
-        title: `Reply to ${lead.company ? `${lead.name} (${lead.company})` : lead.name}`,
-        detail: [
-          `${originOf(lead, magnets)} · ${waited === 0 ? "arrived today" : `waiting ${waited} ${waited === 1 ? "day" : "days"}`}`,
-          firstLine ? (firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine) : lead.email ?? "No message",
-        ],
-        rank: -1 - waited / 100,
-      };
+        title: `Reply to ${who(lead)}`,
+        detail: [`${origin} · they wrote back ${daysSince(reply.messageDate, today) === 0 ? "today" : plural(daysSince(reply.messageDate, today), "day") + " ago"}`, reply.subject],
+        rank: -1.5,
+      });
+      continue;
+    }
+
+    const waited = daysSince(lead.createdAt, today);
+    const magnet = magnetForLead(magnets, lead);
+
+    if (magnet && lead.nurtureSentAt) {
+      const since = daysSince(lead.nurtureSentAt, today);
+      if (since < SECOND_TOUCH_AFTER_DAYS) continue;
+      items.push({
+        id: `second_touch:${lead.id}`,
+        kind: "second_touch",
+        inboundLeadId: lead.id,
+        title: `Second touch: ${who(lead)}`,
+        detail: [`${origin} · guide emailed ${plural(since, "day")} ago`, "No reply yet"],
+        rank: 1.4 + Math.min(since, 30) / 1000,
+      });
+      continue;
+    }
+
+    const firstLine = lead.message?.split("\n").find((line) => line.trim())?.trim();
+    items.push({
+      id: `inbound:${lead.id}`,
+      kind: "inbound",
+      inboundLeadId: lead.id,
+      title: `Reply to ${who(lead)}`,
+      detail: [
+        `${origin} · ${waited === 0 ? "arrived today" : `waiting ${plural(waited, "day")}`}`,
+        magnet && lead.nurtureError
+          ? "The guide email did not send; send it yourself"
+          : firstLine
+            ? firstLine.length > 120
+              ? `${firstLine.slice(0, 117)}...`
+              : firstLine
+            : lead.email ?? "No message",
+      ],
+      rank: -1 - waited / 100,
     });
+  }
+
+  return items;
 }
 
 /**
@@ -190,15 +294,94 @@ const FOLLOW_UP_RANK: Record<string, number> = {
   agreement_pending: 1.2,
 };
 
+/** A client who opened the portal while something of ours was waiting on them. */
+export interface PortalView {
+  projectId: string;
+  clientId?: string;
+  client: string;
+  viewedAt: string;
+  /** What is waiting on them: a quote (with its amount) and/or an agreement. */
+  waiting: { quote?: { amount?: number; since?: string }; agreement: boolean };
+}
+
+/** A view older than this is history, not a reason to write today. */
+export const PORTAL_VIEW_WINDOW_DAYS = 7;
+
 /**
- * Virtec's follow-ups due by the end of today, as queue items.
+ * Clients who opened their portal recently with something waiting on them.
  *
- * Only ever *surfaced*: Virtec already decided these are due, with its own
- * reason and a suggested message. AgentOS puts them in the same queue as
- * everything else so there is one list, not two.
+ * Only a view *after* the quote existed counts (opening it before we had
+ * sent anything says nothing), and only while the quote is still pending or
+ * the agreement still unanswered. A client checking a finished project's
+ * status is not a sales signal, so a project with nothing waiting is left
+ * out. Newest view first.
+ *
+ * Honest about what it is: someone opened a page. Not that they read it,
+ * and not that they mean to say yes.
  */
-export function crmQueueItems(followUps: readonly VirtecFollowUp[], today: string): (QueueItem & { rank: number; customerId?: string })[] {
-  return followUps
+export function portalViews(snapshot: VirtecSnapshot | undefined, today: string): PortalView[] {
+  if (!snapshot) return [];
+  const views: PortalView[] = [];
+
+  for (const project of snapshot.projects) {
+    if (!project.portalLastViewedAt || project.status === "cancelled" || project.status === "completed") continue;
+    const viewedOn = localDate(project.portalLastViewedAt);
+    if (!viewedOn || daysBetween(viewedOn, today) > PORTAL_VIEW_WINDOW_DAYS) continue;
+
+    const quote = snapshot.quotes
+      .filter((entry) => entry.projectId === project.id && entry.status === "pending" && (!entry.createdAt || entry.createdAt <= (project.portalLastViewedAt as string)))
+      .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+    const agreement = project.agreementStatus === "pending";
+    if (!quote && !agreement) continue;
+
+    views.push({
+      projectId: project.id,
+      clientId: project.clientId,
+      client: project.clientName ?? "A client",
+      viewedAt: project.portalLastViewedAt,
+      waiting: { quote: quote ? { amount: quote.totalAmount, since: quote.createdAt } : undefined, agreement },
+    });
+  }
+
+  return views.sort((a, b) => b.viewedAt.localeCompare(a.viewedAt));
+}
+
+function viewedWords(viewedAt: string, today: string): string {
+  const days = Math.max(0, daysBetween(localDate(viewedAt) as string, today));
+  return days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+}
+
+function waitingWords(waiting: PortalView["waiting"]): string {
+  const parts = [
+    waiting.quote ? `Quote${waiting.quote.amount ? ` ${formatRand(waiting.quote.amount)}` : ""} waiting` : undefined,
+    waiting.agreement ? "Agreement waiting" : undefined,
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
+/**
+ * Virtec's follow-ups due by the end of today, as queue items, and the
+ * clients who have just opened their portal.
+ *
+ * Follow-ups are only ever *surfaced*: Virtec already decided these are due,
+ * with its own reason and a suggested message. AgentOS puts them in the same
+ * queue as everything else so there is one list, not two.
+ *
+ * A portal view joins the follow-up it belongs to when there is one: the
+ * quote or agreement follow-up for that client says they opened it, and
+ * moves up. When Virtec has nothing due for them yet, the view stands as its
+ * own item, so a client who has just looked at your quote is not left
+ * waiting for the follow-up clock.
+ */
+export function crmQueueItems(
+  followUps: readonly VirtecFollowUp[],
+  today: string,
+  views: readonly PortalView[] = [],
+): (QueueItem & { rank: number; customerId?: string })[] {
+  const opened = new Map(views.filter((view) => view.clientId).map((view) => [view.clientId as string, view]));
+  const covered = new Set<string>();
+
+  const items: (QueueItem & { rank: number; customerId?: string })[] = followUps
     .filter((followUp) => {
       const due = localDate(followUp.dueAt);
       return due === undefined || due <= today;
@@ -206,16 +389,34 @@ export function crmQueueItems(followUps: readonly VirtecFollowUp[], today: strin
     .map((followUp) => {
       const who = followUp.companyName ?? followUp.customerName ?? "a client";
       const detail = [followUp.reason, formatRand(followUp.amount), followUp.projectName].filter((entry): entry is string => Boolean(entry));
+      const view =
+        followUp.customerId && (followUp.type === "quote_pending" || followUp.type === "agreement_pending") ? opened.get(followUp.customerId) : undefined;
+      if (view) covered.add(view.projectId);
       return {
         id: `crm:${followUp.id}`,
         kind: "crm" as const,
         crmFollowUpId: followUp.id,
         title: `${FOLLOW_UP_TITLES[followUp.type ?? ""] ?? "Follow up"}: ${who}`,
-        detail: detail.length > 0 ? detail.slice(0, 2) : ["From Virtec"],
-        rank: FOLLOW_UP_RANK[followUp.type ?? ""] ?? 1.8,
+        detail: view ? [`They opened their portal ${viewedWords(view.viewedAt, today)}`, ...detail.slice(0, 1)] : detail.length > 0 ? detail.slice(0, 2) : ["From Virtec"],
+        rank: view ? 0.8 : (FOLLOW_UP_RANK[followUp.type ?? ""] ?? 1.8),
         customerId: followUp.customerId,
       };
     });
+
+  for (const view of views) {
+    if (covered.has(view.projectId)) continue;
+    items.push({
+      id: `viewed:${view.projectId}:${(localDate(view.viewedAt) as string).replaceAll("-", "")}`,
+      kind: "viewed" as const,
+      crmProjectId: view.projectId,
+      title: `${view.client} opened their portal`,
+      detail: [`Opened ${viewedWords(view.viewedAt, today)}`, waitingWords(view.waiting)],
+      rank: 0.9,
+      customerId: view.clientId,
+    });
+  }
+
+  return items;
 }
 
 /** The CRM's own warnings, in Traction's vocabulary. Counts from Virtec, not recomputed. */
@@ -245,6 +446,10 @@ export function crmAttention(snapshot: VirtecSnapshot | undefined): TractionAtte
   }
 
   return flags;
+}
+
+function fitFromJev(fit: number): ProspectFit {
+  return fit >= 3 ? "high" : fit >= GOOD_FIT ? "medium" : "low";
 }
 
 function fitFromScore(score: number | undefined): ProspectFit | undefined {
@@ -278,7 +483,7 @@ const clip = (value: string | undefined, max: number) => (value ? value.slice(0,
  * signal ("weak website") is not a specific thing noticed by a person, and
  * the outreach guard should keep asking for one.
  */
-export function leadToProspect(lead: VirtecLead): ProspectInput {
+export function leadToProspect(lead: VirtecLead, profile?: LeadProfile, icpName?: string): ProspectInput {
   const facts = [
     lead.score !== undefined ? `Virtec score ${lead.score}` : undefined,
     lead.websiteSignal ? `website signal: ${lead.websiteSignal}` : undefined,
@@ -291,10 +496,14 @@ export function leadToProspect(lead: VirtecLead): ProspectInput {
     email: validEmail(lead.ownerEmail),
     website: validWebsite(lead.websiteUrl),
     segment: clip(lead.category, 80),
-    fit: fitFromScore(lead.score),
+    // Jev judged it against the ICP; Virtec's score is only about its own signals.
+    fit: profile ? fitFromJev(profile.fit) : fitFromScore(lead.score),
     stage: stageFromLead(lead),
     source: "outbound",
-    reasons: lead.scoreReasons.slice(0, 6).map((reason) => reason.slice(0, 200)),
+    reasons: [
+      ...(profile ? [`Jev fit ${profile.fit.toFixed(1)} of 4${icpName ? ` for "${icpName}"` : ""}${profile.gap ? ", with a checkable gap" : ""}`.slice(0, 200)] : []),
+      ...lead.scoreReasons.slice(0, profile ? 5 : 6).map((reason) => reason.slice(0, 200)),
+    ],
     angle: clip(lead.outreachPitch, 300),
     notes: clip(`Imported from Virtec${lead.track ? ` (${lead.track})` : ""}. ${facts.join(" · ")}`, 4000),
     crmId: `${VIRTEC_LEAD_PREFIX}${lead.id}`,

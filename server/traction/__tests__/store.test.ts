@@ -190,6 +190,30 @@ describe("virtec", () => {
     assert.equal(data.doneToday, 1);
   });
 
+  it("answering a reply records a touch, so it stops asking", async () => {
+    const created = await store.createProspect({ ...input("Reply Co", { stage: "contacted" }), stage: "contacted" });
+    assert.equal(store.parseQueueItemId(`reply:${created.id}`)?.kind, "reply");
+
+    const before = (await store.readState()).prospects[0];
+    const { prospect } = await store.completeQueueItem(`reply:${created.id}`);
+    assert.ok(prospect?.lastTouchAt && prospect.lastTouchAt >= (before.lastTouchAt ?? before.createdAt));
+    assert.equal(prospect?.stage, "contacted", "answering never moves the stage");
+    assert.equal((await getTraction()).week.followUps, 1);
+  });
+
+  it("marks a portal view handled for a week, and a later view on another day is new", async () => {
+    const parsed = store.parseQueueItemId("viewed:p1:20260927");
+    assert.deepEqual(parsed, { kind: "viewed", projectId: "p1", day: "20260927" });
+    assert.equal(store.parseQueueItemId("viewed:p1:notaday"), undefined);
+
+    const today = new Date().toISOString().slice(0, 10);
+    await store.completeQueueItem("viewed:p1:20260927", today);
+    const state = await store.readState();
+    assert.ok(state.snoozes.some((snooze) => snooze.itemId === "viewed:p1:20260927" && snooze.until > today));
+    assert.equal((await getTraction()).week.followUps, 1, "counted as a follow-up");
+    await store.snoozeQueueItem("viewed:p1:20260928", today, 1);
+  });
+
   it("imports a CRM record once", async () => {
     const input = ProspectInputSchema.parse({ company: "Acme", stage: "won", crmId: "virtec:client:c1" });
     await store.importCrmProspect({ ...input, crmId: "virtec:client:c1" });

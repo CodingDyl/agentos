@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import express from "express";
 import { AutomationControlSchema, CuratorControlSchema } from "../shared/agentos-types";
+import { WorkerIdSchema } from "../shared/worker-ids";
 import { MailBulkRequestSchema, MailCorrectionSchema } from "../shared/mail-types";
 import { ZodError } from "zod";
 import {
@@ -23,6 +24,8 @@ import { getTodayCalendar } from "./today/calendar";
 import { formatAgenda } from "./today/agenda";
 import { getMorningBrief } from "./today/brief";
 import { getDayWrap } from "./today/wrap";
+import { getTodayNews } from "./today/news";
+import { getTodayTrending, startTrendingTracker } from "./today/trending";
 import { AttentionDismissRequestSchema, AttentionRestoreRequestSchema } from "../shared/mission-control-types";
 import { agentOSRoot, readOptionalFile } from "./agentos/filesystem";
 import {
@@ -72,6 +75,10 @@ import {
 import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
+import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
+import { startOutreachSyncTimer } from "./outreach/sync";
+import { outreachRouter } from "./outreach/routes";
+import { financeRouter } from "./finance/routes";
 import {
   archiveTask,
   bulkTasks,
@@ -316,6 +323,10 @@ app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
 app.use("/api/traction", tractionRouter);
+app.use("/api/outreach", outreachRouter);
+
+/** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
+app.use("/api/finance", financeRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
@@ -376,6 +387,26 @@ app.get("/api/today/brief", async (_request, response) => {
   } catch (error) {
     console.error("[agentos] morning brief failed:", error);
     response.status(500).json({ error: "The morning brief couldn't be read." });
+  }
+});
+
+/** Tech and AI news from Hacker News and trusted outlets. A failing source is named, never fatal. */
+app.get("/api/today/news", async (_request, response) => {
+  try {
+    response.json(await getTodayNews());
+  } catch (error) {
+    console.error("[agentos] today news failed:", error);
+    response.json({ items: [], failed: ["all sources"], fetchedAt: new Date().toISOString() });
+  }
+});
+
+/** New GitHub repositories taking off this week. */
+app.get("/api/today/trending", async (_request, response) => {
+  try {
+    response.json(await getTodayTrending());
+  } catch (error) {
+    console.error("[agentos] today trending failed:", error);
+    response.json({ status: "error", detail: "Trending couldn't be read.", repos: [], windowDays: 7, fetchedAt: new Date().toISOString() });
   }
 });
 
@@ -479,8 +510,24 @@ app.get("/api/mail/oauth/callback", async (request, response) => {
   }
 
   try {
-    await completeGmailConnection(code);
     const state = typeof request.query.state === "string" ? request.query.state : undefined;
+
+    // The outreach mailbox shares this address with Google (one registered
+    // redirect), and says which connection this is in `state`.
+    const outreach = parseOutreachState(state);
+    if (outreach) {
+      const origin = outreach.origin ?? process.env.AGENTOS_WEB_ORIGIN ?? "http://localhost:1420";
+      try {
+        await completeOutreachConnection(code);
+        response.redirect(`${origin}/traction?tab=prospects&outreach=connected`);
+      } catch (error) {
+        const reason = error instanceof OutreachAuthError ? error.message : "Could not connect the outreach mailbox.";
+        response.redirect(`${origin}/traction?tab=prospects&outreach=${encodeURIComponent(reason)}`);
+      }
+      return;
+    }
+
+    await completeGmailConnection(code);
     const webOrigin = loopbackOrigin(state) ?? process.env.AGENTOS_WEB_ORIGIN ?? "http://localhost:1420";
     response.redirect(`${webOrigin}/inbox`);
   } catch (error) {
@@ -1827,7 +1874,14 @@ app.post("/api/worker-jobs/:id/cancel", async (request, response) => {
  * "failed". A new job with a fresh worktree that remembers what it replaced.
  */
 app.post("/api/worker-jobs/:id/retry", async (request, response) => {
-  const { job, error } = await retryJob(request.params.id);
+  // Optional: retry on a different worker. An unknown id is refused, never passed on.
+  const requested = (request.body as { worker?: unknown } | undefined)?.worker;
+  const worker = requested === undefined ? undefined : WorkerIdSchema.safeParse(requested);
+  if (worker && !worker.success) {
+    response.status(400).json({ error: "That isn't a worker AgentOS knows." });
+    return;
+  }
+  const { job, error } = await retryJob(request.params.id, { worker: worker?.data });
 
   if (!job) {
     response.status(409).json({ error: error ?? "That job could not be retried." });
@@ -3928,6 +3982,7 @@ app.get("/api/agent/sessions", async (_request, response) => {
 app.listen(PORT, HOST, () => {
   console.log(`AgentOS data adapter: http://${HOST}:${PORT}`);
   console.log(`Vault: ${agentOSRoot()}`);
+  startTrendingTracker();
 
   // Jobs run inside this process, so a restart kills them. Settle whatever the
   // last process left claiming to be live, then start watching for silence.
@@ -3940,6 +3995,7 @@ app.listen(PORT, HOST, () => {
   });
 
   startStallWatch();
+  startOutreachSyncTimer();
 });
 
 /**

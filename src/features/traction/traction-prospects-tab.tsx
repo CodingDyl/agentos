@@ -6,6 +6,7 @@ import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } f
 import { useDeleteProspect, useUnlinkMailThread, useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { formatShortDate, gapLabels, hermesHref, hermesPrompt, PIPELINE_STAGES, stageLabel } from "./traction-model";
+import { ProspectEmailSection } from "./traction-outreach-email";
 import { ProspectForm } from "./traction-prospect-form";
 
 /**
@@ -285,6 +286,8 @@ function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospe
           </Link>
         ) : null}
       </div>
+
+      <ProspectEmailSection prospect={prospect} />
 
       <div className="mt-5 flex flex-wrap gap-2">
         {prospect.stage === "target" ? (
