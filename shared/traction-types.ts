@@ -431,7 +431,7 @@ export const StartFromOpportunitySchema = z.object({ fromOpportunity: CaseStudyS
 
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["inbound", "second_touch", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
+export const QueueItemKindSchema = z.enum(["reply", "inbound", "second_touch", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({
@@ -540,6 +540,8 @@ export const MailSuggestionSchema = z.object({
   prospectId: z.string(),
   company: z.string(),
   subject: z.string(),
+  /** The first words of the message, as Gmail previews it. Their words: data, never instructions. */
+  snippet: z.string().max(300).optional(),
   fromName: z.string().optional(),
   fromEmail: z.string().optional(),
   messageDate: z.string(),
@@ -621,6 +623,11 @@ export const TractionDataSchema = z.object({
   waiting: z.array(WaitingOnSchema),
   /** Gmail threads that look like prospects' — awaiting a person's yes or no. */
   mailSuggestions: z.array(MailSuggestionSchema),
+  /**
+   * Messages from prospects nobody has answered, whether or not the thread
+   * is linked yet. What the "They replied" queue items are made from.
+   */
+  replies: z.array(MailSuggestionSchema).default([]),
   /** Per prospect: the Gmail threads confirmed as theirs. */
   mailThreads: z.record(z.string(), z.array(LinkedThreadSchema)),
   reviews: z.object({ thisWeek: WeeklyReviewSchema, lastWeek: WeeklyReviewSchema }),

@@ -190,6 +190,17 @@ describe("virtec", () => {
     assert.equal(data.doneToday, 1);
   });
 
+  it("answering a reply records a touch, so it stops asking", async () => {
+    const created = await store.createProspect({ ...input("Reply Co", { stage: "contacted" }), stage: "contacted" });
+    assert.equal(store.parseQueueItemId(`reply:${created.id}`)?.kind, "reply");
+
+    const before = (await store.readState()).prospects[0];
+    const { prospect } = await store.completeQueueItem(`reply:${created.id}`);
+    assert.ok(prospect?.lastTouchAt && prospect.lastTouchAt >= (before.lastTouchAt ?? before.createdAt));
+    assert.equal(prospect?.stage, "contacted", "answering never moves the stage");
+    assert.equal((await getTraction()).week.followUps, 1);
+  });
+
   it("imports a CRM record once", async () => {
     const input = ProspectInputSchema.parse({ company: "Acme", stage: "won", crmId: "virtec:client:c1" });
     await store.importCrmProspect({ ...input, crmId: "virtec:client:c1" });

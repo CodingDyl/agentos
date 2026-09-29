@@ -294,7 +294,7 @@ export function deleteProspect(id: string): Promise<void> {
 // ─── The daily queue ───────────────────────────────────────────────────────
 
 const QUEUE_ITEM =
-  /^(?:(due|follow_up|referral|contact):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128})|case_study:(.+)|inbound:([A-Za-z0-9_-]{1,128})|second_touch:([A-Za-z0-9_-]{1,128}))$/;
+  /^(?:(due|follow_up|referral|contact|reply):(pr_[A-Za-z0-9]{4,64})|waiting:(wo_[A-Za-z0-9]{4,64})|crm:([A-Za-z0-9_-]{1,128})|case_study:(.+)|inbound:([A-Za-z0-9_-]{1,128})|second_touch:([A-Za-z0-9_-]{1,128}))$/;
 
 type ParsedQueueItem =
   | { kind: Exclude<QueueItemKind, "waiting" | "crm" | "case_study" | "inbound" | "second_touch">; prospectId: string }
