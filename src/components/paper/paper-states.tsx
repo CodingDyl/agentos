@@ -139,6 +139,7 @@ export function PaperError({
   hint,
   onRetry,
   isRetrying = false,
+  headingLevel = "h1",
   className,
 }: {
   title: ReactNode;
@@ -146,11 +147,14 @@ export function PaperError({
   hint?: ReactNode;
   onRetry?: () => void;
   isRetrying?: boolean;
+  /** `h2` when the error sits inside a page that already has its own title. */
+  headingLevel?: "h1" | "h2";
   className?: string;
 }) {
+  const Heading = headingLevel;
   return (
     <div role="alert" className={cn("max-w-[72ch] rounded-[4px] border border-paper-flame-deep px-5 py-4", className)}>
-      <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.015em] text-paper-moss">{title}</h1>
+      <Heading className="font-paper-display text-[21px] font-bold tracking-[-0.015em] text-paper-moss">{title}</Heading>
       {detail ? <p className="mt-2 font-mono text-[12.5px] leading-5 break-words text-paper-flame-deep">{detail}</p> : null}
       {hint ? <p className="mt-2 text-[13.5px] leading-6 text-paper-char">{hint}</p> : null}
       {onRetry ? (
@@ -158,6 +162,40 @@ export function PaperError({
           {isRetrying ? "Trying again…" : "Try again"}
         </PaperButton>
       ) : null}
+    </div>
+  );
+}
+
+export type IndicatorTone = "green" | "amber" | "marigold" | "flame" | "muted";
+
+const INDICATOR_DOT: Record<IndicatorTone, string> = {
+  green: "bg-paper-green",
+  amber: "bg-paper-amber motion-safe:animate-pulse",
+  marigold: "bg-paper-marigold",
+  flame: "bg-paper-flame-deep",
+  muted: "bg-paper-ash",
+};
+
+/**
+ * A state as a dot and a word. The dot carries colour; the word carries the
+ * meaning, so state is never colour alone.
+ */
+export function PaperIndicator({
+  tone,
+  label,
+  detail,
+  className,
+}: {
+  tone: IndicatorTone;
+  label: string;
+  detail?: string;
+  className?: string;
+}) {
+  return (
+    <div role="status" aria-label={detail ? `${label}: ${detail}` : label} className={cn("inline-flex items-center gap-2", className)}>
+      <span className={cn("size-2 shrink-0 rounded-full", INDICATOR_DOT[tone])} aria-hidden="true" />
+      <span className="text-[13px] font-medium text-paper-char">{label}</span>
+      {detail ? <span className="text-[13px] text-paper-sage">{detail}</span> : null}
     </div>
   );
 }

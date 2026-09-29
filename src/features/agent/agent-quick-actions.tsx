@@ -1,6 +1,6 @@
 import { Command as CommandIcon } from "lucide-react";
 import type { AgentSkill } from "@shared/agentos-types";
-import { CommandButton, SectionLabel } from "@/components/os";
+import { FieldLabel, PaperButton } from "@/components/paper";
 import { cn } from "@/lib/utils";
 import { buildQuickCommands, overflowCount } from "./command-catalog";
 
@@ -42,44 +42,30 @@ export function AgentQuickActions({
 
   return (
     <div className={cn("min-w-0", className)}>
-      <SectionLabel
-        action={
-          discovered ? null : (
-            // Said plainly rather than implied: Hermes named none of these.
-            <span className="text-os-subtle">Baseline commands</span>
-          )
-        }
-      >
-        Quick commands
-      </SectionLabel>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <FieldLabel>Quick commands</FieldLabel>
+        {/* Said plainly rather than implied: Hermes named none of these. */}
+        {discovered ? null : <span className="mb-1.5 text-[12.5px] text-paper-sage">Baseline commands</span>}
+      </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {commands.map((quick) => (
-          <CommandButton
+          <PaperButton
             key={quick.command}
-            variant="secondary"
+            variant="ghost"
             disabled={disabled || quick.disabled}
-            title={
-              quick.disabled
-                ? "Select a project context first"
-                : (quick.description ?? `Runs ${quick.command}`)
-            }
+            title={quick.disabled ? "Select a workspace context first" : (quick.description ?? `Runs ${quick.command}`)}
             onClick={() => onRun(quick.command)}
           >
             {quick.label}
-          </CommandButton>
+          </PaperButton>
         ))}
 
         {onBrowse ? (
-          <CommandButton
-            variant="quiet"
-            icon={CommandIcon}
-            iconPosition="start"
-            onClick={onBrowse}
-            title="Open the command palette (⌘K)"
-          >
+          <PaperButton variant="quiet" onClick={onBrowse} title="Open the command palette (⌘K)">
+            <CommandIcon className="size-3.5" aria-hidden="true" />
             {overflow > 0 ? `${overflow} more` : "All commands"}
-          </CommandButton>
+          </PaperButton>
         ) : null}
       </div>
     </div>

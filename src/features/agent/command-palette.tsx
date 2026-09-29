@@ -266,16 +266,16 @@ export function CommandPalette({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh] pb-8">
-      <button type="button" aria-label="Close command palette" onClick={onClose} className="absolute inset-0 cursor-default bg-os-background/85" />
+      <button type="button" aria-label="Close command palette" onClick={onClose} className="absolute inset-0 cursor-default bg-paper-moss/45" />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={mode === "create" ? "Quick create" : "Commands and search"}
-        className="relative flex max-h-full w-[min(92vw,42rem)] flex-col overflow-hidden rounded-xl border border-os-border-strong bg-os-surface"
+        className="relative flex max-h-full w-[min(92vw,42rem)] flex-col overflow-hidden rounded-[6px] border border-paper-moss bg-paper-white font-paper-ui text-paper-moss"
       >
-        <div className="flex items-center gap-3 border-b border-os-border px-4 py-3">
-          <Search className={cn("size-4 shrink-0 text-os-amber", isSearching && "motion-safe:animate-pulse")} strokeWidth={1.5} aria-hidden="true" />
+        <div className="flex items-center gap-3 border-b border-paper-mist px-4 py-3">
+          <Search className={cn("size-4 shrink-0 text-paper-char", isSearching && "motion-safe:animate-pulse")} strokeWidth={1.75} aria-hidden="true" />
           <input
             // The palette mounts when it opens, so this is the one moment focus
             // should move on its own.
@@ -300,20 +300,20 @@ export function CommandPalette({
             aria-activedescendant={rows.length > 0 ? rowId(active) : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-foreground outline-none placeholder:text-os-subtle"
+            className="min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash"
           />
-          <span className="os-meta hidden shrink-0 text-os-subtle sm:inline">Esc</span>
+          <kbd className="hidden shrink-0 rounded-[3px] border border-paper-mist px-1.5 font-mono text-[11.5px] text-paper-sage sm:inline">Esc</kbd>
         </div>
 
         {contextProject && stage.kind === "commands" ? (
-          <div className="os-meta border-b border-os-border px-4 py-2.5 text-os-subtle">
-            Context / <span className="text-os-muted">{contextProject.name}</span>
+          <div className="border-b border-paper-mist px-4 py-2 text-[12.5px] text-paper-sage">
+            Context: <span className="font-medium text-paper-char">{contextProject.name}</span>
           </div>
         ) : null}
 
         <div ref={listRef} id={listId} role="listbox" aria-label={stage.kind === "project" ? "Projects" : "Results"} className="min-h-0 flex-1 overflow-y-auto p-2">
           {rows.length === 0 ? (
-            <p className="px-3 py-8 text-center text-[15px] leading-6 text-os-subtle">
+            <p className="px-3 py-8 text-center text-[14px] leading-6 text-paper-sage">
               {stage.kind === "project"
                 ? "No projects match."
                 : isSearching
@@ -325,7 +325,7 @@ export function CommandPalette({
           ) : (
             groups.map((group) => (
               <div key={group.label} className="mb-2 last:mb-0">
-                <div className="os-meta px-3 py-2 text-os-subtle">{group.label}</div>
+                <div className="px-3 py-2 text-[12px] font-semibold text-paper-sage">{group.label}</div>
                 {group.rows.map((row) => {
                   const index = indexOfRow.get(row) ?? 0;
                   const isSelected = index === active;
@@ -339,22 +339,22 @@ export function CommandPalette({
                       onClick={row.onSelect}
                       onMouseMove={() => setSelected(index)}
                       className={cn(
-                        "relative flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-sm px-3 transition-colors duration-150",
-                        isSelected && "bg-os-surface-raised",
+                        "relative flex min-h-10 cursor-pointer items-center justify-between gap-4 rounded-[3px] px-3 transition-colors duration-150",
+                        isSelected && "bg-paper-linen",
                       )}
                     >
-                      {isSelected ? <span className="absolute inset-y-2 left-0 w-px bg-os-amber" aria-hidden="true" /> : null}
+                      {isSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-paper-blue" aria-hidden="true" /> : null}
                       <span
                         className={cn(
                           "min-w-0 flex-1 truncate",
-                          row.mono ? "font-mono text-xs" : "text-[14px]",
-                          isSelected ? "text-foreground" : row.mono ? "text-os-muted" : "text-foreground/85",
+                          row.mono ? "font-mono text-[12.5px]" : "text-[14px]",
+                          isSelected ? "font-medium text-paper-moss" : "text-paper-char",
                         )}
                       >
                         {row.primary}
                       </span>
                       {row.secondary ? (
-                        <span className="max-w-[45%] shrink-0 truncate text-right text-xs text-os-subtle">{row.secondary}</span>
+                        <span className="max-w-[45%] shrink-0 truncate text-right text-[12.5px] text-paper-sage">{row.secondary}</span>
                       ) : null}
                     </div>
                   );
@@ -364,15 +364,15 @@ export function CommandPalette({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-os-border px-4 py-2.5">
-          <span className="os-meta flex items-center gap-1.5 text-os-subtle">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-paper-mist px-4 py-2 text-[12.5px] text-paper-sage">
+          <span className="flex items-center gap-1.5">
             <CornerDownLeft className="size-3" aria-hidden="true" />
-            {stage.kind === "project" ? "Run on project" : "Open"}
-            <span className="mx-1.5 text-os-border">·</span>
+            {stage.kind === "project" ? "Run on workspace" : "Open"}
+            <span className="mx-1.5 text-paper-mist">·</span>
             ↑↓ Move
           </span>
           {!discovered && stage.kind === "commands" ? (
-            <span className="os-meta text-os-subtle">Hermes skills / built-in list</span>
+            <span>Built-in commands (Hermes skills not read)</span>
           ) : null}
         </div>
       </div>

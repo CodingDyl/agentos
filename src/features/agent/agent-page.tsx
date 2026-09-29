@@ -7,14 +7,13 @@ import type {
   AgentSessionMessage,
   ApprovalDecision,
 } from "@shared/agentos-types";
+import { AppShell, Markdown } from "@/components/os";
 import {
-  AppShell,
-  CommandButton,
-  ErrorState,
-  HairlineCard,
-  Markdown,
-  SectionLabel,
-} from "@/components/os";
+  PaperButton,
+  PaperCard,
+  PaperError,
+  PaperPageHeader,
+} from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { AgentRequestError, reportActivity } from "@/lib/agentos/client";
 import {
@@ -33,6 +32,7 @@ import {
 import { AgentActivityPanel } from "./agent-activity-panel";
 import { AgentContext } from "./agent-context";
 import { AgentInput } from "./agent-input";
+import { SpeakerLabel } from "./agent-message";
 import { AgentQuickActions } from "./agent-quick-actions";
 import { AgentSessionBar } from "./agent-session";
 import { AgentStatus } from "./agent-status";
@@ -370,24 +370,20 @@ export function AgentPage() {
       contextLabel={project ? `Context / ${project.name}` : undefined}
       modelLabel={`Model / ${agentStatus?.model ?? "Hermes"}`}
     >
-      <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
-        <header className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-3 border-b border-os-border pb-6">
-          <div>
-            <h1 className="text-[clamp(1.75rem,3vw,2rem)] leading-[1.05] font-normal tracking-[-0.03em]">
-              Agent
-            </h1>
-            <p className="mt-2 text-[15px] leading-6 text-os-muted">
-              Hermes operator console
-            </p>
-          </div>
-          <AgentStatus state={displayState} />
-        </header>
+      <div className="h-full bg-paper-white font-paper-ui text-paper-moss">
+      <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
+        <PaperPageHeader
+          title="Agent"
+          description="Hermes operator console"
+          actions={<AgentStatus state={displayState} />}
+          className="border-b border-paper-mist pb-6"
+        />
 
         <AgentContext
           projects={projects}
           value={projectSlug}
           onChange={setProject}
-          className="mt-8"
+          className="mt-6"
         />
 
         <AgentSessionBar
@@ -396,26 +392,25 @@ export function AgentPage() {
           onNewSession={startFresh}
           onForkSession={capabilities?.runs ? branch : undefined}
           isBusy={isBusy || newSession.isPending || forkSession.isPending}
-          className="mt-8 border-t border-os-border pt-6"
+          className="mt-6 border-t border-paper-mist pt-5"
         />
 
-        <div className="mt-8 min-h-64 flex-1 overflow-y-auto">
+        <div className="mt-6 min-h-64 flex-1 overflow-y-auto">
           {showResumePrompt ? (
-            <HairlineCard className="max-w-[62ch] p-5 md:p-6">
-              <SectionLabel>{project.name}</SectionLabel>
-              <p className="mt-4 text-[15px] leading-6 text-os-muted">
-                Ready to resume this project.
+            <PaperCard className="max-w-[62ch] p-5">
+              <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">{project.name}</h2>
+              <p className="mt-2 text-[14px] leading-6 text-paper-char">
+                Ready to resume this workspace.
               </p>
-              <div className="mt-6">
-                <CommandButton
-                  variant="primary"
-                  icon={ArrowRight}
-                  onClick={() => void send(`/work-on ${project.slug}`)}
-                >
-                  Work on {project.name}
-                </CommandButton>
-              </div>
-            </HairlineCard>
+              <PaperButton
+                variant="amber"
+                className="mt-5"
+                onClick={() => void send(`/work-on ${project.slug}`)}
+              >
+                Work on {project.name}
+                <ArrowRight className="size-3.5" aria-hidden="true" />
+              </PaperButton>
+            </PaperCard>
           ) : (
             <>
               <AgentThread
@@ -424,14 +419,14 @@ export function AgentPage() {
               />
 
               {hasLiveRun ? (
-                <section className="mt-6 border-t border-os-border pt-6">
-                  <SectionLabel className="text-os-amber">Hermes</SectionLabel>
+                <section aria-label="Live run" className="mt-6 border-t border-paper-mist pt-6">
+                  <SpeakerLabel speaker="Hermes" agent />
 
                   <AgentActivityPanel
                     state={run.state}
                     isRunning={run.isRunning}
                     showUnrecognised
-                    className="mt-4"
+                    className="mt-3"
                   />
 
                   {/* With a proposal parsed out, only Hermes' reasoning is
@@ -439,12 +434,12 @@ export function AgentPage() {
                       not repeated here as raw markdown. */}
                   {proposal ? (
                     proposal.preamble ? (
-                      <Markdown content={withoutEmDashes(proposal.preamble)} className="mt-6" />
+                      <Markdown tone="paper" content={withoutEmDashes(proposal.preamble)} className="mt-5" />
                     ) : null
                   ) : run.state.output ? (
-                    <Markdown content={withoutEmDashes(run.state.output)} className="mt-6" />
+                    <Markdown tone="paper" content={withoutEmDashes(run.state.output)} className="mt-5" />
                   ) : run.isRunning ? (
-                    <p className="mt-6 text-[15px] leading-6 text-os-subtle">
+                    <p className="mt-5 text-[15px] leading-6 text-paper-sage">
                       Working on your request…
                     </p>
                   ) : null}
@@ -474,32 +469,28 @@ export function AgentPage() {
 
                   <div className="mt-6 flex flex-wrap items-center gap-3">
                     {run.isRunning && canStop ? (
-                      <CommandButton
+                      <PaperButton
                         variant="danger"
-                        icon={Square}
-                        iconPosition="start"
                         disabled={run.state.status === "stopping"}
                         onClick={() => void run.stop()}
                       >
+                        <Square className="size-3.5" aria-hidden="true" />
                         {run.state.status === "stopping" ? "Stopping" : "Stop run"}
-                      </CommandButton>
+                      </PaperButton>
                     ) : null}
 
                     {!run.isRunning ? (
                       <>
-                        <span className="os-meta text-os-subtle">
+                        <span className="text-[13px] font-medium text-paper-char">
                           {run.state.status === "cancelled"
                             ? "Run cancelled"
                             : run.state.status === "failed"
                               ? "Run failed"
                               : "Run complete"}
                         </span>
-                        <CommandButton
-                          variant="quiet"
-                          onClick={commitRun}
-                        >
+                        <PaperButton variant="quiet" onClick={commitRun}>
                           Clear
-                        </CommandButton>
+                        </PaperButton>
                       </>
                     ) : null}
                   </div>
@@ -510,8 +501,8 @@ export function AgentPage() {
         </div>
 
         {failureReason || run.error ? (
-          <ErrorState
-            label="Hermes unavailable"
+          <PaperError
+            headingLevel="h2"
             title={
               failureReason
                 ? (FAILURE_COPY[failureReason]?.title ?? "Hermes failed.")
@@ -525,7 +516,7 @@ export function AgentPage() {
           />
         ) : null}
 
-        <div className="mt-6 shrink-0 border-t border-os-border pt-6">
+        <div className="mt-6 shrink-0 border-t border-paper-mist pt-6">
           <AgentInput
             onSubmit={(value) => void send(value)}
             skills={skillsData?.skills}
@@ -542,9 +533,10 @@ export function AgentPage() {
             onRun={(command) => void send(command)}
             onBrowse={palette.open}
             disabled={isBusy}
-            className="mt-8"
+            className="mt-6"
           />
         </div>
+      </div>
       </div>
     </AppShell>
   );

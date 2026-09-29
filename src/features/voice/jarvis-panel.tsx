@@ -153,13 +153,11 @@ export function JarvisPanel() {
 
         {working && !jarvis.reply ? <p className="text-[14px] text-paper-sage">Hermes is working on it…</p> : null}
 
-        {/* Hermes' words and its decisions keep the console look they have
-            everywhere else: the approval cards are drawn for that surface. */}
         {jarvis.reply || jarvis.approval ? (
-          <div className="os-environment space-y-4 rounded-[4px] p-4">
+          <div className="space-y-4">
             {proposal ? (
               <>
-                {proposal.preamble ? <Markdown content={withoutEmDashes(proposal.preamble)} /> : null}
+                {proposal.preamble ? <Markdown tone="paper" content={withoutEmDashes(proposal.preamble)} /> : null}
                 <ProposalCard
                   proposal={proposal}
                   approval={jarvis.approval}
@@ -170,7 +168,7 @@ export function JarvisPanel() {
                 />
               </>
             ) : jarvis.reply ? (
-              <Markdown content={withoutEmDashes(jarvis.reply)} />
+              <Markdown tone="paper" content={withoutEmDashes(jarvis.reply)} />
             ) : null}
 
             {!proposal && jarvis.approval ? (

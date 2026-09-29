@@ -1,7 +1,7 @@
 import { ChevronDown, GitBranch, Plus } from "lucide-react";
 import { useState } from "react";
 import type { AgentSession } from "@shared/agentos-types";
-import { CommandButton, SectionLabel, SystemIndicator } from "@/components/os";
+import { FieldLabel, PAPER_FOCUS, PaperButton, PaperIndicator } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
 import { useAgentSessions } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -20,12 +20,7 @@ function sessionMeta(session: AgentSession, messageCount?: number): string {
   const count = messageCount ?? session.messageCount;
   const when = formatRelativeTime(session.updatedAt ?? session.createdAt);
 
-  return [
-    when,
-    count === undefined
-      ? undefined
-      : `${count} ${count === 1 ? "message" : "messages"}`,
-  ]
+  return [when, count === undefined ? undefined : `${count} ${count === 1 ? "message" : "messages"}`]
     .filter(Boolean)
     .join(" · ");
 }
@@ -47,98 +42,68 @@ export function AgentSessionBar({
   const [showHistory, setShowHistory] = useState(false);
   const { data: history, isPending } = useAgentSessions(showHistory);
 
-  const previous = (history?.sessions ?? []).filter(
-    (entry) => entry.id !== session?.id,
-  );
+  const previous = (history?.sessions ?? []).filter((entry) => entry.id !== session?.id);
 
   return (
-    <section className={cn("min-w-0", className)}>
+    <section aria-label="Session" className={cn("min-w-0", className)}>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <SectionLabel>Session</SectionLabel>
+          <FieldLabel>Session</FieldLabel>
           {session ? (
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-              <span className="truncate text-[15px] leading-6">
-                {session.title ?? session.id}
-              </span>
-              <SystemIndicator state="online" label="Active session" />
-              <span className="os-meta text-os-subtle">
-                {sessionMeta(session, messageCount)}
-              </span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <span className="truncate text-[15px] leading-6 font-medium text-paper-moss">{session.title ?? session.id}</span>
+              <PaperIndicator tone="green" label="Active session" />
+              <span className="text-[13px] text-paper-sage">{sessionMeta(session, messageCount)}</span>
             </div>
           ) : (
-            <p className="mt-3 text-[15px] leading-6 text-os-subtle">
-              Resolving session…
-            </p>
+            <p className="text-[14px] leading-6 text-paper-sage">Resolving session…</p>
           )}
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <CommandButton
-            variant="secondary"
-            icon={Plus}
-            iconPosition="start"
-            disabled={isBusy}
-            onClick={onNewSession}
-          >
+          <PaperButton variant="ghost" disabled={isBusy} onClick={onNewSession}>
+            <Plus className="size-3.5" aria-hidden="true" />
             New session
-          </CommandButton>
+          </PaperButton>
           {onForkSession ? (
-            <CommandButton
-              variant="quiet"
-              icon={GitBranch}
-              iconPosition="start"
-              disabled={isBusy || !session}
-              onClick={onForkSession}
-            >
+            <PaperButton variant="quiet" disabled={isBusy || !session} onClick={onForkSession}>
+              <GitBranch className="size-3.5" aria-hidden="true" />
               Fork
-            </CommandButton>
+            </PaperButton>
           ) : null}
           <button
             type="button"
             aria-expanded={showHistory}
             onClick={() => setShowHistory((open) => !open)}
-            className="os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-os-muted transition-colors duration-150 hover:text-foreground"
+            className={cn(
+              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+              PAPER_FOCUS,
+            )}
           >
             History
-            <ChevronDown
-              className={cn(
-                "size-3.5 transition-transform duration-150",
-                showHistory && "rotate-180",
-              )}
-              aria-hidden="true"
-            />
+            <ChevronDown className={cn("size-3.5 transition-transform duration-150", showHistory && "rotate-180")} aria-hidden="true" />
           </button>
         </div>
       </div>
 
       {showHistory ? (
-        <div className="mt-4 border-t border-os-border pt-4">
+        <div className="mt-4 border-t border-paper-mist pt-4">
           {isPending ? (
-            <p className="os-meta text-os-subtle">Reading sessions…</p>
+            <p className="text-[13px] text-paper-sage">Reading sessions…</p>
           ) : previous.length === 0 ? (
-            <p className="os-meta text-os-subtle">No previous sessions</p>
+            <p className="text-[13px] text-paper-sage">No previous sessions</p>
           ) : (
             <ul className="space-y-0.5">
               {previous.map((entry) => (
-                <li
-                  key={entry.id}
-                  className="flex min-h-8 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[13px] leading-5"
-                >
-                  <span className="min-w-0 truncate text-os-muted">
-                    {entry.title ?? entry.id}
-                  </span>
-                  <span className="os-meta shrink-0 text-os-subtle">
-                    {sessionMeta(entry)}
-                  </span>
+                <li key={entry.id} className="flex min-h-8 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[13.5px] leading-5">
+                  <span className="min-w-0 truncate text-paper-char">{entry.title ?? entry.id}</span>
+                  <span className="shrink-0 text-[12.5px] text-paper-sage">{sessionMeta(entry)}</span>
                 </li>
               ))}
             </ul>
           )}
           {/* Previous sessions are kept in Hermes, never deleted from here. */}
-          <p className="os-meta mt-4 text-os-subtle">
-            Previous sessions stay in Hermes
-          </p>
+          <p className="mt-4 text-[12.5px] text-paper-sage">Previous sessions stay in Hermes</p>
         </div>
       ) : null}
     </section>
