@@ -12,7 +12,8 @@
 export class MimeError extends Error {}
 
 /** One plain address: no display name, no list, no angle brackets, nothing that could start a new header. */
-const ADDRESS = /^[\p{L}\p{N}._%+'-]{1,64}@[\p{L}\p{N}.-]{1,190}\.\p{L}{2,24}$/u;
+const ADDRESS =
+  /^[\p{L}\p{N}._%+'-]{1,64}@[\p{L}\p{N}.-]{1,190}\.\p{L}{2,24}$/u;
 
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001F\u007F]/;
@@ -23,11 +24,17 @@ export function isPlainAddress(value: string): boolean {
 
 /** A header value that is pure ASCII passes through; anything else becomes an encoded word (RFC 2047). */
 function encodeHeader(value: string): string {
-  return /^[ -~]*$/.test(value) ? value : `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
+  return /^[ -~]*$/.test(value)
+    ? value
+    : `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
 }
 
 function base64Lines(text: string): string {
-  return (Buffer.from(text, "utf8").toString("base64").match(/.{1,76}/g) ?? []).join("\r\n");
+  return (
+    Buffer.from(text, "utf8")
+      .toString("base64")
+      .match(/.{1,76}/g) ?? []
+  ).join("\r\n");
 }
 
 export interface EmailMessage {
@@ -39,12 +46,24 @@ export interface EmailMessage {
 }
 
 /** The raw message, `\r\n` line endings, ready to base64url. */
-export function buildMessage({ to, subject, body, inReplyTo }: EmailMessage): string {
-  if (!isPlainAddress(to)) throw new MimeError("The recipient is not a plain email address.");
-  if (CONTROL.test(subject)) throw new MimeError("The subject must be one line.");
+export function buildMessage({
+  to,
+  subject,
+  body,
+  inReplyTo,
+}: EmailMessage): string {
+  if (!isPlainAddress(to))
+    throw new MimeError("The recipient is not a plain email address.");
+  if (CONTROL.test(subject))
+    throw new MimeError("The subject must be one line.");
   if (!subject.trim()) throw new MimeError("The subject is empty.");
-  if (inReplyTo !== undefined && (CONTROL.test(inReplyTo) || !/^<[^<>\s]{1,300}>$/.test(inReplyTo))) {
-    throw new MimeError("The message being answered is not a valid Message-ID.");
+  if (
+    inReplyTo !== undefined &&
+    (CONTROL.test(inReplyTo) || !/^<[^<>\s]{1,300}>$/.test(inReplyTo))
+  ) {
+    throw new MimeError(
+      "The message being answered is not a valid Message-ID.",
+    );
   }
 
   const headers = [
@@ -53,7 +72,9 @@ export function buildMessage({ to, subject, body, inReplyTo }: EmailMessage): st
     "MIME-Version: 1.0",
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
-    ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`, `References: ${inReplyTo}`] : []),
+    ...(inReplyTo
+      ? [`In-Reply-To: ${inReplyTo}`, `References: ${inReplyTo}`]
+      : []),
   ];
 
   // Body line endings become CRLF; the transfer encoding keeps everything else exact.

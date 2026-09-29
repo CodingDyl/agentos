@@ -1,15 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import {
   OutreachStatusSchema,
+  SuppressionSchema,
   type EmailContent,
   type OutreachStatus,
+  type Suppression,
+  type SuppressionReason,
 } from "@shared/outreach-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
+import { tractionKey } from "./traction";
 
 /**
  * The outreach mailbox's client: its status, the signature, a Hermes draft,
- * and creating a Gmail draft. Nothing here sends an email.
+ * creating a Gmail draft, sending one email, and the do-not-contact list.
+ * Sending is one email to one prospect, only after the preview is confirmed.
  */
 
 export const outreachKey = () => [...agentosKeys.all, "outreach"] as const;
@@ -119,3 +125,76 @@ export const useCreateGmailDraft = () =>
     networkMode: "always",
     retry: 0,
   });
+
+export interface SendResult {
+  sent: true;
+  to: string;
+  messageId: string;
+}
+
+/** Sends the previewed email now. The server picks the recipient and enforces every guardrail. */
+export function useSendOutreachEmail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      prospectId,
+      content,
+    }: {
+      prospectId: string;
+      content: EmailContent;
+    }) =>
+      request<SendResult>(
+        `/api/outreach/prospects/${id(prospectId)}/send`,
+        json("POST", { ...content, confirm: true }),
+      ),
+    // A send moves the prospect and uses a slot, whether or not the answer was clean.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: outreachKey() });
+      void queryClient.invalidateQueries({ queryKey: tractionKey() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+const suppressionsKey = () => [...outreachKey(), "suppressions"] as const;
+
+export function useSuppressions() {
+  return useQuery({
+    queryKey: suppressionsKey(),
+    queryFn: async (): Promise<Suppression[]> => {
+      const parsed = z
+        .object({ suppressions: z.array(SuppressionSchema) })
+        .safeParse(await request("/api/outreach/suppressions"));
+      if (!parsed.success)
+        throw new AgentOSRequestError(
+          "The do-not-contact list came back in an unexpected shape.",
+        );
+      return parsed.data.suppressions;
+    },
+    staleTime: 30_000,
+    networkMode: "always",
+  });
+}
+
+function useSuppressionMutation<V>(fn: (variables: V) => Promise<unknown>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: suppressionsKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export const useAddSuppression = () =>
+  useSuppressionMutation(
+    ({ address, reason }: { address: string; reason: SuppressionReason }) =>
+      request("/api/outreach/suppressions", json("POST", { address, reason })),
+  );
+
+export const useRemoveSuppression = () =>
+  useSuppressionMutation((address: string) =>
+    request(`/api/outreach/suppressions/${id(address)}`, { method: "DELETE" }),
+  );

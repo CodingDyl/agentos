@@ -19,7 +19,8 @@ import { isPlainAddress } from "./mime";
 export class OutreachDraftError extends Error {}
 
 /** What Hermes says when it cannot do it honestly. */
-export const NOT_ENOUGH_CONTEXT = "NOT ENOUGH CONTEXT FOR PERSONALIZED OUTREACH";
+export const NOT_ENOUGH_CONTEXT =
+  "NOT ENOUGH CONTEXT FOR PERSONALIZED OUTREACH";
 
 const GAP_WORDS: Record<string, string> = {
   icp: "an ICP",
@@ -34,7 +35,11 @@ const GAP_WORDS: Record<string, string> = {
  * phone, and never the private notes (which may hold their own words, other
  * people's details, or money).
  */
-export function buildEmailPacket(context: { prospect: Prospect; icp: Icp; offer: Offer }): string {
+export function buildEmailPacket(context: {
+  prospect: Prospect;
+  icp: Icp;
+  offer: Offer;
+}): string {
   const { prospect, icp, offer } = context;
   const followUp = prospect.stage !== "target" || Boolean(prospect.lastTouchAt);
 
@@ -47,9 +52,11 @@ export function buildEmailPacket(context: { prospect: Prospect; icp: Icp; offer:
     "- Lead with the specific thing noticed about them, then connect it to the offer in one sentence, then ask one easy question.",
     "- Under 110 words. Plain text. Three short paragraphs at most.",
     "- Every claim must come from the facts below or their website. Never invent numbers, clients, results or compliments.",
-    "- No flattery, no \"I came across your amazing company\", no \"I hope this finds you well\", no \"just checking in\".",
+    '- No flattery, no "I came across your amazing company", no "I hope this finds you well", no "just checking in".',
     "- Do not sign off with a name and do not add an opt-out line: both are added for me.",
-    followUp ? "- This is a follow-up: refer to the earlier contact briefly and add one new piece of value." : "- This is the first email they will get from me.",
+    followUp
+      ? "- This is a follow-up: refer to the earlier contact briefly and add one new piece of value."
+      : "- This is the first email they will get from me.",
     `- If you cannot find something genuinely specific, reply with exactly "${NOT_ENOUGH_CONTEXT}" and list what is missing.`,
     "",
     `THEIR COMPANY: ${prospect.company}`,
@@ -58,7 +65,9 @@ export function buildEmailPacket(context: { prospect: Prospect; icp: Icp; offer:
     `THEIR WEBSITE: ${prospect.website}`,
     `WHAT I NOTICED (specific and checkable): ${prospect.observation}`,
     prospect.angle ? `THE ANGLE TO OPEN WITH: ${prospect.angle}` : undefined,
-    prospect.reasons.length > 0 ? `WHY THEM:\n${prospect.reasons.map((reason) => `- ${reason}`).join("\n")}` : undefined,
+    prospect.reasons.length > 0
+      ? `WHY THEM:\n${prospect.reasons.map((reason) => `- ${reason}`).join("\n")}`
+      : undefined,
     "",
     `WHO I AM SELLING TO: ${icp.name}. ${icp.offer}`,
     `WHAT I AM OFFERING THEM: ${offer.name}: ${offer.offer}`,
@@ -74,16 +83,33 @@ export function buildEmailPacket(context: { prospect: Prospect; icp: Icp; offer:
 /** Hermes' reply as an email, or the reason there is none. */
 export function readEmailDraft(reply: string): EmailContent {
   if (reply.includes(NOT_ENOUGH_CONTEXT)) {
-    throw new OutreachDraftError(`Hermes needs more to go on: ${reply.replace(NOT_ENOUGH_CONTEXT, "").trim().slice(0, 400) || "add something specific about them"}`);
+    throw new OutreachDraftError(
+      `Hermes needs more to go on: ${reply.replace(NOT_ENOUGH_CONTEXT, "").trim().slice(0, 400) || "add something specific about them"}`,
+    );
   }
 
   const payload = extractJson(reply);
-  if (typeof payload !== "object" || payload === null) throw new OutreachDraftError("Hermes answered, but not with an email AgentOS could read.");
+  if (typeof payload !== "object" || payload === null)
+    throw new OutreachDraftError(
+      "Hermes answered, but not with an email AgentOS could read.",
+    );
 
   const { subject, body } = payload as { subject?: unknown; body?: unknown };
-  const cleanSubject = typeof subject === "string" ? subject.replace(/[\r\n]+/g, " ").trim().slice(0, 150) : "";
-  const cleanBody = typeof body === "string" ? body.replace(/\r\n/g, "\n").trim().slice(0, MAX_EMAIL_BODY) : "";
-  if (!cleanSubject || !cleanBody) throw new OutreachDraftError("Hermes answered without a subject or a body.");
+  const cleanSubject =
+    typeof subject === "string"
+      ? subject
+          .replace(/[\r\n]+/g, " ")
+          .trim()
+          .slice(0, 150)
+      : "";
+  const cleanBody =
+    typeof body === "string"
+      ? body.replace(/\r\n/g, "\n").trim().slice(0, MAX_EMAIL_BODY)
+      : "";
+  if (!cleanSubject || !cleanBody)
+    throw new OutreachDraftError(
+      "Hermes answered without a subject or a body.",
+    );
 
   return { subject: cleanSubject, body: cleanBody };
 }
@@ -94,38 +120,70 @@ export function withSignature(body: string, signature: string): string {
 }
 
 /** Why an email to this prospect cannot be created at all, or undefined when it can. Nothing to do with what it says. */
-export function recipientBlocker(prospect: Prospect, signature: string): string | undefined {
-  if (!prospect.email || !isPlainAddress(prospect.email)) return "Add a valid email address for this prospect first.";
-  if (prospect.stage === "won" || prospect.stage === "lost") return "This prospect is closed; there is nothing to send.";
-  if (!signature.trim()) return "Write your signature and opt-out line first: it goes on every email.";
+export function recipientBlocker(
+  prospect: Prospect,
+  signature: string,
+): string | undefined {
+  if (!prospect.email || !isPlainAddress(prospect.email))
+    return "Add a valid email address for this prospect first.";
+  if (prospect.stage === "won" || prospect.stage === "lost")
+    return "This prospect is closed; there is nothing to send.";
+  if (!signature.trim())
+    return "Write your signature and opt-out line first: it goes on every email.";
   return undefined;
 }
 
 /** Why Hermes cannot draft for this prospect yet: the above, and not enough to say. */
-export function draftingBlocker(prospect: Prospect, icp: Icp | undefined, offers: readonly Offer[], signature: string): string | undefined {
+export function draftingBlocker(
+  prospect: Prospect,
+  icp: Icp | undefined,
+  offers: readonly Offer[],
+  signature: string,
+): string | undefined {
   const blocker = recipientBlocker(prospect, signature);
   if (blocker) return blocker;
   const gaps = outreachGaps(prospect, icp, offers);
-  if (gaps.length > 0) return `Not enough to personalise yet. Add ${gaps.map((gap) => GAP_WORDS[gap] ?? gap).join(", ")}.`;
+  if (gaps.length > 0)
+    return `Not enough to personalise yet. Add ${gaps.map((gap) => GAP_WORDS[gap] ?? gap).join(", ")}.`;
   return undefined;
 }
 
-export async function draftOutreachEmail(prospectId: string): Promise<EmailContent> {
+export async function draftOutreachEmail(
+  prospectId: string,
+): Promise<EmailContent> {
   const state = await readState();
   const prospect = state.prospects.find((entry) => entry.id === prospectId);
   if (!prospect) throw new TractionNotFoundError(`No prospect ${prospectId}`);
 
-  const blocker = draftingBlocker(prospect, state.icp, state.offers, state.outreach.signature);
-  if (blocker || !state.icp) throw new OutreachDraftError(blocker ?? "Add an ICP first.");
-  const offer = state.offers.find((entry) => entry.id === prospect.offerId) as Offer;
+  const blocker = draftingBlocker(
+    prospect,
+    state.icp,
+    state.offers,
+    state.outreach.signature,
+  );
+  if (blocker || !state.icp)
+    throw new OutreachDraftError(blocker ?? "Add an ICP first.");
+  const offer = state.offers.find(
+    (entry) => entry.id === prospect.offerId,
+  ) as Offer;
 
   let reply: string;
   try {
-    reply = await sendToHermes(buildEmailPacket({ prospect, icp: state.icp, offer }), { operation: "other", timeoutMs: 90_000 });
+    reply = await sendToHermes(
+      buildEmailPacket({ prospect, icp: state.icp, offer }),
+      { operation: "other", timeoutMs: 90_000 },
+    );
   } catch (error) {
-    throw new OutreachDraftError(error instanceof HermesError ? error.message : "Hermes could not be reached.");
+    throw new OutreachDraftError(
+      error instanceof HermesError
+        ? error.message
+        : "Hermes could not be reached.",
+    );
   }
 
   const draft = readEmailDraft(reply);
-  return { subject: draft.subject, body: withSignature(draft.body, state.outreach.signature) };
+  return {
+    subject: draft.subject,
+    body: withSignature(draft.body, state.outreach.signature),
+  };
 }

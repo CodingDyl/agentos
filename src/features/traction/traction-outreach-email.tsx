@@ -10,11 +10,15 @@ import {
   PaperButton,
 } from "@/components/paper";
 import {
+  useAddSuppression,
   useCreateGmailDraft,
   useDisconnectOutreach,
   useDraftOutreachEmail,
   useOutreachStatus,
+  useRemoveSuppression,
   useSaveOutreachSignature,
+  useSendOutreachEmail,
+  useSuppressions,
   type GmailDraftResult,
 } from "@/lib/agentos/outreach";
 import { cn } from "@/lib/utils";
@@ -121,8 +125,16 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
               Disconnect
             </button>
           </p>
-          <SignatureEditor key={status.data.signature} saved={status.data.signature} />
-          <Composer prospect={prospect} signature={status.data.signature} />
+          <SignatureEditor
+            key={status.data.signature}
+            saved={status.data.signature}
+          />
+          <Composer
+            prospect={prospect}
+            signature={status.data.signature}
+            sentToday={status.data.sentToday}
+            dailyCap={status.data.dailyCap}
+          />
         </>
       ) : null}
     </div>
@@ -170,23 +182,40 @@ function SignatureEditor({ saved }: { saved: string }) {
 function Composer({
   prospect,
   signature,
+  sentToday,
+  dailyCap,
 }: {
   prospect: Prospect;
   signature: string;
+  sentToday: number;
+  dailyCap: number;
 }) {
   const draft = useDraftOutreachEmail();
   const create = useCreateGmailDraft();
+  const send = useSendOutreachEmail();
+  const suppressions = useSuppressions();
+  const addSuppression = useAddSuppression();
+  const removeSuppression = useRemoveSuppression();
+  const [previewing, setPreviewing] = useState(false);
+  const [sentTo, setSentTo] = useState<string>();
+  const suppressed = prospect.email
+    ? suppressions.data?.find(
+        (entry) => entry.address === prospect.email?.toLowerCase(),
+      )
+    : undefined;
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [created, setCreated] = useState<GmailDraftResult>();
 
-  const blocker = !prospect.email
-    ? "Add this prospect's email address first."
-    : !signature.trim()
-      ? "Write your signature and opt-out line first."
-      : prospect.stage === "won" || prospect.stage === "lost"
-        ? "This prospect is closed."
-        : undefined;
+  const blocker = suppressed
+    ? `On the do-not-contact list (${suppressed.reason}). Nothing can be sent or drafted to this address.`
+    : !prospect.email
+      ? "Add this prospect's email address first."
+      : !signature.trim()
+        ? "Write your signature and opt-out line first."
+        : prospect.stage === "won" || prospect.stage === "lost"
+          ? "This prospect is closed."
+          : undefined;
   const hasContent = subject.trim().length > 0 && body.trim().length > 0;
 
   return (
@@ -211,7 +240,10 @@ function Composer({
                 setSubject(result.subject);
                 setBody(result.body);
                 setCreated(undefined);
+                setPreviewing(false);
+                setSentTo(undefined);
                 create.reset();
+                send.reset();
               },
             })
           }
@@ -226,6 +258,45 @@ function Composer({
       {draft.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
           {draft.error.message}
+        </p>
+      ) : null}
+
+      {prospect.email ? (
+        <p className="mt-2 text-[12.5px] text-paper-sage">
+          {suppressed ? (
+            <button
+              type="button"
+              disabled={removeSuppression.isPending}
+              onClick={() => removeSuppression.mutate(suppressed.address)}
+              className={cn(
+                "cursor-pointer rounded-[2px] hover:text-paper-moss hover:underline",
+                PAPER_FOCUS,
+              )}
+            >
+              Remove from do-not-contact list
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={addSuppression.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(`Never email ${prospect.email} from AgentOS?`)
+                ) {
+                  addSuppression.mutate({
+                    address: prospect.email as string,
+                    reason: "manual",
+                  });
+                }
+              }}
+              className={cn(
+                "cursor-pointer rounded-[2px] hover:text-paper-moss hover:underline",
+                PAPER_FOCUS,
+              )}
+            >
+              Do not contact
+            </button>
+          )}
         </p>
       ) : null}
 
@@ -266,12 +337,85 @@ function Composer({
               {create.isPending ? "Creating…" : "Create Gmail draft"}
             </PaperButton>
             <span className="text-[12.5px] text-paper-sage">
-              Nothing is sent. You review and send it in Gmail.
+              Or save it as a Gmail draft to send yourself.
             </span>
           </div>
           {create.error ? (
             <p role="alert" className="text-[13px] text-paper-flame-deep">
               {create.error.message}
+            </p>
+          ) : null}
+          {previewing ? (
+            <div
+              role="group"
+              aria-label="Preview before sending"
+              className="rounded-[4px] border-[1.5px] border-paper-gold bg-paper-white px-3 py-3 text-[13px] leading-5 text-paper-char"
+            >
+              <p className="text-[12px] font-semibold tracking-[0.06em] uppercase">
+                Check before sending
+              </p>
+              <p className="mt-1">
+                To <span className="font-semibold">{prospect.email}</span>
+              </p>
+              <p>
+                Subject <span className="font-semibold">{subject}</span>
+              </p>
+              <pre className="mt-2 max-h-56 overflow-auto font-sans whitespace-pre-wrap">
+                {body}
+              </pre>
+              <p className="mt-2 text-paper-sage">
+                Sent now from the outreach mailbox, to this one address.{" "}
+                {sentToday} of {dailyCap} sent in the last 24 hours. It cannot
+                be recalled.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <PaperButton
+                  variant="amber"
+                  disabled={send.isPending || !hasContent}
+                  onClick={() =>
+                    send.mutate(
+                      { prospectId: prospect.id, content: { subject, body } },
+                      {
+                        onSuccess: (result) => {
+                          setSentTo(result.to);
+                          setPreviewing(false);
+                        },
+                      },
+                    )
+                  }
+                >
+                  {send.isPending
+                    ? "Sending…"
+                    : `Send now to ${prospect.email}`}
+                </PaperButton>
+                <PaperButton
+                  variant="ghost"
+                  disabled={send.isPending}
+                  onClick={() => setPreviewing(false)}
+                >
+                  Back to editing
+                </PaperButton>
+              </div>
+            </div>
+          ) : (
+            <PaperButton
+              disabled={Boolean(blocker) || !hasContent || send.isPending}
+              onClick={() => setPreviewing(true)}
+            >
+              Preview and send
+            </PaperButton>
+          )}
+          {send.error ? (
+            <p role="alert" className="text-[13px] text-paper-flame-deep">
+              {send.error.message}
+            </p>
+          ) : null}
+          {sentTo ? (
+            <p
+              role="status"
+              className="text-[13px] font-semibold text-paper-moss"
+            >
+              Sent to {sentTo}. The prospect is now marked contacted.
             </p>
           ) : null}
           {created ? (

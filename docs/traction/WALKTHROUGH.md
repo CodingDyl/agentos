@@ -195,5 +195,13 @@ Drafts only: nothing is sent from AgentOS.
 4. "Draft with Hermes" writes from public facts only. Edit the subject and
    body, then "Create Gmail draft". "Open in Gmail" takes you to it; you read
    it and press Send there.
-5. The prospect needs an email address and enough context (same gaps as
+5. "Preview and send" shows exactly what goes out. "Send now" is a second,
+   deliberate click. It sends one email to that one prospect and marks them
+   contacted. It is refused if the address is on the do-not-contact list,
+   was emailed in the last 14 days, or you have hit the daily cap
+   (`OUTREACH_DAILY_CAP`, default 10). If Gmail's answer is lost you are told
+   to check the Sent folder; it counts as sent and is not retried.
+6. If someone replies "no thanks" or an email bounces, press "Do not contact"
+   on their prospect. Nothing detects these yet.
+7. The prospect needs an email address and enough context (same gaps as
    "Draft outreach"). Pick prospects by hand, one at a time.
