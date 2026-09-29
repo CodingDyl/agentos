@@ -72,7 +72,9 @@ describe("Fish Audio adapter", () => {
     assert.equal(audio.length, 3);
     assert.ok(seen!.url.endsWith("/v1/tts"));
     assert.equal((seen!.init.headers as Record<string, string>).Authorization, "Bearer secret");
-    assert.equal(JSON.parse(seen!.init.body as string).reference_id, "05b36da8574341d0803391491850db20");
+    // Fish's SDK sends msgpack, and the Jarvis voice id rides in the body.
+    assert.equal((seen!.init.headers as Record<string, string>)["Content-Type"], "application/msgpack");
+    assert.ok(Buffer.from(seen!.init.body as Uint8Array).includes("05b36da8574341d0803391491850db20"));
   });
 
   it("classifies a rejected key without leaking it", async () => {
@@ -84,8 +86,8 @@ describe("Fish Audio adapter", () => {
   it("reads a transcript and treats silence as empty", async () => {
     process.env.FISH_API_KEY = "secret";
     globalThis.fetch = (async () => Response.json({ text: " give me my morning brief " })) as typeof fetch;
-    assert.equal(await transcribe(Buffer.from([1]), "audio/webm"), "give me my morning brief");
+    assert.equal(await transcribe(Buffer.from([1])), "give me my morning brief");
     globalThis.fetch = (async () => Response.json({ text: "" })) as typeof fetch;
-    await assert.rejects(transcribe(Buffer.from([1]), "audio/webm"), (e: VoiceError) => e.reason === "empty");
+    await assert.rejects(transcribe(Buffer.from([1])), (e: VoiceError) => e.reason === "empty");
   });
 });
