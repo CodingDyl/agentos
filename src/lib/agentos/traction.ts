@@ -168,6 +168,38 @@ export const useSetCrmFollowUp = () =>
     request(`/api/traction/crm/follow-ups/${id(followUpId)}`, json("POST", { status })),
   );
 
+export interface ScanInfo {
+  areas: { key: string; label: string }[];
+  categories: { category: string; track: string; types: string[] }[];
+  budget: { month: string; used: number; cap: number | null; remaining: number | null };
+  writable: boolean;
+}
+
+/** What a scan can be pointed at and what is left to spend. Only asked for while the panel is open. */
+export const useScanInfo = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...tractionKey(), "scan-info"],
+    queryFn: () => request<ScanInfo>("/api/traction/crm/scan-info"),
+    enabled,
+    staleTime: 0,
+  });
+
+export interface ScanCandidatesResult {
+  found: number;
+  stored: number;
+  requests: number;
+  stoppedByCap: boolean;
+  message?: string;
+  errors: string[];
+  budget: ScanInfo["budget"];
+}
+
+/** Asks Virtec to scan an area. Spends Places requests there, under Virtec's monthly cap. */
+export const useScanCandidates = () =>
+  useTractionMutation((input: { area: string; track: "virtara" | "jurivo"; categories: string[] }) =>
+    request<ScanCandidatesResult>("/api/traction/crm/scan-candidates", json("POST", input)),
+  );
+
 export interface ProfileLeadsResult {
   profiled: number;
   failed: number;

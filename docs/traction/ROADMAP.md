@@ -22,30 +22,28 @@ sophisticated the module gets.
 | 12 | ICP fit scoring: Jev scores Virtec's Places candidates against the ICP (0 to 4, plus whether the data shows a checkable gap). On demand, 15 a click and 60 a day, remembered until the ICP changes. Only public business details are sent (never an email or phone). The list re-ranks: good fits first, unscored by Virtec's score, poor fits last; importing carries Jev's fit into the prospect. Places discovery stays in Virtec, which already runs the scans and holds that key |
 | 13 | Client opens a quote or agreement: Virtec already stamped `portalLastViewedAt` per project; it now ignores link-preview bots, scanners and the operator's preview, so "opened" means a person. AgentOS reads it: a client who opened their portal within 7 days, after the quote existed, with the quote still pending or the agreement unanswered, gets an "Opened" queue item, or, when Virtec already has a quote or agreement follow-up due for them, that follow-up says so and moves up. Ask Hermes drafts a light note and is never told when they opened it, and is told not to hint at it. Done holds it a week; a view on another day raises a new item |
 | 14 | Loose ends: the blog newsletter signup and the Unsubscribe page wrote to Firestore from the browser, which the CRM's rules refuse, so both had never worked for visitors. They now go through virtara-backend to a new Virtec route (`/api/inbound/subscribers`, site key, same answer whether or not the list changed). The Firebase client and its hardcoded config are removed from the Virtara site. `/api/send-email`, which sent any caller's raw HTML as info@virtara.co.za, is escaped, size capped, rate limited and prefixed until it can be deleted |
+| 15 | Places scans for the ICP's area, capped: Virtec gets a shared monthly ceiling on Google Places requests (`PLACES_MONTHLY_REQUEST_CAP`, counted in a transaction before each call, a failed call still counts) and stops when it runs out. A scan now asks for each Places type once (Jurivo's four categories all search "lawyer" and were paid for four times). AgentOS gets "Find more candidates" in the Virtec tab: a named area, the categories, an honest request count, a confirm, and Virtec refuses until the cap is set. New candidates are then scored against the ICP with Jev (phase 12). When Virtec refuses a write, AgentOS now shows Virtec's own reason instead of guessing it was the write key |
 
 ## Next
 
-1. **Places scan for the ICP** (parked below), once the two checks are done.
-2. **Per-quote views** would need Virtec to stamp each quote, not the project;
+1. **Per-quote views** would need Virtec to stamp each quote, not the project;
    today a view means "the portal", and the item says so.
+2. **Signed unsubscribe links** in newsletters, once you send them, so an
+   address cannot be unsubscribed by someone else.
 
-## Parked, noted, not started
+## Parked, needs a decision from Dylan
 
-### Local prospect discovery in the ICP's own area (Virtec's scan)
+### What Virtec stores from Places
 
-Jev scoring is built (phase 12). What is not: starting a Places scan **for the
-active ICP** (its category and geography) from AgentOS. That belongs in
-Virtec, which runs the scans, holds the Places key and pays for it. It would
-be one Virtec route that takes a category and an area, with a monthly cap on
-the key. Before building it, get answers to the two checks below.
+Virtec's scan keeps each place's full Places record (`raw`: phone, website,
+address, rating) in `localLeads` for good. Google Maps Platform terms limit
+how long most Places content may be stored; place IDs and coordinates are the
+exception. This is how the scan worked before AgentOS touched it, so it was
+left alone. Decide whether to keep only the place ID and re-fetch, or accept
+the terms as they are. Not verified against the current terms.
 
-**Check before building** (not verified yet):
+### POPIA
 
-- Google Maps Platform terms limit how long most Places content may be
-  cached; place IDs are the exception. Store the place ID and re-fetch
-  details rather than keeping copies. (AgentOS keeps only scores, no Places
-  content.)
-- POPIA restricts unsolicited electronic direct marketing to individuals.
-  Business contacts are treated differently, but get this checked before
-  cold-emailing anyone found this way.
-- Cost: set a monthly cap on the Places key before it is used in a loop.
+Unsolicited electronic direct marketing to individuals is restricted.
+Business contacts are treated differently, but get this checked before
+cold-emailing anyone found through a scan.

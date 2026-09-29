@@ -610,6 +610,15 @@ export const CrmViewSchema = z.object({
   clients: z.array(VirtecClientSchema.extend({ prospectId: z.string().optional() })),
 });
 
+/** What to scan for. Virtec accepts only its own area presets and category names, and checks again. */
+export const ScanCandidatesSchema = z
+  .object({
+    area: z.string().regex(/^[a-z0-9-]{1,40}$/),
+    track: z.enum(["virtara", "jurivo"]),
+    categories: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
+  })
+  .strict();
+
 export const CrmImportSchema = z.object({
   kind: z.enum(["lead", "client", "inbound"]),
   id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
@@ -705,6 +714,7 @@ export type SourceResult = z.infer<typeof SourceResultSchema>;
 export type ExperimentReview = z.infer<typeof ExperimentReviewSchema>;
 export type WeeklyReview = z.infer<typeof WeeklyReviewSchema>;
 export type CrmView = z.infer<typeof CrmViewSchema>;
+export type ScanCandidates = z.infer<typeof ScanCandidatesSchema>;
 export type LeadProfile = z.infer<typeof LeadProfileSchema>;
 export type CaseStudyStatus = z.infer<typeof CaseStudyStatusSchema>;
 export type CaseStudy = z.infer<typeof CaseStudySchema>;

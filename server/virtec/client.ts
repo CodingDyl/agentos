@@ -21,6 +21,8 @@ export const VIRTEC_PATHS = {
   projects: "/api/agentos/projects?limit=500",
   followUps: "/api/agentos/follow-ups?limit=500",
   revenue: "/api/agentos/revenue-summary",
+  /** Read on demand by the scan panel, never part of the snapshot. */
+  scanInfo: "/api/agentos/local-leads/scan-info",
 } as const;
 
 export type VirtecPath = (typeof VIRTEC_PATHS)[keyof typeof VIRTEC_PATHS];
@@ -115,6 +117,27 @@ export function virtecConfigurationProblem(): string | undefined {
   return undefined;
 }
 
+/** What a Places scan is asked to do. Virtec checks every field again. */
+export interface VirtecScanRequest {
+  area: string;
+  track: "virtara" | "jurivo";
+  categories: string[];
+}
+
+/** A scan makes up to 15 paid searches and stores each place, one at a time: far longer than an ordinary read. */
+const SCAN_TIMEOUT_MS = 90_000;
+
+/**
+ * Starts a Places scan in Virtec. Spends Google money there, under Virtec's own
+ * monthly cap; this only ever asks. Needs the write key.
+ */
+export async function postVirtecScan(request: VirtecScanRequest, fetcher: typeof fetch = fetch): Promise<unknown> {
+  if (!isVirtecWritable()) {
+    throw new VirtecError("Write-back is off: VIRTEC_WRITE_API_KEY is not set (or equals the read key).", "not-configured");
+  }
+  return requestVirtec("POST", "/api/agentos/local-leads/scan", process.env.VIRTEC_WRITE_API_KEY?.trim(), request, fetcher, SCAN_TIMEOUT_MS);
+}
+
 export async function getVirtec(path: VirtecPath, fetcher: typeof fetch = fetch): Promise<unknown> {
   const key = process.env.VIRTEC_API_KEY?.trim();
   return requestVirtec("GET", path, key, undefined, fetcher);
@@ -163,12 +186,20 @@ export async function patchVirtec(write: VirtecWrite, fetcher: typeof fetch = fe
   return requestVirtec(write.kind === "magnet-email" ? "PUT" : "PATCH", path, process.env.VIRTEC_WRITE_API_KEY?.trim(), write.body, fetcher);
 }
 
+/** Virtec's own explanation for a refusal, when it sent one as JSON. Its words, never our key. */
+async function refusalReason(response: Response): Promise<string | undefined> {
+  const json: unknown = await response.json().catch(() => undefined);
+  const error = typeof json === "object" && json !== null ? (json as { error?: unknown }).error : undefined;
+  return typeof error === "string" && error.trim() ? error.trim().slice(0, 300) : undefined;
+}
+
 async function requestVirtec(
-  method: "GET" | "PATCH" | "PUT",
+  method: "GET" | "PATCH" | "PUT" | "POST",
   path: string,
   key: string | undefined,
   body: unknown,
   fetcher: typeof fetch,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
 ): Promise<unknown> {
   const base = virtecBaseUrl();
   if (!base || !key) throw new VirtecError(virtecConfigurationProblem() ?? "Virtec is not configured.", "not-configured");
@@ -184,7 +215,7 @@ async function requestVirtec(
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       // Never followed: a redirect could carry the Authorization header
       // somewhere else. Read instead, so the fix can be named.
       redirect: "manual",
@@ -230,10 +261,15 @@ async function requestVirtec(
     );
   }
   if (response.status === 503) {
+    // Virtec knows why it is refusing: a missing write key, an unset Places
+    // cap, no Places key. For a write, its own reason beats a guess here.
+    const reason = method === "GET" ? undefined : await refusalReason(response);
     throw new VirtecError(
-      method === "GET"
-        ? "Virtec has no AGENTOS_API_KEY configured on its side (redeploy after adding it)."
-        : "Virtec's write API is off: AGENTOS_WRITE_API_KEY is missing there, or equals the read key (redeploy after fixing).",
+      reason
+        ? `Virtec says: ${reason}`
+        : method === "GET"
+          ? "Virtec has no AGENTOS_API_KEY configured on its side (redeploy after adding it)."
+          : "Virtec's write API is off: AGENTOS_WRITE_API_KEY is missing there, or equals the read key (redeploy after fixing).",
       "not-configured",
       503,
     );
@@ -250,13 +286,7 @@ async function requestVirtec(
   if (!response.ok) {
     // For writes, Virtec's own reason (a 409 "already sent", a 400 field
     // error) is the useful part. It is Virtec's message, never our key.
-    const detail =
-      method === "PATCH"
-        ? await response.json().then(
-            (json: unknown) => (typeof json === "object" && json !== null ? (json as { error?: unknown }).error : undefined),
-            () => undefined,
-          )
-        : undefined;
+    const detail = method === "GET" ? undefined : await refusalReason(response);
     throw new VirtecError(
       typeof detail === "string" ? `Virtec answered ${response.status}: ${detail.slice(0, 200)}` : `Virtec answered ${response.status}.`,
       "unavailable",

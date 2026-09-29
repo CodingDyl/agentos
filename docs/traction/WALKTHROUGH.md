@@ -110,6 +110,19 @@ later and it links back to the read page.
    before outreach is drafted.
 6. Change the ICP and the old scores stop counting; score again.
 
+### Finding more candidates
+
+1. In **Leads to import**, press **Find more candidates**.
+2. Choose an **area** (a named preset, such as Sandton or Rosebank) and the
+   **categories**. The panel shows how many Google Places requests that costs
+   at most and how many are left this month.
+3. **Scan**, and confirm. New places join the list; ones already there are
+   updated, not doubled. Then **Score against the ICP**.
+4. It refuses until Virtec has `PLACES_MONTHLY_REQUEST_CAP` set. That is the
+   most requests you will pay for in a calendar month, shared with the
+   operator scan. A full Virtara scan is about 17 requests; check Google's
+   current price and pick a number you are happy with.
+
 Jev returns a number, not a reason: the "Why" column is still Virtec's own.
 
 ## 8. A client opens their quote or agreement

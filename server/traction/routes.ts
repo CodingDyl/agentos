@@ -4,6 +4,7 @@ import {
   StartFromOpportunitySchema,
   DismissOpportunitySchema,
   CrmImportSchema,
+  ScanCandidatesSchema,
   ConfirmMailLinkSchema,
   DismissMailSuggestionSchema,
   ExperimentInputSchema,
@@ -20,6 +21,7 @@ import { readThreadSummary } from "../mail/store";
 import { isVirtecConfigured, isVirtecWritable } from "../virtec/client";
 import { dismissFollowUp, markFollowUpSent, setInboundLeadStatus, setLeadStatus, snoozeFollowUp, type WriteOutcome } from "../virtec/writes";
 import { getVirtecSnapshot } from "../virtec/snapshot";
+import { getScanInfo, requestsFor, runScan } from "../virtec/scan";
 import { buildCrmView, clientToProspect, currentProfile, inboundToProspect, leadToProspect } from "./crm";
 import { icpKey, PROFILE_BATCH, PROFILE_DAILY_CAP, profilingBlocker, runProfiling } from "./lead-profile";
 import { draftCaseStudy } from "./case-study-draft";
@@ -553,6 +555,77 @@ tractionRouter.post("/crm/leads/:id/not-a-fit", async (request, response) => {
   const outcome = await setLeadStatus(id.data, "disqualified");
   if (outcome.ok) response.json({ ok: true });
   else response.status(502).json({ error: outcome.error });
+});
+
+/** What a scan can be pointed at, and what is left to spend this month. Read from Virtec each time. */
+tractionRouter.get("/crm/scan-info", async (_request, response) => {
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+  try {
+    response.json({ ...(await getScanInfo()), writable: isVirtecWritable() });
+  } catch (error) {
+    fail(response, error, "read the scan options");
+  }
+});
+
+/**
+ * Asks Virtec to scan an area for new candidates.
+ *
+ * Spends Google Places money, so AgentOS only asks and Virtec decides:
+ * it refuses until its monthly cap is set, and stops when the cap runs out.
+ * The request is checked here against Virtec's own list of areas and
+ * categories, so a stale screen or a typo costs nothing.
+ */
+tractionRouter.post("/crm/scan-candidates", async (request, response) => {
+  const input = parse(ScanCandidatesSchema, request.body, response, "scan");
+  if (!input) return;
+
+  if (!isVirtecConfigured()) {
+    response.status(409).json({ error: "Virtec is not configured" });
+    return;
+  }
+  if (!isVirtecWritable()) {
+    response.status(409).json({ error: "Write-back to Virtec is off (VIRTEC_WRITE_API_KEY is not set)" });
+    return;
+  }
+
+  try {
+    const info = await getScanInfo();
+    if (!info.areas.some((area) => area.key === input.area)) {
+      response.status(400).json({ error: "That area is not one of Virtec's presets" });
+      return;
+    }
+    const known = new Set(info.categories.filter((entry) => entry.track === input.track).map((entry) => entry.category));
+    const unknown = input.categories.filter((name) => !known.has(name));
+    if (unknown.length > 0) {
+      response.status(400).json({ error: `Unknown categories for ${input.track}: ${unknown.join(", ")}` });
+      return;
+    }
+    if (info.budget.cap === null) {
+      response.status(409).json({ error: "Scans are off until PLACES_MONTHLY_REQUEST_CAP is set in Virtec: the most Places requests you will pay for in a month" });
+      return;
+    }
+    const wanted = requestsFor(info, input.track, input.categories);
+    if (info.budget.remaining !== null && info.budget.remaining < wanted) {
+      response.status(429).json({ error: `That needs up to ${wanted} requests and ${info.budget.remaining} are left this month (limit ${info.budget.cap})` });
+      return;
+    }
+
+    const result = await runScan(input);
+    response.json({
+      found: result.summary.fetched,
+      stored: result.summary.upserted,
+      requests: result.summary.requests,
+      stoppedByCap: result.summary.stoppedByCap === true,
+      message: result.summary.message,
+      errors: result.summary.errors.slice(0, 3),
+      budget: result.budget,
+    });
+  } catch (error) {
+    fail(response, error, "scan for candidates");
+  }
 });
 
 /**
