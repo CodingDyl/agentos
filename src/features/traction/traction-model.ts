@@ -389,3 +389,17 @@ export function portalViewPrompt(client: string, waiting: readonly string[]): st
     "Rules: draft only. Never send anything. Do not mention prices, dates or terms that are not in the lines above, and do not pressure or create urgency.",
   ]);
 }
+
+/**
+ * A `mailto:` link that cannot carry extra headers, whatever the address holds.
+ *
+ * A visitor types the address, and `x?bcc=someone@else.com` looks like an
+ * address. Built naively, the link opens a draft with a hidden recipient.
+ * The local part and the domain are percent-encoded separately, so the `@`
+ * stays readable and nothing else can act as a `?` or `&`.
+ */
+export function mailtoHref(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return `mailto:${encodeURIComponent(email)}`;
+  return `mailto:${encodeURIComponent(email.slice(0, at))}@${encodeURIComponent(email.slice(at + 1))}`;
+}

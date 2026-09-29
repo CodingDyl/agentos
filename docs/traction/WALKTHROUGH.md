@@ -150,6 +150,24 @@ cannot show how many times. If you open a client's link yourself, use
 - **Lead magnets**: signups, emailed, followed up, conversations per magnet.
 - **Weekly review**: Hermes interprets the numbers; the numbers are counted, not typed.
 
+## Known limits of the public forms
+
+These are the honest edges of what is built. None is a bug; each is a choice
+you may want to revisit as volume grows.
+
+- **Rate limits are per server instance.** Serverless instances do not share
+  memory, so a determined visitor can slip past the per-IP limits. The real
+  protections are the site keys, the per-address limit in Virtec (3 guide
+  emails a day) and the 10-minute duplicate check.
+- **No CAPTCHA and no double opt-in.** A bot can fill the forms with junk, and
+  the guide email goes to whatever address was typed. The footer says why it
+  arrived; junk shows up under Website leads to mark Spam. Add a CAPTCHA
+  (Cloudflare Turnstile is free) if junk becomes a chore.
+- **The honeypot only catches simple bots.**
+- **Guide content is not secret.** The `/read` page is a soft gate.
+- **A signup past the daily limit is saved but not emailed** and shows
+  "Email held back" in Virtec; it is not treated as a failed send.
+
 ## Limits worth knowing
 
 - The `/read` page is a soft gate: the content ships with the site.

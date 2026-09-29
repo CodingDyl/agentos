@@ -7,7 +7,7 @@ import { formatRand, inboundOrigin, type VirtecSource } from "@shared/virtec-typ
 import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useImportCrm, useLeadNotAFit, useProfileLeads, useRefreshCrm, useScanCandidates, useScanInfo, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { crmFollowUpPrompt, formatShortDate, hermesHref, inboundReplyPrompt, prospectHref } from "./traction-model";
+import { crmFollowUpPrompt, formatShortDate, hermesHref, inboundReplyPrompt, mailtoHref, prospectHref } from "./traction-model";
 
 /**
  * Virtec, read live.
@@ -324,7 +324,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
 
                   <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
                     {lead.email ? (
-                      <a className={cn("inline-flex items-center gap-1 text-paper-blue hover:underline", PAPER_FOCUS)} href={`mailto:${lead.email}`}>
+                      <a className={cn("inline-flex items-center gap-1 text-paper-blue hover:underline", PAPER_FOCUS)} href={mailtoHref(lead.email)}>
                         <Mail className="size-3.5" aria-hidden="true" />
                         {lead.email}
                       </a>
