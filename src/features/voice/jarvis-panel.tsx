@@ -23,7 +23,7 @@ export function JarvisPanel() {
   const [typing, setTyping] = useState(false);
 
   useEffect(() => {
-    if (!jarvis.isOpen) return;
+    if (!jarvis.isOpen && jarvis.error === undefined) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") jarvis.close();
     };
@@ -31,7 +31,10 @@ export function JarvisPanel() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [jarvis]);
 
-  if (!jarvis.isOpen) return null;
+  // Speaking to Jarvis never needs the panel. It appears when asked for, and
+  // by itself when something needs you: an error, or an approval.
+  const needsYou = jarvis.error !== undefined || jarvis.approval?.status === "pending";
+  if (!jarvis.isOpen && !needsYou) return null;
 
   const voiceOn = jarvis.voice?.enabled === true;
   const voiceUsable = voiceOn && jarvis.voice?.configured === true;
