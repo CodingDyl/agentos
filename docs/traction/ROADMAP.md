@@ -17,13 +17,13 @@ sophisticated the module gets.
 | 7 | Website lead capture: every form on Virtara (start a project, contact, SEO, packages, health check, audit) and Jurivo's demo request lands in Virtec's `inbound_leads` through a keyed server-to-server route (one key per site; the key sets the track). Unanswered leads sit at the top of the Traction queue; "Replied" makes them a prospect in conversation and marks them replied in Virtec. Virtec has a Website sub-tab to triage them |
 | 8 | Lead magnets: a Traction tab where Hermes drafts a checklist, scorecard, guide or template plus its landing page (empty fields only; unknown facts become `[NEEDS DATA]` and block shipping), a Creative cover, a linked offer and a one-click experiment. Export is a ZIP (`<slug>.json`, cover, README) the Virtara or Jurivo repo takes as-is; both sites render `/guides`, `/guides/<slug>` and a soft-gated, printable `/guides/<slug>/read`. Signups reach Virtec as `magnet-<slug>`, are counted per magnet, and carry the magnet's experiment and offer when taken into Traction |
 | 9 | Signup email: each magnet has a short plain-text email (Hermes drafts it with the rest; `{{firstName}}`, `{{link}}`) that Virtec sends through Resend the moment someone signs up. Switched on, updated and off from AgentOS (PUT to Virtec, audited); it links to the read page with `?via=email`, which both sites let straight in. Sent and failed counts per magnet; the outcome is on each lead in Virtec |
+| 10 | Second touch: a magnet signup who got the guide email is left alone for 3 days, then becomes a "Second touch" queue item; Hermes drafts a short personal note from the guide and the email they already got, and "Sent" makes them a contacted prospect (counted as outreach, tagged with the magnet's experiment) so ordinary follow-ups take over. A signup who wrote back (a message from their address in the Inbox cache since signing up) jumps to "Reply" at the top; one whose guide email failed gets "Reply" at once |
 
 ## Next
 
-1. **A second touch**: if a signup has not replied and nobody has written to
-   them after 3 days, a queue item to send a short, personal follow-up
-   (Hermes drafts from what they downloaded). Deliberately a person's send,
-   not an automated sequence.
+1. **Reply detection beyond website leads**: the same Inbox check for
+   contacted prospects, so a reply moves them to conversation (with a
+   confirm) instead of waiting for a person to notice.
 
 ## Parked — noted, not started
 

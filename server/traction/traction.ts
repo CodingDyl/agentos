@@ -126,7 +126,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets), ...caseStudyQueueItems(opportunities)]),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets, threads), ...caseStudyQueueItems(opportunities)]),
     doneToday: countDoneToday(events, today),
     attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),

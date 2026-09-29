@@ -5,7 +5,8 @@ import type { QueueItem, TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import { useQueueAction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
-import { crmFollowUpPrompt, hermesHref, hermesPrompt, inboundReplyPrompt, queueItemHref, waitingPrompt } from "./traction-model";
+import { magnetForSource } from "@shared/lead-magnet-types";
+import { crmFollowUpPrompt, hermesHref, hermesPrompt, inboundReplyPrompt, queueItemHref, secondTouchPrompt, waitingPrompt } from "./traction-model";
 
 /**
  * Today's traction: the revenue work, one item at a time.
@@ -20,6 +21,7 @@ import { crmFollowUpPrompt, hermesHref, hermesPrompt, inboundReplyPrompt, queueI
 
 const KIND_LABEL: Record<QueueItem["kind"], string> = {
   inbound: "Website lead",
+  second_touch: "Second touch",
   due: "Due",
   follow_up: "Follow-up",
   waiting: "Waiting on",
@@ -31,6 +33,7 @@ const KIND_LABEL: Record<QueueItem["kind"], string> = {
 
 const KIND_TONE: Record<QueueItem["kind"], "flame" | "marigold" | "green" | "muted" | "blue"> = {
   inbound: "flame",
+  second_touch: "marigold",
   due: "flame",
   follow_up: "marigold",
   waiting: "marigold",
@@ -68,7 +71,11 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
           const crmFollowUp = item.crmFollowUpId ? data.crm.followUps.find((entry) => entry.id === item.crmFollowUpId) : undefined;
           const inbound = item.inboundLeadId ? data.crm.inbound.find((entry) => entry.id === item.inboundLeadId) : undefined;
           const ask = inbound
-            ? { kind: "draft" as const, prompt: inboundReplyPrompt(inbound) }
+            ? {
+                kind: "draft" as const,
+                prompt:
+                  item.kind === "second_touch" ? secondTouchPrompt(inbound, magnetForSource(data.leadMagnets, inbound.source)) : inboundReplyPrompt(inbound),
+              }
             : crmFollowUp
             ? { kind: "draft" as const, prompt: crmFollowUpPrompt(crmFollowUp) }
             : owed
@@ -105,11 +112,25 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                       },
                     )
                   }
-                  aria-label={item.kind === "case_study" ? item.title : item.kind === "inbound" ? `Replied: ${item.title}` : `Done: ${item.title}`}
-                  title={item.kind === "inbound" ? "You replied: they become a prospect in conversation" : undefined}
+                  aria-label={
+                    item.kind === "case_study"
+                      ? item.title
+                      : item.kind === "inbound"
+                        ? `Replied: ${item.title}`
+                        : item.kind === "second_touch"
+                          ? `Sent: ${item.title}`
+                          : `Done: ${item.title}`
+                  }
+                  title={
+                    item.kind === "inbound"
+                      ? "You replied: they become a prospect in conversation"
+                      : item.kind === "second_touch"
+                        ? "You sent it: they become a prospect you have contacted, and ordinary follow-ups take over"
+                        : undefined
+                  }
                 >
                   <Check className="size-3.5" aria-hidden="true" />
-                  {item.kind === "case_study" ? "Start" : item.kind === "inbound" ? "Replied" : "Done"}
+                  {item.kind === "case_study" ? "Start" : item.kind === "inbound" ? "Replied" : item.kind === "second_touch" ? "Sent" : "Done"}
                 </PaperButton>
                 <PaperButton
                   disabled={pending}

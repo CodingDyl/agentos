@@ -431,7 +431,7 @@ export const StartFromOpportunitySchema = z.object({ fromOpportunity: CaseStudyS
 
 // ─── Derived: what the server computes and the screen reads ────────────────
 
-export const QueueItemKindSchema = z.enum(["inbound", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
+export const QueueItemKindSchema = z.enum(["inbound", "second_touch", "due", "follow_up", "waiting", "crm", "referral", "case_study", "contact"]);
 
 /** One piece of revenue-generating work for today. */
 export const QueueItemSchema = z.object({

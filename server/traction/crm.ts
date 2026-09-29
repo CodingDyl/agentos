@@ -15,6 +15,7 @@ import {
 import type { Prospect } from "../../shared/traction-types";
 import { daysBetween, isoDate } from "../../shared/traction-dates";
 import type { LeadMagnet } from "../../shared/lead-magnet-types";
+import type { MailThread } from "../../shared/mail-types";
 import { magnetForLead } from "./lead-magnets";
 
 export { formatRand, inboundOrigin };
@@ -104,39 +105,114 @@ function originOf(lead: VirtecInboundLead, magnets: readonly LeadMagnet[]): stri
   return magnet ? `${magnet.track === "jurivo" ? "Jurivo" : "Virtara"} "${magnet.title}"` : inboundOrigin(lead);
 }
 
+/** A lead magnet signup who got the guide email is left alone this long before a personal follow-up. */
+export const SECOND_TOUCH_AFTER_DAYS = 3;
+
 /**
- * Website leads nobody has answered yet, as queue items.
+ * A message from the lead since they signed up, in the Inbox's cached
+ * threads. Local only: it sees what Gmail sync has already pulled, never
+ * Gmail itself, so a reply that has not synced yet is not seen yet.
+ */
+export function replyFrom(lead: Pick<VirtecInboundLead, "email" | "createdAt">, threads: readonly MailThread[]): MailThread | undefined {
+  const email = lead.email?.toLowerCase();
+  if (!email) return undefined;
+  const since = lead.createdAt ? Date.parse(lead.createdAt) : 0;
+  return threads
+    .filter((thread) => thread.fromEmail?.toLowerCase() === email && Date.parse(thread.messageDate) >= since)
+    .sort((a, b) => b.messageDate.localeCompare(a.messageDate))[0];
+}
+
+function daysSince(iso: string | undefined, today: string): number {
+  return iso ? Math.max(0, daysBetween(isoDate(new Date(iso)), today)) : 0;
+}
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+function who(lead: VirtecInboundLead): string {
+  return lead.company ? `${lead.name} (${lead.company})` : lead.name;
+}
+
+/**
+ * Website leads nobody has handled yet, as queue items.
  *
- * They go to the top: a person who asked to hear from us today is worth more
- * than any cold contact, and a reply within the hour wins far more of them
- * than one the next day. A lead already imported is left to its prospect's
- * own queue item, so it never shows twice. The longest-waiting come first.
+ * - **They wrote back** (a message from them since signing up): reply, at
+ *   the very top. Someone answering is the warmest lead there is.
+ * - **A form enquiry, or a magnet signup whose guide email failed**: reply,
+ *   at the top. A person asked to hear from us and has heard nothing.
+ * - **A magnet signup who got the guide email**: nothing for
+ *   `SECOND_TOUCH_AFTER_DAYS`, then a second touch: one short, personal
+ *   note from Dylan. Written and sent by a person, never automated.
+ *
+ * A lead already imported is left to its prospect's own queue item, so it
+ * never shows twice.
  */
 export function inboundQueueItems(
   inbound: readonly VirtecInboundLead[],
   prospects: readonly Prospect[],
   today: string,
   magnets: readonly LeadMagnet[] = [],
+  threads: readonly MailThread[] = [],
 ): (QueueItem & { rank: number })[] {
   const imported = new Set(prospects.map((prospect) => prospect.crmId).filter(Boolean));
+  const items: (QueueItem & { rank: number })[] = [];
 
-  return inbound
-    .filter((lead) => (lead.status === undefined || lead.status === "new") && !imported.has(`${VIRTEC_INBOUND_PREFIX}${lead.id}`))
-    .map((lead) => {
-      const waited = lead.createdAt ? Math.max(0, daysBetween(isoDate(new Date(lead.createdAt)), today)) : 0;
-      const firstLine = lead.message?.split("\n").find((line) => line.trim())?.trim();
-      return {
+  for (const lead of inbound) {
+    if ((lead.status !== undefined && lead.status !== "new") || imported.has(`${VIRTEC_INBOUND_PREFIX}${lead.id}`)) continue;
+
+    const origin = originOf(lead, magnets);
+    const reply = replyFrom(lead, threads);
+    if (reply) {
+      items.push({
         id: `inbound:${lead.id}`,
-        kind: "inbound" as const,
+        kind: "inbound",
         inboundLeadId: lead.id,
-        title: `Reply to ${lead.company ? `${lead.name} (${lead.company})` : lead.name}`,
-        detail: [
-          `${originOf(lead, magnets)} · ${waited === 0 ? "arrived today" : `waiting ${waited} ${waited === 1 ? "day" : "days"}`}`,
-          firstLine ? (firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine) : lead.email ?? "No message",
-        ],
-        rank: -1 - waited / 100,
-      };
+        title: `Reply to ${who(lead)}`,
+        detail: [`${origin} · they wrote back ${daysSince(reply.messageDate, today) === 0 ? "today" : plural(daysSince(reply.messageDate, today), "day") + " ago"}`, reply.subject],
+        rank: -1.5,
+      });
+      continue;
+    }
+
+    const waited = daysSince(lead.createdAt, today);
+    const magnet = magnetForLead(magnets, lead);
+
+    if (magnet && lead.nurtureSentAt) {
+      const since = daysSince(lead.nurtureSentAt, today);
+      if (since < SECOND_TOUCH_AFTER_DAYS) continue;
+      items.push({
+        id: `second_touch:${lead.id}`,
+        kind: "second_touch",
+        inboundLeadId: lead.id,
+        title: `Second touch: ${who(lead)}`,
+        detail: [`${origin} · guide emailed ${plural(since, "day")} ago`, "No reply yet"],
+        rank: 1.4 + Math.min(since, 30) / 1000,
+      });
+      continue;
+    }
+
+    const firstLine = lead.message?.split("\n").find((line) => line.trim())?.trim();
+    items.push({
+      id: `inbound:${lead.id}`,
+      kind: "inbound",
+      inboundLeadId: lead.id,
+      title: `Reply to ${who(lead)}`,
+      detail: [
+        `${origin} · ${waited === 0 ? "arrived today" : `waiting ${plural(waited, "day")}`}`,
+        magnet && lead.nurtureError
+          ? "The guide email did not send; send it yourself"
+          : firstLine
+            ? firstLine.length > 120
+              ? `${firstLine.slice(0, 117)}...`
+              : firstLine
+            : lead.email ?? "No message",
+      ],
+      rank: -1 - waited / 100,
     });
+  }
+
+  return items;
 }
 
 /**

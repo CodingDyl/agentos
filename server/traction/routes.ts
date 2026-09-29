@@ -149,10 +149,12 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
         return;
       }
       response.json({ caseStudy: await startFromOpportunity(opportunity) });
-    } else if (action.action === "done" && request.params.itemId.startsWith("inbound:")) {
-      // "Done" on a website lead means "I replied": it becomes a prospect in
-      // conversation, built from Virtec's copy of the lead, and Virtec is told.
-      const id = request.params.itemId.slice("inbound:".length);
+    } else if (action.action === "done" && /^(inbound|second_touch):/.test(request.params.itemId)) {
+      // "Done" on a website lead means a person wrote to them: a reply, or
+      // the second touch after a lead magnet. Either way they become a
+      // prospect built from Virtec's copy of the lead, and Virtec is told.
+      const secondTouch = request.params.itemId.startsWith("second_touch:");
+      const id = request.params.itemId.slice(request.params.itemId.indexOf(":") + 1);
       const lead = (await getVirtecSnapshot()).inbound.find((entry) => entry.id === id);
       if (!lead) {
         response.status(404).json({ error: "No such website lead in Virtec" });
@@ -160,7 +162,7 @@ tractionRouter.post("/queue/:itemId", async (request, response) => {
       }
       const magnet = magnetForLead((await readState()).leadMagnets, lead);
       const mapped = inboundToProspect(lead, isoDate(new Date()), true, magnet);
-      const prospect = await replyToInboundLead({ ...mapped, crmId: mapped.crmId as string }, request.params.itemId);
+      const prospect = await replyToInboundLead({ ...mapped, crmId: mapped.crmId as string }, request.params.itemId, secondTouch ? "second_touch" : "reply");
       const virtec = isVirtecWritable() ? await setInboundLeadStatus(lead.id, "replied") : undefined;
       response.json({ prospect, virtec });
     } else if (action.action === "done") {
