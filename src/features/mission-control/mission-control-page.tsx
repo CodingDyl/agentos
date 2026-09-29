@@ -27,6 +27,7 @@ import { degradedSources, formatToday, greeting, isEvening } from "./mission-con
 import { TodayCaptured, TodayStrip, TodayWorkspaces } from "./today";
 import { DayWrapUp, MorningPlan, TodayCalendar } from "./today-day";
 import { TodayLink } from "./today-kit";
+import { TodayNews, TodayTrending } from "./today-world";
 
 /**
  * Today (Mission Control).
@@ -160,6 +161,12 @@ function MissionControl({ data }: { data: MissionControlData }) {
           <UsageSummary />
           <RecentDocuments />
         </div>
+      </div>
+
+      {/* The outside world, below everything that is asking for something today. */}
+      <div className="mt-12 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <TodayNews className="min-w-0" />
+        <TodayTrending className="min-w-0" />
       </div>
 
       {/* Reflective rather than operational, so it sits below everything that

@@ -103,3 +103,59 @@ export type MorningBrief = z.infer<typeof MorningBriefSchema>;
 export type WrapDoneItem = z.infer<typeof WrapDoneItemSchema>;
 export type WrapCarryItem = z.infer<typeof WrapCarryItemSchema>;
 export type DayWrap = z.infer<typeof DayWrapSchema>;
+
+/**
+ * Today's outside world: tech and AI news, and the repositories GitHub is
+ * talking about. Fetched by the server (no browser CORS, one shared cache)
+ * and read separately from the day itself, so a slow feed never holds
+ * Today up.
+ */
+
+export const NewsItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  /** The article itself. */
+  url: z.string(),
+  /** Display name of the outlet: "Hacker News", "Ars Technica". */
+  source: z.string(),
+  /** ISO 8601. */
+  publishedAt: z.string().optional(),
+  /** Hacker News only. */
+  points: z.number().int().optional(),
+  comments: z.number().int().optional(),
+  /** The Hacker News discussion, when the item came from there. */
+  discussionUrl: z.string().optional(),
+});
+
+export const TodayNewsSchema = z.object({
+  items: z.array(NewsItemSchema),
+  /** Outlets that could not be read this time, by name. */
+  failed: z.array(z.string()),
+  /** ISO 8601, when the server last fetched. */
+  fetchedAt: z.string(),
+});
+
+export const TrendingRepoSchema = z.object({
+  fullName: z.string(),
+  url: z.string(),
+  description: z.string().optional(),
+  language: z.string().optional(),
+  stars: z.number().int(),
+  forks: z.number().int(),
+  /** ISO 8601. */
+  createdAt: z.string(),
+});
+
+export const TodayTrendingSchema = z.object({
+  status: z.enum(["ready", "rate-limited", "error"]),
+  detail: z.string().optional(),
+  repos: z.array(TrendingRepoSchema),
+  /** How far back "new" reaches, in days. */
+  windowDays: z.number().int(),
+  fetchedAt: z.string(),
+});
+
+export type NewsItem = z.infer<typeof NewsItemSchema>;
+export type TodayNews = z.infer<typeof TodayNewsSchema>;
+export type TrendingRepo = z.infer<typeof TrendingRepoSchema>;
+export type TodayTrending = z.infer<typeof TodayTrendingSchema>;

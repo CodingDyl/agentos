@@ -24,6 +24,8 @@ import { getTodayCalendar } from "./today/calendar";
 import { formatAgenda } from "./today/agenda";
 import { getMorningBrief } from "./today/brief";
 import { getDayWrap } from "./today/wrap";
+import { getTodayNews } from "./today/news";
+import { getTodayTrending } from "./today/trending";
 import { AttentionDismissRequestSchema, AttentionRestoreRequestSchema } from "../shared/mission-control-types";
 import { agentOSRoot, readOptionalFile } from "./agentos/filesystem";
 import {
@@ -385,6 +387,26 @@ app.get("/api/today/brief", async (_request, response) => {
   } catch (error) {
     console.error("[agentos] morning brief failed:", error);
     response.status(500).json({ error: "The morning brief couldn't be read." });
+  }
+});
+
+/** Tech and AI news from Hacker News and trusted outlets. A failing source is named, never fatal. */
+app.get("/api/today/news", async (_request, response) => {
+  try {
+    response.json(await getTodayNews());
+  } catch (error) {
+    console.error("[agentos] today news failed:", error);
+    response.json({ items: [], failed: ["all sources"], fetchedAt: new Date().toISOString() });
+  }
+});
+
+/** New GitHub repositories taking off this week. */
+app.get("/api/today/trending", async (_request, response) => {
+  try {
+    response.json(await getTodayTrending());
+  } catch (error) {
+    console.error("[agentos] today trending failed:", error);
+    response.json({ status: "error", detail: "Trending couldn't be read.", repos: [], windowDays: 7, fetchedAt: new Date().toISOString() });
   }
 });
 

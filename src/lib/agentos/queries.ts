@@ -139,6 +139,8 @@ import {
   dismissAttention,
   restoreAttention,
   getDayWrap,
+  getTodayNews,
+  getTodayTrending,
   getMorningBrief,
   getTodayCalendar,
   getAutomation,
@@ -213,6 +215,8 @@ export const agentosKeys = {
   todayCalendar: () => [...agentosKeys.all, "today-calendar"] as const,
   morningBrief: () => [...agentosKeys.all, "morning-brief"] as const,
   dayWrap: () => [...agentosKeys.all, "day-wrap"] as const,
+  todayNews: () => [...agentosKeys.all, "today-news"] as const,
+  todayTrending: () => [...agentosKeys.all, "today-trending"] as const,
   projects: () => [...agentosKeys.all, "projects"] as const,
   project: (slug: string) => [...agentosKeys.all, "project", slug] as const,
   automations: () => [...agentosKeys.all, "automations"] as const,
@@ -641,6 +645,30 @@ export function useDayWrap(enabled: boolean) {
     queryFn: getDayWrap,
     enabled,
     staleTime: 30_000,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Tech and AI news. The server caches for ten minutes, so polling faster would gain nothing. */
+export function useTodayNews() {
+  return useQuery({
+    queryKey: agentosKeys.todayNews(),
+    queryFn: getTodayNews,
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** New GitHub repositories taking off this week. */
+export function useTodayTrending() {
+  return useQuery({
+    queryKey: agentosKeys.todayTrending(),
+    queryFn: getTodayTrending,
+    staleTime: 15 * 60_000,
+    refetchInterval: 30 * 60_000,
     networkMode: "always",
     retry: 0,
   });
