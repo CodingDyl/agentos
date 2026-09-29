@@ -9,12 +9,26 @@ export class VoiceSession {
   private silenced = false;
   private writing = false;
   private stream = new SpeechStream();
+  private question = "";
+  private counter = 0;
 
   /** A new question: forget the last answer and start listening for the next. */
-  begin(): void {
+  begin(question = ""): void {
     this.silenced = false;
     this.writing = true;
     this.stream = new SpeechStream();
+    this.question = question;
+    this.counter++;
+  }
+
+  /** What was asked, to tell this turn's reply from an earlier one. */
+  asked(): string {
+    return this.question;
+  }
+
+  /** Which question this is. A slow lookup checks it has not been replaced. */
+  turn(): number {
+    return this.counter;
   }
 
   /** Hermes has finished writing (or failed). */

@@ -4,10 +4,11 @@ import { useLocation } from "react-router-dom";
 import type { AgentRunStatus, ApprovalDecision } from "@shared/agentos-types";
 import { projectInContext } from "@/features/agent/command-catalog";
 import { useAgentRun } from "@/features/agent/hooks/use-agent-run";
-import { reportActivity } from "@/lib/agentos/client";
+import { getAgentSessionMessages, reportActivity } from "@/lib/agentos/client";
 import { useAgentCapabilities, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
-import { getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
+import { fetchRunOutput, getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
 import { JarvisContext, type JarvisApi } from "./jarvis-store";
+import { recoverAnswer } from "./final-answer";
 import { describeMicFailure, micSupportFailure, readMicPermission, watchMicPermission, type MicPermission } from "./mic-permission";
 import { SpeechQueue } from "./speech-queue";
 import { useVoicePlayback } from "./use-voice-playback";
@@ -49,6 +50,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const [audioNote, setAudioNote] = useState<string>();
   const [project, setProject] = useState<string>();
   const [fallbackReply, setFallbackReply] = useState("");
+  // An answer that did not stream and was fetched from Hermes afterwards.
+  const [recoveredReply, setRecoveredReply] = useState("");
   const [micPermission, setMicPermission] = useState<MicPermission>("unknown");
   // True while the browser's own permission dialog is open, waiting on you.
   const [askingMic, setAskingMic] = useState(false);
@@ -161,11 +164,45 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Flush what was still being written, then let the queue run dry.
-      if (voiceReady && !session.isMuted()) {
-        say(output ?? "", true);
-        queue.close();
-      } else setPhase("idle");
+      console.info("[jarvis] run finished", { status, runId, streamedChars: output?.length ?? 0 });
+
+      if (output?.trim()) {
+        // Flush what was still being written, then let the queue run dry.
+        if (voiceReady && !session.isMuted()) {
+          say(output, true);
+          queue.close();
+        } else setPhase("idle");
+        return;
+      }
+
+      // The run finished and nothing streamed. Hermes may have put its answer
+      // somewhere else (the run's record, or the saved conversation), and
+      // silence is the one outcome that looks like a broken assistant.
+      const turn = session.turn();
+      setPhase("thinking");
+      void recoverAnswer({
+        runOutput: () => (runId ? fetchRunOutput(runId) : Promise.resolve(undefined)),
+        transcript: async () => (await getAgentSessionMessages(project)).messages,
+        sent: session.asked(),
+      }).then((answer) => {
+        // A newer question has taken over; this one is no longer the story.
+        if (session.turn() !== turn) return;
+
+        if (!answer) {
+          console.warn("[jarvis] Hermes finished but no text could be found", { runId });
+          setError(
+            "Hermes finished but sent back no text, and none was in its saved conversation either. Check Hermes is running and answering, or try the same question on the Agent page.",
+          );
+          setPhase("error");
+          return;
+        }
+
+        setRecoveredReply(answer);
+        if (voiceReady && !session.isMuted()) {
+          say(answer, true);
+          queue.close();
+        } else setPhase("idle");
+      });
     };
   });
 
@@ -175,7 +212,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       if (!isSendable(text)) return;
 
       queue.reset();
-      session.begin();
+      session.begin(text);
+      setRecoveredReply("");
       // A spoken question carries its earlier marks; a typed one starts fresh.
       if (phase !== "confirming") timings.reset();
       timings.mark("sent");
@@ -378,7 +416,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     [run],
   );
 
-  const reply = run.runId ? run.state.output : fallbackReply;
+  const reply = run.runId ? run.state.output || recoveredReply : fallbackReply;
 
   const api: JarvisApi = {
     isOpen,
