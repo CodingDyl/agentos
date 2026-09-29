@@ -28,7 +28,7 @@ export function TractionPipelineTab({ data, onOpen }: { data: TractionData; onOp
               </h3>
               <ul className="space-y-2">
                 {prospects.map((prospect) => (
-                  <li key={prospect.id} className="rounded-[4px] border border-paper-mist bg-paper-white p-3">
+                  <li key={prospect.id} className="rounded-none border border-paper-mist bg-paper-white p-3">
                     <button
                       type="button"
                       onClick={() => onOpen(prospect.id)}

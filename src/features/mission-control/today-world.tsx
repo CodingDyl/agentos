@@ -60,7 +60,7 @@ export function TodayNews({ className }: { className?: string }) {
         </p>
       ) : (
         <>
-          <ul className="max-h-[34rem] divide-y divide-paper-stone overflow-y-auto rounded-[4px] border border-paper-mist">
+          <ul className="max-h-[34rem] divide-y divide-paper-stone overflow-y-auto rounded-none border border-paper-mist">
             {items.map((item) => (
               <NewsRow key={item.id} item={item} />
             ))}
@@ -116,7 +116,7 @@ export function TodayTrending({ className }: { className?: string }) {
         <p className="text-[14px] leading-6 text-paper-char">{data?.detail ?? "GitHub trending couldn't be read."}</p>
       ) : (
         <>
-          <ol className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+          <ol className="divide-y divide-paper-stone rounded-none border border-paper-mist">
             {repos.map((repo, index) => (
               <RepoRow key={repo.fullName} repo={repo} rank={index + 1} />
             ))}

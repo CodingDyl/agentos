@@ -6,15 +6,15 @@ import type { VoicePhase } from "./voice-model";
  * The voice visualiser: a wireframe core, a ring of segments that rise and
  * fall with the voice, and a halo of particles.
  *
- * Drawn in the paper palette (ink, amber, flame) rather than HUD cyan, so it
+ * Drawn in the Hermes palette (Deep Ink, Hermes Blue, danger red) rather than HUD cyan, so it
  * belongs to the rest of AgentOS. The canvas is decoration: the state is also
  * said in words beside it, so it is hidden from assistive technology. Under
  * reduced motion it draws one still frame per state change.
  */
 
-const INK = "35, 37, 29";
-const AMBER = "235, 157, 42";
-const FLAME = "245, 78, 0";
+const INK = "0, 0, 145";
+const AMBER = "0, 0, 242";
+const FLAME = "176, 0, 32";
 const SEGMENTS = 48;
 const PARTICLES = 120;
 
@@ -87,7 +87,7 @@ export function JarvisOrb({ phase, level, size = 168 }: JarvisOrbProps) {
       }
 
       // Wireframe core: latitudes and turning meridians on a paper-white disc.
-      context.fillStyle = "rgb(255, 255, 255)";
+      context.fillStyle = "rgb(242, 242, 242)";
       context.beginPath();
       context.arc(0, 0, core, 0, Math.PI * 2);
       context.fill();

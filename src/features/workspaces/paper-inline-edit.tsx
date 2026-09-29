@@ -63,7 +63,7 @@ export function PaperInlineEdit({
               setEditing(true);
             }}
             className={cn(
-              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[4px] px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss disabled:cursor-not-allowed disabled:opacity-50",
+              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss disabled:cursor-not-allowed disabled:opacity-50",
               PAPER_FOCUS,
             )}
           >

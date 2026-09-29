@@ -56,7 +56,7 @@ export function SignalDot({ tone }: { tone: "good" | "warn" | "neutral" }) {
 
 export function SampleNotice({ onSettings }: { onSettings: () => void }) {
   return (
-    <div role="note" className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-paper-mist bg-paper-cream px-4 py-3">
+    <div role="note" className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-none border border-paper-mist bg-paper-cream px-4 py-3">
       <p className="max-w-[70ch] text-[14px] leading-6 text-paper-char">
         <Tag tone="marigold" className="mr-2">
           Sample data
@@ -83,7 +83,7 @@ export function CategorySuggest({ transactionId, merchant, disabled }: { transac
   return (
     <div className="mt-2">
       {result ? (
-        <div className="rounded-[4px] bg-paper-cream p-3 text-[13px] leading-5 text-paper-char">
+        <div className="rounded-none bg-paper-cream p-3 text-[13px] leading-5 text-paper-char">
           <p>
             Jev leans <span className="font-semibold text-paper-moss">{result.category}</span> ({Math.round(result.confidence * 100)}% confident).
           </p>

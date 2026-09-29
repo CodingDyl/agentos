@@ -247,7 +247,7 @@ function ReviewNudge({ data, onOpen }: { data: TractionData; onOpen: () => void 
   if (weekday !== 5 && weekday !== 6 && weekday !== 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[4px] border border-paper-gold px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-none border border-paper-gold px-4 py-3">
       <p className="text-[14px] text-paper-moss">
         <span className="font-semibold">Weekly review.</span> {data.week.conversations} of {data.targets.conversations} conversations this week. Look at what
         worked before Monday.

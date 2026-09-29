@@ -166,7 +166,7 @@ function GoalCard({ goal, data, open, onToggle, readOnly }: { goal: GoalProgress
             Find {money(goal.shortfall ?? 0)} →
           </PaperButton>
           {finding ? (
-            <div className="mt-3 rounded-[4px] bg-paper-cream p-4">
+            <div className="mt-3 rounded-none bg-paper-cream p-4">
               <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Savings opportunities</p>
               {data.opportunities.length === 0 ? (
                 <p className="mt-2 text-[14px] leading-6 text-paper-char">Nothing obvious to trim yet. Rank your subscriptions and check Spending for categories running high.</p>

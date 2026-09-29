@@ -117,7 +117,7 @@ export function ActivityRow({ event, now }: ActivityRowProps) {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={cn("inline-flex min-h-8 cursor-pointer items-center rounded-[4px] border-[1.5px] border-paper-gold px-3 text-[13px] font-semibold text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+                  className={cn("inline-flex min-h-8 cursor-pointer items-center rounded-none border-[1.5px] border-paper-gold px-3 text-[13px] font-semibold text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                 >
                   {link.label}
                 </Link>

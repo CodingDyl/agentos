@@ -75,7 +75,7 @@ export function PaperCommandInput({
   return (
     <form
       className={cn(
-        "rounded-[4px] border border-paper-mist bg-paper-white transition-colors duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-paper-blue",
+        "rounded-none border border-paper-mist bg-paper-white transition-colors duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-paper-blue",
         disabled && "opacity-50",
         className,
       )}
@@ -104,14 +104,14 @@ export function PaperCommandInput({
           aria-describedby={helpId}
           onChange={(event) => updateValue(event.currentTarget.value)}
           onKeyDown={handleShortcut}
-          className="min-h-14 flex-1 resize-none bg-transparent py-1 text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash disabled:cursor-not-allowed"
+          className="min-h-14 flex-1 resize-none bg-transparent py-1 text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-sage disabled:cursor-not-allowed"
         />
         <button
           type="submit"
           disabled={!currentValue.trim() || disabled || running}
           aria-label={running ? "Agent is running" : "Run command"}
           className={cn(
-            "mt-0.5 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-[4px] bg-paper-moss text-paper-white transition-colors duration-150 hover:bg-paper-char disabled:cursor-not-allowed disabled:opacity-40",
+            "mt-0.5 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-none bg-paper-moss text-paper-white transition-colors duration-150 hover:bg-paper-char disabled:cursor-not-allowed disabled:opacity-40",
             PAPER_FOCUS,
           )}
         >
@@ -131,7 +131,7 @@ export function PaperCommandInput({
               disabled={disabled || running}
               onClick={() => selectSuggestion(suggestion.command)}
               className={cn(
-                "flex min-h-10 w-full cursor-pointer items-center justify-between gap-4 rounded-[3px] px-3 text-left transition-colors duration-150 hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-45",
+                "flex min-h-10 w-full cursor-pointer items-center justify-between gap-4 rounded-none px-3 text-left transition-colors duration-150 hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-45",
                 PAPER_FOCUS,
               )}
             >

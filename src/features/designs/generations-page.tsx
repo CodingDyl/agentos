@@ -1,18 +1,20 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import type { DesignGeneration } from "@shared/design-generation-types";
 import type { DesignAsset } from "@shared/agentos-types";
+import { AppShell } from "@/components/os";
 import {
-  AppShell,
-  EmptyState,
-  ErrorState,
-  HairlineCard,
-  LoadingState,
-  PageHeader,
-  Section,
-  SectionLabel,
-  StatusPill,
-} from "@/components/os";
+  PAPER_FOCUS,
+  PaperBackLink,
+  PaperCard,
+  PaperEmpty,
+  PaperError,
+  PaperLoading,
+  PaperPageHeader,
+  PaperSection,
+  PaperStage,
+  Tag,
+} from "@/components/paper";
+import { cn } from "@/lib/utils";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useDesignGenerations, useDesignLibrary } from "@/lib/agentos/queries";
 
@@ -65,9 +67,6 @@ function groupByDay(
   return [...days.entries()].map(([day, entries]) => ({ day, entries }));
 }
 
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
-
 export function GenerationsPage() {
   const navigationItems = useNavigationItems();
   const { data, isPending, isFetching, error, refetch } = useDesignGenerations();
@@ -86,44 +85,36 @@ export function GenerationsPage() {
       activeHref="/designs"
       modelLabel="Model / AgentOS V1"
     >
-      <div className={PAGE_PADDING}>
-        <Link
-          to="/designs"
-          className="os-focus-ring os-meta -mx-2 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-os-subtle transition-colors duration-150 hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden="true" />
-          Creative
-        </Link>
+      <PaperStage>
+        <PaperBackLink to="/designs">Creative</PaperBackLink>
 
-        <PageHeader
-          className="mt-4"
+        <PaperPageHeader
+          className="mt-3"
           title="Generations"
           description="What was asked for, and what came back."
         />
 
         {isPending ? (
-          <LoadingState
-            label="Generations"
-            message="Reading what has been generated…"
-            detail="Media / reading"
-          />
+          <PaperLoading title="Generations" message="Reading what has been generated…" className="mt-8" />
         ) : error ? (
-          <ErrorState
-            label="Generations unavailable"
-            title="Could not read the generation history."
+          <PaperError
+            headingLevel="h2"
+            title="The generation history could not be read."
             detail={error.message}
             onRetry={() => void refetch()}
             isRetrying={isFetching}
+            className="mt-8"
           />
         ) : generations.length === 0 ? (
-          <EmptyState
-            label="No generations yet"
+          <PaperEmpty
+            title="No generations yet"
             description="Concepts you generate from the library will be recorded here, with the prompt and references that made them."
+            className="mt-8"
           />
         ) : (
           <div className="mt-8 space-y-10">
             {groupByDay(generations).map(({ day, entries }) => (
-              <Section key={day} label={day} action={`${entries.length}`}>
+              <PaperSection key={day} label={day} count={entries.length}>
                 <div className="space-y-4">
                   {entries.map((generation) => (
                     <GenerationRow
@@ -133,11 +124,11 @@ export function GenerationsPage() {
                     />
                   ))}
                 </div>
-              </Section>
+              </PaperSection>
             ))}
           </div>
         )}
-      </div>
+      </PaperStage>
     </AppShell>
   );
 }
@@ -156,14 +147,14 @@ function GenerationRow({
     .filter((asset): asset is DesignAsset => asset !== undefined);
 
   return (
-    <HairlineCard>
-      <div className="p-5">
+    <PaperCard className="p-5">
+      <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="max-w-[62ch] text-[15px] leading-6 text-foreground">
+            <p className="max-w-[62ch] text-[15px] leading-6 text-paper-moss">
               {generation.request.prompt}
             </p>
-            <p className="os-meta mt-2 text-os-subtle">
+            <p className="mt-1.5 text-[12.5px] text-paper-sage">
               {generation.request.project ?? "No project"}
               {generation.request.aspectRatio
                 ? ` · ${generation.request.aspectRatio}`
@@ -171,22 +162,19 @@ function GenerationRow({
               {generation.promptBy === "hermes" ? " · prompt by Hermes" : ""}
             </p>
           </div>
-          <StatusPill
-            status={failed ? "blocked" : "completed"}
-            label={
-              failed
-                ? "Failed"
-                : `${generation.results.length} output${
-                    generation.results.length === 1 ? "" : "s"
-                  }`
-            }
-          />
+          <Tag tone={failed ? "flame" : "green"}>
+            {failed
+              ? "Failed"
+              : `${generation.results.length} output${
+                  generation.results.length === 1 ? "" : "s"
+                }`}
+          </Tag>
         </div>
 
         {/* Why it failed, kept where the attempt is. A history that recorded
             only successes would lose the reason the same thing keeps failing. */}
         {generation.error ? (
-          <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-muted">
+          <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
             {generation.error}
           </p>
         ) : null}
@@ -197,13 +185,13 @@ function GenerationRow({
               <Link
                 key={asset.id}
                 to={`/designs?asset=${encodeURIComponent(asset.id)}`}
-                className="os-focus-ring rounded-md"
+                className={cn("rounded-none", PAPER_FOCUS)}
                 aria-label={`Open ${asset.filename}`}
               >
                 <img
                   src={asset.thumbnailUrl}
                   alt={asset.filename}
-                  className="size-20 rounded-md object-cover ring-1 ring-os-border transition-[box-shadow] duration-150 hover:ring-os-border-strong"
+                  className="size-20 rounded-none object-cover ring-1 ring-paper-mist transition-[box-shadow] duration-150 hover:ring-paper-sage"
                 />
               </Link>
             ))}
@@ -213,14 +201,14 @@ function GenerationRow({
         {/* The rendered prompt, when it differs from what was typed. */}
         {generation.finalPrompt &&
         generation.finalPrompt !== generation.request.prompt ? (
-          <div className="mt-4 border-t border-os-border pt-4">
-            <SectionLabel>Rendered prompt</SectionLabel>
-            <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-muted">
+          <div className="mt-4 border-t border-paper-mist pt-4">
+            <h3 className="text-[13px] font-semibold text-paper-moss">Rendered prompt</h3>
+            <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
               {generation.finalPrompt}
             </p>
           </div>
         ) : null}
       </div>
-    </HairlineCard>
+    </PaperCard>
   );
 }

@@ -56,7 +56,7 @@ export function AccountsSection({ data }: { data: FinanceData }) {
                 type="button"
                 onClick={() => setOpen(open === account.id ? undefined : account.id)}
                 aria-expanded={open === account.id}
-                className="mt-1 cursor-pointer rounded-[4px] text-[12.5px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue"
+                className="mt-1 cursor-pointer rounded-none text-[12.5px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue"
               >
                 Manage
               </button>
@@ -116,7 +116,7 @@ function AddAccountForm({ onDone }: { onDone: () => void }) {
   return (
     <form
       aria-label="Add an account"
-      className="mb-6 grid gap-4 rounded-[4px] bg-paper-cream p-4 sm:grid-cols-2"
+      className="mb-6 grid gap-4 rounded-none bg-paper-cream p-4 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (valid) create.mutate({ name: name.trim(), type, balance: balanceValue, interestRate: type === "credit" ? rateValue : undefined, creditLimit: type === "credit" ? limitValue : undefined }, { onSuccess: onDone });
@@ -194,7 +194,7 @@ function ManageAccount({ account, onClose }: { account: FinancialAccount; onClos
     });
 
   return (
-    <div className="mt-3 space-y-4 rounded-[4px] bg-paper-cream p-4" role="group" aria-label={`Manage ${account.name}`}>
+    <div className="mt-3 space-y-4 rounded-none bg-paper-cream p-4" role="group" aria-label={`Manage ${account.name}`}>
       <div className="flex items-center justify-between gap-3">
         <p className="font-paper-display text-[16px] font-bold text-paper-moss">Manage {account.name}</p>
         <CloseButton label={`Close managing ${account.name}`} onClick={onClose} showLabel />

@@ -235,7 +235,7 @@ function RecentDocuments() {
 
   return (
     <PaperSection label="Recent documents" action={<TodayLink to="/knowledge">Knowledge</TodayLink>}>
-      <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+      <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
         {documents.map((document) => (
           <li key={`${document.origin}:${document.id}`}>
             <Link

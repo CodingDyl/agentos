@@ -6,12 +6,14 @@ import type {
   DesignReviewMode,
 } from "@shared/design-intelligence-types";
 import {
-  CommandButton,
-  FilterBar,
-  HairlineCard,
-  SectionLabel,
-  StatusPill,
-} from "@/components/os";
+  FieldLabel,
+  PAPER_FOCUS,
+  PAPER_INPUT,
+  PaperButton,
+  PaperCard,
+  PaperFilterBar,
+  Tag,
+} from "@/components/paper";
 import {
   useAgentCapabilities,
   useFinaliseDesignReview,
@@ -164,12 +166,12 @@ export function DesignReviewPanel({
           : undefined;
 
   return (
-    <HairlineCard className={className}>
-      <div className="p-5 md:p-6">
+    <PaperCard className={cn("p-5", className)}>
+      <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <SectionLabel>Visual review</SectionLabel>
-            <p className="mt-2 text-[15px] leading-6 text-foreground">
+            <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Visual review</h2>
+            <p className="mt-1 text-[14px] leading-6 text-paper-char">
               {assetIds.length} reference{assetIds.length === 1 ? "" : "s"}{" "}
               selected
             </p>
@@ -178,9 +180,9 @@ export function DesignReviewPanel({
             type="button"
             onClick={onClose}
             aria-label="Close visual review"
-            className="os-focus-ring rounded-md p-1 text-os-subtle transition-colors hover:text-foreground"
+            className={cn("rounded-none p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
           >
-            <X className="size-4" strokeWidth={1.5} aria-hidden="true" />
+            <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
 
@@ -188,13 +190,13 @@ export function DesignReviewPanel({
             enabled-but-unconfigured vision toolset would answer confidently
             without having looked, so the review is not offered at all. */}
         {!vision ? (
-          <div className="mt-5 border-t border-os-border pt-5">
-            <StatusPill status="blocked" label="Vision unavailable" />
-            <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-muted">
+          <div className="mt-5 border-t border-paper-mist pt-5">
+            <Tag tone="flame">Vision unavailable</Tag>
+            <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
               {capabilities?.visionReason ??
                 "Hermes cannot inspect images on this machine."}
             </p>
-            <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-subtle">
+            <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-sage">
               Without it Hermes would still answer (from the filenames and the
               project notes), and nothing in the reply would tell you it had not
               looked at anything. So the review is not offered.
@@ -204,10 +206,9 @@ export function DesignReviewPanel({
           <>
             {projects.length > 0 ? (
               <div className="mt-6">
-                <SectionLabel>Project</SectionLabel>
-                <FilterBar<string>
-                  label="Choose a project"
-                  className="mt-3"
+                <FieldLabel>Workspace</FieldLabel>
+                <PaperFilterBar<string>
+                  label="Choose a workspace"
                   value={project}
                   onChange={setProject}
                   options={projects.map((entry) => ({
@@ -219,10 +220,9 @@ export function DesignReviewPanel({
             ) : null}
 
             <div className="mt-6">
-              <SectionLabel>Mode</SectionLabel>
-              <FilterBar<DesignReviewMode>
+              <FieldLabel>Mode</FieldLabel>
+              <PaperFilterBar<DesignReviewMode>
                 label="Choose a review mode"
-                className="mt-3"
                 value={mode}
                 onChange={setMode}
                 options={MODES.map((entry) => ({
@@ -230,35 +230,30 @@ export function DesignReviewPanel({
                   label: entry.label,
                 }))}
               />
-              <p className="os-meta mt-2 text-os-subtle">
+              <p className="mt-2 text-[13px] text-paper-sage">
                 {MODES.find((entry) => entry.value === mode)?.hint}
               </p>
             </div>
 
             <label className="mt-6 block">
-              <SectionLabel>Question (optional)</SectionLabel>
+              <FieldLabel>Question (optional)</FieldLabel>
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 rows={2}
                 placeholder="What direction should the Chef screen take?"
-                className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
+                className={cn(PAPER_INPUT, "w-full resize-y py-2.5 leading-6")}
               />
             </label>
 
             <div className="mt-6">
-              <CommandButton
-                variant="primary"
-                onClick={analyse}
-                loading={start.isPending}
-                loadingLabel="Starting"
-              >
-                Analyse
-              </CommandButton>
+              <PaperButton variant="amber" onClick={analyse} disabled={start.isPending}>
+                {start.isPending ? "Starting…" : "Analyse"}
+              </PaperButton>
             </div>
           </>
         ) : (
-          <div className="mt-5 border-t border-os-border pt-5">
+          <div className="mt-5 border-t border-paper-mist pt-5">
             <ReviewResult
               review={review}
               progress={progress}
@@ -278,10 +273,10 @@ export function DesignReviewPanel({
         )}
 
         {failure ? (
-          <p className="mt-5 text-[13px] leading-5 text-os-danger">{failure}</p>
+          <p role="alert" className="mt-5 text-[13.5px] leading-5 text-paper-flame-deep">{failure}</p>
         ) : null}
       </div>
-    </HairlineCard>
+    </PaperCard>
   );
 }
 
@@ -324,27 +319,27 @@ function InsightList({
 
   return (
     <div className="mt-6">
-      <SectionLabel>{label}</SectionLabel>
+      <h3 className="text-[13.5px] font-semibold text-paper-moss">{label}</h3>
       <ul className="mt-3 space-y-3">
         {items.map((item, index) => (
           <li key={item.title} className="flex gap-3">
             {numbered ? (
               // Numbered because a design review is read as a list of findings,
               // and a person needs to be able to point at the third one.
-              <span className="os-meta shrink-0 pt-0.5 font-mono tabular-nums text-os-subtle">
+              <span className="shrink-0 pt-0.5 font-mono text-[12.5px] tabular-nums text-paper-sage">
                 {String(index + 1).padStart(2, "0")}
               </span>
             ) : (
-              <span className="shrink-0 pt-1 text-os-amber" aria-hidden="true">
+              <span className="shrink-0 pt-0.5 text-paper-amber-deep" aria-hidden="true">
                 →
               </span>
             )}
             <span className="min-w-0">
-              <span className="block max-w-[62ch] text-[14px] leading-6 text-foreground">
+              <span className="block max-w-[62ch] text-[14px] leading-6 text-paper-moss">
                 {item.title}
               </span>
               {item.detail !== item.title ? (
-                <span className="mt-0.5 block max-w-[62ch] text-[13px] leading-5 text-os-muted">
+                <span className="mt-0.5 block max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
                   {item.detail}
                 </span>
               ) : null}
@@ -382,10 +377,10 @@ function ReviewResult({
   if (review.status === "pending") {
     return (
       <div>
-        <StatusPill status="running" label="Analysing" />
+        <Tag tone="marigold">Analysing</Tag>
         <ul className="mt-4 space-y-1.5">
           {progress.length === 0 ? (
-            <li className="text-[13px] leading-5 text-os-subtle">
+            <li className="text-[13.5px] leading-5 text-paper-sage">
               Waiting for Hermes to pick up the run…
             </li>
           ) : (
@@ -393,10 +388,10 @@ function ReviewResult({
               <li
                 key={`${line}-${index}`}
                 className={cn(
-                  "text-[13px] leading-5",
+                  "text-[13.5px] leading-5",
                   index === progress.length - 1
-                    ? "text-os-muted"
-                    : "text-os-subtle",
+                    ? "text-paper-char"
+                    : "text-paper-sage",
                 )}
               >
                 {line}
@@ -411,8 +406,8 @@ function ReviewResult({
   if (review.status === "failed") {
     return (
       <div>
-        <StatusPill status="blocked" label="Review failed" />
-        <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-muted">
+        <Tag tone="flame">Review failed</Tag>
+        <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
           {review.error ?? "The review did not finish."}
         </p>
       </div>
@@ -422,14 +417,14 @@ function ReviewResult({
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <StatusPill status="completed" label="Review complete" />
-        <span className="os-meta text-os-subtle">
+        <Tag tone="green">Review complete</Tag>
+        <span className="text-[13px] text-paper-sage">
           {review.mode.replace(/-/g, " ")} · {review.assetIds.length} reference
           {review.assetIds.length === 1 ? "" : "s"}
         </span>
       </div>
 
-      <p className="mt-4 max-w-[62ch] text-[15px] leading-6 text-os-muted">
+      <p className="mt-4 max-w-[62ch] text-[15px] leading-6 text-paper-char">
         {review.summary}
       </p>
 
@@ -440,14 +435,14 @@ function ReviewResult({
 
       {review.avoid?.length ? (
         <div className="mt-6">
-          <SectionLabel>Avoid</SectionLabel>
+          <h3 className="text-[13.5px] font-semibold text-paper-moss">Avoid</h3>
           <ul className="mt-3 space-y-1.5">
             {review.avoid.map((item) => (
               <li
                 key={item}
-                className="flex max-w-[62ch] gap-2 text-[13px] leading-5 text-os-muted"
+                className="flex max-w-[62ch] gap-2 text-[13.5px] leading-5 text-paper-char"
               >
-                <span className="text-os-danger" aria-hidden="true">
+                <span className="text-paper-flame-deep" aria-hidden="true">
                   ×
                 </span>
                 <span className="min-w-0">{item}</span>
@@ -459,12 +454,12 @@ function ReviewResult({
 
       {review.implementationNotes?.length ? (
         <div className="mt-6">
-          <SectionLabel>Implementation notes</SectionLabel>
+          <h3 className="text-[13.5px] font-semibold text-paper-moss">Implementation notes</h3>
           <ul className="mt-3 space-y-1.5">
             {review.implementationNotes.map((item) => (
               <li
                 key={item}
-                className="max-w-[62ch] text-[13px] leading-5 text-os-muted"
+                className="max-w-[62ch] text-[13.5px] leading-5 text-paper-char"
               >
                 {item}
               </li>
@@ -474,9 +469,9 @@ function ReviewResult({
       ) : null}
 
       {review.bestNextMove ? (
-        <div className="mt-6 border-t border-os-border pt-5">
-          <SectionLabel>Best next move</SectionLabel>
-          <p className="mt-2 max-w-[62ch] text-[14px] leading-6 text-foreground">
+        <div className="mt-6 border-t border-paper-mist pt-5">
+          <h3 className="text-[13.5px] font-semibold text-paper-moss">Best next move</h3>
+          <p className="mt-1.5 max-w-[62ch] text-[14px] leading-6 text-paper-moss">
             {review.bestNextMove}
           </p>
         </div>
@@ -484,8 +479,8 @@ function ReviewResult({
 
       {/* Promoting a review into the project. The one step here that writes
           anything a person would have to live with. */}
-      <div className="mt-6 border-t border-os-border pt-5">
-        <SectionLabel>Design brief</SectionLabel>
+      <div className="mt-6 border-t border-paper-mist pt-5">
+        <h3 className="text-[13.5px] font-semibold text-paper-moss">Design brief</h3>
 
         {!proposal ? (
           <>
@@ -495,52 +490,40 @@ function ReviewResult({
                 onChange={(event) => onFeature(event.target.value)}
                 placeholder="AI Chef"
                 aria-label="Feature the brief is about"
-                className="os-focus-ring min-h-9 min-w-[200px] flex-1 rounded-md border border-os-border bg-transparent px-3 text-[14px] leading-5 text-foreground placeholder:text-os-subtle"
+                className={cn(PAPER_INPUT, "min-w-[200px] flex-1")}
               />
-              <CommandButton
-                variant="quiet"
-                onClick={onDraft}
-                disabled={feature.trim().length === 0}
-                loading={drafting}
-                loadingLabel="Drafting"
-              >
-                Draft brief
-              </CommandButton>
+              <PaperButton variant="ghost" onClick={onDraft} disabled={feature.trim().length === 0 || drafting}>
+                {drafting ? "Drafting…" : "Draft brief"}
+              </PaperButton>
             </div>
-            <p className="os-meta mt-2 text-os-subtle">
+            <p className="mt-2 text-[13px] text-paper-sage">
               Drafted from this review. Nothing is written to the project until
               you approve it
             </p>
           </>
         ) : (
           <div className="mt-3">
-            <p className="font-mono text-[12px] leading-5 break-all text-os-amber">
+            <p className="font-mono text-[12.5px] leading-5 break-all text-paper-moss">
               {proposal.path}
             </p>
             {proposal.exists ? (
-              <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-warning">
+              <p className="mt-2 max-w-[62ch] text-[13.5px] leading-5 font-medium text-paper-flame-deep">
                 A file already exists there. Saving replaces it.
               </p>
             ) : null}
 
-            <pre className="mt-3 max-h-64 overflow-auto rounded-md border border-os-border p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap text-os-muted">
+            <pre className="mt-3 max-h-64 overflow-auto rounded-none border border-paper-mist bg-paper-linen p-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
               {proposal.markdown}
             </pre>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <CommandButton
-                variant="primary"
-                onClick={onSave}
-                disabled={saved}
-                loading={saving}
-                loadingLabel="Saving"
-              >
-                {saved ? "Saved to project" : "Save to project"}
-              </CommandButton>
+              <PaperButton variant="amber" onClick={onSave} disabled={saved || saving}>
+                {saving ? "Saving…" : saved ? "Saved to project" : "Save to project"}
+              </PaperButton>
               {saved ? (
                 <Check
-                  className="size-4 text-os-success"
-                  strokeWidth={1.5}
+                  className="size-4 text-paper-char"
+                  strokeWidth={1.75}
                   aria-hidden="true"
                 />
               ) : null}

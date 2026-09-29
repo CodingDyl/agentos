@@ -2,15 +2,19 @@ import { ImagePlus, PenLine, Search, Upload } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { DesignAsset } from "@shared/agentos-types";
+import { AppShell } from "@/components/os";
 import {
-  AppShell,
-  CommandButton,
-  EmptyState,
-  ErrorState,
-  FilterBar,
-  LoadingState,
-  SectionLabel,
-} from "@/components/os";
+  PAPER_FOCUS,
+  PAPER_INPUT,
+  PaperButton,
+  PaperEmpty,
+  PaperError,
+  PaperFilterBar,
+  PaperLoading,
+  PaperPageHeader,
+  PaperStage,
+} from "@/components/paper";
+import { cn } from "@/lib/utils";
 import { useNavigationItems } from "@/config/use-navigation";
 import {
   useDeleteDesignAsset,
@@ -34,9 +38,6 @@ import {
   type LibraryFilter,
 } from "./designs-model";
 import { UploadDropzone } from "./upload-dropzone";
-
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1600px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10";
 
 /**
  * The visual workspace.
@@ -154,17 +155,12 @@ export function DesignsPage() {
       modelLabel="Model / AgentOS V1"
     >
       <UploadDropzone onFiles={uploadFiles}>
-        <div className={PAGE_PADDING}>
+        <PaperStage>
           {isPending ? (
-            <LoadingState
-              label="Creative"
-              message="Opening the visual library…"
-              detail="Media / reading"
-            />
+            <PaperLoading title="Creative" message="Opening the visual library…" />
           ) : !data ? (
-            <ErrorState
-              label="Library unavailable"
-              title="Could not read the creative library."
+            <PaperError
+              title="The creative library could not be read."
               detail={error?.message}
               hint="Images live outside the vault, in AgentOS-Media. Check that the adapter is running."
               onRetry={() => void refetch()}
@@ -172,47 +168,48 @@ export function DesignsPage() {
             />
           ) : (
             <>
-              <header className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-3">
-                <div>
-                  <h1 className="text-[clamp(2rem,4vw,3rem)] leading-[1.05] font-normal tracking-[-0.03em]">
-                    Creative
-                  </h1>
-                  <p className="mt-3 text-[15px] leading-6 text-os-muted">
-                    Product imagery, brand and marketing assets, UI inspiration, client visuals and generations.
-                  </p>
-                </div>
-                <div className="flex items-baseline gap-5">
-                  <Link
-                    to="/designs/boards"
-                    className="os-focus-ring os-meta cursor-pointer rounded-md text-os-subtle transition-colors duration-150 hover:text-foreground"
-                  >
-                    Boards / {boards.length}
-                  </Link>
-                  <Link
-                    to="/designs/generations"
-                    className="os-focus-ring os-meta cursor-pointer rounded-md text-os-subtle transition-colors duration-150 hover:text-foreground"
-                  >
-                    Generations
-                  </Link>
-                  <span className="os-meta text-os-subtle">
-                    {assets.length} {assets.length === 1 ? "asset" : "assets"}
-                  </span>
-                </div>
-              </header>
+              <PaperPageHeader
+                title="Creative"
+                description={`Product imagery, brand assets, UI inspiration and generations · ${assets.length} ${
+                  assets.length === 1 ? "asset" : "assets"
+                }`}
+                actions={
+                  <>
+                    <Link
+                      to="/designs/boards"
+                      className={cn(
+                        "inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                        PAPER_FOCUS,
+                      )}
+                    >
+                      Boards · {boards.length}
+                    </Link>
+                    <Link
+                      to="/designs/generations"
+                      className={cn(
+                        "inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                        PAPER_FOCUS,
+                      )}
+                    >
+                      Generations
+                    </Link>
+                  </>
+                }
+              />
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <label className="relative flex min-w-64 flex-1 items-center">
                   <Search
-                    className="pointer-events-none absolute left-3 size-4 text-os-subtle"
-                    strokeWidth={1.5}
+                    className="pointer-events-none absolute left-3 size-4 text-paper-sage"
+                    strokeWidth={1.75}
                     aria-hidden="true"
                   />
                   <span className="sr-only">Search visuals</span>
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search images, tags, projects…"
-                    className="os-focus-ring min-h-10 w-full rounded-md border border-os-border bg-transparent pr-3 pl-9 text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+                    placeholder="Search images, tags, workspaces…"
+                    className={cn(PAPER_INPUT, "w-full pl-9")}
                   />
                 </label>
 
@@ -229,29 +226,25 @@ export function DesignsPage() {
                   }}
                 />
 
-                <CommandButton
-                  variant="primary"
-                  icon={Upload}
-                  iconPosition="start"
-                  loading={upload.isPending}
-                  loadingLabel="Uploading"
+                {/* One amber action per view: while references are being chosen or a
+                    concept is being generated, that action leads and Upload steps back. */}
+                <PaperButton
+                  variant={selecting || generating ? "ghost" : "amber"}
+                  disabled={upload.isPending}
                   onClick={() => fileInput.current?.click()}
                 >
-                  Upload
-                </CommandButton>
+                  <Upload className="size-3.5" aria-hidden="true" />
+                  {upload.isPending ? "Uploading…" : "Upload"}
+                </PaperButton>
 
-                <CommandButton
-                  variant="secondary"
-                  icon={PenLine}
-                  iconPosition="start"
-                  onClick={() => setGenerating((current) => !current)}
-                >
+                <PaperButton variant="ghost" onClick={() => setGenerating((current) => !current)}>
+                  <PenLine className="size-3.5" aria-hidden="true" />
                   Generate
-                </CommandButton>
+                </PaperButton>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-                <FilterBar<LibraryFilter>
+              <div className="mt-5 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+                <PaperFilterBar<LibraryFilter>
                   label="Filter visuals by kind"
                   options={LIBRARY_FILTERS}
                   value={filter}
@@ -259,8 +252,8 @@ export function DesignsPage() {
                 />
 
                 {projects.length > 0 ? (
-                  <FilterBar<string>
-                    label="Filter visuals by project"
+                  <PaperFilterBar<string>
+                    label="Filter visuals by workspace"
                     value={project}
                     onChange={(value) =>
                       setParam("project", value === "all" ? undefined : value)
@@ -283,7 +276,7 @@ export function DesignsPage() {
               {products.length > 0 || sources.length > 1 ? (
                 <div className="mt-4 flex flex-wrap items-start gap-x-8 gap-y-4">
                   {products.length > 0 ? (
-                    <FilterBar<string>
+                    <PaperFilterBar<string>
                       label="Filter visuals by product"
                       value={product}
                       onChange={(value) => setParam("product", value === "all" ? undefined : value)}
@@ -295,7 +288,7 @@ export function DesignsPage() {
                   ) : null}
 
                   {sources.length > 1 ? (
-                    <FilterBar<string>
+                    <PaperFilterBar<string>
                       label="Filter visuals by source"
                       value={source}
                       onChange={(value) => setParam("source", value === "all" ? undefined : value)}
@@ -312,17 +305,17 @@ export function DesignsPage() {
               ) : null}
 
               {upload.isError ? (
-                <p className="mt-6 text-[13px] leading-5 text-os-danger">
+                <p role="alert" className="mt-6 text-[13.5px] leading-5 text-paper-flame-deep">
                   {upload.error instanceof Error
                     ? upload.error.message
                     : "That image could not be uploaded."}
                 </p>
               ) : null}
 
-              <div className="mt-8 border-t border-os-border pt-8">
+              <div className="mt-8 border-t border-paper-mist pt-8">
                 {visible.length === 0 ? (
-                  <EmptyState
-                    label={isEmptyLibrary ? "Nothing here yet" : "No matches"}
+                  <PaperEmpty
+                    title={isEmptyLibrary ? "Nothing here yet" : "No matches"}
                     description={
                       isEmptyLibrary
                         ? "Drop an image anywhere on this page, or use Upload. Images are stored outside the vault, in AgentOS-Media."
@@ -330,14 +323,10 @@ export function DesignsPage() {
                     }
                     action={
                       isEmptyLibrary ? (
-                        <CommandButton
-                          variant="secondary"
-                          icon={ImagePlus}
-                          iconPosition="start"
-                          onClick={() => fileInput.current?.click()}
-                        >
+                        <PaperButton variant="ghost" onClick={() => fileInput.current?.click()}>
+                          <ImagePlus className="size-3.5" aria-hidden="true" />
                           Add your first image
-                        </CommandButton>
+                        </PaperButton>
                       ) : null
                     }
                   />
@@ -360,6 +349,7 @@ export function DesignsPage() {
                           : `${visible.length} of ${assets.length}`
                       }
                       selecting={selecting}
+                      reviewing={reviewing}
                       count={selected.length}
                       onStart={() => setSelecting(true)}
                       onReview={() => setReviewing(true)}
@@ -409,7 +399,7 @@ export function DesignsPage() {
               </div>
             </>
           )}
-        </div>
+        </PaperStage>
       </UploadDropzone>
 
       {openAsset ? (
@@ -445,6 +435,7 @@ export type { DesignAsset };
 function SelectionBar({
   label,
   selecting,
+  reviewing,
   count,
   onStart,
   onReview,
@@ -452,6 +443,8 @@ function SelectionBar({
 }: {
   label: string;
   selecting: boolean;
+  /** The review panel is open, so its own Analyse button is the amber one. */
+  reviewing: boolean;
   count: number;
   onStart: () => void;
   onReview: () => void;
@@ -460,31 +453,27 @@ function SelectionBar({
   if (!selecting) {
     return (
       <div className="mb-5 flex items-center justify-between gap-3">
-        <SectionLabel>{label}</SectionLabel>
-        <CommandButton variant="quiet" onClick={onStart}>
+        <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">{label}</h2>
+        <PaperButton variant="quiet" onClick={onStart}>
           Select references
-        </CommandButton>
+        </PaperButton>
       </div>
     );
   }
 
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <span className="os-meta text-os-subtle">
+      <span className="text-[13.5px] text-paper-char" aria-live="polite">
         {count} of {MAX_REVIEW_ASSETS} selected
         {count >= MAX_REVIEW_ASSETS ? " (the most one review takes)" : ""}
       </span>
       <div className="flex flex-wrap gap-2">
-        <CommandButton
-          variant="primary"
-          onClick={onReview}
-          disabled={count === 0}
-        >
+        <PaperButton variant={reviewing ? "ghost" : "amber"} onClick={onReview} disabled={count === 0}>
           Review with Hermes
-        </CommandButton>
-        <CommandButton variant="quiet" onClick={onClear}>
+        </PaperButton>
+        <PaperButton variant="quiet" onClick={onClear}>
           Cancel
-        </CommandButton>
+        </PaperButton>
       </div>
     </div>
   );

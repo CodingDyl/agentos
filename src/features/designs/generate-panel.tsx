@@ -7,12 +7,14 @@ import type {
 import { MAX_VARIATIONS } from "@shared/design-generation-types";
 import type { DesignAsset } from "@shared/agentos-types";
 import {
-  CommandButton,
-  FilterBar,
-  HairlineCard,
-  SectionLabel,
-  StatusPill,
-} from "@/components/os";
+  FieldLabel,
+  PAPER_FOCUS,
+  PAPER_INPUT,
+  PaperButton,
+  PaperCard,
+  PaperFilterBar,
+  Tag,
+} from "@/components/paper";
 import {
   useDesignLibrary,
   useGenerateDesigns,
@@ -129,17 +131,17 @@ export function GeneratePanel({
     generate.error instanceof Error ? generate.error.message : undefined;
 
   return (
-    <HairlineCard className={className}>
-      <div className="p-5 md:p-6">
+    <PaperCard className={cn("p-5", className)}>
+      <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <SectionLabel>Generate visual</SectionLabel>
+          <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Generate visual</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close generate"
-            className="os-focus-ring rounded-md p-1 text-os-subtle transition-colors hover:text-foreground"
+            className={cn("rounded-none p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
           >
-            <X className="size-4" strokeWidth={1.5} aria-hidden="true" />
+            <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
 
@@ -147,9 +149,9 @@ export function GeneratePanel({
             review says it: a button that starts a job which cannot run is
             worse than one that explains itself. */}
         {!available ? (
-          <div className="mt-5 border-t border-os-border pt-5">
-            <StatusPill status="blocked" label="Generation unavailable" />
-            <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-muted">
+          <div className="mt-5 border-t border-paper-mist pt-5">
+            <Tag tone="flame">Generation unavailable</Tag>
+            <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
               {capability?.generation.reason ??
                 "Concepts cannot be rendered on this machine."}
             </p>
@@ -159,10 +161,9 @@ export function GeneratePanel({
             {projects.length > 0 ? (
               <div className="mt-6 flex flex-wrap items-start gap-x-8 gap-y-5">
                 <div>
-                  <SectionLabel>Project</SectionLabel>
-                  <FilterBar<string>
-                    label="Choose a project"
-                    className="mt-3"
+                  <FieldLabel>Workspace</FieldLabel>
+                  <PaperFilterBar<string>
+                    label="Choose a workspace"
                     value={project}
                     onChange={(next) => {
                       setProject(next);
@@ -171,7 +172,7 @@ export function GeneratePanel({
                     // `No project` first and selected by default: an image
                     // made to think with does not have to belong to anything.
                     options={[
-                      { value: "", label: "No project" },
+                      { value: "", label: "No workspace" },
                       ...projects.map((entry) => ({ value: entry.slug, label: entry.name })),
                     ]}
                   />
@@ -181,13 +182,13 @@ export function GeneratePanel({
                     nothing about which product's Chef. */}
                 {project ? (
                   <label className="block">
-                    <SectionLabel>Product</SectionLabel>
+                    <FieldLabel>Product</FieldLabel>
                     <input
                       value={product}
                       onChange={(event) => setProduct(event.target.value)}
                       placeholder="chef"
                       list="creative-products"
-                      className="os-focus-ring mt-3 w-40 rounded-md border border-os-border bg-transparent px-3 py-2 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
+                      className={cn(PAPER_INPUT, "w-40")}
                     />
                     <datalist id="creative-products">
                       {knownProducts.map((entry) => (
@@ -200,14 +201,14 @@ export function GeneratePanel({
             ) : null}
 
             <label className="mt-6 block">
-              <SectionLabel>Prompt</SectionLabel>
+              <FieldLabel>Prompt</FieldLabel>
               <textarea
                 autoFocus
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 rows={3}
                 placeholder="Explore a warmer, more conversational AI Chef screen"
-                className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
+                className={cn(PAPER_INPUT, "w-full resize-y py-2.5 leading-6")}
               />
             </label>
 
@@ -219,9 +220,9 @@ export function GeneratePanel({
                 checked={refine && project.length > 0}
                 disabled={project.length === 0}
                 onChange={(event) => setRefine(event.target.checked)}
-                className="os-focus-ring mt-0.5 size-3.5 accent-[var(--os-amber)]"
+                className={cn("mt-0.5 size-3.5 accent-[var(--paper-blue)]", PAPER_FOCUS)}
               />
-              <span className="os-meta text-os-subtle">
+              <span className="text-[13px] leading-5 text-paper-char">
                 {project
                   ? "Let Hermes rewrite this using the project's own context"
                   : "Hermes rewrites prompts from a project's context. Choose a project to use it"}
@@ -230,14 +231,14 @@ export function GeneratePanel({
 
             {references.length > 0 ? (
               <div className="mt-6">
-                <SectionLabel>References</SectionLabel>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <FieldLabel>References</FieldLabel>
+                <div className="flex flex-wrap gap-2">
                   {references.map((asset) => (
                     <img
                       key={asset.id}
                       src={asset.thumbnailUrl}
                       alt={asset.filename}
-                      className="size-14 rounded-md object-cover ring-1 ring-os-border"
+                      className="size-14 rounded-none object-cover ring-1 ring-paper-mist"
                     />
                   ))}
                 </div>
@@ -246,10 +247,9 @@ export function GeneratePanel({
 
             <div className="mt-6 flex flex-wrap gap-x-8 gap-y-6">
               <div>
-                <SectionLabel>Aspect ratio</SectionLabel>
-                <FilterBar<AspectRatio>
+                <FieldLabel>Aspect ratio</FieldLabel>
+                <PaperFilterBar<AspectRatio>
                   label="Choose an aspect ratio"
-                  className="mt-3"
                   value={ratio}
                   onChange={setRatio}
                   options={RATIOS.map((entry) => ({
@@ -260,10 +260,9 @@ export function GeneratePanel({
               </div>
 
               <div>
-                <SectionLabel>Variations</SectionLabel>
-                <FilterBar<string>
+                <FieldLabel>Variations</FieldLabel>
+                <PaperFilterBar<string>
                   label="How many variations"
-                  className="mt-3"
                   value={String(count)}
                   onChange={(value) => setCount(Number(value))}
                   options={Array.from({ length: MAX_VARIATIONS }, (_, index) => ({
@@ -275,11 +274,11 @@ export function GeneratePanel({
 
               {models && models.length > 0 ? (
                 <label className="block">
-                  <SectionLabel>Model</SectionLabel>
+                  <FieldLabel>Model</FieldLabel>
                   <select
                     value={chosenModel}
                     onChange={(event) => setModel(event.target.value)}
-                    className="os-focus-ring mt-3 w-56 rounded-md border border-os-border bg-os-surface px-3 py-2 text-[14px] leading-6 text-foreground"
+                    className={cn(PAPER_INPUT, "w-56")}
                   >
                     <optgroup label="Image">
                       {models.filter((entry) => entry.kind === "image").map((entry) => (
@@ -299,14 +298,14 @@ export function GeneratePanel({
             {/* The number that stops a click being a surprise — and it is the
                 number Higgsfield will actually charge, asked for this model
                 and this many variations, not a constant that was once close. */}
-            <p className="os-meta mt-4 text-os-subtle">
+            <p className="mt-4 text-[13px] text-paper-sage">
               {cost.data?.unavailable
                 ? cost.data.unavailable
                 : cost.data
                   ? `${cost.data.total} credit${cost.data.total === 1 ? "" : "s"}: ${cost.data.perJob} per variation, each its own job`
                   : "Pricing this generation…"}
               {account.data?.credits !== undefined ? (
-                <span className={account.data.credits < (cost.data?.total ?? 0) ? "text-os-danger" : undefined}>
+                <span className={account.data.credits < (cost.data?.total ?? 0) ? "font-medium text-paper-flame-deep" : undefined}>
                   {" · "}
                   {account.data.credits} remaining
                 </span>
@@ -314,15 +313,13 @@ export function GeneratePanel({
             </p>
 
             <div className="mt-5">
-              <CommandButton
-                variant="primary"
+              <PaperButton
+                variant="amber"
                 onClick={submit}
-                disabled={prompt.trim().length === 0}
-                loading={generate.isPending}
-                loadingLabel="Generating"
+                disabled={prompt.trim().length === 0 || generate.isPending}
               >
-                Generate
-              </CommandButton>
+                {generate.isPending ? "Generating…" : "Generate"}
+              </PaperButton>
             </div>
           </>
         )}
@@ -332,10 +329,10 @@ export function GeneratePanel({
         ) : null}
 
         {failure ? (
-          <p className="mt-5 text-[13px] leading-5 text-os-danger">{failure}</p>
+          <p role="alert" className="mt-5 text-[13.5px] leading-5 text-paper-flame-deep">{failure}</p>
         ) : null}
       </div>
-    </HairlineCard>
+    </PaperCard>
   );
 }
 
@@ -356,27 +353,24 @@ export function GenerationResult({
   const failed = generation.status === "failed";
 
   return (
-    <div className={cn("border-t border-os-border pt-5", className)}>
+    <div className={cn("border-t border-paper-mist pt-5", className)}>
       <div className="flex flex-wrap items-center gap-3">
-        <StatusPill
-          status={failed ? "blocked" : "completed"}
-          label={
-            failed
-              ? "Generation failed"
-              : `${generation.results.length} result${
-                  generation.results.length === 1 ? "" : "s"
-                }`
-          }
-        />
+        <Tag tone={failed ? "flame" : "green"}>
+          {failed
+            ? "Generation failed"
+            : `${generation.results.length} result${
+                generation.results.length === 1 ? "" : "s"
+              }`}
+        </Tag>
         {generation.promptBy ? (
-          <span className="os-meta text-os-subtle">
+          <span className="text-[13px] text-paper-sage">
             Prompt by {generation.promptBy}
           </span>
         ) : null}
       </div>
 
       {generation.error ? (
-        <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-muted">
+        <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
           {generation.error}
         </p>
       ) : null}
@@ -386,8 +380,8 @@ export function GenerationResult({
       {generation.finalPrompt &&
       generation.finalPrompt !== generation.request.prompt ? (
         <div className="mt-4">
-          <SectionLabel>Rendered prompt</SectionLabel>
-          <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-muted">
+          <h3 className="text-[13px] font-semibold text-paper-moss">Rendered prompt</h3>
+          <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
             {generation.finalPrompt}
           </p>
         </div>

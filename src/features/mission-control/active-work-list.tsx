@@ -17,7 +17,7 @@ export function ActiveWorkList({ items, className }: { items: ActiveWorkItem[]; 
       {items.length === 0 ? (
         <p className="text-[14px] text-paper-char">No agents are running.</p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
           {items.map((item) => (
             <li key={item.id}>
               <ActiveWorkRow item={item} />

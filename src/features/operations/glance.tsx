@@ -212,7 +212,7 @@ export function PlansPanel({ data, onManage }: { data: OperationsData; onManage:
 
       {view === "plans" ? (
         plans.length === 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-[4px] border border-dashed border-paper-mist bg-paper-cream px-4 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-none border border-dashed border-paper-mist bg-paper-cream px-4 py-5">
             <p className="max-w-[56ch] text-[14px] leading-6 text-paper-char">
               No plans recorded. Add what you pay flat each month (Claude, ChatGPT, Gemini) and it shows here beside what was metered.
             </p>
@@ -265,9 +265,9 @@ function PlanCard({ plan, tint }: { plan: Subscription; tint: string }) {
         : { amount: formatCost(plan.price), unit: plan.billingCycle === "annual" ? "/ year" : "/ month" };
 
   return (
-    <div className="flex h-full flex-col rounded-[4px] border border-paper-mist bg-paper-white p-3.5 transition-colors duration-150 hover:bg-paper-cream">
+    <div className="flex h-full flex-col rounded-none border border-paper-mist bg-paper-white p-3.5 transition-colors duration-150 hover:bg-paper-cream">
       <div className="flex items-center gap-2.5">
-        <span className={cn("grid size-8 shrink-0 place-items-center rounded-[4px] font-paper-display text-[14px] font-bold text-paper-moss", tint)} aria-hidden="true">
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-none font-paper-display text-[14px] font-bold text-paper-moss", tint)} aria-hidden="true">
           {plan.name.trim().charAt(0).toUpperCase()}
         </span>
         <span className="min-w-0">

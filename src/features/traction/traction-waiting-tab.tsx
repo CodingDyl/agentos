@@ -102,7 +102,7 @@ function WaitingRow({ data, item, onEdit }: { data: TractionData; item: WaitingO
         <Link
           to={hermesHref(waitingPrompt(item, data.today, prospect))}
           className={cn(
-            "inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+            "inline-flex min-h-8 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
             PAPER_FOCUS,
           )}
         >

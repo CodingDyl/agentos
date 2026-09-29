@@ -214,7 +214,7 @@ function Subscriptions({ subscriptions }: { subscriptions: readonly Subscription
           the inside.
         </p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
           {subscriptions.map((subscription) => (
             <li key={subscription.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -239,7 +239,7 @@ function Subscriptions({ subscriptions }: { subscriptions: readonly Subscription
                   disabled={remove.isPending}
                   onClick={() => remove.mutate(subscription.id)}
                   className={cn(
-                    "grid size-8 cursor-pointer place-items-center rounded-[4px] text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-flame disabled:cursor-not-allowed",
+                    "grid size-8 cursor-pointer place-items-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-flame disabled:cursor-not-allowed",
                     PAPER_FOCUS,
                   )}
                 >

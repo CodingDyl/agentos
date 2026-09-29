@@ -264,7 +264,7 @@ function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospe
       </dl>
 
       {/* The brand guard, stated where the decision to write is made. */}
-      <div className={cn("mt-5 rounded-[4px] px-3 py-3", gaps.length > 0 ? "bg-paper-linen" : "border border-paper-green")}>
+      <div className={cn("mt-5 rounded-none px-3 py-3", gaps.length > 0 ? "bg-paper-linen" : "border border-paper-green")}>
         {gaps.length > 0 ? (
           <>
             <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">Not enough context for personalised outreach</p>
@@ -277,7 +277,7 @@ function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospe
           <Link
             to={hermesHref(ask.prompt)}
             className={cn(
-              "mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-[4px] border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-white",
+              "mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-white",
               PAPER_FOCUS,
             )}
           >

@@ -103,7 +103,7 @@ export function TractionCaseStudiesTab({ data, openId }: { data: TractionData; o
                     type="button"
                     onClick={() => setOpen(study.id)}
                     className={cn(
-                      "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[4px] border border-paper-mist bg-paper-white p-4 text-left hover:bg-paper-linen",
+                      "flex w-full cursor-pointer items-center justify-between gap-3 rounded-none border border-paper-mist bg-paper-white p-4 text-left hover:bg-paper-linen",
                       PAPER_FOCUS,
                     )}
                   >
@@ -234,7 +234,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
         </div>
 
         {gaps ? (
-          <div role="status" className="rounded-[4px] border border-paper-gold px-3 py-2.5 text-[13px] leading-5 text-paper-char">
+          <div role="status" className="rounded-none border border-paper-gold px-3 py-2.5 text-[13px] leading-5 text-paper-char">
             <p className="font-semibold">Ready is blocked by {markers.length === 1 ? "one marker" : `${markers.length} markers`} still in the text:</p>
             <ul className="mt-1 list-disc pl-5">
               {markers.map((marker, index) => (
@@ -247,7 +247,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
           </div>
         ) : null}
 
-        <div className="space-y-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+        <div className="space-y-2 rounded-none bg-paper-linen px-3 py-2.5">
           <label className="block">
             <FieldLabel>
               Client website <span className="font-normal text-paper-ash">(read once, when you ask, to help answer the questions below)</span>
@@ -271,7 +271,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-none bg-paper-linen px-3 py-2.5">
           <PaperButton variant="ghost" disabled={hermes.isPending || dirty} onClick={() => hermes.mutate(study.id)} title={dirty ? "Save your edits first" : undefined}>
             <PenLine className="size-3.5" aria-hidden="true" />
             {hermes.isPending ? "Hermes is drafting… (up to 2 min)" : study.draftedAt ? "Redraft empty sections" : "Draft with Hermes"}
@@ -370,7 +370,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
               href={`/api/traction/case-studies/${encodeURIComponent(study.id)}/export.zip`}
               download
               className={cn(
-                "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                 PAPER_FOCUS,
               )}
             >

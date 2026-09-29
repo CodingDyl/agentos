@@ -74,13 +74,13 @@ export function AgentActivityPanel({ state, isRunning, showUnrecognised = false,
   if (total === 0) return null;
 
   return (
-    <section aria-label="Activity" className={cn("min-w-0 rounded-[4px] border border-paper-mist", className)}>
+    <section aria-label="Activity" className={cn("min-w-0 rounded-none border border-paper-mist", className)}>
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         className={cn(
-          "flex w-full cursor-pointer items-center justify-between gap-4 rounded-[4px] px-4 py-2.5 transition-colors duration-150 hover:bg-paper-cream",
+          "flex w-full cursor-pointer items-center justify-between gap-4 rounded-none px-4 py-2.5 transition-colors duration-150 hover:bg-paper-cream",
           PAPER_FOCUS,
         )}
       >

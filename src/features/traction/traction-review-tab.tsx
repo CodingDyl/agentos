@@ -49,7 +49,7 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
         <Link
           to={hermesHref(reviewPrompt(review, data.targets))}
           className={cn(
-            "inline-flex min-h-8 items-center gap-1.5 rounded-[4px] border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-linen",
+            "inline-flex min-h-8 items-center gap-1.5 rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-linen",
             PAPER_FOCUS,
           )}
         >

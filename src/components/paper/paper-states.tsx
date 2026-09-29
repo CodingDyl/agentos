@@ -1,4 +1,6 @@
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { PAPER_FOCUS, PaperButton } from "./paper";
 
@@ -40,6 +42,22 @@ export function PaperPageHeader({
   );
 }
 
+/** A quiet way back to the parent screen, above a page's header. */
+export function PaperBackLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        "-mx-2 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none px-2 text-[13.5px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+        PAPER_FOCUS,
+      )}
+    >
+      <ArrowLeft className="size-3.5" aria-hidden="true" />
+      {children}
+    </Link>
+  );
+}
+
 export interface PaperFilterOption<T extends string> {
   value: T;
   label: string;
@@ -76,7 +94,7 @@ export function PaperFilterBar<T extends string>({
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[4px] border px-3 text-[13px] font-medium transition-colors duration-150",
+              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none border px-3 text-[13px] font-medium transition-colors duration-150",
               PAPER_FOCUS,
               selected
                 ? "border-paper-moss bg-paper-moss text-paper-white"
@@ -104,7 +122,7 @@ export function PaperLoading({ title, message, className }: { title: string; mes
       <p className="mt-1 text-[13.5px] text-paper-sage">{message}</p>
       <div className="mt-8 space-y-3" aria-hidden="true">
         {[0, 1, 2].map((row) => (
-          <div key={row} className="h-16 rounded-[4px] border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
+          <div key={row} className="h-16 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
         ))}
       </div>
     </div>
@@ -124,7 +142,7 @@ export function PaperEmpty({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-[4px] border border-dashed border-paper-mist bg-paper-cream px-5 py-6", className)}>
+    <div className={cn("rounded-none border border-dashed border-paper-mist bg-paper-cream px-5 py-6", className)}>
       {title ? <p className="font-paper-display text-[16px] font-bold tracking-[-0.01em] text-paper-moss">{title}</p> : null}
       <p className={cn("max-w-[64ch] text-[14px] leading-6 text-paper-char", title && "mt-1")}>{description}</p>
       {action ? <div className="mt-4">{action}</div> : null}
@@ -153,8 +171,8 @@ export function PaperError({
 }) {
   const Heading = headingLevel;
   return (
-    <div role="alert" className={cn("max-w-[72ch] rounded-[4px] border border-paper-flame-deep px-5 py-4", className)}>
-      <Heading className="font-paper-display text-[21px] font-bold tracking-[-0.015em] text-paper-moss">{title}</Heading>
+    <div role="alert" className={cn("max-w-[72ch] rounded-none border border-paper-flame-deep px-5 py-4", className)}>
+      <Heading data-heading="compact" className="font-paper-display text-[21px] font-bold tracking-[-0.015em] text-paper-moss">{title}</Heading>
       {detail ? <p className="mt-2 font-mono text-[12.5px] leading-5 break-words text-paper-flame-deep">{detail}</p> : null}
       {hint ? <p className="mt-2 text-[13.5px] leading-6 text-paper-char">{hint}</p> : null}
       {onRetry ? (
@@ -171,7 +189,7 @@ export type IndicatorTone = "green" | "amber" | "marigold" | "flame" | "muted";
 const INDICATOR_DOT: Record<IndicatorTone, string> = {
   green: "bg-paper-green",
   amber: "bg-paper-amber motion-safe:animate-pulse",
-  marigold: "bg-paper-marigold",
+  marigold: "bg-paper-marigold outline outline-1 outline-paper-moss",
   flame: "bg-paper-flame-deep",
   muted: "bg-paper-ash",
 };
@@ -203,7 +221,7 @@ export function PaperIndicator({
 /** A quiet in-page note: a partial read, a caveat. Not an error. */
 export function PaperNotice({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div role="status" className={cn("rounded-[4px] border border-paper-mist bg-paper-cream px-4 py-3 text-[13.5px] leading-6 text-paper-char", className)}>
+    <div role="status" className={cn("rounded-none border border-paper-mist bg-paper-cream px-4 py-3 text-[13.5px] leading-6 text-paper-char", className)}>
       {children}
     </div>
   );

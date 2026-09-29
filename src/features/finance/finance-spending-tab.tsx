@@ -26,7 +26,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
         label="Recent payments"
         count={rows.length}
         action={
-          <div role="radiogroup" aria-label="Filter payments" className="inline-flex rounded-[4px] border border-paper-mist bg-paper-linen p-0.5 text-[13px]">
+          <div role="radiogroup" aria-label="Filter payments" className="inline-flex rounded-none border border-paper-mist bg-paper-linen p-0.5 text-[13px]">
             {(["all", "review"] as const).map((option) => (
               <button
                 key={option}
@@ -34,7 +34,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
                 role="radio"
                 aria-checked={filter === option}
                 onClick={() => setFilter(option)}
-                className={cn("min-h-7 cursor-pointer rounded-[3px] px-3 font-medium", filter === option ? "bg-paper-white text-paper-moss ring-1 ring-paper-mist" : "text-paper-sage hover:text-paper-moss")}
+                className={cn("min-h-7 cursor-pointer rounded-none px-3 font-medium", filter === option ? "bg-paper-white text-paper-moss ring-1 ring-paper-mist" : "text-paper-sage hover:text-paper-moss")}
               >
                 {option === "all" ? "All" : "Needs a look"}
               </button>
@@ -46,7 +46,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
           <p className="text-[14px] leading-6 text-paper-char">{filter === "review" ? "Nothing needs a look." : "No payments yet."}</p>
         ) : (
           <>
-            <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+            <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
               {pager.pageItems.map((row) => (
                 <TransactionLine key={row.id} row={row} jev={data.jev.configured} readOnlySample={data.source.kind === "sample"} />
               ))}
@@ -85,7 +85,7 @@ function TransactionLine({ row, jev, readOnlySample }: { row: FinanceTransaction
             disabled={save.isPending || readOnlySample}
             title={readOnlySample ? "Corrections are saved once Investec is connected" : undefined}
             onChange={(event) => save.mutate({ merchant: label, category: event.target.value as Category })}
-            className="min-h-8 cursor-pointer rounded-[4px] border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-8 cursor-pointer rounded-none border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue disabled:cursor-not-allowed disabled:opacity-60"
           >
             {CATEGORY_CHOICES.map((category) => (
               <option key={category} value={category}>

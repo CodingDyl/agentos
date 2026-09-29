@@ -88,7 +88,7 @@ export function TractionLeadMagnetsTab({ data }: { data: TractionData }) {
                     type="button"
                     onClick={() => setOpen(magnet.id)}
                     className={cn(
-                      "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[4px] border border-paper-mist bg-paper-white p-4 text-left hover:bg-paper-linen",
+                      "flex w-full cursor-pointer items-center justify-between gap-3 rounded-none border border-paper-mist bg-paper-white p-4 text-left hover:bg-paper-linen",
                       PAPER_FOCUS,
                     )}
                   >
@@ -125,7 +125,7 @@ function NewLeadMagnetForm({ offers, onCreated }: { offers: readonly Offer[]; on
 
   return (
     <form
-      className="grid gap-3 rounded-[4px] border border-paper-mist bg-paper-cream p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:items-end"
+      className="grid gap-3 rounded-none border border-paper-mist bg-paper-cream p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:items-end"
       onSubmit={(event) => {
         event.preventDefault();
         if (!title.trim()) return;
@@ -343,11 +343,11 @@ function LeadMagnetEditor({
 
         <Results stats={stats} virtec={virtec} source={leadMagnetSource(magnet.slug)} />
 
-        <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-none bg-paper-linen px-3 py-2.5">
           {magnet.experimentId ? (
             <Link
               to="/traction?tab=experiments"
-              className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
+              className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
             >
               <FlaskConical className="size-3.5" aria-hidden="true" />
               {experimentName ?? "Its experiment"}
@@ -412,7 +412,7 @@ function LeadMagnetEditor({
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-none bg-paper-linen px-3 py-2.5">
           <PaperButton variant="ghost" disabled={hermes.isPending || dirty} onClick={() => hermes.mutate(magnet.id)} title={dirty ? "Save your edits first" : undefined}>
             <PenLine className="size-3.5" aria-hidden="true" />
             {hermes.isPending ? "Hermes is drafting… (up to 2 min)" : magnet.draftedAt ? "Redraft empty fields" : "Draft with Hermes"}
@@ -471,7 +471,7 @@ function LeadMagnetEditor({
           {draft.sections.length === 0 ? <p className="text-[13px] text-paper-sage">No sections yet. Draft with Hermes, or add the first one.</p> : null}
           <ol className="space-y-3">
             {draft.sections.map((section, index) => (
-              <li key={index} className="rounded-[4px] border border-paper-mist p-3">
+              <li key={index} className="rounded-none border border-paper-mist p-3">
                 <div className="flex items-center gap-2">
                   <span className="font-paper-display text-[13px] font-bold text-paper-ash tabular-nums">{index + 1}.</span>
                   <input
@@ -551,7 +551,7 @@ function LeadMagnetEditor({
         </div>
 
         {blockers.length > 0 ? (
-          <div className="rounded-[4px] border border-paper-mist bg-paper-cream px-4 py-3">
+          <div className="rounded-none border border-paper-mist bg-paper-cream px-4 py-3">
             <p className="text-[13px] font-semibold text-paper-moss">Before it can ship</p>
             <ul className="mt-1 list-disc pl-5 text-[13px] leading-6 text-paper-char">
               {blockers.map((blocker) => (
@@ -601,7 +601,7 @@ function LeadMagnetEditor({
               href={`/api/traction/lead-magnets/${encodeURIComponent(magnet.id)}/export.zip`}
               download
               className={cn(
-                "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                 PAPER_FOCUS,
               )}
             >
@@ -644,7 +644,7 @@ function Results({ stats, virtec, source }: { stats: LeadMagnetStats; virtec: "o
     <div>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {cells.map(([label, value]) => (
-          <div key={label} className="rounded-[4px] border border-paper-mist px-3 py-2">
+          <div key={label} className="rounded-none border border-paper-mist px-3 py-2">
             <dt className="text-[11.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
             <dd className="font-paper-display text-[22px] font-bold text-paper-moss tabular-nums">{value}</dd>
           </div>
@@ -701,7 +701,7 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={cn("cursor-pointer rounded-[3px] p-1.5 text-paper-sage hover:text-paper-moss disabled:cursor-default disabled:opacity-30", PAPER_FOCUS)}
+      className={cn("cursor-pointer rounded-none p-1.5 text-paper-sage hover:text-paper-moss disabled:cursor-default disabled:opacity-30", PAPER_FOCUS)}
     >
       {children}
     </button>
@@ -771,14 +771,14 @@ function SignupEmail({
         </div>
         <div>
           <FieldLabel>Preview</FieldLabel>
-          <div className="rounded-[4px] border border-paper-mist bg-paper-white p-4 text-[13.5px] leading-6 text-paper-char">
+          <div className="rounded-none border border-paper-mist bg-paper-white p-4 text-[13.5px] leading-6 text-paper-char">
             <p className="font-semibold text-paper-moss">{subject.replaceAll("{{firstName}}", "Jane") || "No subject yet"}</p>
             <p className="mt-2 break-words whitespace-pre-wrap">{preview || "Nothing written yet."}</p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 rounded-none bg-paper-linen px-3 py-2.5">
         <Mail className="size-3.5 text-paper-sage" aria-hidden="true" />
         <span className="text-[12.5px] text-paper-char">{state}</span>
         <span className="ml-auto flex gap-1.5">

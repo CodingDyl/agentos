@@ -119,7 +119,7 @@ export function FinanceSavingsTab({ data }: { data: FinanceData }) {
               <Meter value={Math.min(1, plan.movedToSavingsThisMonth / plan.recommended)} label="Moved to savings this month against the plan" tone="green" />
             </div>
           ) : null}
-          <div role="note" className="mt-5 rounded-[4px] bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
+          <div role="note" className="mt-5 rounded-none bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
             <p className="font-semibold text-paper-moss">AgentOS does not move money.</p>
             <p className="mt-1">You make the transfer in your bank, and Finance checks that it happened. Only savings accounts Finance can see are counted, so an account it does not know about will show as R0 moved.</p>
           </div>

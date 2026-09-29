@@ -6,7 +6,7 @@ import { useControlCurator } from "@/lib/agentos/queries";
 
 /** A command or config path, set as code — the one place mono belongs. */
 function Code({ children }: { children: ReactNode }) {
-  return <code className="rounded-[3px] bg-paper-linen px-1 py-px font-mono text-[12px] text-paper-moss">{children}</code>;
+  return <code className="rounded-none bg-paper-linen px-1 py-px font-mono text-[12px] text-paper-moss">{children}</code>;
 }
 
 /**
@@ -20,7 +20,7 @@ export function HermesSwitches({ surfaces }: { surfaces: HermesAutomationSurface
   return (
     <>
       {emergencyStop.engaged ? (
-        <div role="alert" className="mt-8 rounded-[4px] border border-paper-flame-deep bg-[#fdf1eb] px-5 py-4">
+        <div role="alert" className="mt-8 rounded-none border border-paper-flame-deep bg-paper-cream px-5 py-4">
           <p className="font-paper-display text-[16px] font-bold text-paper-flame-deep">Emergency stop is on</p>
           <p className="mt-1 max-w-[72ch] text-[14px] leading-6 text-paper-moss">
             Hermes won't start any scheduled job, kanban task or new gateway turn until it's lifted
@@ -30,7 +30,7 @@ export function HermesSwitches({ surfaces }: { surfaces: HermesAutomationSurface
         </div>
       ) : null}
 
-      <dl className="mt-8 grid gap-px overflow-hidden rounded-[4px] border border-paper-mist bg-paper-mist sm:grid-cols-2">
+      <dl className="mt-8 grid gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist sm:grid-cols-2">
         <div className="bg-paper-white px-5 py-4">
           <dt className="flex items-center gap-2 text-[13px] font-semibold text-paper-moss">
             Scheduler

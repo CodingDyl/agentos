@@ -63,7 +63,7 @@ export function TodayStrip({
   return (
     <ul
       className={cn(
-        "grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border border-paper-mist bg-paper-mist lg:grid-cols-4",
+        "grid grid-cols-2 gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist lg:grid-cols-4",
         className,
       )}
     >
@@ -175,7 +175,7 @@ export function TodayWorkspaces({
                 <Link
                   to={`/workspaces/${project.slug}`}
                   className={cn(
-                    "block h-full rounded-[4px] border border-paper-mist px-4 py-3.5 transition-colors duration-150 hover:bg-paper-cream",
+                    "block h-full rounded-none border border-paper-mist px-4 py-3.5 transition-colors duration-150 hover:bg-paper-cream",
                     PAPER_FOCUS,
                   )}
                 >

@@ -152,7 +152,7 @@ export function Breakdown({
                 <button
                   type="button"
                   onClick={() => onSelect(row.key)}
-                  className={cn("block w-full cursor-pointer rounded-[4px] text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+                  className={cn("block w-full cursor-pointer rounded-none text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                 >
                   {content}
                 </button>

@@ -139,7 +139,7 @@ function RulesSection({ data }: { data: FinanceData }) {
       {shared.rules.length === 0 ? (
         <p className="mb-4 max-w-[60ch] text-[14px] leading-6 text-paper-char">Add each cost she shares. For rent: a payment containing “rent”, her share 50%. For groceries: the Groceries category, 50%. Anything without a rule, like the wifi, is yours alone.</p>
       ) : (
-        <ul className="mb-4 divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="mb-4 divide-y divide-paper-stone rounded-none border border-paper-mist">
           {shared.rules.map((rule) => (
             <li key={rule.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
               <p className="min-w-0 text-[14.5px] text-paper-moss">
@@ -159,7 +159,7 @@ function RulesSection({ data }: { data: FinanceData }) {
 
       {adding ? (
         <form
-          className="grid gap-4 rounded-[4px] bg-paper-cream p-4 sm:grid-cols-2"
+          className="grid gap-4 rounded-none bg-paper-cream p-4 sm:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault();
             if (valid) create.mutate({ label: label.trim(), kind, value: value.trim(), share: sharePct / 100 }, { onSuccess: () => { setLabel(""); setValue(""); setShare("50"); setAdding(false); } });
@@ -283,7 +283,7 @@ function SettleSection({ data }: { data: FinanceData }) {
           No payments from {shared.partner?.name} found yet. Finance looks for “{shared.partner?.match}” in money arriving. If her payments show differently, change the name Finance looks for below, or record them by hand.
         </p>
       ) : (
-        <ul className="mb-4 divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="mb-4 divide-y divide-paper-stone rounded-none border border-paper-mist">
           {shared.payments.map((payment) => (
             <li key={`${payment.date}-${payment.description}-${payment.amount}`} className="flex items-baseline justify-between gap-4 px-4 py-2.5 text-[14px]">
               <span className="min-w-0 truncate text-paper-moss">
@@ -297,7 +297,7 @@ function SettleSection({ data }: { data: FinanceData }) {
       )}
 
       {shared.settlements.length > 0 ? (
-        <ul className="mb-4 divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="mb-4 divide-y divide-paper-stone rounded-none border border-paper-mist">
           {shared.settlements.map((entry) => (
             <li key={entry.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14px]">
               <span className="min-w-0 truncate text-paper-moss">

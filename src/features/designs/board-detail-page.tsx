@@ -1,15 +1,19 @@
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { DesignAsset } from "@shared/agentos-types";
+import { AppShell } from "@/components/os";
 import {
-  AppShell,
-  CommandButton,
-  EmptyState,
-  ErrorState,
-  LoadingState,
-  SectionLabel,
-} from "@/components/os";
+  PAPER_FOCUS,
+  PaperBackLink,
+  PaperButton,
+  PaperEmpty,
+  PAPER_INPUT,
+  PaperError,
+  PaperLoading,
+  PaperStage,
+} from "@/components/paper";
+import { cn } from "@/lib/utils";
 import { useNavigationItems } from "@/config/use-navigation";
 import {
   useDeleteDesignAsset,
@@ -22,9 +26,6 @@ import {
 } from "@/lib/agentos/queries";
 import { AssetLightbox } from "./asset-lightbox";
 import { DesignGrid } from "./design-grid";
-
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1600px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10";
 
 /**
  * One board: its references, and what it is for.
@@ -99,46 +100,34 @@ export function BoardDetailPage() {
       contextLabel={board ? `Board / ${board.name}` : undefined}
       modelLabel="Model / AgentOS V1"
     >
-      <div className={PAGE_PADDING}>
+      <PaperStage>
         {isPending ? (
-          <LoadingState
-            label="Board"
-            message="Opening the board…"
-            detail="Media / reading"
-          />
+          <PaperLoading title="Board" message="Opening the board…" />
         ) : !data ? (
-          <ErrorState
-            label="Board unavailable"
-            title="Could not read the creative library."
+          <PaperError
+            title="The creative library could not be read."
             detail={error?.message}
             onRetry={() => void refetch()}
             isRetrying={isFetching}
           />
         ) : !board ? (
-          <ErrorState
-            label="Unknown board"
+          <PaperError
             title="That board is not in the library."
             hint="It may have been deleted. The images it collected are still there."
           />
         ) : (
           <>
-            <Link
-              to="/designs/boards"
-              className="os-focus-ring os-meta -mx-2 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-os-subtle transition-colors duration-150 hover:text-foreground"
-            >
-              <ArrowLeft className="size-3.5" aria-hidden="true" />
-              All boards
-            </Link>
+            <PaperBackLink to="/designs/boards">All boards</PaperBackLink>
 
-            <header className="mt-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-os-border pb-8">
+            <header className="mt-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-paper-mist pb-6">
               <div className="min-w-0">
                 {board.project ? (
-                  <p className="os-meta text-os-subtle">{board.project}</p>
+                  <p className="text-[13px] font-medium text-paper-sage">{board.project}</p>
                 ) : null}
-                <h1 className="mt-2 text-[clamp(2rem,4vw,3rem)] leading-[1.05] font-normal tracking-[-0.03em]">
+                <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">
                   {board.name}
                 </h1>
-                <p className="os-meta mt-4 text-os-subtle">
+                <p className="mt-1 text-[13.5px] text-paper-sage">
                   {assets.length}{" "}
                   {assets.length === 1 ? "reference" : "references"}
                 </p>
@@ -146,7 +135,7 @@ export function BoardDetailPage() {
 
               {confirmingDelete ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <CommandButton
+                  <PaperButton
                     variant="danger"
                     onClick={() =>
                       deleteBoard.mutate(board.id, {
@@ -155,42 +144,35 @@ export function BoardDetailPage() {
                     }
                   >
                     Delete board
-                  </CommandButton>
-                  <CommandButton
-                    variant="quiet"
-                    onClick={() => setConfirmingDelete(false)}
-                  >
+                  </PaperButton>
+                  <PaperButton variant="quiet" onClick={() => setConfirmingDelete(false)}>
                     Keep
-                  </CommandButton>
+                  </PaperButton>
                 </div>
               ) : (
-                <CommandButton
-                  variant="quiet"
-                  icon={Trash2}
-                  iconPosition="start"
-                  onClick={() => setConfirmingDelete(true)}
-                >
+                <PaperButton variant="quiet" onClick={() => setConfirmingDelete(true)}>
+                  <Trash2 className="size-3.5" aria-hidden="true" />
                   Delete board
-                </CommandButton>
+                </PaperButton>
               )}
             </header>
 
             {/* Deleting a board never deletes what it collected. */}
             {confirmingDelete ? (
-              <p className="mt-4 text-[13px] leading-5 text-os-muted">
+              <p className="mt-4 text-[13.5px] leading-5 text-paper-char">
                 The {assets.length} images on this board stay in the library.
               </p>
             ) : null}
 
             <div className="mt-8">
               {assets.length === 0 ? (
-                <EmptyState
-                  label="Empty board"
+                <PaperEmpty
+                  title="Empty board"
                   description="Open an image in the library and add it to this board."
                   action={
                     <Link
                       to="/designs"
-                      className="os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center rounded-md border border-os-border px-3 text-os-muted transition-colors duration-150 hover:border-os-border-strong hover:text-foreground"
+                      className={cn("inline-flex min-h-8 cursor-pointer items-center rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                     >
                       Browse the library
                     </Link>
@@ -218,8 +200,8 @@ export function BoardDetailPage() {
               )}
             </div>
 
-            <section className="mt-12 max-w-[72ch] border-t border-os-border pt-8 pb-4">
-              <SectionLabel>Notes</SectionLabel>
+            <section aria-label="Notes" className="mt-12 max-w-[72ch] border-t border-paper-mist pt-8 pb-4">
+              <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Notes</h2>
               <textarea
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
@@ -234,12 +216,12 @@ export function BoardDetailPage() {
                 }}
                 rows={3}
                 placeholder="What this board is reaching for."
-                className="os-focus-ring mt-4 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+                className={cn(PAPER_INPUT, "mt-3 w-full resize-y py-2.5 leading-6")}
               />
             </section>
           </>
         )}
-      </div>
+      </PaperStage>
 
       {openAsset && board ? (
         <AssetLightbox

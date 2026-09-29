@@ -57,7 +57,7 @@ export function AutomationsPage() {
           {jobs.isPending ? (
             <p className="text-[14px] text-paper-sage">Reading Hermes' schedule…</p>
           ) : !jobs.data ? (
-            <div className="rounded-[4px] border border-paper-mist px-5 py-4">
+            <div className="rounded-none border border-paper-mist px-5 py-4">
               <p className="font-semibold text-paper-moss">Hermes' schedule couldn't be read.</p>
               <p className="mt-1 max-w-[72ch] text-[13.5px] leading-6 text-paper-char">
                 {jobs.error?.message} Automations are read through the Hermes CLI. Check that <code className="font-mono text-[12.5px]">hermes</code> is on
@@ -70,7 +70,7 @@ export function AutomationsPage() {
           ) : (
             <>
               {!jobs.data.health.ok ? (
-                <div role="status" className="mb-4 rounded-[4px] border border-paper-flame-deep px-5 py-4">
+                <div role="status" className="mb-4 rounded-none border border-paper-flame-deep px-5 py-4">
                   <p className="text-[13px] font-semibold text-paper-flame-deep">Hermes' job check found problems</p>
                   <ul className="mt-2 space-y-1 text-[13.5px] leading-6 text-paper-char">
                     {(jobs.data.health.issues.length > 0
@@ -88,7 +88,7 @@ export function AutomationsPage() {
                   <code className="font-mono text-[12.5px] text-paper-moss">hermes cron create</code>.
                 </p>
               ) : (
-                <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+                <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
                   {automations.map((automation) => (
                     <AutomationRow key={automation.id} automation={automation} />
                   ))}

@@ -194,7 +194,7 @@ function DebtCard({ debt, freeCashFlow, open, onToggle }: { debt: Debt; freeCash
 
       {!debt.hasStatement ? <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Import this card's statement (Cash flow → Accounts → Manage) and Finance can show whether you have paid into it this month.</p> : null}
 
-      <div className="mt-4 overflow-x-auto rounded-[4px] border border-paper-mist">
+      <div className="mt-4 overflow-x-auto rounded-none border border-paper-mist">
         <table className="w-full min-w-[22rem] text-left text-[14px]">
           <thead className="bg-paper-linen text-[12.5px] text-paper-char">
             <tr>
@@ -271,12 +271,12 @@ function HermesPanel({ data }: { data: FinanceData }) {
         <MutationError error={ask.error} />
       </form>
       {ask.data ? (
-        <div className="mt-4 rounded-[4px] bg-paper-cream p-4" role="status">
+        <div className="mt-4 rounded-none bg-paper-cream p-4" role="status">
           <p className="text-[14.5px] leading-7 whitespace-pre-line text-paper-moss">{ask.data.answer}</p>
         </div>
       ) : null}
 
-      <div role="note" className="mt-8 rounded-[4px] bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
+      <div role="note" className="mt-8 rounded-none bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
         <p className="font-semibold text-paper-moss">What Hermes sees</p>
         <p className="mt-1">Income, spending and saving totals, category totals, subscription counts, goal progress, and each debt's size (rounded to the nearest R100), rate and limit use. Debts are called Card A, Card B.</p>
         <p className="mt-2 font-semibold text-paper-moss">What it never sees</p>

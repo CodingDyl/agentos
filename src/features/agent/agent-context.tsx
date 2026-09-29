@@ -30,7 +30,7 @@ export function AgentContext({ projects, value, onChange, className }: AgentCont
             onClick={() => onChange(undefined)}
             aria-label={`Clear ${selected.name} as workspace context`}
             className={cn(
-              "inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-[4px] text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+              "inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
               PAPER_FOCUS,
             )}
           >

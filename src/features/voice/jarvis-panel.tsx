@@ -61,7 +61,7 @@ export function JarvisPanel() {
     <section
       role="dialog"
       aria-label="Jarvis"
-      className="fixed right-4 bottom-14 z-40 flex max-h-[min(84dvh,760px)] w-[min(94vw,440px)] flex-col overflow-hidden rounded-[6px] border border-paper-moss bg-paper-linen font-paper-ui text-paper-moss"
+      className="fixed right-4 bottom-14 z-40 flex max-h-[min(84dvh,760px)] w-[min(94vw,440px)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-linen font-paper-ui text-paper-moss"
     >
       <header className="flex items-center justify-between gap-3 px-4 pt-3">
         <div className="flex items-baseline gap-2">
@@ -77,7 +77,7 @@ export function JarvisPanel() {
             aria-pressed={voiceOn}
             aria-label={voiceOn ? "Turn voice off" : "Turn voice on"}
             title={voiceOn ? "Voice on" : "Voice off (text only)"}
-            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-[4px] text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
+            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-none text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
           >
             {voiceOn ? <Volume2 className="size-4" aria-hidden="true" /> : <VolumeX className="size-4" aria-hidden="true" />}
           </button>
@@ -85,7 +85,7 @@ export function JarvisPanel() {
             type="button"
             onClick={jarvis.close}
             aria-label="Close Jarvis"
-            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-[4px] text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
+            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-none text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -110,7 +110,7 @@ export function JarvisPanel() {
           <button
             type="button"
             onClick={() => setTyping(true)}
-            className={`mx-auto block cursor-pointer rounded-[4px] px-2 py-1 text-[13px] text-paper-sage underline-offset-2 hover:text-paper-moss hover:underline ${PAPER_FOCUS}`}
+            className={`mx-auto block cursor-pointer rounded-none px-2 py-1 text-[13px] text-paper-sage underline-offset-2 hover:text-paper-moss hover:underline ${PAPER_FOCUS}`}
           >
             Type instead
           </button>
@@ -134,7 +134,7 @@ export function JarvisPanel() {
             rows={2}
             disabled={working || listening || jarvis.phase === "transcribing"}
             placeholder="Give me my morning brief"
-            className={`mt-1.5 w-full resize-none rounded-[4px] border border-paper-mist bg-paper-white p-3 text-[15px] leading-6 text-paper-moss placeholder:text-paper-ash ${PAPER_FOCUS}`}
+            className={`mt-1.5 w-full resize-none rounded-none border border-paper-mist bg-paper-white p-3 text-[15px] leading-6 text-paper-moss placeholder:text-paper-sage ${PAPER_FOCUS}`}
           />
           {jarvis.phase === "confirming" && jarvis.autoSendAt ? <SendCountdown key={jarvis.autoSendAt} /> : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">

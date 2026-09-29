@@ -1,21 +1,24 @@
-import { ArrowLeft, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { DesignAsset, DesignBoard } from "@shared/agentos-types";
+import { AppShell } from "@/components/os";
 import {
-  AppShell,
-  CommandButton,
-  EmptyState,
-  ErrorState,
-  HairlineCard,
-  LoadingState,
-  PageHeader,
-} from "@/components/os";
+  FieldLabel,
+  PAPER_FOCUS,
+  PAPER_INPUT,
+  PaperBackLink,
+  PaperButton,
+  PaperCard,
+  PaperEmpty,
+  PaperError,
+  PaperLoading,
+  PaperPageHeader,
+  PaperStage,
+} from "@/components/paper";
+import { cn } from "@/lib/utils";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useCreateDesignBoard, useDesignLibrary } from "@/lib/agentos/queries";
-
-const PAGE_PADDING =
-  "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
 
 /**
  * Boards: moodboards, assembled from the library.
@@ -55,51 +58,36 @@ export function BoardsPage() {
       activeHref="/designs"
       modelLabel="Model / AgentOS V1"
     >
-      <div className={PAGE_PADDING}>
+      <PaperStage>
         {isPending ? (
-          <LoadingState
-            label="Boards"
-            message="Opening your boards…"
-            detail="Media / reading"
-          />
+          <PaperLoading title="Boards" message="Opening your boards…" />
         ) : !data ? (
-          <ErrorState
-            label="Boards unavailable"
-            title="Could not read the creative library."
+          <PaperError
+            title="The creative library could not be read."
             detail={error?.message}
             onRetry={() => void refetch()}
             isRetrying={isFetching}
           />
         ) : (
           <>
-            <Link
-              to="/designs"
-              className="os-focus-ring os-meta -mx-2 inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-os-subtle transition-colors duration-150 hover:text-foreground"
-            >
-              <ArrowLeft className="size-3.5" aria-hidden="true" />
-              Creative
-            </Link>
+            <PaperBackLink to="/designs">Creative</PaperBackLink>
 
-            <PageHeader
-              className="mt-5"
+            <PaperPageHeader
+              className="mt-3"
               title="Boards"
-              description="Collections of references, gathered by intent rather than by project."
+              description="Collections of references, gathered by intent rather than by workspace."
               actions={
-                <CommandButton
-                  variant="primary"
-                  icon={Plus}
-                  iconPosition="start"
-                  onClick={() => setIsNaming(true)}
-                >
+                <PaperButton variant="amber" onClick={() => setIsNaming(true)}>
+                  <Plus className="size-3.5" aria-hidden="true" />
                   New board
-                </CommandButton>
+                </PaperButton>
               }
             />
 
             {isNaming ? (
-              <HairlineCard className="mt-8 max-w-lg p-5 md:p-6">
-                <label className="os-meta block text-os-subtle" htmlFor="board-name">
-                  Board name
+              <PaperCard className="mt-8 max-w-lg p-5">
+                <label htmlFor="board-name">
+                  <FieldLabel>Board name</FieldLabel>
                 </label>
                 <input
                   id="board-name"
@@ -111,31 +99,26 @@ export function BoardsPage() {
                     if (event.key === "Escape") setIsNaming(false);
                   }}
                   placeholder="Pantry Pilot: Chef Inspiration"
-                  className="os-focus-ring mt-3 min-h-10 w-full rounded-md border border-os-border bg-transparent px-3 text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+                  className={cn(PAPER_INPUT, "w-full")}
                 />
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <CommandButton
-                    variant="primary"
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <PaperButton
+                    variant="amber"
                     onClick={submit}
-                    loading={createBoard.isPending}
-                    loadingLabel="Creating"
-                    disabled={name.trim().length === 0}
+                    disabled={createBoard.isPending || name.trim().length === 0}
                   >
-                    Create
-                  </CommandButton>
-                  <CommandButton
-                    variant="quiet"
-                    onClick={() => setIsNaming(false)}
-                  >
+                    {createBoard.isPending ? "Creating…" : "Create"}
+                  </PaperButton>
+                  <PaperButton variant="quiet" onClick={() => setIsNaming(false)}>
                     Cancel
-                  </CommandButton>
+                  </PaperButton>
                 </div>
-              </HairlineCard>
+              </PaperCard>
             ) : null}
 
             {boards.length === 0 ? (
-              <EmptyState
-                label="No boards"
+              <PaperEmpty
+                title="No boards"
                 description="A board is a set of references gathered for one purpose: a redesign, a direction, a feeling."
                 className="mt-10"
               />
@@ -148,7 +131,7 @@ export function BoardsPage() {
             )}
           </>
         )}
-      </div>
+      </PaperStage>
     </AppShell>
   );
 }
@@ -169,11 +152,11 @@ function BoardCard({
   return (
     <Link
       to={`/designs/boards/${board.id}`}
-      className="os-focus-ring group block cursor-pointer rounded-lg border border-os-border p-3 transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised"
+      className={cn("group block cursor-pointer rounded-none border border-paper-mist p-3 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
     >
-      <div className="grid aspect-[4/3] grid-cols-2 gap-1.5 overflow-hidden rounded-md bg-os-surface">
+      <div className="grid aspect-[4/3] grid-cols-2 gap-1.5 overflow-hidden rounded-none bg-paper-linen">
         {cover.length === 0 ? (
-          <span className="os-meta col-span-2 flex items-center justify-center text-os-subtle">
+          <span className="col-span-2 flex items-center justify-center text-[13px] text-paper-sage">
             Empty board
           </span>
         ) : (
@@ -197,15 +180,15 @@ function BoardCard({
       </div>
 
       <div className="mt-4 flex items-baseline justify-between gap-4">
-        <h2 className="truncate text-[15px] leading-6 font-medium">
+        <h2 className="truncate font-paper-display text-[16px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
           {board.name}
         </h2>
-        <span className="os-meta shrink-0 text-os-subtle">
+        <span className="shrink-0 text-[13px] text-paper-sage tabular-nums">
           {board.assetIds.length}
         </span>
       </div>
       {board.project ? (
-        <p className="os-meta mt-1.5 text-os-subtle">{board.project}</p>
+        <p className="mt-1 text-[12.5px] text-paper-sage">{board.project}</p>
       ) : null}
     </Link>
   );

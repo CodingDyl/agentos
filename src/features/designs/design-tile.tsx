@@ -1,5 +1,6 @@
 import { Heart, Layers, Maximize2 } from "lucide-react";
 import type { DesignAsset } from "@shared/agentos-types";
+import { PAPER_FOCUS } from "@/components/paper";
 import { cn } from "@/lib/utils";
 import { aspectRatio } from "./designs-model";
 
@@ -40,103 +41,106 @@ export function DesignTile({
   const selecting = Boolean(onToggleSelect);
 
   return (
-    <figure className="group relative">
-      <button
-        type="button"
-        onClick={() => (selecting ? onToggleSelect?.(asset) : onOpen(asset))}
-        aria-label={
-          selecting
-            ? `${selected ? "Deselect" : "Select"} ${asset.filename}`
-            : `Open ${asset.filename}`
-        }
-        aria-pressed={selecting ? selected : undefined}
-        className={cn(
-          "os-focus-ring block w-full cursor-pointer overflow-hidden rounded-md bg-os-surface",
-          "ring-1 transition-[box-shadow] duration-150",
-          // Selection is carried by the ring rather than an overlay, so the
-          // image — the only thing worth looking at here — stays unobscured.
-          selected
-            ? "ring-2 ring-os-amber"
-            : "ring-os-border hover:ring-os-border-strong",
-        )}
-        style={{ aspectRatio: aspectRatio(asset) }}
-      >
-        <img
-          src={asset.thumbnailUrl}
-          alt={asset.filename}
-          loading="lazy"
-          decoding="async"
-          className="size-full object-cover"
-        />
-      </button>
-
-      {selecting ? (
-        <span
+    <figure className="group">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => (selecting ? onToggleSelect?.(asset) : onOpen(asset))}
+          aria-label={
+            selecting
+              ? `${selected ? "Deselect" : "Select"} ${asset.filename}`
+              : `Open ${asset.filename}`
+          }
+          aria-pressed={selecting ? selected : undefined}
           className={cn(
-            "pointer-events-none absolute top-2.5 left-2.5 grid size-5 place-items-center rounded-full border text-[11px] font-mono",
+            "block w-full cursor-pointer overflow-hidden rounded-none bg-paper-linen",
+            "ring-1 transition-[box-shadow] duration-150",
+            PAPER_FOCUS,
+            // Selection is carried by the ring rather than an overlay, so the
+            // image — the only thing worth looking at here — stays unobscured.
             selected
-              ? "border-os-amber bg-os-amber text-os-background"
-              : "border-os-border-strong bg-os-background/70 text-transparent",
+              ? "ring-2 ring-paper-blue"
+              : "ring-paper-mist hover:ring-paper-sage",
           )}
-          aria-hidden="true"
+          style={{ aspectRatio: aspectRatio(asset) }}
         >
-          ✓
-        </span>
-      ) : null}
-
-      {/* A favourited asset says so without a hover; nothing else does. */}
-      {asset.favorite ? (
-        <span
-          className="pointer-events-none absolute top-2.5 right-2.5 rounded-full bg-os-background/70 p-1.5 opacity-100 transition-opacity duration-150 group-hover:opacity-0"
-          aria-hidden="true"
-        >
-          <Heart className="size-3.5 fill-os-amber text-os-amber" strokeWidth={1.5} />
-        </span>
-      ) : null}
-
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-1 rounded-b-md p-2.5",
-          "bg-gradient-to-t from-os-background/90 to-transparent",
-          "opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100",
-        )}
-      >
-        <TileAction
-          label={asset.favorite ? "Remove favourite" : "Favourite"}
-          onClick={() => onToggleFavorite(asset)}
-          active={asset.favorite}
-        >
-          <Heart
-            className={cn("size-3.5", asset.favorite && "fill-current")}
-            strokeWidth={1.5}
+          <img
+            src={asset.thumbnailUrl}
+            alt={asset.filename}
+            loading="lazy"
+            decoding="async"
+            className="size-full object-cover"
           />
-        </TileAction>
+        </button>
 
-        {onRemoveFromBoard ? (
-          <TileAction
-            label="Remove from board"
-            onClick={() => onRemoveFromBoard(asset)}
+        {selecting ? (
+          <span
+            className={cn(
+              "pointer-events-none absolute top-2.5 left-2.5 grid size-5 place-items-center rounded-full border text-[11px] font-mono",
+              selected
+                ? "border-paper-blue bg-paper-blue text-paper-white"
+                : "border-paper-sage bg-paper-white/85 text-transparent",
+            )}
+            aria-hidden="true"
           >
-            <Layers className="size-3.5" strokeWidth={1.5} />
-          </TileAction>
-        ) : (
-          <TileAction label="Add to board" onClick={() => onAddToBoard(asset)}>
-            <Layers className="size-3.5" strokeWidth={1.5} />
-          </TileAction>
-        )}
+            ✓
+          </span>
+        ) : null}
 
-        <TileAction label="Open" onClick={() => onOpen(asset)} className="ml-auto">
-          <Maximize2 className="size-3.5" strokeWidth={1.5} />
-        </TileAction>
+        {/* A favourited asset says so without a hover; nothing else does. */}
+        {asset.favorite ? (
+          <span
+            className="pointer-events-none absolute top-2.5 right-2.5 rounded-full bg-paper-white/90 p-1.5 opacity-100 transition-opacity duration-150 group-hover:opacity-0"
+            aria-hidden="true"
+          >
+            <Heart className="size-3.5 fill-paper-amber text-paper-amber-deep" strokeWidth={1.5} />
+          </span>
+        ) : null}
+
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-1 p-2",
+            "opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100",
+          )}
+        >
+          <TileAction
+            label={asset.favorite ? "Remove favourite" : "Favourite"}
+            onClick={() => onToggleFavorite(asset)}
+            active={asset.favorite}
+          >
+            <Heart
+              className={cn("size-3.5", asset.favorite && "fill-current")}
+              strokeWidth={1.5}
+            />
+          </TileAction>
+
+          {onRemoveFromBoard ? (
+            <TileAction
+              label="Remove from board"
+              onClick={() => onRemoveFromBoard(asset)}
+            >
+              <Layers className="size-3.5" strokeWidth={1.5} />
+            </TileAction>
+          ) : (
+            <TileAction label="Add to board" onClick={() => onAddToBoard(asset)}>
+              <Layers className="size-3.5" strokeWidth={1.5} />
+            </TileAction>
+          )}
+
+          <TileAction label="Open" onClick={() => onOpen(asset)} className="ml-auto">
+            <Maximize2 className="size-3.5" strokeWidth={1.5} />
+          </TileAction>
+        </div>
+
       </div>
 
       <figcaption className="mt-2 min-w-0 px-0.5">
         {asset.project ? (
-          <span className="os-meta block truncate text-os-subtle">
+          <span className="block truncate text-[12px] font-medium text-paper-sage">
             {asset.project}
           </span>
         ) : null}
-        <span className="mt-1 block truncate text-[13px] leading-5 text-os-muted">
+        <span className="mt-0.5 block truncate text-[13px] leading-5 text-paper-char">
           {asset.filename}
         </span>
       </figcaption>
@@ -166,9 +170,10 @@ function TileAction({
       title={label}
       onClick={onClick}
       className={cn(
-        "os-focus-ring pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-md",
-        "bg-os-background/60 transition-colors duration-150 hover:bg-os-surface-raised",
-        active ? "text-os-amber" : "text-os-muted hover:text-foreground",
+        "pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-none border border-paper-mist",
+        "bg-paper-white/90 transition-colors duration-150 hover:bg-paper-white",
+        PAPER_FOCUS,
+        active ? "text-paper-amber-deep" : "text-paper-char hover:text-paper-moss",
         className,
       )}
     >

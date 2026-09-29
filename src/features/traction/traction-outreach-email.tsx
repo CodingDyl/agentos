@@ -63,7 +63,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
 
   return (
     <div
-      className="mt-5 rounded-[4px] border border-paper-linen px-3 py-3"
+      className="mt-5 rounded-none border border-paper-linen px-3 py-3"
       aria-label="Email this prospect"
     >
       <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">
@@ -103,7 +103,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
           <a
             href="/api/outreach/connect"
             className={cn(
-              "mt-2 inline-flex min-h-8 items-center rounded-[4px] border-[1.5px] border-paper-gold px-3 font-semibold text-paper-moss hover:bg-paper-white",
+              "mt-2 inline-flex min-h-8 items-center rounded-none border-[1.5px] border-paper-gold px-3 font-semibold text-paper-moss hover:bg-paper-white",
               PAPER_FOCUS,
             )}
           >
@@ -241,7 +241,7 @@ function Composer({
       {replies.data && replies.data.length > 0 ? (
         <div className="mt-3 space-y-2" aria-label="Replies from this prospect">
           {replies.data.slice(0, 3).map((reply) => (
-            <div key={reply.id} className="rounded-[4px] bg-paper-linen px-3 py-2 text-[13px] leading-5 text-paper-char">
+            <div key={reply.id} className="rounded-none bg-paper-linen px-3 py-2 text-[13px] leading-5 text-paper-char">
               <p className="text-[12px] font-semibold tracking-[0.06em] uppercase">
                 They wrote · {formatShortDate(reply.at)}
               </p>
@@ -402,7 +402,7 @@ function Composer({
             <div
               role="group"
               aria-label="Preview before sending"
-              className="rounded-[4px] border-[1.5px] border-paper-gold bg-paper-white px-3 py-3 text-[13px] leading-5 text-paper-char"
+              className="rounded-none border-[1.5px] border-paper-gold bg-paper-white px-3 py-3 text-[13px] leading-5 text-paper-char"
             >
               <p className="text-[12px] font-semibold tracking-[0.06em] uppercase">
                 Check before sending

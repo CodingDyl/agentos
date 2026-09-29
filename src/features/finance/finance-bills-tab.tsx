@@ -63,7 +63,7 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
       ) : null}
 
       {bills.items.length > 0 ? (
-        <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border border-paper-mist bg-paper-mist lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist lg:grid-cols-4">
           {[
             { label: "Bills each month", value: money(bills.committedMonthly), note: `${bills.items.length} tracked` },
             { label: "Paid so far", value: money(bills.paidThisMonth) },
@@ -86,7 +86,7 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
       {bills.suggestions.length > 0 && !sample ? (
         <PaperSection label="Found in your payments" count={bills.suggestions.length}>
           <p className="mb-3 max-w-[62ch] text-[14px] leading-6 text-paper-char">These leave your account on a regular rhythm and you are not tracking them yet.</p>
-          <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+          <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
             {bills.suggestions.map((suggestion) => (
               <li key={suggestion.merchant} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
                 <p className="min-w-0 text-[14.5px] text-paper-moss">
