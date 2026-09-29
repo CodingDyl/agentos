@@ -154,6 +154,16 @@ const MIGRATIONS: readonly string[] = [
     created_at  TEXT NOT NULL
   );
   `,
+  `
+  -- Clears the Investec payments cached before payments had stable ids. The same
+  -- payment read on two syncs was saved under two ids, so anything that repeated
+  -- (rent, say) was counted twice. They are only a cache of the bank, so they are
+  -- dropped and the next sync reads them back once, from scratch. Accounts you
+  -- added yourself, and everything you said (corrections, goals, budgets, bills,
+  -- what a partner owes), are left alone.
+  DELETE FROM transactions WHERE account_id IN (SELECT id FROM accounts WHERE provider = 'investec');
+  DELETE FROM meta WHERE key IN ('lastSyncAt', 'balancesAt');
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

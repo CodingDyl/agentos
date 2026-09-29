@@ -50,7 +50,9 @@ describe("Investec normalising", () => {
     const raw = { type: "DEBIT", description: "WOOLWORTHS 00329", postingDate: "2026-09-03", amount: 120.5, postedOrder: 4 };
     const a = normaliseTransaction("acc", raw, 0);
     assert.equal(a?.amount, -120.5);
-    assert.equal(a?.id, transactionId("acc", raw, 9));
+    // The id is what the row is, not where it sat in the list or the bank's own ordering number.
+    assert.equal(a?.id, transactionId("acc", raw));
+    assert.equal(a?.id, transactionId("acc", { ...raw, postedOrder: 99 }));
     assert.equal(normaliseTransaction("acc", { ...raw, type: "CREDIT" }, 0)?.amount, 120.5);
   });
 

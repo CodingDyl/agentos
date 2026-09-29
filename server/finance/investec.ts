@@ -200,14 +200,32 @@ export function normaliseAccount(raw: RawInvestecAccount, balance: RawInvestecBa
   };
 }
 
-/** A stable id, because the bank's rows carry none: the same row read twice must be the same row. */
-export function transactionId(accountId: string, raw: RawInvestecTransaction, index: number): string {
-  const date = raw.postingDate ?? raw.transactionDate ?? "";
-  const basis = [accountId, date, raw.description ?? "", String(raw.amount ?? 0), raw.type ?? "", String(raw.postedOrder ?? index)].join("|");
-  return createHash("sha256").update(basis).digest("hex").slice(0, 24);
+/**
+ * What a bank row IS: the account, the day, what it says, how much, and which
+ * way. Deliberately not where it happened to sit in the response, and not the
+ * bank's own ordering number.
+ *
+ * Both of those change. A row's position shifts every time a newer payment
+ * arrives above it, and an id built from the position gave the same payment a
+ * new id on the next sync, so it was saved again and rent showed up twice.
+ * The ordering number is not promised to stay put either, so it is left out too.
+ */
+function rowKey(accountId: string, raw: RawInvestecTransaction): string {
+  const date = (raw.postingDate ?? raw.transactionDate ?? raw.valueDate ?? "").slice(0, 10);
+  return [accountId, date, (raw.description ?? "").trim(), String(raw.amount ?? 0), (raw.type ?? "").toUpperCase()].join("|");
 }
 
-export function normaliseTransaction(accountId: string, raw: RawInvestecTransaction, index: number): Transaction | undefined {
+/**
+ * A stable id for a bank row, because the bank's rows carry none: the same row
+ * read twice must be the same row. `occurrence` is which of several identical
+ * rows this is (0 for the first): two coffees at R40 on one day are two
+ * payments, and stay two.
+ */
+export function transactionId(accountId: string, raw: RawInvestecTransaction, occurrence = 0): string {
+  return createHash("sha256").update(`${rowKey(accountId, raw)}|${occurrence}`).digest("hex").slice(0, 24);
+}
+
+export function normaliseTransaction(accountId: string, raw: RawInvestecTransaction, occurrence = 0): Transaction | undefined {
   const date = (raw.postingDate ?? raw.transactionDate ?? raw.valueDate)?.slice(0, 10);
   const magnitude = raw.amount;
   if (!date || typeof magnitude !== "number" || !Number.isFinite(magnitude)) return undefined;
@@ -219,13 +237,34 @@ export function normaliseTransaction(accountId: string, raw: RawInvestecTransact
   const credit = (raw.type ?? "").toUpperCase() === "CREDIT";
 
   return {
-    id: transactionId(accountId, raw, index),
+    id: transactionId(accountId, raw, occurrence),
     accountId,
     date,
     description,
     amount: Math.round((credit ? Math.abs(magnitude) : -Math.abs(magnitude)) * 100) / 100,
     merchant: cleanMerchant(description),
   };
+}
+
+/**
+ * A whole response as payments. Identical rows are numbered in the order they
+ * come, which is safe whatever order the bank sends them in: identical rows are
+ * interchangeable, so it does not matter which one is called the first.
+ */
+export function normaliseTransactions(accountId: string, rows: readonly RawInvestecTransaction[]): Transaction[] {
+  const seen = new Map<string, number>();
+  const result: Transaction[] = [];
+
+  for (const raw of rows) {
+    const key = rowKey(accountId, raw);
+    const occurrence = seen.get(key) ?? 0;
+    const normalised = normaliseTransaction(accountId, raw, occurrence);
+    // A row that is not counted (pending, unreadable) must not use up a number.
+    if (!normalised) continue;
+    seen.set(key, occurrence + 1);
+    result.push(normalised);
+  }
+  return result;
 }
 
 // ----------------------------------------------------------------- reading
@@ -263,10 +302,7 @@ export async function readInvestec(fromDate: string, toDate: string): Promise<In
       );
 
       accounts.push(account);
-      (rows.transactions ?? []).forEach((row, index) => {
-        const normalised = normaliseTransaction(account.id, row, index);
-        if (normalised) transactions.push(normalised);
-      });
+      transactions.push(...normaliseTransactions(account.id, rows.transactions ?? []));
     } catch (error) {
       // Credentials being wrong is not one account's problem: stop at once.
       if (error instanceof InvestecError && error.reason === "unauthorized") throw error;

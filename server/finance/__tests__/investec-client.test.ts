@@ -1,8 +1,21 @@
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, describe, it } from "node:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { forgetInvestecToken, InvestecError, isInvestecConfigured, missingInvestecVariables, readInvestec } from "../investec";
+import { saveSnapshot, readTransactions } from "../store";
+
+// Its own database, so running this file alone can never touch a real one.
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-investec-"));
+process.env.AGENTOS_UI_DIR = directory;
 
 const realFetch = globalThis.fetch;
+
+after(async () => {
+  (await import("../db")).closeFinanceDatabase();
+  fs.rmSync(directory, { recursive: true, force: true });
+});
 
 const reply = (status: number, body: unknown) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
 
@@ -55,6 +68,33 @@ describe("failures say why", () => {
     };
     await readInvestec("2026-01-01", "2026-09-01");
     assert.deepEqual(methods.filter((entry) => !entry.startsWith("GET")), ["POST /identity/v2/oauth2/token"]);
+  });
+
+  it("saves each payment once when a list that has grown is read again, so a rent is never counted twice", async () => {
+    const day = "2026-09-29";
+    let listing = [
+      { type: "DEBIT", description: "RENT CDM", amount: 16_029, postingDate: day },
+      { type: "DEBIT", description: "GROCERIES", amount: 4_500, postingDate: day },
+    ];
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("oauth2/token")) return reply(200, { access_token: "tok", expires_in: 1800 });
+      if (url.endsWith("/accounts")) return reply(200, { data: { accounts: [{ accountId: "dupes", productName: "Private Bank Account" }] } });
+      if (url.includes("/balance")) return reply(200, { data: { currentBalance: 1, currency: "ZAR" } });
+      return reply(200, { data: { transactions: listing } });
+    };
+
+    const one = await readInvestec("2026-09-01", day);
+    saveSnapshot(one.accounts, one.transactions);
+
+    // A newer payment lands at the top: everything below it moves down a place.
+    listing = [{ type: "DEBIT", description: "CHECKERS FOODS", amount: 571.46, postingDate: day }, ...listing];
+    const two = await readInvestec("2026-09-01", day);
+    saveSnapshot(two.accounts, two.transactions);
+
+    const saved = readTransactions().filter((t) => t.accountId === "dupes");
+    assert.equal(saved.length, 3);
+    assert.equal(saved.filter((t) => t.description === "RENT CDM").length, 1);
   });
 
   it("keeps the accounts it could read and names the one it could not", async () => {
