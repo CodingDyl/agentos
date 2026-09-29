@@ -38,9 +38,9 @@ export async function draftCaseStudy(id: string): Promise<CaseStudy> {
     ? await Promise.all([readOptionalFile(`projects/${slug}/PROJECT.md`), readOptionalFile(`projects/${slug}/STATUS.md`)])
     : [undefined, undefined];
 
-  if (!virtecProject && !projectMarkdown && !study.problem && !study.solution) {
+  if (!virtecProject && !projectMarkdown && !study.siteFacts && !study.problem && !study.solution) {
     throw new CaseStudyDraftError(
-      "Not enough to draft from: link a workspace, start it from a Virtec project, or write the problem in a line or two first.",
+      "Not enough to draft from: read the client's website, link a workspace, start it from a Virtec project, or write the problem in a line or two first.",
     );
   }
 

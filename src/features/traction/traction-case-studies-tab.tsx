@@ -6,6 +6,7 @@ import {
   useDeleteCaseStudy,
   useDismissOpportunity,
   useDraftCaseStudy,
+  useReadCaseStudyWebsite,
   useRequestTestimonial,
   useSaveCaseStudy,
   useStartCaseStudy,
@@ -140,6 +141,7 @@ type Draft = {
   testimonial: string;
   missing: string;
   publishedUrl: string;
+  websiteUrl: string;
   status: CaseStudyStatus;
   assetIds: string[];
 };
@@ -155,6 +157,7 @@ function toDraft(study: CaseStudy): Draft {
     testimonial: study.testimonial ?? "",
     missing: study.missing.join("\n"),
     publishedUrl: study.publishedUrl ?? "",
+    websiteUrl: study.websiteUrl ?? "",
     status: study.status,
     assetIds: [...study.assetIds],
   };
@@ -179,13 +182,14 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
   const [copied, setCopied] = useState(false);
   const save = useSaveCaseStudy();
   const hermes = useDraftCaseStudy();
+  const readSite = useReadCaseStudyWebsite();
   const testimonial = useRequestTestimonial();
   const remove = useDeleteCaseStudy();
 
   const set = (key: keyof Draft) => (event: { target: { value: string } }) => setDraft((current) => ({ ...current, [key]: event.target.value }));
   const gaps = SECTIONS.some((section) => /\[NEEDS DATA/i.test(draft[section.key]));
   const dirty = JSON.stringify(draft) !== JSON.stringify(toDraft(study));
-  const error = save.error ?? hermes.error ?? testimonial.error ?? remove.error;
+  const error = save.error ?? hermes.error ?? readSite.error ?? testimonial.error ?? remove.error;
 
   const input = (status: CaseStudyStatus = draft.status) => ({
     title: draft.title.trim(),
@@ -198,6 +202,7 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
     testimonial: optional(draft.testimonial),
     missing: toList(draft.missing),
     publishedUrl: optional(draft.publishedUrl),
+    websiteUrl: optional(draft.websiteUrl),
     assetIds: draft.assetIds,
   });
 
@@ -222,6 +227,30 @@ function CaseStudyEditor({ study, onClose }: { study: CaseStudy; onClose: () => 
             </label>
           </div>
           <PaperButton onClick={onClose}>Close</PaperButton>
+        </div>
+
+        <div className="space-y-2 rounded-[4px] bg-paper-linen px-3 py-2.5">
+          <label className="block">
+            <FieldLabel>
+              Client website <span className="font-normal text-paper-ash">(read once, when you ask, to help answer the questions below)</span>
+            </FieldLabel>
+            <input type="url" maxLength={300} placeholder="https://client.co.za" className={cn(PAPER_INPUT, "w-full")} value={draft.websiteUrl} onChange={set("websiteUrl")} />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <PaperButton
+              variant="ghost"
+              disabled={readSite.isPending || dirty || !study.websiteUrl}
+              title={dirty ? "Save first; the saved address is the one that is read" : !study.websiteUrl ? "Add and save the address first" : undefined}
+              onClick={() => readSite.mutate(study.id)}
+            >
+              {readSite.isPending ? "Reading…" : study.siteFacts ? "Read again" : "Read website"}
+            </PaperButton>
+            <span className="text-[12.5px] text-paper-sage">
+              {study.siteFacts
+                ? `Read ${study.siteFacts.fetchedAt.slice(0, 10)}: ${study.siteFacts.title ?? study.siteFacts.url}, ${study.siteFacts.headings.length} headings. Draft with Hermes will use it. It is what the client says about itself, so results still need your numbers.`
+                : "Public websites only. It reads the one page at that address."}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-[4px] bg-paper-linen px-3 py-2.5">

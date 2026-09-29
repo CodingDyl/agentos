@@ -32,6 +32,7 @@ import {
   WeeklyTargetsSchema,
   type CaseStudy,
   type CaseStudyInput,
+  type SiteFacts,
   type LeadProfile,
   type ConfirmMailLink,
   type Experiment,
@@ -1222,6 +1223,11 @@ export function replaceCaseStudy(
           existing.autoTitle && input.title === existing.title
             ? true
             : undefined,
+        // What was read from the website stays only while the address is the same one.
+        siteFacts:
+          existing.websiteUrl && existing.websiteUrl === input.websiteUrl
+            ? existing.siteFacts
+            : undefined,
         draftedAt: existing.draftedAt,
         createdAt: existing.createdAt,
         updatedAt: new Date().toISOString(),
@@ -1262,6 +1268,24 @@ export function hasGaps(
  * missing facts is added to, not replaced, so a gap someone noted by hand
  * survives a redraft.
  */
+/** Keeps what was read off the study's website, if the address is still the one that was read. */
+export function saveCaseStudySiteFacts(
+  id: string,
+  websiteUrl: string,
+  facts: SiteFacts,
+): Promise<CaseStudy> {
+  return mutate((state) => {
+    const existing = findCaseStudy(state, id);
+    if (existing.websiteUrl !== websiteUrl)
+      throw new TractionConflictError(
+        "The website address changed while it was being read",
+      );
+    const next = { ...existing, siteFacts: facts, updatedAt: new Date().toISOString() };
+    state.caseStudies[state.caseStudies.indexOf(existing)] = next;
+    return { result: next };
+  });
+}
+
 export function applyCaseStudyDraft(
   id: string,
   draft: Partial<
