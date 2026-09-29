@@ -6,7 +6,7 @@ import { formatRunStamp } from "./automations-model";
 const STATUS_ICON = { success: Check, failed: X, running: CircleDot } as const;
 
 const STATUS_TONE = {
-  success: "text-[#3f7a2a]",
+  success: "text-paper-moss",
   failed: "text-paper-flame-deep",
   running: "text-paper-amber-deep",
 } as const;
@@ -30,7 +30,7 @@ export function RunHistory({ runs, now, className }: RunHistoryProps) {
   }
 
   return (
-    <ul className={cn("divide-y divide-paper-stone rounded-[4px] border border-paper-mist", className)}>
+    <ul className={cn("divide-y divide-paper-stone rounded-none border border-paper-mist", className)}>
       {runs.map((run) => {
         const Icon = STATUS_ICON[run.status];
         return (

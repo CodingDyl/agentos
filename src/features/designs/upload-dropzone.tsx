@@ -62,7 +62,7 @@ export function UploadDropzone({ onFiles, children }: UploadDropzoneProps) {
 
       {isDragging ? (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-paper-white/90 font-paper-ui">
-          <div className="flex flex-col items-center gap-3 rounded-[6px] border-2 border-dashed border-paper-gold bg-paper-white px-12 py-10">
+          <div className="flex flex-col items-center gap-3 rounded-none border-2 border-dashed border-paper-gold bg-paper-white px-12 py-10">
             <ImagePlus
               className="size-6 text-paper-char"
               strokeWidth={1.75}

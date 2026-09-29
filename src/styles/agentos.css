@@ -3,76 +3,91 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource/inter/latin-400.css";
 @import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
-/* The paper world's faces. Browsers only fetch a face when text uses it, so
-   screens still in the dark Editorial Terminal language pay nothing for these. */
-@import "@fontsource-variable/inter-tight";
-@import "@fontsource/ibm-plex-sans/latin-400.css";
-@import "@fontsource/ibm-plex-sans/latin-500.css";
-@import "@fontsource/ibm-plex-sans/latin-600.css";
+/* Hermes faces: a light, genuinely condensed display and a compressed feature
+   face. Substitutes for the licensed Rules faces the reference site uses. */
+@import "@fontsource-variable/roboto-condensed/wght.css";
+@import "@fontsource/barlow-condensed/latin-500.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Paper — the PostHog-derived world AgentOS is moving towards, one screen at
- * a time. Mail trialled it in its own scoped sheet; Operations is the first
- * screen built on these shared tokens. A sandy desk, white application
- * windows, hairline warm borders, 4px corners, no shadows. Colour is rationed:
- * amber for the one primary action, signal blue for active state and live
- * links, flame orange for tags and warnings, moss green for confirmation.
+ * Hermes — electric blue and warm paper.
+ *
+ * The one palette the whole product draws from (DESIGN.md). Hermes Blue is the
+ * stage: the shell, primary actions and active state. Hermes Paper is the page.
+ * Deep Ink is text on paper. Yellow is a single accent, used only on the blue
+ * stage where it reads. Everything else is a tint of these.
+ *
+ * The `--paper-*` names are historical: they were the PostHog-derived Paper
+ * world this replaced, and screens still address them. Their values are now the
+ * Hermes palette, so every screen moved together.
  */
 :root {
-  --paper-desk: #e1d7c2;
-  --paper-white: #ffffff;
-  --paper-cream: #fdfdf8;
-  --paper-linen: #eeefe9;
-  --paper-stone: #e5e7e0;
-  --paper-moss: #23251d;
-  --paper-char: #4d4f46;
-  --paper-sage: #65675e;
-  --paper-ash: #9ea096;
-  --paper-mist: #bfc1b7;
-  --paper-blue: #2f80fa;
-  --paper-amber: #eb9d2a;
-  --paper-amber-deep: #cd8407;
-  --paper-gold: #b17816;
-  --paper-marigold: #f1a82c;
-  --paper-flame: #f54e00;
-  /* Flame for text and filled tags: #f54e00 against white is 3.5:1, this is 5.2:1. */
-  --paper-flame-deep: #c43d00;
-  --paper-green: #6aa84f;
+  --hermes-blue: #0000f2;
+  --hermes-paper: #f2f2f2;
+  --hermes-ink: #000091;
+  --hermes-yellow: #f2f200;
+
+  --paper-desk: #e6e6f2;
+  /* The page itself, and anything that sits flat on it. */
+  --paper-white: #f2f2f2;
+  --paper-cream: #fbfbfb;
+  --paper-linen: #e6e6f2;
+  --paper-stone: #dcdcf2;
+  /* Text on paper, from Deep Ink down. Contrast on the page: 13.3, 10.9, 6.6. */
+  --paper-moss: #000091;
+  --paper-char: #1d1d9d;
+  --paper-sage: #4949ae;
+  /* Borders of controls (3.7:1) and never body text. */
+  --paper-ash: #7474c0;
+  /* Hairlines between things. Decorative: 1.9:1. */
+  --paper-mist: #a9a9f2;
+  --paper-blue: #0000f2;
+  /* The accent fill (was amber): Hermes Blue, so the primary action is blue. */
+  --paper-amber: #0000f2;
+  --paper-amber-deep: #000091;
+  /* Outline-action border. */
+  --paper-gold: #0000f2;
+  --paper-marigold: #f2f200;
+  /* Danger is the one non-palette hue: an error has to read as an error. */
+  --paper-flame: #d4002a;
+  --paper-flame-deep: #b00020;
+  /* Confirmation is the brand blue, told apart from the rest by its words. */
+  --paper-green: #0000f2;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* AgentOS canvas and surfaces */
-  --os-background: #041c1c;
-  --os-surface: #062322;
-  --os-surface-raised: #082827;
-  --os-surface-active: #0a2b2a;
+  /* AgentOS canvas and surfaces: paper, with a whisper of blue in the raised tones */
+  --os-background: #f2f2f2;
+  --os-surface: #f8f8fc;
+  --os-surface-raised: #e6e6f2;
+  --os-surface-active: #dcdcf2;
 
-  /* AgentOS text */
-  --os-foreground: #ffe6cb;
-  --os-muted-foreground: #a7b7b1;
-  --os-subtle-foreground: #7a8f8a;
+  /* AgentOS text: Deep Ink and two tints of it */
+  --os-foreground: #000091;
+  --os-muted-foreground: #1d1d9d;
+  --os-subtle-foreground: #4949ae;
 
   /* AgentOS structure */
-  --os-border: rgb(255 230 203 / 12%);
-  --os-border-strong: rgb(255 230 203 / 22%);
+  --os-border: rgb(0 0 145 / 20%);
+  --os-border-strong: rgb(0 0 145 / 40%);
 
-  /* AgentOS semantic signals */
-  --os-amber: #ffbd38;
-  --os-success: #8fc89a;
-  --os-warning: #ffbd38;
-  --os-danger: #d96b5f;
+  /* AgentOS semantic signals. Warning is a dark yellow so it can be read as text. */
+  --os-amber: #0000f2;
+  --os-success: #000091;
+  --os-warning: #6b5f00;
+  --os-danger: #b00020;
 
-  /* AgentOS geometry */
-  --os-radius-sm: 4px;
-  --os-radius-input: 6px;
-  --os-radius-md: 8px;
-  --os-radius-lg: 12px;
+  /* AgentOS geometry: mostly square. Buttons and inputs are 0; nothing is soft. */
+  --os-radius-sm: 0px;
+  --os-radius-input: 0px;
+  --os-radius-md: 2px;
+  --os-radius-lg: 4px;
 
   /* AgentOS spacing */
   --os-space-1: 4px;
@@ -87,8 +102,10 @@
   --os-space-16: 64px;
 
   /* AgentOS typography */
-  --os-font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --os-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --os-font-sans: "Inter", Arial, ui-sans-serif, system-ui, sans-serif;
+  --os-font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  --os-font-display: "Roboto Condensed Variable", "Roboto Condensed", "Arial Narrow", sans-serif;
+  --os-font-compressed: "Barlow Condensed", "Roboto Condensed Variable", "Arial Narrow", sans-serif;
   --os-text-display: clamp(2.5rem, 5vw, 4rem);
   --os-text-page: 2rem;
   --os-text-section: 1.375rem;
@@ -104,23 +121,23 @@
   --card-foreground: var(--os-foreground);
   --popover: var(--os-surface-raised);
   --popover-foreground: var(--os-foreground);
-  --primary: var(--os-foreground);
-  --primary-foreground: var(--os-background);
+  --primary: #0000f2;
+  --primary-foreground: #f2f2f2;
   --secondary: var(--os-surface-active);
   --secondary-foreground: var(--os-foreground);
-  --muted: #092625;
+  --muted: #e6e6f2;
   --muted-foreground: var(--os-muted-foreground);
-  --accent: #103432;
+  --accent: #e6e6f2;
   --accent-foreground: var(--os-foreground);
   --destructive: var(--os-danger);
   --border: var(--os-border);
-  --input: rgb(255 230 203 / 16%);
-  --ring: var(--os-amber);
+  --input: rgb(0 0 145 / 40%);
+  --ring: #0000f2;
   --radius: var(--os-radius-md);
   --sidebar: var(--os-surface);
   --sidebar-foreground: var(--os-foreground);
-  --sidebar-primary: var(--os-foreground);
-  --sidebar-primary-foreground: var(--os-background);
+  --sidebar-primary: #0000f2;
+  --sidebar-primary-foreground: #f2f2f2;
   --sidebar-accent: var(--os-surface-active);
   --sidebar-accent-foreground: var(--os-foreground);
   --sidebar-border: var(--os-border);
@@ -201,8 +218,10 @@
   --color-paper-flame-deep: var(--paper-flame-deep);
   --color-paper-green: var(--paper-green);
 
-  --font-paper-display: "Inter Tight Variable", "Inter Tight", ui-sans-serif, system-ui, sans-serif;
-  --font-paper-ui: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-paper-display: var(--os-font-display);
+  --font-paper-compressed: var(--os-font-compressed);
+  --font-paper-utility: var(--os-font-display);
+  --font-paper-ui: var(--os-font-sans);
 
   --radius-sm: var(--os-radius-sm);
   --radius-md: var(--os-radius-input);
@@ -234,26 +253,61 @@
   }
 
   ::selection {
-    color: var(--os-background);
-    background: var(--os-amber);
+    color: #f2f2f2;
+    background: #0000f2;
   }
 }
 
 @layer utilities {
+  /* The page. Flat paper: the blue lives in the chrome, not behind the content. */
   .os-environment {
     background-color: var(--os-background);
-    background-image:
-      radial-gradient(circle at 58% -10%, rgb(255 189 56 / 7%), transparent 30%),
-      linear-gradient(rgb(255 230 203 / 1.6%) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 230 203 / 1.6%) 1px, transparent 1px);
-    background-size: auto, 32px 32px, 32px 32px;
   }
 
+  /*
+   * The blue stage: the shell's top bar, sidebar and status bar. It redefines
+   * the tokens locally, so every component inside reads paper-on-blue without
+   * knowing it. Yellow is the accent here and only here, where it reads at 7.7:1.
+   */
+  .os-stage {
+    --os-background: #0000f2;
+    --os-surface: #0000f2;
+    --os-surface-raised: #1d1df2;
+    --os-surface-active: #2c2cf2;
+    --os-foreground: #f2f2f2;
+    --os-muted-foreground: #d0d0f2;
+    --os-subtle-foreground: #bdbdf2;
+    --os-border: rgb(242 242 242 / 24%);
+    --os-border-strong: rgb(242 242 242 / 46%);
+    --os-amber: #f2f200;
+    --os-success: #f2f2f2;
+    --os-warning: #f2f200;
+    --os-danger: #ff9c9c;
+    --background: #0000f2;
+    --foreground: #f2f2f2;
+    --card: #0000f2;
+    --card-foreground: #f2f2f2;
+    --popover: #0000f2;
+    --popover-foreground: #f2f2f2;
+    --primary: #f2f2f2;
+    --primary-foreground: #0000f2;
+    --muted: #1d1df2;
+    --muted-foreground: #d0d0f2;
+    --accent: #1d1df2;
+    --accent-foreground: #f2f2f2;
+    --border: rgb(242 242 242 / 24%);
+    --input: rgb(242 242 242 / 40%);
+    --ring: #f2f200;
+    color: #f2f2f2;
+  }
+
+  /* Small labels: condensed, uppercase, letter-spaced. The reference's utility face. */
   .os-meta {
-    font-family: var(--os-font-mono);
-    font-size: var(--os-text-meta);
+    font-family: var(--os-font-display);
+    font-size: 0.75rem;
+    font-weight: 500;
     line-height: 1.4;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
@@ -287,4 +341,42 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+/*
+ * Headings on every moved screen are the Hermes display face. These sit outside
+ * any layer on purpose: they win over the per-element `font-extrabold` and
+ * `text-[34px]` the screens were written with, so the whole product changes at
+ * once and no screen carries its own idea of a heading.
+ *
+ * Thin condensed type is the identity (DESIGN.md: "don't replace the thin hero
+ * with heavy 700-weight grotesk"), scaled down from the landing page's 108px:
+ * page titles top out at 3rem so a task list is never shouted at.
+ */
+.font-paper-display {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+h1.font-paper-display:not([data-heading="compact"]) {
+  font-size: clamp(2.25rem, 3.6vw, 3rem);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* Feature-scale headings and numerals in the compressed face. */
+.font-paper-compressed {
+  font-weight: 500;
+}
+
+/* Screens still built from the older PageHeader get the same display face. */
+main h1 {
+  font-family: var(--os-font-display);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+main h1[data-heading="compact"] {
+  font-weight: 500;
 }

@@ -11,7 +11,7 @@ export function ColorToken({ name, value, className }: ColorTokenProps) {
     <div className="group min-w-0">
       <div
         className={cn(
-          "h-20 rounded-md border border-os-border transition-colors duration-150 group-hover:border-os-border-strong",
+          "h-20 rounded-none border border-os-border transition-colors duration-150 group-hover:border-os-border-strong",
           className,
         )}
         aria-hidden="true"

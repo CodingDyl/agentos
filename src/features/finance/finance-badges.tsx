@@ -13,7 +13,7 @@ import { utilisationTone, type PayState } from "./finance-model";
  * (white on this green fails contrast), not seen is the one loud state.
  */
 const STATE: Record<PayState, { icon: typeof Check; classes: string }> = {
-  paid: { icon: Check, classes: "bg-paper-green text-paper-moss" },
+  paid: { icon: Check, classes: "bg-paper-green text-paper-white" },
   due: { icon: Clock, classes: "bg-paper-stone text-paper-char" },
   late: { icon: AlertTriangle, classes: "bg-paper-flame-deep font-semibold text-paper-white" },
   unknown: { icon: Minus, classes: "border border-dashed border-paper-mist bg-paper-white text-paper-sage" },

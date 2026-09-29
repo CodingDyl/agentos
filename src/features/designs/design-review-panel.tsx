@@ -180,7 +180,7 @@ export function DesignReviewPanel({
             type="button"
             onClick={onClose}
             aria-label="Close visual review"
-            className={cn("rounded-[4px] p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+            className={cn("rounded-none p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
           >
             <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -512,7 +512,7 @@ function ReviewResult({
               </p>
             ) : null}
 
-            <pre className="mt-3 max-h-64 overflow-auto rounded-[4px] border border-paper-mist bg-paper-linen p-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
+            <pre className="mt-3 max-h-64 overflow-auto rounded-none border border-paper-mist bg-paper-linen p-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
               {proposal.markdown}
             </pre>
 

@@ -65,7 +65,7 @@ function SetupNote({ problem }: { problem?: string }) {
         {problem ?? "Virtec is not configured."} Add these to AgentOS's <code className="rounded-[2px] bg-paper-stone px-1">.env</code> and restart the
         server:
       </p>
-      <pre className="mt-3 overflow-x-auto rounded-[4px] bg-paper-stone px-3 py-2 text-[13px] text-paper-moss">
+      <pre className="mt-3 overflow-x-auto rounded-none bg-paper-stone px-3 py-2 text-[13px] text-paper-moss">
         {"VIRTEC_BASE_URL=https://your-virtec-deployment\nVIRTEC_API_KEY=<the value Virtec holds as AGENTOS_API_KEY>"}
       </pre>
       <p className="mt-3 text-[13px] leading-5 text-paper-sage">
@@ -172,7 +172,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
                     <Link
                       to={hermesHref(crmFollowUpPrompt(followUp))}
                       className={cn(
-                        "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                       aria-label={`Draft a follow-up to ${followUp.companyName ?? followUp.customerName ?? "this client"}`}
@@ -353,7 +353,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
                     <Link
                       to={hermesHref(inboundReplyPrompt(lead))}
                       className={cn(
-                        "inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                       aria-label={`Ask Hermes to draft a reply to ${lead.name}`}
@@ -364,7 +364,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
                     {lead.prospectId ? (
                       <Link
                         to={prospectHref(lead.prospectId)}
-                        className={cn("inline-flex min-h-8 items-center rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
+                        className={cn("inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
                       >
                         Open prospect
                       </Link>
@@ -441,7 +441,7 @@ function FindCandidates({ track, writable }: { track: Track; writable: boolean }
         {open ? "Close" : "Find more candidates"}
       </PaperButton>
       {open ? (
-        <div className="mt-3 max-w-2xl rounded-[4px] border border-paper-mist bg-paper-cream p-4">
+        <div className="mt-3 max-w-2xl rounded-none border border-paper-mist bg-paper-cream p-4">
           <p className="text-[13px] leading-5 text-paper-sage">
             Scans one area of Google Places for {site === "jurivo" ? "law firms" : "businesses"} and adds what it finds to this list. It costs money: each Places
             type searched is one request, and Virtec stops at your monthly limit.

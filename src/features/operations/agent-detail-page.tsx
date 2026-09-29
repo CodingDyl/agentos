@@ -34,8 +34,8 @@ export function AgentDetailPage() {
       <PaperStage>
           {isPending ? (
             <div aria-busy="true" aria-label="Reading the agent">
-              <div className="h-8 w-48 rounded-[4px] bg-paper-linen motion-safe:animate-pulse" />
-              <div className="mt-6 h-40 rounded-[4px] border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
+              <div className="h-8 w-48 rounded-none bg-paper-linen motion-safe:animate-pulse" />
+              <div className="mt-6 h-40 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
             </div>
           ) : !data ? (
             <div className="py-4">
@@ -60,7 +60,7 @@ function Agent({ agent }: { agent: AgentDetail }) {
     <div>
       <Link
         to="/operations?tab=agents"
-        className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
+        className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-none px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
       >
         <ArrowLeft className="size-3.5" aria-hidden="true" />
         Operations
@@ -124,7 +124,7 @@ function Agent({ agent }: { agent: AgentDetail }) {
           {agent.configuration.length === 0 ? (
             <p className="text-[14px] leading-6 text-paper-sage">Nothing configurable.</p>
           ) : (
-            <dl className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+            <dl className="divide-y divide-paper-stone rounded-none border border-paper-mist">
               {agent.configuration.map((row) => (
                 <div key={row.label} className="px-3.5 py-2.5">
                   <dt className="text-[12.5px] font-medium text-paper-char">{row.label}</dt>

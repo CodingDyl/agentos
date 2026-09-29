@@ -272,7 +272,7 @@ export function CommandPalette({
         role="dialog"
         aria-modal="true"
         aria-label={mode === "create" ? "Quick create" : "Commands and search"}
-        className="relative flex max-h-full w-[min(92vw,42rem)] flex-col overflow-hidden rounded-[6px] border border-paper-moss bg-paper-white font-paper-ui text-paper-moss"
+        className="relative flex max-h-full w-[min(92vw,42rem)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-white font-paper-ui text-paper-moss"
       >
         <div className="flex items-center gap-3 border-b border-paper-mist px-4 py-3">
           <Search className={cn("size-4 shrink-0 text-paper-char", isSearching && "motion-safe:animate-pulse")} strokeWidth={1.75} aria-hidden="true" />
@@ -300,9 +300,9 @@ export function CommandPalette({
             aria-activedescendant={rows.length > 0 ? rowId(active) : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash"
+            className="min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-sage"
           />
-          <kbd className="hidden shrink-0 rounded-[3px] border border-paper-mist px-1.5 font-mono text-[11.5px] text-paper-sage sm:inline">Esc</kbd>
+          <kbd className="hidden shrink-0 rounded-none border border-paper-mist px-1.5 font-mono text-[11.5px] text-paper-sage sm:inline">Esc</kbd>
         </div>
 
         {contextProject && stage.kind === "commands" ? (
@@ -339,7 +339,7 @@ export function CommandPalette({
                       onClick={row.onSelect}
                       onMouseMove={() => setSelected(index)}
                       className={cn(
-                        "relative flex min-h-10 cursor-pointer items-center justify-between gap-4 rounded-[3px] px-3 transition-colors duration-150",
+                        "relative flex min-h-10 cursor-pointer items-center justify-between gap-4 rounded-none px-3 transition-colors duration-150",
                         isSelected && "bg-paper-linen",
                       )}
                     >

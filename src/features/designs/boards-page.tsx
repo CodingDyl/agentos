@@ -152,9 +152,9 @@ function BoardCard({
   return (
     <Link
       to={`/designs/boards/${board.id}`}
-      className={cn("group block cursor-pointer rounded-[4px] border border-paper-mist p-3 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
+      className={cn("group block cursor-pointer rounded-none border border-paper-mist p-3 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
     >
-      <div className="grid aspect-[4/3] grid-cols-2 gap-1.5 overflow-hidden rounded-[3px] bg-paper-linen">
+      <div className="grid aspect-[4/3] grid-cols-2 gap-1.5 overflow-hidden rounded-none bg-paper-linen">
         {cover.length === 0 ? (
           <span className="col-span-2 flex items-center justify-center text-[13px] text-paper-sage">
             Empty board

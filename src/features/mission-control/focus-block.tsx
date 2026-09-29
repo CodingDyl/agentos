@@ -37,7 +37,7 @@ export function FocusBlock({ focus, className }: { focus: FocusSummary; classNam
 
   return (
     <PaperSection label="Primary focus" className={className}>
-      <div className="rounded-[4px] border border-paper-mist px-5 py-5 md:px-6">
+      <div className="rounded-none border border-paper-mist px-5 py-5 md:px-6">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
           <h2 className="font-paper-display text-[24px] leading-[1.15] font-extrabold tracking-[-0.015em] text-balance text-paper-moss">
             {focus.project ?? "No focus set"}

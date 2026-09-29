@@ -49,7 +49,7 @@ export function FinanceSettingsTab({ data }: { data: FinanceData }) {
                   </p>
                 ) : null}
                 <p>Create API credentials in Investec's Programmable Banking portal, add them to the server's <code className="font-mono text-[12.5px]">.env</code> and <strong>restart the data server</strong> (it reads <code className="font-mono text-[12.5px]">.env</code> once, at startup):</p>
-                <pre className="mt-3 overflow-x-auto rounded-[4px] bg-paper-linen p-3 font-mono text-[12.5px] leading-6 text-paper-moss">
+                <pre className="mt-3 overflow-x-auto rounded-none bg-paper-linen p-3 font-mono text-[12.5px] leading-6 text-paper-moss">
 {`INVESTEC_CLIENT_ID=...
 INVESTEC_SECRET=...
 INVESTEC_API_KEY=...`}
@@ -66,7 +66,7 @@ INVESTEC_API_KEY=...`}
           {data.corrections.length === 0 ? (
             <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">None yet. Change a payment's category on the Spending tab and Finance remembers it for that merchant, past and future.</p>
           ) : (
-            <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+            <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
               {corrections.pageItems.map((correction) => (
                 <li key={correction.merchant} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14.5px]">
                   <span className="min-w-0 truncate text-paper-moss">

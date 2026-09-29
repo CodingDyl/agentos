@@ -53,7 +53,7 @@ export function DesignTile({
           }
           aria-pressed={selecting ? selected : undefined}
           className={cn(
-            "block w-full cursor-pointer overflow-hidden rounded-[4px] bg-paper-linen",
+            "block w-full cursor-pointer overflow-hidden rounded-none bg-paper-linen",
             "ring-1 transition-[box-shadow] duration-150",
             PAPER_FOCUS,
             // Selection is carried by the ring rather than an overlay, so the
@@ -170,7 +170,7 @@ function TileAction({
       title={label}
       onClick={onClick}
       className={cn(
-        "pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-[4px] border border-paper-mist",
+        "pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-none border border-paper-mist",
         "bg-paper-white/90 transition-colors duration-150 hover:bg-paper-white",
         PAPER_FOCUS,
         active ? "text-paper-amber-deep" : "text-paper-char hover:text-paper-moss",

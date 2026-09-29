@@ -178,7 +178,7 @@ export function DesignsPage() {
                     <Link
                       to="/designs/boards"
                       className={cn(
-                        "inline-flex min-h-8 items-center rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                     >
@@ -187,7 +187,7 @@ export function DesignsPage() {
                     <Link
                       to="/designs/generations"
                       className={cn(
-                        "inline-flex min-h-8 items-center rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                     >

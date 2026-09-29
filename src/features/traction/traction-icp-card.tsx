@@ -72,7 +72,7 @@ function IcpForm({ icp, onDone }: { icp: Icp | undefined; onDone: () => void }) 
   return (
     <PaperCard>
       {!icp ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[4px] bg-paper-linen px-3 py-2.5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-none bg-paper-linen px-3 py-2.5">
           <p className="text-[13.5px] leading-5 text-paper-char">One vertical at a time. No ICP means prospecting drifts.</p>
           <PaperButton variant="ghost" onClick={applySuggested}>
             Start from estate agencies

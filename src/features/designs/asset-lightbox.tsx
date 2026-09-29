@@ -12,7 +12,7 @@ import { formatAdded, typeLabel } from "./designs-model";
 
 /** The same toggle chip `PaperFilterBar` draws, for choices inside a panel. */
 const CHIP =
-  "inline-flex min-h-8 cursor-pointer items-center rounded-[4px] border px-3 text-[13px] font-medium transition-colors duration-150 " +
+  "inline-flex min-h-8 cursor-pointer items-center rounded-none border px-3 text-[13px] font-medium transition-colors duration-150 " +
   PAPER_FOCUS;
 const CHIP_ON = "border-paper-moss bg-paper-moss text-paper-white";
 const CHIP_OFF = "border-paper-mist text-paper-char hover:bg-paper-linen hover:text-paper-moss";
@@ -111,7 +111,7 @@ export function AssetLightbox({
         role="dialog"
         aria-modal="true"
         aria-label={asset.filename}
-        className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-[6px] border border-paper-moss bg-paper-white font-paper-ui text-paper-moss lg:flex-row"
+        className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-white font-paper-ui text-paper-moss lg:flex-row"
       >
         <div className="flex min-h-0 flex-1 items-center justify-center bg-paper-linen p-4 md:p-8">
           <img
@@ -364,7 +364,7 @@ function IconButton({
       title={label}
       onClick={onClick}
       className={cn(
-        "inline-flex size-9 cursor-pointer items-center justify-center rounded-[4px] transition-colors duration-150 hover:bg-paper-stone",
+        "inline-flex size-9 cursor-pointer items-center justify-center rounded-none transition-colors duration-150 hover:bg-paper-stone",
         PAPER_FOCUS,
         active ? "text-paper-amber-deep" : "text-paper-sage hover:text-paper-moss",
       )}

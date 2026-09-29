@@ -64,7 +64,7 @@ export function PaperSection({
         <h2 className="flex items-center gap-2 font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
           {label}
           {count !== undefined ? (
-            <span className="rounded-full bg-paper-stone px-2 py-px font-paper-ui text-[11.5px] font-medium tracking-normal text-paper-char tabular-nums">
+            <span className="rounded-none bg-paper-stone px-2 py-px font-paper-ui text-[12px] font-medium tracking-normal text-paper-char tabular-nums">
               {count}
             </span>
           ) : null}
@@ -79,7 +79,7 @@ export function PaperSection({
 /** A top-level card on the window. Never nested inside another. */
 export function PaperCard({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...props} className={cn("rounded-[4px] border border-paper-mist bg-paper-white p-4", className)}>
+    <div {...props} className={cn("rounded-none border border-paper-mist bg-paper-white p-4", className)}>
       {children}
     </div>
   );
@@ -88,10 +88,11 @@ export function PaperCard({ className, children, ...props }: HTMLAttributes<HTML
 type ButtonVariant = "amber" | "ghost" | "quiet" | "danger";
 
 const BUTTON: Record<ButtonVariant, string> = {
-  amber: "bg-paper-amber text-paper-moss hover:bg-paper-amber-deep hover:text-paper-white",
-  // The gold border is the "available action" signal; the label stays dark,
-  // because gold text on white is 3.6:1 and fails AA at this size.
-  ghost: "border-[1.5px] border-paper-gold text-paper-moss hover:bg-paper-linen",
+  // The primary action is Hermes Blue with paper text (9:1). "amber" is the
+  // variant's historical name and every screen still calls it that.
+  amber: "bg-paper-blue text-paper-white hover:bg-paper-moss",
+  // The secondary action: blue outline, blue label, the same square footprint.
+  ghost: "border-[1.5px] border-paper-blue text-paper-blue hover:bg-paper-linen",
   quiet: "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
   // Refusing or stopping something. Flame-deep is the AA-safe flame for text.
   danger: "border-[1.5px] border-paper-flame-deep text-paper-flame-deep hover:bg-paper-linen",
@@ -108,7 +109,7 @@ export function PaperButton({
       type="button"
       {...props}
       className={cn(
-        "inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold transition-colors duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-none px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] uppercase transition-[background-color,color,transform] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
         PAPER_FOCUS,
         BUTTON[variant],
         className,
@@ -122,9 +123,9 @@ export function PaperButton({
 type TagTone = "flame" | "green" | "marigold" | "muted" | "blue";
 
 const TAG: Record<TagTone, string> = {
-  flame: "bg-paper-flame-deep font-semibold text-paper-white",
-  // Dark on green: white on moss green is 2.9:1.
-  green: "bg-paper-green text-paper-moss",
+  flame: "bg-paper-flame-deep text-paper-white",
+  green: "bg-paper-green text-paper-white",
+  // Ink on the brand yellow is 12:1. Yellow is never text on paper.
   marigold: "bg-paper-marigold text-paper-moss",
   muted: "bg-paper-stone text-paper-char",
   blue: "bg-paper-blue text-paper-white",
@@ -133,7 +134,7 @@ const TAG: Record<TagTone, string> = {
 /** The world's only pill: a small categorical tag. */
 export function Tag({ tone = "muted", children, className }: { tone?: TagTone; children: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-px text-[11.5px] leading-[18px] font-medium", TAG[tone], className)}>
+    <span className={cn("inline-flex items-center rounded-none px-2 py-px font-paper-utility text-[12px] leading-[18px] font-medium tracking-[0.08em] uppercase", TAG[tone], className)}>
       {children}
     </span>
   );
@@ -152,7 +153,7 @@ export function SegmentedControl<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-[4px] border border-paper-mist bg-paper-linen p-0.5">
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-none border border-paper-mist bg-paper-linen p-0.5">
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -163,7 +164,7 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              "min-h-7 cursor-pointer rounded-[3px] px-3 text-[13px] font-medium transition-colors duration-150",
+              "min-h-7 cursor-pointer rounded-none px-3 text-[13px] font-medium transition-colors duration-150",
               PAPER_FOCUS,
               selected ? "bg-paper-white text-paper-moss ring-1 ring-paper-mist" : "text-paper-sage hover:text-paper-moss",
             )}
@@ -470,7 +471,7 @@ export function PaperSwitch({
 }
 
 export const PAPER_INPUT =
-  "min-h-8 rounded-[4px] border border-paper-mist bg-paper-white px-3 text-[14px] text-paper-moss placeholder:text-paper-ash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
+  "min-h-8 rounded-none border border-paper-ash bg-paper-white px-3 text-[14px] text-paper-moss placeholder:text-paper-sage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
 
 /** Small uppercase-free field label, above its input. */
 export function FieldLabel({ children }: { children: ReactNode }) {

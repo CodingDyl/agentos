@@ -185,13 +185,13 @@ function GenerationRow({
               <Link
                 key={asset.id}
                 to={`/designs?asset=${encodeURIComponent(asset.id)}`}
-                className={cn("rounded-[4px]", PAPER_FOCUS)}
+                className={cn("rounded-none", PAPER_FOCUS)}
                 aria-label={`Open ${asset.filename}`}
               >
                 <img
                   src={asset.thumbnailUrl}
                   alt={asset.filename}
-                  className="size-20 rounded-[4px] object-cover ring-1 ring-paper-mist transition-[box-shadow] duration-150 hover:ring-paper-sage"
+                  className="size-20 rounded-none object-cover ring-1 ring-paper-mist transition-[box-shadow] duration-150 hover:ring-paper-sage"
                 />
               </Link>
             ))}

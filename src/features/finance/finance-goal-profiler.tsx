@@ -117,7 +117,7 @@ export function GoalProfiler({
   const horizon = years >= 2 ? `${years.toFixed(years % 1 === 0 ? 0 : 1)} years` : `${months} ${months === 1 ? "month" : "months"}`;
 
   return (
-    <div className="rounded-[4px] border border-paper-mist bg-paper-cream p-5">
+    <div className="rounded-none border border-paper-mist bg-paper-cream p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-paper-display text-[18px] font-bold tracking-[-0.01em] text-paper-moss">Goal profiler</h3>
@@ -158,7 +158,7 @@ export function GoalProfiler({
           <legend className="mb-1.5 text-[12.5px] font-medium text-paper-char">If the money fell 20% a year before you needed it, you would</legend>
           <div className="flex flex-wrap gap-2">
             {REACTIONS.map((option) => (
-              <label key={option.value} className={cn("cursor-pointer rounded-[4px] border px-3 py-1.5 text-[13.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper-blue", reaction === option.value ? "border-paper-moss bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
+              <label key={option.value} className={cn("cursor-pointer rounded-none border px-3 py-1.5 text-[13.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper-blue", reaction === option.value ? "border-paper-moss bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
                 <input type="radio" name="reaction" value={option.value} checked={reaction === option.value} onChange={() => setReaction(option.value)} className="sr-only" />
                 {option.label}
               </label>
@@ -169,7 +169,7 @@ export function GoalProfiler({
           <legend className="mb-1.5 text-[12.5px] font-medium text-paper-char">The date</legend>
           <div className="flex flex-wrap gap-2">
             {(["firm", "flexible"] as const).map((option) => (
-              <label key={option} className={cn("cursor-pointer rounded-[4px] border px-3 py-1.5 text-[13.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper-blue", firm === option ? "border-paper-moss bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
+              <label key={option} className={cn("cursor-pointer rounded-none border px-3 py-1.5 text-[13.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper-blue", firm === option ? "border-paper-moss bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
                 <input type="radio" name="firmness" value={option} checked={firm === option} onChange={() => setFirm(option)} className="sr-only" />
                 {option === "firm" ? "Cannot move" : "Can wait a year or two"}
               </label>
@@ -189,7 +189,7 @@ export function GoalProfiler({
       ) : (
         <>
           {recommendation ? (
-            <div className="mt-6 rounded-[4px] bg-paper-white p-4">
+            <div className="mt-6 rounded-none bg-paper-white p-4">
               <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Suggested for {horizon}</p>
               <p className="mt-1 font-paper-display text-[20px] font-bold text-paper-moss">{RISK_PROFILE_INFO[recommendation.profile].label}</p>
               <p className="text-[13.5px] text-paper-char">{RISK_PROFILE_INFO[recommendation.profile].holds}</p>
@@ -203,7 +203,7 @@ export function GoalProfiler({
             </div>
           ) : null}
 
-          <div className="mt-6 overflow-x-auto rounded-[4px] border border-paper-mist bg-paper-white">
+          <div className="mt-6 overflow-x-auto rounded-none border border-paper-mist bg-paper-white">
             <table className="w-full min-w-[40rem] text-left text-[14px]">
               <thead className="bg-paper-linen text-[12.5px] text-paper-char">
                 <tr>

@@ -357,7 +357,7 @@ function WorkspaceHeader({
       <Link
         to="/workspaces"
         className={cn(
-          "-mx-2 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[4px] px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+          "-mx-2 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
           PAPER_FOCUS,
         )}
       >
@@ -557,7 +557,7 @@ function Menu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "inline-flex min-h-8 min-w-8 cursor-pointer items-center justify-center rounded-[4px] px-2 text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+          "inline-flex min-h-8 min-w-8 cursor-pointer items-center justify-center rounded-none px-2 text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
           open && "bg-paper-linen text-paper-moss",
           PAPER_FOCUS,
         )}
@@ -569,7 +569,7 @@ function Menu({
         <div
           role="menu"
           className={cn(
-            "absolute top-full z-30 mt-1.5 w-56 overflow-hidden rounded-[4px] border border-paper-mist bg-paper-white py-1 font-paper-ui",
+            "absolute top-full z-30 mt-1.5 w-56 overflow-hidden rounded-none border border-paper-mist bg-paper-white py-1 font-paper-ui",
             align === "right" ? "right-0" : "left-0",
           )}
         >

@@ -155,7 +155,7 @@ function FrictionDialog({
         aria-label="Report friction"
         className={cn(
           "relative flex max-h-full w-[min(92vw,34rem)] flex-col overflow-hidden border",
-          paper ? "rounded-[4px] border-paper-mist bg-paper-white font-paper-ui text-paper-moss" : "rounded-xl border-os-border-strong bg-os-surface",
+          paper ? "rounded-none border-paper-mist bg-paper-white font-paper-ui text-paper-moss" : "rounded-xl border-os-border-strong bg-os-surface",
         )}
       >
         <header className={cn("border-b px-5 py-4", paper ? "border-paper-stone" : "border-os-border")}>
@@ -185,7 +185,7 @@ function FrictionDialog({
               className={cn(
                 "mt-3 w-full resize-y border px-3 py-2.5 text-[15px] leading-6",
                 paper
-                  ? "rounded-[4px] border-paper-mist bg-paper-white text-paper-moss placeholder:text-paper-ash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
+                  ? "rounded-none border-paper-mist bg-paper-white text-paper-moss placeholder:text-paper-sage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
                   : "os-focus-ring rounded-md border-os-border bg-transparent text-foreground placeholder:text-os-subtle",
               )}
             />
@@ -207,7 +207,7 @@ function FrictionDialog({
                     className={cn(
                       "w-full cursor-pointer border border-transparent px-3 py-2.5 text-left text-[14px] leading-5 transition-colors duration-150",
                       paper
-                        ? "rounded-[4px] text-paper-char hover:border-paper-mist hover:bg-paper-linen hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
+                        ? "rounded-none text-paper-char hover:border-paper-mist hover:bg-paper-linen hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
                         : "os-focus-ring rounded-md text-os-muted hover:border-os-border-strong hover:bg-os-surface-raised hover:text-foreground",
                     )}
                   >

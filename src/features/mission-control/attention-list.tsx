@@ -66,7 +66,7 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
       {items.length === 0 ? (
         <p className="text-[15px] text-paper-char">Nothing waiting on you.</p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
           {items.map((item) => (
             <li key={`${item.id}@${item.createdAt}`}>
               <AttentionCard item={item} workers={workers} onClear={() => clear([item])} onRetried={setRetried} />
@@ -102,7 +102,7 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
       </div>
 
       {showCleared && dismissed.length > 0 ? (
-        <div className="mt-2 rounded-[4px] bg-paper-linen px-4 py-3">
+        <div className="mt-2 rounded-none bg-paper-linen px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[12.5px] font-medium text-paper-sage">Cleared from Today, still current</p>
             <PaperButton variant="quiet" className="-mr-2" onClick={() => restore.mutate(undefined)} disabled={restore.isPending}>
@@ -262,7 +262,7 @@ function AttentionCard({
         aria-label={`Clear "${item.title}" from Today`}
         title="Clear from Today"
         className={cn(
-          "-mr-2 flex size-8 shrink-0 items-center justify-center rounded-[4px] text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+          "-mr-2 flex size-8 shrink-0 items-center justify-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
           PAPER_FOCUS,
         )}
       >

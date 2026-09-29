@@ -98,7 +98,7 @@ export function RecentJobs({ jobs }: { jobs: readonly JobUsage[] }) {
 
   return (
     <PaperSection label="Recent jobs" count={jobs.length}>
-      <div className="min-w-0 overflow-x-auto rounded-[4px] border border-paper-mist">
+      <div className="min-w-0 overflow-x-auto rounded-none border border-paper-mist">
         <div className="min-w-[46rem]">
           <div className={cn(JOB_COLUMNS, "border-b border-paper-mist bg-paper-linen px-4 py-2 text-[12px] font-medium text-paper-char")}>
             <span>Job</span>

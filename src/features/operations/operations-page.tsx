@@ -200,11 +200,11 @@ function Operations({
 function LoadingSheet() {
   return (
     <div aria-busy="true" aria-label="Reading the ledger">
-      <div className="h-8 w-64 rounded-[4px] bg-paper-linen motion-safe:animate-pulse" />
-      <div className="mt-3 h-4 w-40 rounded-[4px] bg-paper-linen motion-safe:animate-pulse" />
+      <div className="h-8 w-64 rounded-none bg-paper-linen motion-safe:animate-pulse" />
+      <div className="mt-3 h-4 w-40 rounded-none bg-paper-linen motion-safe:animate-pulse" />
       <div className="mt-6 grid gap-3 md:grid-cols-[1.45fr_1fr_1fr]">
         {[0, 1, 2].map((index) => (
-          <div key={index} className="h-56 rounded-[4px] border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
+          <div key={index} className="h-56 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
         ))}
       </div>
     </div>

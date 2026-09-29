@@ -135,7 +135,7 @@ export function QuietLink({ to, children }: { to: string; children: ReactNode })
     <Link
       to={to}
       className={cn(
-        "inline-flex min-h-8 items-center rounded-[4px] px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+        "inline-flex min-h-8 items-center rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
         PAPER_FOCUS,
       )}
     >

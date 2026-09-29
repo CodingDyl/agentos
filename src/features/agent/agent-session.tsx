@@ -76,7 +76,7 @@ export function AgentSessionBar({
             aria-expanded={showHistory}
             onClick={() => setShowHistory((open) => !open)}
             className={cn(
-              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
               PAPER_FOCUS,
             )}
           >

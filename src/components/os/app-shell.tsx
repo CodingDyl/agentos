@@ -121,7 +121,7 @@ export function AppShell({
       >
         Skip to content
       </a>
-      <header className="z-30 flex items-center justify-between border-b border-os-border bg-os-background/95 px-4 sm:px-6">
+      <header className="os-stage z-30 flex items-center justify-between border-b border-os-border bg-os-background px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -138,7 +138,7 @@ export function AppShell({
           </button>
           <Link
             to="/"
-            className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md font-mono text-xs tracking-[0.12em] uppercase"
+            className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-none font-paper-utility text-[15px] font-medium tracking-[0.14em] uppercase"
           >
             <span className="text-os-muted">Agent</span>
             <span className="text-os-subtle">/</span>
@@ -162,7 +162,7 @@ export function AppShell({
         ) : null}
         <aside
           className={cn(
-            "os-navigation-drawer absolute inset-y-0 left-0 z-20 flex w-[min(82vw,232px)] flex-col border-r border-os-border bg-os-surface transition-transform duration-150 md:bg-os-surface/70",
+            "os-stage os-navigation-drawer absolute inset-y-0 left-0 z-20 flex w-[min(82vw,232px)] flex-col border-r border-os-border bg-os-surface transition-transform duration-150",
           )}
           data-open={isNavigationOpen}
           inert={!navigationIsAvailable}
@@ -206,7 +206,7 @@ export function AppShell({
                     onClick={() => setIsNavigationOpen(false)}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md transition-colors duration-150",
+                      "os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-none transition-colors duration-150",
                       isActive ? "text-foreground" : "text-os-subtle hover:text-foreground",
                     )}
                   >
@@ -223,7 +223,7 @@ export function AppShell({
         </main>
       </div>
 
-      <footer className="z-30 flex items-center justify-between gap-4 border-t border-os-border bg-os-background/95 px-4 sm:px-6">
+      <footer className="os-stage z-30 flex items-center justify-between gap-4 border-t border-os-border bg-os-background px-4 sm:px-6">
         <SystemIndicator state={agentState} label={agentLabel} />
         <div className="flex min-w-0 items-center gap-3">
           {contextLabel ? (
@@ -266,7 +266,7 @@ function NavigationLink({
         to={item.href}
         onClick={onNavigate}
         className={cn(
-          "os-focus-ring group relative flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-3 font-mono text-xs tracking-[0.06em] uppercase transition-colors duration-150",
+          "os-focus-ring group relative flex min-h-10 cursor-pointer items-center gap-3 rounded-none px-3 font-paper-utility text-[13px] font-medium tracking-[0.1em] uppercase transition-colors duration-150",
           isActive
             ? "bg-os-surface-raised text-foreground"
             : "text-os-muted hover:bg-os-surface-raised/70 hover:text-foreground",
@@ -274,7 +274,7 @@ function NavigationLink({
         aria-current={isActive ? "page" : undefined}
       >
         {isActive ? (
-          <span className="absolute inset-y-3 left-0 w-px bg-os-amber" aria-hidden="true" />
+          <span className="absolute inset-y-2 left-0 w-[3px] bg-os-amber" aria-hidden="true" />
         ) : null}
         <Icon
           className={cn("size-4 text-os-subtle transition-colors", isActive && "text-os-amber")}
@@ -284,7 +284,7 @@ function NavigationLink({
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
         {item.badge ? (
           <span
-            className="shrink-0 rounded-sm bg-os-warning/15 px-1.5 py-0.5 text-[10px] leading-4 text-os-warning tabular-nums"
+            className="shrink-0 rounded-none bg-os-warning px-1.5 py-0.5 text-[11px] leading-4 font-medium text-[#0000f2] tabular-nums"
             aria-label={`${item.badge} waiting on you`}
           >
             {item.badge}
@@ -303,14 +303,14 @@ function NavigationLink({
                   onClick={onNavigate}
                   aria-current={childActive ? "page" : undefined}
                   className={cn(
-                    "os-focus-ring flex min-h-8 cursor-pointer items-center gap-2.5 rounded-md py-1 pr-3 pl-10 text-[13px] leading-5 transition-colors duration-150",
+                    "os-focus-ring flex min-h-8 cursor-pointer items-center gap-2.5 rounded-none py-1 pr-3 pl-10 text-[13.5px] leading-5 transition-colors duration-150",
                     childActive
                       ? "bg-os-surface-raised/70 text-foreground"
                       : "text-os-muted hover:bg-os-surface-raised/50 hover:text-foreground",
                   )}
                 >
                   <span
-                    className={cn("size-1 shrink-0 rounded-full", childActive ? "bg-os-amber" : "bg-os-subtle")}
+                    className={cn("size-1.5 shrink-0 rounded-none", childActive ? "bg-os-amber" : "bg-os-subtle")}
                     aria-hidden="true"
                   />
                   <span className="min-w-0 truncate">{child.label}</span>

@@ -21,7 +21,7 @@ export function CloseButton({ label, onClick, showLabel = false, className }: { 
       aria-label={label}
       title={`${label} (Esc)`}
       className={cn(
-        "inline-flex min-h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[4px] border border-paper-mist bg-paper-white px-2.5 text-[13px] font-semibold text-paper-moss transition-colors duration-150 hover:border-paper-char hover:bg-paper-linen active:scale-[0.98]",
+        "inline-flex min-h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-none border border-paper-mist bg-paper-white px-2.5 text-[13px] font-semibold text-paper-moss transition-colors duration-150 hover:border-paper-char hover:bg-paper-linen active:scale-[0.98]",
         PAPER_FOCUS,
         className,
       )}
@@ -30,7 +30,7 @@ export function CloseButton({ label, onClick, showLabel = false, className }: { 
       {showLabel ? (
         <>
           <span>Close</span>
-          <kbd className="hidden rounded-[3px] border border-paper-mist bg-paper-linen px-1 font-paper-ui text-[10.5px] font-medium text-paper-sage sm:inline">Esc</kbd>
+          <kbd className="hidden rounded-none border border-paper-mist bg-paper-linen px-1 font-paper-ui text-[10.5px] font-medium text-paper-sage sm:inline">Esc</kbd>
         </>
       ) : null}
     </button>
@@ -76,14 +76,14 @@ export function FoldCard({
   const bodyId = useId();
 
   return (
-    <div className={cn("rounded-[4px] border border-l-[3px] border-paper-mist bg-paper-white", ACCENT[accent], className)}>
+    <div className={cn("rounded-none border border-l-[3px] border-paper-mist bg-paper-white", ACCENT[accent], className)}>
       <h3 className="m-0 text-[length:inherit] font-normal">
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={bodyId}
-          className={cn("flex w-full cursor-pointer items-start gap-3 rounded-[3px] px-4 py-3.5 text-left transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS, "focus-visible:-outline-offset-2")}
+          className={cn("flex w-full cursor-pointer items-start gap-3 rounded-none px-4 py-3.5 text-left transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS, "focus-visible:-outline-offset-2")}
         >
           <ChevronDown className={cn("mt-1 size-4 shrink-0 text-paper-sage transition-transform duration-150 motion-reduce:transition-none", open && "rotate-180")} aria-hidden="true" />
           <span className="block min-w-0 flex-1">
@@ -109,7 +109,7 @@ export function FoldControls({ allOpen, onSetAll, count }: { allOpen: boolean; o
     <button
       type="button"
       onClick={() => onSetAll(!allOpen)}
-      className={cn("inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[4px] px-2 text-[12.5px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+      className={cn("inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none px-2 text-[12.5px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
     >
       <ChevronDown className={cn("size-3.5 transition-transform duration-150 motion-reduce:transition-none", allOpen && "rotate-180")} aria-hidden="true" />
       {allOpen ? "Collapse all" : "Expand all"}

@@ -47,7 +47,7 @@ export function FinanceCashFlowTab({ data }: { data: FinanceData }) {
         </PaperSection>
 
         <PaperSection label="Month by month">
-          <div className="overflow-x-auto rounded-[4px] border border-paper-mist">
+          <div className="overflow-x-auto rounded-none border border-paper-mist">
             <table className="w-full min-w-[32rem] text-left text-[14px]">
               <thead className="bg-paper-linen text-[12.5px] text-paper-char">
                 <tr>

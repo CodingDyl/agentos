@@ -36,7 +36,7 @@ export function Pagination({
 }) {
   if (total <= sizes[0]) return null;
 
-  const button = "inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-[4px] border px-2 text-[13px] font-medium tabular-nums transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40";
+  const button = "inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-none border px-2 text-[13px] font-medium tabular-nums transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <nav aria-label={label} className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
@@ -50,7 +50,7 @@ export function Pagination({
           <select
             value={size}
             onChange={(event) => onSize(Number(event.target.value) as PageSize)}
-            className={cn("min-h-9 cursor-pointer rounded-[4px] border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss", PAPER_FOCUS)}
+            className={cn("min-h-9 cursor-pointer rounded-none border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss", PAPER_FOCUS)}
           >
             {sizes.map((option) => (
               <option key={option} value={option}>

@@ -23,7 +23,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
         <ExactNetCash data={data} />
 
         <PaperSection label="This month">
-          <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-[4px] border border-paper-mist bg-paper-mist lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist lg:grid-cols-4">
             {[
               { label: "Income", value: money(summary.income) },
               { label: "Spent", value: money(summary.spent) },
@@ -45,7 +45,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
                   <button
                     type="button"
                     onClick={() => onTab(item.tab)}
-                    className="group flex w-full cursor-pointer items-start gap-2.5 rounded-[4px] text-left text-[14.5px] leading-6 text-paper-moss hover:text-paper-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
+                    className="group flex w-full cursor-pointer items-start gap-2.5 rounded-none text-left text-[14.5px] leading-6 text-paper-moss hover:text-paper-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
                   >
                     <span aria-hidden="true" className={cn("w-4 shrink-0 text-center font-semibold", item.tone === "warn" ? "text-paper-flame-deep" : "text-paper-sage")}>
                       {item.tone === "warn" ? "!" : "○"}
@@ -61,7 +61,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
         <PaperSection
           label="Goals"
           action={
-            <button type="button" onClick={() => onTab("goals")} className="cursor-pointer rounded-[4px] text-[12.5px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue">
+            <button type="button" onClick={() => onTab("goals")} className="cursor-pointer rounded-none text-[12.5px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue">
               Open goals →
             </button>
           }
@@ -154,7 +154,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
               Cancelling them would free {money(data.subscriptionReview.monthly)} a month.
             </p>
           ) : null}
-          <button type="button" onClick={() => onTab("subscriptions")} className="mt-3 cursor-pointer rounded-[4px] text-[13px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue">
+          <button type="button" onClick={() => onTab("subscriptions")} className="mt-3 cursor-pointer rounded-none text-[13px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue">
             Open subscriptions →
           </button>
         </PaperSection>
@@ -258,7 +258,7 @@ function ExactNetCash({ data }: { data: FinanceData }) {
       {data.accounts.length === 0 ? (
         <p className="text-[14px] leading-6 text-paper-char">No accounts yet.</p>
       ) : (
-        <div className="rounded-[4px] border border-paper-mist">
+        <div className="rounded-none border border-paper-mist">
           <div className="px-4 pt-3">
             <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">What you hold</p>
             <dl className="divide-y divide-paper-stone">{held.length > 0 ? held.map(row) : <p className="py-1.5 text-[14px] text-paper-sage">No current or savings accounts.</p>}</dl>

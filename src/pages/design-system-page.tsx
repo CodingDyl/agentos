@@ -21,15 +21,18 @@ import {
 import { useNavigationItems } from "@/config/use-navigation";
 
 const colorTokens = [
-  { name: "Background", value: "#041C1C", className: "bg-os-background" },
-  { name: "Surface", value: "#062322", className: "bg-os-surface" },
-  { name: "Raised", value: "#082827", className: "bg-os-surface-raised" },
-  { name: "Foreground", value: "#FFE6CB", className: "bg-os-foreground" },
-  { name: "Muted", value: "#A7B7B1", className: "bg-os-muted" },
-  { name: "Subtle", value: "#7A8F8A", className: "bg-os-subtle" },
-  { name: "Amber", value: "#FFBD38", className: "bg-os-amber" },
-  { name: "Success", value: "#8FC89A", className: "bg-os-success" },
-  { name: "Danger", value: "#D96B5F", className: "bg-os-danger" },
+  { name: "Hermes Blue", value: "#0000F2", className: "bg-paper-blue" },
+  { name: "Hermes Paper", value: "#F2F2F2", className: "bg-paper-white" },
+  { name: "Deep Ink", value: "#000091", className: "bg-paper-moss" },
+  { name: "Dark Blue", value: "20% blue / black", className: "bg-[color-mix(in_srgb,#0000f2_20%,#000)]" },
+  { name: "Yellow accent", value: "#F2F200", className: "bg-paper-marigold" },
+  { name: "Ink 90", value: "#1D1D9D", className: "bg-paper-char" },
+  { name: "Ink 70", value: "#4949AE", className: "bg-paper-sage" },
+  { name: "Control border", value: "#7474C0", className: "bg-paper-ash" },
+  { name: "Hairline", value: "#A9A9F2", className: "bg-paper-mist" },
+  { name: "Linen", value: "#E6E6F2", className: "bg-paper-linen" },
+  { name: "Stone", value: "#DCDCF2", className: "bg-paper-stone" },
+  { name: "Danger", value: "#B00020", className: "bg-paper-flame-deep" },
 ];
 
 const statusStates: AgentStatus[] = [
@@ -75,7 +78,7 @@ export function DesignSystemPage() {
       <div className="mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
         <PageHeader
           title="AgentOS visual foundation"
-          description="An internal approval surface for the Editorial Terminal system: warm, architectural, precise, and deliberately quiet. Every future screen should inherit these decisions rather than invent new ones."
+          description="The Hermes system: electric blue and warm paper, thin condensed type, square controls. Every screen inherits these decisions rather than inventing new ones."
           actions={
             <>
               <StatusPill status="healthy" label="V1 foundation" />
@@ -89,10 +92,10 @@ export function DesignSystemPage() {
         <div className="mt-12 space-y-14 pb-16">
           <SpecimenSection
             label="Palette"
-            title="Low-light surfaces, warm information"
-            description="The canvas carries the atmosphere. Cream carries hierarchy. Signal colors stay small enough to retain meaning."
+            title="Electric blue, warm paper"
+            description="Blue is the stage: the shell, primary actions, active state. Paper is the page. Deep Ink is the text. Yellow appears only on blue. Danger is the one hue outside the palette, because an error has to read as one."
           >
-            <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 xl:grid-cols-6">
               {colorTokens.map((token) => (
                 <ColorToken key={token.name} {...token} />
               ))}
@@ -101,30 +104,30 @@ export function DesignSystemPage() {
 
           <SpecimenSection
             label="Typography"
-            title="Editorial hierarchy with machine-readable detail"
-            description="Inter handles reading and action. IBM Plex Mono is reserved for system state, metadata, and commands."
+            title="Thin condensed display, plain body"
+            description="Roboto Condensed carries titles at a light weight, and Barlow Condensed the feature headings. Inter is for reading and action. IBM Plex Mono is reserved for commands and indices. These stand in for the licensed Rules faces."
           >
             <div className="border-y border-os-border">
               <TypeSpecimen
                 label="Display"
-                detail="48–64 / 400"
-                className="text-[clamp(2.4rem,5vw,4rem)] leading-[1] tracking-[-0.035em]"
+                detail="36–48 / 300"
+                className="font-paper-display text-[clamp(2.25rem,5vw,3rem)] leading-[1] font-light tracking-[-0.02em]"
               >
                 Quiet systems, clear intent.
               </TypeSpecimen>
               <TypeSpecimen
-                label="Page"
-                detail="32 / 400"
-                className="text-[32px] leading-[1.05] tracking-[-0.025em]"
+                label="Section"
+                detail="28 / 400"
+                className="font-paper-display text-[28px] leading-[1.05] font-normal tracking-[-0.015em]"
               >
-                Your work, in focus
+                Active workspaces
               </TypeSpecimen>
               <TypeSpecimen
-                label="Section"
-                detail="22 / 400"
-                className="text-[22px] leading-[1.15] tracking-[-0.02em]"
+                label="Feature"
+                detail="Compressed / 500"
+                className="font-paper-compressed text-[32px] leading-[1.1] font-medium"
               >
-                Active projects
+                Connect. Plan. Delegate.
               </TypeSpecimen>
               <TypeSpecimen
                 label="Body"
@@ -135,8 +138,8 @@ export function DesignSystemPage() {
                 workspace into a reporting screen.
               </TypeSpecimen>
               <TypeSpecimen
-                label="Metadata"
-                detail="11 / 400"
+                label="Utility"
+                detail="12 / 500 / 0.1em"
                 className="os-meta text-os-muted"
               >
                 Hermes / Connected / Local
@@ -147,7 +150,7 @@ export function DesignSystemPage() {
           <SpecimenSection
             label="Labels & actions"
             title="Controls state their purpose plainly"
-            description="Cream is the primary action color. Amber is reserved for focus and live state, never used as a default fill."
+            description="Hermes Blue is the primary action, square, with paper text. Secondary actions are outlined in blue. Nothing is pill-shaped except a switch."
           >
             <div className="grid gap-8 xl:grid-cols-2">
               <div>

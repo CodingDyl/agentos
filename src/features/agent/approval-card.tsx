@@ -20,7 +20,7 @@ export function GatedCommand({ request, className }: { request: ApprovalRequest;
   }
 
   return (
-    <pre className={cn("overflow-x-auto rounded-[4px] border border-paper-mist bg-paper-linen p-4", className)}>
+    <pre className={cn("overflow-x-auto rounded-none border border-paper-mist bg-paper-linen p-4", className)}>
       <code className="font-mono text-[13px] leading-5 text-paper-moss">{request.command}</code>
     </pre>
   );
@@ -88,7 +88,7 @@ export function ApprovalCard({ request, onRespond, isResponding = false, error, 
               aria-label="More approval options"
               onClick={() => setShowMore((open) => !open)}
               className={cn(
-                "inline-flex size-9 cursor-pointer items-center justify-center rounded-[4px] text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                "inline-flex size-9 cursor-pointer items-center justify-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                 PAPER_FOCUS,
               )}
             >

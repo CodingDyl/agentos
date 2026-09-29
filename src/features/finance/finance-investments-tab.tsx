@@ -37,7 +37,7 @@ export function FinanceInvestmentsTab({ data }: { data: FinanceData }) {
       <div className="grid gap-x-12 gap-y-12 lg:grid-cols-2">
         <PaperSection label="Research areas">
           <p className="mb-4 max-w-[60ch] text-[14px] leading-6 text-paper-char">Start with diversified exposure, and learn what each is before choosing one.</p>
-          <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+          <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
             {RESEARCH_AREAS.map((area) => (
               <li key={area.name} className="px-4 py-3">
                 <p className="font-paper-display text-[15px] font-bold text-paper-moss">{area.name}</p>
@@ -56,7 +56,7 @@ export function FinanceInvestmentsTab({ data }: { data: FinanceData }) {
               </li>
             ))}
           </ul>
-          <div role="note" className="mt-6 rounded-[4px] bg-paper-linen p-4 text-[13.5px] leading-6 text-paper-char">
+          <div role="note" className="mt-6 rounded-none bg-paper-linen p-4 text-[13.5px] leading-6 text-paper-char">
             <p className="font-semibold text-paper-moss">Research is not a recommendation.</p>
             <p className="mt-1">
               AgentOS will not tell you to buy a company or a fund, and it cannot buy or move anything. Watchlists and fund comparisons are the next step once you know what you want from this page.

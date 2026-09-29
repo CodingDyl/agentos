@@ -24,7 +24,7 @@ function BriefText({ text }: { text: string }) {
     <>
       {parts.map((part, index) =>
         index % 2 === 1 ? (
-          <code key={index} className="rounded-[3px] bg-paper-stone px-1 py-px font-mono text-[0.85em] text-paper-moss">
+          <code key={index} className="rounded-none bg-paper-stone px-1 py-px font-mono text-[0.85em] text-paper-moss">
             {part}
           </code>
         ) : (
@@ -145,7 +145,7 @@ export function MorningPlan({ className }: { className?: string }) {
         </span>
       }
     >
-      <div className="rounded-[4px] border border-paper-mist bg-paper-cream px-5 py-4">
+      <div className="rounded-none border border-paper-mist bg-paper-cream px-5 py-4">
         {queued ? (
           <p className="mb-3 text-[13px] text-paper-sage" role="status">
             Queued. The new plan appears here when Hermes finishes, usually within a couple of minutes.
@@ -209,7 +209,7 @@ function EventRow({ event, timing }: { event: CalendarEvent; timing: string | un
           target="_blank"
           rel="noreferrer"
           className={cn(
-            "inline-flex h-7 shrink-0 items-center gap-1 rounded-[4px] px-2 text-[12.5px] font-semibold text-paper-blue hover:bg-paper-stone",
+            "inline-flex h-7 shrink-0 items-center gap-1 rounded-none px-2 text-[12.5px] font-semibold text-paper-blue hover:bg-paper-stone",
             PAPER_FOCUS,
           )}
         >
@@ -222,7 +222,7 @@ function EventRow({ event, timing }: { event: CalendarEvent; timing: string | un
           target="_blank"
           rel="noreferrer"
           aria-label={`Open ${event.title} in Google Calendar`}
-          className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-[4px] text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+          className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-none text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
         >
           <ExternalLink className="size-3.5" aria-hidden="true" />
         </a>
@@ -242,7 +242,7 @@ export function TodayCalendar({ className }: { className?: string }) {
       {isPending ? (
         <p className="text-[14px] text-paper-sage">Reading your calendar…</p>
       ) : !data || data.status !== "ready" ? (
-        <div className="rounded-[4px] border border-paper-mist px-4 py-3.5">
+        <div className="rounded-none border border-paper-mist px-4 py-3.5">
           <p className="text-[14px] leading-6 text-paper-char">
             {data?.detail ?? CALENDAR_HELP[data?.status ?? ""] ?? "The calendar couldn't be read."}
           </p>
@@ -250,7 +250,7 @@ export function TodayCalendar({ className }: { className?: string }) {
             <a
               href={mailConnectUrl()}
               className={cn(
-                "mt-3 inline-flex min-h-8 items-center rounded-[4px] border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-linen",
+                "mt-3 inline-flex min-h-8 items-center rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-linen",
                 PAPER_FOCUS,
               )}
             >
@@ -261,7 +261,7 @@ export function TodayCalendar({ className }: { className?: string }) {
       ) : events.length === 0 ? (
         <p className="text-[14px] text-paper-char">Nothing on the calendar today. A clear run at the work.</p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
           {events.map((event) => (
             <EventRow key={event.id} event={event} timing={timings.get(event.id)} />
           ))}
@@ -305,7 +305,7 @@ export function DayWrapUp({ className }: { className?: string }) {
 
   return (
     <PaperSection label="Wrap up the day" className={className}>
-      <div className="rounded-[4px] border border-paper-mist">
+      <div className="rounded-none border border-paper-mist">
         <div className="grid gap-px bg-paper-stone md:grid-cols-2">
           <div className="bg-paper-white px-5 py-4">
             <TodayLabel>Done today{data && data.done.length > 0 ? ` · ${data.done.length}` : ""}</TodayLabel>
@@ -319,7 +319,7 @@ export function DayWrapUp({ className }: { className?: string }) {
               <ul className="mt-2 space-y-2">
                 {data.done.map((item) => (
                   <li key={item.id} className="flex min-w-0 gap-2.5">
-                    <Check className="mt-1 size-3.5 shrink-0 text-[#3f7a2a]" strokeWidth={2.5} aria-hidden="true" />
+                    <Check className="mt-1 size-3.5 shrink-0 text-paper-moss" strokeWidth={2.5} aria-hidden="true" />
                     <span className="min-w-0">
                       <span className="block text-[14px] leading-6 text-paper-moss">{item.title}</span>
                       <span className="block text-[12px] text-paper-sage">

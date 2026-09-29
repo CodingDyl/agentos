@@ -85,7 +85,7 @@ export function CategoryList({ data }: { data: FinanceData }) {
       {data.categories.length === 0 ? (
         <p className="text-[14px] leading-6 text-paper-char">Nothing spent yet this month.</p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-[4px] border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
           {data.categories.map((entry) => (
             <CategoryRow key={entry.category} entry={entry} open={open === entry.category} onToggle={() => setOpen(open === entry.category ? undefined : entry.category)} readOnly={data.source.kind === "sample"} />
           ))}

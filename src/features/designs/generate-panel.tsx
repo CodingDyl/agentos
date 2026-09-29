@@ -139,7 +139,7 @@ export function GeneratePanel({
             type="button"
             onClick={onClose}
             aria-label="Close generate"
-            className={cn("rounded-[4px] p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+            className={cn("rounded-none p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
           >
             <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -238,7 +238,7 @@ export function GeneratePanel({
                       key={asset.id}
                       src={asset.thumbnailUrl}
                       alt={asset.filename}
-                      className="size-14 rounded-[4px] object-cover ring-1 ring-paper-mist"
+                      className="size-14 rounded-none object-cover ring-1 ring-paper-mist"
                     />
                   ))}
                 </div>

@@ -95,7 +95,7 @@ function MonthlyReviewCard({ previous }: { previous: PreviousReview }) {
   const advice = review.narrative ? excerpt(narrativeSection(review.narrative, "Next month") ?? review.narrative, 320) : undefined;
 
   return (
-    <div className="mb-6 rounded-[4px] border border-l-[3px] border-paper-mist border-l-paper-green bg-paper-cream p-4" role="region" aria-label={`${month} review`}>
+    <div className="mb-6 rounded-none border border-l-[3px] border-paper-mist border-l-paper-green bg-paper-cream p-4" role="region" aria-label={`${month} review`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-paper-display text-[18px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">{month} review</h3>

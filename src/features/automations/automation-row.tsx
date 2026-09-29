@@ -137,7 +137,7 @@ export function AutomationRow({ automation, now }: AutomationRowProps) {
           <Link
             to={`/automations/${automation.id}`}
             className={cn(
-              "inline-flex min-h-8 items-center gap-1 rounded-[4px] px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+              "inline-flex min-h-8 items-center gap-1 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
               PAPER_FOCUS,
             )}
           >

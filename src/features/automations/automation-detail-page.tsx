@@ -45,7 +45,7 @@ export function AutomationDetailPage() {
         <Link
           to="/automations"
           className={cn(
-            "-mx-2 inline-flex min-h-8 items-center gap-1.5 rounded-[4px] px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+            "-mx-2 inline-flex min-h-8 items-center gap-1.5 rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
             PAPER_FOCUS,
           )}
         >
@@ -157,7 +157,7 @@ function AutomationDetail({ automation, children }: { automation: Automation; ch
       </header>
 
       {lastRun?.detail || automation.warnings.length > 0 ? (
-        <div role="alert" className="mt-8 max-w-[80ch] rounded-[4px] border border-paper-flame-deep px-5 py-4">
+        <div role="alert" className="mt-8 max-w-[80ch] rounded-none border border-paper-flame-deep px-5 py-4">
           <p className="text-[13px] font-semibold text-paper-flame-deep">Reported by Hermes</p>
           {lastRun?.detail ? (
             <p className="mt-2 font-mono text-[12.5px] leading-5 break-words text-paper-flame-deep">{lastRun.detail}</p>
@@ -174,7 +174,7 @@ function AutomationDetail({ automation, children }: { automation: Automation; ch
         <div className="min-w-0">
           <PaperSection label="What it does">
             {recipe?.prompt || recipe?.script ? (
-              <div className="rounded-[4px] border border-paper-mist bg-paper-cream px-5 py-4">
+              <div className="rounded-none border border-paper-mist bg-paper-cream px-5 py-4">
                 {recipe.prompt ? (
                   <p className="max-w-[72ch] text-[15px] leading-[1.65] whitespace-pre-wrap text-paper-moss">{recipe.prompt}</p>
                 ) : null}
