@@ -158,6 +158,7 @@ import {
   getWorkerJobs,
   previewRoute,
   probeOllamaModel,
+  routeTaskDelegation,
   saveOllamaSettings,
   getWorkers,
   completeTask,
@@ -200,6 +201,7 @@ import {
   verifyWorkerJobVisually,
 } from "./client";
 import type { WorkerJobRequest, WorkerJobStatus } from "@shared/worker-types";
+import type { RoutingMode } from "@shared/route-policy-types";
 import type { MilestoneTaskApproval, TaskDelegationApproval } from "@shared/delegation-types";
 
 /** Query keys for AgentOS vault reads. */
@@ -1169,10 +1171,24 @@ export function usePrepareTaskDelegation(slug: string) {
     mutationFn: ({
       taskId,
       requestedWorker,
+      routingMode,
+      manualOptionId,
     }: {
       taskId: string;
       requestedWorker: WorkerJobRequest["worker"];
-    }) => prepareTaskDelegation(slug, taskId, requestedWorker),
+      routingMode?: RoutingMode;
+      manualOptionId?: string;
+    }) => prepareTaskDelegation(slug, taskId, requestedWorker, { routingMode, manualOptionId }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Re-checks the route for a plan on screen. Scoping is not repeated. */
+export function useRouteTaskDelegation(slug: string) {
+  return useMutation({
+    mutationFn: ({ taskId, ...input }: { taskId: string } & Parameters<typeof routeTaskDelegation>[2]) =>
+      routeTaskDelegation(slug, taskId, input),
     networkMode: "always",
     retry: 0,
   });
@@ -1209,10 +1225,12 @@ export function usePrepareMilestoneDelegation(slug: string) {
     mutationFn: ({
       milestoneId,
       requestedWorker,
+      routingMode,
     }: {
       milestoneId: string;
       requestedWorker: WorkerJobRequest["worker"];
-    }) => prepareMilestoneDelegation(slug, milestoneId, requestedWorker),
+      routingMode?: RoutingMode;
+    }) => prepareMilestoneDelegation(slug, milestoneId, requestedWorker, { routingMode }),
     networkMode: "always",
     retry: 0,
   });

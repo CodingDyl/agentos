@@ -196,6 +196,7 @@ import {
 import { createWorkerEvent } from "./workers/worker";
 import {
   delegateTask,
+  previewTaskRoute,
   prepareDelegation,
   taskDelegations,
 } from "./agentos/task-delegation";
@@ -206,6 +207,8 @@ import {
   MilestoneDelegationRequestSchema,
   MilestoneDelegationStartRequestSchema,
   TaskDelegationApprovalSchema,
+  TaskDelegationRequestSchema,
+  TaskRouteRequestSchema,
 } from "../shared/delegation-types";
 import {
   DesignBriefProposalSchema,
@@ -899,14 +902,16 @@ app.get("/api/projects/:slug", async (request, response) => {
  * of a task became running code without anyone seeing the terms of the work.
  */
 app.post("/api/projects/:slug/tasks/:taskId/delegate", async (request, response) => {
-  const body = request.body ?? {};
-  const requested = body.requestedWorker ?? "auto";
+  // Parsed rather than trusted: a malformed mode is dropped, never half-applied.
+  const parsed = TaskDelegationRequestSchema.safeParse(request.body ?? {});
+  const requested = parsed.success ? parsed.data.requestedWorker : "auto";
 
   try {
     const { preview, error } = await prepareDelegation(
       request.params.slug,
       request.params.taskId,
       requested,
+      parsed.success ? { routingMode: parsed.data.routingMode, manualOptionId: parsed.data.manualOptionId } : {},
     );
 
     if (!preview) {
@@ -919,6 +924,40 @@ app.post("/api/projects/:slug/tasks/:taskId/delegate", async (request, response)
   } catch (error) {
     console.error("[agentos] task scoping failed:", error);
     response.status(500).json({ error: "Unable to scope that task" });
+  }
+});
+
+/**
+ * Re-checks the route for a plan already on screen: after it is edited, or the
+ * operator picks Auto / Local only / Manual. Scoping is not repeated; only the
+ * routing, which is deterministic and cheap.
+ */
+app.post("/api/projects/:slug/tasks/:taskId/route", async (request, response) => {
+  const parsed = TaskRouteRequestSchema.safeParse(request.body ?? {});
+
+  if (!parsed.success) {
+    response.status(400).json({ error: "That delegation plan is not complete." });
+    return;
+  }
+
+  try {
+    const { route, error } = await previewTaskRoute(
+      request.params.slug,
+      request.params.taskId,
+      parsed.data.plan,
+      parsed.data.requestedWorker,
+      { routingMode: parsed.data.routingMode, manualOptionId: parsed.data.manualOptionId },
+    );
+
+    if (!route) {
+      response.status(409).json({ error });
+      return;
+    }
+
+    response.json(route);
+  } catch (error) {
+    console.error("[agentos] task route check failed:", error);
+    response.status(500).json({ error: "Unable to check that route" });
   }
 });
 
@@ -969,7 +1008,12 @@ app.post("/api/projects/:slug/milestones/:id/delegate/prepare", async (request, 
   const requested = parsed.success ? parsed.data.requestedWorker : "auto";
 
   try {
-    const { preview, error } = await prepareMilestoneDelegation(request.params.slug, request.params.id, requested);
+    const { preview, error } = await prepareMilestoneDelegation(
+      request.params.slug,
+      request.params.id,
+      requested,
+      { routingMode: parsed.success ? parsed.data.routingMode : undefined },
+    );
 
     if (!preview) {
       response.status(404).json({ error });

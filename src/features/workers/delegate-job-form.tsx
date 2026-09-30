@@ -21,6 +21,7 @@ import {
   useStartWorkerJob,
 } from "@/lib/agentos/queries";
 import { RoutePolicyPanel } from "./route-policy-panel";
+import { RoutingControls } from "./routing-controls";
 import { optionLabel, parseSchemaInput } from "./route-policy-model";
 import { RoutingDecision } from "./routing-decision";
 import { VisualAcceptanceFields } from "./visual-acceptance-fields";
@@ -320,49 +321,16 @@ export function DelegateJobForm({
           ) : null}
         </div>
 
-        <div className="mt-6">
-          <SectionLabel>Routing</SectionLabel>
-          <FilterBar<RoutingMode>
-            label="Choose how this task is routed"
-            className="mt-3"
-            value={mode}
-            onChange={chooseMode}
-            options={[
-              { value: "auto", label: "Auto" },
-              { value: "local_only", label: "Local only" },
-              { value: "manual", label: "Manual" },
-            ]}
-          />
-          <span className="os-meta mt-2 block text-os-subtle">
-            {mode === "auto"
-              ? "Small bounded text tasks go to an enabled local model; the rest go to a capable worker. You see the reason before anything runs"
-              : mode === "local_only"
-                ? "Nothing leaves this machine: no cloud provider, including on failure. If no local model can take it, it is blocked"
-                : "You choose the worker (and model). The choice is checked and recorded as an override"}
-          </span>
-        </div>
-
-        {mode === "manual" ? (
-          <div className="mt-4">
-            <SectionLabel>Run it with</SectionLabel>
-            <FilterBar<string>
-              label="Choose a worker or model"
-              className="mt-3"
-              value={manualId ?? ""}
-              onChange={pickManual}
-              options={[
-                ...(executionOptions.data?.options ?? []).map((option) => ({
-                  value: option.id,
-                  label: optionLabel(option, (id) => workers.find((w) => w.id === id)?.name ?? id),
-                })),
-                ...legacyWorkers.map((worker) => ({ value: worker.id, label: worker.name })),
-              ]}
-            />
-            {!hasObjective ? (
-              <span className="os-meta mt-2 block text-os-subtle">Write the objective first so the choice can be checked</span>
-            ) : null}
-          </div>
-        ) : null}
+        <RoutingControls
+          className="mt-6"
+          mode={mode}
+          onModeChange={chooseMode}
+          manualId={manualId}
+          onManualChange={pickManual}
+          workers={workers}
+          legacyWorkers={legacyWorkers}
+          manualHint={hasObjective ? undefined : "Write the objective first so the choice can be checked"}
+        />
 
         {record ? <RoutePolicyPanel className="mt-5" record={record} workers={workers} /> : null}
 

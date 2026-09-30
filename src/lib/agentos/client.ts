@@ -138,9 +138,12 @@ import {
   type MilestoneTaskApproval,
   type TaskCompletionProposal,
   TaskCompletionProposalSchema,
+  type DelegationPlan,
   type TaskDelegationApproval,
   type TaskDelegationPreview,
   TaskDelegationPreviewSchema,
+  type TaskRoutePreview,
+  TaskRoutePreviewSchema,
   type TaskDelegationsResponse,
   TaskDelegationsResponseSchema,
 } from "@shared/delegation-types";
@@ -157,6 +160,7 @@ import {
   type ExecutionOptionsResponse,
   type OllamaSettings,
   type OllamaStatusResponse,
+  type RoutingMode,
   type ProbeRequest,
   type ProbeResult,
   type RoutePreviewResponse,
@@ -955,15 +959,41 @@ export function prepareTaskDelegation(
   slug: string,
   taskId: string,
   requestedWorker: WorkerJobRequest["worker"],
+  choice: { routingMode?: RoutingMode; manualOptionId?: string } = {},
 ): Promise<TaskDelegationPreview> {
   return workerRequest(
     `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(taskId)}/delegate`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestedWorker }),
+      body: JSON.stringify({ requestedWorker, ...choice }),
     },
     (value) => TaskDelegationPreviewSchema.safeParse(value),
+  );
+}
+
+/**
+ * Re-checks the route for a plan already on screen (edited, or given a new
+ * routing mode). Does not scope the task again.
+ */
+export function routeTaskDelegation(
+  slug: string,
+  taskId: string,
+  input: {
+    plan: DelegationPlan;
+    requestedWorker: WorkerJobRequest["worker"];
+    routingMode?: RoutingMode;
+    manualOptionId?: string;
+  },
+): Promise<TaskRoutePreview> {
+  return workerRequest(
+    `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(taskId)}/route`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    (value) => TaskRoutePreviewSchema.safeParse(value),
   );
 }
 
@@ -994,13 +1024,14 @@ export function prepareMilestoneDelegation(
   slug: string,
   milestoneId: string,
   requestedWorker: WorkerJobRequest["worker"],
+  choice: { routingMode?: RoutingMode } = {},
 ): Promise<MilestoneDelegationPreview> {
   return workerRequest(
     `/api/projects/${encodeURIComponent(slug)}/milestones/${encodeURIComponent(milestoneId)}/delegate/prepare`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestedWorker }),
+      body: JSON.stringify({ requestedWorker, ...choice }),
     },
     (value) => MilestoneDelegationPreviewSchema.safeParse(value),
   );

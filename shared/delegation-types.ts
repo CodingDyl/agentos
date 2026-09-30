@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MemoryContextSourceSchema, MemoryContextStatusSchema } from "./memory-types";
+import { RoutePolicyRecordSchema, RoutingModeSchema } from "./route-policy-types";
 import { VisualAcceptanceContextSchema } from "./visual-verification-types";
 import {
   WorkerPerformanceSchema,
@@ -71,6 +72,13 @@ export const TaskDelegationRequestSchema = z.object({
   requestedWorker: z
     .union([WorkerIdSchema, z.literal("auto")])
     .default("auto"),
+  /**
+   * How the route policy should choose. Absent means the pre-policy behaviour:
+   * an explicit `requestedWorker` runs as named and `auto` asks Hermes.
+   */
+  routingMode: RoutingModeSchema.optional(),
+  /** With `manual`, the execution option (e.g. `ollama:qwen2.5-coder:7b`) chosen by hand. */
+  manualOptionId: z.string().optional(),
 });
 
 /**
@@ -86,7 +94,20 @@ export const TaskDelegationPreviewSchema = z.object({
   candidates: z.array(WorkerPerformanceSchema).optional(),
   /** Why no worker could be recommended, when none could. */
   routingError: z.string().optional(),
+  /**
+   * The route policy's full finding: what was chosen or why it was blocked,
+   * what was ruled out, and the one permitted fallback. Present whenever the
+   * policy made the decision, including when it blocked the task.
+   */
+  policy: RoutePolicyRecordSchema.optional(),
 });
+
+/** Re-checking the route for a plan that has been edited or given a new mode. */
+export const TaskRouteRequestSchema = TaskDelegationRequestSchema.extend({
+  plan: DelegationPlanSchema,
+});
+
+export const TaskRoutePreviewSchema = TaskDelegationPreviewSchema.omit({ plan: true });
 
 /** What the console sends back once a person has approved a plan. */
 export const TaskDelegationApprovalSchema = z.object({
@@ -94,6 +115,8 @@ export const TaskDelegationApprovalSchema = z.object({
   worker: z.union([WorkerIdSchema, z.literal("auto")]),
   routing: WorkerRoutingDecisionSchema.optional(),
   repoPath: z.string().optional(),
+  routingMode: RoutingModeSchema.optional(),
+  manualOptionId: z.string().optional(),
 });
 
 /**
@@ -176,6 +199,7 @@ export const MilestoneDelegationRequestSchema = z.object({
   requestedWorker: z
     .union([WorkerIdSchema, z.literal("auto")])
     .default("auto"),
+  routingMode: RoutingModeSchema.optional(),
 });
 
 /** One approved task, carrying the plan a person reviewed for it. */
@@ -200,6 +224,8 @@ export type MilestoneDelegationStartRequest = z.infer<typeof MilestoneDelegation
 export type MilestoneDelegationResult = z.infer<typeof MilestoneDelegationResultSchema>;
 
 export type DelegationPlan = z.infer<typeof DelegationPlanSchema>;
+export type TaskRouteRequest = z.infer<typeof TaskRouteRequestSchema>;
+export type TaskRoutePreview = z.infer<typeof TaskRoutePreviewSchema>;
 export type TaskDelegationRequest = z.infer<typeof TaskDelegationRequestSchema>;
 export type TaskDelegationPreview = z.infer<typeof TaskDelegationPreviewSchema>;
 export type TaskDelegationApproval = z.infer<
