@@ -115,6 +115,8 @@ export const OperatorStepSchema = z.object({
   /** What it did, in one line. */
   result: z.string().optional(),
   outputs: z.array(StepOutputSchema),
+  /** Where to fix a blocked step, e.g. Connectors → Local filesystem. */
+  fix: StepOutputSchema.optional(),
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
 });

@@ -62,7 +62,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     capabilities: [
       { action: "read_vault", name: "Read the vault", risk: "read", implementedBy: "server/agentos/filesystem.ts" },
       { action: "write_project_files", name: "Write tasks, decisions and project files", risk: "write-local", implementedBy: "server/agentos/mutations/writer.ts" },
-      { action: "create_directory", name: "Create project folders outside the vault", risk: "write-local" },
+      { action: "create_directory", name: "Create project folders outside the vault", risk: "write-local", implementedBy: "server/operator/project-folder.ts" },
       { action: "delete_files", name: "Delete files", risk: "destructive" },
     ],
   },

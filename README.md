@@ -54,6 +54,8 @@ happens only when you send a message or run a command.
 | `server/operator/runbooks.ts` | The normal flow per request kind: New SaaS, SEO Audit, Business Venture, Workspace task, Ask |
 | `server/operator/engine.ts` | Plan → approve → execute → record; Stop halts, cancels jobs, rolls nothing back |
 | `server/operator/operations.ts` | What Operator can do today, each an existing AgentOS operation |
+| `server/operator/project-folder.ts` | New project folders: only `<AGENTOS_PROJECTS_ROOT>/<slug>`; a missing root (unplugged SSD) is reported, never created |
+| `src/features/operator/jarvis-operator.ts` | Jarvis on Operator: voice commands, the spoken approve → confirm gate, run narration |
 | `server/workers/worker.ts` | The provider-neutral worker contract |
 | `server/workers/registry.ts` | Which workers exist; the only place one is named |
 | `server/workers/job-manager.ts` | Validates, isolates, runs, records |
@@ -153,7 +155,7 @@ involved. Run them separately with `npm run dev:web` and `npm run dev:data`.
 | `VIRTEC_BASE_URL` | — | Virtec deployment, `https://` (read-only CRM data for Traction) |
 | `VIRTEC_API_KEY` | — | The value Virtec holds as `AGENTOS_API_KEY`; server-only |
 | `VIRTEC_WRITE_API_KEY` | — | Optional write-back: Virtec's `AGENTOS_WRITE_API_KEY`, a different secret; server-only |
-| `AGENTOS_PROJECTS_ROOT` | — | Where Operator plans new code projects (e.g. `/Volumes/SSD/Developer`); display only until folder creation lands |
+| `AGENTOS_PROJECTS_ROOT` | — | Where Operator creates new project folders (e.g. `/Volumes/SSD/Developer`). Settable in Connectors → Local filesystem. Must already exist |
 | `AGENTOS_OPERATOR_ROUTER` | `rules` | `hermes` to classify requests with Hermes; falls back to rules on any failure |
 | `AGENTOS_VISUAL_PREVIEW_COMMAND` | — | How to serve a worktree for visual verification; `{port}` is substituted |
 
@@ -192,8 +194,8 @@ to browse everything, so it reads detail for the whole portfolio.
 | Route | Screen |
 | --- | --- |
 | `/` | Mission Control — what matters, what needs you, what is running, what is broken |
-| `/operator` | Operator: Ask / Plan / Run a request; runbooks; recent runs |
-| `/operator/runs/:id` | One run: decisions, plan, approval, live steps, result, what changed |
+| `/operator` | Operator as a conversation, led by Jarvis: Ask / Plan / Run, progress then a breakdown per request |
+| `/operator/runs/:id` | The conversation with one run's full record open: decisions, plan, approval, steps, audit |
 | `/traction` | Customer acquisition: today's queue, prospects, pipeline, waiting on, clients & referrals, case studies, Virtec, offers, experiments, weekly review |
 | `/projects` | Portfolio, grouped by state |
 | `/projects/:slug` | Project workspace (Overview, Tasks, Decisions, Sessions, Git) |

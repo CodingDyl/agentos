@@ -51,7 +51,7 @@ export function OperatorRunView({ runId, onRunAgain }: { runId: string; onRunAga
   }
 
   return (
-    <article aria-label={`Run: ${run.intent?.workspace?.name ?? run.input.slice(0, 60)}`} className="mt-10">
+    <article aria-label={`Run: ${run.intent?.workspace?.name ?? run.input.slice(0, 60)}`} className="mt-4">
       <RunHeader run={run} />
 
       <blockquote className="mt-5 border-l-2 border-paper-mist pl-4 text-[14.5px] leading-6 text-paper-char">{run.input}</blockquote>
@@ -221,6 +221,11 @@ function StepRow({ step, index }: { step: OperatorStep; index: number }) {
         {step.result && step.status === "done" ? <p className="mt-1 text-[13px] text-paper-char">{step.result}</p> : null}
         {step.reason ? (
           <p className={cn("mt-1 text-[13px]", step.status === "failed" ? "text-paper-flame-deep" : "text-paper-char")}>{step.reason}</p>
+        ) : null}
+        {step.fix && step.status === "blocked" ? (
+          <p className="mt-1">
+            <OutputLink output={step.fix} />
+          </p>
         ) : null}
         {step.outputs.length > 0 ? (
           <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">

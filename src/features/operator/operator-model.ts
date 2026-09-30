@@ -211,3 +211,76 @@ export function linkKind(href: string | undefined): "internal" | "external" | "n
   if (href.startsWith("/") && !href.startsWith("//")) return "internal";
   return /^https?:\/\//i.test(href) ? "external" : "none";
 }
+
+/**
+ * What one Operator message says: a short progress line while the run is
+ * going, then only the breakdown that matters. Everything else (decisions,
+ * the full plan, audit) is one click away in the details.
+ */
+export interface RunDigest {
+  /** One line: what Operator is doing, or how it ended. */
+  headline: string;
+  phase: "working" | "needs-you" | "done" | "problem";
+  /** Finished steps, in order, as short lines. */
+  done: string[];
+  /** The step in progress. */
+  current?: string;
+  /** Steps that are part of the plan but can't run here. */
+  blockedCount: number;
+  /** Plan mode: the steps that would run. */
+  wouldRun: string[];
+  changes: OperatorRun["changes"];
+  answer?: string;
+  sourceCount: number;
+  nextAction?: string;
+  openTasks: number;
+  openMemory: number;
+}
+
+export function runDigest(run: OperatorRun): RunDigest {
+  const counts = stepCounts(run.plan);
+  const noise = (step: OperatorStep) => step.operation === "hermes.plan" || step.operation === "agentos.record";
+  const done = run.plan.filter((step) => step.status === "done" && !noise(step)).map((step) => step.title);
+  const current = run.plan.find((step) => step.status === "running")?.title;
+  const failed = run.plan.find((step) => step.status === "failed");
+  const base = {
+    done,
+    current,
+    blockedCount: counts.blocked,
+    wouldRun: run.mode === "plan" ? run.plan.filter((step) => step.status === "pending" && !noise(step)).map((step) => step.title) : [],
+    changes: run.changes,
+    answer: run.report?.answer,
+    sourceCount: run.report?.sources.length ?? 0,
+    nextAction: run.report?.nextAction,
+    openTasks: run.mode === "run" ? run.taskProposals.filter((task) => !task.taskId).length : 0,
+    openMemory: run.memoryProposals.filter((proposal) => proposal.status === "proposed").length,
+  };
+  const what = run.intent?.workspace ? `${run.intent.interpretedAs}: ${run.intent.workspace.name}` : run.intent?.interpretedAs;
+
+  switch (run.status) {
+    case "planning":
+      return { ...base, phase: "working", headline: run.mode === "ask" ? "Looking into it…" : "Understanding the request and planning it…" };
+    case "running":
+      return {
+        ...base,
+        phase: "working",
+        headline: run.mode === "ask" ? "Reading your vault and asking Hermes…" : `Working on it: ${counts.done} of ${counts.total} steps done.`,
+      };
+    case "awaiting_approval":
+      return { ...base, phase: "needs-you", headline: `${what ?? "Planned"}. ${counts.runnable} of ${counts.total} steps can run here. Nothing has run yet.` };
+    case "completed":
+      if (run.mode === "ask") return { ...base, phase: "done", headline: "" };
+      if (run.mode === "plan") return { ...base, phase: "done", headline: `Plan ready${what ? ` · ${what}` : ""}. ${counts.runnable} of ${counts.total} steps can run here.` };
+      return { ...base, phase: "done", headline: `Done. ${counts.done} of ${counts.total} steps.` };
+    case "blocked":
+      return { ...base, phase: "done", headline: `Finished what I could: ${counts.done} of ${counts.total} steps. ${counts.blocked} can't run here yet.` };
+    case "failed":
+      return {
+        ...base,
+        phase: "problem",
+        headline: run.mode === "ask" ? `I couldn't get an answer. ${failed?.reason ?? run.statusDetail ?? ""}`.trim() : `That failed${failed ? ` at “${failed.title}”` : ""}. ${failed?.reason ?? run.statusDetail ?? ""}`.trim(),
+      };
+    case "stopped":
+      return { ...base, phase: "problem", headline: run.changes.length > 0 ? `Stopped. ${run.changes.length} change${run.changes.length === 1 ? " was" : "s were"} made before that and kept.` : "Stopped. Nothing was changed." };
+  }
+}
