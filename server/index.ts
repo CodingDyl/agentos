@@ -84,6 +84,7 @@ import { outreachRouter } from "./outreach/routes";
 import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
+import { databasesRouter } from "./supabase/routes";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -342,6 +343,9 @@ app.use("/api/route-policy", routePolicyRouter);
 
 /** Connectors: every service AgentOS can reach, its switch, and each capability's policy. */
 app.use("/api/connectors", connectorsRouter);
+
+/** Databases: named Supabase setups, their workspace links, and the Database tab's rows. */
+app.use("/api/databases", databasesRouter);
 
 /** Voice: speech to text and text to speech only. Words still go through Hermes. */
 app.use("/api/voice", voiceRouter);

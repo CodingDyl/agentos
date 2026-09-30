@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ConnectorIcon } from "./connector-icon";
 import { ConnectorSetupForm } from "./connector-setup-form";
+import { DatabaseSetups } from "./database-setups";
 import {
   capabilityCounts,
   formatWhen,
@@ -187,6 +188,12 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
         <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
           {actionError.message}
         </p>
+      ) : null}
+
+      {connector.id === "supabase" ? (
+        <PaperSection label="Databases" className="mt-10">
+          <DatabaseSetups />
+        </PaperSection>
       ) : null}
 
       <PaperSection

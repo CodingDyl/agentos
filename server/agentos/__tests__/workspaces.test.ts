@@ -23,6 +23,7 @@ const {
   parseModuleList,
   resolveWorkspaceTabs,
   resolveWorkspaceType,
+  WORKSPACE_MODULES,
 } = await import("../../../shared/workspace");
 const { applyConfiguration, mergeConfiguration, parseConfiguration } = await import("../mutations/configuration");
 const { appendCapture, captureLine, captureNote, parseCaptures } = await import("../capture");
@@ -85,7 +86,7 @@ describe("workspace tabs", () => {
     const tabs = resolveWorkspaceTabs({ type: "software", configured: ["documents", "tasks"], hasRepository: true });
 
     assert.deepEqual(tabs.primary, ["documents", "tasks"]);
-    assert.equal(tabs.primary.length + tabs.more.length, 10);
+    assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length);
   });
 
   it("calls a client's roadmap Milestones", () => {

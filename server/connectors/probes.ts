@@ -23,6 +23,8 @@ import {
   outreachAddress,
 } from "../outreach/auth";
 import { isFishConfigured, synthesise } from "../voice/fish";
+import { testSetup } from "../supabase/client";
+import { listSetups, recordTest } from "../supabase/setups";
 import { getVirtec, isVirtecConfigured, isVirtecWritable, VIRTEC_PATHS, virtecConfigurationProblem } from "../virtec/client";
 import { isVercelConfigured, readVercelUser } from "../vercel/client";
 import { claudeWorker } from "../workers/providers/claude-worker";
@@ -438,6 +440,36 @@ export const PROBES: Record<string, Probe> = {
     },
   },
 
+  supabase: {
+    async local() {
+      const setups = listSetups();
+      const ready = setups.filter((setup) => setup.keySet);
+      return {
+        configured: ready.length > 0,
+        detail: setups.length === 0 ? "No database set up yet." : ready.length === 0 ? "No setup has its key yet." : undefined,
+        setup: [
+          {
+            label: setups.length === 0 ? "Add a database below" : `${ready.length} of ${setups.length} database${setups.length === 1 ? "" : "s"} ready`,
+            kind: "path",
+            done: ready.length > 0,
+          },
+        ],
+        connectHint:
+          "Add one setup per Supabase project and environment, with its project URL and secret (service_role) key, then link it to workspaces. The key goes into .env and is never shown again.",
+      };
+    },
+    async test() {
+      const setups = listSetups().filter((setup) => setup.keySet);
+      if (setups.length === 0) return { ok: false, detail: "No setup has its key yet." };
+      const results = await Promise.all(setups.map(async (setup) => ({ setup, result: await testSetup(setup) })));
+      for (const { setup, result } of results) recordTest(setup.id, { ...result, checkedAt: new Date().toISOString() });
+      const failed = results.filter((entry) => !entry.result.ok);
+      return failed.length === 0
+        ? { ok: true, detail: `All ${results.length} database${results.length === 1 ? "" : "s"} answered.` }
+        : { ok: false, detail: failed.map((entry) => `${entry.setup.name}: ${entry.result.detail}`).join(" ") };
+    },
+  },
+
   higgsfield: {
     async local() {
       const found = await findBinary(higgsfieldBinary());
@@ -467,7 +499,6 @@ export const UNAVAILABLE_HINTS: Record<string, { hint: string; setup: string[] }
   ga4: { hint: "AgentOS has no Google Analytics adapter yet. It would reuse the Google sign-in with the analytics.readonly scope.", setup: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] },
   posthog: { hint: "AgentOS has no PostHog adapter yet. It would read with a personal API key.", setup: ["POSTHOG_API_KEY", "POSTHOG_HOST"] },
   sentry: { hint: "AgentOS has no Sentry adapter yet. It would read with an auth token scoped to your organisation.", setup: ["SENTRY_AUTH_TOKEN", "SENTRY_ORG"] },
-  supabase: { hint: "AgentOS has no Supabase adapter yet. It would read with a service key held only by the data adapter.", setup: ["SUPABASE_URL", "SUPABASE_SERVICE_KEY"] },
   stripe: { hint: "AgentOS has no Stripe adapter yet. It would read with a restricted, read-only key.", setup: ["STRIPE_RESTRICTED_KEY"] },
   figma: { hint: "AgentOS has no Figma adapter yet. It would read with a personal access token.", setup: ["FIGMA_TOKEN"] },
 };

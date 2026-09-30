@@ -37,6 +37,8 @@ import { ProjectDocuments } from "@/features/projects/detail/project-documents";
 import { ProjectRepository } from "@/features/projects/detail/project-repository";
 import { ProjectRoadmap } from "@/features/projects/detail/project-roadmap";
 import { ProjectSeo } from "@/features/projects/detail/project-seo";
+import { DatabaseTab } from "@/features/databases";
+import { useProjectDatabases } from "@/lib/agentos/databases";
 import { stateLabel } from "@/features/projects/projects-model";
 import { HEALTH_LABELS } from "@/features/projects/roadmap-model";
 import { DecisionsEditor, ProjectSettings, SourceViewer, TaskBoard, useWorkspaceFeedback } from "@/features/workspace";
@@ -65,7 +67,7 @@ type WorkspaceTab = "overview" | WorkspaceModule;
 const TAB_ALIASES: Record<string, WorkspaceTab> = { designs: "creative", milestones: "roadmap" };
 
 /** Tabs drawn on paper. Everything else is still Editorial Terminal. */
-const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients"]);
+const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database"]);
 
 function readTab(value: string | null): WorkspaceTab {
   if (!value) return "overview";
@@ -79,6 +81,8 @@ export function WorkspacePage() {
   const navigationItems = useNavigationItems();
   const { slug = "" } = useParams();
   const { data: project, isPending, isFetching, error, refetch } = useProject(slug);
+  // A linked database earns the Database tab, the way a linked repository earns Repository.
+  const databases = useProjectDatabases(slug);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = readTab(searchParams.get("tab"));
@@ -153,7 +157,12 @@ export function WorkspacePage() {
     ? resolveWorkspaceType(project.configuration.workspaceType, project.type)
     : "general";
   const tabs = project
-    ? resolveWorkspaceTabs({ type, configured: project.configuration.modules, hasRepository: !!project.git.repositoryPath })
+    ? resolveWorkspaceTabs({
+        type,
+        configured: project.configuration.modules,
+        hasRepository: !!project.git.repositoryPath,
+        hasDatabase: (databases.data?.length ?? 0) > 0,
+      })
     : { primary: [], more: [] };
 
   const onPaper = PAPER_TABS.has(activeTab);
@@ -297,6 +306,8 @@ function WorkspacePanel({
       return <ProjectSeo slug={project.slug} vercelProjectId={project.configuration.vercelProjectId} onOpenSettings={onOpenSettings} />;
     case "repository":
       return <ProjectRepository slug={project.slug} />;
+    case "database":
+      return <DatabaseTab slug={project.slug} />;
     case "decisions":
       return <DecisionsEditor project={project.slug} />;
     case "activity":
