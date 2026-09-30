@@ -30,7 +30,7 @@ export const connectorsRouter = express.Router();
  * web page the operator happens to have open can't switch a connector off or
  * disconnect Gmail.
  */
-function requireJson(request: Request, response: Response, next: NextFunction): void {
+export function requireJson(request: Request, response: Response, next: NextFunction): void {
   if (request.method !== "GET" && !request.is("application/json")) {
     response.status(415).json({ error: "Send connector changes as application/json." });
     return;

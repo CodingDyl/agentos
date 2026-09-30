@@ -129,3 +129,35 @@ export function writeEnvValues(values: Readonly<Record<string, string>>): string
 
   return target;
 }
+
+/** The file without these names' active lines. Pure; comments and everything else are kept. */
+export function withoutEnvNames(contents: string, names: readonly string[]): string {
+  const drop = new Set(names);
+  const kept = contents
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => !drop.has(ACTIVE.exec(line)?.[1] ?? ""));
+  return `${kept.join("\n").replace(/\n+$/, "")}\n`;
+}
+
+/** Removes these names from `.env` (e.g. a deleted database setup's key). A missing file is nothing to do. */
+export function removeEnvValues(names: readonly string[]): void {
+  for (const name of names) {
+    if (!NAME.test(name) || NEVER.has(name)) throw new EnvWriteError(`${name} can't be changed from here.`);
+  }
+  const target = envFilePath();
+  let current: string;
+  try {
+    current = fs.readFileSync(target, "utf8");
+  } catch {
+    return;
+  }
+  const temporary = `${target}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporary, withoutEnvNames(current, names), { encoding: "utf8", mode: 0o600 });
+    fs.renameSync(temporary, target);
+  } catch {
+    fs.rmSync(temporary, { force: true });
+    throw new EnvWriteError(".env could not be written. Check the folder's permissions.");
+  }
+}

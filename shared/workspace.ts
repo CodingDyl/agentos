@@ -33,6 +33,7 @@ export const WorkspaceModuleSchema = z.enum([
   "agents",
   "clients",
   "seo",
+  "database",
 ]);
 
 export type WorkspaceType = z.infer<typeof WorkspaceTypeSchema>;
@@ -88,6 +89,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   agents: "Agents",
   clients: "Clients",
   seo: "SEO",
+  database: "Database",
 };
 
 /** The label a module's tab carries in a workspace of this type. */
@@ -146,6 +148,8 @@ export function resolveWorkspaceTabs(input: {
   type: WorkspaceType;
   configured?: readonly WorkspaceModule[];
   hasRepository?: boolean;
+  /** A linked database earns its tab the same way a linked repository does. */
+  hasDatabase?: boolean;
 }): WorkspaceTabs {
   const configured = input.configured && input.configured.length > 0 ? input.configured : undefined;
   const primary = [...(configured ?? DEFAULT_WORKSPACE_MODULES[input.type])];
@@ -153,6 +157,11 @@ export function resolveWorkspaceTabs(input: {
   if (!configured && input.hasRepository && !primary.includes("repository")) {
     const at = primary.indexOf("decisions");
     primary.splice(at === -1 ? primary.length : at, 0, "repository");
+  }
+
+  if (!configured && input.hasDatabase && !primary.includes("database")) {
+    const at = primary.indexOf("decisions");
+    primary.splice(at === -1 ? primary.length : at, 0, "database");
   }
 
   const unique = primary.filter((module, index) => primary.indexOf(module) === index);
@@ -165,7 +174,7 @@ export function resolveWorkspaceTabs(input: {
 export function parseModuleList(value: string | undefined): WorkspaceModule[] {
   if (!value) return [];
 
-  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository" };
+  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database" };
   const modules = value
     .split(/[,;]/)
     .map((word) => word.trim().toLowerCase())
