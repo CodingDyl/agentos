@@ -19,6 +19,8 @@ import {
 import type { WorkerRoutingDecision } from "../../shared/worker-routing-types";
 import { collectWorkerUsage } from "../usage/collector";
 import { buildContextPacket, resolveContextFiles } from "./context-builder";
+import { retrieveMemoryContext } from "../memory/retrieval";
+import { memoryService } from "../memory/service";
 import {
   beginAttempt,
   failureInfo,
@@ -235,6 +237,22 @@ export async function startJob(
           repoPath: request.repoPath,
         })
       : undefined,
+    // Retrieved now and kept on the record: the brief this job runs with is
+    // fixed at birth, whatever is edited in the vault afterwards.
+    memoryContext: await retrieveMemoryContext(memoryService(), {
+      project: request.project,
+      query: request.objective,
+    }).catch((error: unknown) => ({
+      status: "unavailable" as const,
+      retrievedAt: new Date().toISOString(),
+      budgetTokens: 0,
+      usedTokens: 0,
+      query: request.objective,
+      sources: [],
+      missing: [],
+      warnings: [`Vault memory could not be retrieved: ${(error as Error).message}`],
+      text: "",
+    })),
     id: createJobId(),
     status: "queued",
     resolvedWorker: worker.id,
