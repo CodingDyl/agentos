@@ -5,6 +5,7 @@ import type {
   GeneratedDesign,
 } from "../../shared/design-generation-types";
 import { recordActivity } from "../activity/ui-events";
+import { authorize } from "../connectors/policy";
 import { sendToHermes } from "../hermes/client";
 import { createAsset } from "./library";
 import { extensionFor, storeImage } from "./media";
@@ -187,6 +188,11 @@ export async function generate(
     await saveGeneration(generation);
     return generation;
   }
+
+  authorize("higgsfield.generate", {
+    initiator: "person",
+    detail: `${request.count} concept${request.count === 1 ? "" : "s"}${request.project ? ` for ${request.project}` : ""}`,
+  });
 
   // Ids in, paths out. The browser never names a file.
   const { references } = await resolveReferences(request.referenceAssetIds ?? []);

@@ -40,6 +40,7 @@ import {
   saveJob,
 } from "./job-store";
 import { getWorker } from "./registry";
+import { authorize } from "../connectors/policy";
 import { runValidation } from "./validation";
 import { createWorkerEvent, type Worker } from "./worker";
 import { repositoryProblem } from "../agentos/git";
@@ -225,6 +226,12 @@ export async function startJob(
 
   if (!health.available) {
     return { error: health.reason ?? `${worker.name} is not available.` };
+  }
+
+  // Claude and Grok are connectors too; their switch is the AI stack's, which
+  // the health check above already honours. This only records the run.
+  if (worker.id === "claude" || worker.id === "grok") {
+    authorize(`${worker.id}.run_job`, { initiator: "system", detail: request.project ? `Job for ${request.project}` : "Coding job" });
   }
 
   let job: WorkerJob = {

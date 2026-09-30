@@ -1,3 +1,5 @@
+import { authorize } from "../connectors/policy";
+
 /**
  * The only place the Virtec API key exists.
  *
@@ -135,10 +137,18 @@ export async function postVirtecScan(request: VirtecScanRequest, fetcher: typeof
   if (!isVirtecWritable()) {
     throw new VirtecError("Write-back is off: VIRTEC_WRITE_API_KEY is not set (or equals the read key).", "not-configured");
   }
+  guard("virtec.start_scan", "Started a Places scan");
   return requestVirtec("POST", "/api/agentos/local-leads/scan", process.env.VIRTEC_WRITE_API_KEY?.trim(), request, fetcher, SCAN_TIMEOUT_MS);
 }
 
+/** The Connectors switch and policy, checked after configuration so "not set up" still reads as that. */
+function guard(capability: string, detail?: string): void {
+  const decision = authorize(capability, { initiator: capability === "virtec.read_crm" ? "system" : "person", detail });
+  if (!decision.allowed) throw new VirtecError(decision.reason, "not-configured");
+}
+
 export async function getVirtec(path: VirtecPath, fetcher: typeof fetch = fetch): Promise<unknown> {
+  if (isVirtecConfigured()) guard("virtec.read_crm");
   const key = process.env.VIRTEC_API_KEY?.trim();
   return requestVirtec("GET", path, key, undefined, fetcher);
 }
@@ -180,6 +190,11 @@ export async function patchVirtec(write: VirtecWrite, fetcher: typeof fetch = fe
   if (!isVirtecWritable()) {
     throw new VirtecError("Write-back is off: VIRTEC_WRITE_API_KEY is not set (or equals the read key).", "not-configured");
   }
+
+  guard(
+    write.kind === "magnet-email" ? "virtec.publish_email" : "virtec.update_records",
+    write.kind === "magnet-email" ? "Published a lead-magnet email" : `Updated a ${write.kind.replace("-", " ")} status`,
+  );
 
   const path = `${WRITE_PATHS[write.kind]}${write.id}`;
   // A magnet email is replaced whole; everything else changes one field.

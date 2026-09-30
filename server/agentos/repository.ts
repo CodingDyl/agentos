@@ -15,6 +15,7 @@ import {
   repositoryProblem,
   uncommittedFiles,
 } from "./git";
+import { authorize, decide } from "../connectors/policy";
 import { readOptionalFile } from "./filesystem";
 import { parseRepositoryPath } from "./projects";
 
@@ -203,6 +204,13 @@ function gitComplaint(error: unknown): string {
  */
 const BRANCH_NAME = /^(?!-)(?!\/)[A-Za-z0-9._/-]{1,120}(?<!\/)(?<!\.lock)$/;
 
+const GIT_CAPABILITY: Record<RepositoryAction["kind"], string> = {
+  switch: "git.switch_branch",
+  stash: "git.stash",
+  commit: "git.commit",
+  branch: "git.create_branch",
+};
+
 /**
  * Runs one write against a project's repository.
  *
@@ -220,11 +228,20 @@ export async function runRepositoryAction(
   const blocked = await writeBlocker(slug, repoPath);
   if (blocked) return refuse(blocked);
 
-  const withStatus = async (detail: string): Promise<ActionResult> => ({
-    ok: true,
-    detail,
-    status: await readRepositoryStatus(slug),
-  });
+  // The Connectors switch and policy for this kind of write. A person pressed
+  // the button, so an "approval" policy is already satisfied.
+  const capability = GIT_CAPABILITY[action.kind];
+  const allowed = decide(capability, "person");
+  if (!allowed.allowed) return refuse(allowed.reason);
+
+  const withStatus = async (detail: string): Promise<ActionResult> => {
+    // Recorded only once git has done it. The label is the project and, for
+    // branch actions, the branch — never a commit message.
+    const branch = action.kind === "switch" ? action.branch : action.kind === "branch" ? action.name.trim() : undefined;
+    authorize(capability, { initiator: "person", detail: branch ? `${slug}: ${branch}` : slug });
+
+    return { ok: true, detail, status: await readRepositoryStatus(slug) };
+  };
 
   try {
     switch (action.kind) {

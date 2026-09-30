@@ -8,6 +8,7 @@ import {
   AutomationDetailPage,
   AutomationsPage,
 } from "@/features/automations";
+import { ConnectorDetailPage, ConnectorsPage } from "@/features/connectors";
 import { MailPage } from "@/features/mail";
 import { TractionPage } from "@/features/traction";
 import { FinancePage } from "@/features/finance";
@@ -70,6 +71,9 @@ function App() {
             path="/automations/:id"
             element={<AutomationDetailPage />}
           />
+          {/* The capability registry: what AgentOS can reach and may do. */}
+          <Route path="/connectors" element={<ConnectorsPage />} />
+          <Route path="/connectors/:id" element={<ConnectorDetailPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/designs" element={<DesignsPage />} />
           <Route path="/designs/boards" element={<BoardsPage />} />

@@ -42,6 +42,11 @@ happens only when you send a message or run a command.
 | `server/hermes/runs.ts` | Agent runs: start, poll, stop, steer, stream |
 | `server/hermes/sessions.ts` | Hermes session management (`/api` base) |
 | `server/hermes/automations.ts` | Hermes' scheduled jobs, read through its CLI |
+| `server/connectors/catalog.ts` | Every connector and capability, with its risk and default policy |
+| `server/connectors/policy.ts` | The guard each client calls: switched on? policy allows this caller? |
+| `server/connectors/probes.ts` | Set-up checks (no network) and "Test connection" (one read) per connector |
+| `server/connectors/registry.ts` | Catalog + machine + operator decisions, as `/api/connectors` serves them |
+| `server/connectors/recommendations.ts` | Which connectors a workspace's actual tasks would benefit from |
 | `server/workers/worker.ts` | The provider-neutral worker contract |
 | `server/workers/registry.ts` | Which workers exist; the only place one is named |
 | `server/workers/job-manager.ts` | Validates, isolates, runs, records |
