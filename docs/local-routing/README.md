@@ -56,6 +56,35 @@ to override (this defeats "local-only" for that host).
 Text results are reviewed by you (approve/reject). Hermes' diff review does not
 apply to text, and is not run on local-only output.
 
+## Choosing a model
+
+Installed does not mean suitable, and a model that reports `thinking` support is
+not necessarily one that can be told to stop. Bounded tasks (summaries,
+extraction, rewriting) need a **non-thinking instruct model** that answers in
+tens of tokens. The smoke test's scenario T checks this directly.
+
+Measured on an M4 / 16 GB / Ollama 0.35.0 with `qwen3:4b`
+(`359d7dd4bcda`, capabilities `completion, tools, thinking`), same five-bullet
+summary, 512-token cap:
+
+| Request | Outcome |
+|---|---|
+| `think=false` (what AgentOS sends) | Ignored. Reasoning transcript in the content, cut off at 512 tokens, 20.3 s |
+| flag omitted | Reasoning goes to the `thinking` field (2,106 chars) and uses the whole budget; content empty, 15.4 s |
+| `/no_think` appended | Ignored. Same as `think=false` |
+
+So this build cannot be bounded to a small budget, and AgentOS correctly refuses
+its output (`output_truncated`) instead of passing a transcript to review. It
+is not a fit for the 512-token / 30 s policy; raising the limits to fit its
+reasoning (about 600+ tokens, 20 s+ of generation) leaves no headroom for a cold
+load inside a 30 s deadline.
+
+To find a suitable model: pull a non-thinking instruct model with Ollama (for
+example an instruct variant of Qwen3-4B, `llama3.2:3b`, or `gemma3:4b`; check
+the exact tags on ollama.com/library) and run
+`npm run smoke:ollama -- --model <name> --out docs/local-routing/evidence-<name>.md`.
+Enable it in Workers -> Local models only after scenarios T and A pass.
+
 ## Run the smoke test on your Mac
 
 Prerequisites: Ollama running, `ollama pull qwen3:4b` done (AgentOS never
@@ -95,7 +124,7 @@ First run: `evidence-2026-09-30.md` (M4, 16 GB, Ollama 0.35.0, qwen3:4b
 
 | Sample | Scenario | Routing reason | Measured | Result |
 |---|---|---|---|---|
-| Local summary | A | small bounded summarisation within local limits | cold 21.9 s (model load 4.8 s), warm 16.3 s, 131 in / 512 out tokens | **Not accepted**: reasoning transcript, truncated at the token cap. Re-run needed |
+| Local summary | A | small bounded summarisation within local limits | qwen3:4b: cold 21.9 s, warm 16.3 s, hit the 512-token cap | **Not accepted** for `qwen3:4b`: it cannot stop reasoning (see Choosing a model). Needs a non-thinking model |
 | Remote implementation | C (`--run-remote`) | grok: needs repository, tools, file_writes | routing decision only, not run | **Not demonstrated**: routed, never executed |
 | Handled local failure | D | local timeout at a 1 s deadline on a cold model | 1 attempt, `timeout`, no cloud attempt | Pass |
 | Local-only blocked | E | Ollama unreachable, local-only | refused, "not sent to the cloud" | Pass |
@@ -103,5 +132,5 @@ First run: `evidence-2026-09-30.md` (M4, 16 GB, Ollama 0.35.0, qwen3:4b
 Also measured: JSON extraction 2.3 s (valid, but with an invented year), and
 two simultaneous jobs ran strictly one at a time (second waited 15.5 s).
 
-Remaining before completion: re-run with the fixes, get a five-bullet summary
-in a few seconds, and run C with `--run-remote`.
+Remaining before completion: find a local model that passes scenarios T and A
+(a five-bullet summary in a few seconds), then run C with `--run-remote`.

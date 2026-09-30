@@ -267,6 +267,7 @@ describe("ollama worker: success", () => {
     await assert.rejects(run(makeJob()).promise, /think=false was sent/);
     state.installed[0].capabilities = ["completion"];
     await assert.rejects(run(makeJob()).promise, /does not report thinking support/);
+    await assert.rejects(run(makeJob()).promise, /non-thinking instruct model/);
   });
 });
 

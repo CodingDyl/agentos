@@ -373,7 +373,9 @@ export const ollamaWorker: Worker = {
           "output_truncated",
           `Output stopped at the ${config.maxOutputTokens}-token limit, so it is incomplete and was not accepted. ` +
             `Thinking control: ${think === false ? "think=false was sent" : "not sent (the model does not report thinking support)"}` +
-            `${response.thinkingChars ? `; the model still produced ${response.thinkingChars} characters of thinking` : ""}.`,
+            `${response.thinkingChars ? `; the model still produced ${response.thinkingChars} characters of thinking` : ""}. ` +
+            `If the output is a reasoning transcript, this model ignores the request to stop thinking. ` +
+            `Use a non-thinking instruct model for bounded tasks.`,
         );
       }
 

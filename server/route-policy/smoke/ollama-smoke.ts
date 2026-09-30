@@ -185,7 +185,9 @@ async function main(): Promise<void> {
         asSent.line,
         unset.line,
         soft.line,
-        asSent.stopped ? "" : "AgentOS's own request did not finish inside the token limit. Compare the variants above to see which setting changes that.",
+        asSent.stopped
+          ? ""
+          : `AgentOS's own request did not finish inside the token limit. If the variants above show reasoning text in the content (think=false ignored) or the whole budget spent in the thinking field (flag omitted), ${MODEL} is a thinking model that cannot be bounded to 512 tokens. Pull a non-thinking instruct model and re-run with --model <name>.`,
       ].filter(Boolean),
     });
   }
