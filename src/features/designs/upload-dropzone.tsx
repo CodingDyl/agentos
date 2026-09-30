@@ -68,7 +68,7 @@ export function UploadDropzone({ onFiles, children }: UploadDropzoneProps) {
               strokeWidth={1.75}
               aria-hidden="true"
             />
-            <p className="text-[14px] font-medium text-paper-char">Drop to add to the library</p>
+            <p className="text-[14px] font-medium text-paper-char">Drop images or videos to add them</p>
           </div>
         </div>
       ) : null}

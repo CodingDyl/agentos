@@ -37,6 +37,7 @@ import {
   shortDigest,
 } from "./route-policy-model";
 import { VisualVerificationPanel } from "./visual-verification-panel";
+import { GrokBotJobPanel } from "./grok-bot-job-panel";
 import {
   useApproveWorkerJob,
   useCancelWorkerJob,
@@ -309,6 +310,8 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
           </p>
         </div>
       ) : null}
+
+      <GrokBotJobPanel job={job} />
 
       {job.error ? (
         <div

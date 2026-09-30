@@ -134,6 +134,22 @@ export const EVENT_TYPES = {
     level: "info",
     title: "Design concepts generated",
   },
+  // Motion studio films, rendered by Claude Code on the operator's plan.
+  "motion.started": {
+    source: "worker",
+    level: "info",
+    title: "Motion video started",
+  },
+  "motion.completed": {
+    source: "worker",
+    level: "success",
+    title: "Motion video rendered",
+  },
+  "motion.failed": {
+    source: "worker",
+    level: "error",
+    title: "Motion video failed",
+  },
   "design.brief.saved": {
     source: "user",
     level: "success",

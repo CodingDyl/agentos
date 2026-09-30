@@ -114,11 +114,25 @@ export function AssetLightbox({
         className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-white font-paper-ui text-paper-moss lg:flex-row"
       >
         <div className="flex min-h-0 flex-1 items-center justify-center bg-paper-linen p-4 md:p-8">
-          <img
-            src={asset.url}
-            alt={asset.filename}
-            className="max-h-[45vh] max-w-full object-contain lg:max-h-[80vh]"
-          />
+          {asset.mediaType === "video" ? (
+            <video
+              key={asset.id}
+              src={asset.url}
+              poster={asset.thumbnailUrl.includes("size=thumbnail") ? asset.thumbnailUrl : undefined}
+              controls
+              autoPlay
+              loop
+              playsInline
+              aria-label={asset.filename}
+              className="max-h-[45vh] max-w-full bg-paper-moss object-contain lg:max-h-[80vh]"
+            />
+          ) : (
+            <img
+              src={asset.url}
+              alt={asset.filename}
+              className="max-h-[45vh] max-w-full object-contain lg:max-h-[80vh]"
+            />
+          )}
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-8 overflow-y-auto border-t border-paper-mist p-5 md:p-6 lg:w-96 lg:border-t-0 lg:border-l">
@@ -131,6 +145,9 @@ export function AssetLightbox({
                 Added {formatAdded(asset.createdAt)}
                 {asset.width && asset.height
                   ? ` · ${asset.width}×${asset.height}`
+                  : ""}
+                {asset.mediaType === "video" && asset.durationSec
+                  ? ` · ${Math.round(asset.durationSec)}s`
                   : ""}
               </p>
             </div>

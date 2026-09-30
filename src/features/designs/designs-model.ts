@@ -1,4 +1,5 @@
 import type { DesignAsset, DesignAssetType } from "@shared/agentos-types";
+import type { MotionPromptSource } from "@shared/motion-types";
 
 /**
  * The design library's view model.
@@ -8,7 +9,7 @@ import type { DesignAsset, DesignAssetType } from "@shared/agentos-types";
  * one long and one short, and what counts as a match when you type.
  */
 
-export type LibraryFilter = "all" | DesignAssetType | "favorites" | "approved";
+export type LibraryFilter = "all" | DesignAssetType | "favorites" | "approved" | "videos";
 
 export const LIBRARY_FILTERS: readonly {
   value: LibraryFilter;
@@ -17,6 +18,7 @@ export const LIBRARY_FILTERS: readonly {
   { value: "all", label: "All" },
   { value: "uploaded", label: "Inspiration" },
   { value: "generated", label: "Generated" },
+  { value: "videos", label: "Videos" },
   { value: "approved", label: "Approved" },
   { value: "favorites", label: "Favourites" },
 ];
@@ -84,10 +86,12 @@ export function filterAssets(
   return assets.filter((asset) => {
     if (query.filter === "favorites" && !asset.favorite) return false;
     if (query.filter === "approved" && !asset.approved) return false;
+    if (query.filter === "videos" && asset.mediaType !== "video") return false;
     if (
       query.filter !== "all" &&
       query.filter !== "favorites" &&
       query.filter !== "approved" &&
+      query.filter !== "videos" &&
       asset.type !== query.filter
     ) {
       return false;
@@ -141,6 +145,18 @@ export function collectTags(assets: DesignAsset[]): string[] {
 }
 
 /** The shape a tile will take, before its image has loaded. */
+/** `75` → `1:15`. */
+export function formatDuration(seconds: number | undefined): string {
+  if (!seconds) return "";
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
+
+/** Whether a video asset has a poster frame to show in place of the video. */
+export function hasPoster(asset: DesignAsset): boolean {
+  return asset.thumbnailUrl.includes("size=thumbnail");
+}
+
 export function aspectRatio(asset: DesignAsset): number {
   if (!asset.width || !asset.height) return 1;
   return asset.width / asset.height;
@@ -196,4 +212,9 @@ export function boardsFor(
   boards: { id: string; name: string }[],
 ): { id: string; name: string }[] {
   return boards.filter((board) => asset.boardIds.includes(board.id));
+}
+
+/** Where a motion prompt came from, as a label: the vault note's name, or "Built-in". */
+export function sourceLabel(source: MotionPromptSource): string {
+  return source.source === "vault" && source.path ? `Vault · ${source.path.split("/").pop()?.replace(/\.md$/, "")}` : "Built-in";
 }

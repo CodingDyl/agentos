@@ -39,7 +39,7 @@ export function optionLabel(
 
 /** A policy-routed job that produced text rather than a checkout. */
 export function isTextResultJob(job: WorkerJob): boolean {
-  return !job.worktreePath && Boolean(job.routing?.policy) && Boolean(job.result);
+  return !job.worktreePath && (Boolean(job.routing?.policy) || Boolean(job.bridge)) && Boolean(job.result);
 }
 
 const FAILURE_LABELS: Record<string, string> = {

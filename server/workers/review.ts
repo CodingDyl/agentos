@@ -500,7 +500,8 @@ export async function integrationBlockerDetails(
  * finished; what remains is the person.
  */
 function isTextResult(job: WorkerJob): boolean {
-  return !job.worktreePath && Boolean(job.routing?.policy) && Boolean(job.result);
+  // A file-bridge reply is text too: Grok Bot hands back an answer, not a checkout.
+  return !job.worktreePath && (Boolean(job.routing?.policy) || Boolean(job.bridge)) && Boolean(job.result);
 }
 
 async function approveTextResult(job: WorkerJob): Promise<ActionResult> {

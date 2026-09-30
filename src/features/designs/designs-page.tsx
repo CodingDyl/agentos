@@ -1,6 +1,6 @@
-import { ImagePlus, PenLine, Search, Upload } from "lucide-react";
+import { Clapperboard, ImagePlus, PenLine, Search, Upload } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { DesignAsset } from "@shared/agentos-types";
 import { AppShell } from "@/components/os";
 import {
@@ -49,6 +49,7 @@ import { UploadDropzone } from "./upload-dropzone";
  */
 export function DesignsPage() {
   const navigationItems = useNavigationItems();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<LibraryFilter>("all");
@@ -125,7 +126,7 @@ export function DesignsPage() {
   const uploadFiles = useCallback(
     (files: FileList | File[]) => {
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/")) continue;
+        if (!file.type.startsWith("image/") && !VIDEO_TYPES.includes(file.type)) continue;
 
         upload.mutate({
           file,
@@ -208,7 +209,7 @@ export function DesignsPage() {
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search images, tags, workspaces…"
+                    placeholder="Search images, videos, tags, workspaces…"
                     className={cn(PAPER_INPUT, "w-full pl-9")}
                   />
                 </label>
@@ -216,7 +217,7 @@ export function DesignsPage() {
                 <input
                   ref={fileInput}
                   type="file"
-                  accept="image/*"
+                  accept={`image/*,${VIDEO_TYPES.join(",")}`}
                   multiple
                   hidden
                   onChange={(event) => {
@@ -240,6 +241,16 @@ export function DesignsPage() {
                 <PaperButton variant="ghost" onClick={() => setGenerating((current) => !current)}>
                   <PenLine className="size-3.5" aria-hidden="true" />
                   Generate
+                </PaperButton>
+
+                <PaperButton
+                  variant="ghost"
+                  onClick={() =>
+                    navigate(project === "all" || project === UNASSIGNED ? "/designs/motion" : `/designs/motion?project=${encodeURIComponent(project)}`)
+                  }
+                >
+                  <Clapperboard className="size-3.5" aria-hidden="true" />
+                  Motion video
                 </PaperButton>
               </div>
 
@@ -308,7 +319,7 @@ export function DesignsPage() {
                 <p role="alert" className="mt-6 text-[13.5px] leading-5 text-paper-flame-deep">
                   {upload.error instanceof Error
                     ? upload.error.message
-                    : "That image could not be uploaded."}
+                    : "That file could not be uploaded."}
                 </p>
               ) : null}
 
@@ -318,7 +329,7 @@ export function DesignsPage() {
                     title={isEmptyLibrary ? "Nothing here yet" : "No matches"}
                     description={
                       isEmptyLibrary
-                        ? "Drop an image anywhere on this page, or use Upload. Images are stored outside the vault, in AgentOS-Media."
+                        ? "Drop an image or video anywhere on this page, or use Upload. Media is stored outside the vault, in AgentOS-Media."
                         : "No visuals match this search."
                     }
                     action={
@@ -423,6 +434,9 @@ export function DesignsPage() {
 }
 
 export type { DesignAsset };
+
+/** The video formats the library stores. Anything else is refused by the adapter. */
+const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 
 /**
  * Choosing references, and what to do with them.

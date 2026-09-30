@@ -18,9 +18,10 @@ import { z } from "zod";
  * `claude` is Claude through the Agent SDK on an API key. `claude-code`,
  * `codex`, `gemini` and `hermes-worker` are the operator's own coding CLIs,
  * driven headlessly on whatever plan each is signed into; they are off until
- * switched on in Operations → AI Stack.
+ * switched on in Operations → AI Stack. `grok-bot` is Grok working through a
+ * folder on an SSD, triggered by hand; it is off until switched on.
  */
-export const WorkerIdSchema = z.enum(["grok", "claude", "mock", "claude-code", "codex", "gemini", "hermes-worker", "ollama"]);
+export const WorkerIdSchema = z.enum(["grok", "claude", "mock", "claude-code", "codex", "gemini", "hermes-worker", "ollama", "grok-bot"]);
 
 /** What a worker is *for*. Routing reads these to rule candidates out. */
 export const WorkerCapabilitySchema = z.enum([

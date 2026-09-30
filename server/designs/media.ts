@@ -33,7 +33,29 @@ const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/gif": ".gif",
   "image/avif": ".avif",
   "image/svg+xml": ".svg",
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+  "video/webm": ".webm",
 };
+
+/** A stored name or a bare extension (`.mp4`) — `path.extname` returns nothing for the latter. */
+export function isVideoName(nameOrExtension: string): boolean {
+  return /\.(mp4|mov|webm)$/i.test(nameOrExtension);
+}
+
+/**
+ * The name a file's thumbnail is stored under.
+ *
+ * An image's thumbnail is a smaller copy in the same format. A video's is a
+ * poster frame, so it is a JPEG whatever the video is — which is also what
+ * lets every `<img src={thumbnailUrl}>` in the app show a video without
+ * knowing it is one.
+ */
+export function thumbnailNameFor(storedName: string): string {
+  return isVideoName(storedName)
+    ? `${path.basename(storedName, path.extname(storedName))}.jpg`
+    : storedName;
+}
 
 export function extensionFor(contentType: string): string | undefined {
   return EXTENSION_BY_TYPE[contentType.split(";")[0].trim().toLowerCase()];
@@ -250,12 +272,122 @@ export async function storeImage(
   };
 }
 
+export interface StoredVideo extends StoredMedia {
+  durationSec?: number;
+}
+
+function ffmpegBinary(name: "ffmpeg" | "ffprobe"): string {
+  return process.env[name === "ffmpeg" ? "AGENTOS_FFMPEG_BIN" : "AGENTOS_FFPROBE_BIN"]?.trim() || name;
+}
+
+export interface VideoProbe {
+  width?: number;
+  height?: number;
+  durationSec?: number;
+  codec?: string;
+  pixelFormat?: string;
+  hasAudio: boolean;
+}
+
+/** What ffprobe says about a video, or `undefined` when it is not one it can read. */
+export async function probeVideo(file: string): Promise<VideoProbe | undefined> {
+  try {
+    const { stdout } = await execFileAsync(
+      ffmpegBinary("ffprobe"),
+      ["-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,pix_fmt:format=duration", "-of", "json", file],
+      { timeout: 20_000 },
+    );
+    const parsed = JSON.parse(stdout) as {
+      streams?: { codec_type?: string; codec_name?: string; width?: number; height?: number; pix_fmt?: string }[];
+      format?: { duration?: string };
+    };
+    const video = parsed.streams?.find((stream) => stream.codec_type === "video");
+    if (!video) return undefined;
+
+    const duration = Number(parsed.format?.duration);
+
+    return {
+      width: video.width,
+      height: video.height,
+      durationSec: Number.isFinite(duration) ? Math.round(duration * 100) / 100 : undefined,
+      codec: video.codec_name,
+      pixelFormat: video.pix_fmt,
+      hasAudio: parsed.streams?.some((stream) => stream.codec_type === "audio") ?? false,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A poster frame, a third of the way in.
+ *
+ * Not the first frame: films open on black or on a word still arriving, and a
+ * tile of black rectangles tells nobody what anything is. Like image
+ * thumbnails, failure is not an error — the tile falls back to the video.
+ */
+async function writePoster(storedName: string, durationSec: number | undefined): Promise<boolean> {
+  const at = durationSec ? Math.min(durationSec * 0.35, Math.max(0, durationSec - 0.1)) : 0;
+
+  try {
+    await execFileAsync(
+      ffmpegBinary("ffmpeg"),
+      [
+        "-y", "-loglevel", "error",
+        "-ss", at.toFixed(2),
+        "-i", resolveMedia(ORIGINALS, storedName),
+        "-frames:v", "1",
+        "-vf", `scale='min(${THUMBNAIL_SIZE},iw)':-2`,
+        "-q:v", "3",
+        resolveMedia(THUMBNAILS, thumbnailNameFor(storedName)),
+      ],
+      { timeout: 30_000 },
+    );
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Stores one video, from memory or by copying a file already on disk.
+ *
+ * A render of a few hundred megabytes is copied rather than read into memory
+ * first. The stored name is still `<id><ext>` whatever the source was called.
+ */
+export async function storeVideo(
+  id: string,
+  extension: string,
+  source: Buffer | { path: string },
+): Promise<StoredVideo> {
+  await ensureDirectories();
+
+  const storedName = `${id}${extension}`;
+  const target = resolveMedia(ORIGINALS, storedName);
+
+  if (Buffer.isBuffer(source)) await fs.writeFile(target, source);
+  else await fs.copyFile(source.path, target);
+
+  const probe = await probeVideo(target);
+
+  return {
+    storedName,
+    dimensions: probe?.width && probe.height ? { width: probe.width, height: probe.height } : undefined,
+    durationSec: probe?.durationSec,
+    hasThumbnail: await writePoster(storedName, probe?.durationSec),
+  };
+}
+
 /** Removes an asset's files. A file already gone is not an error. */
 export async function deleteImage(storedName: string): Promise<void> {
   await Promise.all(
-    [ORIGINALS, THUMBNAILS].map(async (folder) => {
+    [
+      [ORIGINALS, storedName],
+      [THUMBNAILS, thumbnailNameFor(storedName)],
+    ].map(async ([folder, name]) => {
       try {
-        await fs.unlink(resolveMedia(folder, storedName));
+        await fs.unlink(resolveMedia(folder, name));
       } catch {
         // Already gone, which is the state we wanted.
       }

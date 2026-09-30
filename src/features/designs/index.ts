@@ -7,3 +7,5 @@ export * from "./designs-model";
 export * from "./designs-page";
 export * from "./generations-page";
 export * from "./upload-dropzone";
+export * from "./motion-job-page";
+export * from "./motion-page";

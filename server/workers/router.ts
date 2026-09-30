@@ -148,6 +148,11 @@ export async function buildRoutingContext(
       continue;
     }
 
+    if (worker.manualOnly) {
+      excluded.push({ worker: worker.id, reason: "Manually triggered. Only runs when picked by hand." });
+      continue;
+    }
+
     if (!worker.capabilities.includes(required)) {
       excluded.push({
         worker: worker.id,

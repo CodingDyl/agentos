@@ -8,7 +8,8 @@ import { recordActivity } from "../activity/ui-events";
 import { authorize } from "../connectors/policy";
 import { sendToHermes } from "../hermes/client";
 import { createAsset } from "./library";
-import { extensionFor, storeImage } from "./media";
+import { listModels } from "./higgsfield";
+import { extensionFor, isVideoName, storeImage, storeVideo } from "./media";
 import { projectContext, resolveReferences } from "./review-context";
 import { createGenerationId, saveGeneration } from "./generation-store";
 import { generationCapability, generationModel, render } from "./renderer";
@@ -33,7 +34,17 @@ const MIN_IMAGE_BYTES = 1_024;
 /** A ceiling on one downloaded image. */
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
+/** And on one downloaded video. */
+const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
+
 const DOWNLOAD_TIMEOUT_MS = 60_000;
+const VIDEO_DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
+
+/** Whether a Higgsfield job type renders video, from the model catalogue. */
+async function modelKind(model: string): Promise<"image" | "video"> {
+  const models = await listModels().catch(() => []);
+  return models.find((entry) => entry.id === model)?.kind === "video" ? "video" : "image";
+}
 
 /**
  * Asks Hermes to write the prompt.
@@ -107,25 +118,39 @@ async function saveRendered(
   generationId: string,
 ): Promise<GeneratedDesign | undefined> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  const expectsVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
+  const timer = setTimeout(
+    () => controller.abort(),
+    expectsVideo ? VIDEO_DOWNLOAD_TIMEOUT_MS : DOWNLOAD_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) return undefined;
 
     const contentType = response.headers.get("content-type") ?? "";
-    const extension = extensionFor(contentType);
+    // Storage buckets often serve a render as `application/octet-stream`, so
+    // a video URL's own extension is trusted when the header says nothing.
+    const extension =
+      extensionFor(contentType) ??
+      (expectsVideo ? `.${/\.(mp4|webm|mov)(\?|$)/i.exec(url)![1].toLowerCase()}` : undefined);
 
     if (!extension) return undefined;
 
+    const video = isVideoName(extension);
     const data = Buffer.from(await response.arrayBuffer());
 
-    if (data.byteLength < MIN_IMAGE_BYTES || data.byteLength > MAX_IMAGE_BYTES) {
+    if (
+      data.byteLength < MIN_IMAGE_BYTES ||
+      data.byteLength > (video ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES)
+    ) {
       return undefined;
     }
 
     const id = crypto.randomUUID();
-    const stored = await storeImage(id, extension, data);
+    const stored = video
+      ? await storeVideo(id, extension, data)
+      : await storeImage(id, extension, data);
 
     const asset = await createAsset({
       id,
@@ -138,6 +163,8 @@ async function saveRendered(
       project: request.project,
       product: request.product,
       prompt,
+      mediaType: video ? "video" : "image",
+      durationSec: (stored as { durationSec?: number }).durationSec,
       // Provenance travels with the picture: which renderer, which model,
       // which references, and which run it belonged to. A concept whose
       // provenance is lost is just a picture.
@@ -200,6 +227,7 @@ export async function generate(
   const referenceAssetIds = references.map((reference) => reference.assetId);
 
   const { prompt, by } = await refinePrompt(request);
+  const kind = await modelKind(request.model?.trim() || generationModel());
 
   generation.finalPrompt = prompt;
   generation.promptBy = by;
@@ -215,11 +243,12 @@ export async function generate(
         aspectRatio: request.aspectRatio,
         referencePaths,
         model: request.model,
+        kind,
       });
 
       if (urls.length === 0) {
         failures.push(
-          "The renderer finished without returning an image URL this system could find.",
+          `The renderer finished without returning ${kind === "video" ? "a video" : "an image"} URL this system could find.`,
         );
         continue;
       }

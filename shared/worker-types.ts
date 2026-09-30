@@ -4,6 +4,7 @@ import {
   VisualVerificationResultSchema,
 } from "./visual-verification-types";
 import { MemoryContextSchema } from "./memory-types";
+import { GrokBotBridgeSchema } from "./grok-bot-types";
 import { WorkerCapabilitySchema, WorkerIdSchema } from "./worker-ids";
 import { ExecutionAttemptSchema, RoutingModeSchema, TaskMetadataSchema } from "./route-policy-types";
 import { WorkerRoutingDecisionSchema } from "./worker-routing-types";
@@ -84,6 +85,12 @@ export const WorkerSummarySchema = z.object({
   available: z.boolean(),
   /** Why it cannot be used, when it cannot. Shown verbatim. */
   unavailableReason: z.string().optional(),
+  /** Set for a worker that only ever runs when the operator picks it by hand. */
+  manualOnly: z.boolean().optional(),
+  /** How AgentOS reaches the worker, when that is worth saying (e.g. a file bridge). */
+  transport: z.string().optional(),
+  /** False when the operator has switched the worker off, as opposed to it being unreachable. */
+  enabled: z.boolean().optional(),
 });
 
 export const WorkersResponseSchema = z.object({
@@ -354,6 +361,12 @@ export const WorkerJobSchema = WorkerJobRequestSchema.extend({
    * job reuse it, a retry is a new job and retrieves afresh.
    */
   memoryContext: MemoryContextSchema.optional(),
+  /**
+   * A file-bridge job's task, exported notes and import state. Its presence
+   * with no `importedAt` means the job is parked on the SSD awaiting a manual
+   * trigger, which survives a restart.
+   */
+  bridge: GrokBotBridgeSchema.optional(),
   /** The most recent review. */
   review: WorkerReviewSchema.optional(),
   /**

@@ -154,6 +154,9 @@ import {
   cancelWorkerJob,
   getExecutionOptions,
   getOllamaStatus,
+  getGrokBotStatus,
+  saveGrokBotSettings,
+  testGrokBotConnection,
   getWorkerJob,
   getWorkerJobs,
   previewRoute,
@@ -1329,6 +1332,45 @@ export function useProbeOllamaModel() {
     mutationFn: probeOllamaModel,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "ollama-status"] });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useGrokBotStatus() {
+  return useQuery({
+    queryKey: [...agentosKeys.all, "grok-bot"] as const,
+    queryFn: getGrokBotStatus,
+    staleTime: 5_000,
+    refetchInterval: 15_000,
+    retry: 0,
+    networkMode: "always",
+  });
+}
+
+export function useSaveGrokBotSettings() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: saveGrokBotSettings,
+    onSuccess: (data) => {
+      queryClient.setQueryData([...agentosKeys.all, "grok-bot"], data);
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useTestGrokBotConnection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: testGrokBotConnection,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "grok-bot"] });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
     },
     networkMode: "always",
     retry: 0,

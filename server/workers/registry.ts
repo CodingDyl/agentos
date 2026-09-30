@@ -3,6 +3,7 @@ import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 import { claudeWorker } from "./providers/claude-worker";
 import { claudeCodeWorker, codexWorker, geminiWorker, hermesWorker } from "./providers/cli-workers";
 import { grokWorker } from "./providers/grok-worker";
+import { grokBotWorker } from "./providers/grok-bot-worker";
 import { mockWorker } from "./providers/mock-worker";
 import { ollamaWorker } from "./providers/ollama-worker";
 import type { Worker } from "./worker";
@@ -33,7 +34,13 @@ export function registerWorker(worker: Worker): void {
     healthCheck: async () =>
       isAiEnabled(worker.id)
         ? worker.healthCheck()
-        : { available: false, reason: switchedOffReason(worker.name) },
+        : {
+            available: false,
+            // A bridge worker's switch lives on its own panel, not in AI Stack.
+            reason: worker.transport
+              ? `${worker.name} is disabled. Enable it on the Workers page.`
+              : switchedOffReason(worker.name),
+          },
   });
 }
 
@@ -82,6 +89,12 @@ registerWorker(hermesWorker);
  */
 registerWorker(ollamaWorker);
 
+/**
+ * Grok through a folder on an SSD. Off until switched on, and never routed to
+ * automatically: it runs only when the operator picks it for a task.
+ */
+registerWorker(grokBotWorker);
+
 /** Every worker, with its health, for the workers screen. */
 export async function describeWorkers(): Promise<WorkerSummary[]> {
   return Promise.all(
@@ -98,6 +111,9 @@ export async function describeWorkers(): Promise<WorkerSummary[]> {
         capabilities: worker.capabilities,
         available: health.available,
         unavailableReason: health.available ? undefined : health.reason,
+        manualOnly: worker.manualOnly,
+        transport: worker.transport,
+        enabled: isAiEnabled(worker.id),
       };
     }),
   );

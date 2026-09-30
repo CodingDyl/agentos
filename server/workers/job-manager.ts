@@ -416,6 +416,8 @@ async function sweepForStalls(): Promise<void> {
 
     const job = await readJob(jobId).catch(() => undefined);
     if (!job || isTerminal(job.status)) continue;
+    // Waiting for a person to trigger Grok is not silence worth a warning.
+    if (isParkedOnBridge(job)) continue;
 
     live.stalledSince = new Date().toISOString();
     await saveJob(withLiveness(job));
@@ -443,6 +445,15 @@ export function startStallWatch(): void {
   if (stallWatch) return;
   stallWatch = setInterval(() => void sweepForStalls(), STALL_SWEEP_MS);
   stallWatch.unref?.();
+}
+
+/**
+ * A job parked on a file bridge: its task is on the SSD and nothing has come
+ * back yet. Nothing is executing, so a restart does not lose it — the next
+ * process picks the wait up again from the job record.
+ */
+export function isParkedOnBridge(job: WorkerJob): boolean {
+  return job.status === "waiting" && Boolean(job.bridge) && !job.bridge?.importedAt;
 }
 
 /** Statuses that mean "a process is supposed to be doing something right now". */
@@ -491,6 +502,14 @@ export async function reconcileInterruptedJobs(
   for (const job of jobs) {
     if (!LIVE.includes(job.status) || running.has(job.id)) continue;
 
+    // A job waiting on a file bridge was never running; pick the wait back up.
+    const bridgeWorker = isParkedOnBridge(job) ? getWorker(job.resolvedWorker ?? job.worker as WorkerId) : undefined;
+    if (bridgeWorker) {
+      emit(job.id, "job.progress", "AgentOS restarted. Still awaiting the result file", { resultPath: job.bridge?.resultPath });
+      void run(job, bridgeWorker);
+      continue;
+    }
+
     const at = new Date().toISOString();
     const message = interruptionMessage(job, reason);
 
@@ -537,6 +556,13 @@ export async function interruptRunningJobs(reason: string): Promise<void> {
 
     const job = await readJob(jobId).catch(() => undefined);
     if (!job || isTerminal(job.status)) continue;
+
+    // Parked on the SSD: the task is safe there and the next process resumes
+    // the wait. Only the in-memory runner goes.
+    if (isParkedOnBridge(job)) {
+      running.delete(jobId);
+      continue;
+    }
 
     const at = new Date().toISOString();
     const message = interruptionMessage(withLiveness(job), reason);
@@ -712,7 +738,8 @@ async function run(
   try {
     job = await update(job, {
       status: "preparing",
-      startedAt: new Date().toISOString(),
+      // A resumed bridge job started when it was first exported.
+      startedAt: job.bridge ? (job.startedAt ?? new Date().toISOString()) : new Date().toISOString(),
     });
 
     emit(job.id, "job.started", `${worker.name} picked up the job`);
@@ -759,6 +786,10 @@ async function run(
       contextPacket: briefOverride ?? buildContextPacket(job),
       emit: (type, message, metadata) => emit(job.id, type, message, metadata),
       signal: controller.signal,
+      updateJob: async (patch) => {
+        job = await update(job, patch);
+        return job;
+      },
     });
 
     // A text job's deliverable is checked here for every worker, not just the
@@ -824,7 +855,7 @@ async function run(
       ? await collectArtifacts(job, worker, worktree, result.summary, changed ?? [])
       : [];
 
-    if (!validated && !(job.routing?.policy && !job.worktreePath)) {
+    if (!validated && !((job.routing?.policy || job.bridge) && !job.worktreePath)) {
       // Said out loud, because "no failures" and "nothing was checked" look
       // identical on a screen otherwise.
       blockers.push(
@@ -967,7 +998,9 @@ async function run(
     // Settled by someone else — the shutdown path marks a job interrupted and
     // drops its runner before aborting it. Writing `cancelled` over that would
     // turn "the process died" back into "the operator stopped it".
-    if (!running.has(initial.id)) return;
+    // Also true when a resumed run has taken its place: this run is no longer
+    // the job's, so it must not write over the one that is.
+    if (running.get(initial.id)?.controller !== controller) return;
 
     const cancelled = controller.signal.aborted;
     const detail =
@@ -1031,8 +1064,10 @@ async function run(
     // The stream is closed once listeners are dropped, so the log has to be
     // safely on disk before that happens.
     await flushEvents();
-    running.delete(initial.id);
-    liveness.delete(initial.id);
+    if (running.get(initial.id)?.controller === controller) {
+      running.delete(initial.id);
+      liveness.delete(initial.id);
+    }
   }
 }
 

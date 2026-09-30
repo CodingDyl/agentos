@@ -1,8 +1,9 @@
-import { Heart, Layers, Maximize2 } from "lucide-react";
+import { Heart, Layers, Maximize2, Play } from "lucide-react";
+import { useState } from "react";
 import type { DesignAsset } from "@shared/agentos-types";
 import { PAPER_FOCUS } from "@/components/paper";
 import { cn } from "@/lib/utils";
-import { aspectRatio } from "./designs-model";
+import { aspectRatio, formatDuration, hasPoster } from "./designs-model";
 
 export interface DesignTileProps {
   asset: DesignAsset;
@@ -39,9 +40,17 @@ export function DesignTile({
   selected = false,
 }: DesignTileProps) {
   const selecting = Boolean(onToggleSelect);
+  const video = asset.mediaType === "video";
+  // A video previews itself, muted, only while the pointer is on it: a grid of
+  // autoplaying films would be a wall of motion nobody asked for.
+  const [previewing, setPreviewing] = useState(false);
 
   return (
-    <figure className="group">
+    <figure
+      className="group"
+      onPointerEnter={video ? () => setPreviewing(true) : undefined}
+      onPointerLeave={video ? () => setPreviewing(false) : undefined}
+    >
       <div className="relative">
         <button
           type="button"
@@ -64,14 +73,38 @@ export function DesignTile({
           )}
           style={{ aspectRatio: aspectRatio(asset) }}
         >
-          <img
-            src={asset.thumbnailUrl}
-            alt={asset.filename}
-            loading="lazy"
-            decoding="async"
-            className="size-full object-cover"
-          />
+          {video && !hasPoster(asset) ? (
+            <video src={asset.url} preload="metadata" muted playsInline className="size-full object-cover" aria-label={asset.filename} />
+          ) : (
+            <img
+              src={asset.thumbnailUrl}
+              alt={asset.filename}
+              loading="lazy"
+              decoding="async"
+              className="size-full object-cover"
+            />
+          )}
+          {video && previewing ? (
+            <video
+              src={asset.url}
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-hidden="true"
+              className="absolute inset-0 size-full object-cover motion-reduce:hidden"
+            />
+          ) : null}
         </button>
+
+        {video ? (
+          <span
+            className="pointer-events-none absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-none bg-paper-moss/85 px-1.5 py-0.5 font-paper-utility text-[11.5px] font-medium tracking-[0.06em] text-paper-white tabular-nums transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+          >
+            <Play className="size-3 fill-current" strokeWidth={0} aria-hidden="true" />
+            {formatDuration(asset.durationSec) || "Video"}
+          </span>
+        ) : null}
 
         {selecting ? (
           <span

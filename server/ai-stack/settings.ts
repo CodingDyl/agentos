@@ -19,7 +19,7 @@ import { OllamaSettingsSchema, type OllamaSettings } from "../../shared/route-po
  */
 
 /** Off until switched on. Everything else is on until switched off. */
-export const OPT_IN = new Set(["claude-code", "codex", "gemini", "hermes-worker"]);
+export const OPT_IN = new Set(["claude-code", "codex", "gemini", "hermes-worker", "grok-bot"]);
 
 interface Settings {
   disabled: Set<string>;
@@ -27,6 +27,8 @@ interface Settings {
   models: Record<string, string>;
   /** Local Ollama routing configuration; undefined until the operator sets it. */
   ollama?: OllamaSettings;
+  /** Where the Grok Bot workspace lives; undefined until the operator sets it. */
+  grokBotWorkspace?: string;
 }
 
 let settings: Settings | undefined;
@@ -60,6 +62,8 @@ function load(): Settings {
       enabled: new Set(strings(parsed.enabled)),
       models,
       ollama: ollama.success ? ollama.data : undefined,
+      grokBotWorkspace:
+        typeof parsed.grokBotWorkspace === "string" && parsed.grokBotWorkspace.trim() ? parsed.grokBotWorkspace : undefined,
     };
   } catch {
     settings = { disabled: new Set(), enabled: new Set(), models: {} };
@@ -78,7 +82,7 @@ function save(next: Settings): void {
   fs.writeFileSync(
     temporary,
     JSON.stringify(
-      { disabled: [...next.disabled].sort(), enabled: [...next.enabled].sort(), models: next.models, ollama: next.ollama },
+      { disabled: [...next.disabled].sort(), enabled: [...next.enabled].sort(), models: next.models, ollama: next.ollama, grokBotWorkspace: next.grokBotWorkspace },
       null,
       2,
     ),
@@ -135,6 +139,16 @@ export function ollamaSettings(): OllamaSettings | undefined {
 
 export function setOllamaSettings(next: OllamaSettings): void {
   save({ ...load(), ollama: OllamaSettingsSchema.parse(next) });
+}
+
+/** The Grok Bot workspace path, or undefined when the operator has set none. */
+export function grokBotWorkspace(): string | undefined {
+  return load().grokBotWorkspace;
+}
+
+/** An empty path clears it. */
+export function setGrokBotWorkspace(workspace: string | undefined): void {
+  save({ ...load(), grokBotWorkspace: workspace?.trim() || undefined });
 }
 
 /** Only tests need this — forgets the in-memory copy so the file is read again. */

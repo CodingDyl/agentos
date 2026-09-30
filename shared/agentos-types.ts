@@ -1047,6 +1047,8 @@ export const DesignAssetSchema = z.object({
    * would silently drop half of what it can make.
    */
   mediaType: z.enum(["image", "video"]).default("image"),
+  /** Running time in seconds, for a video. */
+  durationSec: z.number().positive().optional(),
   /** Where it came from, which is not the same as what kind of thing it is. */
   source: z.enum(["higgsfield", "upload", "agentos", "other"]).default("upload"),
   /**

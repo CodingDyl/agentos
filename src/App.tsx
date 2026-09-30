@@ -19,6 +19,8 @@ import {
   BoardsPage,
   DesignsPage,
   GenerationsPage,
+  MotionJobPage,
+  MotionPage,
 } from "@/features/designs";
 import { KnowledgePage } from "@/features/knowledge";
 import { MemoryPage } from "@/features/memory";
@@ -78,6 +80,8 @@ function App() {
           <Route path="/designs" element={<DesignsPage />} />
           <Route path="/designs/boards" element={<BoardsPage />} />
           <Route path="/designs/generations" element={<GenerationsPage />} />
+          <Route path="/designs/motion" element={<MotionPage />} />
+          <Route path="/designs/motion/:id" element={<MotionJobPage />} />
           <Route path="/designs/boards/:id" element={<BoardDetailPage />} />
           <Route path="/operations" element={<OperationsPage />} />
           {/* Named for the agent, not the worker: Hermes is on this page too,

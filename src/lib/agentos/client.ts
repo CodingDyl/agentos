@@ -1,3 +1,9 @@
+import {
+  GrokBotStatusSchema,
+  GrokBotTestResultSchema,
+  type GrokBotStatus,
+  type GrokBotTestResult,
+} from "@shared/grok-bot-types";
 import { z } from "zod";
 import {
   RepositoryActionResultSchema,
@@ -1133,6 +1139,26 @@ export function saveOllamaSettings(settings: OllamaSettings): Promise<unknown> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(settings),
   });
+}
+
+/** Grok Bot's switch, workspace path and a cheap workspace check. */
+export function getGrokBotStatus(): Promise<GrokBotStatus> {
+  return workerRequest("/api/workers/grok-bot", { method: "GET" }, (value) => GrokBotStatusSchema.safeParse(value));
+}
+
+export function saveGrokBotSettings(settings: { enabled?: boolean; workspacePath?: string }): Promise<GrokBotStatus> {
+  return workerRequest(
+    "/api/workers/grok-bot",
+    { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) },
+    (value) => GrokBotStatusSchema.safeParse(value),
+  );
+}
+
+/** Writes and removes a probe file on the SSD. Runs on the server. */
+export function testGrokBotConnection(): Promise<GrokBotTestResult> {
+  return workerRequest("/api/workers/grok-bot/test", { method: "POST" }, (value) =>
+    GrokBotTestResultSchema.safeParse(value),
+  );
 }
 
 /** Every execution option and whether it is usable, for the manual override. */

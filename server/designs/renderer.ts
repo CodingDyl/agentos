@@ -36,6 +36,9 @@ const run = promisify(execFile);
 /** Long enough for a real image job; short enough not to hang a request. */
 const JOB_TIMEOUT_MS = 5 * 60 * 1000;
 
+/** Video jobs queue and render for far longer than stills. */
+const VIDEO_JOB_TIMEOUT_MS = 25 * 60 * 1000;
+
 /** Checking the CLI is there should never take this long. */
 const PROBE_TIMEOUT_MS = 20_000;
 
@@ -114,6 +117,8 @@ export interface RenderOptions {
   referencePaths?: string[];
   /** Higgsfield job type. The configured default when absent. */
   model?: string;
+  /** A video model waits longer, and its result is a video URL. */
+  kind?: "image" | "video";
 }
 
 /**
@@ -175,6 +180,21 @@ export function extractImageUrls(output: string): string[] {
   );
 }
 
+/**
+ * Every URL that looks like a rendered video, read the same loose way.
+ *
+ * A video job's payload also carries its poster and input images, so the two
+ * lists are kept apart rather than merged: a video run that saved only its
+ * thumbnail would look like success and be a still.
+ */
+export function extractVideoUrls(output: string): string[] {
+  const urls = new Set<string>();
+  for (const match of output.matchAll(/https?:\/\/[^\s"'<>)\]]+/g)) {
+    if (/\.(mp4|webm|mov)(\?|$)/i.test(match[0])) urls.add(match[0]);
+  }
+  return [...urls];
+}
+
 /** The argument list for one render. Exported so it can be tested. */
 export function buildRenderArgs(options: RenderOptions): string[] {
   const args = [
@@ -196,7 +216,7 @@ export function buildRenderArgs(options: RenderOptions): string[] {
   }
 
   // Block until the job is done, and ask for the machine-readable form.
-  args.push("--wait", "--wait-timeout", "4m", "--json");
+  args.push("--wait", "--wait-timeout", options.kind === "video" ? "20m" : "4m", "--json");
 
   return args;
 }
@@ -219,7 +239,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
 
   try {
     const result = await run(binary(), buildRenderArgs(options), {
-      timeout: JOB_TIMEOUT_MS,
+      timeout: options.kind === "video" ? VIDEO_JOB_TIMEOUT_MS : JOB_TIMEOUT_MS,
       maxBuffer: 8 * 1024 * 1024,
     });
 
@@ -235,7 +255,10 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
     throw new Error(readRendererError(detail), { cause: error });
   }
 
-  return { urls: extractImageUrls(stdout), raw: stdout };
+  return {
+    urls: options.kind === "video" ? extractVideoUrls(stdout) : extractImageUrls(stdout),
+    raw: stdout,
+  };
 }
 
 /**

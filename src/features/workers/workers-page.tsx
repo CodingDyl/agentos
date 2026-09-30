@@ -18,6 +18,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { useCancelWorkerJob, useWorkerJobs, useWorkers } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { DelegateJobForm } from "./delegate-job-form";
+import { GrokBotPanel } from "./grok-bot-panel";
 import { OllamaPanel } from "./ollama-panel";
 import { formatDuration, isCancellable, isFinished, statusLabel, statusPill } from "./workers-model";
 
@@ -112,6 +113,10 @@ export function WorkersPage() {
               <OllamaPanel />
             </Section>
 
+            <Section label="Grok Bot (SSD workspace)" className="mt-12">
+              <GrokBotPanel />
+            </Section>
+
             <Section
               label="Recent jobs"
               className="mt-12 pb-4"
@@ -164,6 +169,18 @@ export function WorkersPage() {
   );
 }
 
+/**
+ * A bridge worker's state is about its workspace, not the worker: reachable
+ * folders say nothing about whether the thing on the other side is online.
+ */
+function workerStateLabel(worker: WorkerSummary): string {
+  if (worker.transport) {
+    if (worker.enabled === false) return "Disabled";
+    return worker.available ? "Workspace available" : "Workspace unavailable";
+  }
+  return worker.available ? "Ready" : "Not available";
+}
+
 /** One worker: whether it can be used, and the jobs it is busy with. */
 function WorkerRow({ worker, jobs }: { worker: WorkerSummary; jobs: WorkerJob[] }) {
   return (
@@ -173,14 +190,14 @@ function WorkerRow({ worker, jobs }: { worker: WorkerSummary; jobs: WorkerJob[] 
         <h3 className="text-base leading-6 font-medium">{worker.name}</h3>
         <p className="mt-1.5 text-[13px] leading-5 text-os-muted">{worker.role}</p>
         <p className="os-meta mt-3 text-os-subtle">
-          {worker.capabilities.join(" · ")}
+          {[...worker.capabilities, ...(worker.manualOnly ? ["Manually triggered"] : []), ...(worker.transport ? [worker.transport] : [])].join(" · ")}
         </p>
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-2">
         <StatusPill
           status={worker.available ? "healthy" : "paused"}
-          label={worker.available ? "Ready" : "Not available"}
+          label={workerStateLabel(worker)}
         />
         {/* Says why, rather than leaving an unexplained grey dot. */}
         {worker.unavailableReason ? (

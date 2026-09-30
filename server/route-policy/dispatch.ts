@@ -54,6 +54,10 @@ export async function collectExecutionOptions(): Promise<ExecutionOption[]> {
   for (const worker of listWorkers()) {
     if (worker.simulated) continue;
 
+    // Manually triggered workers stay out of the policy entirely; the delegate
+    // form offers them as a direct choice instead.
+    if (worker.manualOnly) continue;
+
     if (worker.id === "ollama") continue; // one option per model, below
 
     const health = await worker.healthCheck().catch(() => ({

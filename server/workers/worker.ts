@@ -34,6 +34,12 @@ export interface WorkerRunContext {
   emit: EmitWorkerEvent;
   /** Aborted when the operator cancels the job. */
   signal: AbortSignal;
+  /**
+   * Writes fields onto the job record. For a worker whose state outlives one
+   * process — a file bridge parked waiting for a person — so that state is on
+   * disk, not only in the run.
+   */
+  updateJob?: (patch: Partial<WorkerJob>) => Promise<WorkerJob>;
 }
 
 export interface Worker {
@@ -53,6 +59,15 @@ export interface Worker {
    * is what it is for.
    */
   simulated?: boolean;
+
+  /**
+   * True for a worker the operator triggers by hand. Automatic routing and the
+   * route policy never offer it; it is selectable only as an explicit choice.
+   */
+  manualOnly?: boolean;
+
+  /** How AgentOS reaches it, for the workers screen. Omitted for the usual process or API. */
+  transport?: string;
 
   /**
    * Whether this worker can actually be used right now.

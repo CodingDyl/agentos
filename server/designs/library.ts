@@ -48,6 +48,8 @@ export interface StoredAsset {
    * rather than needing a migration pass.
    */
   mediaType?: "image" | "video";
+  /** Seconds, for a video. */
+  durationSec?: number;
   source?: "higgsfield" | "upload" | "agentos" | "other";
   product?: string;
   provider?: string;
@@ -129,6 +131,7 @@ function readStoredAsset(value: unknown): StoredAsset | undefined {
     // does not name is dropped on the next write, which would quietly erase
     // every asset's provenance one save at a time.
     mediaType: value.mediaType === "video" ? "video" : "image",
+    durationSec: typeof value.durationSec === "number" ? value.durationSec : undefined,
     source: MEDIA_SOURCES.has(value.source as string)
       ? (value.source as StoredAsset["source"])
       : undefined,
@@ -244,6 +247,7 @@ export function toWireAsset(
     // Defaults rather than a migration: an asset stored before Step 57 is a
     // still image nobody generated, which is exactly what these say.
     mediaType: asset.mediaType ?? "image",
+    durationSec: asset.durationSec,
     source: asset.source ?? (asset.type === "generated" ? "higgsfield" : "upload"),
     product: asset.product,
     provider: asset.provider,
@@ -290,6 +294,7 @@ export interface CreateAssetInput {
   tags?: string[];
   prompt?: string;
   mediaType?: "image" | "video";
+  durationSec?: number;
   source?: "higgsfield" | "upload" | "agentos" | "other";
   provider?: string;
   model?: string;
@@ -313,6 +318,7 @@ export async function createAsset(input: CreateAssetInput): Promise<DesignAsset>
       createdAt: new Date().toISOString(),
       prompt: input.prompt,
       mediaType: input.mediaType ?? "image",
+      durationSec: input.durationSec,
       source: input.source ?? (input.type === "generated" ? "higgsfield" : "upload"),
       product: input.product,
       provider: input.provider,

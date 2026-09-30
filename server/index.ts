@@ -77,6 +77,7 @@ import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
 import { voiceRouter } from "./voice/routes";
 import { memoryRouter } from "./memory/routes";
+import { grokBotRouter } from "./workers/grok-bot-routes";
 import { memoryService } from "./memory/service";
 import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
 import { startOutreachSyncTimer } from "./outreach/sync";
@@ -168,11 +169,16 @@ import {
 import {
   contentTypeFor,
   extensionFor,
+  isVideoName,
   ORIGINALS,
   readImage,
+  resolveMedia,
   storeImage,
+  storeVideo,
+  thumbnailNameFor,
   THUMBNAILS,
 } from "./designs/media";
+import { motionRouter } from "./designs/motion-routes";
 import { readDecision, respondToApproval } from "./hermes/approvals";
 import { accountStatus, estimateCost, listModels } from "./designs/higgsfield";
 import { validateJobRequest } from "./workers/context-builder";
@@ -352,6 +358,12 @@ app.use("/api/voice", voiceRouter);
 
 /** Memory: the Obsidian vault, indexed — notes, links, graph, and task context. Read-only. */
 app.use("/api/memory", memoryRouter);
+
+/** Grok Bot: its switch, SSD workspace path and connection test. Disk access stays server-side. */
+app.use("/api/workers/grok-bot", grokBotRouter);
+
+/** Motion studio: briefs in, Claude Code renders films, finished MP4s land in Creative. */
+app.use("/api/designs/motion", motionRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
@@ -1421,8 +1433,9 @@ app.get("/api/designs", async (_request, response) => {
   }
 });
 
-/** Uploads cap out well above a screenshot and well below a video. */
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+/** Images cap out well above a screenshot; videos get room for a real render. */
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 750 * 1024 * 1024;
 
 function queryText(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
@@ -1459,10 +1472,18 @@ app.post(
 
     const declared = queryText(request.query.type);
     const type = declared && ASSET_TYPES.has(declared) ? declared : "uploaded";
+    const video = isVideoName(extension);
+
+    if (!video && request.body.length > MAX_IMAGE_BYTES) {
+      response.status(413).json({ error: "Images are limited to 25 MB" });
+      return;
+    }
 
     try {
       const id = randomUUID();
-      const stored = await storeImage(id, extension, request.body);
+      const stored = video
+        ? await storeVideo(id, extension, request.body)
+        : await storeImage(id, extension, request.body);
 
       const asset = await createAsset({
         id,
@@ -1473,6 +1494,8 @@ app.post(
         dimensions: stored.dimensions,
         type: type as "uploaded" | "generated" | "reference" | "screenshot",
         project: queryText(request.query.project),
+        mediaType: video ? "video" : "image",
+        durationSec: (stored as { durationSec?: number }).durationSec,
       });
 
       await recordActivity({
@@ -1507,6 +1530,19 @@ app.get("/api/designs/assets/:id/media", async (request, response) => {
 
     const wantsThumbnail =
       request.query.size === "thumbnail" && asset.hasThumbnail;
+
+    // A video is streamed from disk: `sendFile` answers Range requests, which
+    // is what lets a player seek without downloading the whole render first.
+    if (isVideoName(asset.storedName)) {
+      const file = wantsThumbnail
+        ? resolveMedia(THUMBNAILS, thumbnailNameFor(asset.storedName))
+        : resolveMedia(ORIGINALS, asset.storedName);
+
+      response.sendFile(file, { headers: { "Cache-Control": "private, max-age=31536000, immutable" } }, (error) => {
+        if (error && !response.headersSent) response.status(404).json({ error: "That video is no longer on disk" });
+      });
+      return;
+    }
 
     const data =
       (await readImage(wantsThumbnail ? THUMBNAILS : ORIGINALS, asset.storedName)) ??
