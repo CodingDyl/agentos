@@ -33,6 +33,8 @@ export interface StartRunInput {
   message: string;
   project?: string;
   sessionId?: string;
+  /** Said to Jarvis out loud: the server asks Hermes to answer the way a person speaks. */
+  spoken?: boolean;
 }
 
 export interface UseAgentRunResult {
@@ -156,7 +158,7 @@ export function useAgentRun({ onFinished }: UseAgentRunOptions = {}): UseAgentRu
   );
 
   const start = useCallback(
-    async ({ message, project, sessionId: session }: StartRunInput) => {
+    async ({ message, project, sessionId: session, spoken }: StartRunInput) => {
       setError(undefined);
       stateRef.current = initialRunState;
       setState(initialRunState);
@@ -167,6 +169,7 @@ export function useAgentRun({ onFinished }: UseAgentRunOptions = {}): UseAgentRu
           message,
           project,
           sessionId: session ?? sessionId,
+          spoken,
         });
 
         setRunId(run.runId);

@@ -5,10 +5,12 @@ import type { AgentRunStatus, ApprovalDecision } from "@shared/agentos-types";
 import { projectInContext } from "@/features/agent/command-catalog";
 import { useAgentRun } from "@/features/agent/hooks/use-agent-run";
 import { getAgentSessionMessages, reportActivity } from "@/lib/agentos/client";
-import { useAgentCapabilities, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
+import { useAgentCapabilities, useAttentionCount, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
 import { fetchRunOutput, getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
 import { JarvisContext, type JarvisApi, type JarvisIntercept } from "./jarvis-store";
 import { SpeechStream } from "./speech-stream";
+import { PushToTalk } from "./push-to-talk";
+import { smallTalkReply } from "./small-talk";
 import { recoverAnswer } from "./final-answer";
 import { describeMicFailure, micSupportFailure, readMicPermission, watchMicPermission, type MicPermission } from "./mic-permission";
 import { SpeechQueue } from "./speech-queue";
@@ -29,6 +31,16 @@ import { AUTO_SEND_MS, isSendable, resolveProject, type VoicePhase } from "./voi
  * held here is what is on screen, and a reload forgets it. Hermes keeps the
  * conversation.
  */
+
+const PUSH_TO_TALK_KEY = "agentos.jarvis.pushToTalk";
+
+function readPushToTalk(): boolean {
+  try {
+    return window.localStorage.getItem(PUSH_TO_TALK_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
 
 const RUN_OUTCOMES = { completed: "run.completed", failed: "run.failed", cancelled: "run.cancelled" } as const;
 
@@ -62,6 +74,12 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const intercept = useRef<JarvisIntercept | undefined>(undefined);
   const [target, setTarget] = useState<string>();
   const [announcement, setAnnouncement] = useState<string>();
+  // Whether the words in the box were spoken (so Hermes should answer in speech).
+  const spoken = useRef(false);
+  const waiting = useAttentionCount();
+  const [pushToTalk, setPushToTalkState] = useState(readPushToTalk);
+  // True while a hold-Control recording is live, so its end sends at once.
+  const [holding, setHolding] = useState(false);
 
   // Follow the browser's microphone setting, so the launcher can say "tap to
   // allow" before the first press, and recover the moment it is switched on.
@@ -211,14 +229,50 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     };
   });
 
+  const announce = useCallback(
+    (text: string) => {
+      const line = text.trim();
+      if (!line) return;
+      setAnnouncement(line);
+      if (!voiceReady || session.isMuted()) {
+        setPhase((current) => (current === "thinking" ? "idle" : current));
+        return;
+      }
+      // Its own stream: an announcement is complete when it arrives.
+      for (const piece of new SpeechStream().feed(line, true)) queue.enqueue(piece);
+      queue.close();
+    },
+    [queue, session, voiceReady],
+  );
+
   const send = useCallback(
     (override?: string) => {
       const text = (override ?? transcript).trim();
       if (!isSendable(text)) return;
 
+      // Small talk is answered at once, in Jarvis's voice, with no model call.
+      const small = smallTalkReply(text, { now: new Date(), waiting });
+      if (small) {
+        queue.reset();
+        session.begin(text);
+        session.end();
+        run.reset();
+        setRecoveredReply("");
+        setFallbackReply("");
+        setAutoSendAt(undefined);
+        setError(undefined);
+        setAudioNote(undefined);
+        setTranscriptState(text);
+        setPhase("thinking");
+        spoken.current = false;
+        announce(small);
+        return;
+      }
+
       // A page that has taken over hears it first. It answers with `announce`.
       const handler = intercept.current;
       if (handler) {
+        spoken.current = false;
         queue.reset();
         session.begin(text);
         session.end();
@@ -253,7 +307,9 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       // The same choice the Agent screen makes: a run where Hermes supports
       // them, plain messaging where it does not.
       if (capabilities?.runs === true) {
-        run.start({ message: text, project: target }).catch((failure: unknown) => {
+        const saidAloud = spoken.current;
+        spoken.current = false;
+        run.start({ message: text, project: target, spoken: saidAloud }).catch((failure: unknown) => {
           session.end();
           setError(failure instanceof Error ? failure.message : "Hermes could not start the run.");
           setPhase("error");
@@ -283,7 +339,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         },
       );
     },
-    [capabilities?.runs, pageProject, phase, projects, queue, refreshVault, run, say, sendMessage, session, timings, transcript, voiceReady],
+    [announce, capabilities?.runs, pageProject, phase, projects, queue, refreshVault, run, say, sendMessage, session, timings, transcript, voiceReady, waiting],
   );
 
   // A transcript sends itself unless you touch it. Send goes immediately.
@@ -294,7 +350,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   }, [autoSendAt, phase, send]);
 
   const handleRecorded = useCallback(
-    async (audio: Blob | null) => {
+    async (audio: Blob | null, immediate = false) => {
       if (!audio) {
         setPhase("idle");
         return;
@@ -305,6 +361,13 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         // Sent as 16 kHz mono WAV: the one format every recogniser reads.
         const text = await transcribeAudio(await toSpeechWav(audio));
         timings.mark("transcribed");
+        spoken.current = true;
+        // Let go of Control means "send": no review window.
+        if (immediate) {
+          setPhase("confirming");
+          send(text);
+          return;
+        }
         setTranscriptState(text);
         setPhase("confirming");
         setAutoSendAt(Date.now() + AUTO_SEND_MS);
@@ -317,10 +380,55 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         setPhase("error");
       }
     },
-    [timings],
+    [send, timings],
   );
 
   const recorder = useVoiceRecorder((audio) => void handleRecorded(audio));
+
+  /** Opens the microphone. Resolves true once recording, false if it couldn't. */
+  const beginListening = useCallback(
+    (stopOnSilence: boolean): Promise<boolean> => {
+    setError(undefined);
+    setMicFailed(false);
+    timings.reset();
+    setAutoSendAt(undefined);
+    setTranscriptState("");
+    const unsupported = micSupportFailure();
+    if (unsupported) {
+      setMicFailed(true);
+      setError(unsupported.message);
+      setPhase("error");
+      return Promise.resolve(false);
+    }
+
+    // While the browser's answer is still "prompt", this call is what raises
+    // its permission dialog. Once blocked it fails at once, and we say where
+    // to switch it back on instead.
+    setAskingMic(true);
+    return recorder.start({ stopOnSilence }).then(
+      () => {
+        setAskingMic(false);
+        setMicPermission("granted");
+        setPhase("listening");
+        return true;
+      },
+      (failure: unknown) => {
+        setAskingMic(false);
+        // Ask the browser what it says about this site *now*: a refusal while
+        // the site shows "allowed" is the operating system's doing, not the site's.
+        void readMicPermission().then((state) => {
+          const problem = describeMicFailure(failure, state);
+          setMicPermission(state === "unknown" && problem.blocked ? "denied" : state);
+          setMicFailed(true);
+          setError(problem.detail ? `${problem.message} (${problem.detail})` : problem.message);
+          setPhase("error");
+        });
+        return false;
+      },
+    );
+    },
+    [recorder, timings],
+  );
 
   const toggleListening = useCallback(() => {
     if (phase === "listening") {
@@ -341,43 +449,75 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setError(undefined);
-    setMicFailed(false);
-    timings.reset();
-    setAutoSendAt(undefined);
-    setTranscriptState("");
-    const unsupported = micSupportFailure();
-    if (unsupported) {
-      setMicFailed(true);
-      setError(unsupported.message);
-      setPhase("error");
-      return;
-    }
+    void beginListening(true);
+  }, [beginListening, handleRecorded, phase, recorder, session, silence, voiceQuery, voiceReady]);
 
-    // While the browser's answer is still "prompt", this call is what raises
-    // its permission dialog. Once blocked it fails at once, and we say where
-    // to switch it back on instead.
-    setAskingMic(true);
-    recorder.start().then(
-      () => {
-        setAskingMic(false);
-        setMicPermission("granted");
-        setPhase("listening");
+
+  // Hold Control to talk, let go to send. Rules live in push-to-talk.ts; this
+  // wires them to the keyboard, the microphone and `send`.
+  const live = useRef({ phase, beginListening, handleRecorded, recorder, silence, setHolding });
+  useEffect(() => {
+    live.current = { phase, beginListening, handleRecorded, recorder, silence, setHolding };
+  }, [phase, beginListening, handleRecorded, recorder, silence]);
+
+  useEffect(() => {
+    if (!pushToTalk || !voiceReady) return;
+    // A recording that is still being opened when Control is let go must be
+    // stopped once it exists, not left running.
+    let opening: Promise<boolean> | undefined;
+
+    const ptt = new PushToTalk({
+      start: () => {
+        const { phase: now, beginListening: listen, silence: hush, setHolding: hold } = live.current;
+        if (now === "transcribing" || now === "listening") return;
+        // Talking over Jarvis stops him: you have the floor.
+        if (now === "speaking" || now === "thinking") hush();
+        hold(true);
+        opening = listen(false);
       },
-      (failure: unknown) => {
-        setAskingMic(false);
-        // Ask the browser what it says about this site *now*: a refusal while
-        // the site shows "allowed" is the operating system's doing, not the site's.
-        void readMicPermission().then((state) => {
-          const problem = describeMicFailure(failure, state);
-          setMicPermission(state === "unknown" && problem.blocked ? "denied" : state);
-          setMicFailed(true);
-          setError(problem.detail ? `${problem.message} (${problem.detail})` : problem.message);
-          setPhase("error");
+      finish: () => {
+        const pending = opening;
+        opening = undefined;
+        void (pending ?? Promise.resolve(false)).then((started) => {
+          live.current.setHolding(false);
+          if (!started) return;
+          void live.current.recorder.stop().then((audio) => live.current.handleRecorded(audio, true));
         });
       },
-    );
-  }, [handleRecorded, phase, recorder, session, silence, timings, voiceQuery, voiceReady]);
+      cancel: () => {
+        const pending = opening;
+        opening = undefined;
+        void (pending ?? Promise.resolve(false)).then((started) => {
+          live.current.setHolding(false);
+          if (!started) return;
+          live.current.recorder.cancel();
+          setPhase("idle");
+        });
+      },
+    });
+
+    const down = (event: KeyboardEvent) => ptt.keyDown(event);
+    const up = (event: KeyboardEvent) => ptt.keyUp(event);
+    const blur = () => ptt.blur();
+    window.addEventListener("keydown", down, true);
+    window.addEventListener("keyup", up, true);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down, true);
+      window.removeEventListener("keyup", up, true);
+      window.removeEventListener("blur", blur);
+      ptt.blur();
+    };
+  }, [pushToTalk, voiceReady]);
+
+  const setPushToTalk = useCallback((on: boolean) => {
+    setPushToTalkState(on);
+    try {
+      window.localStorage.setItem(PUSH_TO_TALK_KEY, on ? "on" : "off");
+    } catch {
+      // A per-browser preference; losing it costs nothing.
+    }
+  }, []);
 
   /**
    * Speaks one fixed line with Hermes and the microphone out of the picture.
@@ -447,21 +587,6 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     setTarget(next?.label);
   }, []);
 
-  const announce = useCallback(
-    (text: string) => {
-      const line = text.trim();
-      if (!line) return;
-      setAnnouncement(line);
-      if (!voiceReady || session.isMuted()) {
-        setPhase((current) => (current === "thinking" ? "idle" : current));
-        return;
-      }
-      // Its own stream: an announcement is complete when it arrives.
-      for (const piece of new SpeechStream().feed(line, true)) queue.enqueue(piece);
-      queue.close();
-    },
-    [queue, session, voiceReady],
-  );
 
   const api: JarvisApi = {
     isOpen,
@@ -483,6 +608,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     level: recorder.level,
     transcript,
     setTranscript: (text) => {
+      spoken.current = false;
       setTranscriptState(text);
       setAutoSendAt(undefined);
       if (phase === "confirming") setPhase("idle");
@@ -513,6 +639,9 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     setIntercept,
     announce,
     canSpeak: voiceReady && !session.isMuted(),
+    pushToTalk,
+    setPushToTalk,
+    holding,
   };
 
   return <JarvisContext.Provider value={api}>{children}</JarvisContext.Provider>;

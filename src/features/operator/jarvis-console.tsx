@@ -31,7 +31,9 @@ export function JarvisConsole({ narrating, onNarratingChange }: { narrating: boo
 
   const caption =
     jarvis.phase === "listening"
-      ? "Listening. Press again, or pause, when you're done."
+      ? jarvis.holding
+        ? "Listening. Let go of Ctrl to send."
+        : "Listening. Press again, or pause, when you're done."
       : jarvis.phase === "confirming"
         ? `Heard: “${jarvis.transcript}”`
         : jarvis.phase === "speaking"
@@ -41,7 +43,9 @@ export function JarvisConsole({ narrating, onNarratingChange }: { narrating: boo
             : jarvis.phase === "idle" && usable && jarvis.micPermission === "denied"
               ? "The microphone is blocked for this site."
               : jarvis.phase === "idle" && usable
-                ? "Press and tell me what you want done."
+                ? jarvis.pushToTalk
+                  ? "Hold Ctrl, or press the orb, and tell me what you want done."
+                  : "Press and tell me what you want done."
                 : PHASE_LABEL[jarvis.phase];
 
   // Only what Jarvis said for Operator belongs here; a Hermes chat reply stays in his panel.

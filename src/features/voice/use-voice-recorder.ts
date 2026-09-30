@@ -57,7 +57,7 @@ function createMeter(media: MediaStream, keep: (context: AudioContext) => void):
 export interface VoiceRecorder {
   isRecording: boolean;
   level: number;
-  start: () => Promise<void>;
+  start: (options?: { stopOnSilence?: boolean }) => Promise<void>;
   /** Ends the recording and resolves with the audio (null if none was captured). */
   stop: () => Promise<Blob | null>;
   /** Ends the recording and throws it away. */
@@ -110,7 +110,11 @@ export function useVoiceRecorder(onAutoStop: (audio: Blob | null) => void): Voic
     [],
   );
 
-  const start = useCallback(async () => {
+  /**
+   * `stopOnSilence: false` is push-to-talk: the recording lasts exactly as long
+   * as the key is held, so a pause to think doesn't cut you off.
+   */
+  const start = useCallback(async ({ stopOnSilence = true }: { stopOnSilence?: boolean } = {}) => {
     if (recorder.current?.state === "recording") return;
 
     const media = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -164,7 +168,7 @@ export function useVoiceRecorder(onAutoStop: (audio: Blob | null) => void): Voic
           quietSince = now;
         }
 
-        if (heardSpeech && now - quietSince > SILENCE_MS && active.state === "recording") {
+        if (stopOnSilence && heardSpeech && now - quietSince > SILENCE_MS && active.state === "recording") {
           active.stop();
           return;
         }

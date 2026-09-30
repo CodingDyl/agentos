@@ -1475,6 +1475,7 @@ export interface StartRunRequest {
   message: string;
   project?: string;
   sessionId?: string;
+  spoken?: boolean;
 }
 
 export function startAgentRun(request: StartRunRequest): Promise<AgentRun> {

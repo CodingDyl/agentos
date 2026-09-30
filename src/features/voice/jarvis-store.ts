@@ -66,6 +66,11 @@ export interface JarvisApi {
   announce: (text: string) => void;
   /** Voice is on, configured, and not silenced for this exchange. */
   canSpeak: boolean;
+  /** Hold Control to talk, let go to send. On by default; a per-browser choice. */
+  pushToTalk: boolean;
+  setPushToTalk: (on: boolean) => void;
+  /** Control is held and Jarvis is listening. */
+  holding: boolean;
 }
 
 export const JarvisContext = createContext<JarvisApi | null>(null);
