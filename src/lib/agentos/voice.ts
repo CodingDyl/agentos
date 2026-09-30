@@ -68,3 +68,13 @@ export async function speakText(text: string): Promise<Blob> {
   });
   return response.blob();
 }
+
+/**
+ * What Hermes says a finished run produced, when the stream carried no text.
+ * Read from the run itself, through the same adapter the Agent screen uses.
+ */
+export async function fetchRunOutput(runId: string): Promise<string | undefined> {
+  const response = await call(`/api/agent/runs/${encodeURIComponent(runId)}`);
+  const body = (await response.json()) as { output?: unknown };
+  return typeof body.output === "string" && body.output.trim() ? body.output : undefined;
+}
