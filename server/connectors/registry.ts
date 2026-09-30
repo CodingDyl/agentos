@@ -1,5 +1,7 @@
 import type {
   CapabilityPolicy,
+  CredentialResult,
+  CredentialStep,
   ConnectorCapability,
   ConnectorDetail,
   ConnectorsResponse,
@@ -13,9 +15,13 @@ import { parseConfiguration } from "../agentos/mutations/configuration";
 import { readProjectSeo } from "../seo/store";
 import { capabilityId, CONNECTORS, defaultPolicy, findConnector, type CatalogConnector } from "./catalog";
 import { effectivePolicy, isConnectorEnabled, setConnectorEnabled } from "./policy";
-import { PROBES, UNAVAILABLE_HINTS, type LocalProbe } from "./probes";
+import { env, PROBES, UNAVAILABLE_HINTS, type LocalProbe } from "./probes";
+import { valueProblem, writeEnvValues, EnvWriteError } from "./env-file";
+import { forgetInvestecToken } from "../finance/investec";
+import { resetAccessTokenCache } from "../mail/gmail-auth";
+import { resetOutreachTokenCache } from "../outreach/auth";
 import { recommendConnectors, type ProjectSignals } from "./recommendations";
-import { clearHealth, lastUsed, saveHealth, setStoredPolicies, storedHealth, storedPolicy, usesFor } from "./store";
+import { clearHealth, lastUsed, recordUse, saveHealth, setStoredPolicies, storedHealth, storedPolicy, usesFor } from "./store";
 
 /**
  * The capability registry: catalog + what this machine has + what the
@@ -120,7 +126,7 @@ async function assemble(connector: CatalogConnector): Promise<Assembled> {
       status,
       statusDetail,
       enabled: isConnectorEnabled(connector.id),
-      enabledSource: connector.required ? "required" : connector.aiStackSwitch ? "ai-stack" : "connectors",
+      enabledSource: connector.required ? "required" : connector.aiStackSwitch ? "ai-stack" : connector.voiceSwitch ? "voice" : "connectors",
       account: configured ? health?.account : undefined,
       capabilityCount: capabilities.length,
       implementedCount: capabilities.filter((capability) => capability.implemented).length,
@@ -183,7 +189,7 @@ export async function getConnector(id: string): Promise<ConnectorDetail> {
   return {
     ...summary,
     capabilities,
-    setup: local?.setup ?? (unavailable?.setup ?? []).map((label) => ({ label, kind: "env" as const, done: false })),
+    setup: local?.setup ?? (unavailable?.setup ?? []).map((name) => env(name)),
     connectHint: local?.connectHint ?? unavailable?.hint ?? "AgentOS has no adapter for this service yet.",
     connectUrl: local?.connectUrl,
     canDisconnect: Boolean(local?.canDisconnect && PROBES[connector.id]?.disconnect),
@@ -258,4 +264,104 @@ export async function disconnectConnector(id: string): Promise<ConnectorDetail> 
   await probe.disconnect();
   clearHealth(id);
   return getConnector(id);
+}
+
+/**
+ * "Save & connect": the whole task the Setup form starts when Enter is pressed.
+ *
+ * 1. Only names on this connector's own setup list are accepted.
+ * 2. The values are written into `.env` (see `env-file.ts`).
+ * 3. They're applied to this running process, so nothing needs a restart,
+ *    and any cached token that belonged to the old values is dropped.
+ * 4. The connector is switched on for AgentOS.
+ * 5. If that completes its setup, its connection test runs.
+ *
+ * Each step is reported. No value is ever returned, logged or recorded; the
+ * connector's history notes which *names* changed.
+ */
+export async function saveCredentials(id: string, submitted: Record<string, string>): Promise<CredentialResult> {
+  const connector = findConnector(id);
+  if (!connector) throw new ConnectorNotFoundError(`There is no connector called ${id}.`);
+
+  const allowed = new Set(
+    (await getConnector(id)).setup.flatMap((item) => (item.envName ? [item.envName] : [])),
+  );
+  const unknown = Object.keys(submitted).filter((name) => !allowed.has(name));
+  if (unknown.length > 0) {
+    throw new ConnectorRequestError(`${unknown.join(", ")} ${unknown.length === 1 ? "isn't a setting" : "aren't settings"} of ${connector.name}.`);
+  }
+
+  // Blank means "leave it as it is": the form never shows a saved key, so an
+  // empty password field must not wipe one.
+  const values = Object.fromEntries(
+    Object.entries(submitted)
+      .map(([name, value]) => [name, value.trim()] as const)
+      .filter(([, value]) => value.length > 0),
+  );
+  const names = Object.keys(values);
+  if (names.length === 0) throw new ConnectorRequestError("Nothing to save: every field was blank.");
+
+  const steps: CredentialStep[] = [];
+  const finish = async (): Promise<CredentialResult> => ({
+    ok: steps.every((step) => step.ok),
+    steps,
+    connector: await getConnector(id),
+  });
+
+  const problems = names.flatMap((name) => valueProblem(name, values[name]) ?? []);
+  if (problems.length > 0) {
+    steps.push({ label: "Check the values", ok: false, detail: problems.join(" ") });
+    return finish();
+  }
+
+  try {
+    writeEnvValues(values);
+    steps.push({ label: "Save to .env", ok: true, detail: names.join(", ") });
+  } catch (error) {
+    steps.push({ label: "Save to .env", ok: false, detail: error instanceof EnvWriteError ? error.message : ".env could not be written." });
+    return finish();
+  }
+
+  for (const name of names) process.env[name] = values[name];
+  forgetInvestecToken();
+  resetAccessTokenCache();
+  resetOutreachTokenCache();
+  steps.push({ label: "Apply without a restart", ok: true });
+
+  recordUse(id, {
+    capabilityId: `${id}.settings`,
+    capabilityName: "Settings updated",
+    at: new Date().toISOString(),
+    detail: names.join(", "),
+  });
+
+  if (!connector.integrated) {
+    steps.push({ label: "Activate", ok: true, detail: "Saved. AgentOS has no adapter for this yet, so it will be used once one exists." });
+    return finish();
+  }
+
+  if (!connector.required && !isConnectorEnabled(id)) {
+    setConnectorEnabled(id, true);
+    steps.push({ label: "Switch on for AgentOS", ok: true });
+  }
+
+  const local = await probeLocal(connector);
+  if (!local?.configured) {
+    steps.push({
+      label: "Finish setup",
+      ok: false,
+      detail: local?.connectUrl ? `${local.detail ?? "Not connected yet."} Sign in to finish.` : (local?.detail ?? "Something is still missing."),
+    });
+    return finish();
+  }
+
+  try {
+    const tested = await testConnector(id);
+    const health = tested.lastHealthCheck;
+    steps.push({ label: "Test the connection", ok: Boolean(health?.ok), detail: health?.detail });
+  } catch (error) {
+    steps.push({ label: "Test the connection", ok: false, detail: error instanceof Error ? error.message : "The test failed." });
+  }
+
+  return finish();
 }

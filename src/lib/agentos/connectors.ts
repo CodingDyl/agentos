@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ConnectorDetailSchema,
   ConnectorsResponseSchema,
+  CredentialResultSchema,
   type CapabilityPolicy,
+  type CredentialResult,
   type ConnectorDetail,
   type ConnectorsResponse,
 } from "@shared/connector-types";
@@ -101,4 +103,24 @@ export function useTestConnector() {
 
 export function useDisconnectConnector() {
   return useConnectorMutation(async (id: string) => parseDetail(await request(`/api/connectors/${encodeURIComponent(id)}/disconnect`, json("POST"))));
+}
+
+/**
+ * "Save & connect": writes the values into `.env`, applies them, switches the
+ * connector on and tests it. The values are sent once and never come back.
+ */
+export function useSaveConnectorCredentials() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, values }: { id: string; values: Record<string, string> }): Promise<CredentialResult> => {
+      const parsed = CredentialResultSchema.safeParse(await request(`/api/connectors/${encodeURIComponent(id)}/credentials`, json("POST", { values })));
+      if (!parsed.success) throw new AgentOSRequestError("The connector came back in an unexpected shape.");
+      return parsed.data;
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(connectorKey(result.connector.id), result.connector);
+      void queryClient.invalidateQueries({ queryKey: connectorsKey(), exact: true });
+    },
+  });
 }

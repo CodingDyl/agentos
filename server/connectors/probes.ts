@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
+import path from "node:path";
 import { promisify } from "node:util";
 import type { ConnectorSetupItem } from "../../shared/connector-types";
 import { findOnPath, envKeySet } from "../ai-stack/detect";
@@ -21,6 +22,7 @@ import {
   isOutreachConnected,
   outreachAddress,
 } from "../outreach/auth";
+import { isFishConfigured, synthesise } from "../voice/fish";
 import { getVirtec, isVirtecConfigured, isVirtecWritable, VIRTEC_PATHS, virtecConfigurationProblem } from "../virtec/client";
 import { isVercelConfigured, readVercelUser } from "../vercel/client";
 import { claudeWorker } from "../workers/providers/claude-worker";
@@ -67,7 +69,51 @@ export interface Probe {
   disconnect?(): Promise<void>;
 }
 
-const env = (name: string): ConnectorSetupItem => ({ label: name, kind: "env", done: envKeySet(name) });
+/**
+ * Settings that aren't secrets: an address, an id, a path. Their current value
+ * is shown so it can be corrected; every other variable is a key and its
+ * value never leaves the server.
+ */
+export const NON_SECRET = new Set([
+  "VERCEL_TEAM_ID",
+  "HERMES_BASE_URL",
+  "VIRTEC_BASE_URL",
+  "INVESTEC_CLIENT_ID",
+  "GOOGLE_CLIENT_ID",
+  "FISH_VOICE_ID",
+  "FISH_MODEL",
+  "AGENTOS_GROK_BIN",
+  "AGENTOS_HIGGSFIELD_BIN",
+  "POSTHOG_HOST",
+  "SENTRY_ORG",
+  "SUPABASE_URL",
+]);
+
+/** A variable the Setup form may write. The only names `.env` can be written with. */
+export function env(name: string, options: { label?: string; optional?: boolean; placeholder?: string } = {}): ConnectorSetupItem {
+  const secret = !NON_SECRET.has(name);
+  return {
+    label: options.label ?? name,
+    kind: "env",
+    envName: name,
+    done: envKeySet(name),
+    secret,
+    optional: options.optional || undefined,
+    placeholder: options.placeholder,
+    value: secret ? undefined : process.env[name]?.trim() || undefined,
+  };
+}
+
+/** A bare name is looked up on PATH; a path (from an `AGENTOS_*_BIN` setting) is checked where it is. */
+async function findBinary(nameOrPath: string): Promise<string | undefined> {
+  if (!path.isAbsolute(nameOrPath)) return findOnPath(nameOrPath);
+  try {
+    await fs.access(nameOrPath, fs.constants.X_OK);
+    return nameOrPath;
+  } catch {
+    return undefined;
+  }
+}
 
 function failure(error: unknown): TestResult {
   return { ok: false, detail: error instanceof Error ? error.message : "The connection test failed." };
@@ -164,7 +210,7 @@ export const PROBES: Record<string, Probe> = {
       return {
         configured: set,
         detail: set ? undefined : "VERCEL_API_TOKEN is not set.",
-        setup: [env("VERCEL_API_TOKEN"), { ...env("VERCEL_TEAM_ID"), label: "VERCEL_TEAM_ID (optional)" }],
+        setup: [env("VERCEL_API_TOKEN"), env("VERCEL_TEAM_ID", { optional: true, placeholder: "team_…" })],
         connectHint: "Add VERCEL_API_TOKEN (and VERCEL_TEAM_ID for a team) to .env, then restart the data adapter.",
       };
     },
@@ -184,7 +230,7 @@ export const PROBES: Record<string, Probe> = {
       return {
         configured,
         detail: configured ? undefined : "HERMES_API_KEY is not set.",
-        setup: [env("HERMES_API_KEY"), { ...env("HERMES_BASE_URL"), label: "HERMES_BASE_URL (optional)" }],
+        setup: [env("HERMES_API_KEY"), env("HERMES_BASE_URL", { optional: true, placeholder: "http://127.0.0.1:8642/v1" })],
         connectHint: "Set HERMES_API_KEY in .env and start the Hermes gateway. The switch is shared with Operations → AI stack.",
       };
     },
@@ -220,11 +266,15 @@ export const PROBES: Record<string, Probe> = {
 
   grok: {
     async local() {
-      const found = await findOnPath(process.env.AGENTOS_GROK_BIN?.trim() || "grok");
+      const found = await findBinary(process.env.AGENTOS_GROK_BIN?.trim() || "grok");
       return {
         configured: Boolean(found),
         detail: found ? undefined : "The grok CLI is not on the server's PATH.",
-        setup: [{ label: "grok CLI on PATH (or AGENTOS_GROK_BIN)", kind: "cli", done: Boolean(found) }],
+        setup: [
+          { label: "grok CLI on PATH", kind: "cli", done: Boolean(found) },
+          env("AGENTOS_GROK_BIN", { optional: true, placeholder: "/usr/local/bin/grok" }),
+          env("XAI_API_KEY", { optional: true }),
+        ],
         connectHint: "Install the grok CLI and sign in. The switch is shared with Operations → AI stack.",
       };
     },
@@ -321,7 +371,11 @@ export const PROBES: Record<string, Probe> = {
       return {
         configured,
         detail: configured ? undefined : virtecConfigurationProblem(),
-        setup: [env("VIRTEC_BASE_URL"), env("VIRTEC_API_KEY"), { ...env("VIRTEC_WRITE_API_KEY"), label: "VIRTEC_WRITE_API_KEY (for write-back)" }],
+        setup: [
+          env("VIRTEC_BASE_URL", { placeholder: "https://crm.example.com" }),
+          env("VIRTEC_API_KEY"),
+          env("VIRTEC_WRITE_API_KEY", { optional: true, label: "VIRTEC_WRITE_API_KEY (for write-back)" }),
+        ],
         missingGrants: writable ? undefined : { update_records: writeReason, start_scan: writeReason, publish_email: writeReason },
         connectHint: "Set VIRTEC_BASE_URL and VIRTEC_API_KEY in .env. Write-back needs its own VIRTEC_WRITE_API_KEY.",
       };
@@ -358,13 +412,42 @@ export const PROBES: Record<string, Probe> = {
     },
   },
 
+  fish: {
+    async local() {
+      const configured = isFishConfigured();
+      return {
+        configured,
+        detail: configured ? undefined : "FISH_API_KEY is not set.",
+        setup: [
+          env("FISH_API_KEY"),
+          env("FISH_VOICE_ID", { optional: true, placeholder: "Defaults to the Jarvis voice" }),
+          env("FISH_MODEL", { optional: true, placeholder: "s1" }),
+        ],
+        connectHint: "Paste a Fish Audio API key. The switch is shared with Jarvis's voice switch: turning either off silences both.",
+      };
+    },
+    async test() {
+      // Fish has no free "who am I" call this client uses, so the test speaks
+      // two letters. It spends a fraction of a cent of Fish credit.
+      try {
+        const audio = await synthesise("OK.");
+        return { ok: true, detail: `Fish Audio spoke a test line (${Math.round(audio.length / 1024)} KB of audio).` };
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  },
+
   higgsfield: {
     async local() {
-      const found = await findOnPath(higgsfieldBinary());
+      const found = await findBinary(higgsfieldBinary());
       return {
         configured: Boolean(found),
         detail: found ? undefined : "The Higgsfield CLI is not on the server's PATH.",
-        setup: [{ label: "higgsfield CLI on PATH (or AGENTOS_HIGGSFIELD_BIN)", kind: "cli", done: Boolean(found) }],
+        setup: [
+          { label: "higgsfield CLI on PATH", kind: "cli", done: Boolean(found) },
+          env("AGENTOS_HIGGSFIELD_BIN", { optional: true, placeholder: "/usr/local/bin/higgsfield" }),
+        ],
         connectHint: "Install the Higgsfield CLI and run `higgsfield auth login`.",
       };
     },

@@ -41,6 +41,8 @@ export interface CatalogConnector {
   integrated: boolean;
   /** The switch is the AI stack's (`/operations` → AI stack) rather than this page's own. */
   aiStackSwitch?: boolean;
+  /** The switch is Jarvis's voice switch: Fish is the voice, so there is only one. */
+  voiceSwitch?: boolean;
   /** AgentOS runs on it; there is no switch. */
   required?: boolean;
   capabilities: CatalogCapability[];
@@ -204,6 +206,21 @@ export const CONNECTORS: readonly CatalogConnector[] = [
       { action: "read_files", name: "Read files", risk: "read" },
       { action: "create_file", name: "Create files", risk: "write-external" },
       { action: "share_file", name: "Share files", risk: "external-communication" },
+    ],
+  },
+  {
+    id: "fish",
+    name: "Fish Audio",
+    description: "Jarvis's voice: speaks replies and transcribes what you say.",
+    category: "communication",
+    tier: 2,
+    icon: "audio",
+    integrated: true,
+    voiceSwitch: true,
+    capabilities: [
+      { action: "text_to_speech", name: "Speak replies (spends credits)", risk: "write-external", implementedBy: "server/voice/fish.ts" },
+      { action: "speech_to_text", name: "Transcribe speech (spends credits)", risk: "write-external", implementedBy: "server/voice/fish.ts" },
+      { action: "clone_voice", name: "Clone a voice", risk: "write-external", policy: "approval" },
     ],
   },
   {

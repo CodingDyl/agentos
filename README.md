@@ -46,6 +46,7 @@ happens only when you send a message or run a command.
 | `server/connectors/policy.ts` | The guard each client calls: switched on? policy allows this caller? |
 | `server/connectors/probes.ts` | Set-up checks (no network) and "Test connection" (one read) per connector |
 | `server/connectors/registry.ts` | Catalog + machine + operator decisions, as `/api/connectors` serves them |
+| `server/connectors/env-file.ts` | The only writer of `.env`: allow-listed names, no line breaks, atomic, mode 0600 |
 | `server/connectors/recommendations.ts` | Which connectors a workspace's actual tasks would benefit from |
 | `server/workers/worker.ts` | The provider-neutral worker contract |
 | `server/workers/registry.ts` | Which workers exist; the only place one is named |

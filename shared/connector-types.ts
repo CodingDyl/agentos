@@ -82,8 +82,16 @@ export const ConnectorSetupItemSchema = z.object({
   /** An environment variable name, or a short step such as "Sign in from Inbox". */
   label: z.string(),
   kind: z.enum(["env", "oauth", "cli", "path"]),
-  /** Whether this step is already done. Never the value itself. */
+  /** Whether this step is already done. Never a secret's value. */
   done: z.boolean(),
+  /** For `env` items: the variable the Setup form may write. Only these names can be written. */
+  envName: z.string().optional(),
+  /** A key or token: typed into a password field and never sent back. */
+  secret: z.boolean().optional(),
+  optional: z.boolean().optional(),
+  /** The current value, for non-secret settings only (a team id, a base URL). */
+  value: z.string().optional(),
+  placeholder: z.string().optional(),
 });
 
 export const ConnectorUseSchema = z.object({
@@ -113,7 +121,7 @@ export const ConnectorSummarySchema = z.object({
   /** AgentOS' own switch. Independent of `status`: connected-but-off is a real state. */
   enabled: z.boolean(),
   /** Some connectors' switch lives with the AI stack and gates the same thing. */
-  enabledSource: z.enum(["connectors", "ai-stack", "required"]),
+  enabledSource: z.enum(["connectors", "ai-stack", "voice", "required"]),
   /** Public account handle (a login, an email address) from the last test. */
   account: z.string().optional(),
   capabilityCount: z.number().int().nonnegative(),
@@ -145,6 +153,26 @@ export const ConnectorRecommendationSchema = z.object({
   why: z.string(),
 });
 
+/** What the Setup form sends. Blank values are ignored rather than clearing a key. */
+export const ConnectorCredentialsSchema = z
+  .object({
+    values: z.record(z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/), z.string().max(4096)),
+  })
+  .strict();
+
+export const CredentialStepSchema = z.object({
+  label: z.string(),
+  ok: z.boolean(),
+  detail: z.string().optional(),
+});
+
+/** The result of "Save & connect": each step of the task, and the connector afterwards. */
+export const CredentialResultSchema = z.object({
+  ok: z.boolean(),
+  steps: z.array(CredentialStepSchema),
+  connector: ConnectorDetailSchema,
+});
+
 export const ConnectorsResponseSchema = z.object({
   generatedAt: z.string(),
   connectors: z.array(ConnectorSummarySchema),
@@ -172,6 +200,9 @@ export type ConnectorDetail = z.infer<typeof ConnectorDetailSchema>;
 export type ConnectorRecommendation = z.infer<typeof ConnectorRecommendationSchema>;
 export type ConnectorsResponse = z.infer<typeof ConnectorsResponseSchema>;
 export type ConnectorPatch = z.infer<typeof ConnectorPatchSchema>;
+export type ConnectorCredentials = z.infer<typeof ConnectorCredentialsSchema>;
+export type CredentialStep = z.infer<typeof CredentialStepSchema>;
+export type CredentialResult = z.infer<typeof CredentialResultSchema>;
 
 /** The policy a capability starts with, from its risk alone. A catalog entry may be stricter. */
 export function defaultPolicyForRisk(risk: CapabilityRisk): CapabilityPolicy {
