@@ -50,6 +50,7 @@ const SCREENS: readonly { label: string; href: string; hint: string; keywords: s
   { label: "Creative", href: "/designs", hint: "Visuals and generations", keywords: ["designs", "boards", "assets", "images", "higgsfield"] },
   { label: "Operations", href: "/operations", hint: "Agents, usage and cost", keywords: ["usage", "tokens", "spend", "models", "budget"] },
   { label: "Automations", href: "/automations", hint: "Scheduled runs", keywords: ["cron", "schedule"] },
+  { label: "Connectors", href: "/connectors", hint: "Services and capabilities", keywords: ["integrations", "github", "vercel", "permissions", "capabilities"] },
   { label: "Activity", href: "/activity", hint: "Timeline", keywords: ["history", "log"] },
   { label: "Agents", href: "/workers", hint: "Workers and their jobs", keywords: ["jobs", "grok", "claude", "workers", "cancel"] },
   { label: "Hermes console", href: "/agent", hint: "Operations · agents", keywords: ["agent", "chat", "console"] },

@@ -1,4 +1,5 @@
 import type { CalendarEvent, TodayCalendar } from "../../shared/today-types";
+import { authorize } from "../connectors/policy";
 import { canReadCalendar, getAccessToken, isGmailConfigured, isGmailConnected } from "../mail/gmail-auth";
 
 /**
@@ -107,6 +108,9 @@ export async function getTodayCalendar(now: Date = new Date()): Promise<TodayCal
       today: [],
     };
   }
+
+  const decision = authorize("calendar.read_events", { initiator: "system" });
+  if (!decision.allowed) return { status: "error", detail: decision.reason, today: [] };
 
   let token: string;
   try {

@@ -2,6 +2,7 @@ import type { AgentFailureReason, AgentStatus } from "../../shared/agentos-types
 import type { UsageContext, UsageOperation } from "../../shared/usage-types";
 import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 import { collectHermesUsage } from "../usage/collector";
+import { touch } from "../connectors/store";
 import { NO_EM_DASH_RULE, withoutEmDashes } from "../../shared/plain-text";
 
 /**
@@ -109,6 +110,7 @@ export async function hermesFetch(
   }
 
   const apiKey = requireApiKey();
+  touch("hermes");
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
 
   const headers: Record<string, string> = {

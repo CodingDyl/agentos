@@ -34,6 +34,13 @@ const env = {
   GOOGLE_CLIENT_ID: "",
   GOOGLE_CLIENT_SECRET: "",
   VERCEL_API_TOKEN: "",
+  // No service credentials at all, so Connectors reads the same on every machine.
+  GITHUB_TOKEN: "",
+  VIRTEC_BASE_URL: "",
+  VIRTEC_API_KEY: "",
+  INVESTEC_API_KEY: "",
+  ANTHROPIC_API_KEY: "",
+  ANTHROPIC_AUTH_TOKEN: "",
 };
 
 let child;

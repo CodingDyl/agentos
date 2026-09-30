@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { AspectRatio } from "../../shared/design-generation-types";
+import { decide } from "../connectors/policy";
 
 /**
  * Rendering images, through the Higgsfield CLI.
@@ -68,6 +69,9 @@ export interface GenerationCapabilityResult {
  * cheaply, and it fails closed on anything it cannot establish.
  */
 export async function generationCapability(): Promise<GenerationCapabilityResult> {
+  const decision = decide("higgsfield.generate", "person");
+  if (!decision.allowed) return { available: false, reason: decision.reason };
+
   try {
     await run(binary(), ["version"], { timeout: PROBE_TIMEOUT_MS });
   } catch (error) {

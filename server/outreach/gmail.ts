@@ -1,3 +1,4 @@
+import { authorize } from "../connectors/policy";
 import { getOutreachAccessToken, OutreachAuthError } from "./auth";
 import { buildMessage, toRaw, type EmailMessage } from "./mime";
 
@@ -23,6 +24,13 @@ export class OutreachGmailError extends Error {
 
 async function gmailPost(path: string, body: unknown): Promise<unknown> {
   const token = await getOutreachAccessToken();
+
+  // A person confirmed the preview before either of these is reached, so the
+  // press is the approval `gmail.send` asks for. Switching it off still refuses.
+  const decision = path === "/messages/send"
+    ? authorize("gmail.send", { initiator: "person", detail: "Sent one outreach email" })
+    : authorize("gmail.draft", { initiator: "person", detail: "Created one outreach draft" });
+  if (!decision.allowed) throw new OutreachGmailError(decision.reason, "failed");
   let response: Response;
   try {
     response = await fetch(`${GMAIL_API}${path}`, {

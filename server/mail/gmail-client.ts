@@ -1,5 +1,6 @@
 import type { AgentFailureReason } from "../../shared/agentos-types";
 import { MAIL_MAX_AGE_DAYS, MAIL_THREAD_LIMIT } from "../../shared/mail-types";
+import { authorize } from "../connectors/policy";
 import { getAccessToken } from "./gmail-auth";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -16,6 +17,12 @@ export class GmailError extends Error {
 
 async function gmailFetch(path: string, init?: { method: "POST"; body?: unknown }): Promise<unknown> {
   const token = await getAccessToken();
+
+  // Every POST this client makes is a label change or a move to Trash.
+  const decision = init?.method === "POST"
+    ? authorize("gmail.modify", { initiator: "system", detail: path.endsWith("/trash") ? "Moved a thread to Trash" : "Changed a thread's labels" })
+    : authorize("gmail.read", { initiator: "system" });
+  if (!decision.allowed) throw new GmailError(decision.reason, "not-configured");
 
   let response: Response;
   try {

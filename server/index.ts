@@ -83,6 +83,7 @@ import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
 import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
+import { connectorsRouter } from "./connectors/routes";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -338,6 +339,9 @@ app.use("/api/outreach", outreachRouter);
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
 app.use("/api/finance", financeRouter);
 app.use("/api/route-policy", routePolicyRouter);
+
+/** Connectors: every service AgentOS can reach, its switch, and each capability's policy. */
+app.use("/api/connectors", connectorsRouter);
 
 /** Voice: speech to text and text to speech only. Words still go through Hermes. */
 app.use("/api/voice", voiceRouter);

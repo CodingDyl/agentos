@@ -1,5 +1,6 @@
 import type { AgentFailureReason } from "../../shared/agentos-types";
 import type { ProjectVercelInfo, VercelDeployment, VercelDomain, VercelProjectSummary } from "../../shared/vercel-types";
+import { authorize } from "../connectors/policy";
 
 /**
  * Vercel, read-only.
@@ -45,8 +46,12 @@ function withTeam(path: string): string {
   return `${path}${separator}teamId=${encodeURIComponent(teamId)}`;
 }
 
-async function vercelGet<T>(path: string): Promise<T> {
+type VercelRead = "vercel.read_projects" | "vercel.read_deployments";
+
+async function vercelGet<T>(path: string, capability: VercelRead): Promise<T> {
   const token = requireToken();
+  const decision = authorize(capability, { initiator: "system" });
+  if (!decision.allowed) throw new VercelError(decision.reason, "not-configured");
 
   let response: Response;
   try {
@@ -78,13 +83,19 @@ async function vercelGet<T>(path: string): Promise<T> {
   }
 }
 
+/** The account the token belongs to, by its public username. The Connectors page's connection test. */
+export async function readVercelUser(): Promise<string> {
+  const data = await vercelGet<{ user?: { username?: string; email?: string } }>("/v2/user", "vercel.read_projects");
+  return data.user?.username ?? "the token's account";
+}
+
 interface VercelProjectsListResponse {
   projects: { id: string; name: string; framework?: string | null }[];
 }
 
 /** Every project the token can see, for the "connect a Vercel project" picker. */
 export async function listVercelProjects(): Promise<VercelProjectSummary[]> {
-  const data = await vercelGet<VercelProjectsListResponse>("/v10/projects?limit=100");
+  const data = await vercelGet<VercelProjectsListResponse>("/v10/projects?limit=100", "vercel.read_projects");
 
   return data.projects.map((project) => ({
     id: project.id,
@@ -98,7 +109,7 @@ interface VercelDomainsResponse {
 }
 
 export async function getVercelProjectDomains(projectId: string): Promise<VercelDomain[]> {
-  const data = await vercelGet<VercelDomainsResponse>(`/v9/projects/${encodeURIComponent(projectId)}/domains`);
+  const data = await vercelGet<VercelDomainsResponse>(`/v9/projects/${encodeURIComponent(projectId)}/domains`, "vercel.read_deployments");
   return data.domains.map((domain) => ({ name: domain.name, verified: domain.verified }));
 }
 
@@ -109,6 +120,7 @@ interface VercelDeploymentsResponse {
 export async function getVercelDeployments(projectId: string, limit = 5): Promise<VercelDeployment[]> {
   const data = await vercelGet<VercelDeploymentsResponse>(
     `/v6/deployments?projectId=${encodeURIComponent(projectId)}&limit=${limit}`,
+    "vercel.read_deployments",
   );
 
   return data.deployments.map((deployment) => ({

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { FinancialAccount, Transaction } from "../../shared/finance-types";
 import { cleanMerchant } from "./categorise";
+import { authorize } from "../connectors/policy";
 
 /**
  * Investec Programmable Banking, read-only.
@@ -120,6 +121,8 @@ async function accessToken(): Promise<string> {
 /** The only door to the bank after authentication, and it only opens for GET. */
 export async function investecGet<T>(path: string, query?: Record<string, string>): Promise<T> {
   const token = await accessToken();
+  const decision = authorize(path.includes("/transactions") ? "investec.read_transactions" : "investec.read_accounts", { initiator: "system" });
+  if (!decision.allowed) throw new InvestecError(decision.reason, "not-configured");
   const url = new URL(`${baseUrl()}${path}`);
   for (const [key, value] of Object.entries(query ?? {})) url.searchParams.set(key, value);
 

@@ -8,6 +8,7 @@ import {
   Inbox,
   LayoutGrid,
   Network,
+  Plug,
   Sun,
   SwatchBook,
   Target,
@@ -24,7 +25,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  * Today · Inbox · Traction · Finance  where the day starts, what arrived,
  *                                     the customers to go and get, and the money
  * WORK    Workspaces · Knowledge · Memory · Creative
- * SYSTEM  Automations · Operations · Activity
+ * SYSTEM  Automations · Connectors · Operations · Activity
  * ```
  *
  * The agent console and worker jobs are still here — under Operations, and
@@ -51,6 +52,9 @@ export const navigationItems: AppShellNavigationItem[] = [
   // references and client visuals are not "designs" in the interface sense.
   { label: "Creative", href: "/designs", icon: Images, section: "work" },
   { label: "Automations", href: "/automations", icon: CalendarClock, section: "system" },
+  // The capability registry: which services AgentOS can reach, whether each
+  // is switched on for it, and what it may do in each.
+  { label: "Connectors", href: "/connectors", icon: Plug, section: "system" },
   // The infrastructure control centre: agents, usage, models, cost, system.
   { label: "Operations", href: "/operations", icon: Gauge, section: "system" },
   { label: "Activity", href: "/activity", icon: Activity, section: "system" },

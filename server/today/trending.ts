@@ -1,4 +1,5 @@
 import type { TodayTrending, TrendingRepo } from "../../shared/today-types";
+import { authorize } from "../connectors/policy";
 import { rankTrending, readSnapshots, recordDay, writeSnapshots } from "./trending-snapshots";
 
 /**
@@ -76,6 +77,9 @@ export function mergeCandidates(...lists: TrendingRepo[][]): TrendingRepo[] {
 type SearchResult = { repos: TrendingRepo[] } | { failure: TodayTrending };
 
 async function search(params: URLSearchParams, base: Pick<TodayTrending, "windowDays" | "fetchedAt">): Promise<SearchResult> {
+  const decision = authorize("github.search_repositories", { initiator: "system" });
+  if (!decision.allowed) return { failure: { ...base, status: "error", detail: decision.reason, repos: [] } };
+
   const token = process.env.GITHUB_TOKEN;
 
   let response: Response;
