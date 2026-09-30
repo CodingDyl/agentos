@@ -18,6 +18,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { useCancelWorkerJob, useWorkerJobs, useWorkers } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { DelegateJobForm } from "./delegate-job-form";
+import { OllamaPanel } from "./ollama-panel";
 import { formatDuration, isCancellable, isFinished, statusLabel, statusPill } from "./workers-model";
 
 const PAGE_PADDING =
@@ -105,6 +106,10 @@ export function WorkersPage() {
                     ))}
                 </ul>
               </HairlineCard>
+            </Section>
+
+            <Section label="Local models (Ollama)" className="mt-12">
+              <OllamaPanel />
             </Section>
 
             <Section

@@ -152,8 +152,12 @@ import {
   updateDesignBoard,
   uploadDesignAsset,
   cancelWorkerJob,
+  getExecutionOptions,
+  getOllamaStatus,
   getWorkerJob,
   getWorkerJobs,
+  previewRoute,
+  saveOllamaSettings,
   getWorkers,
   completeTask,
   finaliseDesignReview,
@@ -1267,6 +1271,51 @@ export function useCompleteTask(slug: string) {
 export function useRouteWorkerJob() {
   return useMutation({
     mutationFn: routeWorkerJob,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Ollama status. Polled slowly: models load and unload on their own. */
+export function useOllamaStatus() {
+  return useQuery({
+    queryKey: [...agentosKeys.all, "ollama-status"] as const,
+    queryFn: getOllamaStatus,
+    staleTime: 5_000,
+    refetchInterval: 15_000,
+    retry: 0,
+    networkMode: "always",
+  });
+}
+
+export function useSaveOllamaSettings() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: saveOllamaSettings,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "ollama-status"] });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useExecutionOptions() {
+  return useQuery({
+    queryKey: [...agentosKeys.all, "execution-options"] as const,
+    queryFn: getExecutionOptions,
+    staleTime: 5_000,
+    retry: 0,
+    networkMode: "always",
+  });
+}
+
+/** A preview, not a dispatch: nothing runs. */
+export function usePreviewRoute() {
+  return useMutation({
+    mutationFn: previewRoute,
     networkMode: "always",
     retry: 0,
   });

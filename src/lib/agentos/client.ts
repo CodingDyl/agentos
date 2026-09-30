@@ -150,6 +150,15 @@ import {
   WorkerRoutingResponseSchema,
 } from "@shared/worker-routing-types";
 import {
+  ExecutionOptionsResponseSchema,
+  OllamaStatusResponseSchema,
+  RoutePreviewResponseSchema,
+  type ExecutionOptionsResponse,
+  type OllamaSettings,
+  type OllamaStatusResponse,
+  type RoutePreviewResponse,
+} from "@shared/route-policy-types";
+import {
   type AgentDetail,
   AgentDetailResponseSchema,
   type BudgetsResponse,
@@ -1061,6 +1070,53 @@ export function routeWorkerJob(
       body: JSON.stringify(request),
     },
     (value) => WorkerRoutingResponseSchema.safeParse(value),
+  );
+}
+
+/** Ollama connection, discovered models and their routing configuration. */
+export function getOllamaStatus(): Promise<OllamaStatusResponse> {
+  return workerRequest("/api/route-policy/ollama", { method: "GET" }, (value) =>
+    OllamaStatusResponseSchema.safeParse(value),
+  );
+}
+
+export function saveOllamaSettings(settings: OllamaSettings): Promise<unknown> {
+  return workerRequest("/api/route-policy/ollama", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+}
+
+/** Every execution option and whether it is usable, for the manual override. */
+export function getExecutionOptions(): Promise<ExecutionOptionsResponse> {
+  return workerRequest("/api/route-policy/options", { method: "GET" }, (value) =>
+    ExecutionOptionsResponseSchema.safeParse(value),
+  );
+}
+
+export type RoutePreviewInput = Pick<
+  WorkerJobRequest,
+  | "project"
+  | "objective"
+  | "inputText"
+  | "repoPath"
+  | "expectedOutput"
+  | "routingMode"
+  | "manualOptionId"
+  | "routingHints"
+>;
+
+/** The routing decision for a task, before anything is dispatched. */
+export function previewRoute(input: RoutePreviewInput): Promise<RoutePreviewResponse> {
+  return workerRequest(
+    "/api/route-policy/preview",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    (value) => RoutePreviewResponseSchema.safeParse(value),
   );
 }
 

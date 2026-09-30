@@ -1,7 +1,8 @@
-import type {
-  ExecutionOption,
-  OllamaModelConfig,
-  OllamaSettings,
+import {
+  DEFAULT_LOCAL_LIMITS,
+  defaultOllamaModelConfig,
+  type ExecutionOption,
+  type OllamaSettings,
 } from "../../shared/route-policy-types";
 
 /**
@@ -17,12 +18,7 @@ import type {
 export const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 
 /** Conservative starting limits, not measured hardware guarantees. */
-export const DEFAULT_LIMITS = {
-  maxInputTokens: 2_000,
-  maxOutputTokens: 512,
-  timeoutMs: 30_000,
-  maxConcurrent: 1,
-} as const;
+export const DEFAULT_LIMITS = DEFAULT_LOCAL_LIMITS;
 
 export interface DiscoveredOllamaModel {
   /** Exact tag, e.g. `qwen3:4b`. */
@@ -57,18 +53,7 @@ export function defaultOllamaSettings(): OllamaSettings {
  * The starting entry for a model, always disabled. qwen3:4b is the confirmed
  * first candidate, but it is enabled by the operator like any other.
  */
-export function defaultModelConfig(): OllamaModelConfig {
-  return {
-    enabled: false,
-    categories: ["summarisation", "extraction", "rewriting", "classification", "explanation"],
-    capabilities: ["text"],
-    maxInputTokens: DEFAULT_LIMITS.maxInputTokens,
-    maxOutputTokens: DEFAULT_LIMITS.maxOutputTokens,
-    timeoutMs: DEFAULT_LIMITS.timeoutMs,
-    structuredOutput: false,
-    allowThinking: false,
-  };
-}
+export const defaultModelConfig = defaultOllamaModelConfig;
 
 export interface OllamaState {
   /** False when `/api/tags` could not be reached. */

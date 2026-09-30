@@ -1678,7 +1678,11 @@ function parsedRouting(value: unknown) {
 
   const result = WorkerRoutingDecisionSchema.safeParse(value);
 
-  return result.success ? result.data : undefined;
+  // A route-policy record is the server's own finding. One arriving from the
+  // console is dropped, so the fallback plan and the local-only constraint
+  // that a job later relies on are always the ones planned here, never ones
+  // a request supplied.
+  return result.success ? { ...result.data, policy: undefined } : undefined;
 }
 
 /** Optional route-policy fields of a job request, each validated on its own. */

@@ -28,6 +28,14 @@ import {
 import { useNavigationItems } from "@/config/use-navigation";
 import { FrictionButton, SprintPanel } from "@/features/validation";
 import { RoutingDecision } from "./routing-decision";
+import { AttemptsPanel, RoutePolicyPanel, TextResultStation } from "./route-policy-panel";
+import {
+  fellBack,
+  isTextResultJob,
+  LOCAL_COST_CAVEAT,
+  providerChargeLabel,
+  shortDigest,
+} from "./route-policy-model";
 import { VisualVerificationPanel } from "./visual-verification-panel";
 import {
   useApproveWorkerJob,
@@ -331,7 +339,15 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
         </div>
       ) : null}
 
-      {hasReviewableWork(job.status) ? <ReviewStation job={job} /> : null}
+      {/* A text result has no checkout to review, so it gets its own station
+          rather than a code-review panel that would say "changed nothing". */}
+      {isTextResultJob(job) ? (
+        hasReviewableWork(job.status) || job.status === "completed" ? (
+          <TextResultStation job={job} />
+        ) : null
+      ) : hasReviewableWork(job.status) ? (
+        <ReviewStation job={job} />
+      ) : null}
 
       <div className="mt-10 grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Section label="Activity" className="lg:col-start-1">
@@ -413,11 +429,21 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
               asked long after the delegation screen has gone. */}
           {job.routing ? (
             <Section label="Why this worker">
-              <RoutingDecision
-                decision={job.routing}
-                workers={workers}
-                overriddenTo={job.resolvedWorker}
-              />
+              {job.routing.policy ? (
+                <RoutePolicyPanel record={job.routing.policy} workers={workers} />
+              ) : (
+                <RoutingDecision
+                  decision={job.routing}
+                  workers={workers}
+                  overriddenTo={job.resolvedWorker}
+                />
+              )}
+            </Section>
+          ) : null}
+
+          {job.attempts?.length ? (
+            <Section label={fellBack(job) ? "Attempts (fell back)" : "Attempts"}>
+              <AttemptsPanel job={job} />
             </Section>
           ) : null}
 
@@ -431,6 +457,7 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
 
           <JobArtifacts job={job} />
 
+          {isTextResultJob(job) ? null : (
           <Section label="Changed files">
             {(job.result?.changedFiles ?? []).length === 0 ? (
               <EmptyState
@@ -454,6 +481,7 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
               </ul>
             )}
           </Section>
+          )}
 
           {job.worktreePath ? (
             <Section label="Worktree">
@@ -1109,6 +1137,23 @@ function RunCost({
   metrics: NonNullable<NonNullable<WorkerJob["result"]>["providerMetrics"]>;
 }) {
   const { costUsd, turns, sessionId, budgetUsd } = metrics;
+
+  // A local run is reported as what it is: no provider API charge. It is not
+  // shown as "$0.00 spent", which reads as a claim the whole cost was nil.
+  if (metrics.location === "local") {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[15px] leading-6 text-foreground">{providerChargeLabel(metrics)}</p>
+        <p className="text-[13px] leading-5 text-os-subtle">{LOCAL_COST_CAVEAT}</p>
+        {metrics.model ? (
+          <p className="os-meta font-mono text-os-subtle">
+            {metrics.model}
+            {shortDigest(metrics.modelDigest) ? ` · ${shortDigest(metrics.modelDigest)}` : ""}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   const spent = typeof costUsd === "number" ? costUsd : undefined;
   const ceiling =

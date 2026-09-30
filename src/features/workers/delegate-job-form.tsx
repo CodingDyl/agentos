@@ -4,6 +4,7 @@ import type {
   WorkerPerformance,
   WorkerRoutingDecision,
 } from "@shared/worker-routing-types";
+import type { RoutePolicyRecord, RoutingMode } from "@shared/route-policy-types";
 import type { VisualAcceptanceContext } from "@shared/visual-verification-types";
 import type { WorkerId, WorkerSummary } from "@shared/worker-types";
 import {
@@ -13,10 +14,14 @@ import {
   SectionLabel,
 } from "@/components/os";
 import {
+  useExecutionOptions,
+  usePreviewRoute,
   useProjects,
   useRouteWorkerJob,
   useStartWorkerJob,
 } from "@/lib/agentos/queries";
+import { RoutePolicyPanel } from "./route-policy-panel";
+import { optionLabel, parseSchemaInput } from "./route-policy-model";
 import { RoutingDecision } from "./routing-decision";
 import { VisualAcceptanceFields } from "./visual-acceptance-fields";
 import { visualAcceptanceProblem } from "./workers-model";
@@ -58,6 +63,17 @@ export function DelegateJobForm({
 
   const [objective, setObjective] = useState("");
   const [selection, setSelection] = useState<Selection>("auto");
+
+  // Route policy. `auto` and `local_only` are ways of choosing; `manual` is the
+  // operator naming a worker (and, for Ollama, the exact model) themselves.
+  const [mode, setMode] = useState<RoutingMode>("auto");
+  const [inputText, setInputText] = useState("");
+  const [outputFormat, setOutputFormat] = useState<"text" | "json">("text");
+  const [schemaText, setSchemaText] = useState("");
+  const [manualId, setManualId] = useState<string>();
+  const [record, setRecord] = useState<RoutePolicyRecord>();
+  const preview = usePreviewRoute();
+  const executionOptions = useExecutionOptions();
   const [project, setProject] = useState(projects[0]?.slug ?? "agentos");
   const [repoPath, setRepoPath] = useState("");
   const [visualAcceptance, setVisualAcceptance] =
@@ -76,30 +92,60 @@ export function DelegateJobForm({
    * screen that was reasoned about different work — and it would be sent, and
    * recorded, as though it had been about this job.
    */
-  const editObjective = (next: string) => {
-    setObjective(next);
-
-    if (decision) {
-      setDecision(undefined);
-      setCandidates(undefined);
-      setOverride(undefined);
-      setChanging(false);
-    }
+  /** Anything the route was reasoned about has changed, so it no longer applies. */
+  const resetRoute = () => {
+    setRecord(undefined);
+    setDecision(undefined);
+    setCandidates(undefined);
+    setOverride(undefined);
+    setChanging(false);
   };
 
-  const chooseSelection = (next: Selection) => {
-    setSelection(next);
-    setOverride(undefined);
+  const editObjective = (next: string) => {
+    setObjective(next);
+    resetRoute();
+  };
 
-    // Leaving auto discards the recommendation: what follows is the operator's
-    // own choice, and recording a routing decision beside it would misdescribe
-    // who decided.
-    if (next !== "auto") {
-      setDecision(undefined);
-      setCandidates(undefined);
-    }
+  const chooseMode = (next: RoutingMode) => {
+    setMode(next);
+    setManualId(undefined);
+    setSelection("auto");
+    resetRoute();
+  };
 
-    setChanging(false);
+  const schema = outputFormat === "json" ? parseSchemaInput(schemaText) : {};
+  const expectedOutput =
+    outputFormat === "json" ? { format: "json" as const, schema: schema.schema } : undefined;
+
+  const previewInput = (optionId?: string) => ({
+    project,
+    objective: objective.trim(),
+    inputText: inputText.trim() || undefined,
+    repoPath: repoPath.trim() || undefined,
+    expectedOutput,
+    routingMode: mode,
+    manualOptionId: optionId,
+    routingHints: mode === "local_only" ? { localOnly: true } : undefined,
+  });
+
+  /** Options the policy does not know (a rehearsal worker) keep the legacy path. */
+  const optionIds = new Set((executionOptions.data?.options ?? []).map((option) => option.id));
+  const legacyWorkers = workers.filter((worker) => worker.id !== "ollama" && !optionIds.has(worker.id));
+  const isLegacyChoice = mode === "manual" && legacyWorkers.some((worker) => worker.id === manualId);
+
+  const pickManual = (id: string) => {
+    setManualId(id);
+    resetRoute();
+
+    const legacy = legacyWorkers.some((worker) => worker.id === id);
+    setSelection(legacy ? (id as WorkerId) : "auto");
+    if (legacy || !hasObjective) return;
+
+    preview.mutate(previewInput(id), {
+      onSuccess: (result) => {
+        if (!result.legacy) setRecord(result.record);
+      },
+    });
   };
 
   const hasObjective = objective.trim().length > 0;
@@ -109,8 +155,20 @@ export function DelegateJobForm({
     selection === "auto" ? (override ?? decision?.selectedWorker) : selection;
 
   const askForRecommendation = () => {
-    if (!hasObjective || route.isPending) return;
+    if (!hasObjective || route.isPending || preview.isPending || schema.error) return;
 
+    // The route policy goes first. When it has nothing to add (no local model
+    // is enabled and the task may use the cloud) the existing Hermes
+    // recommendation applies exactly as before.
+    preview.mutate(previewInput(), {
+      onSuccess: (result) => {
+        if (result.legacy) askHermes();
+        else setRecord(result.record);
+      },
+    });
+  };
+
+  const askHermes = () => {
     route.mutate(
       { objective: objective.trim(), project, repoPath: repoPath.trim() || undefined },
       {
@@ -128,11 +186,38 @@ export function DelegateJobForm({
   // would quietly turn verification off on a job that asked for it.
   const visualProblem = visualAcceptanceProblem(visualAcceptance);
 
+  const policySelected = record?.status === "selected" ? record.selected : undefined;
+
+  const submitPolicy = () => {
+    if (!policySelected || visualProblem || startJob.isPending) return;
+
+    startJob.mutate(
+      {
+        // The server plans again at dispatch and records what actually ran;
+        // it never trusts a route sent from here.
+        worker: mode === "manual" ? policySelected.workerId : "auto",
+        requestedWorker: mode === "manual" ? policySelected.workerId : "auto",
+        routingMode: mode,
+        manualOptionId: mode === "manual" ? manualId : undefined,
+        routingHints: mode === "local_only" ? { localOnly: true } : undefined,
+        inputText: inputText.trim() || undefined,
+        expectedOutput,
+        project,
+        objective: objective.trim(),
+        repoPath: repoPath.trim() || undefined,
+        visualAcceptance: visualAcceptance?.enabled ? visualAcceptance : undefined,
+      },
+      { onSuccess: (job) => navigate(`/workers/jobs/${job.id}`) },
+    );
+  };
+
   const submit = () => {
     if (!hasObjective || !resolved || visualProblem || startJob.isPending) return;
 
     startJob.mutate(
       {
+        inputText: inputText.trim() || undefined,
+        expectedOutput,
         worker: resolved,
         // What was asked for, kept apart from what runs. An override is only
         // legible later if both halves survive.
@@ -152,7 +237,13 @@ export function DelegateJobForm({
   const workerName = (id: WorkerId) =>
     workers.find((worker) => worker.id === id)?.name ?? id;
 
-  const failure = route.isError
+  const failure = preview.isError
+    ? preview.error instanceof Error
+      ? preview.error.message
+      : "The route could not be previewed."
+    : schema.error
+      ? schema.error
+    : route.isError
     ? route.error instanceof Error
       ? route.error.message
       : "No worker could be chosen."
@@ -177,28 +268,103 @@ export function DelegateJobForm({
           />
         </label>
 
+        <label className="mt-6 block">
+          <SectionLabel>Supplied text (optional)</SectionLabel>
+          <textarea
+            value={inputText}
+            onChange={(event) => {
+              setInputText(event.target.value);
+              resetRoute();
+            }}
+            rows={4}
+            placeholder="Paste the notes, message or snippet the task works on"
+            className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 font-mono text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+          />
+          <span className="os-meta mt-2 block text-os-subtle">
+            Sent whole. If it is too long for a local model, the task is routed elsewhere or blocked, never cut short
+          </span>
+        </label>
+
         <div className="mt-6">
-          <SectionLabel>Worker</SectionLabel>
-          <FilterBar<Selection>
-            label="Choose a worker"
+          <SectionLabel>Expected output</SectionLabel>
+          <FilterBar<"text" | "json">
+            label="Expected output"
             className="mt-3"
-            value={selection}
-            onChange={chooseSelection}
+            value={outputFormat}
+            onChange={(next) => {
+              setOutputFormat(next);
+              resetRoute();
+            }}
             options={[
-              { value: "auto", label: "Auto" },
-              ...workers.map((entry) => ({
-                value: entry.id as Selection,
-                label: entry.name,
-              })),
+              { value: "text", label: "Text" },
+              { value: "json", label: "JSON" },
             ]}
           />
-          {selection === "auto" && !decision ? (
-            <span className="os-meta mt-2 block text-os-subtle">
-              Hermes picks the worker, and you see the reasoning before anything
-              runs
-            </span>
+          {outputFormat === "json" ? (
+            <label className="mt-3 block">
+              <textarea
+                value={schemaText}
+                onChange={(event) => {
+                  setSchemaText(event.target.value);
+                  resetRoute();
+                }}
+                rows={3}
+                aria-label="JSON Schema (optional)"
+                placeholder='Optional JSON Schema, e.g. {"type":"object","required":["date"]}'
+                className="os-focus-ring w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 font-mono text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+              />
+              <span className="os-meta mt-2 block text-os-subtle">
+                The result must parse as JSON{schema.schema ? " and match this schema" : ""} before it can count as done
+              </span>
+            </label>
           ) : null}
         </div>
+
+        <div className="mt-6">
+          <SectionLabel>Routing</SectionLabel>
+          <FilterBar<RoutingMode>
+            label="Choose how this task is routed"
+            className="mt-3"
+            value={mode}
+            onChange={chooseMode}
+            options={[
+              { value: "auto", label: "Auto" },
+              { value: "local_only", label: "Local only" },
+              { value: "manual", label: "Manual" },
+            ]}
+          />
+          <span className="os-meta mt-2 block text-os-subtle">
+            {mode === "auto"
+              ? "Small bounded text tasks go to an enabled local model; the rest go to a capable worker. You see the reason before anything runs"
+              : mode === "local_only"
+                ? "Nothing leaves this machine: no cloud provider, including on failure. If no local model can take it, it is blocked"
+                : "You choose the worker (and model). The choice is checked and recorded as an override"}
+          </span>
+        </div>
+
+        {mode === "manual" ? (
+          <div className="mt-4">
+            <SectionLabel>Run it with</SectionLabel>
+            <FilterBar<string>
+              label="Choose a worker or model"
+              className="mt-3"
+              value={manualId ?? ""}
+              onChange={pickManual}
+              options={[
+                ...(executionOptions.data?.options ?? []).map((option) => ({
+                  value: option.id,
+                  label: optionLabel(option, (id) => workers.find((w) => w.id === id)?.name ?? id),
+                })),
+                ...legacyWorkers.map((worker) => ({ value: worker.id, label: worker.name })),
+              ]}
+            />
+            {!hasObjective ? (
+              <span className="os-meta mt-2 block text-os-subtle">Write the objective first so the choice can be checked</span>
+            ) : null}
+          </div>
+        ) : null}
+
+        {record ? <RoutePolicyPanel className="mt-5" record={record} workers={workers} /> : null}
 
         {decision ? (
           <>
@@ -271,12 +437,36 @@ export function DelegateJobForm({
         ) : null}
 
         <div className="mt-6 flex flex-wrap gap-2">
-          {selection === "auto" && !decision ? (
+          {record ? (
+            <CommandButton
+              variant="primary"
+              onClick={submitPolicy}
+              disabled={!policySelected || Boolean(visualProblem) || startJob.isPending}
+              loading={startJob.isPending}
+              loadingLabel="Starting"
+            >
+              {policySelected
+                ? `Delegate to ${optionLabel(policySelected, workerName)}`
+                : "Blocked"}
+            </CommandButton>
+          ) : mode === "manual" ? (
+            <CommandButton
+              variant="primary"
+              onClick={submit}
+              disabled={
+                !isLegacyChoice || !hasObjective || Boolean(visualProblem) || startJob.isPending
+              }
+              loading={startJob.isPending || preview.isPending}
+              loadingLabel={preview.isPending ? "Checking" : "Starting"}
+            >
+              {isLegacyChoice && manualId ? `Delegate to ${workerName(manualId as WorkerId)}` : "Pick a worker"}
+            </CommandButton>
+          ) : !decision ? (
             <CommandButton
               variant="primary"
               onClick={askForRecommendation}
-              disabled={!hasObjective || route.isPending}
-              loading={route.isPending}
+              disabled={!hasObjective || route.isPending || preview.isPending || Boolean(schema.error)}
+              loading={route.isPending || preview.isPending}
               loadingLabel="Choosing"
             >
               Choose a worker
@@ -295,9 +485,15 @@ export function DelegateJobForm({
             </CommandButton>
           )}
 
-          {decision && !changing ? (
+          {decision && !changing && !record ? (
             <CommandButton variant="quiet" onClick={() => setChanging(true)}>
               Change worker
+            </CommandButton>
+          ) : null}
+
+          {record && mode !== "manual" ? (
+            <CommandButton variant="quiet" onClick={() => chooseMode("manual")}>
+              Choose manually
             </CommandButton>
           ) : null}
 
