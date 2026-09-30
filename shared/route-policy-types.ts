@@ -226,3 +226,62 @@ export type OptionRef = z.infer<typeof OptionRefSchema>;
 export type RoutePolicyRecord = z.infer<typeof RoutePolicyRecordSchema>;
 export type OllamaModelConfig = z.infer<typeof OllamaModelConfigSchema>;
 export type OllamaSettings = z.infer<typeof OllamaSettingsSchema>;
+
+/* Responses of /api/route-policy, shared so the screen and adapter agree. */
+
+export const OllamaStatusResponseSchema = z.object({
+  settings: OllamaSettingsSchema,
+  state: z.object({
+    reachable: z.boolean(),
+    unreachableReason: z.string().optional(),
+    installed: z.array(
+      z.object({
+        name: z.string(),
+        digest: z.string().optional(),
+        family: z.string().optional(),
+        capabilities: z.array(z.string()).optional(),
+      }),
+    ),
+    loaded: z.array(z.string()),
+  }),
+  options: z.array(ExecutionOptionSchema),
+});
+
+export const ExecutionOptionsResponseSchema = z.object({
+  options: z.array(ExecutionOptionSchema),
+});
+
+/** `legacy` means the policy had nothing to add and the existing router applies. */
+export const RoutePreviewResponseSchema = z.union([
+  z.object({ legacy: z.literal(true) }),
+  z.object({ legacy: z.literal(false), record: RoutePolicyRecordSchema }),
+]);
+
+export type OllamaStatusResponse = z.infer<typeof OllamaStatusResponseSchema>;
+export type ExecutionOptionsResponse = z.infer<typeof ExecutionOptionsResponseSchema>;
+export type RoutePreviewResponse = z.infer<typeof RoutePreviewResponseSchema>;
+
+/**
+ * Conservative starting limits for a local model. Starting policies to tune
+ * after testing on the actual machine, not measured guarantees.
+ */
+export const DEFAULT_LOCAL_LIMITS = {
+  maxInputTokens: 2_000,
+  maxOutputTokens: 512,
+  timeoutMs: 30_000,
+  maxConcurrent: 1,
+} as const;
+
+/** The entry a discovered model starts with. Always disabled: installed is not suitable. */
+export function defaultOllamaModelConfig(): OllamaModelConfig {
+  return {
+    enabled: false,
+    categories: ["summarisation", "extraction", "rewriting", "classification", "explanation"],
+    capabilities: ["text"],
+    maxInputTokens: DEFAULT_LOCAL_LIMITS.maxInputTokens,
+    maxOutputTokens: DEFAULT_LOCAL_LIMITS.maxOutputTokens,
+    timeoutMs: DEFAULT_LOCAL_LIMITS.timeoutMs,
+    structuredOutput: false,
+    allowThinking: false,
+  };
+}
