@@ -86,6 +86,8 @@ import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
 import { databasesRouter } from "./supabase/routes";
+import { operatorRouter } from "./operator/routes";
+import { reconcileOperatorRuns } from "./operator/service";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -349,6 +351,9 @@ app.use("/api/route-policy", routePolicyRouter);
 
 /** Connectors: every service AgentOS can reach, its switch, and each capability's policy. */
 app.use("/api/connectors", connectorsRouter);
+
+/** Operator: one request in, planned against Connectors, approved, executed, and recorded as a run. */
+app.use("/api/operator", operatorRouter);
 
 /** Databases: named Supabase setups, their workspace links, and the Database tab's rows. */
 app.use("/api/databases", databasesRouter);
@@ -4122,6 +4127,12 @@ app.listen(PORT, HOST, () => {
         `[agentos] ${interrupted.length} worker job${interrupted.length === 1 ? "" : "s"} marked interrupted from the previous run: ${interrupted.map((job) => job.id).join(", ")}`,
       );
     }
+  });
+
+  // Operator runs are held in this process too: one caught mid-run is marked
+  // stopped with what it had finished, never resumed.
+  void reconcileOperatorRuns().catch((error: unknown) => {
+    console.error("[agentos] could not settle interrupted operator runs:", error);
   });
 
   startStallWatch();

@@ -151,7 +151,9 @@ export function AppShell({
         </div>
       </header>
 
-      <div className="relative grid min-h-0 md:grid-cols-[232px_minmax(0,1fr)]">
+      {/* One row the height of the stage, so a sidebar longer than the window
+          scrolls inside itself instead of running under the status bar. */}
+      <div className="relative grid min-h-0 grid-rows-[minmax(0,1fr)] md:grid-cols-[232px_minmax(0,1fr)]">
         {isNavigationOpen ? (
           <button
             type="button"

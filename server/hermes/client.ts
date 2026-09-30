@@ -202,6 +202,8 @@ export interface HermesCallContext {
   context?: UsageContext;
   /** Overrides the default request timeout for calls known to be slow. */
   timeoutMs?: number;
+  /** Cancels the call, e.g. when an Operator run is stopped. */
+  signal?: AbortSignal;
   /**
    * Instructions that have to outrank Hermes' own persona.
    *
@@ -238,6 +240,11 @@ export async function sendToHermes(
   const response = await hermesFetch("/chat/completions", {
     method: "POST",
     timeoutMs: call.timeoutMs,
+    // A caller's signal replaces the default timeout inside `hermesFetch`, so
+    // the timeout rides along with it rather than being lost.
+    signal: call.signal
+      ? AbortSignal.any([call.signal, AbortSignal.timeout(call.timeoutMs ?? REQUEST_TIMEOUT_MS)])
+      : undefined,
     body: {
       model: model(),
       // The house style rides on every call as a system message, which
