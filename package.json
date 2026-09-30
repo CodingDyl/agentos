@@ -12,6 +12,7 @@
     "test": "AGENTOS_UI_DIR=\"$(mktemp -d)\" tsx --test server/*/__tests__/*.test.ts server/*/*/__tests__/*.test.ts src/features/*/__tests__/*.test.ts",
     "test:e2e": "playwright test",
     "lint": "eslint .",
+    "smoke:ollama": "tsx server/route-policy/smoke/ollama-smoke.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },
