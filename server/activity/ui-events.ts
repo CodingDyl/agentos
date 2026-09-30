@@ -226,6 +226,12 @@ export const EVENT_TYPES = {
     level: "success",
     title: "Document created",
   },
+  // A person adding a note to the Obsidian vault from Memory.
+  "memory.note_created": {
+    source: "user",
+    level: "success",
+    title: "Note added to memory",
+  },
   "document.saved": {
     source: "user",
     level: "info",

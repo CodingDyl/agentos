@@ -1,4 +1,7 @@
 import { Router, type Request } from "express";
+import { recordActivity } from "../activity/ui-events";
+import type { CreateMemoryNoteRequest } from "../../shared/memory-paths";
+import { CreateNoteError, createMemoryNote } from "./create-note";
 import { retrieveMemoryContext } from "./retrieval";
 import { searchIndex } from "./search";
 import { memoryService } from "./service";
@@ -79,6 +82,26 @@ memoryRouter.get("/tree", (request, response) => {
     omitted: Math.max(0, notes.length - TREE_CAP),
     stale: service.status().stale,
   });
+});
+
+/** A person adds a note. Only ever creates; never overwrites. */
+memoryRouter.post("/notes", async (request, response) => {
+  try {
+    const created = await createMemoryNote(memoryService(), (request.body ?? {}) as CreateMemoryNoteRequest);
+    await recordActivity({
+      type: "memory.note_created",
+      description: created.createdFolders.length > 0 ? `${created.id} (new folder ${created.createdFolders.at(-1)}/)` : created.id,
+      metadata: { note: created.id, createdFolders: created.createdFolders },
+    });
+    response.status(201).json(created);
+  } catch (error) {
+    if (error instanceof CreateNoteError) {
+      response.status(error.status).json({ error: error.message });
+      return;
+    }
+    console.error("[memory] could not create a note:", error);
+    response.status(500).json({ error: "The note could not be written to the vault." });
+  }
 });
 
 memoryRouter.get("/note", (request, response) => {

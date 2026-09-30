@@ -9,6 +9,7 @@ import type {
   MemoryTree,
   VaultStatus,
 } from "@shared/memory-types";
+import type { CreateMemoryNoteRequest, CreateMemoryNoteResponse } from "@shared/memory-paths";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -155,6 +156,20 @@ export function useReindexMemory() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: () => request<VaultStatus>("/api/memory/reindex", { method: "POST" }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: memoryKey() }),
+  });
+}
+
+/** Adds a note to the vault. The server only ever creates; a clash is an error, not an overwrite. */
+export function useCreateMemoryNote() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (note: CreateMemoryNoteRequest) =>
+      request<CreateMemoryNoteResponse>("/api/memory/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(note),
+      }),
     onSuccess: () => void client.invalidateQueries({ queryKey: memoryKey() }),
   });
 }

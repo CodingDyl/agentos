@@ -1,5 +1,5 @@
 import "@/styles/memory.css";
-import { CircleAlert, FolderTree, Maximize, Minus, Plus, RefreshCw, RotateCcw, Search, X } from "lucide-react";
+import { CircleAlert, FilePlus2, FolderTree, Maximize, Minus, Plus, RefreshCw, RotateCcw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { VaultStatus } from "@shared/memory-types";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { FileTree } from "./file-tree";
 import { MemoryGraphCanvas, type MemoryGraphHandle } from "./memory-graph";
 import { buildLegend, groupLabel, groupOf, noteColor, OTHER_COLOR, type ColorBy } from "./memory-model";
+import { NewNoteDialog } from "./new-note-dialog";
 import { NotePreview } from "./note-preview";
 
 /**
@@ -121,11 +122,14 @@ export function MemoryPage() {
     });
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const status = useMemoryStatus();
   const reindex = useReindexMemory();
   const facets = useMemoryFacets();
   const tree = useMemoryTree(query || undefined);
+  // Unfiltered, for the new-note dialog: duplicates and links look at the whole vault.
+  const everything = useMemoryTree();
   const note = useMemoryNote(noteId);
 
   const localFocus = scope === "local" ? noteId : undefined;
@@ -165,9 +169,13 @@ export function MemoryPage() {
       const typing =
         event.target instanceof HTMLElement &&
         (event.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
+      if (adding) return;
       if (event.key === "/" && !typing) {
         event.preventDefault();
         searchRef.current?.focus();
+      } else if (event.key === "n" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setAdding(true);
       } else if (event.key === "Escape" && !typing) {
         if (drawerOpen) setDrawerOpen(false);
         else if (noteId) close();
@@ -175,7 +183,7 @@ export function MemoryPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [drawerOpen, noteId, close]);
+  }, [adding, drawerOpen, noteId, close]);
 
   const vault = status.data;
   const filtered = Boolean(query || folder || tag);
@@ -325,6 +333,27 @@ export function MemoryPage() {
                 </p>
               ) : null}
             </div>
+
+            {/* Adding to the vault, pinned under the tree so it never scrolls away. */}
+            <div className="border-t border-paper-mist p-3">
+              <PaperButton
+                variant="amber"
+                className="min-h-10 w-full"
+                onClick={() => {
+                  setDrawerOpen(false);
+                  setAdding(true);
+                }}
+                disabled={vault?.state !== "connected"}
+                aria-keyshortcuts="n"
+                title={vault?.state === "connected" ? "Add a note to the vault (N)" : "The vault must be connected to add notes."}
+              >
+                <FilePlus2 className="size-4" strokeWidth={1.75} aria-hidden="true" />
+                New note
+                <kbd className="ml-auto hidden border border-paper-white/40 px-1.5 font-mono text-[11px] tracking-normal normal-case @min-[900px]/memory:inline" aria-hidden="true">
+                  N
+                </kbd>
+              </PaperButton>
+            </div>
           </nav>
 
           {/* Everything else is the graph. */}
@@ -461,6 +490,20 @@ export function MemoryPage() {
             ) : null}
           </section>
         </div>
+
+        {adding ? (
+          <NewNoteDialog
+            folders={facets.data?.folders ?? []}
+            notes={everything.data?.notes ?? []}
+            tags={tags}
+            defaultFolder={folder || (noteId?.includes("/") ? noteId.slice(0, noteId.lastIndexOf("/")) : "")}
+            onClose={() => setAdding(false)}
+            onCreated={(id) => {
+              setAdding(false);
+              open(id);
+            }}
+          />
+        ) : null}
       </div>
     </AppShell>
   );

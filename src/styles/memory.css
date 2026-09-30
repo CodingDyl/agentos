@@ -74,9 +74,66 @@
   will-change: transform, opacity;
 }
 
+/*
+ * The new-note dialog: it rises into place once, and each step slides in
+ * from the side it came from, so going back feels like going back.
+ */
+@keyframes memory-backdrop-in {
+  from { opacity: 0; }
+}
+
+@keyframes memory-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+}
+
+@keyframes memory-step-forward {
+  from {
+    opacity: 0;
+    transform: translate3d(32px, 0, 0);
+  }
+}
+
+@keyframes memory-step-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-32px, 0, 0);
+  }
+}
+
+.memory-backdrop {
+  animation: memory-backdrop-in 240ms ease-out both;
+}
+
+.memory-dialog {
+  animation: memory-dialog-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.memory-step[data-direction="forward"] {
+  animation: memory-step-forward 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.memory-step[data-direction="back"] {
+  animation: memory-step-back 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.memory-progress {
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: left center;
+}
+
 [data-still="true"] .memory-panel,
-[data-still="true"] .memory-layer {
+[data-still="true"] .memory-layer,
+[data-still="true"] .memory-backdrop,
+[data-still="true"] .memory-dialog,
+[data-still="true"] .memory-step {
   animation: none;
+}
+
+[data-still="true"] .memory-progress {
+  transition: none;
 }
 
 [data-still="true"] .memory-field,
@@ -92,8 +149,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .memory-panel,
-  .memory-layer {
+  .memory-layer,
+  .memory-backdrop,
+  .memory-dialog,
+  .memory-step {
     animation: none;
+  }
+
+  .memory-progress {
+    transition: none;
   }
 
   .memory-field,
