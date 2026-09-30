@@ -148,6 +148,26 @@ function isMissingEntry(error: unknown): boolean {
 }
 
 /**
+ * Refuses to write when the vault root itself is missing.
+ *
+ * The vault lives on an external drive. With the drive unplugged, a
+ * `mkdir -p` under the mount path would quietly create an empty replacement
+ * vault on the internal disk, and every later read would find it "empty"
+ * rather than "unplugged". Any code that creates folders in the vault calls
+ * this first.
+ */
+export async function assertVaultRootPresent(): Promise<void> {
+  const root = path.resolve(agentOSRoot());
+  try {
+    const stats = await fs.stat(root);
+    if (stats.isDirectory()) return;
+  } catch {
+    // Reported below.
+  }
+  throw new Error(`The AgentOS vault is not available at ${root}. Is the drive connected?`);
+}
+
+/**
  * Replaces one vault file, atomically.
  *
  * Written through a temporary and renamed, because these are files a person
@@ -165,6 +185,7 @@ export async function writeAgentOSFile(
   const target = resolveWithinRoot(relativePath);
   const temporary = `${target}.${process.pid}.tmp`;
 
+  await assertVaultRootPresent();
   // A brief may be the first thing a project puts in `design/`.
   await fs.mkdir(path.dirname(target), { recursive: true });
 

@@ -6,9 +6,11 @@ import type { WorkerJob } from "../../shared/worker-types";
 /**
  * The handoff contract.
  *
- * A worker is given an objective, the few files that bear on it, what it may
- * not do, and how the work will be judged — and nothing else. It never receives
- * the vault, the portfolio, or anything about work it was not asked to do.
+ * A worker is given an objective, the few files that bear on it, bounded
+ * excerpts from the vault chosen for this task (with their sources), what it
+ * may not do, and how the work will be judged — and nothing else. It never
+ * receives the whole vault, the portfolio, or anything about work it was not
+ * asked to do.
  *
  * Scope is the safety property here: a worker that cannot see the rest of the
  * system cannot wander into it. This builder is the one place that decides what
@@ -52,6 +54,23 @@ function list(items: readonly string[] | undefined): string | undefined {
 }
 
 /**
+ * The vault's part of the brief — or, when there is none, why not.
+ *
+ * Silence would read as "the vault had nothing to say", which is a different
+ * fact from "the vault was unplugged" and must not be confused with it.
+ */
+function memorySection(job: WorkerJob): string | undefined {
+  const memory = job.memoryContext;
+  if (!memory) return undefined;
+
+  const notes = memory.warnings.map((warning) => `Note: ${warning}`).join("\n");
+  if (memory.status === "unavailable" || !memory.text) {
+    return notes || "Vault memory was not available for this job.";
+  }
+  return notes ? `${memory.text}\n\n${notes}` : memory.text;
+}
+
+/**
  * Builds one job's context packet.
  *
  * Plain text on purpose: every worker can read it, and an operator can read it
@@ -84,6 +103,7 @@ export function buildContextPacket(job: WorkerJob): string {
     section("\nSupplied material:", job.inputText?.trim()),
     job.inputText || job.expectedOutput ? section("\nOutput:", textTaskInstructions(job)) : undefined,
     section("\nRelevant context:", list(job.contextFiles)),
+    section("\nVault memory:", memorySection(job)),
     section("\nConstraints:", list(constraints)),
     section("\nAcceptance:", list(job.acceptanceCriteria)),
     section("\nValidation:", (job.validationCommands ?? []).join("\n")),

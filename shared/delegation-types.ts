@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MemoryContextSourceSchema, MemoryContextStatusSchema } from "./memory-types";
 import { VisualAcceptanceContextSchema } from "./visual-verification-types";
 import {
   WorkerPerformanceSchema,
@@ -52,6 +53,17 @@ export const DelegationPlanSchema = z.object({
   visualAcceptance: VisualAcceptanceContextSchema.optional(),
   /** Said out loud when Hermes could not scope it and this is a fallback. */
   scopedBy: z.enum(["hermes", "agentos"]),
+  /**
+   * Which vault notes Hermes was shown while scoping, beyond the project's own
+   * four files — so a plan that leans on a note can be traced to it.
+   */
+  scopingMemory: z
+    .object({
+      status: MemoryContextStatusSchema,
+      sources: z.array(MemoryContextSourceSchema),
+      warnings: z.array(z.string()),
+    })
+    .optional(),
 });
 
 /** What the console asks for when the operator clicks Delegate. */

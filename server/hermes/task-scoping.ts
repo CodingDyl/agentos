@@ -78,14 +78,17 @@ export interface ScopingInput {
   decisionsMarkdown?: string;
   /** What the repository looks like right now, when there is one. */
   gitSummary?: string;
+  /** Related vault excerpts, with their sources, retrieved for this task. */
+  memoryText?: string;
 }
 
 /**
  * The brief Hermes is sent.
  *
- * Four project documents and the task, and nothing else. Not the portfolio,
- * not other projects, not the design library — a scoping model that could see
- * the whole vault would write plans that wander into work nobody asked for.
+ * Four project documents, the task, and a bounded handful of related vault
+ * excerpts chosen for this task (each labelled with its source). Not the
+ * portfolio, not the design library — a scoping model that could see the
+ * whole vault would write plans that wander into work nobody asked for.
  */
 export function buildScopingPacket(input: ScopingInput): string {
   return [
@@ -104,6 +107,7 @@ export function buildScopingPacket(input: ScopingInput): string {
     clip(input.tasksMarkdown, "TASKS.md"),
     clip(input.decisionsMarkdown, "DECISIONS.md"),
     input.gitSummary ? `--- REPOSITORY ---\n${input.gitSummary}` : undefined,
+    input.memoryText ? `--- RELATED VAULT NOTES ---\n${input.memoryText}` : undefined,
     "",
     "Respect what DECISIONS.md has already settled. A plan that contradicts a",
     "recorded decision is wrong even if it would otherwise be a good idea.",

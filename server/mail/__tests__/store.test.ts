@@ -19,6 +19,9 @@ const {
   threadCount,
 } = await import("../store");
 
+// The Inbox shows one month of mail; pin "now" so these fixed-date fixtures stay inside it.
+(await import("../store")).mailClock.now = () => new Date("2026-09-28T12:00:00.000Z");
+
 before(() => {
   mailDatabase();
 });
@@ -126,5 +129,21 @@ describe("removeThread", () => {
 
     assert.equal(listUnclassifiedThreadIds().includes("t3"), false);
     assert.equal(readMailData().fyi.some((thread) => thread.threadId === "t3"), false);
+  });
+});
+
+describe("the one-month window", () => {
+  it("neither shows nor queues for Jev a thread older than 30 days, even if it was cached", () => {
+    insertThreadIfNew({
+      threadId: "ancient",
+      subject: "From last summer",
+      snippet: "Old news",
+      messageDate: "2026-07-01T09:00:00.000Z",
+    });
+
+    const data = readMailData();
+    const shown = [...data.needsYou, ...data.fyi, ...data.lowPriority].map((thread) => thread.threadId);
+    assert.equal(shown.includes("ancient"), false);
+    assert.equal(listUnclassifiedThreadIds().includes("ancient"), false);
   });
 });

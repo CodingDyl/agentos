@@ -9,6 +9,26 @@
         "dev"
       ],
       "port": 1420
+    },
+    {
+      "name": "memory-bench-data",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "AGENTOS_MEMORY_VAULT_PATH=/private/tmp/claude-501/-Users-dylanpetzer-Developer-agentos/cd6505d7-251d-4026-a10e-8cd51c2e3dd3/scratchpad/bench-vault",
+        "node",
+        "e2e/serve.mjs",
+        "data"
+      ],
+      "port": 8797
+    },
+    {
+      "name": "memory-bench-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "e2e/serve.mjs",
+        "web"
+      ],
+      "port": 1520
     }
   ]
 }

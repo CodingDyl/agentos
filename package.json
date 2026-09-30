@@ -37,6 +37,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.5",
     "express": "^5.2.1",
+    "force-graph": "^1.52.0",
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.41.0",
     "marked": "^18.0.11",

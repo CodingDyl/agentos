@@ -20,6 +20,7 @@ import {
   GenerationsPage,
 } from "@/features/designs";
 import { KnowledgePage } from "@/features/knowledge";
+import { MemoryPage } from "@/features/memory";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
 import { DesignSystemPage } from "@/pages/design-system-page";
@@ -62,6 +63,7 @@ function App() {
           <Route path="/projects" element={<Redirect to="/workspaces" />} />
           <Route path="/projects/:slug" element={<ProjectRedirect />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
+          <Route path="/memory" element={<MemoryPage />} />
           <Route path="/agent" element={<AgentPage />} />
           <Route path="/automations" element={<AutomationsPage />} />
           <Route

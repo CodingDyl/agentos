@@ -10,6 +10,9 @@ process.env.AGENTOS_UI_DIR = directory;
 const { closeMailDatabase, mailDatabase } = await import("../db");
 const { insertThreadIfNew, readMailData, refreshLowPriorityClock, storeClassification, storeCorrection } =
   await import("../store");
+
+// The Inbox shows one month of mail; pin "now" so these fixed-date fixtures stay inside it.
+(await import("../store")).mailClock.now = () => new Date("2026-09-28T12:00:00.000Z");
 const { cleanExpiredLowPriority } = await import("../auto-clean");
 
 const HOUR = 60 * 60 * 1000;

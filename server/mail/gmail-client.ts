@@ -1,5 +1,5 @@
 import type { AgentFailureReason } from "../../shared/agentos-types";
-import { MAIL_THREAD_LIMIT } from "../../shared/mail-types";
+import { MAIL_MAX_AGE_DAYS, MAIL_THREAD_LIMIT } from "../../shared/mail-types";
 import { getAccessToken } from "./gmail-auth";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -45,10 +45,16 @@ interface GmailThreadListResponse {
   threads?: { id: string }[];
 }
 
-/** Up to `MAIL_THREAD_LIMIT` most recent INBOX thread ids, newest first. One call — Gmail allows up to 500. */
+/** Gmail's own search filter for the Inbox window: the last `MAIL_MAX_AGE_DAYS` days. */
+const RECENT_QUERY = `&q=${encodeURIComponent(`newer_than:${MAIL_MAX_AGE_DAYS}d`)}`;
+
+/**
+ * Up to `MAIL_THREAD_LIMIT` most recent INBOX thread ids from the last
+ * `MAIL_MAX_AGE_DAYS` days, newest first. One call — Gmail allows up to 500.
+ */
 export async function listInboxThreadIds(): Promise<string[]> {
   const payload = (await gmailFetch(
-    `/threads?labelIds=INBOX&maxResults=${MAIL_THREAD_LIMIT}`,
+    `/threads?labelIds=INBOX&maxResults=${MAIL_THREAD_LIMIT}${RECENT_QUERY}`,
   )) as GmailThreadListResponse;
   return (payload.threads ?? []).slice(0, MAIL_THREAD_LIMIT).map((thread) => thread.id);
 }
@@ -59,7 +65,7 @@ export async function listInboxThreadIds(): Promise<string[]> {
  */
 export async function listUnreadInboxThreadIds(): Promise<Set<string>> {
   const payload = (await gmailFetch(
-    `/threads?labelIds=INBOX&labelIds=UNREAD&maxResults=${MAIL_THREAD_LIMIT}`,
+    `/threads?labelIds=INBOX&labelIds=UNREAD&maxResults=${MAIL_THREAD_LIMIT}${RECENT_QUERY}`,
   )) as GmailThreadListResponse;
   return new Set((payload.threads ?? []).map((thread) => thread.id));
 }

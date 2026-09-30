@@ -9,7 +9,7 @@ import type {
   TaskSectionName,
 } from "../../../shared/agentos-types";
 import { DEFAULT_PROJECT_CONFIGURATION } from "../../../shared/agentos-types";
-import { agentOSRoot, listDirectory, readOptionalFile } from "../filesystem";
+import { agentOSRoot, assertVaultRootPresent, listDirectory, readOptionalFile } from "../filesystem";
 import {
   applyConfiguration,
   isDefaultConfiguration,
@@ -190,6 +190,7 @@ export async function createProject(
 
   // The directory first: a portfolio entry pointing at nothing is a worse
   // half-finished state than a directory the portfolio has not noticed yet.
+  await assertVaultRootPresent();
   await fs.mkdir(path.join(agentOSRoot(), PROJECTS_DIR, slug), { recursive: true });
 
   for (const [file, contents] of Object.entries(files)) {

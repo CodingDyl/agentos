@@ -8,6 +8,18 @@ import { z } from "zod";
 export const MAIL_THREAD_LIMIT = 150;
 
 /**
+ * The Inbox's other limit: only the last month of mail. Threads older than
+ * this are never fetched from Gmail, never sorted by Jev, and never shown,
+ * even if they were cached before this limit existed.
+ */
+export const MAIL_MAX_AGE_DAYS = 30;
+
+/** The oldest moment a thread can be from and still be in the Inbox, as ISO 8601. */
+export function mailCutoff(now: Date): string {
+  return new Date(now.getTime() - MAIL_MAX_AGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
  * How long a thread may sit in Low priority before it is moved to Gmail's
  * Trash. Counted from when it *became* Low priority, so every thread gets
  * the full window to be rescued — a correction out of Low priority stops the clock.

@@ -69,6 +69,18 @@ describe("listInboxThreadIds", () => {
     assert.deepEqual(await listInboxThreadIds(), ["t1", "t2"]);
   });
 
+  it("asks Gmail only for the last month of inbox mail", async () => {
+    let requested: URL | undefined;
+    stubGoogle((url) => {
+      requested = url;
+      return jsonResponse({ threads: [] });
+    });
+
+    await listInboxThreadIds();
+    assert.equal(requested?.searchParams.get("q"), "newer_than:30d");
+    assert.deepEqual(requested?.searchParams.getAll("labelIds"), ["INBOX"]);
+  });
+
   it("returns an empty list when the inbox has nothing", async () => {
     stubGoogle(() => jsonResponse({}));
 
