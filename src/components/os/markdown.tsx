@@ -1,4 +1,4 @@
-import { marked, type Token, type Tokens } from "marked";
+import { marked, type Marked, type Token, type Tokens } from "marked";
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +9,15 @@ import { cn } from "@/lib/utils";
  */
 export type MarkdownTone = "os" | "paper";
 
+/**
+ * A screen's own reading of some inline tokens — e.g. Memory turning
+ * `[[wikilinks]]` into in-app navigation. Returns `undefined` to fall back to
+ * the default rendering. Still React elements only: never HTML.
+ */
+export type InlineOverride = (token: Token, key: string, renderChildren: (tokens: Token[] | undefined) => ReactNode) => ReactNode | undefined;
+
 interface Skin {
+  custom?: InlineOverride;
   root: string;
   strong: string;
   code: string;
@@ -106,6 +114,11 @@ function renderInline(tokens: Token[] | undefined, keyPrefix: string, t: Skin): 
 
   return tokens.map((token, index) => {
     const key = `${keyPrefix}-${index}`;
+
+    if (t.custom) {
+      const custom = t.custom(token, key, (children) => renderInline(children, key, t));
+      if (custom !== undefined) return <Fragment key={key}>{custom}</Fragment>;
+    }
 
     switch (token.type) {
       case "strong":
@@ -376,12 +389,16 @@ export interface MarkdownProps {
   className?: string;
   /** Which world's colours to draw in. Defaults to the Editorial Terminal. */
   tone?: MarkdownTone;
+  /** A lexer with extra syntax (e.g. Obsidian links). Defaults to plain GFM. */
+  lexer?: Marked;
+  /** Rendering for inline tokens the screen owns. */
+  inline?: InlineOverride;
 }
 
-export function Markdown({ content, className, tone = "os" }: MarkdownProps) {
-  const skin = SKINS[tone];
+export function Markdown({ content, className, tone = "os", lexer, inline }: MarkdownProps) {
+  const skin: Skin = inline ? { ...SKINS[tone], custom: inline } : SKINS[tone];
   // GFM: tables and task lists are part of what agents write.
-  const tokens = marked.lexer(content, { gfm: true });
+  const tokens = lexer ? lexer.lexer(content) : marked.lexer(content, { gfm: true });
 
   return (
     <div className={cn(skin.root, className)}>

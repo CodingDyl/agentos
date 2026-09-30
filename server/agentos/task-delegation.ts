@@ -10,6 +10,8 @@ import type { VisualAcceptanceContext } from "../../shared/visual-verification-t
 import { recordActivity } from "../activity/ui-events";
 import { getLibrary } from "../designs/library";
 import { scopeTask } from "../hermes/task-scoping";
+import { retrieveMemoryContext } from "../memory/retrieval";
+import { memoryService } from "../memory/service";
 import { startJob } from "../workers/job-manager";
 import { readJob } from "../workers/job-store";
 import { routeJob } from "../workers/router";
@@ -247,6 +249,15 @@ export async function prepareDelegation(
       readOptionalFile(`${directory}/DECISIONS.md`),
     ]);
 
+  // The four project files are already in the packet; memory adds what else
+  // in the vault bears on this task, with where each excerpt came from.
+  const memory = await retrieveMemoryContext(memoryService(), {
+    project: slug,
+    query: task.title,
+    skipRequired: true,
+    budgetTokens: 1_500,
+  }).catch(() => undefined);
+
   const scoped = await scopeTask({
     project: slug,
     task,
@@ -254,6 +265,7 @@ export async function prepareDelegation(
     statusMarkdown,
     tasksMarkdown,
     decisionsMarkdown,
+    memoryText: memory?.text || undefined,
   });
 
   const configuration = parseConfiguration(projectMarkdown);
@@ -264,6 +276,9 @@ export async function prepareDelegation(
   // the ones this repository is known to have.
   const plan: DelegationPlan = {
     ...scoped,
+    scopingMemory: memory
+      ? { status: memory.status, sources: memory.sources, warnings: memory.warnings }
+      : undefined,
     validationCommands:
       scoped.validationCommands.length > 0
         ? scoped.validationCommands

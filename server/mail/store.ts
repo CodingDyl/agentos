@@ -1,5 +1,6 @@
 import {
   MAIL_THREAD_LIMIT,
+  mailCutoff,
   type MailBucket,
   type MailCategory,
   type MailCorrection,
@@ -8,6 +9,13 @@ import {
 } from "../../shared/mail-types";
 import { bucketFor, buildMailBuckets } from "./bucketing";
 import { mailDatabase } from "./db";
+
+/**
+ * Where the store reads "now" from for the Inbox's one-month window.
+ * Real time in the app; tests pin it, so fixtures with fixed dates don't
+ * fall out of the window as the calendar moves on.
+ */
+export const mailClock = { now: (): Date => new Date() };
 
 /** What Gmail gave us for a thread — the input to `insertThreadIfNew`. */
 export interface ThreadSummaryInput {
@@ -138,10 +146,10 @@ export function listUnclassifiedThreadIds(): string[] {
     .prepare(
       `SELECT thread_id FROM (
          SELECT thread_id, classified FROM mail_threads
-         WHERE removed = 0 ORDER BY message_date DESC LIMIT ?
+         WHERE removed = 0 AND message_date >= ? ORDER BY message_date DESC LIMIT ?
        ) WHERE classified = 0`,
     )
-    .all(MAIL_THREAD_LIMIT) as unknown as { thread_id: string }[];
+    .all(mailCutoff(mailClock.now()), MAIL_THREAD_LIMIT) as unknown as { thread_id: string }[];
 
   return rows.map((row) => row.thread_id);
 }
@@ -314,8 +322,8 @@ export function visibleThreadIds(threadIds: readonly string[]): string[] {
 
 function visibleThreads(): MailThread[] {
   const rows = mailDatabase()
-    .prepare("SELECT * FROM mail_threads WHERE removed = 0 ORDER BY message_date DESC LIMIT ?")
-    .all(MAIL_THREAD_LIMIT) as unknown as MailThreadRow[];
+    .prepare("SELECT * FROM mail_threads WHERE removed = 0 AND message_date >= ? ORDER BY message_date DESC LIMIT ?")
+    .all(mailCutoff(mailClock.now()), MAIL_THREAD_LIMIT) as unknown as MailThreadRow[];
   return rows.map(toMailThread);
 }
 
@@ -375,8 +383,8 @@ export function lastSyncedAt(): string | undefined {
 export function readMailData(): MailData {
   refreshLowPriorityClock();
   const rows = mailDatabase()
-    .prepare("SELECT * FROM mail_threads WHERE removed = 0 ORDER BY message_date DESC LIMIT ?")
-    .all(MAIL_THREAD_LIMIT) as unknown as MailThreadRow[];
+    .prepare("SELECT * FROM mail_threads WHERE removed = 0 AND message_date >= ? ORDER BY message_date DESC LIMIT ?")
+    .all(mailCutoff(mailClock.now()), MAIL_THREAD_LIMIT) as unknown as MailThreadRow[];
 
   const threads = rows.map(toMailThread);
   const { needsYou, fyi, lowPriority } = buildMailBuckets(threads);

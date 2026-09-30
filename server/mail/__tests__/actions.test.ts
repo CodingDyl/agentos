@@ -11,6 +11,9 @@ process.env.AGENTOS_UI_DIR = directory;
 const { closeMailDatabase, mailDatabase } = await import("../db");
 const { insertThreadIfNew, listCorrectionExamples, readMailData, storeCorrection, clearCorrection } =
   await import("../store");
+
+// The Inbox shows one month of mail; pin "now" so these fixed-date fixtures stay inside it.
+(await import("../store")).mailClock.now = () => new Date("2026-09-28T12:00:00.000Z");
 const { markThreadsRead, runBulkAction, trashThreads } = await import("../actions");
 
 function seed(threadId: string, fromEmail: string, unread = true) {

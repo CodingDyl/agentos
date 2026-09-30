@@ -76,6 +76,8 @@ import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { tractionRouter } from "./traction/routes";
 import { voiceRouter } from "./voice/routes";
+import { memoryRouter } from "./memory/routes";
+import { memoryService } from "./memory/service";
 import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
 import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
@@ -332,6 +334,9 @@ app.use("/api/finance", financeRouter);
 
 /** Voice: speech to text and text to speech only. Words still go through Hermes. */
 app.use("/api/voice", voiceRouter);
+
+/** Memory: the Obsidian vault, indexed — notes, links, graph, and task context. Read-only. */
+app.use("/api/memory", memoryRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
@@ -3988,6 +3993,11 @@ app.listen(PORT, HOST, () => {
   console.log(`AgentOS data adapter: http://${HOST}:${PORT}`);
   console.log(`Vault: ${agentOSRoot()}`);
   startTrendingTracker();
+  // Indexes the vault and watches it; an unplugged drive is reported, not recreated.
+  void memoryService().start().then(() => {
+    const status = memoryService().status();
+    console.log(`[memory] ${status.state}: ${status.notes} notes, ${status.links} links${status.reason ? ` (${status.reason})` : ""}`);
+  });
 
   // Jobs run inside this process, so a restart kills them. Settle whatever the
   // last process left claiming to be live, then start watching for silence.

@@ -7,6 +7,7 @@ import {
   Images,
   Inbox,
   LayoutGrid,
+  Network,
   Sun,
   SwatchBook,
   Target,
@@ -22,7 +23,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  * ```text
  * Today · Inbox · Traction · Finance  where the day starts, what arrived,
  *                                     the customers to go and get, and the money
- * WORK    Workspaces · Knowledge · Creative
+ * WORK    Workspaces · Knowledge · Memory · Creative
  * SYSTEM  Automations · Operations · Activity
  * ```
  *
@@ -44,6 +45,8 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Finance", href: "/finance", icon: Wallet, section: "primary" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "work" },
+  // The Obsidian vault as a graph: notes, links, backlinks, and what agents are told.
+  { label: "Memory", href: "/memory", icon: Network, section: "work" },
   // Still `/designs` underneath. Creative, because product imagery, brand
   // references and client visuals are not "designs" in the interface sense.
   { label: "Creative", href: "/designs", icon: Images, section: "work" },

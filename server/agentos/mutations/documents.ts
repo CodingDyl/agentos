@@ -10,7 +10,7 @@ import type {
 import { ArtifactTypeSchema } from "../../../shared/agentos-types";
 import type { WorkerArtifact, WorkerJob } from "../../../shared/worker-types";
 import { describeVaultDocument, isInside, safeMatter } from "../documents";
-import { agentOSRoot } from "../filesystem";
+import { agentOSRoot, assertVaultRootPresent } from "../filesystem";
 import { assertSlug, InvalidRequestError } from "./tasks";
 import { editFile, projectFile, type EditResult } from "./writer";
 
@@ -124,6 +124,7 @@ export async function createDocument(
     created,
   });
 
+  await assertVaultRootPresent();
   await fs.mkdir(path.join(agentOSRoot(), PROJECTS_DIR, validSlug, folder), { recursive: true });
 
   const result = await editFile({
@@ -288,6 +289,7 @@ export async function registerJobArtifacts(input: {
       detected: artifact.detected,
     });
 
+    await assertVaultRootPresent();
     await fs.mkdir(path.join(agentOSRoot(), PROJECTS_DIR, slug, folder), { recursive: true });
     await editFile({ relativePath, label: "artifact.register", apply: () => contents });
 

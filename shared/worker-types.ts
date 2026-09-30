@@ -3,6 +3,7 @@ import {
   VisualAcceptanceContextSchema,
   VisualVerificationResultSchema,
 } from "./visual-verification-types";
+import { MemoryContextSchema } from "./memory-types";
 import { WorkerCapabilitySchema, WorkerIdSchema } from "./worker-ids";
 import { WorkerRoutingDecisionSchema } from "./worker-routing-types";
 
@@ -311,6 +312,12 @@ export const WorkerJobSchema = WorkerJobRequestSchema.extend({
   workerBranch: z.string().optional(),
   /** 1 for the first attempt, 2 after one round of review feedback, and so on. */
   revision: z.number().optional(),
+  /**
+   * What the vault contributed to this job's brief, and where each excerpt
+   * came from. Captured once, when the job is created; revisions of the same
+   * job reuse it, a retry is a new job and retrieves afresh.
+   */
+  memoryContext: MemoryContextSchema.optional(),
   /** The most recent review. */
   review: WorkerReviewSchema.optional(),
   /**

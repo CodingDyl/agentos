@@ -1,6 +1,6 @@
 import "@/styles/mail.css";
 import { useMemo, useRef, useState } from "react";
-import { MAIL_THREAD_LIMIT, type MailClassifier } from "@shared/mail-types";
+import { MAIL_MAX_AGE_DAYS, MAIL_THREAD_LIMIT, type MailClassifier } from "@shared/mail-types";
 import { AppShell } from "@/components/os";
 import { mailConnectUrl } from "@/lib/agentos/client";
 import { useNavigationItems } from "@/config/use-navigation";
@@ -118,7 +118,7 @@ export function MailPage() {
               <h1 className="mail-title">Inbox</h1>
               <div className="mail-meta">
                 {mail.data
-                  ? `${totalThreads} thread${totalThreads === 1 ? "" : "s"}${
+                  ? `${totalThreads} thread${totalThreads === 1 ? "" : "s"} from the last ${MAIL_MAX_AGE_DAYS} days${
                       totalThreads >= MAIL_THREAD_LIMIT ? ` (latest ${MAIL_THREAD_LIMIT})` : ""
                     }`
                   : "-"}
@@ -166,8 +166,8 @@ export function MailPage() {
                 title="No mail synced yet"
                 description={
                   status.data?.classifier === "jev"
-                    ? `Click Refresh to fetch and sort your ${MAIL_THREAD_LIMIT} most recent inbox threads.`
-                    : `Click Refresh to fetch your ${MAIL_THREAD_LIMIT} most recent inbox threads. No classifier is active, so they will be listed unsorted.`
+                    ? `Click Refresh to fetch and sort your inbox from the last ${MAIL_MAX_AGE_DAYS} days.`
+                    : `Click Refresh to fetch your inbox from the last ${MAIL_MAX_AGE_DAYS} days. No classifier is active, so it will be listed unsorted.`
                 }
               />
             ) : (
