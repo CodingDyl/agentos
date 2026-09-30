@@ -1,7 +1,8 @@
 import { AlertTriangle, CheckCircle2, Rocket, Square, SquareCheck, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { RoadmapMilestone } from "@shared/agentos-types";
-import type { MilestoneTaskApproval } from "@shared/delegation-types";
+import type { MilestoneTaskApproval, TaskDelegationPreview } from "@shared/delegation-types";
+import { optionLabel } from "@/features/workers/route-policy-model";
 import type { WorkerId } from "@shared/worker-types";
 import { CommandButton, SectionLabel } from "@/components/os";
 import { usePrepareMilestoneDelegation, useStartMilestoneDelegation, useWorkers } from "@/lib/agentos/queries";
@@ -28,12 +29,17 @@ export function MilestoneRun({
   onClose: () => void;
   onReload: () => void;
 }) {
-  const [requestedWorker, setRequestedWorker] = useState<WorkerId | "auto">("auto");
+  // "Local only" is a routing mode rather than a worker, but it sits in the same
+  // row of choices: it is how the whole batch is sent.
+  const [choice, setChoice] = useState<WorkerId | "auto" | "local_only">("auto");
+  const requestedWorker: WorkerId | "auto" = choice === "local_only" ? "auto" : choice;
+  const routingMode = choice === "local_only" ? ("local_only" as const) : choice === "auto" ? ("auto" as const) : undefined;
   const { data: workersData } = useWorkers();
   // Only workers that could take the job right now — switched on in AI Stack
   // and healthy. The simulated worker never does real work, so it is left out.
-  const workerOptions: { value: WorkerId | "auto"; label: string }[] = [
+  const workerOptions: { value: WorkerId | "auto" | "local_only"; label: string }[] = [
     { value: "auto", label: "Auto" },
+    { value: "local_only", label: "Local only" },
     ...(workersData?.workers ?? [])
       .filter((entry) => entry.available && entry.id !== "mock")
       .map((entry) => ({ value: entry.id, label: entry.name })),
@@ -54,7 +60,14 @@ export function MilestoneRun({
   const preview = prepare.data;
   const result = start.data;
 
-  const runnable = useMemo(() => preview?.ready.filter((entry) => entry.preview) ?? [], [preview]);
+  // A task the router blocked (for instance a local-only task that needs a
+  // repository) is shown with its reason but cannot be started from here.
+  const startable = (entry: { preview?: TaskDelegationPreview }) =>
+    Boolean(entry.preview) && entry.preview?.policy?.status !== "blocked";
+
+  const workerName = (id: string) => workersData?.workers.find((entry) => entry.id === id)?.name ?? id;
+
+  const runnable = useMemo(() => preview?.ready.filter((entry) => entry.preview && entry.preview.policy?.status !== "blocked") ?? [], [preview]);
 
   const toggle = (taskId: string) =>
     setSelected((current) => {
@@ -71,6 +84,7 @@ export function MilestoneRun({
       plan: entry.preview!.plan,
       worker: requestedWorker,
       routing: entry.preview!.routing,
+      routingMode,
     }));
 
   return (
@@ -144,7 +158,7 @@ export function MilestoneRun({
                   <ul className="mt-3 space-y-2">
                     {preview.ready.map((entry) => (
                       <li key={entry.taskId}>
-                        {entry.preview ? (
+                        {startable(entry) ? (
                           <button
                             type="button"
                             role="checkbox"
@@ -162,7 +176,14 @@ export function MilestoneRun({
                                 <span className="font-mono text-os-subtle">{entry.taskId}</span> {entry.taskTitle}
                               </span>
                               <span className="mt-0.5 block truncate text-[13px] leading-5 text-os-subtle">
-                                {entry.preview.plan.objective}
+                                {entry.preview?.plan.objective}
+                              </span>
+                              <span className="mt-0.5 block text-[12px] leading-5 text-os-subtle">
+                                {entry.preview?.policy?.selected
+                                  ? `${optionLabel(entry.preview.policy.selected, workerName)} · ${entry.preview.policy.reason}`
+                                  : entry.preview?.routing
+                                    ? `${workerName(entry.preview.routing.selectedWorker)} · ${entry.preview.routing.reasons[0] ?? ""}`
+                                    : (entry.preview?.routingError ?? "")}
                               </span>
                             </span>
                           </button>
@@ -170,7 +191,8 @@ export function MilestoneRun({
                           <div className="flex items-start gap-3 rounded-md border border-os-border bg-os-surface-raised p-3">
                             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-os-warning" strokeWidth={1.5} aria-hidden="true" />
                             <span className="min-w-0 text-[14px] leading-6 text-foreground">
-                              <span className="font-mono text-os-subtle">{entry.taskId}</span> {entry.taskTitle}: {entry.error}
+                              <span className="font-mono text-os-subtle">{entry.taskId}</span> {entry.taskTitle}:{" "}
+                              {entry.error ?? entry.preview?.routingError ?? "Blocked by the router."}
                             </span>
                           </div>
                         )}
@@ -189,11 +211,11 @@ export function MilestoneRun({
                     key={option.value}
                     type="button"
                     role="radio"
-                    aria-checked={requestedWorker === option.value}
-                    onClick={() => setRequestedWorker(option.value)}
+                    aria-checked={choice === option.value}
+                    onClick={() => setChoice(option.value)}
                     className={cn(
                       "os-focus-ring os-meta min-h-9 cursor-pointer border-l border-os-border px-3 transition-colors duration-150 first:border-l-0",
-                      requestedWorker === option.value ? "bg-os-surface-raised text-foreground" : "text-os-muted hover:text-foreground",
+                      choice === option.value ? "bg-os-surface-raised text-foreground" : "text-os-muted hover:text-foreground",
                     )}
                   >
                     {option.label}
@@ -201,7 +223,7 @@ export function MilestoneRun({
                 ))}
               </div>
               <p className="mt-3 max-w-[48ch] text-[13px] leading-5 text-os-subtle">
-                Every open, unblocked task in this milestone gets scoped by Hermes before anything runs. Nothing starts until you approve the plans.
+                Every open, unblocked task in this milestone gets scoped by Hermes, then routed: small text tasks can go to an enabled local model, work that needs a repository goes to a capable worker. "Local only" never sends anything off this machine, and blocks a task no local model can take. Nothing starts until you approve the plans.
               </p>
             </div>
           )}
@@ -242,10 +264,10 @@ export function MilestoneRun({
                   loadingLabel="Scoping"
                   onClick={() =>
                     prepare.mutate(
-                      { milestoneId: milestone.id, requestedWorker },
+                      { milestoneId: milestone.id, requestedWorker, routingMode },
                       {
                         onSuccess: (data) => {
-                          setSelected(new Set(data.ready.filter((entry) => entry.preview).map((entry) => entry.taskId)));
+                          setSelected(new Set(data.ready.filter(startable).map((entry) => entry.taskId)));
                         },
                       },
                     )

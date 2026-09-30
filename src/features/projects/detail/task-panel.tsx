@@ -5,22 +5,28 @@ import type { ProjectTask } from "@shared/agentos-types";
 import type {
   DelegationPlan,
   TaskDelegationState,
+  TaskRoutePreview,
 } from "@shared/delegation-types";
+import type { RoutingMode } from "@shared/route-policy-types";
 import type { WorkerId } from "@shared/worker-types";
 import {
   CommandButton,
-  FilterBar,
   SectionLabel,
   StatusPill,
 } from "@/components/os";
 import {
   useCompleteTask,
+  useExecutionOptions,
   useProjectDocuments,
   usePrepareTaskDelegation,
+  useRouteTaskDelegation,
   useStartTaskDelegation,
   useTaskCompletion,
   useWorkers,
 } from "@/lib/agentos/queries";
+import { optionLabel } from "@/features/workers/route-policy-model";
+import { RoutePolicyPanel } from "@/features/workers/route-policy-panel";
+import { RoutingControls } from "@/features/workers/routing-controls";
 import { RoutingDecision } from "@/features/workers/routing-decision";
 import { VisualAcceptanceFields } from "@/features/workers/visual-acceptance-fields";
 import { visualAcceptanceProblem } from "@/features/workers/workers-model";
@@ -89,15 +95,31 @@ export function TaskPanel({
   const workers = allWorkers.filter((entry) => entry.available);
 
   const prepare = usePrepareTaskDelegation(project);
+  const recheck = useRouteTaskDelegation(project);
   const start = useStartTaskDelegation(project);
   const complete = useCompleteTask(project);
+  const executionOptions = useExecutionOptions();
 
   const [plan, setPlan] = useState<DelegationPlan>();
-  const [worker, setWorker] = useState<WorkerId | "auto">("auto");
-  const [override, setOverride] = useState<WorkerId>();
   const [editing, setEditing] = useState(false);
 
-  const routing = prepare.data?.routing;
+  // How the route policy should choose, and (for Manual) what was picked.
+  const [mode, setMode] = useState<RoutingMode>("auto");
+  const [manualId, setManualId] = useState<string>();
+  // A route re-checked after the plan was edited or the mode changed replaces
+  // the one that came with the plan.
+  const [rechecked, setRechecked] = useState<TaskRoutePreview>();
+
+  const route: TaskRoutePreview | undefined = rechecked ?? prepare.data;
+  const routing = route?.routing;
+  const policy = route?.policy;
+
+  // Workers the policy does not route (the rehearsal worker) are still
+  // choosable by hand, through the pre-policy path.
+  const optionIds = new Set((executionOptions.data?.options ?? []).map((option) => option.id));
+  const legacyWorkers = workers.filter((entry) => entry.id !== "ollama" && !optionIds.has(entry.id));
+  const legacyChoice: WorkerId | undefined =
+    mode === "manual" ? legacyWorkers.find((entry) => entry.id === manualId)?.id : undefined;
 
   const completion = useTaskCompletion(
     project,
@@ -133,16 +155,73 @@ export function TaskPanel({
     );
   }
 
-  const resolved: WorkerId | undefined =
-    worker === "auto" ? (override ?? routing?.selectedWorker) : worker;
+  const resolved: WorkerId | undefined = legacyChoice ?? routing?.selectedWorker;
+
+  const manualNeedsPick = mode === "manual" && !manualId;
+
+  /** The routing fields for a request: a legacy pick runs as named, with no policy. */
+  const choice = () =>
+    legacyChoice
+      ? { requestedWorker: legacyChoice }
+      : {
+          requestedWorker: "auto" as const,
+          routingMode: mode,
+          manualOptionId: mode === "manual" ? manualId : undefined,
+        };
 
   const askForPlan = () => {
-    if (prepare.isPending) return;
+    if (prepare.isPending || manualNeedsPick) return;
 
     prepare.mutate(
-      { taskId: task.id as string, requestedWorker: worker },
-      { onSuccess: (preview) => setPlan(preview.plan) },
+      { taskId: task.id as string, ...choice() },
+      {
+        onSuccess: (preview) => {
+          setPlan(preview.plan);
+          setRechecked(undefined);
+        },
+      },
     );
+  };
+
+  /**
+   * Checks the route again for the plan as it now stands, without scoping it
+   * again. Called when the mode or the manual pick changes, and when an edit to
+   * the plan is finished, so the route on screen is always about this plan.
+   */
+  const recheckRoute = (
+    next: { mode: RoutingMode; manualId?: string },
+    currentPlan: DelegationPlan | undefined = plan,
+  ) => {
+    if (!currentPlan || (next.mode === "manual" && !next.manualId)) return;
+
+    const legacy = next.mode === "manual" && legacyWorkers.some((entry) => entry.id === next.manualId);
+    if (legacy) {
+      setRechecked({});
+      return;
+    }
+
+    recheck.mutate(
+      {
+        taskId: task.id as string,
+        plan: currentPlan,
+        requestedWorker: "auto",
+        routingMode: next.mode,
+        manualOptionId: next.mode === "manual" ? next.manualId : undefined,
+      },
+      { onSuccess: setRechecked },
+    );
+  };
+
+  const changeMode = (next: RoutingMode) => {
+    setMode(next);
+    setManualId(undefined);
+    setRechecked(next === "manual" ? {} : undefined);
+    if (plan && next !== "manual") recheckRoute({ mode: next });
+  };
+
+  const pickManual = (id: string) => {
+    setManualId(id);
+    if (plan) recheckRoute({ mode: "manual", manualId: id });
   };
 
   // Refused here rather than sent: the adapter parses this strictly and drops a
@@ -155,7 +234,15 @@ export function TaskPanel({
 
     start.mutate({
       taskId: task.id as string,
-      approval: { plan, worker: resolved, routing },
+      approval: {
+        plan,
+        // The server plans again and records what actually ran. Auto and Local
+        // only are sent as modes; a manual pick or a legacy worker by name.
+        worker: legacyChoice || mode === "manual" || !policy ? resolved : "auto",
+        routing,
+        routingMode: legacyChoice ? undefined : mode,
+        manualOptionId: !legacyChoice && mode === "manual" ? manualId : undefined,
+      },
     });
   };
 
@@ -166,6 +253,8 @@ export function TaskPanel({
   const failure =
     prepare.error instanceof Error
       ? prepare.error.message
+      : recheck.error instanceof Error
+        ? recheck.error.message
       : start.error instanceof Error
         ? start.error.message
         : complete.error instanceof Error
@@ -271,35 +360,28 @@ export function TaskPanel({
           {!plan ? (
             <>
               <SectionLabel>Delegate</SectionLabel>
-              <div className="mt-3">
-                <FilterBar<WorkerId | "auto">
-                  label="Choose a worker"
-                  value={worker}
-                  onChange={(next) => {
-                    setWorker(next);
-                    setOverride(undefined);
-                  }}
-                  options={[
-                    { value: "auto", label: "Auto" },
-                    ...workers.map((entry) => ({
-                      value: entry.id as WorkerId | "auto",
-                      label: entry.name,
-                    })),
-                  ]}
-                />
-              </div>
+              <RoutingControls
+                className="mt-3"
+                mode={mode}
+                onModeChange={changeMode}
+                manualId={manualId}
+                onManualChange={setManualId}
+                workers={allWorkers}
+                legacyWorkers={legacyWorkers}
+              />
               <p className="os-meta mt-3 text-os-subtle">
-                Hermes scopes the task into a plan first. Nothing runs until
-                you approve it
+                Hermes scopes the task into a plan first, then the router shows
+                where it would run and why. Nothing runs until you approve it
               </p>
               <div className="mt-4">
                 <CommandButton
                   variant="primary"
                   onClick={askForPlan}
+                  disabled={manualNeedsPick}
                   loading={prepare.isPending}
                   loadingLabel="Scoping"
                 >
-                  Prepare delegation
+                  {manualNeedsPick ? "Pick a worker" : "Prepare delegation"}
                 </CommandButton>
               </div>
             </>
@@ -414,31 +496,40 @@ export function TaskPanel({
                 project={plan.project}
               />
 
-              {routing ? (
+              {/* Where this would run, and why. The router's full finding when it
+                  made the decision (including why something was ruled out, or
+                  why the task is blocked); Hermes' recommendation when the
+                  router had nothing to add. */}
+              {policy ? (
+                <RoutePolicyPanel className="mt-5" record={policy} workers={allWorkers} />
+              ) : routing ? (
                 <RoutingDecision
                   className="mt-5"
                   decision={routing}
                   workers={allWorkers}
-                  candidates={prepare.data?.candidates}
-                  overriddenTo={override}
+                  candidates={route?.candidates}
                 />
+              ) : route?.routingError ? (
+                <p className="mt-5 text-[13px] leading-5 text-os-danger">{route.routingError}</p>
               ) : null}
 
-              {routing ? (
-                <div className="mt-4">
-                  <SectionLabel>Run it with</SectionLabel>
-                  <FilterBar<WorkerId>
-                    label="Override the recommendation"
-                    className="mt-2"
-                    value={resolved ?? routing.selectedWorker}
-                    onChange={setOverride}
-                    options={workers.map((entry) => ({
-                      value: entry.id,
-                      label: entry.name,
-                    }))}
-                  />
-                </div>
+              {recheck.isPending ? (
+                <p role="status" className="os-meta mt-3 text-os-subtle">
+                  Checking the route…
+                </p>
               ) : null}
+
+              {/* Changing how it is routed re-checks the route for this plan;
+                  it does not scope the task again. */}
+              <RoutingControls
+                className="mt-5"
+                mode={mode}
+                onModeChange={changeMode}
+                manualId={manualId}
+                onManualChange={pickManual}
+                workers={allWorkers}
+                legacyWorkers={legacyWorkers}
+              />
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <CommandButton
@@ -446,6 +537,7 @@ export function TaskPanel({
                   onClick={delegate}
                   disabled={
                     !resolved ||
+                    recheck.isPending ||
                     Boolean(visualProblem) ||
                     plan.objective.trim().length === 0
                   }
@@ -454,18 +546,33 @@ export function TaskPanel({
                 >
                   {resolved
                     ? `Delegate to ${
-                        workers.find((entry) => entry.id === resolved)?.name ??
-                        resolved
+                        policy?.selected
+                          ? optionLabel(policy.selected, (id) => allWorkers.find((entry) => entry.id === id)?.name ?? id)
+                          : (workers.find((entry) => entry.id === resolved)?.name ?? resolved)
                       }`
-                    : "Delegate"}
+                    : policy?.status === "blocked"
+                      ? "Blocked"
+                      : "Delegate"}
                 </CommandButton>
                 <CommandButton
                   variant="quiet"
-                  onClick={() => setEditing((value) => !value)}
+                  onClick={() => {
+                    // Finishing an edit re-checks the route: the objective is
+                    // what the router reads, so a route about the old wording
+                    // would be a route about a different task.
+                    if (editing) recheckRoute({ mode, manualId });
+                    setEditing((value) => !value);
+                  }}
                 >
                   {editing ? "Done editing" : "Edit plan"}
                 </CommandButton>
-                <CommandButton variant="quiet" onClick={() => setPlan(undefined)}>
+                <CommandButton
+                  variant="quiet"
+                  onClick={() => {
+                    setPlan(undefined);
+                    setRechecked(undefined);
+                  }}
+                >
                   Cancel
                 </CommandButton>
               </div>

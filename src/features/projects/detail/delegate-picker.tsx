@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
  * "Delegate" from anywhere on the project page: which task?
  *
  * A small list of the open, addressable tasks, `Now` first. Choosing one hands
- * off to the Tasks tab with that task's panel open, where the actual scoping
- * and approval happen — this picker starts nothing itself. Tasks without an id
+ * off to the Tasks tab with that task's panel open, where the actual scoping,
+ * routing (Auto / Local only / Manual) and approval happen — this picker starts
+ * nothing itself and decides nothing about where the task runs. Tasks without an id
  * are not offered; the vault cannot name them back to a worker.
  */
 export function DelegatePicker({
@@ -54,7 +55,7 @@ export function DelegatePicker({
           <div>
             <SectionLabel>Delegate</SectionLabel>
             <p className="mt-2 text-[13px] leading-5 text-os-muted">
-              Pick a task. Hermes scopes it; you approve before a worker starts.
+              Pick a task. Hermes scopes it, the router shows where it would run and why (a local model for small text tasks, a capable worker for anything needing a repository), and you approve before anything starts.
             </p>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="os-focus-ring -mr-2 cursor-pointer rounded-md p-2 text-os-subtle hover:text-foreground">

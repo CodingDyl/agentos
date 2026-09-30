@@ -4,6 +4,7 @@ import type {
   MilestoneDelegationStartRequest,
 } from "../../shared/delegation-types";
 import type { RoadmapTask } from "../../shared/agentos-types";
+import type { RoutingMode } from "../../shared/route-policy-types";
 import type { WorkerId } from "../../shared/worker-types";
 import { getMilestoneDetail } from "./roadmap";
 import { delegateTask, prepareDelegation } from "./task-delegation";
@@ -40,6 +41,7 @@ export async function prepareMilestoneDelegation(
   slug: string,
   milestoneId: string,
   requestedWorker: WorkerId | "auto",
+  choice: { routingMode?: RoutingMode } = {},
 ): Promise<{ preview?: MilestoneDelegationPreview; error?: string }> {
   const milestone = await getMilestoneDetail(slug, milestoneId);
   if (!milestone) return { error: `No such milestone.` };
@@ -55,7 +57,7 @@ export async function prepareMilestoneDelegation(
       continue;
     }
 
-    const { preview, error } = await prepareDelegation(slug, task.id, requestedWorker);
+    const { preview, error } = await prepareDelegation(slug, task.id, requestedWorker, choice);
     ready.push({ taskId: task.id, taskTitle: task.title, preview, error });
   }
 
@@ -77,8 +79,15 @@ export async function startMilestoneDelegation(
   const started: MilestoneDelegationResult["started"] = [];
   const failed: MilestoneDelegationResult["failed"] = [];
 
-  for (const { taskId, plan, worker, routing, repoPath } of request.tasks) {
-    const { job, error } = await delegateTask(slug, taskId, { plan, worker, routing, repoPath });
+  for (const { taskId, plan, worker, routing, repoPath, routingMode, manualOptionId } of request.tasks) {
+    const { job, error } = await delegateTask(slug, taskId, {
+      plan,
+      worker,
+      routing,
+      repoPath,
+      routingMode,
+      manualOptionId,
+    });
 
     if (job) started.push({ taskId, jobId: job.id });
     else failed.push({ taskId, error: error ?? "Could not start this task." });

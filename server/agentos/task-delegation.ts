@@ -15,6 +15,9 @@ import { memoryService } from "../memory/service";
 import { startJob } from "../workers/job-manager";
 import { readJob } from "../workers/job-store";
 import { routeJob } from "../workers/router";
+import { planRoute } from "../route-policy/dispatch";
+import type { RoutePolicyRecord, RoutingMode } from "../../shared/route-policy-types";
+import type { WorkerPerformance } from "../../shared/worker-routing-types";
 import { readOptionalFile } from "./filesystem";
 import { parseConfiguration } from "./mutations/configuration";
 import {
@@ -215,6 +218,84 @@ function defaultVisualEnabled(
   }
 }
 
+/** What the route policy (or, failing that, Hermes) found for a plan. */
+export interface PlanRouting {
+  routing?: WorkerRoutingDecision;
+  candidates?: WorkerPerformance[];
+  policy?: RoutePolicyRecord;
+  routingError?: string;
+}
+
+export interface RoutingChoice {
+  routingMode?: RoutingMode;
+  /** With `manual`, the execution option the operator picked. */
+  manualOptionId?: string;
+}
+
+/**
+ * Who should run this plan, and why.
+ *
+ * The route policy decides from what the plan actually needs. The project's
+ * repository is part of that: a task with a repository needs a worker with
+ * tools and a checkout, so a text-only local model is ruled out by capability
+ * and the reason is shown, not assumed. A task with no repository and a small,
+ * bounded ask can go to an enabled local model. When the policy has nothing to
+ * add (no local model enabled and the task may use the cloud) the existing
+ * Hermes recommendation applies exactly as before.
+ *
+ * An explicit worker with no routing mode is the operator's own choice and is
+ * left alone.
+ */
+export async function routePlan(
+  slug: string,
+  plan: DelegationPlan,
+  requestedWorker: WorkerId | "auto",
+  choice: RoutingChoice = {},
+): Promise<PlanRouting> {
+  if (requestedWorker !== "auto" && !choice.routingMode) return {};
+
+  const projectMarkdown = await readOptionalFile(`${PROJECTS_DIR}/${slug}/PROJECT.md`);
+  const repoPath = projectMarkdown ? parseRepositoryPath(projectMarkdown) : undefined;
+
+  const planned = await planRoute({
+    worker: "auto",
+    project: slug,
+    objective: plan.objective,
+    repoPath,
+    contextFiles: plan.contextFiles,
+    validationCommands: plan.validationCommands,
+    routingMode: choice.routingMode,
+    manualOptionId: choice.manualOptionId,
+  });
+
+  if (planned) {
+    if (planned.record.status === "blocked" || !planned.decision) {
+      return { policy: planned.record, routingError: planned.record.blockedReason ?? planned.record.reason };
+    }
+    return { routing: planned.decision, policy: planned.record };
+  }
+
+  const { decision, candidates, error } = await routeJob({ objective: plan.objective, project: slug });
+  return { routing: decision, candidates, routingError: error };
+}
+
+/**
+ * Re-checks the route for a plan already on screen (edited, or given a new
+ * mode) without scoping it again. Scoping is a Hermes call; routing is not.
+ */
+export async function previewTaskRoute(
+  slug: string,
+  taskId: string,
+  plan: DelegationPlan,
+  requestedWorker: WorkerId | "auto",
+  choice: RoutingChoice = {},
+): Promise<{ route?: PlanRouting; error?: string }> {
+  const { task, error } = await findTask(slug, taskId);
+  if (!task) return { error };
+
+  return { route: await routePlan(slug, plan, requestedWorker, choice) };
+}
+
 /**
  * Scopes a task and recommends a worker, without starting anything.
  *
@@ -227,6 +308,7 @@ export async function prepareDelegation(
   slug: string,
   taskId: string,
   requestedWorker: WorkerId | "auto",
+  choice: RoutingChoice = {},
 ): Promise<{ preview?: TaskDelegationPreview; error?: string }> {
   const { task, error } = await findTask(slug, taskId);
   if (!task) return { error };
@@ -297,16 +379,11 @@ export async function prepareDelegation(
 
   // A worker the operator named needs no recommendation — asking for one would
   // spend a Hermes call to be told what they already decided.
-  if (requestedWorker !== "auto") {
+  if (requestedWorker !== "auto" && !choice.routingMode) {
     return { preview: { plan } };
   }
 
-  const { decision, candidates, error: routingError } = await routeJob({
-    objective: plan.objective,
-    project: slug,
-  });
-
-  return { preview: { plan, routing: decision, candidates, routingError } };
+  return { preview: { plan, ...(await routePlan(slug, plan, requestedWorker, choice)) } };
 }
 
 /**
@@ -325,6 +402,8 @@ export async function delegateTask(
     worker: WorkerId | "auto";
     routing?: WorkerRoutingDecision;
     repoPath?: string;
+    routingMode?: RoutingMode;
+    manualOptionId?: string;
   },
 ): Promise<{ job?: WorkerJob; error?: string }> {
   const { task, error } = await findTask(slug, taskId);
@@ -348,7 +427,12 @@ export async function delegateTask(
   const { job, error: startError } = await startJob({
     worker: approval.worker,
     requestedWorker: approval.worker,
-    routing: approval.routing,
+    // The route policy record is the server's own finding. One that arrives
+    // with an approval is dropped, so the fallback plan and the local-only
+    // constraint a job later relies on are always the ones planned here.
+    routing: approval.routing ? { ...approval.routing, policy: undefined } : undefined,
+    routingMode: approval.routingMode,
+    manualOptionId: approval.manualOptionId,
     project: slug,
     objective: approval.plan.objective,
     repoPath,
@@ -388,6 +472,8 @@ export async function delegateTask(
       jobId: job.id,
       worker: job.resolvedWorker,
       scopedBy: approval.plan.scopedBy,
+      model: job.routing?.policy?.selected?.modelId,
+      route: job.routing?.policy?.reason,
     },
     // Stamped with the job's own creation time. The delegation happened before
     // the worker started; it can only be written down afterwards, because the
