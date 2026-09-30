@@ -157,6 +157,7 @@ import {
   getWorkerJob,
   getWorkerJobs,
   previewRoute,
+  probeOllamaModel,
   saveOllamaSettings,
   getWorkers,
   completeTask,
@@ -1296,6 +1297,20 @@ export function useSaveOllamaSettings() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "ollama-status"] });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Tests one model's suitability. Refreshes status so the stored result shows. */
+export function useProbeOllamaModel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: probeOllamaModel,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "ollama-status"] });
     },
     networkMode: "always",
     retry: 0,

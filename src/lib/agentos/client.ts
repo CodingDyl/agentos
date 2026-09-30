@@ -152,10 +152,13 @@ import {
 import {
   ExecutionOptionsResponseSchema,
   OllamaStatusResponseSchema,
+  ProbeResponseSchema,
   RoutePreviewResponseSchema,
   type ExecutionOptionsResponse,
   type OllamaSettings,
   type OllamaStatusResponse,
+  type ProbeRequest,
+  type ProbeResult,
   type RoutePreviewResponse,
 } from "@shared/route-policy-types";
 import {
@@ -1078,6 +1081,19 @@ export function getOllamaStatus(): Promise<OllamaStatusResponse> {
   return workerRequest("/api/route-policy/ollama", { method: "GET" }, (value) =>
     OllamaStatusResponseSchema.safeParse(value),
   );
+}
+
+/** Runs the suitability test for one installed model. Can take up to a minute or two. */
+export function probeOllamaModel(input: ProbeRequest): Promise<ProbeResult> {
+  return workerRequest(
+    "/api/route-policy/ollama/probe",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    (value) => ProbeResponseSchema.safeParse(value),
+  ).then((response) => response.result);
 }
 
 export function saveOllamaSettings(settings: OllamaSettings): Promise<unknown> {

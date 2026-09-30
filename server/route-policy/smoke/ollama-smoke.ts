@@ -132,63 +132,31 @@ async function main(): Promise<void> {
     "Marcus owns the QA pass and reports on Monday 6 October. Budget for the pilot was approved at R45,000. " +
     "Open risk: the bank feed sandbox is flaky. Decision: postpone the mobile redesign to November.";
 
-  /* ---------- T. diagnostic: how does this model behave under bounded tasks? ---------- */
+  /* ---------- T. suitability: the same test as the "Test model" button ---------- */
 
   {
-    const { buildOllamaMessages } = await import("../../workers/providers/ollama-worker");
-    const shown = (await json("/api/show", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL }),
-    })) as { capabilities?: string[] };
-    const capable = shown.capabilities?.includes("thinking") === true;
-
-    const messages = buildOllamaMessages({
-      objective: "Summarise these meeting notes into five bullets",
-      inputText: NOTES,
-    } as never);
-
-    const probe = async (label: string, extra: Record<string, unknown>, tweak?: (m: typeof messages) => typeof messages) => {
-      const started = Date.now();
-      const body = (await json("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL,
-          stream: false,
-          messages: tweak ? tweak(messages) : messages,
-          options: { num_predict: 512, num_ctx: 2560, temperature: 0 },
-          ...extra,
-        }),
-      })) as { message?: { content?: string; thinking?: string }; done_reason?: string; eval_count?: number; error?: string };
-      const content = body.message?.content ?? "";
-      return {
-        stopped: body.done_reason === "stop",
-        tokens: body.eval_count,
-        line: `${label}: done_reason=${body.done_reason ?? body.error}, ${body.eval_count ?? "?"} tokens, thinking field ${body.message?.thinking?.length ?? 0} chars, ${((Date.now() - started) / 1000).toFixed(1)}s, starts: ${JSON.stringify(content.slice(0, 120))}`,
-      };
-    };
-
-    // What AgentOS sends today, then the alternatives that would explain a miss.
-    const asSent = await probe(capable ? "as AgentOS sends it (think=false)" : "as AgentOS sends it (no think flag)", capable ? { think: false } : {});
-    const unset = await probe("think flag omitted", {});
-    const soft = await probe("soft switch '/no_think' appended", capable ? { think: false } : {}, (m) =>
-      m.map((message, index) => (index === m.length - 1 ? { ...message, content: `${message.content} /no_think` } : message)),
-    );
+    const { probeModel } = await import("../model-probe");
+    const result = await probeModel({
+      baseUrl: BASE_URL,
+      model: MODEL,
+      config: { ...defaultOllamaModelConfig(), enabled: true, structuredOutput: true },
+      maxConcurrent: 1,
+    });
 
     record({
       id: "T",
-      title: "Diagnostic: the model answers a five-bullet task briefly, without a reasoning transcript",
-      verdict: asSent.stopped && (asSent.tokens ?? 999) < 300 ? "pass" : "fail",
+      title: "Suitability test (identical to the Test model button in Workers)",
+      verdict: result.verdict === "suitable" ? "pass" : "fail",
       observed: [
-        `/api/show capabilities: ${JSON.stringify(shown.capabilities ?? "not reported")}`,
-        asSent.line,
-        unset.line,
-        soft.line,
-        asSent.stopped
-          ? ""
-          : `AgentOS's own request did not finish inside the token limit. If the variants above show reasoning text in the content (think=false ignored) or the whole budget spent in the thinking field (flag omitted), ${MODEL} is a thinking model that cannot be bounded to 512 tokens. Pull a non-thinking instruct model and re-run with --model <name>.`,
-      ].filter(Boolean),
+        result.summary,
+        ...result.checks.map((check) => `${check.passed ? "pass" : "FAIL"}: ${check.name}: ${check.detail}`),
+        ...result.variants.map(
+          (v) =>
+            `${v.label}: ${v.error ?? `ended ${v.doneReason}, ${v.outputTokens ?? "?"} tokens, thinking ${v.thinkingChars ?? 0} chars, ${v.totalMs ?? "?"}ms`}` +
+            (v.startsWith ? `, starts ${JSON.stringify(v.startsWith.slice(0, 100))}` : ""),
+        ),
+        ...(result.recommendation ? [`advice: ${result.recommendation}`] : []),
+      ],
     });
   }
 

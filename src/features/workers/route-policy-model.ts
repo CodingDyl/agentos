@@ -1,5 +1,6 @@
 import type {
   ExecutionAttempt,
+  ProbeRecord,
   ExecutionOption,
   OllamaModelConfig,
   RoutePolicyRecord,
@@ -162,4 +163,43 @@ export function parseSchemaInput(text: string): { schema?: Record<string, unknow
 export function shortDigest(digest: string | undefined): string | undefined {
   if (!digest) return undefined;
   return digest.replace(/^sha256:/, "").slice(0, 12);
+}
+
+export type ProbeTone = "good" | "bad" | "neutral";
+
+/**
+ * What to say about a model's last suitability test, given its current limits.
+ * A verdict is only as good as the build and limits it was measured with, so
+ * a changed digest or edited limits downgrade it to "test again", not "still
+ * fine".
+ */
+export function probeBadge(
+  record: ProbeRecord | undefined,
+  config: Pick<OllamaModelConfig, "maxInputTokens" | "maxOutputTokens" | "timeoutMs">,
+): { label: string; tone: ProbeTone } {
+  if (!record) return { label: "Not tested", tone: "neutral" };
+  if (record.stale) return { label: "Tested on an older build: test again", tone: "neutral" };
+
+  const changed =
+    record.limits.maxInputTokens !== config.maxInputTokens ||
+    record.limits.maxOutputTokens !== config.maxOutputTokens ||
+    record.limits.timeoutMs !== config.timeoutMs;
+  if (changed) return { label: "Limits changed since the last test: test again", tone: "neutral" };
+
+  return record.verdict === "suitable"
+    ? { label: "Passed suitability test", tone: "good" }
+    : { label: "Failed suitability test", tone: "bad" };
+}
+
+/** A warning for enabling a model that has been shown unsuitable, or nothing. */
+export function enableWarning(
+  record: ProbeRecord | undefined,
+  config: Pick<OllamaModelConfig, "enabled" | "maxInputTokens" | "maxOutputTokens" | "timeoutMs">,
+): string | undefined {
+  if (!config.enabled) return undefined;
+  const badge = probeBadge(record, config);
+  if (badge.tone === "bad") {
+    return "This model failed its suitability test. Tasks routed to it will fail or run slowly. Fix the limits or choose another model.";
+  }
+  return undefined;
 }

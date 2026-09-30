@@ -3,11 +3,17 @@ import {
   defaultOllamaModelConfig,
   type OllamaModelConfig,
   type OllamaSettings,
+  type ProbeRecord,
 } from "@shared/route-policy-types";
 import { CommandButton, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
-import { useOllamaStatus, useSaveOllamaSettings } from "@/lib/agentos/queries";
+import { formatRelativeTime } from "@/lib/format";
+import { useOllamaStatus, useProbeOllamaModel, useSaveOllamaSettings } from "@/lib/agentos/queries";
+import { cn } from "@/lib/utils";
 import {
+  enableWarning,
+  formatMs,
   modelConfigProblem,
+  probeBadge,
   shortDigest,
   TASK_CATEGORIES,
   toggleCategory,
@@ -37,6 +43,7 @@ interface ModelRow {
 export function OllamaPanel() {
   const status = useOllamaStatus();
   const save = useSaveOllamaSettings();
+  const probe = useProbeOllamaModel();
   // Edits sit over the server's settings until saved or discarded, so there is
   // no copy to keep in step with it.
   const [edits, setDraft] = useState<OllamaSettings>();
@@ -54,7 +61,11 @@ export function OllamaPanel() {
       digest: installed.get(name)?.digest,
       installed: installed.has(name),
       loaded: status.data.state.loaded.includes(name),
-      embeddingOnly: options.get(name)?.embeddingOnly ?? false,
+      // From the server's flag, else from what Ollama reports: a model with no
+      // "completion" capability cannot generate, so it is never testable or enableable.
+      embeddingOnly:
+        options.get(name)?.embeddingOnly ??
+        (installed.get(name)?.capabilities ? !installed.get(name)?.capabilities?.includes("completion") : false),
       config: draft.models[name] ?? defaultOllamaModelConfig(),
     }));
   }, [status.data, draft]);
@@ -118,6 +129,12 @@ export function OllamaPanel() {
                   expanded={open === row.name}
                   onToggle={() => setOpen(open === row.name ? undefined : row.name)}
                   onChange={(next) => setModel(row.name, next)}
+                  record={status.data.probes?.[row.name]}
+                  canTest={state.reachable && row.installed}
+                  testing={probe.isPending && probe.variables?.model === row.name}
+                  testingAny={probe.isPending}
+                  testError={probe.isError && probe.variables?.model === row.name ? probe.error.message : undefined}
+                  onTest={() => probe.mutate({ model: row.name, config: row.config })}
                 />
               ))}
             </ul>
@@ -197,11 +214,23 @@ function ModelItem({
   expanded,
   onToggle,
   onChange,
+  record,
+  canTest,
+  testing,
+  testingAny,
+  testError,
+  onTest,
 }: {
   row: ModelRow;
   expanded: boolean;
   onToggle: () => void;
   onChange: (config: OllamaModelConfig) => void;
+  record: ProbeRecord | undefined;
+  canTest: boolean;
+  testing: boolean;
+  testingAny: boolean;
+  testError: string | undefined;
+  onTest: () => void;
 }) {
   const { config } = row;
   const digest = shortDigest(row.digest);
@@ -242,6 +271,17 @@ function ModelItem({
           ) : (
             <span className="os-meta text-os-subtle">Installed, not enabled</span>
           )}
+          {!row.embeddingOnly && canTest ? (
+            <button
+              type="button"
+              onClick={onTest}
+              disabled={testingAny}
+              aria-label={`Test ${row.name} for suitability`}
+              className="os-focus-ring os-meta cursor-pointer rounded-md text-os-muted transition-colors duration-150 hover:text-foreground disabled:cursor-default disabled:opacity-60"
+            >
+              {testing ? "Testing…" : "Test model"}
+            </button>
+          ) : null}
           {!row.embeddingOnly ? (
             <button
               type="button"
@@ -254,6 +294,22 @@ function ModelItem({
           ) : null}
         </div>
       </div>
+
+      {testing ? (
+        <p role="status" className="os-meta mt-3 text-os-subtle">
+          Running a real five-bullet task against {row.name} with your limits. A cold model can take up to a minute or two.
+        </p>
+      ) : null}
+      {testError ? <p className="mt-3 text-[13px] leading-5 text-os-danger">{testError}</p> : null}
+      {record && !row.embeddingOnly ? <ProbeReport record={record} config={row.config} /> : null}
+      {!record && !row.embeddingOnly && canTest ? (
+        <p className="os-meta mt-2 text-os-subtle">Not tested. Installed does not prove suitable.</p>
+      ) : null}
+      {enableWarning(record, config) ? (
+        <p role="alert" className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-danger">
+          {enableWarning(record, config)}
+        </p>
+      ) : null}
 
       {expanded && !row.embeddingOnly ? (
         <div className="mt-4 space-y-5 border-l border-os-border pl-5">
@@ -332,5 +388,67 @@ function ModelItem({
         </div>
       ) : null}
     </li>
+  );
+}
+
+const TONE = { good: "text-foreground", bad: "text-os-danger", neutral: "text-os-subtle" } as const;
+
+/** The last suitability test: verdict, each check, the advice, and what the model actually did. */
+function ProbeReport({ record, config }: { record: ProbeRecord; config: OllamaModelConfig }) {
+  const badge = probeBadge(record, config);
+
+  return (
+    <div className="mt-3 border-l border-os-border pl-5">
+      <p className={cn("os-meta", TONE[badge.tone])}>
+        {badge.label} · {formatRelativeTime(record.testedAt)}
+      </p>
+      <p className="mt-1.5 max-w-[62ch] text-[13px] leading-5 text-os-muted">{record.summary}</p>
+
+      {record.checks.length > 0 ? (
+        <ul className="mt-2 space-y-1">
+          {record.checks.map((check) => (
+            <li key={check.name} className="max-w-[70ch] text-[13px] leading-5 text-os-muted">
+              <span className={cn("os-meta mr-2", check.passed ? "text-os-subtle" : "text-os-danger")}>
+                {check.passed ? "Pass" : "Fail"}
+              </span>
+              <span className="text-foreground">{check.name}</span> · {check.detail}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {record.recommendation ? (
+        <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-amber">{record.recommendation}</p>
+      ) : null}
+
+      {record.variants.length > 0 ? (
+        <details className="mt-3">
+          <summary className="os-focus-ring os-meta cursor-pointer text-os-subtle hover:text-foreground">
+            What the model did
+          </summary>
+          <ul className="mt-2 space-y-2">
+            {record.variants.map((variant) => (
+              <li key={variant.label} className="max-w-[70ch] text-[12px] leading-5 text-os-subtle">
+                <span className="text-os-muted">{variant.label}</span>
+                {" · "}
+                {variant.error
+                  ? variant.error
+                  : [
+                      variant.doneReason ? `ended: ${variant.doneReason}` : undefined,
+                      variant.outputTokens !== undefined ? `${variant.outputTokens} tokens` : undefined,
+                      variant.thinkingChars ? `${variant.thinkingChars} chars of thinking` : undefined,
+                      formatMs(variant.totalMs) ? `${formatMs(variant.totalMs)}` : undefined,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                {variant.startsWith ? (
+                  <span className="mt-0.5 block font-mono break-words text-os-subtle">“{variant.startsWith}”</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
   );
 }

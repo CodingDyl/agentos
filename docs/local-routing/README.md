@@ -79,6 +79,18 @@ is not a fit for the 512-token / 30 s policy; raising the limits to fit its
 reasoning (about 600+ tokens, 20 s+ of generation) leaves no headroom for a cold
 load inside a 30 s deadline.
 
+**Test model.** Every installed model in Workers -> Local models has a
+**Test model** button. It runs a real five-bullet task (and a JSON task if the
+model is marked for structured output) with the limits currently on screen,
+through the same one-at-a-time gate as real jobs, and checks that the model
+finishes inside the output limit, returns five bullets, and meets the
+deadline. If it fails it also tries the thinking flag omitted and `/no_think`,
+and says which of them changes the outcome. The result is stored against the
+model's digest: re-pulling the model, or changing its limits, marks it "test
+again". A model that failed can still be enabled, but it carries a warning.
+Testing never changes a setting. `npm run smoke:ollama` scenario T runs the
+identical test.
+
 To find a suitable model: pull a non-thinking instruct model with Ollama (for
 example an instruct variant of Qwen3-4B, `llama3.2:3b`, or `gemma3:4b`; check
 the exact tags on ollama.com/library) and run

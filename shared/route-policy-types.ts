@@ -245,6 +245,8 @@ export const OllamaStatusResponseSchema = z.object({
     loaded: z.array(z.string()),
   }),
   options: z.array(ExecutionOptionSchema),
+  /** Last suitability test per model, when one has been run. */
+  probes: z.record(z.string(), z.lazy(() => ProbeRecordSchema)).optional(),
 });
 
 export const ExecutionOptionsResponseSchema = z.object({
@@ -285,3 +287,61 @@ export function defaultOllamaModelConfig(): OllamaModelConfig {
     allowThinking: false,
   };
 }
+
+/* Model suitability probe ("Test model"). */
+
+export const ProbeCheckSchema = z.object({
+  name: z.string(),
+  passed: z.boolean(),
+  detail: z.string(),
+});
+
+export const ProbeVariantSchema = z.object({
+  label: z.string(),
+  doneReason: z.string().optional(),
+  outputTokens: z.number().optional(),
+  thinkingChars: z.number().optional(),
+  totalMs: z.number().optional(),
+  loadMs: z.number().optional(),
+  /** The first characters of the reply, so reasoning-instead-of-answer is visible. */
+  startsWith: z.string().optional(),
+  error: z.string().optional(),
+});
+
+/**
+ * What a suitability test found. `unavailable` means no verdict on the model
+ * was possible (Ollama down, model not installed, embedding-only); it is not a
+ * failure of the model.
+ */
+export const ProbeResultSchema = z.object({
+  model: z.string(),
+  digest: z.string().optional(),
+  testedAt: z.string(),
+  verdict: z.enum(["suitable", "unsuitable", "unavailable"]),
+  summary: z.string(),
+  checks: z.array(ProbeCheckSchema),
+  variants: z.array(ProbeVariantSchema),
+  recommendation: z.string().optional(),
+  limits: z.object({
+    maxInputTokens: z.number(),
+    maxOutputTokens: z.number(),
+    timeoutMs: z.number(),
+  }),
+});
+
+/** A stored result. `stale` when the model's digest has changed since. */
+export const ProbeRecordSchema = ProbeResultSchema.extend({ stale: z.boolean() });
+
+export const ProbeRequestSchema = z.object({
+  model: z.string().min(1),
+  /** The configuration under test, so unsaved edits are what get tested. */
+  config: OllamaModelConfigSchema.optional(),
+});
+
+export type ProbeCheck = z.infer<typeof ProbeCheckSchema>;
+export type ProbeVariant = z.infer<typeof ProbeVariantSchema>;
+export type ProbeResult = z.infer<typeof ProbeResultSchema>;
+export type ProbeRecord = z.infer<typeof ProbeRecordSchema>;
+export type ProbeRequest = z.infer<typeof ProbeRequestSchema>;
+
+export const ProbeResponseSchema = z.object({ result: ProbeResultSchema });

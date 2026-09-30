@@ -3,11 +3,13 @@ import { describe, it } from "node:test";
 import type { OllamaModelConfig } from "../../../../shared/route-policy-types";
 import {
   describeAttempt,
+  enableWarning,
   failureLabel,
   fellBack,
   formatMs,
   modelConfigProblem,
   optionLabel,
+  probeBadge,
   parseSchemaInput,
   providerChargeLabel,
   shortDigest,
@@ -107,5 +109,44 @@ describe("model configuration", () => {
     assert.deepEqual(parseSchemaInput('{"type":"object"}'), { schema: { type: "object" } });
     assert.match(parseSchemaInput("{oops").error ?? "", /not valid JSON/);
     assert.match(parseSchemaInput("[1]").error ?? "", /object/);
+  });
+});
+
+describe("probe status", () => {
+  const limits = { maxInputTokens: 2000, maxOutputTokens: 512, timeoutMs: 30_000 };
+  const record = (over: Record<string, unknown> = {}) =>
+    ({
+      model: "m",
+      testedAt: "",
+      verdict: "suitable",
+      summary: "",
+      checks: [],
+      variants: [],
+      limits,
+      stale: false,
+      ...over,
+    }) as never;
+
+  it("says a model has not been tested rather than implying it is fine", () => {
+    assert.deepEqual(probeBadge(undefined, limits), { label: "Not tested", tone: "neutral" });
+  });
+
+  it("reports pass and fail", () => {
+    assert.equal(probeBadge(record(), limits).tone, "good");
+    assert.equal(probeBadge(record({ verdict: "unsuitable" }), limits).tone, "bad");
+  });
+
+  it("does not let an old verdict vouch for a new build or new limits", () => {
+    assert.match(probeBadge(record({ stale: true }), limits).label, /older build/);
+    assert.match(probeBadge(record(), { ...limits, maxOutputTokens: 900 }).label, /Limits changed/);
+    assert.equal(probeBadge(record({ verdict: "unsuitable", stale: true }), limits).tone, "neutral");
+  });
+
+  it("warns only when an enabled model has a current failing verdict", () => {
+    const failing = record({ verdict: "unsuitable" });
+    assert.match(enableWarning(failing, { ...limits, enabled: true }) ?? "", /failed its suitability test/);
+    assert.equal(enableWarning(failing, { ...limits, enabled: false }), undefined);
+    assert.equal(enableWarning(record(), { ...limits, enabled: true }), undefined);
+    assert.equal(enableWarning(undefined, { ...limits, enabled: true }), undefined);
   });
 });
