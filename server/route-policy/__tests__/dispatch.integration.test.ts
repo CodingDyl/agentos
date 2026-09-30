@@ -349,3 +349,36 @@ describe("manual override", () => {
     assert.match(error ?? "", /Override rejected: Lacks required capability/);
   });
 });
+
+describe("suitability test results at dispatch", () => {
+  it("a model that failed its test gets no jobs until its limits change", async () => {
+    const { saveProbe } = await import("../probe-store");
+    const limits = { maxInputTokens: 2000, maxOutputTokens: 512, timeoutMs: 30_000 };
+    await saveProbe({
+      model: "qwen3:4b",
+      digest: "sha256:q4b",
+      testedAt: new Date().toISOString(),
+      verdict: "unsuitable",
+      summary: "Not suitable.",
+      checks: [],
+      variants: [],
+      limits,
+    });
+
+    // Matching limits and digest: the verdict applies, so the job goes elsewhere.
+    const blocked = await manager.startJob(summary());
+    assert.equal(blocked.job?.resolvedWorker, "claude");
+    assert.match(
+      blocked.job?.routing?.policy?.rejected.find((r) => r.optionId === "ollama:qwen3:4b")?.reason ?? "",
+      /Failed its suitability test/,
+    );
+    await settle(blocked.job!.id);
+    assert.equal(chatCalls, 0);
+
+    // The operator changes a limit: the old verdict no longer describes it.
+    configure({ model: { timeoutMs: 45_000 } });
+    const retried = await manager.startJob(summary());
+    assert.equal(retried.job?.resolvedWorker, "ollama");
+    await settle(retried.job!.id);
+  });
+});

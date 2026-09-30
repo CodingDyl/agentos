@@ -13,7 +13,9 @@ import { ollamaSettings } from "../ai-stack/settings";
 import { discoverOllama } from "../workers/providers/ollama-client";
 import { listWorkers } from "../workers/registry";
 import { routeJob } from "../workers/router";
+import { currentProbeVerdict } from "./model-probe";
 import { buildOllamaOptions, DEFAULT_OLLAMA_BASE_URL } from "./ollama-config";
+import { readProbes } from "./probe-store";
 import { decideRoute, ineligibleReason } from "./policy";
 import { profileTask } from "./profile";
 
@@ -78,7 +80,17 @@ export async function collectExecutionOptions(): Promise<ExecutionOption[]> {
 
   const settings = ollamaSettings();
   const state = await discoverOllama(settings?.baseUrl || DEFAULT_OLLAMA_BASE_URL);
-  options.push(...buildOllamaOptions(settings, state));
+  const probes = await readProbes(state.installed).catch(() => ({}));
+  options.push(
+    ...buildOllamaOptions(settings, state).map((option) => {
+      const name = option.modelId ?? "";
+      const verdict = currentProbeVerdict(
+        (probes as Record<string, Parameters<typeof currentProbeVerdict>[0]>)[name],
+        settings?.models[name],
+      );
+      return verdict ? { ...option, probeVerdict: verdict } : option;
+    }),
+  );
 
   return options;
 }

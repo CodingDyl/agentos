@@ -79,6 +79,23 @@ is not a fit for the 512-token / 30 s policy; raising the limits to fit its
 reasoning (about 600+ tokens, 20 s+ of generation) leaves no headroom for a cold
 load inside a 30 s deadline.
 
+Measured with the Test model button on the same machine:
+
+| Model | Result | Detail |
+|---|---|---|
+| `qwen3:4b` (`359d7dd4bcda`) | Failed | Reasoning transcript, 21 bullet-like lines, stopped at the 512-token limit, 20.5 s |
+| `qwen2.5-coder:7b` (`dae161e27b0e`) | **Passed** | Five bullets in 61 tokens, 12.4 s cold of which 8.7 s was model load (about 3.7 s of work) |
+
+**A model's test result affects routing.** A model with a current failing
+result is skipped for automatic routing (and shown under "Ruled out" with the
+reason), even if it is the one already loaded in memory. Among usable local
+models, one that passed its test is preferred over an untested one, and
+"already loaded" only breaks a tie after that. "Current" means the same build
+and the same limits: re-pulling the model, or editing its limits, makes the
+result read "test again" and lifts the skip until it is tested again. An
+untested model is still usable, because testing is evidence, not a gate on new
+models.
+
 **Test model.** Every installed model in Workers -> Local models has a
 **Test model** button. It runs a real five-bullet task (and a JSON task if the
 model is marked for structured output) with the limits currently on screen,

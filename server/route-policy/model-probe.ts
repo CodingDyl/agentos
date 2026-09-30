@@ -233,6 +233,23 @@ async function attemptChat(
   }
 }
 
+/**
+ * The verdict to act on, or nothing. A result only counts while it describes
+ * the model as it is now: the same build and the same limits.
+ */
+export function currentProbeVerdict(
+  record: (Pick<ProbeResult, "verdict" | "limits"> & { stale: boolean }) | undefined,
+  config: Pick<OllamaModelConfig, "maxInputTokens" | "maxOutputTokens" | "timeoutMs"> | undefined,
+): "suitable" | "unsuitable" | undefined {
+  if (!record || record.stale || !config) return undefined;
+  if (record.verdict === "unavailable") return undefined;
+  const same =
+    record.limits.maxInputTokens === config.maxInputTokens &&
+    record.limits.maxOutputTokens === config.maxOutputTokens &&
+    record.limits.timeoutMs === config.timeoutMs;
+  return same ? record.verdict : undefined;
+}
+
 export async function probeModel(options: ProbeOptions): Promise<ProbeResult> {
   const { baseUrl, model, config, signal } = options;
   const limits = {

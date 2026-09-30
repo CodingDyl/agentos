@@ -7,7 +7,7 @@ import path from "node:path";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { defaultOllamaModelConfig, type OllamaModelConfig } from "../../../shared/route-policy-types";
 import { OllamaError } from "../../workers/providers/ollama-client";
-import { assess, countBullets, probeModel } from "../model-probe";
+import { assess, countBullets, currentProbeVerdict, probeModel } from "../model-probe";
 import { readProbes, saveProbe } from "../probe-store";
 
 /**
@@ -250,5 +250,19 @@ describe("probe store", () => {
 
     const repulled = await readProbes([{ name: "m:1b", digest: "sha256:different" }]);
     assert.equal(repulled["m:1b"].stale, true);
+  });
+});
+
+describe("currentProbeVerdict", () => {
+  const limits = { maxInputTokens: 2000, maxOutputTokens: 512, timeoutMs: 30_000 };
+  const record = (over: Record<string, unknown> = {}) => ({ verdict: "unsuitable" as const, limits, stale: false, ...over });
+
+  it("applies only to the same build and the same limits", () => {
+    assert.equal(currentProbeVerdict(record(), limits), "unsuitable");
+    assert.equal(currentProbeVerdict(record({ stale: true }), limits), undefined);
+    assert.equal(currentProbeVerdict(record(), { ...limits, timeoutMs: 60_000 }), undefined);
+    assert.equal(currentProbeVerdict(record({ verdict: "unavailable" }), limits), undefined);
+    assert.equal(currentProbeVerdict(undefined, limits), undefined);
+    assert.equal(currentProbeVerdict(record(), undefined), undefined);
   });
 });

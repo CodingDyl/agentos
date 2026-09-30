@@ -53,6 +53,14 @@ export function ineligibleReason(
   }
   if (!option.available) return option.unavailableReason ?? "Not available.";
 
+  // A model shown to be unable to do bounded tasks is not offered them, however
+  // convenient it is (for instance, already loaded in memory). Changing its
+  // limits or re-pulling it makes the verdict stale, which lifts this until it
+  // is tested again.
+  if (option.probeVerdict === "unsuitable") {
+    return "Failed its suitability test, so it is not used automatically. Fix its limits or choose another model, then test it again.";
+  }
+
   if (effectiveLocality === "local_only" && option.location !== "local") {
     return "Task is local-only; cloud providers are not permitted.";
   }
@@ -98,19 +106,22 @@ export function ineligibleReason(
 }
 
 /** Lower sorts first. Deterministic: ties fall through to the option id. */
-function preferenceKey(option: ExecutionOption, preferLocal: boolean): [number, number, number, string] {
+function preferenceKey(option: ExecutionOption, preferLocal: boolean): [number, number, number, number, string] {
   const locality = (option.location === "local") === preferLocal ? 0 : 1;
+  // Shown to work beats not yet tested; being loaded only breaks the tie after
+  // that, so convenience never outranks evidence.
+  const tested = option.probeVerdict === "suitable" ? 0 : 1;
   const loaded = option.loaded ? 0 : 1;
   const cost = option.costUsdPerJob ?? Number.POSITIVE_INFINITY;
-  return [locality, loaded, cost, option.id];
+  return [locality, tested, loaded, cost, option.id];
 }
 
 function compareKeys(a: ReturnType<typeof preferenceKey>, b: ReturnType<typeof preferenceKey>): number {
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     const diff = (a[i] as number) - (b[i] as number);
     if (diff !== 0) return Number.isNaN(diff) ? 0 : diff;
   }
-  return a[3].localeCompare(b[3]);
+  return a[4].localeCompare(b[4]);
 }
 
 export function decideRoute(input: RoutePolicyInput): RoutePolicyRecord {
@@ -209,7 +220,7 @@ function explain(
     return `${target}: task is local-only (${size}); this is an eligible local option.`;
   }
   if (option.location === "local") {
-    return `${target}: small bounded ${size} task within local limits${option.loaded ? "; model already loaded" : ""}.`;
+    return `${target}: small bounded ${size} task within local limits${option.probeVerdict === "suitable" ? "; passed its suitability test" : ""}${option.loaded ? "; model already loaded" : ""}.`;
   }
   if (!preferLocal) {
     return `${target}: ${profile.complexityReason} Routed to a capable existing worker.`;

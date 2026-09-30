@@ -314,3 +314,46 @@ describe("ollama-config", () => {
     assert.equal(isEmbeddingOnly({ name: "qwen3:4b" }), false);
   });
 });
+
+describe("suitability test results in routing", () => {
+  const other: ExecutionOption = { ...qwen, id: "ollama:qwen2.5-coder:7b", modelId: "qwen2.5-coder:7b", loaded: false };
+
+  it("does not route to a model that failed its test, even when it is the loaded one", () => {
+    const failing = { ...qwen, loaded: true, probeVerdict: "unsuitable" as const };
+    const passing = { ...other, probeVerdict: "suitable" as const };
+    const record = route("Summarise these meeting notes", [failing, passing, claude], { context: NOTES });
+
+    assert.equal(record.selected?.optionId, passing.id);
+    assert.match(record.rejected.find((r) => r.optionId === failing.id)?.reason ?? "", /Failed its suitability test/);
+    assert.ok(record.fallbackPlan.every((f) => f.optionId !== failing.id), "never a fallback either");
+  });
+
+  it("prefers a tested-good model over an untested loaded one", () => {
+    const loadedUntested = { ...qwen, loaded: true };
+    const testedGood = { ...other, probeVerdict: "suitable" as const };
+    const record = route("Summarise these meeting notes", [loadedUntested, testedGood], { context: NOTES });
+    assert.equal(record.selected?.optionId, testedGood.id);
+    assert.match(record.reason, /passed its suitability test/);
+  });
+
+  it("still uses an untested model when nothing has been tested (testing is advice, not a gate on new models)", () => {
+    const record = route("Summarise these meeting notes", [qwen, claude], { context: NOTES });
+    assert.equal(record.selected?.optionId, qwen.id);
+  });
+
+  it("blocks a local-only task when its only model failed the test, and does not use the cloud", () => {
+    const failing = { ...qwen, probeVerdict: "unsuitable" as const };
+    const record = route("Summarise these meeting notes", [failing, claude], {
+      context: NOTES,
+      metadata: { localOnly: true },
+    });
+    assert.equal(record.status, "blocked");
+  });
+
+  it("a manual override of a failed model is refused with the reason", () => {
+    const failing = { ...qwen, probeVerdict: "unsuitable" as const };
+    const record = route("Summarise these meeting notes", [failing], { context: NOTES }, "manual", failing.id);
+    assert.equal(record.status, "blocked");
+    assert.match(record.blockedReason ?? "", /Override rejected: Failed its suitability test/);
+  });
+});

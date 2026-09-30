@@ -119,6 +119,12 @@ export const ExecutionOptionSchema = z.object({
   loaded: z.boolean().optional(),
   /** Embedding-only models can never take a generation job. */
   embeddingOnly: z.boolean().optional(),
+  /**
+   * The model's latest suitability test, only while it still applies (same
+   * build, same limits). A failing verdict makes the option ineligible; a
+   * passing one is preferred over an untested model.
+   */
+  probeVerdict: z.enum(["suitable", "unsuitable"]).optional(),
 });
 
 export const RejectedOptionSchema = z.object({

@@ -199,7 +199,7 @@ export function enableWarning(
   if (!config.enabled) return undefined;
   const badge = probeBadge(record, config);
   if (badge.tone === "bad") {
-    return "This model failed its suitability test. Tasks routed to it will fail or run slowly. Fix the limits or choose another model.";
+    return "This model failed its suitability test, so automatic routing skips it. Fix its limits or choose another model, then test it again.";
   }
   return undefined;
 }
