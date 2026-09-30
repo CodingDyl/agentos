@@ -50,6 +50,7 @@ const FAILURE_LABELS: Record<string, string> = {
   invalid_output: "Output failed validation",
   empty_output: "Empty output",
   input_too_large: "Input too large for the model",
+  output_truncated: "Output was cut off at the token limit",
   not_configured: "Not configured for this task",
   http_error: "Ollama returned an error",
   worker_error: "Worker error",

@@ -250,10 +250,23 @@ describe("ollama worker: success", () => {
     assert.equal("think" in state.chatCalls[0], false);
   });
 
-  it("flags output cut off at the token limit as a blocker rather than a clean pass", async () => {
-    state.chat = async () => ok("partial", { done_reason: "length" });
-    const result = await run(makeJob()).promise;
-    assert.match(result.blockers?.[0] ?? "", /may be incomplete/);
+  it("rejects output cut off at the token limit instead of passing it to review", async () => {
+    state.chat = async () => ok("We are given notes and need to summarise. Steps: 1.", { done_reason: "length" });
+    assert.equal(await kindOf(run(makeJob()).promise), "output_truncated");
+  });
+
+  it("does not spend the deadline repairing truncated JSON", async () => {
+    configure({ structuredOutput: true });
+    state.chat = async () => ok('{"owner":"Dana","da', { done_reason: "length" });
+    assert.equal(await kindOf(run(makeJob(EXTRACT)).promise), "output_truncated");
+    assert.equal(state.chatCalls.length, 1);
+  });
+
+  it("says whether thinking was disabled when it rejects a truncated reply", async () => {
+    state.chat = async () => ok("x", { done_reason: "length" });
+    await assert.rejects(run(makeJob()).promise, /think=false was sent/);
+    state.installed[0].capabilities = ["completion"];
+    await assert.rejects(run(makeJob()).promise, /does not report thinking support/);
   });
 });
 

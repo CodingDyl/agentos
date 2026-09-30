@@ -21,6 +21,7 @@ export type OllamaFailureKind =
   | "invalid_output"
   | "empty_output"
   | "input_too_large"
+  | "output_truncated"
   | "not_configured"
   | "http_error";
 
@@ -61,6 +62,8 @@ export interface OllamaChatRequest {
 export interface OllamaChatResponse {
   content: string;
   doneReason?: string;
+  /** Characters of separate `thinking` output, when the model produced any. */
+  thinkingChars?: number;
   promptTokens?: number;
   outputTokens?: number;
   /** Nanosecond figures from Ollama, converted to milliseconds. */
@@ -253,6 +256,7 @@ export async function ollamaChat(
     return {
       content: typeof message.content === "string" ? message.content : "",
       doneReason: typeof body.done_reason === "string" ? body.done_reason : undefined,
+      thinkingChars: typeof message.thinking === "string" && message.thinking.length > 0 ? message.thinking.length : undefined,
       promptTokens: count(body.prompt_eval_count),
       outputTokens: count(body.eval_count),
       totalMs: ns(body.total_duration),

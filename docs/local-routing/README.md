@@ -85,17 +85,23 @@ any failure. Scenarios:
 Enable one in Operations -> AI Stack (or set `ANTHROPIC_API_KEY`) and re-run
 with `--run-remote` for the remote-route sample.
 
-## Completion evidence (fill from the report)
+## Completion evidence
 
-The ticket is complete when the report from your Mac shows these four jobs.
-Do not mark it complete from mocked tests alone.
+The ticket is complete when a report from your Mac shows these four jobs with
+real numbers. Do not mark it complete from mocked tests alone.
+
+First run: `evidence-2026-09-30.md` (M4, 16 GB, Ollama 0.35.0, qwen3:4b
+`359d7dd4bcda`). Read it with the reviewer note at its top.
 
 | Sample | Scenario | Routing reason | Measured | Result |
 |---|---|---|---|---|
-| Local summary | A | | cold ___ ms (load ___ ms), warm ___ ms, ___/___ tokens | |
-| Remote implementation | C `--run-remote` | | | |
-| Handled local failure | D (and a fallback run if cloud is allowed) | | | |
-| Local-only blocked | E | | | |
+| Local summary | A | small bounded summarisation within local limits | cold 21.9 s (model load 4.8 s), warm 16.3 s, 131 in / 512 out tokens | **Not accepted**: reasoning transcript, truncated at the token cap. Re-run needed |
+| Remote implementation | C (`--run-remote`) | grok: needs repository, tools, file_writes | routing decision only, not run | **Not demonstrated**: routed, never executed |
+| Handled local failure | D | local timeout at a 1 s deadline on a cold model | 1 attempt, `timeout`, no cloud attempt | Pass |
+| Local-only blocked | E | Ollama unreachable, local-only | refused, "not sent to the cloud" | Pass |
 
-Also record: machine, Ollama version, model digest, and any limit you change
-because of these numbers.
+Also measured: JSON extraction 2.3 s (valid, but with an invented year), and
+two simultaneous jobs ran strictly one at a time (second waited 15.5 s).
+
+Remaining before completion: re-run with the fixes, get a five-bullet summary
+in a few seconds, and run C with `--run-remote`.

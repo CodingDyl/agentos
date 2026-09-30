@@ -332,6 +332,7 @@ export const ollamaWorker: Worker = {
       };
 
       emit("job.progress", `Generating with ${modelId}`, {
+        thinkSent: think === false ? "false" : "not sent",
         model: modelId,
         digest: discovered.digest,
         queueMs,
@@ -344,7 +345,9 @@ export const ollamaWorker: Worker = {
 
       // One bounded repair for structured output, inside the same deadline and
       // on the same local model. Never a new provider, never a second repair.
-      if (!check.ok && wantsJson && response.content.trim().length > 0) {
+      // A truncated reply cannot be repaired by asking again: it would hit the
+      // same limit and spend the deadline doing so.
+      if (!check.ok && wantsJson && response.content.trim().length > 0 && response.doneReason !== "length") {
         const repairMessages: OllamaChatMessage[] = [
           ...messages,
           { role: "assistant", content: response.content },
@@ -362,6 +365,18 @@ export const ollamaWorker: Worker = {
         }
       }
 
+      // Output that stopped at the token limit is unfinished, however
+      // plausible it looks. It is never accepted, so it cannot reach review as
+      // if it were a complete answer.
+      if (response.doneReason === "length") {
+        throw new OllamaError(
+          "output_truncated",
+          `Output stopped at the ${config.maxOutputTokens}-token limit, so it is incomplete and was not accepted. ` +
+            `Thinking control: ${think === false ? "think=false was sent" : "not sent (the model does not report thinking support)"}` +
+            `${response.thinkingChars ? `; the model still produced ${response.thinkingChars} characters of thinking` : ""}.`,
+        );
+      }
+
       if (!check.ok) {
         throw new OllamaError(
           response.content.trim().length === 0 ? "empty_output" : "invalid_output",
@@ -369,10 +384,6 @@ export const ollamaWorker: Worker = {
         );
       }
 
-      const blockers: string[] = [];
-      if (response.doneReason === "length") {
-        blockers.push(`Output stopped at the ${config.maxOutputTokens}-token limit and may be incomplete.`);
-      }
 
       const totalMs = Date.now() - startedAt;
       emit("job.progress", `${modelId} finished in ${(totalMs / 1000).toFixed(1)}s`, {
@@ -387,7 +398,6 @@ export const ollamaWorker: Worker = {
         // For a text-only job the deliverable is the text itself.
         summary: check.value,
         changedFiles: [],
-        blockers: blockers.length > 0 ? blockers : undefined,
         providerMetrics: {
           provider: "ollama",
           model: modelId,

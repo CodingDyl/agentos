@@ -132,7 +132,66 @@ async function main(): Promise<void> {
     "Marcus owns the QA pass and reports on Monday 6 October. Budget for the pilot was approved at R45,000. " +
     "Open risk: the bank feed sandbox is flaky. Decision: postpone the mobile redesign to November.";
 
+  /* ---------- T. diagnostic: how does this model behave under bounded tasks? ---------- */
+
+  {
+    const { buildOllamaMessages } = await import("../../workers/providers/ollama-worker");
+    const shown = (await json("/api/show", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL }),
+    })) as { capabilities?: string[] };
+    const capable = shown.capabilities?.includes("thinking") === true;
+
+    const messages = buildOllamaMessages({
+      objective: "Summarise these meeting notes into five bullets",
+      inputText: NOTES,
+    } as never);
+
+    const probe = async (label: string, extra: Record<string, unknown>, tweak?: (m: typeof messages) => typeof messages) => {
+      const started = Date.now();
+      const body = (await json("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: MODEL,
+          stream: false,
+          messages: tweak ? tweak(messages) : messages,
+          options: { num_predict: 512, num_ctx: 2560, temperature: 0 },
+          ...extra,
+        }),
+      })) as { message?: { content?: string; thinking?: string }; done_reason?: string; eval_count?: number; error?: string };
+      const content = body.message?.content ?? "";
+      return {
+        stopped: body.done_reason === "stop",
+        tokens: body.eval_count,
+        line: `${label}: done_reason=${body.done_reason ?? body.error}, ${body.eval_count ?? "?"} tokens, thinking field ${body.message?.thinking?.length ?? 0} chars, ${((Date.now() - started) / 1000).toFixed(1)}s, starts: ${JSON.stringify(content.slice(0, 120))}`,
+      };
+    };
+
+    // What AgentOS sends today, then the alternatives that would explain a miss.
+    const asSent = await probe(capable ? "as AgentOS sends it (think=false)" : "as AgentOS sends it (no think flag)", capable ? { think: false } : {});
+    const unset = await probe("think flag omitted", {});
+    const soft = await probe("soft switch '/no_think' appended", capable ? { think: false } : {}, (m) =>
+      m.map((message, index) => (index === m.length - 1 ? { ...message, content: `${message.content} /no_think` } : message)),
+    );
+
+    record({
+      id: "T",
+      title: "Diagnostic: the model answers a five-bullet task briefly, without a reasoning transcript",
+      verdict: asSent.stopped && (asSent.tokens ?? 999) < 300 ? "pass" : "fail",
+      observed: [
+        `/api/show capabilities: ${JSON.stringify(shown.capabilities ?? "not reported")}`,
+        asSent.line,
+        unset.line,
+        soft.line,
+        asSent.stopped ? "" : "AgentOS's own request did not finish inside the token limit. Compare the variants above to see which setting changes that.",
+      ].filter(Boolean),
+    });
+  }
+
   /* ---------------- A. local summary, cold then warm, then review ---------------- */
+
 
   // Start cold, so the first number is an honest cold-load figure.
   await fetch(new URL("/api/generate", BASE_URL), {
@@ -157,6 +216,7 @@ async function main(): Promise<void> {
       record({ id: "A", title: "Local summary", verdict: "fail", observed: [`Could not start: ${started.error}`] });
     } else {
       const job = await settle(started.job.id);
+      if (job.status === "failed") console.log(`       (A job failed: ${job.error})`);
       const first = job.attempts?.[0];
       const routedLocal = job.resolvedWorker === "ollama" && first?.modelId === MODEL;
 
@@ -167,7 +227,15 @@ async function main(): Promise<void> {
       const approved = job.status === "awaiting_review" ? await review.approveJob(job.id) : undefined;
       const final = await store.readJob(job.id);
 
-      const ok = routedLocal && job.status === "awaiting_review" && Boolean(job.result?.summary?.trim()) && Boolean(first?.modelDigest) && final?.status === "completed";
+      // Judged on what the task asked for (five bullets), not merely on "some
+      // text came back": a reasoning transcript is non-empty and still wrong.
+      const bullets = (job.result?.summary ?? "").split("\n").filter((line) => /^\s*(?:[-*\u2022]|\d+[.)])\s+\S/.test(line)).length;
+      const ok =
+        routedLocal &&
+        job.status === "awaiting_review" &&
+        bullets === 5 &&
+        Boolean(first?.modelDigest) &&
+        final?.status === "completed";
       record({
         id: "A",
         title: "Short summary routes to local qwen3:4b, is validated, and completes via review",
@@ -178,6 +246,7 @@ async function main(): Promise<void> {
           ...describe(job),
           `cold total (wall): ${ms(first?.totalMs)} of which model load ${ms(first?.loadMs)}`,
           warm ? `warm rerun: ${describe(warm).join(" | ")}` : "warm rerun did not start",
+          `bullet lines in the output: ${bullets} (the task asked for 5)`,
           `output: ${JSON.stringify(job.result?.summary?.slice(0, 400))}`,
           `approval: ${approved?.ok ? "approved, job completed" : (approved?.error ?? "not attempted")}`,
         ],
@@ -225,7 +294,10 @@ async function main(): Promise<void> {
         id: "B",
         title: "Extraction returns schema-valid JSON, or fails closed (never a bad result marked done)",
         verdict: validOk || failedClosed ? "pass" : "fail",
-        observed: [...describe(job), `status: ${job.status}`, `output: ${JSON.stringify(job.result?.summary?.slice(0, 400))}`, `generation attempts: ${job.result?.providerMetrics?.attempts ?? "n/a (failed)"}`],
+        observed: [...describe(job), `status: ${job.status}`,
+          /\b(19|20)\d\d\b/.test(job.result?.summary ?? "") && !/\b(19|20)\d\d\b/.test(NOTES)
+            ? "NOTE: the output contains a year that is not in the input. Valid JSON is not the same as correct content; review extractions."
+            : "no invented years detected", `output: ${JSON.stringify(job.result?.summary?.slice(0, 400))}`, `generation attempts: ${job.result?.providerMetrics?.attempts ?? "n/a (failed)"}`],
       });
     }
   }
