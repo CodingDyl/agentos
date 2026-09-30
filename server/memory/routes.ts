@@ -57,6 +57,30 @@ memoryRouter.get("/notes", (request, response) => {
   });
 });
 
+/**
+ * Every note's id and title, for the file tree. Bounded: past the cap the
+ * response says how many were left out rather than dropping them silently.
+ */
+const TREE_CAP = 5_000;
+
+memoryRouter.get("/tree", (request, response) => {
+  const service = memoryService();
+  const query = text(request, "q");
+  const ids = query ? new Set(searchIndex(service.index, query, 200).map((hit) => hit.id)) : undefined;
+  const notes = [...service.index.notes.values()]
+    .filter((note) => !ids || ids.has(note.id))
+    .map((note) => ({ id: note.id, title: note.parsed.title }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  response.json({
+    notes: notes.slice(0, TREE_CAP),
+    total: notes.length,
+    vaultTotal: service.index.notes.size,
+    omitted: Math.max(0, notes.length - TREE_CAP),
+    stale: service.status().stale,
+  });
+});
+
 memoryRouter.get("/note", (request, response) => {
   const service = memoryService();
   const id = text(request, "id");

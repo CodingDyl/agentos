@@ -111,6 +111,16 @@ export interface MemoryNotesPage {
   limit: number;
 }
 
+/** The file tree: every note's path and title. */
+export interface MemoryTree {
+  notes: Array<{ id: string; title: string }>;
+  total: number;
+  vaultTotal: number;
+  /** Notes past the response cap, said out loud. */
+  omitted: number;
+  stale: boolean;
+}
+
 export interface MemoryFacets {
   folders: Array<{ folder: string; count: number }>;
   tags: Array<{ tag: string; count: number }>;

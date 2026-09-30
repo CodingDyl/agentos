@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { MemoryGraphNode } from "../../../../shared/memory-types";
-import { buildLegend, GROUP_COLORS, groupOf, nodeRadius, OTHER_COLOR } from "../memory-model";
+import { buildLegend, GROUP_COLORS, groupOf, noteColor, nodeRadius, OTHER_COLOR } from "../memory-model";
 
 const node = (id: string, folder: string, tags: string[] = [], unresolved = false): MemoryGraphNode => ({
   id,
@@ -35,5 +35,11 @@ describe("memory graph model", () => {
     assert.equal(nodeRadius(0), 3);
     assert.ok(nodeRadius(4) < nodeRadius(9));
     assert.equal(nodeRadius(10_000), 10);
+  });
+
+  it("gives each note a stable colour of its own", () => {
+    assert.equal(noteColor("projects/a/PROJECT.md"), noteColor("projects/a/PROJECT.md"));
+    assert.notEqual(noteColor("projects/a/PROJECT.md"), noteColor("projects/b/PROJECT.md"));
+    assert.match(noteColor("x.md"), /^hsl\(\d+ \d+% \d+%\)$/);
   });
 });

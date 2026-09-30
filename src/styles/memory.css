@@ -1,0 +1,109 @@
+/*
+ * Memory: the graph field and the note panel's motion.
+ *
+ * One authored moment — a note opening. The panel wipes in from the right
+ * (clip-path), its layers arrive at different speeds so the nearer ones travel
+ * further (parallax in depth), and the graph behind steps back and dims. While
+ * reading, the note's dark header drifts slower than the text (parallax in
+ * scroll). Everything is transform, opacity, clip-path or filter, and all of
+ * it is off under reduced motion or the page's "Still" toggle.
+ */
+
+.memory-field {
+  /* A dark field, lit from the middle: light only reads as light on dark. */
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 46%, rgb(30 36 120 / 0.55) 0%, rgb(9 11 52 / 0.35) 45%, transparent 75%),
+    radial-gradient(ellipse at 50% 50%, #080a2c 0%, #04051a 60%, #020210 100%);
+  transition:
+    transform 800ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The graph steps back while a note is open, and slides to stay in view. */
+.memory-field[data-note-open="true"] {
+  transform: translate3d(calc(var(--memory-panel-shift, 0px) * -1), 0, 0);
+  filter: brightness(0.72) saturate(0.9);
+}
+
+@keyframes memory-panel-in {
+  from {
+    clip-path: inset(0 0 0 100%);
+    transform: translate3d(48px, 0, 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes memory-layer-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--memory-layer-x, 0px), var(--memory-layer-y, 0px), 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.memory-panel {
+  animation: memory-panel-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Nearer layers travel further and arrive later: depth, not decoration. */
+.memory-layer {
+  animation: memory-layer-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--memory-layer-delay, 0ms);
+}
+
+.memory-layer[data-depth="1"] { --memory-layer-x: 96px; --memory-layer-delay: 70ms; }
+.memory-layer[data-depth="2"] { --memory-layer-x: 56px; --memory-layer-delay: 140ms; }
+.memory-layer[data-depth="3"] { --memory-layer-y: 18px; --memory-layer-delay: 200ms; }
+.memory-layer[data-depth="4"] { --memory-layer-y: 24px; --memory-layer-delay: 260ms; }
+
+/* Scroll parallax: the header's glow and title drift slower than the text. */
+.memory-hero-glow {
+  transform: translate3d(0, calc(var(--memory-scroll, 0) * 0.65px), 0);
+  will-change: transform;
+}
+
+.memory-hero-title {
+  transform: translate3d(0, calc(var(--memory-scroll, 0) * 0.38px), 0);
+  opacity: calc(1 - var(--memory-scroll, 0) / 220);
+  will-change: transform, opacity;
+}
+
+[data-still="true"] .memory-panel,
+[data-still="true"] .memory-layer {
+  animation: none;
+}
+
+[data-still="true"] .memory-field,
+[data-still="true"] .memory-hero-glow,
+[data-still="true"] .memory-hero-title {
+  transition: none;
+  transform: none;
+}
+
+[data-still="true"] .memory-hero-title {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memory-panel,
+  .memory-layer {
+    animation: none;
+  }
+
+  .memory-field,
+  .memory-hero-glow,
+  .memory-hero-title {
+    transition: none;
+    transform: none;
+  }
+
+  .memory-hero-title {
+    opacity: 1;
+  }
+}

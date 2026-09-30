@@ -6,6 +6,7 @@ import type {
   MemoryGraph,
   MemoryNoteDetail,
   MemoryNotesPage,
+  MemoryTree,
   VaultStatus,
 } from "@shared/memory-types";
 import { AgentOSRequestError } from "./client";
@@ -86,6 +87,15 @@ export function useMemoryNotes(options: NotesQuery) {
   return useQuery({
     queryKey: [...memoryKey(), "notes", options],
     queryFn: () => request<MemoryNotesPage & { stale: boolean }>(`/api/memory/notes${query({ ...options })}`),
+    placeholderData: keepPreviousData,
+    networkMode: "always",
+  });
+}
+
+export function useMemoryTree(q?: string) {
+  return useQuery({
+    queryKey: [...memoryKey(), "tree", q ?? ""],
+    queryFn: () => request<MemoryTree>(`/api/memory/tree${query({ q })}`),
     placeholderData: keepPreviousData,
     networkMode: "always",
   });

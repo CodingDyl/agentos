@@ -1,12 +1,13 @@
 import { Marked, type Token } from "marked";
 import { CircleAlert, CircleDashed, Paperclip, Split, X } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactNode, UIEvent } from "react";
 import { memoryMarkdownExtensions, type WikiLinkToken } from "@shared/memory-markdown";
 import type { MemoryLink, MemoryNoteDetail } from "@shared/memory-types";
 import { Markdown, type InlineOverride } from "@/components/os/markdown";
-import { PAPER_FOCUS, PaperButton, PaperError, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PaperError } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { withAlpha } from "./memory-model";
 
 /**
  * One note, as it reads — and everything it touches.
@@ -73,6 +74,7 @@ export function NotePreview({
   onOpen,
   onClose,
   closeLabel = "Close",
+  accent = "#7fe6ff",
   className,
 }: {
   note?: MemoryNoteDetail;
@@ -81,8 +83,16 @@ export function NotePreview({
   onOpen: (id: string) => void;
   onClose?: () => void;
   closeLabel?: string;
+  /** The note's colour in the graph; its header is lit with it. */
+  accent?: string;
   className?: string;
 }) {
+  // Feeds the header's scroll parallax: one custom property, set as it scrolls.
+  const onScroll = (event: UIEvent<HTMLDivElement>) => {
+    const target = event.currentTarget;
+    target.style.setProperty("--memory-scroll", String(Math.min(400, target.scrollTop)));
+  };
+
   if (error && !note) {
     return (
       <aside className={cn("p-5", className)} aria-label="Note">
@@ -141,58 +151,85 @@ export function NotePreview({
   const attachments = outgoing.filter((link) => link.resolution === "attachment");
 
   return (
-    <aside className={cn("flex min-h-0 flex-col", className)} aria-label={`Note: ${note.title}`}>
-      <div className="flex items-start gap-3 border-b border-paper-mist px-5 pt-4 pb-3.5">
-        <div className="min-w-0 flex-1">
-          <h2 data-heading="compact" className="font-paper-display text-[22px] leading-[1.15] font-bold tracking-[-0.015em] text-paper-moss text-balance">
-            {note.title}
-          </h2>
-          <p className="mt-1 truncate font-mono text-[12px] text-paper-sage" title={note.id}>{note.id}</p>
-        </div>
-        {onClose ? (
-          <PaperButton variant="quiet" className="-mr-2 px-2" onClick={onClose} aria-label={closeLabel}>
-            <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
-          </PaperButton>
-        ) : null}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-2 border-b border-paper-mist px-5 py-3 text-[12.5px] text-paper-sage">
-          <p className="tabular-nums">
-            Edited {formatRelativeTime(note.modifiedAt)} · {note.backlinkCount} backlink{note.backlinkCount === 1 ? "" : "s"} · {note.outgoingCount} outgoing ·{" "}
-            <span className="font-mono" title={note.hash}>#{note.hash.slice(0, 8)}</span>
-          </p>
-          {note.tags.length > 0 || note.aliases.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {note.tags.map((tag) => (
-                <Tag key={tag} tone="muted" className="normal-case tracking-normal">#{tag}</Tag>
-              ))}
-              {note.aliases.map((alias) => (
-                <span key={alias} className="text-[12.5px] text-paper-char">aka “{alias}”</span>
-              ))}
-            </div>
-          ) : null}
-          {note.stale ? (
-            <p className="flex items-center gap-1.5 font-medium text-paper-flame-deep">
-              <CircleAlert className="size-3.5" strokeWidth={2} aria-hidden="true" /> Stale — the vault is disconnected; this is the last indexed copy.
-            </p>
-          ) : null}
-          {note.errors.map((problem) => (
-            <p key={problem} className="flex items-center gap-1.5 text-paper-flame-deep">
-              <CircleAlert className="size-3.5 shrink-0" strokeWidth={2} aria-hidden="true" /> {problem}
-            </p>
-          ))}
-        </div>
-
-        <div className="px-5 py-5">
-          {note.content.trim() ? (
-            <Markdown content={note.content} tone="paper" lexer={lexer} inline={inline} className="max-w-[68ch] break-words" />
-          ) : (
-            <p className="text-[14px] text-paper-sage">This note is empty.</p>
+    <aside className={cn("memory-panel relative flex min-h-0 flex-col", className)} aria-label={`Note: ${note.title}`}>
+      {onClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={closeLabel}
+          title={`${closeLabel} (Esc)`}
+          className={cn(
+            "absolute top-3 right-3 z-10 inline-flex size-9 cursor-pointer items-center justify-center bg-[#04051a]/70 text-[#eef0ff] backdrop-blur-sm transition-colors duration-150 hover:bg-[#04051a]",
+            PAPER_FOCUS,
           )}
-          {note.truncated ? <p className="mt-4 text-[13px] text-paper-sage">The note is long; only the first 256 KB is shown.</p> : null}
-        </div>
+        >
+          <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      ) : null}
 
+      <div onScroll={onScroll} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-paper-white">
+        {/* Keyed by note: moving between notes replays the layers, not the panel. */}
+        <div key={note.id}>
+          {/* The header continues the graph's dark field, lit in the note's own colour. */}
+          <header className="relative isolate overflow-hidden bg-[#04051a] px-6 pt-7 pb-6 text-[#eef0ff]">
+            <div
+              className="memory-hero-glow pointer-events-none absolute -top-28 -left-16 h-80 w-[130%]"
+              style={{ background: `radial-gradient(closest-side, ${withAlpha(accent, 0.5)}, ${withAlpha(accent, 0.12)} 55%, transparent)` }}
+              aria-hidden="true"
+            />
+            <div className="memory-hero-title relative">
+              <div className="memory-layer" data-depth="1">
+                <p className="truncate pr-12 font-mono text-[12px] text-[#b9bdf0]" title={note.id}>{note.id}</p>
+                <h2 data-heading="compact" className="mt-2 font-paper-display text-[30px] leading-[1.08] font-bold tracking-[-0.02em] text-balance text-white">
+                  {note.title}
+                </h2>
+              </div>
+              <div className="memory-layer mt-3 space-y-2 text-[12.5px] text-[#c9ccf5]" data-depth="2">
+                <p className="tabular-nums">
+                  Edited {formatRelativeTime(note.modifiedAt)} · {note.backlinkCount} backlink{note.backlinkCount === 1 ? "" : "s"} · {note.outgoingCount} outgoing ·{" "}
+                  <span className="font-mono" title={note.hash}>#{note.hash.slice(0, 8)}</span>
+                </p>
+                {note.tags.length > 0 || note.aliases.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {note.tags.map((tag) => (
+                      <span key={tag} className="border border-[#eef0ff]/30 px-1.5 py-px text-[12px] text-[#eef0ff]">#{tag}</span>
+                    ))}
+                    {note.aliases.map((alias) => (
+                      <span key={alias} className="text-[12.5px]">aka “{alias}”</span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </header>
+
+          <div className="memory-layer" data-depth="3">
+            {note.stale || note.errors.length > 0 ? (
+              <div className="space-y-1.5 border-b border-paper-mist px-6 py-3 text-[12.5px]">
+                {note.stale ? (
+                  <p className="flex items-center gap-1.5 font-medium text-paper-flame-deep">
+                    <CircleAlert className="size-3.5" strokeWidth={2} aria-hidden="true" /> Stale — the vault is disconnected; this is the last indexed copy.
+                  </p>
+                ) : null}
+                {note.errors.map((problem) => (
+                  <p key={problem} className="flex items-center gap-1.5 text-paper-flame-deep">
+                    <CircleAlert className="size-3.5 shrink-0" strokeWidth={2} aria-hidden="true" /> {problem}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="px-6 py-6">
+              {note.content.trim() ? (
+                <Markdown content={note.content} tone="paper" lexer={lexer} inline={inline} className="max-w-[68ch] break-words" />
+              ) : (
+                <p className="text-[14px] text-paper-sage">This note is empty.</p>
+              )}
+              {note.truncated ? <p className="mt-4 text-[13px] text-paper-sage">The note is long; only the first 256 KB is shown.</p> : null}
+            </div>
+          </div>
+
+          <div className="memory-layer pb-6" data-depth="4">
         <LinkSection title="Backlinks" count={note.backlinks.length} empty="Nothing links here yet.">
           {note.backlinks.map((backlink) => (
             <li key={backlink.sourceId}>
@@ -253,6 +290,8 @@ export function NotePreview({
             ))}
           </LinkSection>
         ) : null}
+          </div>
+        </div>
       </div>
     </aside>
   );

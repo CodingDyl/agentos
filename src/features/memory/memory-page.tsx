@@ -1,57 +1,41 @@
-import {
-  ArrowDownUp,
-  CircleAlert,
-  Folder,
-  Hash,
-  ListFilter,
-  Maximize,
-  Minus,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import "@/styles/memory.css";
+import { CircleAlert, FolderTree, Maximize, Minus, Plus, RefreshCw, RotateCcw, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { MemoryNoteSummary, VaultStatus } from "@shared/memory-types";
+import type { VaultStatus } from "@shared/memory-types";
 import { AppShell } from "@/components/os";
-import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperIndicator, SegmentedControl } from "@/components/paper";
+import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperIndicator } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import {
   useMemoryFacets,
   useMemoryGraph,
   useMemoryNote,
-  useMemoryNotes,
   useMemoryStatus,
+  useMemoryTree,
   useReindexMemory,
 } from "@/lib/agentos/memory";
 import { cn } from "@/lib/utils";
+import { FileTree } from "./file-tree";
 import { MemoryGraphCanvas, type MemoryGraphHandle } from "./memory-graph";
-import { buildLegend, groupLabel, OTHER_COLOR, type ColorBy } from "./memory-model";
+import { buildLegend, groupLabel, groupOf, noteColor, OTHER_COLOR, type ColorBy } from "./memory-model";
 import { NotePreview } from "./note-preview";
 
 /**
  * Memory: the Obsidian vault, as AgentOS reads it.
  *
- * Obsidian stays the editor. This screen is for finding and following: search
- * and filters on the left, the graph (or a plain list) in the middle, and the
- * open note on the right with everything that links in and out of it. The
- * graph is never the only way in — every note is in the list, and the list
- * works from the keyboard.
+ * Obsidian stays the editor. Here the vault's folders sit on the left, the way
+ * Obsidian shows them, and everything else is the graph. Opening a note — from
+ * a node, from the tree, or from a link inside another note — slides it in
+ * over the graph, which steps back behind it.
  *
- * Everything that describes the view lives in the URL, so a view can be linked
- * to and survives a reload.
+ * The graph is never the only way in: every note is in the tree, and the tree
+ * works from the keyboard. Everything that describes the view lives in the
+ * URL, so a view can be linked to and survives a reload.
  */
 
-type View = "graph" | "notes";
 type Scope = "global" | "local";
 
-const VIEWS = [
-  { value: "graph" as const, label: "Graph" },
-  { value: "notes" as const, label: "Notes" },
-];
 const SCOPES = [
   { value: "global" as const, label: "Whole vault" },
   { value: "local" as const, label: "Around note" },
@@ -62,6 +46,7 @@ const DEPTHS = [
   { value: "3" as const, label: "3" },
 ];
 const COLORS = [
+  { value: "random" as const, label: "Random" },
   { value: "folder" as const, label: "Folder" },
   { value: "tag" as const, label: "Tag" },
 ];
@@ -87,29 +72,16 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced;
 }
 
-/** Arrow keys move between rows marked `data-note-row` inside the list. */
-function onListKeyDown(event: KeyboardEvent<HTMLElement>) {
-  if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") return;
-  const rows = [...event.currentTarget.querySelectorAll<HTMLElement>("[data-note-row]")];
-  if (rows.length === 0) return;
-  event.preventDefault();
-  const at = rows.indexOf(document.activeElement as HTMLElement);
-  const next =
-    event.key === "Home" ? 0 : event.key === "End" ? rows.length - 1 : event.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, at - 1);
-  rows[next]?.focus();
-}
-
 export function MemoryPage() {
   const navigationItems = useNavigationItems();
   const [params, setParams] = useSearchParams();
 
-  const view: View = params.get("view") === "notes" ? "notes" : "graph";
   const noteId = params.get("note") ?? undefined;
   const folder = params.get("folder") ?? "";
   const tag = params.get("tag") ?? "";
   const scope: Scope = params.get("scope") === "local" ? "local" : "global";
   const depth = (["1", "2", "3"].includes(params.get("depth") ?? "") ? params.get("depth") : "1") as "1" | "2" | "3";
-  const colorBy: ColorBy = params.get("color") === "tag" ? "tag" : "folder";
+  const colorBy: ColorBy = params.get("color") === "tag" ? "tag" : params.get("color") === "folder" ? "folder" : "random";
   const orphans = params.get("orphans") !== "0";
   const ghosts = params.get("ghosts") === "1";
   const arrows = params.get("arrows") === "1";
@@ -149,13 +121,11 @@ export function MemoryPage() {
     });
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [listLimit, setListLimit] = useState(200);
-  const [sort, setSort] = useState<"title" | "modified" | "links">("title");
 
   const status = useMemoryStatus();
   const reindex = useReindexMemory();
   const facets = useMemoryFacets();
-  const notes = useMemoryNotes({ q: query || undefined, folder: folder || undefined, tag: tag || undefined, sort, limit: listLimit });
+  const tree = useMemoryTree(query || undefined);
   const note = useMemoryNote(noteId);
 
   const localFocus = scope === "local" ? noteId : undefined;
@@ -165,28 +135,42 @@ export function MemoryPage() {
       : { folder: folder || undefined, tag: tag || undefined, q: query || undefined, orphans, unresolved: ghosts },
   );
   const graphData = scope === "local" && !localFocus ? undefined : graph.data;
-  const legend = useMemo(() => buildLegend(graphData?.nodes ?? [], colorBy), [graphData?.nodes, colorBy]);
+  const legend = useMemo(() => buildLegend(graphData?.nodes ?? [], colorBy === "random" ? "folder" : colorBy), [graphData?.nodes, colorBy]);
+
+  // The tree's dots and the note's header use the same colour as its node.
+  const colorOf = useCallback(
+    (id: string) => {
+      if (colorBy === "random") return noteColor(id);
+      const node = graphData?.nodes.find((entry) => entry.id === id);
+      return node ? legend.colors.get(groupOf(node, colorBy)) : undefined;
+    },
+    [colorBy, graphData?.nodes, legend],
+  );
 
   const graphRef = useRef<MemoryGraphHandle>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const open = useCallback((id: string) => {
-    update({ note: id });
-    setDrawerOpen(false);
-  }, [update]);
+  const open = useCallback(
+    (id: string) => {
+      update({ note: id });
+      setDrawerOpen(false);
+    },
+    [update],
+  );
   const close = useCallback(() => update({ note: undefined }), [update]);
 
   // `/` searches; Escape backs out of whatever is on top.
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      const typing = event.target instanceof HTMLElement && (event.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
+      const typing =
+        event.target instanceof HTMLElement &&
+        (event.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
       if (event.key === "/" && !typing) {
         event.preventDefault();
         searchRef.current?.focus();
-      } else if (event.key === "Escape") {
+      } else if (event.key === "Escape" && !typing) {
         if (drawerOpen) setDrawerOpen(false);
-        else if (!typing && noteId && (rootRef.current?.clientWidth ?? 0) < 760) close();
+        else if (noteId) close();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -196,10 +180,16 @@ export function MemoryPage() {
   const vault = status.data;
   const filtered = Boolean(query || folder || tag);
   const fitKey = `${scope}|${localFocus ?? ""}|${depth}|${folder}|${tag}|${query}|${orphans}|${ghosts}`;
+  const tags = facets.data?.tags ?? [];
+  // Overlays on the field stay clear of the open note.
+  const clearOfPanel = { right: noteId ? "min(560px, 100%)" : "0px" };
 
   return (
     <AppShell navigationItems={navigationItems} pageId="memory" activeHref="/memory" modelLabel="Model / AgentOS V1">
-      <div ref={rootRef} className="@container/memory flex h-full min-h-0 flex-col bg-paper-white font-paper-ui text-paper-moss">
+      <div
+        data-still={reducedMotion}
+        className="@container/memory flex h-full min-h-0 flex-col bg-paper-white font-paper-ui text-paper-moss"
+      >
         {/* Toolbar */}
         <header className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-paper-mist px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-baseline gap-3">
@@ -225,17 +215,25 @@ export function MemoryPage() {
               aria-keyshortcuts="/"
               className={cn(PAPER_INPUT, "min-h-9 w-full pr-9 pl-9 text-[14px]")}
             />
-            <kbd className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 border border-paper-mist px-1.5 font-mono text-[11px] text-paper-sage sm:block" aria-hidden="true">
+            <kbd
+              className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 border border-paper-mist px-1.5 font-mono text-[11px] text-paper-sage sm:block"
+              aria-hidden="true"
+            >
               /
             </kbd>
           </label>
 
           <div className="ml-auto flex items-center gap-2">
-            <PaperButton variant="ghost" className="@min-[1180px]/memory:hidden" onClick={() => setDrawerOpen(true)} aria-expanded={drawerOpen} aria-controls="memory-sidebar">
-              <ListFilter className="size-4" strokeWidth={1.75} aria-hidden="true" />
-              Notes
+            <PaperButton
+              variant="ghost"
+              className="@min-[900px]/memory:hidden"
+              onClick={() => setDrawerOpen(true)}
+              aria-expanded={drawerOpen}
+              aria-controls="memory-files"
+            >
+              <FolderTree className="size-4" strokeWidth={1.75} aria-hidden="true" />
+              Files
             </PaperButton>
-            <SegmentedControl label="View" options={VIEWS} value={view} onChange={(value) => update({ view: value === "graph" ? undefined : value })} />
             <PaperButton
               variant="quiet"
               onClick={() => reindex.mutate()}
@@ -266,226 +264,202 @@ export function MemoryPage() {
           </p>
         ) : null}
 
-        <div className="relative grid min-h-0 flex-1 @min-[760px]/memory:grid-cols-[minmax(0,1fr)_minmax(320px,42%)] @min-[1180px]/memory:grid-cols-[264px_minmax(0,1fr)_minmax(340px,30%)]">
-          {/* Left: filters and the note list. A drawer below lg. */}
+        <div className="relative grid min-h-0 flex-1 @min-[900px]/memory:grid-cols-[280px_minmax(0,1fr)]">
+          {/* Left: the vault's folders. A drawer when there is no room. */}
           {drawerOpen ? (
-            <button type="button" aria-label="Close notes" className="fixed inset-0 z-30 bg-paper-moss/30 @min-[1180px]/memory:hidden" onClick={() => setDrawerOpen(false)} />
+            <button
+              type="button"
+              aria-label="Close files"
+              className="fixed inset-0 z-30 bg-[#04051a]/50 @min-[900px]/memory:hidden"
+              onClick={() => setDrawerOpen(false)}
+            />
           ) : null}
           <nav
-            id="memory-sidebar"
-            aria-label="Filters and notes"
+            id="memory-files"
+            aria-label="Vault files"
             className={cn(
               "flex min-h-0 flex-col border-r border-paper-mist bg-paper-white",
-              "@max-[1179px]/memory:fixed @max-[1179px]/memory:inset-y-0 @max-[1179px]/memory:left-0 @max-[1179px]/memory:z-40 @max-[1179px]/memory:w-[min(320px,88vw)] @max-[1179px]/memory:shadow-[0_12px_40px_rgba(0,0,145,0.25)] @max-[1179px]/memory:transition-transform @max-[1179px]/memory:duration-200 @max-[1179px]/memory:ease-out motion-reduce:transition-none",
-              drawerOpen ? "@max-[1179px]/memory:translate-x-0" : "@max-[1179px]/memory:-translate-x-full @max-[1179px]/memory:invisible",
+              "@max-[899px]/memory:fixed @max-[899px]/memory:inset-y-0 @max-[899px]/memory:left-0 @max-[899px]/memory:z-40 @max-[899px]/memory:w-[min(320px,88vw)] @max-[899px]/memory:shadow-[0_12px_40px_rgb(4_5_26/0.35)] @max-[899px]/memory:transition-transform @max-[899px]/memory:duration-300 @max-[899px]/memory:ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+              drawerOpen ? "@max-[899px]/memory:translate-x-0" : "@max-[899px]/memory:-translate-x-full @max-[899px]/memory:invisible",
             )}
           >
-            <div className="flex items-center justify-between border-b border-paper-mist px-4 py-2.5 @min-[1180px]/memory:hidden">
-              <span className="font-paper-display text-[16px] font-bold">Notes</span>
-              <PaperButton variant="quiet" className="px-2" onClick={() => setDrawerOpen(false)} aria-label="Close notes">
-                <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
-              </PaperButton>
-            </div>
-
-            <div className="max-h-[42%] shrink-0 overflow-y-auto border-b border-paper-mist px-2 py-3">
-              <FilterHeading icon={<Folder className="size-3.5" strokeWidth={2} aria-hidden="true" />}>Folders</FilterHeading>
-              <ul>
-                <li>
-                  <FilterRow active={!folder} onClick={() => update({ folder: undefined })} label="All notes" count={vault?.notes} depth={0} />
-                </li>
-                {facets.data?.folders.map((entry) => (
-                  <li key={entry.folder}>
-                    <FilterRow
-                      active={folder === entry.folder}
-                      onClick={() => update({ folder: folder === entry.folder ? undefined : entry.folder })}
-                      label={entry.folder.split("/").pop() ?? entry.folder}
-                      title={entry.folder}
-                      count={entry.count}
-                      depth={entry.folder.split("/").length - 1}
-                    />
-                  </li>
-                ))}
-              </ul>
-
-              <FilterHeading icon={<Hash className="size-3.5" strokeWidth={2} aria-hidden="true" />} className="mt-4">Tags</FilterHeading>
-              {facets.data && facets.data.tags.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 px-2 pt-1">
-                  {facets.data.tags.slice(0, 40).map((entry) => (
-                    <button
-                      key={entry.tag}
-                      type="button"
-                      aria-pressed={tag === entry.tag}
-                      onClick={() => update({ tag: tag === entry.tag ? undefined : entry.tag })}
-                      className={cn(
-                        "cursor-pointer border px-2 py-0.5 text-[12.5px] transition-colors duration-150",
-                        PAPER_FOCUS,
-                        tag === entry.tag ? "border-paper-blue bg-paper-blue text-paper-white" : "border-paper-mist text-paper-char hover:border-paper-blue",
-                      )}
-                    >
-                      #{entry.tag} <span className="tabular-nums opacity-75">{entry.count}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-2 pt-1 text-[12.5px] leading-5 text-paper-sage">No tags yet. Add <span className="font-mono">#tag</span> or front-matter tags in Obsidian.</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
-              <span className="font-paper-utility text-[12px] font-semibold tracking-[0.1em] text-paper-char uppercase">Notes</span>
-              <span className="text-[12px] text-paper-sage tabular-nums">
-                {notes.data ? (filtered ? `${notes.data.total} of ${notes.data.vaultTotal}` : notes.data.total) : "…"}
+            <div className="flex items-center justify-between gap-2 border-b border-paper-mist px-4 py-2.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <FolderTree className="size-4 shrink-0 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
+                <span className="truncate font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">
+                  {vault?.root?.split("/").pop() ?? "Vault"}
+                </span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="text-[12px] text-paper-sage tabular-nums">
+                  {tree.data ? (query ? `${tree.data.total} of ${tree.data.vaultTotal}` : tree.data.total) : "…"}
+                </span>
+                <button
+                  type="button"
+                  className={cn("inline-flex size-8 cursor-pointer items-center justify-center text-paper-sage hover:bg-paper-stone @min-[900px]/memory:hidden", PAPER_FOCUS)}
+                  onClick={() => setDrawerOpen(false)}
+                  aria-label="Close files"
+                >
+                  <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
+                </button>
               </span>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto pb-3" onKeyDown={onListKeyDown}>
-              {notes.data && notes.data.notes.length === 0 ? (
-                <p className="px-4 py-2 text-[13.5px] text-paper-sage">{filtered ? "No notes match." : "The vault has no notes."}</p>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {tree.data && tree.data.notes.length === 0 ? (
+                <p className="px-4 py-4 text-[13.5px] leading-6 text-paper-sage">{query ? `No notes match “${query}”.` : "The vault has no notes."}</p>
               ) : (
-                <ul aria-label="Notes">
-                  {notes.data?.notes.map((entry) => (
-                    <li key={entry.id}>
-                      <button
-                        type="button"
-                        data-note-row
-                        aria-current={entry.id === noteId ? "true" : undefined}
-                        onClick={() => open(entry.id)}
-                        className={cn(
-                          "block w-full cursor-pointer border-l-2 px-4 py-1.5 text-left transition-colors duration-100",
-                          PAPER_FOCUS,
-                          "focus-visible:outline-offset-[-2px]",
-                          entry.id === noteId ? "border-paper-blue bg-paper-linen" : "border-transparent hover:bg-paper-cream",
-                        )}
-                      >
-                        <span className="block truncate text-[13.5px] font-medium text-paper-moss">{entry.title}</span>
-                        <span className="block truncate font-mono text-[11px] text-paper-sage">{entry.id}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <FileTree
+                  notes={tree.data?.notes ?? []}
+                  selectedId={noteId}
+                  folderFilter={folder || undefined}
+                  searching={Boolean(query)}
+                  colorOf={colorOf}
+                  onOpen={open}
+                  onFilterFolder={(value) => update({ folder: value })}
+                />
               )}
-              {notes.data && notes.data.total > notes.data.notes.length ? (
-                <PaperButton variant="quiet" className="mx-3 mt-2" onClick={() => setListLimit((limit) => limit + 200)}>
-                  Show more
-                </PaperButton>
+              {tree.data && tree.data.omitted > 0 ? (
+                <p className="px-4 py-3 text-[12.5px] text-paper-sage">
+                  {tree.data.omitted} more notes are not listed. Search to find them.
+                </p>
               ) : null}
             </div>
           </nav>
 
-          {/* Centre: the graph or the list. */}
-          <section aria-label={view === "graph" ? "Graph" : "Notes"} className="flex min-h-0 min-w-0 flex-col">
-            {view === "graph" ? (
-              <>
-                <div className="flex flex-wrap items-center gap-2 border-b border-paper-mist px-3 py-2">
-                  <SegmentedControl label="Graph scope" options={SCOPES} value={scope} onChange={(value) => update({ scope: value === "global" ? undefined : value })} />
-                  {scope === "local" ? (
-                    <SegmentedControl label="Depth" options={DEPTHS} value={depth} onChange={(value) => update({ depth: value === "1" ? undefined : value })} />
-                  ) : null}
-                  <SegmentedControl label="Colour by" options={COLORS} value={colorBy} onChange={(value) => update({ color: value === "folder" ? undefined : value })} />
-                  <div className="flex flex-wrap items-center gap-1">
-                    {scope === "global" ? <Toggle pressed={orphans} onClick={() => update({ orphans: orphans ? "0" : undefined })}>Orphans</Toggle> : null}
-                    <Toggle pressed={ghosts} onClick={() => update({ ghosts: ghosts ? undefined : "1" })}>Unresolved</Toggle>
-                    <Toggle pressed={arrows} onClick={() => update({ arrows: arrows ? undefined : "1" })}>Arrows</Toggle>
-                    <Toggle pressed={reducedMotion} onClick={toggleMotion}>Still</Toggle>
-                  </div>
-                  <div className="ml-auto flex items-center">
-                    <IconButton label="Zoom out" onClick={() => graphRef.current?.zoomBy(1 / 1.4)}><Minus /></IconButton>
-                    <IconButton label="Zoom in" onClick={() => graphRef.current?.zoomBy(1.4)}><Plus /></IconButton>
-                    <IconButton label="Fit to view" onClick={() => graphRef.current?.fit()}><Maximize /></IconButton>
-                    <IconButton label="Reset layout" onClick={() => graphRef.current?.reset()}><RotateCcw /></IconButton>
-                  </div>
-                </div>
+          {/* Everything else is the graph. */}
+          <section aria-label="Graph" className="relative isolate min-h-[420px] min-w-0 overflow-hidden bg-[#020210]">
+            <div
+              className="memory-field absolute inset-0"
+              data-note-open={Boolean(noteId)}
+              style={{ ["--memory-panel-shift" as string]: "min(240px, 22%)" }}
+              role="group"
+              aria-label={
+                graphData
+                  ? `Graph showing ${graphData.nodes.length} of ${graphData.totalNotes} notes and ${graphData.edges.length} links. Every note is also in the file tree.`
+                  : "Graph"
+              }
+            >
+              {graphData ? (
+                <MemoryGraphCanvas
+                  ref={graphRef}
+                  graph={graphData}
+                  selectedId={noteId}
+                  colorBy={colorBy}
+                  legend={legend}
+                  arrows={arrows}
+                  reducedMotion={reducedMotion}
+                  fitKey={fitKey}
+                  onSelect={open}
+                />
+              ) : null}
+            </div>
 
-                <div
-                  className="relative min-h-[360px] flex-1 overflow-hidden bg-paper-blue"
-                  role="group"
-                  aria-label={
-                    graphData
-                      ? `Graph showing ${graphData.nodes.length} of ${graphData.totalNotes} notes and ${graphData.edges.length} links. Every note is also in the notes list.`
-                      : "Graph"
-                  }
-                >
-                  {graphData ? (
-                    <MemoryGraphCanvas
-                      ref={graphRef}
-                      graph={graphData}
-                      selectedId={noteId}
-                      colorBy={colorBy}
-                      legend={legend}
-                      arrows={arrows}
-                      reducedMotion={reducedMotion}
-                      fitKey={fitKey}
-                      onSelect={open}
-                    />
-                  ) : null}
+            {/* Floating controls, over the field. */}
+            <div
+              className="pointer-events-none absolute top-0 left-0 z-10 flex flex-wrap items-start gap-2 p-3 transition-[right] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+              style={clearOfPanel}
+            >
+              <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 bg-[#04051a]/70 p-1.5 backdrop-blur-md">
+                <FieldSegment label="Graph scope" options={SCOPES} value={scope} onChange={(value) => update({ scope: value === "global" ? undefined : value })} />
+                {scope === "local" ? (
+                  <FieldSegment label="Depth" options={DEPTHS} value={depth} onChange={(value) => update({ depth: value === "1" ? undefined : value })} />
+                ) : null}
+                <FieldSegment label="Colour" options={COLORS} value={colorBy} onChange={(value) => update({ color: value === "random" ? undefined : value })} />
+                {tags.length > 0 && scope === "global" ? (
+                  <select
+                    aria-label="Show notes with tag"
+                    value={tag}
+                    onChange={(event) => update({ tag: event.target.value || undefined })}
+                    className={cn("min-h-7 cursor-pointer border border-white/20 bg-transparent px-2 text-[12.5px] text-[#eef0ff] [&>option]:text-paper-moss", PAPER_FOCUS)}
+                  >
+                    <option value="">Any tag</option>
+                    {tags.slice(0, 60).map((entry) => (
+                      <option key={entry.tag} value={entry.tag}>
+                        #{entry.tag} ({entry.count})
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                <span className="mx-0.5 h-5 w-px bg-white/15" aria-hidden="true" />
+                {scope === "global" ? (
+                  <FieldToggle pressed={orphans} onClick={() => update({ orphans: orphans ? "0" : undefined })}>Orphans</FieldToggle>
+                ) : null}
+                <FieldToggle pressed={ghosts} onClick={() => update({ ghosts: ghosts ? undefined : "1" })}>Unresolved</FieldToggle>
+                <FieldToggle pressed={arrows} onClick={() => update({ arrows: arrows ? undefined : "1" })}>Arrows</FieldToggle>
+                <FieldToggle pressed={reducedMotion} onClick={toggleMotion}>Still</FieldToggle>
+              </div>
+              <div className="pointer-events-auto ml-auto flex items-center bg-[#04051a]/70 p-1 backdrop-blur-md">
+                <FieldIcon label="Zoom out" onClick={() => graphRef.current?.zoomBy(1 / 1.4)}><Minus /></FieldIcon>
+                <FieldIcon label="Zoom in" onClick={() => graphRef.current?.zoomBy(1.4)}><Plus /></FieldIcon>
+                <FieldIcon label="Fit to view" onClick={() => graphRef.current?.fit()}><Maximize /></FieldIcon>
+                <FieldIcon label="Reset layout" onClick={() => graphRef.current?.reset()}><RotateCcw /></FieldIcon>
+              </div>
+            </div>
 
-                  <GraphMessage
-                    scope={scope}
-                    hasFocus={Boolean(localFocus)}
-                    loading={graph.isPending}
-                    error={graph.error?.message}
-                    nodes={graphData?.nodes.length ?? 0}
-                    edges={graphData?.edges.length ?? 0}
-                    filtered={filtered}
-                  />
+            {folder || tag ? (
+              <div className="absolute top-[72px] left-3 z-10 flex flex-wrap gap-1.5 @max-[640px]/memory:top-[112px]">
+                {folder ? <FilterChip onClear={() => update({ folder: undefined })}>{folder}/</FilterChip> : null}
+                {tag ? <FilterChip onClear={() => update({ tag: undefined })}>#{tag}</FilterChip> : null}
+              </div>
+            ) : null}
 
-                  {graphData && graphData.nodes.length > 0 ? (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-3 text-[12px] text-paper-white">
-                      <ul className="pointer-events-auto flex max-w-[70%] flex-wrap gap-x-3 gap-y-1" aria-label="Legend">
-                        {legend.entries.map((entry) => (
-                          <li key={entry.group} className="flex items-center gap-1.5">
-                            <span className="size-2.5 rounded-full" style={{ background: entry.color }} aria-hidden="true" />
-                            {groupLabel(entry.group, colorBy)} <span className="tabular-nums opacity-70">{entry.count}</span>
-                          </li>
-                        ))}
-                        {legend.other > 0 ? (
-                          <li className="flex items-center gap-1.5">
-                            <span className="size-2.5 rounded-full" style={{ background: OTHER_COLOR }} aria-hidden="true" />
-                            Other <span className="tabular-nums opacity-70">{legend.other}</span>
-                          </li>
-                        ) : null}
-                        {ghosts ? (
-                          <li className="flex items-center gap-1.5">
-                            <span className="size-2.5 rounded-full border border-dashed border-paper-white" aria-hidden="true" />
-                            Unresolved
-                          </li>
-                        ) : null}
-                      </ul>
-                      <p className="tabular-nums">
-                        {graphData.nodes.filter((node) => !node.unresolved).length} of {graphData.totalNotes} notes · {graphData.edges.filter((edge) => !edge.unresolved).length} of {graphData.totalEdges} links
-                        {graphData.capped ? ` · largest ${graphData.capped.limit} shown, ${graphData.capped.omitted} hidden — filter to see them` : ""}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              <NotesTable
-                notes={notes.data?.notes ?? []}
-                total={notes.data?.total ?? 0}
-                vaultTotal={notes.data?.vaultTotal ?? 0}
-                filtered={filtered}
-                selectedId={noteId}
-                sort={sort}
-                onSort={setSort}
+            <GraphMessage
+              scope={scope}
+              hasFocus={Boolean(localFocus)}
+              loading={graph.isPending}
+              error={graph.error?.message}
+              nodes={graphData?.nodes.length ?? 0}
+              edges={graphData?.edges.length ?? 0}
+              filtered={filtered}
+              style={clearOfPanel}
+            />
+
+            {graphData && graphData.nodes.length > 0 ? (
+              <div
+                className="pointer-events-none absolute bottom-0 left-0 z-10 flex flex-wrap items-end justify-between gap-3 p-3 text-[12px] text-[#c9ccf5]"
+                style={clearOfPanel}
+              >
+                {colorBy !== "random" ? (
+                  <ul className="pointer-events-auto flex max-w-[70%] flex-wrap gap-x-3 gap-y-1" aria-label="Legend">
+                    {legend.entries.map((entry) => (
+                      <li key={entry.group} className="flex items-center gap-1.5">
+                        <span className="size-2.5 rounded-full" style={{ background: entry.color, boxShadow: `0 0 8px ${entry.color}` }} aria-hidden="true" />
+                        {groupLabel(entry.group, colorBy)} <span className="tabular-nums opacity-70">{entry.count}</span>
+                      </li>
+                    ))}
+                    {legend.other > 0 ? (
+                      <li className="flex items-center gap-1.5">
+                        <span className="size-2.5 rounded-full" style={{ background: OTHER_COLOR }} aria-hidden="true" />
+                        Other <span className="tabular-nums opacity-70">{legend.other}</span>
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : (
+                  <span />
+                )}
+                <p className="tabular-nums">
+                  {graphData.nodes.filter((node) => !node.unresolved).length} of {graphData.totalNotes} notes ·{" "}
+                  {graphData.edges.filter((edge) => !edge.unresolved).length} of {graphData.totalEdges} links
+                  {graphData.capped ? ` · largest ${graphData.capped.limit} shown, ${graphData.capped.omitted} hidden — filter to see them` : ""}
+                </p>
+              </div>
+            ) : null}
+
+            {/* The open note, sliding in over the graph. */}
+            {noteId ? (
+              <NotePreview
+                note={note.data}
+                isLoading={note.isFetching}
+                error={note.error}
                 onOpen={open}
-                onMore={notes.data && notes.data.total > notes.data.notes.length ? () => setListLimit((limit) => limit + 200) : undefined}
+                onClose={close}
+                closeLabel="Close note"
+                accent={colorOf(noteId) ?? noteColor(noteId)}
+                className="absolute inset-y-0 right-0 z-20 w-[min(560px,100%)] bg-paper-white shadow-[-24px_0_60px_rgb(2_2_16/0.55)]"
               />
-            )}
+            ) : null}
           </section>
-
-          {/* Right: the open note. Stacks over the centre below lg. */}
-          <NotePreview
-            note={noteId ? note.data : undefined}
-            isLoading={Boolean(noteId) && note.isFetching}
-            error={noteId ? note.error : null}
-            onOpen={open}
-            onClose={noteId ? close : undefined}
-            closeLabel="Close note"
-            className={cn(
-              "min-h-0 border-l border-paper-mist bg-paper-white",
-              noteId ? "@max-[759px]/memory:absolute @max-[759px]/memory:inset-0 @max-[759px]/memory:z-20 @max-[759px]/memory:border-l-0" : "@max-[759px]/memory:hidden",
-            )}
-          />
         </div>
       </div>
     </AppShell>
@@ -509,36 +483,46 @@ function VaultIndicator({ status, failed }: { status?: VaultStatus; failed: bool
   }
 }
 
-function FilterHeading({ icon, children, className }: { icon: ReactNode; children: ReactNode; className?: string }) {
+const FIELD_FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+
+/** A segmented control drawn for the dark field. */
+function FieldSegment<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
   return (
-    <h2 className={cn("flex items-center gap-1.5 px-2 pb-1 font-paper-utility text-[12px] font-semibold tracking-[0.1em] text-paper-char uppercase", className)}>
-      {icon}
-      {children}
-    </h2>
+    <div role="radiogroup" aria-label={label} className="inline-flex border border-white/15">
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "min-h-7 cursor-pointer px-2.5 text-[12.5px] font-medium transition-colors duration-150",
+              FIELD_FOCUS,
+              selected ? "bg-[#eef0ff] text-[#04051a]" : "text-[#c9ccf5] hover:bg-white/10 hover:text-white",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
-function FilterRow({ active, onClick, label, title, count, depth }: { active: boolean; onClick: () => void; label: string; title?: string; count?: number; depth: number }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      title={title}
-      onClick={onClick}
-      style={{ paddingLeft: `${8 + depth * 14}px` }}
-      className={cn(
-        "flex w-full cursor-pointer items-center justify-between gap-2 py-1 pr-2 text-left text-[13.5px] transition-colors duration-100",
-        PAPER_FOCUS,
-        active ? "bg-paper-blue text-paper-white" : "text-paper-moss hover:bg-paper-linen",
-      )}
-    >
-      <span className="truncate">{label}</span>
-      {count !== undefined ? <span className={cn("text-[12px] tabular-nums", active ? "text-paper-white" : "text-paper-sage")}>{count}</span> : null}
-    </button>
-  );
-}
-
-function Toggle({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
+function FieldToggle({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -546,8 +530,8 @@ function Toggle({ pressed, onClick, children }: { pressed: boolean; onClick: () 
       onClick={onClick}
       className={cn(
         "min-h-7 cursor-pointer border px-2.5 text-[12.5px] font-medium transition-colors duration-150",
-        PAPER_FOCUS,
-        pressed ? "border-paper-blue bg-paper-blue text-paper-white" : "border-paper-mist text-paper-sage hover:border-paper-blue hover:text-paper-moss",
+        FIELD_FOCUS,
+        pressed ? "border-[#eef0ff] bg-[#eef0ff] text-[#04051a]" : "border-white/15 text-[#c9ccf5] hover:border-white/40 hover:text-white",
       )}
     >
       {children}
@@ -555,17 +539,36 @@ function Toggle({ pressed, onClick, children }: { pressed: boolean; onClick: () 
   );
 }
 
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function FieldIcon({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={cn("inline-flex size-8 cursor-pointer items-center justify-center text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss [&>svg]:size-4 [&>svg]:stroke-[1.75]", PAPER_FOCUS)}
+      className={cn(
+        "inline-flex size-8 cursor-pointer items-center justify-center text-[#c9ccf5] transition-colors duration-150 hover:bg-white/10 hover:text-white [&>svg]:size-4 [&>svg]:stroke-[1.75]",
+        FIELD_FOCUS,
+      )}
     >
       {children}
     </button>
+  );
+}
+
+function FilterChip({ children, onClear }: { children: ReactNode; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 bg-[#eef0ff] py-0.5 pr-0.5 pl-2 text-[12.5px] font-medium text-[#04051a]">
+      Only {children}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Stop filtering by ${String(children)}`}
+        className={cn("inline-flex size-6 cursor-pointer items-center justify-center hover:bg-[#04051a]/10", PAPER_FOCUS)}
+      >
+        <X className="size-3.5" strokeWidth={2} aria-hidden="true" />
+      </button>
+    </span>
   );
 }
 
@@ -577,6 +580,7 @@ function GraphMessage({
   nodes,
   edges,
   filtered,
+  style,
 }: {
   scope: Scope;
   hasFocus: boolean;
@@ -585,6 +589,7 @@ function GraphMessage({
   nodes: number;
   edges: number;
   filtered: boolean;
+  style?: CSSProperties;
 }) {
   let message: ReactNode = null;
   if (scope === "local" && !hasFocus) {
@@ -598,99 +603,18 @@ function GraphMessage({
   } else if (edges === 0 && scope === "global" && !filtered) {
     message = (
       <>
-        {nodes} notes, no links between them yet. Link notes in Obsidian with <span className="font-mono">[[Note name]]</span> and they connect here
-        within a second or two.
+        {nodes} notes, no links between them yet. Link notes in Obsidian with <span className="font-mono">[[Note name]]</span> and the beams
+        appear here within a second or two.
       </>
     );
   }
 
   if (!message) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4">
-      <p role="status" className="max-w-[52ch] bg-paper-white px-4 py-2.5 text-center text-[13.5px] leading-6 text-paper-moss">
+    <div className="pointer-events-none absolute bottom-12 left-0 z-10 flex justify-center p-4" style={style}>
+      <p role="status" className="max-w-[52ch] border border-white/15 bg-[#04051a]/80 px-4 py-2.5 text-center text-[13.5px] leading-6 text-[#eef0ff] backdrop-blur-md">
         {message}
       </p>
-    </div>
-  );
-}
-
-function NotesTable({
-  notes,
-  total,
-  vaultTotal,
-  filtered,
-  selectedId,
-  sort,
-  onSort,
-  onOpen,
-  onMore,
-}: {
-  notes: MemoryNoteSummary[];
-  total: number;
-  vaultTotal: number;
-  filtered: boolean;
-  selectedId?: string;
-  sort: "title" | "modified" | "links";
-  onSort: (sort: "title" | "modified" | "links") => void;
-  onOpen: (id: string) => void;
-  onMore?: () => void;
-}) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-paper-mist px-4 py-2">
-        <p className="text-[13px] text-paper-sage tabular-nums">{filtered ? `${total} of ${vaultTotal} notes` : `${total} notes`}</p>
-        <label className="flex items-center gap-2 text-[13px] text-paper-sage">
-          <ArrowDownUp className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
-          <span className="sr-only sm:not-sr-only">Sort</span>
-          <select value={sort} onChange={(event) => onSort(event.target.value as typeof sort)} className={cn(PAPER_INPUT, "min-h-8 cursor-pointer py-0 text-[13px]")}>
-            <option value="title">Title</option>
-            <option value="modified">Recently edited</option>
-            <option value="links">Most connected</option>
-          </select>
-        </label>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto" onKeyDown={onListKeyDown}>
-        {notes.length === 0 ? (
-          <p className="px-4 py-6 text-[14px] text-paper-sage">{filtered ? "No notes match." : "The vault has no notes."}</p>
-        ) : (
-          <ul className="divide-y divide-paper-stone" aria-label="All notes">
-            {notes.map((entry) => (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  data-note-row
-                  aria-current={entry.id === selectedId ? "true" : undefined}
-                  onClick={() => onOpen(entry.id)}
-                  className={cn(
-                    "grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1 px-4 py-3 text-left transition-colors duration-100 md:grid-cols-[minmax(0,1fr)_minmax(0,180px)_92px_110px]",
-                    PAPER_FOCUS,
-                    "focus-visible:outline-offset-[-2px]",
-                    entry.id === selectedId ? "bg-paper-linen" : "hover:bg-paper-cream",
-                  )}
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-medium text-paper-moss">
-                      {entry.title}
-                      {entry.hasErrors ? <CircleAlert className="ml-1.5 inline size-3.5 text-paper-flame-deep" strokeWidth={2} aria-label="Has a parse problem" /> : null}
-                    </span>
-                    <span className="block truncate font-mono text-[11.5px] text-paper-sage">{entry.id}</span>
-                  </span>
-                  <span className="hidden truncate text-[12.5px] text-paper-char md:block">{entry.tags.map((tag) => `#${tag}`).join(" ") || "—"}</span>
-                  <span className="hidden text-[12.5px] text-paper-char tabular-nums md:block" title="Backlinks · outgoing links">
-                    ← {entry.backlinkCount} · → {entry.outgoingCount}
-                  </span>
-                  <span className="text-right text-[12.5px] text-paper-sage tabular-nums">{formatRelativeTime(entry.modifiedAt)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {onMore ? (
-          <PaperButton variant="quiet" className="m-3" onClick={onMore}>
-            Show more
-          </PaperButton>
-        ) : null}
-      </div>
     </div>
   );
 }

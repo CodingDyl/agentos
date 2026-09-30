@@ -5,7 +5,7 @@ import type { MemoryGraphNode } from "@shared/memory-types";
  * and tested on their own.
  */
 
-export type ColorBy = "folder" | "tag";
+export type ColorBy = "random" | "folder" | "tag";
 
 /**
  * Group colours, drawn on the Hermes Blue field. Paper and yellow first — the
@@ -15,12 +15,32 @@ export type ColorBy = "folder" | "tag";
  */
 export const GROUP_COLORS = ["#f2f2f2", "#f2f200", "#7fe6ff", "#ffa8dc", "#ffc27a", "#9dffb8", "#d6ccff"] as const;
 export const OTHER_COLOR = "#a9a9f2";
-export const FIELD = "#0000f2";
+/** The graph's field: near-black with a trace of Hermes Blue, so light reads as light. */
+export const FIELD = "#04051a";
 export const INK = "#000091";
+
+/**
+ * A note's own colour: "random", but seeded from its path, so a note keeps
+ * its colour across reloads and edits. Hues are spread over the whole wheel;
+ * the blues and violets that would sink into the dark field are lifted.
+ */
+export function noteColor(id: string): string {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < id.length; index += 1) {
+    hash ^= id.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  const unsigned = hash >>> 0;
+  const hue = unsigned % 360;
+  const saturation = 78 + ((unsigned >>> 9) % 18);
+  const lightness = (hue > 200 && hue < 290 ? 70 : 62) + ((unsigned >>> 17) % 6);
+  return `hsl(${hue} ${saturation}% ${lightness}%)`;
+}
 
 /** The top-level folder, or the first tag; `""` when there is none. */
 export function groupOf(node: Pick<MemoryGraphNode, "folder" | "tags" | "unresolved">, by: ColorBy): string {
   if (node.unresolved) return "";
+  if (by === "random") return "";
   if (by === "tag") return node.tags[0] ?? "";
   return node.folder.split("/")[0] ?? "";
 }
@@ -66,4 +86,12 @@ export function nodeRadius(degree: number): number {
 export function groupLabel(group: string, by: ColorBy): string {
   if (group) return by === "tag" ? `#${group}` : `${group}/`;
   return by === "tag" ? "No tag" : "Vault root";
+}
+
+/** `hsl(h s% l%)` or `#rrggbb` with an alpha. */
+export function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith("hsl(")) return color.replace(/\)$/, ` / ${alpha})`);
+  const hex = color.replace("#", "");
+  const value = Number.parseInt(hex.length === 3 ? hex.replace(/(.)/g, "$1$1") : hex, 16);
+  return `rgb(${(value >> 16) & 255} ${(value >> 8) & 255} ${value & 255} / ${alpha})`;
 }
