@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import type { ConnectorSetupItem } from "../../shared/connector-types";
 import { findOnPath, envKeySet } from "../ai-stack/detect";
 import { agentOSRoot } from "../agentos/filesystem";
+import { configuredProjectsRoot, PROJECTS_ROOT_ENV, resolveProjectsRoot } from "../operator/project-folder";
 import { accountStatus, binary as higgsfieldBinary } from "../designs/higgsfield";
 import { investecGet, isInvestecConfigured, missingInvestecVariables } from "../finance/investec";
 import { getHermesStatus, hermesFetch } from "../hermes/client";
@@ -151,7 +152,22 @@ export const PROBES: Record<string, Probe> = {
   filesystem: {
     async local() {
       const root = agentOSRoot();
-      const setup: ConnectorSetupItem[] = [{ label: "AGENTOS_ROOT (defaults to ~/AgentOS)", kind: "path", done: false }];
+      const projectsRoot = configuredProjectsRoot();
+      // Where Operator creates new project folders. Optional: the vault works
+      // without it. Not a secret, so its value is shown.
+      const projects: ConnectorSetupItem = {
+        label: `${PROJECTS_ROOT_ENV}: where new project folders go`,
+        kind: "env",
+        envName: PROJECTS_ROOT_ENV,
+        optional: true,
+        done: await resolveProjectsRoot(projectsRoot).then(
+          () => true,
+          () => false,
+        ),
+        value: projectsRoot,
+        placeholder: "/Volumes/SSD/Developer",
+      };
+      const setup: ConnectorSetupItem[] = [{ label: "AGENTOS_ROOT (defaults to ~/AgentOS)", kind: "path", done: false }, projects];
       try {
         const stat = await fs.stat(root);
         setup[0].done = stat.isDirectory();
@@ -166,7 +182,15 @@ export const PROBES: Record<string, Probe> = {
       try {
         await fs.access(agentOSRoot(), fs.constants.R_OK | fs.constants.W_OK);
         const entries = await fs.readdir(agentOSRoot());
-        return { ok: true, detail: `Readable and writable, ${entries.length} entries at the top level.` };
+        // The projects folder is reported beside the vault, not as its health:
+        // an unplugged SSD doesn't make the vault unusable.
+        const projects = configuredProjectsRoot()
+          ? await resolveProjectsRoot().then(
+              (real) => ` New project folders go in ${real}.`,
+              (error: unknown) => ` ${error instanceof Error ? error.message : "The projects folder can't be used."}`,
+            )
+          : "";
+        return { ok: true, detail: `Readable and writable, ${entries.length} entries at the top level.${projects}` };
       } catch {
         return { ok: false, detail: "The vault folder can't be read and written." };
       }

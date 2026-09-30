@@ -387,3 +387,90 @@ describe("the engine", () => {
     assert.equal(isRunId("run_../../x"), false);
   });
 });
+
+describe("project folders", async () => {
+  const { createProjectFolder, plannedFolder, resolveProjectsRoot, ProjectFolderError } = await import("../project-folder");
+  const { OPERATIONS } = await import("../operations");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-projects-"));
+  after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const code = async (promise: Promise<unknown>) => {
+    try {
+      await promise;
+      return "ok";
+    } catch (error) {
+      return error instanceof ProjectFolderError ? error.code : `other: ${String(error)}`;
+    }
+  };
+
+  it("needs a root that is set, absolute and already there", async () => {
+    assert.equal(await code(resolveProjectsRoot(undefined)), "no-root");
+    assert.equal(await code(resolveProjectsRoot("relative/dir")), "root-not-absolute");
+    const unplugged = path.join(root, "Volumes", "SSD", "Developer");
+    assert.equal(await code(resolveProjectsRoot(unplugged)), "root-missing");
+    // An unplugged drive is reported, never recreated on the boot disk.
+    assert.equal(fs.existsSync(path.join(root, "Volumes")), false);
+  });
+
+  it("creates <root>/<slug> and nothing else", async () => {
+    const folder = await createProjectFolder("rank-pulse", root);
+    assert.equal(folder, path.join(fs.realpathSync(root), "rank-pulse"));
+    assert.ok(fs.statSync(folder).isDirectory());
+    assert.deepEqual(fs.readdirSync(folder), []);
+  });
+
+  it("never reuses or overwrites an existing folder", async () => {
+    fs.mkdirSync(path.join(root, "taken"));
+    fs.writeFileSync(path.join(root, "taken", "keep.txt"), "mine");
+    assert.equal(await code(createProjectFolder("taken", root)), "exists");
+    assert.equal(fs.readFileSync(path.join(root, "taken", "keep.txt"), "utf8"), "mine");
+  });
+
+  it("refuses names that could leave the root", async () => {
+    for (const name of ["../escape", "a/b", "..", "", "UPPER", "-lead", "has space", "x".repeat(65)]) {
+      assert.equal(await code(plannedFolder(name, root)), "bad-name", name);
+    }
+    assert.equal(fs.existsSync(path.join(root, "..", "escape")), false);
+  });
+
+  it("follows a symlinked root to where it really points", async () => {
+    const real = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-real-"));
+    const link = path.join(root, "link-root");
+    fs.symlinkSync(real, link);
+    const folder = await createProjectFolder("via-link", link);
+    assert.equal(folder, path.join(fs.realpathSync(real), "via-link"));
+    fs.rmSync(real, { recursive: true, force: true });
+  });
+
+  it("runs as the New SaaS folder step, blocked with a fix until the root is set", async () => {
+    const saved = process.env.AGENTOS_PROJECTS_ROOT;
+    try {
+      delete process.env.AGENTOS_PROJECTS_ROOT;
+      const blocked = harness({}, { "filesystem.create_directory": OPERATIONS["filesystem.create_directory"] });
+      const first = await createRun("Build me a new SaaS called Folder Test with Next.js", "plan", blocked.deps);
+      await first.done;
+      const folderStep = (await readRun(first.run.id))?.plan.find((step) => step.id === "folder");
+      assert.equal(folderStep?.status, "blocked");
+      assert.match(folderStep?.reason ?? "", /AGENTOS_PROJECTS_ROOT/);
+      assert.equal(folderStep?.fix?.href, "/connectors/filesystem");
+
+      process.env.AGENTOS_PROJECTS_ROOT = root;
+      const ready = harness({}, { "filesystem.create_directory": OPERATIONS["filesystem.create_directory"] });
+      const second = await createRun("Build me a new SaaS called Folder Test with Next.js", "run", ready.deps);
+      await second.done;
+      const waiting = (await readRun(second.run.id)) as OperatorRun;
+      assert.equal(waiting.plan.find((step) => step.id === "folder")?.status, "pending");
+      // Approval first: nothing on disk yet.
+      assert.equal(fs.existsSync(path.join(root, "folder-test")), false);
+
+      await (await approveRun(waiting, ready.deps)).done;
+      const finished = (await readRun(second.run.id)) as OperatorRun;
+      assert.equal(finished.plan.find((step) => step.id === "folder")?.status, "done");
+      assert.ok(fs.statSync(path.join(root, "folder-test")).isDirectory());
+      assert.ok(finished.changes.some((change) => change.description.startsWith("Folder created:")));
+    } finally {
+      if (saved === undefined) delete process.env.AGENTOS_PROJECTS_ROOT;
+      else process.env.AGENTOS_PROJECTS_ROOT = saved;
+    }
+  });
+});

@@ -7,7 +7,8 @@ import { useAgentRun } from "@/features/agent/hooks/use-agent-run";
 import { getAgentSessionMessages, reportActivity } from "@/lib/agentos/client";
 import { useAgentCapabilities, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
 import { fetchRunOutput, getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
-import { JarvisContext, type JarvisApi } from "./jarvis-store";
+import { JarvisContext, type JarvisApi, type JarvisIntercept } from "./jarvis-store";
+import { SpeechStream } from "./speech-stream";
 import { recoverAnswer } from "./final-answer";
 import { describeMicFailure, micSupportFailure, readMicPermission, watchMicPermission, type MicPermission } from "./mic-permission";
 import { SpeechQueue } from "./speech-queue";
@@ -57,6 +58,10 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const [askingMic, setAskingMic] = useState(false);
   // The last attempt to record failed at the microphone, so Try again applies.
   const [micFailed, setMicFailed] = useState(false);
+  // A page (Operator) that handles what Jarvis hears, and what it last said.
+  const intercept = useRef<JarvisIntercept | undefined>(undefined);
+  const [target, setTarget] = useState<string>();
+  const [announcement, setAnnouncement] = useState<string>();
 
   // Follow the browser's microphone setting, so the launcher can say "tap to
   // allow" before the first press, and recover the moment it is switched on.
@@ -210,6 +215,25 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     (override?: string) => {
       const text = (override ?? transcript).trim();
       if (!isSendable(text)) return;
+
+      // A page that has taken over hears it first. It answers with `announce`.
+      const handler = intercept.current;
+      if (handler) {
+        queue.reset();
+        session.begin(text);
+        session.end();
+        run.reset();
+        setRecoveredReply("");
+        setFallbackReply("");
+        setAnnouncement(undefined);
+        setAutoSendAt(undefined);
+        setError(undefined);
+        setAudioNote(undefined);
+        setTranscriptState(text);
+        setPhase("thinking");
+        if (handler.handle(text)) return;
+      }
+      setAnnouncement(undefined);
 
       queue.reset();
       session.begin(text);
@@ -416,7 +440,28 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     [run],
   );
 
-  const reply = run.runId ? run.state.output || recoveredReply : fallbackReply;
+  const reply = announcement ?? (run.runId ? run.state.output || recoveredReply : fallbackReply);
+
+  const setIntercept = useCallback((next: JarvisIntercept | undefined) => {
+    intercept.current = next;
+    setTarget(next?.label);
+  }, []);
+
+  const announce = useCallback(
+    (text: string) => {
+      const line = text.trim();
+      if (!line) return;
+      setAnnouncement(line);
+      if (!voiceReady || session.isMuted()) {
+        setPhase((current) => (current === "thinking" ? "idle" : current));
+        return;
+      }
+      // Its own stream: an announcement is complete when it arrives.
+      for (const piece of new SpeechStream().feed(line, true)) queue.enqueue(piece);
+      queue.close();
+    },
+    [queue, session, voiceReady],
+  );
 
   const api: JarvisApi = {
     isOpen,
@@ -464,6 +509,10 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     voice,
     setVoiceOn,
     run,
+    target,
+    setIntercept,
+    announce,
+    canSpeak: voiceReady && !session.isMuted(),
   };
 
   return <JarvisContext.Provider value={api}>{children}</JarvisContext.Provider>;

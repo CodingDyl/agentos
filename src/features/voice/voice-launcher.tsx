@@ -35,7 +35,9 @@ export function VoiceLauncher() {
           : jarvis.phase === "idle" && canRecord && jarvis.micPermission === "prompt"
             ? "Tap to allow microphone"
             : jarvis.phase === "idle" && canRecord
-              ? "Ready. Tap to talk"
+              ? jarvis.target
+                ? `Ready. Tell ${jarvis.target} what to do`
+                : "Ready. Tap to talk"
               : PHASE_LABEL[jarvis.phase];
 
   return (

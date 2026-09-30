@@ -70,6 +70,7 @@ export function JarvisPanel() {
           <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em]">Jarvis</h2>
           <span className="text-[12.5px] text-paper-sage" role="status" aria-live="polite">
             {PHASE_LABEL[jarvis.phase]}
+            {jarvis.target ? ` · for ${jarvis.target}` : ""}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -144,7 +145,7 @@ export function JarvisPanel() {
             }}
             rows={2}
             disabled={working || listening || jarvis.phase === "transcribing"}
-            placeholder="Give me my morning brief"
+            placeholder={jarvis.target === "Operator" ? "Plan a landing page for Virtara" : "Give me my morning brief"}
             className={`mt-1.5 w-full resize-none rounded-none border border-paper-mist bg-paper-white p-3 text-[15px] leading-6 text-paper-moss placeholder:text-paper-sage ${PAPER_FOCUS}`}
           />
           {jarvis.phase === "confirming" && jarvis.autoSendAt ? <SendCountdown key={jarvis.autoSendAt} /> : null}
@@ -176,7 +177,9 @@ export function JarvisPanel() {
           </div>
         ) : null}
 
-        {working && !jarvis.reply ? <p className="text-[14px] text-paper-sage">Hermes is working on it…</p> : null}
+        {working && !jarvis.reply ? (
+          <p className="text-[14px] text-paper-sage">{jarvis.target ? `${jarvis.target} is on it…` : "Hermes is working on it…"}</p>
+        ) : null}
 
         {jarvis.reply || jarvis.approval ? (
           <div className="space-y-4">

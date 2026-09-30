@@ -10,6 +10,7 @@ import { reconcileInterrupted, type EngineDeps, type OperationRegistry } from ".
 import { resolveIntentRouter } from "./intent-router";
 import { OPERATIONS } from "./operations";
 import { RUNBOOKS } from "./runbooks";
+import { configuredProjectsRoot } from "./project-folder";
 import { listRuns, saveRun } from "./store";
 
 /** Why a capability can't be exercised because the code isn't there — separate from policy. */
@@ -60,7 +61,7 @@ export function operatorDeps(): EngineDeps {
         metadata: { operatorRunId: run.id, mode: run.mode },
       });
     },
-    projectsRoot: process.env.AGENTOS_PROJECTS_ROOT?.trim() || undefined,
+    projectsRoot: () => configuredProjectsRoot(),
   };
   return cachedDeps;
 }

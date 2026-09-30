@@ -45,6 +45,8 @@ export interface Scratch {
   memoryText?: string;
   workspaceText?: string;
   analysis?: string;
+  /** The project folder this run created. */
+  folderPath?: string;
   /** Ask's answer, as Markdown. */
   answer?: string;
   sources: StepOutput[];
@@ -70,6 +72,8 @@ export interface OperationResult {
 export interface Operation {
   /** Why it can't run for this run, decided before anything executes. */
   precheck?(run: OperatorRun): Promise<string | undefined>;
+  /** Where a person fixes a failed precheck, shown beside the reason. */
+  fix?: StepOutput;
   run(context: OperationContext): Promise<OperationResult>;
 }
 
@@ -91,7 +95,8 @@ export interface EngineDeps {
   cancelJob(jobId: string): Promise<void>;
   usageFor(run: OperatorRun): { tokens?: number; costUsd?: number };
   activity(type: "started" | "completed" | "blocked" | "failed" | "stopped", run: OperatorRun): void;
-  projectsRoot?: string;
+  /** Read per run: it can be set from Connectors without a restart. */
+  projectsRoot?: () => string | undefined;
   now?: () => Date;
 }
 
@@ -221,6 +226,7 @@ async function assess(run: OperatorRun, deps: EngineDeps): Promise<void> {
     if (reason) {
       step.status = "blocked";
       step.reason = reason;
+      step.fix = operation.fix;
     }
   }
 }
@@ -243,7 +249,7 @@ function objectiveFor(decision: RouteDecision, input: string, plan: ProjectPlan 
 /** Understand, gather, plan. Leaves the run planned and assessed; executes nothing. */
 async function planRun(run: OperatorRun, deps: EngineDeps, signal: AbortSignal): Promise<void> {
   const workspaces = await deps.listWorkspaces().catch(() => []);
-  let decision = await deps.router.route({ input: run.input, mode: run.mode, workspaces, projectsRoot: deps.projectsRoot });
+  let decision = await deps.router.route({ input: run.input, mode: run.mode, workspaces, projectsRoot: deps.projectsRoot?.() });
 
   // Hermes plans what the runbook can't know: the name, the objective, the
   // first tasks. Only for runbooks that create something, and never in Ask.
@@ -267,7 +273,7 @@ async function planRun(run: OperatorRun, deps: EngineDeps, signal: AbortSignal):
   const context: RunbookContext = {
     workspace: decision.workspace,
     targetUrl: decision.targetUrl,
-    projectsRoot: deps.projectsRoot,
+    projectsRoot: deps.projectsRoot?.(),
     stack: detectStack(run.input),
   };
 

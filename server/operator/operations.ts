@@ -5,7 +5,7 @@ import { readOptionalFile } from "../agentos/filesystem";
 import { parseRepositoryPath } from "../agentos/projects";
 import { parseConfiguration } from "../agentos/mutations/configuration";
 import { createDocument } from "../agentos/mutations/documents";
-import { createProject } from "../agentos/mutations/projects";
+import { createProject, patchProject } from "../agentos/mutations/projects";
 import { createTask, InvalidRequestError } from "../agentos/mutations/tasks";
 import { delegateTask, prepareDelegation } from "../agentos/task-delegation";
 import { sendToHermes } from "../hermes/client";
@@ -17,6 +17,7 @@ import { readProjectSeo } from "../seo/store";
 import { getProjectVercelInfo } from "../vercel/client";
 import type { Operation, OperationContext, OperationRegistry } from "./engine";
 import { detectStack } from "./intent-router";
+import { createProjectFolder, plannedFolder, ProjectFolderError } from "./project-folder";
 
 /**
  * What Operator can actually do today, each one an existing AgentOS operation.
@@ -146,6 +147,50 @@ const hermesAnswer: Operation = {
 
 // ------------------------------------------------------------------ write, local
 
+async function linkedFolder(slug: string): Promise<string | undefined> {
+  const project = await readOptionalFile(`${PROJECTS_DIR}/${slug}/PROJECT.md`);
+  return project ? parseRepositoryPath(project) : undefined;
+}
+
+/**
+ * The project's folder under the projects root, named by the workspace slug.
+ * A path is never read from the request: only the slug, which the router
+ * derived and `project-folder.ts` validates again.
+ */
+const createFolder: Operation = {
+  fix: { label: "Set the projects folder", href: "/connectors/filesystem" },
+  async precheck(run) {
+    const workspace = run.intent?.workspace;
+    if (!workspace) return "Name the project, e.g. “a SaaS called RankPulse”, so the folder has a name.";
+    if (workspace.action === "use") {
+      const existing = await linkedFolder(workspace.slug);
+      if (existing) return `${workspace.name} already has a folder: ${existing}.`;
+    }
+    try {
+      await plannedFolder(workspace.slug);
+      return undefined;
+    } catch (error) {
+      return error instanceof ProjectFolderError ? error.message : "The projects folder couldn't be checked.";
+    }
+  },
+  async run(context) {
+    const workspace = context.run.intent?.workspace;
+    if (!workspace) throw new Error("There is no project name for the folder.");
+
+    const folder = await createProjectFolder(workspace.slug);
+    context.scratch.folderPath = folder;
+    context.change("local", `Folder created: ${folder}`);
+
+    // An existing workspace gets linked here; a new one is linked as it is created.
+    if (workspace.action === "use" && !(await linkedFolder(workspace.slug))) {
+      await patchProject({ slug: workspace.slug, repoPath: folder });
+      context.change("local", `${workspace.name} linked to ${folder}`, `/workspaces/${encodeURIComponent(workspace.slug)}`);
+    }
+
+    return { result: `Created ${folder}.`, outputs: [{ label: folder }] };
+  },
+};
+
 const createWorkspace: Operation = {
   async run(context) {
     const { run, scratch } = context;
@@ -156,6 +201,8 @@ const createWorkspace: Operation = {
       name: workspace.name,
       slug: workspace.slug,
       goal: run.objective,
+      // The folder this run just made, so the workspace knows where its code lives.
+      repoPath: scratch.folderPath,
       type: run.intent?.workflow === "business-venture" ? "Venture" : "Product",
       state: "incubating",
       priority: "medium",
@@ -427,6 +474,7 @@ export const OPERATIONS: OperationRegistry = {
   "hermes.answer": hermesAnswer,
   "hermes.analysis": hermesAnalysis,
   "hermes.seo_findings": seoFindings,
+  "filesystem.create_directory": createFolder,
   "agentos.create_workspace": createWorkspace,
   "agentos.seed_tasks": seedTasks,
   "agentos.create_task": createOneTask,
