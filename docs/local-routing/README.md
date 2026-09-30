@@ -148,18 +148,30 @@ with `--run-remote` for the remote-route sample.
 The ticket is complete when a report from your Mac shows these four jobs with
 real numbers. Do not mark it complete from mocked tests alone.
 
-First run: `evidence-2026-09-30.md` (M4, 16 GB, Ollama 0.35.0, qwen3:4b
-`359d7dd4bcda`). Read it with the reviewer note at its top.
+Run 2 (`evidence.md`): M4, 16 GB, Ollama 0.35.0, `qwen2.5-coder:7b`
+(`dae161e27b0e`), default limits (2,000 in / 512 out / 30 s / 1 concurrent).
+9 pass, 0 fail, 0 inconclusive. The earlier run with `qwen3:4b`
+(`evidence-2026-09-30.md`) is kept as history: that model cannot be bounded.
 
 | Sample | Scenario | Routing reason | Measured | Result |
 |---|---|---|---|---|
-| Local summary | A | small bounded summarisation within local limits | qwen3:4b: cold 21.9 s, warm 16.3 s, hit the 512-token cap | **Not accepted** for `qwen3:4b`: it cannot stop reasoning (see Choosing a model). Needs a non-thinking model |
-| Remote implementation | C (`--run-remote`) | grok: needs repository, tools, file_writes | routing decision only, not run | **Not demonstrated**: routed, never executed |
-| Handled local failure | D | local timeout at a 1 s deadline on a cold model | 1 attempt, `timeout`, no cloud attempt | Pass |
+| Local summary | A | small bounded summarisation within local limits; passed its suitability test | cold 10.9 s (model load 7.3 s), warm 3.0 s, 129 in / 61 out tokens; exactly five correct bullets; approved, completed | Pass |
+| Handled local failure | D | local-only; cold model, 1 s deadline | 1 attempt, `timeout`, no cloud attempt | Pass |
 | Local-only blocked | E | Ollama unreachable, local-only | refused, "not sent to the cloud" | Pass |
+| Remote implementation | C | grok: needs repository, tools, file_writes; `qwen2.5-coder:7b` ruled out (lacks capability) | routing decision only | **Route shown, job not run.** Run with `--run-remote` (spends on grok) |
 
-Also measured: JSON extraction 2.3 s (valid, but with an invented year), and
-two simultaneous jobs ran strictly one at a time (second waited 15.5 s).
+Also measured: JSON extraction 3.1 s, schema-valid with no invented dates;
+two simultaneous jobs ran strictly one at a time (second waited 3.2 s);
+cancelling a running job made no retry or fallback; an existing worker (mock)
+still ran the unchanged pipeline.
 
-Remaining before completion: find a local model that passes scenarios T and A
-(a five-bullet summary in a few seconds), then run C with `--run-remote`.
+**Limits.** With this model the defaults have wide margins: cold 10.9-12.8 s
+against a 30 s deadline (most of it disk load), warm about 3 s, outputs of 53-61
+tokens against a 512 cap, prompts of about 130-140 tokens against 2,000. No
+change is needed. The cost to plan for is the cold load (7-9 s): Ollama unloads
+an idle model after its own keep-alive (five minutes by default), so the first
+task after a quiet period is the slow one.
+
+Remaining before completion: run C with `--run-remote` (it defaults to a small
+task, "add a CONTRIBUTING.md", not the ticket's whole-application example; pass
+`--remote-objective` to choose) and record the result here.

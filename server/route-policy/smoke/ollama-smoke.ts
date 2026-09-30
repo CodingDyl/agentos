@@ -2,7 +2,8 @@
  * Real-hardware smoke test for local Ollama routing.
  *
  *   npm run smoke:ollama                       # local scenarios, spends nothing
- *   npm run smoke:ollama -- --run-remote       # also RUNS the remote implementation job (spends)
+ *   npm run smoke:ollama -- --run-remote       # also RUNS a small remote implementation job (spends)
+ *   npm run smoke:ollama -- --run-remote --remote-objective "..."   # choose that job yourself
  *   npm run smoke:ollama -- --out report.md    # where the evidence report goes
  *   npm run smoke:ollama -- --base-url http://127.0.0.1:11434 --model qwen3:4b
  *
@@ -111,8 +112,8 @@ async function main(): Promise<void> {
     });
   };
 
-  const settle = async (jobId: string) => {
-    for (let i = 0; i < 1200 && manager.isRunning(jobId); i += 1) await sleep(100);
+  const settle = async (jobId: string, maxMs = 120_000) => {
+    for (let i = 0; i < maxMs / 100 && manager.isRunning(jobId); i += 1) await sleep(100);
     const job = await store.readJob(jobId);
     if (!job) throw new Error(`job ${jobId} vanished`);
     return job;
@@ -208,7 +209,7 @@ async function main(): Promise<void> {
         final?.status === "completed";
       record({
         id: "A",
-        title: "Short summary routes to local qwen3:4b, is validated, and completes via review",
+        title: `Short summary routes to local ${MODEL}, is validated, and completes via review`,
         verdict: ok ? "pass" : "fail",
         routing: job.routing?.policy?.reason,
         observed: [
@@ -281,28 +282,47 @@ async function main(): Promise<void> {
     execFileSync("git", ["add", "-A"], { cwd: repo });
     execFileSync("git", ["-c", "user.email=s@s", "-c", "user.name=s", "commit", "-qm", "init"], { cwd: repo });
 
+    // Routing alone can use the ticket's big example. Actually running it would
+    // send a real agent off on a large job, so a run defaults to a small task
+    // that still needs a repository and file writes (and so still must go to a
+    // tool-capable worker).
+    const SMALL_REMOTE_TASK = "Add a short CONTRIBUTING.md file to this repository describing how to send a change";
+    const objective = option(
+      "remote-objective",
+      RUN_REMOTE ? SMALL_REMOTE_TASK : "Implement authentication across this application and run its tests",
+    );
     const request = {
       worker: "auto" as const,
       project: "agentos",
-      objective: "Implement authentication across this application and run its tests",
+      objective,
       repoPath: repo,
     };
     const planned = await dispatch.planRoute(request);
     const record_ = planned?.record;
     const selected = record_?.selected;
     const notLocal = selected?.workerId !== "ollama";
+    let remoteRun: "ok" | "failed" | undefined;
     const observed = [
       planned ? `route: ${record_?.status === "selected" ? record_.reason : record_?.blockedReason}` : "policy had nothing to add; legacy Hermes routing applies",
       ...(record_?.rejected ?? []).map((r) => `ruled out ${r.optionId}: ${r.reason}`),
     ];
 
     if (RUN_REMOTE && selected) {
+      console.log(`\n  Running "${objective}" on ${selected.workerId}. This spends on that worker. Up to 10 minutes.`);
       const started = await manager.startJob(request);
       if (started.job) {
-        const job = await settle(started.job.id);
-        observed.push(`ran on ${job.resolvedWorker}: status ${job.status}`, ...describe(job));
+        const job = await settle(started.job.id, 600_000);
+        observed.push(
+          `task: ${objective}`,
+          `ran on ${job.resolvedWorker}: status ${job.status}${job.error ? `, error: ${job.error}` : ""}`,
+          `changed files: ${(job.result?.changedFiles ?? []).join(", ") || "none"}`,
+          `worker cost: ${job.result?.providerMetrics?.costUsd !== undefined ? `$${job.result.providerMetrics.costUsd.toFixed(2)}` : "not reported"}`,
+          ...describe(job),
+        );
+        remoteRun = job.status === "awaiting_review" || job.status === "completed" ? "ok" : "failed";
       } else {
         observed.push(`could not start: ${started.error}`);
+        remoteRun = "failed";
       }
     } else if (selected) {
       observed.push("route only; pass --run-remote to actually run it (this spends on the selected worker)");
@@ -313,7 +333,7 @@ async function main(): Promise<void> {
       title: "Repository change routes to a tool-capable existing worker, never the text-only model",
       // Passing needs a real tool-capable worker selected; a blocked route proves
       // only that Ollama was not used, which is not the demonstration wanted.
-      verdict: !notLocal ? "fail" : selected ? "pass" : "inconclusive",
+      verdict: !notLocal ? "fail" : selected ? (RUN_REMOTE && remoteRun !== "ok" ? "fail" : "pass") : "inconclusive",
       routing: selected ? `${selected.workerId}` : "blocked",
       observed: selected ? observed : [...observed, "No implementation worker is available on this machine right now, so the route is blocked. That is correct (it is not sent to Ollama) but it is not a demonstration of a successful remote route. Configure a worker and re-run."],
     });
