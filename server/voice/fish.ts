@@ -1,4 +1,5 @@
 import type { VoiceFailureReason } from "../../shared/voice-types";
+import { authorize } from "../connectors/policy";
 import { encodeMsgpack } from "./msgpack";
 
 /**
@@ -67,6 +68,11 @@ async function fishFetch(path: string, init: RequestInit, timeoutMs: number): Pr
   if (!key) {
     throw new VoiceError("FISH_API_KEY is not set in .env.", "not-configured");
   }
+
+  // Jarvis speaks and listens because a person asked; the Connectors switch
+  // (Jarvis's own voice switch) and each capability's policy still apply.
+  const decision = authorize(path === "/v1/asr" ? "fish.speech_to_text" : "fish.text_to_speech", { initiator: "person" });
+  if (!decision.allowed) throw new VoiceError(decision.reason, "not-configured");
 
   let response: Response;
   try {

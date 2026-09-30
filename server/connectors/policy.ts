@@ -1,5 +1,6 @@
 import type { CapabilityPolicy } from "../../shared/connector-types";
 import { isAiEnabled, setAiEnabled } from "../ai-stack/settings";
+import { isVoiceEnabled, setVoiceEnabled } from "../voice/settings";
 import { defaultPolicy, findCapability, findConnector } from "./catalog";
 import { isSwitchedOn, recordUse, setSwitchedOn, storedPolicy, touch } from "./store";
 
@@ -32,12 +33,14 @@ export function isConnectorEnabled(connectorId: string): boolean {
   const connector = findConnector(connectorId);
   if (connector?.required) return true;
   if (connector?.aiStackSwitch) return isAiEnabled(connectorId);
+  if (connector?.voiceSwitch) return isVoiceEnabled();
   return isSwitchedOn(connectorId);
 }
 
 export function setConnectorEnabled(connectorId: string, enabled: boolean): void {
   const connector = findConnector(connectorId);
   if (connector?.aiStackSwitch) setAiEnabled(connectorId, enabled);
+  else if (connector?.voiceSwitch) setVoiceEnabled(enabled);
   else setSwitchedOn(connectorId, enabled);
 }
 

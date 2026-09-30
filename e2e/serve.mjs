@@ -41,6 +41,9 @@ const env = {
   INVESTEC_API_KEY: "",
   ANTHROPIC_API_KEY: "",
   ANTHROPIC_AUTH_TOKEN: "",
+  FISH_API_KEY: "",
+  // Connectors' "Save & connect" writes here, never to the repository's own .env.
+  AGENTOS_ENV_FILE: path.join(E2E_ROOT, ".env"),
 };
 
 let child;

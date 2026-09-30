@@ -1,5 +1,6 @@
 import {
   Activity,
+  AudioLines,
   BarChart3,
   Bot,
   Bug,
@@ -33,6 +34,7 @@ import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
   activity: Activity,
+  audio: AudioLines,
   "bar-chart": BarChart3,
   bot: Bot,
   bug: Bug,

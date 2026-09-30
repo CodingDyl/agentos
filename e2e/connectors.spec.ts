@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { E2E_VAULT } from "../playwright.config";
 
 /**
  * Step 63: the Connector Hub, against the fixture vault.
@@ -78,5 +81,37 @@ test.describe("Connectors", () => {
   test("refuses a bodiless write, so another site can't flip a switch", async ({ request }) => {
     const response = await request.post("/api/connectors/gmail/disconnect");
     expect(response.status()).toBe(415);
+  });
+
+  test("keys typed on the screen are saved to .env when Enter is pressed, and never shown again", async ({ page }) => {
+    // PostHog has no adapter, so nothing here reaches a real service.
+    await page.goto("/connectors/posthog");
+    const form = page.getByRole("form", { name: "PostHog settings" });
+
+    const key = form.getByRole("textbox", { name: /POSTHOG_API_KEY/ }).or(form.locator('input[name="POSTHOG_API_KEY"]'));
+    await expect(key).toHaveAttribute("type", "password");
+    await key.fill("phx_e2e_secret");
+    await form.locator('input[name="POSTHOG_HOST"]').fill("https://eu.posthog.com");
+    await key.press("Enter");
+
+    const steps = page.getByRole("list", { name: "Save & connect" });
+    await expect(steps.getByText("Save to .env")).toBeVisible();
+    await expect(steps.getByText(/no adapter/)).toBeVisible();
+
+    const env = fs.readFileSync(path.join(path.dirname(E2E_VAULT), ".env"), "utf8");
+    expect(env).toContain("POSTHOG_API_KEY=phx_e2e_secret");
+
+    // The key is gone from the page; the non-secret host is shown back.
+    await expect(key).toHaveValue("");
+    await expect(key).toHaveAttribute("placeholder", /Saved/);
+    await expect(form.locator('input[name="POSTHOG_HOST"]')).toHaveAttribute("placeholder", "https://eu.posthog.com");
+    expect(await page.content()).not.toContain("phx_e2e_secret");
+  });
+
+  test("lists Fish Audio, sharing Jarvis's voice switch", async ({ page }) => {
+    await page.goto("/connectors/fish");
+    await expect(page.getByRole("heading", { level: 1, name: "Fish Audio" })).toBeVisible();
+    await expect(page.getByText("Shared with Jarvis's voice switch: it's the same switch.")).toBeVisible();
+    await expect(page.locator('input[name="FISH_API_KEY"]')).toHaveAttribute("type", "password");
   });
 });

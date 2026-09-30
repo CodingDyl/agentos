@@ -133,5 +133,6 @@ export function formatWhen(iso: string | undefined, now = new Date()): string {
 export function switchNote(connector: Pick<ConnectorSummary, "enabledSource" | "name">): string | undefined {
   if (connector.enabledSource === "required") return `AgentOS runs on ${connector.name}; it can't be switched off.`;
   if (connector.enabledSource === "ai-stack") return "Shared with Operations → AI stack: it's the same switch.";
+  if (connector.enabledSource === "voice") return "Shared with Jarvis's voice switch: it's the same switch.";
   return undefined;
 }

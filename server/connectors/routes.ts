@@ -1,6 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
-import { ConnectorPatchSchema } from "../../shared/connector-types";
+import { ConnectorCredentialsSchema, ConnectorPatchSchema } from "../../shared/connector-types";
 import { findCapability } from "./catalog";
 import { decide } from "./policy";
 import {
@@ -9,6 +9,7 @@ import {
   disconnectConnector,
   getConnector,
   listConnectors,
+  saveCredentials,
   testConnector,
   updateConnector,
 } from "./registry";
@@ -135,5 +136,29 @@ connectorsRouter.post("/:id/disconnect", async (request, response) => {
     response.json(await disconnectConnector(request.params.id));
   } catch (error) {
     fail(response, error, "disconnect the connector");
+  }
+});
+
+/**
+ * Writes this connector's settings into `.env`, applies them, switches it on
+ * and tests it. Values go in and never come back out: the response is the
+ * steps and the connector, which carries names and done/not done only.
+ */
+connectorsRouter.post("/:id/credentials", async (request, response) => {
+  const parsed = ConnectorCredentialsSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Send { values: { NAME: value } } with upper-case variable names." });
+    return;
+  }
+  try {
+    response.json(await saveCredentials(request.params.id, parsed.data.values));
+  } catch (error) {
+    // Never pass the error through verbatim: it could, in principle, quote a value.
+    if (error instanceof ConnectorNotFoundError || error instanceof ConnectorRequestError) {
+      fail(response, error, "save the settings");
+      return;
+    }
+    console.error("[agentos] connectors: saving settings failed");
+    response.status(500).json({ error: "Unable to save the settings" });
   }
 });

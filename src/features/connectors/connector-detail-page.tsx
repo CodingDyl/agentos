@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Check, CircleDashed, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ConnectorCapability, ConnectorDetail } from "@shared/connector-types";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/agentos/connectors";
 import { cn } from "@/lib/utils";
 import { ConnectorIcon } from "./connector-icon";
+import { ConnectorSetupForm } from "./connector-setup-form";
 import {
   capabilityCounts,
   formatWhen,
@@ -30,8 +31,8 @@ import {
  * One connector: its account, its switch, every capability with its risk and
  * policy, what it was last used for, and how to set it up.
  *
- * Setup is shown by variable *name* and done/not done. No value, token or key
- * ever reaches this page — the server never sends one.
+ * Setup is a form (see `connector-setup-form.tsx`): keys go in, and never
+ * come back — the server only ever sends names and done/not done.
  */
 export function ConnectorDetailPage() {
   const navigationItems = useNavigationItems();
@@ -233,22 +234,7 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
       </PaperSection>
 
       <PaperSection label="Setup" className="mt-10">
-        <p className="max-w-[72ch] text-[13.5px] leading-6 text-paper-char">{connector.connectHint}</p>
-        {connector.setup.length > 0 ? (
-          <ul className="mt-3 space-y-1.5">
-            {connector.setup.map((item) => (
-              <li key={item.label} className="flex items-center gap-2 text-[13.5px] text-paper-moss">
-                {item.done ? (
-                  <Check className="size-4 shrink-0 text-paper-green" aria-hidden="true" />
-                ) : (
-                  <CircleDashed className="size-4 shrink-0 text-paper-ash" aria-hidden="true" />
-                )}
-                {item.kind === "env" ? <code className="rounded-none bg-paper-linen px-1 py-px font-mono text-[12px]">{item.label}</code> : item.label}
-                <span className="sr-only">{item.done ? "done" : "not done"}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <ConnectorSetupForm connector={connector} />
       </PaperSection>
     </article>
   );
