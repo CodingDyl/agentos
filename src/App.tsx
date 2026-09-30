@@ -10,6 +10,7 @@ import {
 } from "@/features/automations";
 import { ConnectorDetailPage, ConnectorsPage } from "@/features/connectors";
 import { MailPage } from "@/features/mail";
+import { OperatorPage } from "@/features/operator";
 import { TractionPage } from "@/features/traction";
 import { FinancePage } from "@/features/finance";
 import { MissionControlPage } from "@/features/mission-control";
@@ -59,6 +60,9 @@ function App() {
           {/* Projects are presented as workspaces. The vault still says
               `projects/`; the old URLs redirect with their query strings, so
               every saved `?tab=tasks&task=PP-031` link keeps working. */}
+          {/* One request in, one auditable run out. A run keeps its own URL. */}
+          <Route path="/operator" element={<OperatorPage />} />
+          <Route path="/operator/runs/:id" element={<OperatorPage />} />
           <Route path="/workspaces" element={<WorkspacesPage />} />
           <Route path="/workspaces/:slug" element={<WorkspacePage />} />
           <Route path="/projects" element={<Redirect to="/workspaces" />} />

@@ -62,6 +62,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     capabilities: [
       { action: "read_vault", name: "Read the vault", risk: "read", implementedBy: "server/agentos/filesystem.ts" },
       { action: "write_project_files", name: "Write tasks, decisions and project files", risk: "write-local", implementedBy: "server/agentos/mutations/writer.ts" },
+      { action: "create_directory", name: "Create project folders outside the vault", risk: "write-local" },
       { action: "delete_files", name: "Delete files", risk: "destructive" },
     ],
   },
@@ -75,6 +76,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     integrated: true,
     capabilities: [
       { action: "read_status", name: "Read branches and working tree", risk: "read", implementedBy: "server/agentos/git.ts" },
+      { action: "init", name: "Initialise repositories", risk: "write-local" },
       { action: "create_branch", name: "Create branches", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
       { action: "switch_branch", name: "Switch branches", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
       { action: "commit", name: "Commit", risk: "write-local", implementedBy: "server/agentos/repository.ts" },

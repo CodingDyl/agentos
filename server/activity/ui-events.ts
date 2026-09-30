@@ -323,6 +323,33 @@ export const EVENT_TYPES = {
     level: "success",
     title: "Validation passed after integration",
   },
+  // Operator runs: one request, planned and executed. The description names
+  // the request; the run page has the rest.
+  "operator.started": {
+    source: "agentos",
+    level: "info",
+    title: "Operator run started",
+  },
+  "operator.completed": {
+    source: "agentos",
+    level: "success",
+    title: "Operator run completed",
+  },
+  "operator.blocked": {
+    source: "agentos",
+    level: "warning",
+    title: "Operator run finished with steps it could not run",
+  },
+  "operator.failed": {
+    source: "agentos",
+    level: "error",
+    title: "Operator run failed",
+  },
+  "operator.stopped": {
+    source: "user",
+    level: "warning",
+    title: "Operator run stopped",
+  },
   "worker.integration.failed": {
     source: "agentos",
     level: "error",

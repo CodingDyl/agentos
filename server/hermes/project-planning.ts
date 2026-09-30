@@ -168,12 +168,17 @@ export class PlanningUnavailableError extends Error {
  * screen can act on — offering manual creation with the brief pre-filled —
  * rather than presenting a guess as a plan.
  */
-export async function planProject(brief: string): Promise<ProjectPlan> {
+export async function planProject(
+  brief: string,
+  options: { signal?: AbortSignal; runId?: string } = {},
+): Promise<ProjectPlan> {
   let reply: string;
 
   try {
     reply = await sendToHermes(`${PLANNING_SKILL}\n\n${buildPlanningPacket(brief)}`, {
       operation: "planning",
+      signal: options.signal,
+      runId: options.runId,
     });
   } catch (error) {
     const reason =
