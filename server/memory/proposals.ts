@@ -187,7 +187,8 @@ export async function precheckDecision(service: MemoryService, decision: MemoryD
 }
 
 function decisionBody(proposal: MemoryProposal): string {
-  return `${proposal.body.trim()}\n\nSource: ${proposal.sourceTask}${proposal.sourceRun ? ` (run ${proposal.sourceRun})` : ""}`;
+  const source = proposal.sourceTask ?? proposal.sourceUrl ?? proposal.sourceLearning;
+  return source ? `${proposal.body.trim()}\n\nSource: ${source}${proposal.sourceRun ? ` (run ${proposal.sourceRun})` : ""}` : proposal.body.trim();
 }
 
 /** Carries out one person's choice about one proposal. Never throws; reports. */
@@ -253,6 +254,8 @@ export async function applyDecision(
       sourceTask: proposal.sourceTask,
       sourceRun: proposal.sourceRun,
       sourceArtifact: proposal.sourceArtifact,
+      sourceLearning: proposal.sourceLearning,
+      sourceUrl: proposal.sourceUrl,
       approvedBy: approver,
     };
     const request = { folder, title: proposal.title, body: proposal.body, tags: [proposal.type], type: proposal.type };
@@ -263,8 +266,9 @@ export async function applyDecision(
     } catch (error) {
       // The person chose "create new" over a note with the very same name:
       // keep both, the new one named for the task it came from.
-      if (error instanceof CreateNoteError && error.status === 409 && noteFileName(`${proposal.title} (${proposal.sourceTask})`)) {
-        const created = await createMemoryNote(service, { ...request, title: `${proposal.title} (${proposal.sourceTask})` }, provenance);
+      const suffix = proposal.sourceTask ?? new Date().toISOString().slice(0, 10);
+      if (error instanceof CreateNoteError && error.status === 409 && noteFileName(`${proposal.title} (${suffix})`)) {
+        const created = await createMemoryNote(service, { ...request, title: `${proposal.title} (${suffix})` }, provenance);
         return { ...base, outcome: "created", target: created.id };
       }
       throw error;

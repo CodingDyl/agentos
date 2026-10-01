@@ -214,6 +214,7 @@ import { proposeCompletion } from "./agentos/task-completion";
 import { CloseoutError, completeTaskWithCloseout, draftCloseout } from "./tasks/closeout";
 import { CompleteTaskRequestSchema } from "../shared/task-closeout-types";
 import { frictionRouter } from "./friction/routes";
+import { learningRouter, spotifyRouter } from "./learning/routes";
 import { readTaskLink } from "./agentos/task-jobs";
 import { prepareMilestoneDelegation, startMilestoneDelegation } from "./agentos/milestone-delegation";
 import {
@@ -367,6 +368,8 @@ app.use("/api/voice", voiceRouter);
 /** Memory: the Obsidian vault, indexed — notes, links, graph, and task context. Read-only. */
 app.use("/api/memory", memoryRouter);
 app.use("/api/friction", frictionRouter);
+app.use("/api/learning", learningRouter);
+app.use("/api/spotify", spotifyRouter);
 
 /** Grok Bot: its switch, SSD workspace path and connection test. Disk access stays server-side. */
 app.use("/api/workers/grok-bot", grokBotRouter);

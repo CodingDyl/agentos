@@ -13,6 +13,7 @@ import { listVaultDocuments, safeMatter } from "./documents";
 import { readOptionalFile } from "./filesystem";
 import { readTasks } from "./mutations/tasks";
 import { getProjects } from "./projects";
+import { listNotes as listLearningNotes, searchHits as learningSearchHits } from "../learning/notes";
 
 /**
  * Global search: one query, every kind of thing AgentOS knows about.
@@ -35,6 +36,7 @@ const GROUP_ORDER: readonly SearchHitKind[] = [
   "task",
   "decision",
   "document",
+  "learning",
   "design",
   "job",
   "session",
@@ -205,7 +207,16 @@ async function gather(): Promise<Record<SearchHitKind, SearchHit[]>> {
     href: session.project ? `/agent?project=${encodeURIComponent(session.project)}` : "/agent",
   }));
 
+  // Learnings live in their own store; a broken store loses only them.
+  let learningHits: SearchHit[] = [];
+  try {
+    learningHits = learningSearchHits(listLearningNotes());
+  } catch (error) {
+    console.error("[search] learning notes could not be read:", error);
+  }
+
   return {
+    learning: learningHits,
     project: projectHits,
     milestone: perProject.flatMap((entry) => entry.milestoneHits),
     task: perProject.flatMap((entry) => entry.taskHits),

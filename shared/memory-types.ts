@@ -278,6 +278,10 @@ export interface MemoryProvenance {
   archivedBy?: string;
   /** The person who saved an agent's proposal. */
   approvedBy?: string;
+  /** The learning note a memory was promoted from. */
+  sourceLearning?: string;
+  /** The video, track or page it was learned from, at the moment captured. */
+  sourceUrl?: string;
 }
 
 /** The front matter keys AgentOS owns. Every other key is the person's. */
@@ -294,6 +298,8 @@ export const PROVENANCE_KEYS = [
   "archivedAt",
   "archivedBy",
   "approvedBy",
+  "sourceLearning",
+  "sourceUrl",
 ] as const satisfies ReadonlyArray<keyof MemoryProvenance>;
 
 export function readProvenance(frontmatter: Record<string, unknown>): MemoryProvenance {

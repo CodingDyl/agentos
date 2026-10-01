@@ -2,6 +2,7 @@ import type { KnowledgeItem, KnowledgeResponse, ProjectArtifact, ProjectSummary 
 import { getProjectDocuments } from "./documents";
 import { fileModifiedAt, readOptionalFile } from "./filesystem";
 import { parseProjectDecisions } from "./projects";
+import { knowledgeItems as learningKnowledgeItems, listNotes as listLearningNotes } from "../learning/notes";
 
 /**
  * Knowledge: every document and decision across every workspace, in one list.
@@ -84,8 +85,14 @@ export async function getKnowledge(projects: readonly ProjectSummary[]): Promise
     }),
   );
 
-  const items = perProject
-    .flat()
+  let learnings: KnowledgeItem[] = [];
+  try {
+    learnings = learningKnowledgeItems(listLearningNotes(), projects);
+  } catch (error) {
+    console.error("[knowledge] learning notes could not be read:", error);
+  }
+
+  const items = [...perProject.flat(), ...learnings]
     .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "") || a.title.localeCompare(b.title));
 
   return { generatedAt: new Date().toISOString(), items, unavailable };

@@ -132,6 +132,8 @@ export async function createMemoryNote(
     sourceTask: provenance.sourceTask,
     sourceRun: provenance.sourceRun,
     sourceArtifact: provenance.sourceArtifact,
+    sourceLearning: provenance.sourceLearning,
+    sourceUrl: provenance.sourceUrl,
     approvedBy: provenance.approvedBy,
   });
   try {

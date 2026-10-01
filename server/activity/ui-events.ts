@@ -284,6 +284,26 @@ export const EVENT_TYPES = {
     level: "info",
     title: "Project status updated",
   },
+  "learning.source_saved": {
+    source: "user",
+    level: "info",
+    title: "Saved to Learning",
+  },
+  "learning.captured": {
+    source: "user",
+    level: "success",
+    title: "Learning captured",
+  },
+  "learning.notebook_linked": {
+    source: "user",
+    level: "info",
+    title: "Research notebook linked",
+  },
+  "learning.spotify_connected": {
+    source: "user",
+    level: "success",
+    title: "Spotify connected",
+  },
   "friction.reported": {
     source: "user",
     level: "info",

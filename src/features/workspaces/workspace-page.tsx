@@ -43,6 +43,7 @@ import { stateLabel } from "@/features/projects/projects-model";
 import { HEALTH_LABELS } from "@/features/projects/roadmap-model";
 import { DecisionsEditor, ProjectSettings, SourceViewer, TaskBoard, useWorkspaceFeedback } from "@/features/workspace";
 import { useArchiveProject, useProject, useProjects } from "@/lib/agentos/queries";
+import { useFocusSession } from "@/features/learning/focus-session-context";
 import { cn } from "@/lib/utils";
 import { ClientsBlock, WorkspaceOverview } from "./workspace-overview";
 import { recordRecentWorkspace, sidebarWorkspaces, usePinnedWorkspaces } from "./workspace-preferences";
@@ -139,10 +140,14 @@ export function WorkspacePage() {
   );
 
   // Hands off to the agent console with this workspace in context. The console
-  // prepares the command; the operator still chooses to run it.
+  // prepares the command; the operator still chooses to run it. A focus
+  // session (a timer, optional music) starts beside it in the shell.
+  const focus = useFocusSession();
+  const projectName = project?.name;
   const startFocus = useCallback(() => {
+    focus?.start({ project: slug, projectName });
     navigate(`/agent?project=${encodeURIComponent(slug)}&run=${encodeURIComponent(`/work-on ${slug}`)}`);
-  }, [navigate, slug]);
+  }, [focus, navigate, projectName, slug]);
 
   const askHermes = useCallback(() => {
     navigate(`/agent?project=${encodeURIComponent(slug)}`);
