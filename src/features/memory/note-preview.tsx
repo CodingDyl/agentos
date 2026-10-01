@@ -1,6 +1,6 @@
 import { Marked, type Token } from "marked";
 import { CircleAlert, CircleDashed, Paperclip, Split, X } from "lucide-react";
-import type { ReactNode, UIEvent } from "react";
+import { useState, type ReactNode, type UIEvent } from "react";
 import { memoryMarkdownExtensions, type WikiLinkToken } from "@shared/memory-markdown";
 import type { MemoryLink, MemoryNoteDetail } from "@shared/memory-types";
 import { Markdown, type InlineOverride } from "@/components/os/markdown";
@@ -8,6 +8,8 @@ import { PAPER_FOCUS, PaperError } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { withAlpha } from "./memory-model";
+import { NoteEditor } from "./note-editor";
+import { NoteHistory, NoteProvenance, NoteToolbar } from "./note-lifecycle";
 
 /**
  * One note, as it reads — and everything it touches.
@@ -87,6 +89,10 @@ export function NotePreview({
   accent?: string;
   className?: string;
 }) {
+  // Editing is per note: opening another note leaves the editor.
+  const [editingId, setEditingId] = useState<string>();
+  const editing = note !== undefined && editingId === note.id;
+
   // Feeds the header's scroll parallax: one custom property, set as it scrolls.
   const onScroll = (event: UIEvent<HTMLDivElement>) => {
     const target = event.currentTarget;
@@ -203,6 +209,11 @@ export function NotePreview({
             </div>
           </header>
 
+          <NoteToolbar note={note} onEdit={() => setEditingId(note.id)} />
+
+          {editing ? (
+            <NoteEditor key={note.revision} note={note} onDone={() => setEditingId(undefined)} />
+          ) : (
           <div className="memory-layer" data-depth="3">
             {note.stale || note.errors.length > 0 ? (
               <div className="space-y-1.5 border-b border-paper-mist px-6 py-3 text-[12.5px]">
@@ -228,6 +239,7 @@ export function NotePreview({
               {note.truncated ? <p className="mt-4 text-[13px] text-paper-sage">The note is long; only the first 256 KB is shown.</p> : null}
             </div>
           </div>
+          )}
 
           <div className="memory-layer pb-6" data-depth="4">
         <LinkSection title="Backlinks" count={note.backlinks.length} empty="Nothing links here yet.">
@@ -290,6 +302,9 @@ export function NotePreview({
             ))}
           </LinkSection>
         ) : null}
+
+        <NoteProvenance provenance={note.provenance} />
+        <NoteHistory noteId={note.id} />
           </div>
         </div>
       </div>

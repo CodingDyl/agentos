@@ -40,6 +40,8 @@ export interface ActionContext {
   recent?: readonly string[];
   navigate: (to: string) => void;
   quickCreate: (kind: QuickCreateTarget, project?: string) => void;
+  /** Opens the friction report for the screen on show. Absent, the action is not offered. */
+  reportFriction?: () => void;
 }
 
 const SCREENS: readonly { label: string; href: string; hint: string; keywords: string[] }[] = [
@@ -52,6 +54,7 @@ const SCREENS: readonly { label: string; href: string; hint: string; keywords: s
   { label: "Automations", href: "/automations", hint: "Scheduled runs", keywords: ["cron", "schedule"] },
   { label: "Connectors", href: "/connectors", hint: "Services and capabilities", keywords: ["integrations", "github", "vercel", "permissions", "capabilities"] },
   { label: "Activity", href: "/activity", hint: "Timeline", keywords: ["history", "log"] },
+  { label: "Friction", href: "/operations?tab=friction", hint: "What to fix first", keywords: ["feedback", "annoyances", "papercuts", "review"] },
   { label: "Agents", href: "/workers", hint: "Workers and their jobs", keywords: ["jobs", "grok", "claude", "workers", "cancel"] },
   { label: "Hermes console", href: "/agent", hint: "Operations · agents", keywords: ["agent", "chat", "console"] },
 ];
@@ -102,6 +105,18 @@ export function buildActions(context: ActionContext): PaletteAction[] {
       run: () => navigate(project ? `/workspaces/${project}?tab=tasks&delegate=1` : "/workspaces"),
     },
     { id: "work:ask", group: "Work", label: "Ask Hermes", hint: inContext ? `Console${scope}` : "Console", keywords: ["chat", "console", "message", "agent"], run: () => navigate(`/agent${projectQuery}`) },
+    ...(context.reportFriction
+      ? [
+          {
+            id: "work:friction",
+            group: "Work" as const,
+            label: "Report friction",
+            hint: "Something in AgentOS annoyed you",
+            keywords: ["feedback", "annoying", "annoyed", "bug", "papercut", "complain", "friction"],
+            run: context.reportFriction,
+          },
+        ]
+      : []),
   ];
 
   const screens: PaletteAction[] = SCREENS.map((screen) => ({

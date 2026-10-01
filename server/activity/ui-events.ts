@@ -248,6 +248,52 @@ export const EVENT_TYPES = {
     level: "success",
     title: "Note added to memory",
   },
+  "memory.note_edited": {
+    source: "user",
+    level: "info",
+    title: "Memory edited",
+  },
+  "memory.note_archived": {
+    source: "user",
+    level: "info",
+    title: "Memory archived",
+  },
+  "memory.note_restored": {
+    source: "user",
+    level: "success",
+    title: "Memory restored",
+  },
+  "memory.edit_undone": {
+    source: "user",
+    level: "warning",
+    title: "Memory edit undone",
+  },
+  // Agents propose; a person saves. Filed under the person for that reason.
+  "memory.proposal_saved": {
+    source: "user",
+    level: "success",
+    title: "Proposed memory saved",
+  },
+  "memory.proposal_dismissed": {
+    source: "user",
+    level: "info",
+    title: "Proposed memory dismissed",
+  },
+  "status.updated": {
+    source: "user",
+    level: "info",
+    title: "Project status updated",
+  },
+  "friction.reported": {
+    source: "user",
+    level: "info",
+    title: "Friction reported",
+  },
+  "friction.updated": {
+    source: "user",
+    level: "info",
+    title: "Friction item updated",
+  },
   "document.saved": {
     source: "user",
     level: "info",

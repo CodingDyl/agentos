@@ -1,5 +1,5 @@
 import type { MemoryContext, MemoryContextSource } from "../../shared/memory-types";
-import type { NoteRecord } from "./index";
+import { isArchived, type NoteRecord } from "./index";
 import { queryTerms, scoreNote, sections, textScore, type Section } from "./search";
 import type { MemoryService } from "./service";
 
@@ -168,7 +168,9 @@ export async function retrieveMemoryContext(
   );
 
   const candidates = [...index.notes.values()]
-    .filter((note) => !alreadyIn.has(note.id))
+    // Archived memory is kept for a person to find and restore, not handed
+    // to agents as if it were still true.
+    .filter((note) => !alreadyIn.has(note.id) && !isArchived(note))
     .map((note) => {
       let { score } = scoreNote(note, terms, phrase);
       if (score <= 0) return { note, score: 0 };

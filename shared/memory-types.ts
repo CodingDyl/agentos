@@ -78,6 +78,10 @@ export interface MemoryNoteSummary {
   outgoingCount: number;
   backlinkCount: number;
   hasErrors: boolean;
+  /** From `type:` front matter, when it is one of the memory types. */
+  memoryType?: MemoryType;
+  /** Archived notes stay in the vault and are left out of agent context. */
+  archived: boolean;
 }
 
 export interface MemoryBacklink {
@@ -90,6 +94,9 @@ export interface MemoryBacklink {
 
 export interface MemoryNoteDetail extends MemoryNoteSummary {
   hash: string;
+  /** What an edit must be composed against. */
+  revision: string;
+  provenance: MemoryProvenance;
   headings: MemoryHeading[];
   frontmatter: Record<string, unknown>;
   links: MemoryLink[];
@@ -113,7 +120,7 @@ export interface MemoryNotesPage {
 
 /** The file tree: every note's path and title. */
 export interface MemoryTree {
-  notes: Array<{ id: string; title: string }>;
+  notes: Array<{ id: string; title: string; archived?: boolean }>;
   total: number;
   vaultTotal: number;
   /** Notes past the response cap, said out loud. */
@@ -212,3 +219,166 @@ export const MemoryContextSchema = z.object({
 export type MemoryContextSource = z.infer<typeof MemoryContextSourceSchema>;
 export type MemoryContextStatus = z.infer<typeof MemoryContextStatusSchema>;
 export type MemoryContext = z.infer<typeof MemoryContextSchema>;
+
+/**
+ * What kind of knowledge a note holds. Read from the note's `type:` front
+ * matter; a value outside this list is the vault's own business and is left
+ * alone, so a hand-written `type: project` is not mistaken for memory.
+ */
+export const MEMORY_TYPES = [
+  "fact",
+  "decision",
+  "preference",
+  "pattern",
+  "lesson",
+  "constraint",
+  "business-rule",
+  "status",
+] as const;
+
+export type MemoryType = (typeof MEMORY_TYPES)[number];
+
+export const MemoryTypeSchema = z.enum(MEMORY_TYPES);
+
+export const MEMORY_TYPE_LABELS: Record<MemoryType, string> = {
+  fact: "Fact",
+  decision: "Decision",
+  preference: "Preference",
+  pattern: "Pattern",
+  lesson: "Lesson",
+  constraint: "Constraint",
+  "business-rule": "Business rule",
+  status: "Status",
+};
+
+export function isMemoryType(value: unknown): value is MemoryType {
+  return typeof value === "string" && (MEMORY_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Where a note came from and who has touched it since.
+ *
+ * Kept in the note's own front matter as flat keys (`createdBy`, `sourceTask`
+ * …) so it travels with the file — through Obsidian, git, a copy to another
+ * machine — and is never lost to a cache being cleared. Anything absent was
+ * simply not recorded, which is said as such rather than guessed.
+ */
+export interface MemoryProvenance {
+  createdBy?: string;
+  createdAt?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+  sourceProject?: string;
+  sourceTask?: string;
+  sourceRun?: string;
+  sourceArtifact?: string;
+  /** The most recent task that updated this note, when it was not the source. */
+  lastSourceTask?: string;
+  archivedAt?: string;
+  archivedBy?: string;
+  /** The person who saved an agent's proposal. */
+  approvedBy?: string;
+}
+
+/** The front matter keys AgentOS owns. Every other key is the person's. */
+export const PROVENANCE_KEYS = [
+  "createdBy",
+  "createdAt",
+  "updatedBy",
+  "updatedAt",
+  "sourceProject",
+  "sourceTask",
+  "sourceRun",
+  "sourceArtifact",
+  "lastSourceTask",
+  "archivedAt",
+  "archivedBy",
+  "approvedBy",
+] as const satisfies ReadonlyArray<keyof MemoryProvenance>;
+
+export function readProvenance(frontmatter: Record<string, unknown>): MemoryProvenance {
+  const out: MemoryProvenance = {};
+  for (const key of PROVENANCE_KEYS) {
+    const value = frontmatter[key];
+    if (typeof value === "string" && value.trim()) out[key] = value.trim();
+    else if (typeof value === "number") out[key] = String(value);
+  }
+  return out;
+}
+
+/** A note is archived when its front matter says `archived: true`. */
+export function isArchivedFrontmatter(frontmatter: Record<string, unknown>): boolean {
+  const value = frontmatter.archived;
+  return value === true || value === "true" || value === "yes";
+}
+
+/** The revision of a note as the index read it — the same value the writer checks. */
+export function noteRevision(hash: string): string {
+  return `sha256:${hash.slice(0, 32)}`;
+}
+
+export type MemoryHistoryAction = "create" | "edit" | "archive" | "restore" | "undo" | "update-from-task";
+
+/** One change AgentOS made to a note, newest first when listed. */
+export interface MemoryHistoryEntry {
+  id: string;
+  noteId: string;
+  at: string;
+  by: string;
+  action: MemoryHistoryAction;
+  /** One line on what changed: "type fact → pattern", "body edited". */
+  summary: string;
+  revisionBefore?: string;
+  revisionAfter: string;
+  /** The backup holding the contents before this change. Absent for a create. */
+  backupId?: string;
+  /** Set once this change has itself been undone. */
+  undoneAt?: string;
+  /** The task behind a change made at closeout. */
+  sourceTask?: string;
+}
+
+export interface MemoryHistoryResponse {
+  entries: MemoryHistoryEntry[];
+  /** The entry an undo would revert right now, if any. */
+  undoable?: string;
+}
+
+/** A person's edit to one note. Provenance is never accepted from the browser. */
+export interface EditMemoryNoteRequest {
+  id: string;
+  expectedRevision: string;
+  /** The whole note body, without front matter. */
+  body?: string;
+  /** `null` clears the type. */
+  type?: MemoryType | null;
+  tags?: string[];
+}
+
+export interface MemoryMutationResponse {
+  id: string;
+  revision: string;
+  historyId: string;
+}
+
+/** A 409, with what is on disk now so the screen can show it. */
+export interface MemoryConflictResponse {
+  error: string;
+  code: "revision_conflict";
+  currentRevision: string;
+}
+
+/** An existing note that a new memory may be repeating. */
+export interface MemoryDuplicateMatch {
+  id: string;
+  title: string;
+  type?: MemoryType;
+  createdAt?: string;
+  archived: boolean;
+  /** 0–1, word overlap — not meaning. */
+  score: number;
+  revision: string;
+  excerpt: string;
+  /** `decision` matches live in DECISIONS.md rather than in a note. */
+  kind: "note" | "decision";
+}

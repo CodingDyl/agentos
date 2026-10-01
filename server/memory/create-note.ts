@@ -8,7 +8,10 @@ import {
   type CreateMemoryNoteRequest,
   type CreateMemoryNoteResponse,
 } from "../../shared/memory-paths";
+import { isMemoryType, type MemoryProvenance } from "../../shared/memory-types";
 import { isExcluded, probeVault } from "./config";
+import { patchFrontmatter } from "./frontmatter";
+import { recordCreation } from "./mutations";
 import type { MemoryService } from "./service";
 
 /**
@@ -50,7 +53,16 @@ async function containedAncestor(realRoot: string, target: string): Promise<stri
   }
 }
 
-export async function createMemoryNote(service: MemoryService, request: CreateMemoryNoteRequest): Promise<CreateMemoryNoteResponse> {
+/**
+ * `provenance` is the server's to supply — the HTTP route passes a person,
+ * task closeout passes the agent that proposed it and the task it came from.
+ * Nothing in the request body can set it.
+ */
+export async function createMemoryNote(
+  service: MemoryService,
+  request: CreateMemoryNoteRequest,
+  provenance: MemoryProvenance = { createdBy: "human" },
+): Promise<CreateMemoryNoteResponse> {
   // Validate everything before touching the disk.
   const folder = checkFolder(typeof request.folder === "string" ? request.folder : "");
   if (!folder.ok) throw new CreateNoteError(folder.reason, 400);
@@ -69,6 +81,11 @@ export async function createMemoryNote(service: MemoryService, request: CreateMe
     (tag): tag is string => Boolean(tag),
   );
   if (tags.length > MAX_TAGS) throw new CreateNoteError(`A note can have at most ${MAX_TAGS} tags.`, 400);
+
+  if (request.type !== undefined && request.type !== "" && !isMemoryType(request.type)) {
+    throw new CreateNoteError("That is not a memory type.", 400);
+  }
+  const type = isMemoryType(request.type) ? request.type : undefined;
 
   const links = [...new Set((request.links ?? []).filter((id): id is string => typeof id === "string"))];
   if (links.length > MAX_LINKS) throw new CreateNoteError(`A note can link to at most ${MAX_LINKS} notes here; add more in Obsidian.`, 400);
@@ -107,7 +124,16 @@ export async function createMemoryNote(service: MemoryService, request: CreateMe
   // Checked again now the folders exist, in case one was a symlink made meanwhile.
   if (!(await containedAncestor(realRoot, directory))) throw new CreateNoteError("That folder leads outside the vault.", 400);
 
-  const contents = composeNote({ title, body, tags, links, allIds: [...service.index.notes.keys()] });
+  const contents = patchFrontmatter(composeNote({ title, body, tags, links, allIds: [...service.index.notes.keys()] }), {
+    type,
+    createdBy: provenance.createdBy ?? "human",
+    createdAt: provenance.createdAt ?? new Date().toISOString(),
+    sourceProject: provenance.sourceProject,
+    sourceTask: provenance.sourceTask,
+    sourceRun: provenance.sourceRun,
+    sourceArtifact: provenance.sourceArtifact,
+    approvedBy: provenance.approvedBy,
+  });
   try {
     await fs.writeFile(target, contents, { encoding: "utf8", flag: "wx" });
   } catch (error) {
@@ -116,6 +142,10 @@ export async function createMemoryNote(service: MemoryService, request: CreateMe
     }
     throw error;
   }
+
+  await recordCreation(id, contents, provenance.approvedBy ?? provenance.createdBy ?? "human", provenance.sourceTask).catch((error) => {
+    console.error("[memory] could not record the note's creation:", error);
+  });
 
   // Indexed before answering, so the tree, graph and note open at once.
   await service.reindex(new Set([id]));

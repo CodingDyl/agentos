@@ -32,8 +32,8 @@ export function agentOSRoot(): string {
 }
 
 /** Resolves a vault-relative path, refusing anything that escapes the root. */
-function resolveWithinRoot(relativePath: string): string {
-  const root = path.resolve(agentOSRoot());
+function resolveWithinRoot(relativePath: string, base = agentOSRoot()): string {
+  const root = path.resolve(base);
   const fullPath = path.resolve(root, relativePath);
 
   if (fullPath !== root && !fullPath.startsWith(root + path.sep)) {
@@ -44,8 +44,8 @@ function resolveWithinRoot(relativePath: string): string {
 }
 
 /** Reads a vault file as UTF-8. Throws if it is missing — see `readOptionalFile`. */
-export async function readAgentOSFile(relativePath: string): Promise<string> {
-  return fs.readFile(resolveWithinRoot(relativePath), "utf8");
+export async function readAgentOSFile(relativePath: string, root?: string): Promise<string> {
+  return fs.readFile(resolveWithinRoot(relativePath, root), "utf8");
 }
 
 /**
@@ -57,9 +57,10 @@ export async function readAgentOSFile(relativePath: string): Promise<string> {
  */
 export async function readOptionalFile(
   relativePath: string,
+  root?: string,
 ): Promise<string | undefined> {
   try {
-    return await readAgentOSFile(relativePath);
+    return await readAgentOSFile(relativePath, root);
   } catch (error) {
     if (isMissingEntry(error)) return undefined;
     throw error;
@@ -156,8 +157,8 @@ function isMissingEntry(error: unknown): boolean {
  * rather than "unplugged". Any code that creates folders in the vault calls
  * this first.
  */
-export async function assertVaultRootPresent(): Promise<void> {
-  const root = path.resolve(agentOSRoot());
+export async function assertVaultRootPresent(base = agentOSRoot()): Promise<void> {
+  const root = path.resolve(base);
   try {
     const stats = await fs.stat(root);
     if (stats.isDirectory()) return;
@@ -181,11 +182,12 @@ export async function assertVaultRootPresent(): Promise<void> {
 export async function writeAgentOSFile(
   relativePath: string,
   contents: string,
+  root?: string,
 ): Promise<void> {
-  const target = resolveWithinRoot(relativePath);
+  const target = resolveWithinRoot(relativePath, root);
   const temporary = `${target}.${process.pid}.tmp`;
 
-  await assertVaultRootPresent();
+  await assertVaultRootPresent(root);
   // A brief may be the first thing a project puts in `design/`.
   await fs.mkdir(path.dirname(target), { recursive: true });
 

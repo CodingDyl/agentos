@@ -17,6 +17,7 @@ import {
   type CommandPaletteControls,
 } from "./command-palette-context";
 import { CommandPalette } from "./command-palette";
+import { ReportFrictionDialog } from "./report-friction-dialog";
 
 /**
  * Makes the command palette available on every screen.
@@ -32,6 +33,8 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   // Skills are read from Hermes, so they are not fetched until the palette is
   // actually wanted. Opening a screen still costs no Hermes request.
   const [hasOpened, setHasOpened] = useState(false);
+  // The route friction was reported from, captured when the form opens.
+  const [frictionRoute, setFrictionRoute] = useState<string>();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -99,9 +102,12 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         recent: readRecentWorkspaces(),
         navigate: (to) => void navigate(to),
         quickCreate: (kind, forProject) => quickCreate.open(kind, { project: forProject }),
+        reportFriction: () => setFrictionRoute(`${location.pathname}${location.search}`),
       }),
-    [navigate, project, projectsData, quickCreate],
+    [location.pathname, location.search, navigate, project, projectsData, quickCreate],
   );
+
+  const closeFriction = useCallback(() => setFrictionRoute(undefined), []);
 
   const openHit = useCallback((hit: SearchHit) => void navigate(hit.href), [navigate]);
 
@@ -126,6 +132,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
           onOpenHit={openHit}
         />
       ) : null}
+      {frictionRoute !== undefined ? <ReportFrictionDialog route={frictionRoute} onClose={closeFriction} /> : null}
     </CommandPaletteContext.Provider>
   );
 }

@@ -15,7 +15,6 @@ import {
   StatusPill,
 } from "@/components/os";
 import {
-  useCompleteTask,
   useExecutionOptions,
   useProjectDocuments,
   usePrepareTaskDelegation,
@@ -33,6 +32,7 @@ import { visualAcceptanceProblem } from "@/features/workers/workers-model";
 import { cn } from "@/lib/utils";
 import { ContextPicker } from "./context-picker";
 import { DocumentList } from "./document-list";
+import { TaskCloseoutPanel } from "./task-closeout-panel";
 import { taskJobState } from "./task-job-state";
 
 /**
@@ -97,7 +97,6 @@ export function TaskPanel({
   const prepare = usePrepareTaskDelegation(project);
   const recheck = useRouteTaskDelegation(project);
   const start = useStartTaskDelegation(project);
-  const complete = useCompleteTask(project);
   const executionOptions = useExecutionOptions();
 
   const [plan, setPlan] = useState<DelegationPlan>();
@@ -257,9 +256,7 @@ export function TaskPanel({
         ? recheck.error.message
       : start.error instanceof Error
         ? start.error.message
-        : complete.error instanceof Error
-          ? complete.error.message
-          : undefined;
+        : undefined;
 
   const proposal = completion.data?.proposal;
 
@@ -318,37 +315,16 @@ export function TaskPanel({
               the repository. Shown as the exact line that would change. */}
           {proposal ? (
             <div className="mt-5 border-t border-os-border pt-4">
-              <SectionLabel>Ready to close</SectionLabel>
+              <SectionLabel>{proposal.ready ? "Ready to close" : "Closeout"}</SectionLabel>
 
-              {proposal.ready ? (
-                <>
-                  <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-muted">
-                    The implementation is integrated. This would change one line
-                    in TASKS.md:
-                  </p>
-                  <div className="mt-3 space-y-1 font-mono text-[12px] leading-5">
-                    <p className="text-os-subtle line-through">{proposal.before}</p>
-                    <p className="text-os-success">{proposal.after}</p>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <CommandButton
-                      variant="primary"
-                      onClick={() => complete.mutate(task.id as string)}
-                      loading={complete.isPending}
-                      loadingLabel="Updating"
-                    >
-                      Mark complete
-                    </CommandButton>
-                    <span className="os-meta self-center text-os-subtle">
-                      or leave it open
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <p className="mt-2 max-w-[62ch] text-[13px] leading-5 text-os-subtle">
-                  {proposal.blockedReason}
-                </p>
-              )}
+              {/* The panel owns every state: the form while it can close, the
+                  record once it has, and the reason when it cannot yet. */}
+              <TaskCloseoutPanel
+                project={project}
+                taskId={task.id}
+                enabled
+                line={proposal.ready ? { before: proposal.before, after: proposal.after } : undefined}
+              />
             </div>
           ) : null}
         </div>
