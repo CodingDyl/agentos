@@ -64,6 +64,8 @@ export interface CreateMemoryNoteRequest {
   tags?: string[];
   /** Note ids to link to from a "Related" section. */
   links?: string[];
+  /** One of the memory types; written as `type:` front matter. */
+  type?: string;
 }
 
 export interface CreateMemoryNoteResponse {

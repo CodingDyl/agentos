@@ -42,6 +42,23 @@ const ARTIFACT_INSTRUCTIONS = [
   "Do not create documents for ordinary progress updates.",
 ].join("\n");
 
+/**
+ * How a worker proposes memory. Proposals only: a person reviews each one at
+ * closeout, and nothing is saved unless they keep it. The fixed line shape is
+ * read without a model, like the artifact lines above.
+ */
+const MEMORY_INSTRUCTIONS = [
+  "If this work established something worth remembering beyond this task, you",
+  "may propose it at the end of your closing summary, one line each (at most a",
+  "few), exactly in this form:",
+  "Remember: <pattern|lesson|decision|constraint|business-rule|fact> | <Title> | <one or two sentences>",
+  "Propose only reusable patterns, lessons learned, durable decisions,",
+  "constraints, business rules or important project facts. Never routine",
+  "implementation details or temporary debugging findings.",
+  "If the project's current status should change, add one line:",
+  "Status update: <where the project now stands and what is next>",
+].join("\n");
+
 function section(heading: string, body: string | undefined): string | undefined {
   return body && body.trim().length > 0 ? `${heading}\n${body.trim()}` : undefined;
 }
@@ -108,6 +125,7 @@ export function buildContextPacket(job: WorkerJob): string {
     section("\nAcceptance:", list(job.acceptanceCriteria)),
     section("\nValidation:", (job.validationCommands ?? []).join("\n")),
     section("\nDocuments:", ARTIFACT_INSTRUCTIONS),
+    section("\nMemory:", MEMORY_INSTRUCTIONS),
   ]
     .filter((part): part is string => part !== undefined)
     .join("\n");

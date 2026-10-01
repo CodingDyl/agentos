@@ -107,3 +107,19 @@ describe("searchActions", () => {
     assert.equal(searchActions(actions, "zzz").length, 0);
   });
 });
+
+describe("report friction", () => {
+  it("is offered under Work when the shell can open the form, and opens it", () => {
+    let opened = 0;
+    const actions = buildActions({ ...context(), reportFriction: () => (opened += 1) });
+    const action = actions.find((entry) => entry.id === "work:friction");
+    assert.equal(action?.group, "Work");
+    action?.run();
+    assert.equal(opened, 1);
+    assert.deepEqual(searchActions(actions, "friction").map((entry) => entry.id), ["go:/operations?tab=friction", "work:friction"]);
+  });
+
+  it("is not offered without a form to open", () => {
+    assert.equal(buildActions(context()).some((entry) => entry.id === "work:friction"), false);
+  });
+});

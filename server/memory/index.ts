@@ -1,17 +1,21 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type {
-  MemoryBacklink,
-  MemoryDiagnostics,
-  MemoryFacets,
-  MemoryGraph,
-  MemoryGraphEdge,
-  MemoryGraphNode,
-  MemoryLink,
-  MemoryNoteDetail,
-  MemoryNoteSummary,
-  MemoryNotesPage,
+import {
+  isArchivedFrontmatter,
+  isMemoryType,
+  noteRevision,
+  readProvenance,
+  type MemoryBacklink,
+  type MemoryDiagnostics,
+  type MemoryFacets,
+  type MemoryGraph,
+  type MemoryGraphEdge,
+  type MemoryGraphNode,
+  type MemoryLink,
+  type MemoryNoteDetail,
+  type MemoryNoteSummary,
+  type MemoryNotesPage,
 } from "../../shared/memory-types";
 import { containedRealPath, isExcluded } from "./config";
 import { parseNote, type ParsedNote } from "./parser";
@@ -61,6 +65,11 @@ const toPosix = (value: string) => value.split(path.sep).join("/");
 
 export function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex");
+}
+
+/** Whether a note's front matter marks it archived. */
+export function isArchived(note: NoteRecord): boolean {
+  return isArchivedFrontmatter(note.parsed.frontmatter);
 }
 
 export class MemoryIndex {
@@ -272,6 +281,8 @@ export class MemoryIndex {
       outgoingCount: resolvedOut.size,
       backlinkCount: this.backlinks.get(note.id)?.size ?? 0,
       hasErrors: note.parsed.errors.length > 0,
+      memoryType: isMemoryType(note.parsed.frontmatter.type) ? note.parsed.frontmatter.type : undefined,
+      archived: isArchived(note),
     };
   }
 
@@ -370,6 +381,8 @@ export class MemoryIndex {
     return {
       ...this.summary(note),
       hash: note.hash,
+      revision: noteRevision(note.hash),
+      provenance: readProvenance(note.parsed.frontmatter),
       headings: note.parsed.headings,
       frontmatter: note.parsed.frontmatter,
       links: this.links.get(id) ?? [],
@@ -389,6 +402,8 @@ export class MemoryIndex {
     ids?: Set<string>;
     orphans?: boolean;
     unresolved?: boolean;
+    /** Archived notes are hidden from the full graph unless asked for. */
+    archived?: boolean;
   }): MemoryGraph {
     const includeUnresolved = options.unresolved ?? false;
     const edges = this.edges.filter((edge) => includeUnresolved || !edge.unresolved);
@@ -432,6 +447,7 @@ export class MemoryIndex {
         [...this.notes.values()]
           .filter((note) => this.matchesFilter(note, options))
           .filter((note) => !options.ids || options.ids.has(note.id))
+          .filter((note) => options.archived === true || !isArchived(note))
           .filter((note) => options.orphans !== false || (degree.get(note.id) ?? 0) > 0)
           .map((note) => note.id),
       );

@@ -74,6 +74,8 @@ export interface BackupEntry {
   takenAt: string;
   /** What produced it, e.g. `task.move`. Shown in the undo affordance. */
   label: string;
+  /** The root the path is relative to, when it is not the AgentOS vault. */
+  root?: string;
 }
 
 /** Reads the label and original path back out of a backup's sidecar. */
@@ -95,6 +97,7 @@ async function readBackupMeta(id: string): Promise<BackupEntry | undefined> {
       path: meta.path,
       takenAt: meta.takenAt,
       label: typeof meta.label === "string" ? meta.label : "Edit",
+      root: typeof meta.root === "string" ? meta.root : undefined,
     };
   } catch {
     return undefined;
@@ -137,6 +140,7 @@ async function backup(
   relativePath: string,
   contents: string,
   label: string,
+  root?: string,
 ): Promise<string | undefined> {
   try {
     await fs.mkdir(backupsDir(), { recursive: true });
@@ -146,7 +150,7 @@ async function backup(
     await fs.writeFile(path.join(backupsDir(), id), contents, "utf8");
     await fs.writeFile(
       path.join(backupsDir(), `${id}.json`),
-      JSON.stringify({ path: relativePath, takenAt: new Date().toISOString(), label }),
+      JSON.stringify({ path: relativePath, takenAt: new Date().toISOString(), label, root }),
       "utf8",
     );
 
@@ -190,6 +194,18 @@ export interface EditOptions {
   label: string;
   /** Produces the new contents. Receives `undefined` for a file that is absent. */
   apply: (current: string | undefined) => string;
+  /**
+   * The root `relativePath` is inside. Defaults to the AgentOS vault; memory
+   * passes its own, which is usually the same folder but may be configured
+   * apart.
+   */
+  root?: string;
+  /**
+   * Whether to refuse results that lost their title or most of their content.
+   * On by default — it catches serializer bugs. Off only for a person's own
+   * free-text edit of a note, where shortening it is the point.
+   */
+  checkShape?: boolean;
 }
 
 /**
@@ -235,7 +251,7 @@ function validate(relativePath: string, next: string, previous?: string): void {
  * here rather than in the callers.
  */
 export async function editFile(options: EditOptions): Promise<EditResult> {
-  const current = await readOptionalFile(options.relativePath);
+  const current = await readOptionalFile(options.relativePath, options.root);
   const actual = revisionOfOptional(current);
 
   if (
@@ -256,14 +272,20 @@ export async function editFile(options: EditOptions): Promise<EditResult> {
     return { revision: actual };
   }
 
-  validate(options.relativePath, next, current);
+  if (options.checkShape === false) {
+    if (next.trim().length === 0) {
+      throw new DocumentInvalidError(`Refusing to write an empty ${path.basename(options.relativePath)}.`);
+    }
+  } else {
+    validate(options.relativePath, next, current);
+  }
 
   const undoId =
     current === undefined
       ? undefined
-      : await backup(options.relativePath, current, options.label);
+      : await backup(options.relativePath, current, options.label, options.root);
 
-  await writeAgentOSFile(options.relativePath, next);
+  await writeAgentOSFile(options.relativePath, next, options.root);
 
   return { revision: revisionOfOptional(next), undoId };
 }
@@ -323,9 +345,28 @@ export async function restoreBackup(id: string): Promise<EditResult | undefined>
 
   return editFile({
     relativePath: meta.path,
+    root: meta.root,
     label: `undo:${meta.label}`,
     apply: () => contents,
   });
+}
+
+/**
+ * A backup's contents and where it belongs, for an undo that has its own
+ * conflict rule (memory refuses to undo over a later edit).
+ */
+export async function readBackup(id: string): Promise<{ meta: BackupEntry; contents: string } | undefined> {
+  // A bare file name this module made: never a path, never hidden.
+  if (!id || path.basename(id) !== id || id.startsWith(".") || id.endsWith(".json")) return undefined;
+
+  const meta = await readBackupMeta(id);
+  if (!meta) return undefined;
+
+  try {
+    return { meta, contents: await fs.readFile(path.join(backupsDir(), id), "utf8") };
+  } catch {
+    return undefined;
+  }
 }
 
 /** Where a project's files live. Slugs are validated before they get here. */

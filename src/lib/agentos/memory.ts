@@ -1,7 +1,11 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type {
+  EditMemoryNoteRequest,
   MemoryDiagnostics,
+  MemoryDuplicateMatch,
+  MemoryHistoryResponse,
+  MemoryMutationResponse,
   MemoryFacets,
   MemoryGraph,
   MemoryNoteDetail,
@@ -25,6 +29,21 @@ import { agentosKeys } from "./queries";
 
 export const memoryKey = () => [...agentosKeys.all, "memory"] as const;
 
+/** A failed memory request, keeping what the server said (a 409's current revision). */
+export class MemoryRequestError extends AgentOSRequestError {
+  constructor(
+    message: string,
+    status: number | undefined,
+    readonly payload: Record<string, unknown> | null,
+  ) {
+    super(message, status);
+  }
+
+  get isConflict(): boolean {
+    return this.status === 409;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -36,9 +55,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const failure = payload as { error?: string } | null;
-    throw new AgentOSRequestError(failure?.error ?? "Memory could not be read.", response.status);
+    throw new MemoryRequestError(failure?.error ?? "Memory could not be read.", response.status, payload as Record<string, unknown> | null);
   }
   return payload as T;
+}
+
+function send<T>(path: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+  return request<T>(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
 function query(params: Record<string, string | number | boolean | undefined>): string {
@@ -93,10 +116,10 @@ export function useMemoryNotes(options: NotesQuery) {
   });
 }
 
-export function useMemoryTree(q?: string) {
+export function useMemoryTree(q?: string, archived = false) {
   return useQuery({
-    queryKey: [...memoryKey(), "tree", q ?? ""],
-    queryFn: () => request<MemoryTree>(`/api/memory/tree${query({ q })}`),
+    queryKey: [...memoryKey(), "tree", q ?? "", archived],
+    queryFn: () => request<MemoryTree>(`/api/memory/tree${query({ q, archived: archived ? 1 : undefined })}`),
     placeholderData: keepPreviousData,
     networkMode: "always",
   });
@@ -129,6 +152,7 @@ export interface GraphQuery {
   q?: string;
   orphans?: boolean;
   unresolved?: boolean;
+  archived?: boolean;
 }
 
 export function useMemoryGraph(options: GraphQuery) {
@@ -136,7 +160,7 @@ export function useMemoryGraph(options: GraphQuery) {
     queryKey: [...memoryKey(), "graph", options],
     queryFn: () =>
       request<MemoryGraph & { stale: boolean }>(
-        `/api/memory/graph${query({ ...options, orphans: options.orphans ? 1 : 0, unresolved: options.unresolved ? 1 : 0 })}`,
+        `/api/memory/graph${query({ ...options, orphans: options.orphans ? 1 : 0, unresolved: options.unresolved ? 1 : 0, archived: options.archived ? 1 : undefined })}`,
       ),
     placeholderData: keepPreviousData,
     networkMode: "always",
@@ -172,4 +196,53 @@ export function useCreateMemoryNote() {
       }),
     onSuccess: () => void client.invalidateQueries({ queryKey: memoryKey() }),
   });
+}
+
+/** What AgentOS has changed in a note, and which change can be undone now. */
+export function useMemoryHistory(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [...memoryKey(), "history", id],
+    queryFn: () => request<MemoryHistoryResponse>(`/api/memory/history${query({ id })}`),
+    enabled: Boolean(id) && enabled,
+    networkMode: "always",
+    retry: false,
+  });
+}
+
+function useMemoryMutation<Input>(run: (input: Input) => Promise<MemoryMutationResponse>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: run,
+    // The note, the tree, the graph and the history all moved.
+    onSuccess: () => void client.invalidateQueries({ queryKey: memoryKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Edits body, type or tags. A 409 means the note changed underneath the edit. */
+export function useEditMemoryNote() {
+  return useMemoryMutation((edit: EditMemoryNoteRequest) => send<MemoryMutationResponse>("/api/memory/note", "PATCH", edit));
+}
+
+export function useArchiveMemoryNote() {
+  return useMemoryMutation((input: { id: string; expectedRevision: string }) =>
+    send<MemoryMutationResponse>("/api/memory/note/archive", "POST", input),
+  );
+}
+
+export function useRestoreMemoryNote() {
+  return useMemoryMutation((input: { id: string; expectedRevision: string }) =>
+    send<MemoryMutationResponse>("/api/memory/note/restore", "POST", input),
+  );
+}
+
+export function useUndoMemoryChange() {
+  return useMemoryMutation((input: { id: string; historyId: string }) =>
+    send<MemoryMutationResponse>("/api/memory/note/undo", "POST", input),
+  );
+}
+
+export function findMemoryDuplicates(input: { project: string; title: string; body: string }): Promise<{ matches: MemoryDuplicateMatch[] }> {
+  return send("/api/memory/duplicates", "POST", input);
 }

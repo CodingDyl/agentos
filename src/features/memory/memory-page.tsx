@@ -86,6 +86,8 @@ export function MemoryPage() {
   const orphans = params.get("orphans") !== "0";
   const ghosts = params.get("ghosts") === "1";
   const arrows = params.get("arrows") === "1";
+  // Archived memory is out of the way by default and one toggle from view.
+  const archived = params.get("archived") === "1";
 
   const update = useCallback(
     (changes: Record<string, string | undefined>) =>
@@ -127,7 +129,7 @@ export function MemoryPage() {
   const status = useMemoryStatus();
   const reindex = useReindexMemory();
   const facets = useMemoryFacets();
-  const tree = useMemoryTree(query || undefined);
+  const tree = useMemoryTree(query || undefined, archived);
   // Unfiltered, for the new-note dialog: duplicates and links look at the whole vault.
   const everything = useMemoryTree();
   const note = useMemoryNote(noteId);
@@ -136,7 +138,7 @@ export function MemoryPage() {
   const graph = useMemoryGraph(
     scope === "local"
       ? { focus: localFocus, depth: Number(depth), unresolved: ghosts }
-      : { folder: folder || undefined, tag: tag || undefined, q: query || undefined, orphans, unresolved: ghosts },
+      : { folder: folder || undefined, tag: tag || undefined, q: query || undefined, orphans, unresolved: ghosts, archived },
   );
   const graphData = scope === "local" && !localFocus ? undefined : graph.data;
   const legend = useMemo(() => buildLegend(graphData?.nodes ?? [], colorBy === "random" ? "folder" : colorBy), [graphData?.nodes, colorBy]);
@@ -187,7 +189,7 @@ export function MemoryPage() {
 
   const vault = status.data;
   const filtered = Boolean(query || folder || tag);
-  const fitKey = `${scope}|${localFocus ?? ""}|${depth}|${folder}|${tag}|${query}|${orphans}|${ghosts}`;
+  const fitKey = `${scope}|${localFocus ?? ""}|${depth}|${folder}|${tag}|${query}|${orphans}|${ghosts}|${archived}`;
   const tags = facets.data?.tags ?? [];
   // Overlays on the field stay clear of the open note.
   const clearOfPanel = { right: noteId ? "min(560px, 100%)" : "0px" };
@@ -415,6 +417,7 @@ export function MemoryPage() {
                   <FieldToggle pressed={orphans} onClick={() => update({ orphans: orphans ? "0" : undefined })}>Orphans</FieldToggle>
                 ) : null}
                 <FieldToggle pressed={ghosts} onClick={() => update({ ghosts: ghosts ? undefined : "1" })}>Unresolved</FieldToggle>
+                <FieldToggle pressed={archived} onClick={() => update({ archived: archived ? undefined : "1" })}>Archived</FieldToggle>
                 <FieldToggle pressed={arrows} onClick={() => update({ arrows: arrows ? undefined : "1" })}>Arrows</FieldToggle>
                 <FieldToggle pressed={reducedMotion} onClick={toggleMotion}>Still</FieldToggle>
               </div>

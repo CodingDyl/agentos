@@ -6,6 +6,7 @@ import { useOperations } from "@/lib/agentos/queries";
 import { AgentsTab } from "./agents-tab";
 import { AiStackTab } from "./ai-stack-tab";
 import { Breakdown } from "./figures";
+import { FrictionTab } from "./friction-tab";
 import { Glance, PlansPanel } from "./glance";
 import { MoneyTab } from "./money-tab";
 import { PaperButton, PaperStage, PaperTabs, SegmentedControl } from "@/components/paper";
@@ -38,7 +39,7 @@ import { UsageTab } from "./usage-tab";
  * screen record what the operator already pays and has already decided.
  */
 
-type Tab = "usage" | "stack" | "agents" | "models" | "projects" | "money" | "system";
+type Tab = "usage" | "stack" | "agents" | "models" | "projects" | "money" | "system" | "friction";
 
 const TABS = [
   { value: "usage" as const, label: "Usage" },
@@ -48,6 +49,7 @@ const TABS = [
   { value: "projects" as const, label: "Workspaces" },
   { value: "money" as const, label: "Subscriptions & budgets" },
   { value: "system" as const, label: "System" },
+  { value: "friction" as const, label: "Friction" },
 ];
 
 const RANGES: readonly UsageRange[] = ["today", "7d", "month"];
@@ -191,6 +193,7 @@ function Operations({
         ) : null}
         {tab === "money" ? <MoneyTab data={data} /> : null}
         {tab === "system" ? <SystemTab /> : null}
+        {tab === "friction" ? <FrictionTab /> : null}
       </div>
     </div>
   );

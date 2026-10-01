@@ -208,8 +208,11 @@ import {
   prepareDelegation,
   taskDelegations,
 } from "./agentos/task-delegation";
-import { applyCompletion, proposeCompletion } from "./agentos/task-completion";
-import { readTaskLink, saveTaskLink } from "./agentos/task-jobs";
+import { proposeCompletion } from "./agentos/task-completion";
+import { CloseoutError, completeTaskWithCloseout, draftCloseout } from "./tasks/closeout";
+import { CompleteTaskRequestSchema } from "../shared/task-closeout-types";
+import { frictionRouter } from "./friction/routes";
+import { readTaskLink } from "./agentos/task-jobs";
 import { prepareMilestoneDelegation, startMilestoneDelegation } from "./agentos/milestone-delegation";
 import {
   MilestoneDelegationRequestSchema,
@@ -358,6 +361,7 @@ app.use("/api/voice", voiceRouter);
 
 /** Memory: the Obsidian vault, indexed — notes, links, graph, and task context. Read-only. */
 app.use("/api/memory", memoryRouter);
+app.use("/api/friction", frictionRouter);
 
 /** Grok Bot: its switch, SSD workspace path and connection test. Disk access stays server-side. */
 app.use("/api/workers/grok-bot", grokBotRouter);
@@ -1093,53 +1097,59 @@ app.get("/api/projects/:slug/tasks/:taskId/completion", async (request, response
 });
 
 /**
- * Ticks a task off in `TASKS.md`.
- *
- * The only write this server makes to the vault, and it happens only here:
- * after a person has approved the work, after it has been integrated, and
- * after they have seen the exact line that will change.
+ * The closeout a task would complete with: summary, validation, artifacts,
+ * proposed memory (with possible duplicates) and a proposed status update.
+ * Nothing here writes.
  */
-app.post("/api/projects/:slug/tasks/:taskId/complete", async (request, response) => {
-  const { slug, taskId } = request.params;
-
+app.get("/api/projects/:slug/tasks/:taskId/closeout", async (request, response) => {
   try {
-    const link = await readTaskLink(slug, taskId);
-    const job = link ? await readJob(link.jobId) : undefined;
+    const draft = await draftCloseout(memoryService(), request.params.slug, request.params.taskId);
 
-    const proposal = await proposeCompletion(slug, taskId, job);
-
-    if (!proposal) {
+    if (!draft) {
       response.status(404).json({ error: "That task is not in TASKS.md." });
       return;
     }
 
-    // Re-checked at the moment of writing rather than trusted from the screen.
-    // The proposal the operator approved may have been made some time ago.
-    if (!proposal.ready) {
-      response.status(409).json({ error: proposal.blockedReason });
-      return;
-    }
-
-    const { ok, error } = await applyCompletion(slug, taskId);
-
-    if (!ok) {
-      response.status(409).json({ error });
-      return;
-    }
-
-    if (link) {
-      await saveTaskLink({ ...link, completedAt: new Date().toISOString() });
-    }
-
-    await recordActivity({
-      type: "task.completed",
-      description: `${taskId} marked complete in TASKS.md`,
-      project: slug,
-      metadata: { taskId, jobId: link?.jobId },
-    });
-
-    response.json({ ok: true });
+    response.json(draft);
   } catch (error) {
+    if (error instanceof InvalidRequestError) {
+      response.status(400).json({ error: error.message });
+      return;
+    }
+    console.error("[agentos] closeout draft failed:", error);
+    response.status(500).json({ error: "Unable to prepare the closeout" });
+  }
+});
+
+/**
+ * Ticks a task off in `TASKS.md`, with its closeout.
+ *
+ * Happens only here: after a person has approved the work, after it has been
+ * integrated, and after they have seen the exact line that will change. The
+ * body is optional — memory the person chose to keep and a status update —
+ * and an empty one completes the task exactly as before.
+ */
+app.post("/api/projects/:slug/tasks/:taskId/complete", async (request, response) => {
+  const { slug, taskId } = request.params;
+  const parsed = CompleteTaskRequestSchema.safeParse(request.body ?? {});
+
+  if (!parsed.success) {
+    response.status(400).json({ error: "That closeout could not be read." });
+    return;
+  }
+
+  try {
+    const record = await completeTaskWithCloseout(memoryService(), slug, taskId, parsed.data);
+    response.json({ ok: true, record });
+  } catch (error) {
+    if (error instanceof CloseoutError) {
+      response.status(error.status).json({ error: error.message, ...error.body });
+      return;
+    }
+    if (error instanceof InvalidRequestError) {
+      response.status(400).json({ error: error.message });
+      return;
+    }
     console.error("[agentos] task completion failed:", error);
     response.status(500).json({ error: "Unable to update TASKS.md" });
   }

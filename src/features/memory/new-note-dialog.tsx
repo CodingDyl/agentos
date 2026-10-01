@@ -3,6 +3,7 @@ import { Check, FilePlus2, Folder, FolderPlus, Link2, Search, X } from "lucide-r
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { memoryMarkdownExtensions, type WikiLinkToken } from "@shared/memory-markdown";
 import { checkFolder, composeNote, normaliseTag, noteFileName } from "@shared/memory-paths";
+import { isMemoryType, MEMORY_TYPE_LABELS, MEMORY_TYPES, type MemoryType } from "@shared/memory-types";
 import { Markdown, type InlineOverride } from "@/components/os/markdown";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, SegmentedControl } from "@/components/paper";
 import { useCreateMemoryNote } from "@/lib/agentos/memory";
@@ -75,6 +76,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
 
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [memoryType, setMemoryType] = useState<MemoryType | "">("");
   const [tagDraft, setTagDraft] = useState("");
   const [body, setBody] = useState("");
   const [links, setLinks] = useState<string[]>([]);
@@ -132,7 +134,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
       return;
     }
     create.mutate(
-      { folder, title: title.trim(), body, tags, links },
+      { folder, title: title.trim(), body, tags, links, type: memoryType || undefined },
       { onSuccess: (created) => onCreated(created.id) },
     );
   };
@@ -290,6 +292,20 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                     placeholder="e.g. Pricing experiments"
                     className={cn(PAPER_INPUT, "min-h-12 w-full text-[18px] font-medium")}
                   />
+                </Field>
+                <Field label="Type" hint="Optional. What kind of memory this is.">
+                  <select
+                    value={memoryType}
+                    onChange={(event) => setMemoryType(isMemoryType(event.target.value) ? event.target.value : "")}
+                    className={cn(PAPER_INPUT, "min-h-10 w-full cursor-pointer text-[14px]")}
+                  >
+                    <option value="">No type</option>
+                    {MEMORY_TYPES.map((value) => (
+                      <option key={value} value={value}>
+                        {MEMORY_TYPE_LABELS[value]}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Tags" hint="Optional. Press Enter or comma to add one.">
                   <div className={cn(PAPER_INPUT, "flex min-h-11 w-full flex-wrap items-center gap-1.5 py-1.5 focus-within:outline-2 focus-within:outline-paper-blue")}>
