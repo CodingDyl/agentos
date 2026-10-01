@@ -1,4 +1,4 @@
-import { FileText, Scale, Search } from "lucide-react";
+import { FileText, GraduationCap, Scale, Search } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ArtifactSource, KnowledgeItem } from "@shared/agentos-types";
@@ -72,7 +72,8 @@ export function KnowledgePage() {
   );
 
   const documents = items.filter((item) => item.kind === "document").length;
-  const decisions = items.length - documents;
+  const decisions = items.filter((item) => item.kind === "decision").length;
+  const learnings = items.filter((item) => item.kind === "learning").length;
   const filtered =
     filters.query !== "" || filters.workspace !== "all" || filters.type !== "all" || filters.creator !== "all" || filters.when !== "any";
 
@@ -83,7 +84,7 @@ export function KnowledgePage() {
           <h1 className="font-paper-display text-[34px] leading-[1.1] font-extrabold tracking-[-0.015em] text-paper-moss">Knowledge</h1>
           <p className="mt-1 text-[14px] text-paper-sage tabular-nums">
             {data
-              ? `${documents} ${documents === 1 ? "document" : "documents"} · ${decisions} ${decisions === 1 ? "decision" : "decisions"} · ${workspaces.length} workspaces`
+              ? `${documents} ${documents === 1 ? "document" : "documents"} · ${decisions} ${decisions === 1 ? "decision" : "decisions"}${learnings ? ` · ${learnings} ${learnings === 1 ? "learning" : "learnings"}` : ""} · ${workspaces.filter(([slug]) => slug !== "learning").length} workspaces`
               : "Reading every workspace…"}
           </p>
         </header>
@@ -194,7 +195,7 @@ function FilterSelect({
 }
 
 function KnowledgeRow({ item }: { item: KnowledgeItem }) {
-  const Icon = item.kind === "decision" ? Scale : FileText;
+  const Icon = item.kind === "decision" ? Scale : item.kind === "learning" ? GraduationCap : FileText;
 
   return (
     <li>

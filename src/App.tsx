@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { ActivityPage } from "@/features/activity";
 import { AgentPage, CommandPaletteProvider } from "@/features/agent";
-import { AppShellActionsContext, AppShellVoiceContext } from "@/components/os";
+import { AppShellActionsContext, AppShellMediaContext, AppShellVoiceContext } from "@/components/os";
 import { JarvisPanel, JarvisProvider, VoiceLauncher } from "@/features/voice";
 import { QuickCreateProvider, ShellActions, WorkspaceFeedbackProvider } from "@/features/workspace";
 import {
@@ -24,6 +24,7 @@ import {
 } from "@/features/designs";
 import { KnowledgePage } from "@/features/knowledge";
 import { MemoryPage } from "@/features/memory";
+import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
 import { DesignSystemPage } from "@/pages/design-system-page";
@@ -31,6 +32,9 @@ import { DesignSystemPage } from "@/pages/design-system-page";
 function App() {
   return (
     <BrowserRouter>
+      {/* Above everything: what's playing and the focus timer outlive any page. */}
+      <SpotifyProvider>
+      <FocusSessionProvider>
       {/* Wraps every route: an undo offer has to outlive the screen that
           produced it, because navigating away is often the moment the
           operator realises they wanted it back. */}
@@ -45,6 +49,7 @@ function App() {
         {/* Above the routes so a conversation survives navigating away. */}
         <JarvisProvider>
         <AppShellVoiceContext.Provider value={<VoiceLauncher />}>
+        <AppShellMediaContext.Provider value={<MediaDock />}>
         <Routes>
           {/* Today. Still Mission Control underneath — it replaced the old
               Dashboard rather than sitting beside it, because two screens both
@@ -67,6 +72,7 @@ function App() {
           <Route path="/projects/:slug" element={<ProjectRedirect />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/memory" element={<MemoryPage />} />
+          <Route path="/learning" element={<LearningPage />} />
           <Route path="/agent" element={<AgentPage />} />
           <Route path="/automations" element={<AutomationsPage />} />
           <Route
@@ -96,12 +102,15 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <JarvisPanel />
+        </AppShellMediaContext.Provider>
         </AppShellVoiceContext.Provider>
         </JarvisProvider>
         </AppShellActionsContext.Provider>
         </CommandPaletteProvider>
         </QuickCreateProvider>
       </WorkspaceFeedbackProvider>
+      </FocusSessionProvider>
+      </SpotifyProvider>
     </BrowserRouter>
   );
 }

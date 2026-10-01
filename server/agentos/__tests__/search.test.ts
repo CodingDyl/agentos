@@ -20,6 +20,7 @@ const corpus: Record<SearchHitKind, SearchHit[]> = {
   design: [hit("design", "b1", "Chef Inspiration", "Board · pantry-pilot")],
   job: [hit("job", "j1", "Fix the chef loading state", "pantry-pilot · completed")],
   session: [hit("session", "s1", "Morning planning", "pantry-pilot · 12 messages")],
+  learning: [hit("learning", "ln-1", "Chef prompt patterns", "YouTube · 12:05")],
 };
 
 describe("searchCorpus", () => {
@@ -32,7 +33,7 @@ describe("searchCorpus", () => {
 
     assert.deepEqual(
       result.groups.map((group) => group.kind),
-      ["milestone", "task", "decision", "document", "design", "job"],
+      ["milestone", "task", "decision", "document", "learning", "design", "job"],
     );
   });
 

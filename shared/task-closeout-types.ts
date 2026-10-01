@@ -25,7 +25,12 @@ export const MemoryProposalSchema = z.object({
   title: z.string().trim().min(3).max(160),
   body: z.string().trim().min(1).max(4000),
   project: z.string().min(1),
-  sourceTask: z.string().min(1),
+  /** The task it came out of. Absent for a memory promoted from a learning with no task. */
+  sourceTask: z.string().min(1).optional(),
+  /** The learning note it was promoted from. */
+  sourceLearning: z.string().optional(),
+  /** Where it was learned, at the moment captured. */
+  sourceUrl: z.string().optional(),
   /** The worker job the proposal came out of. */
   sourceRun: z.string().optional(),
   sourceArtifact: z.string().optional(),

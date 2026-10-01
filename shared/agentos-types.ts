@@ -541,13 +541,14 @@ export const RecentDocumentsSchema = z.object({
  */
 export const KnowledgeItemSchema = z.object({
   id: z.string(),
-  kind: z.enum(["document", "decision"]),
+  kind: z.enum(["document", "decision", "learning"]),
   title: z.string(),
+  /** A workspace slug, or `learning` for a learning note linked to none. */
   project: z.string(),
   projectName: z.string(),
   workspaceType: WorkspaceTypeSchema.optional(),
   /** Document type, or `decision`. */
-  type: z.union([ArtifactTypeSchema, z.literal("decision")]),
+  type: z.union([ArtifactTypeSchema, z.literal("decision"), z.literal("learning")]),
   /** Absent when the file does not say who wrote it. */
   source: ArtifactSourceSchema.optional(),
   origin: z.enum(["agentos", "repo"]).optional(),
@@ -590,6 +591,7 @@ export const SearchHitKindSchema = z.enum([
   "document",
   "job",
   "session",
+  "learning",
 ]);
 
 export const SearchHitSchema = z.object({

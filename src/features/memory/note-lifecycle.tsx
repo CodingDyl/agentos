@@ -89,6 +89,8 @@ const PROVENANCE_ROWS: ReadonlyArray<[keyof MemoryProvenance, string, "actor" | 
   ["sourceTask", "Source task", "text"],
   ["sourceRun", "Run", "text"],
   ["sourceArtifact", "Artifact", "text"],
+  ["sourceLearning", "Learning", "text"],
+  ["sourceUrl", "Learned from", "text"],
   ["lastSourceTask", "Last updated from", "text"],
   ["updatedBy", "Updated by", "actor"],
   ["updatedAt", "Updated", "date"],

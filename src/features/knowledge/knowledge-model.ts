@@ -22,7 +22,7 @@ export interface KnowledgeFilters {
 const DAY = 86_400_000;
 
 export function KNOWLEDGE_TYPE_LABEL(type: KnowledgeItem["type"]): string {
-  return type === "decision" ? "Decision" : TYPE_LABELS[type];
+  return type === "decision" ? "Decision" : type === "learning" ? "Learning" : TYPE_LABELS[type];
 }
 
 export function filterKnowledge(items: readonly KnowledgeItem[], filters: KnowledgeFilters, now: Date): KnowledgeItem[] {

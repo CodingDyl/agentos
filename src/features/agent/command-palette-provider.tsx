@@ -18,6 +18,7 @@ import {
 } from "./command-palette-context";
 import { CommandPalette } from "./command-palette";
 import { ReportFrictionDialog } from "./report-friction-dialog";
+import { useFocusSession } from "@/features/learning/focus-session-context";
 
 /**
  * Makes the command palette available on every screen.
@@ -89,6 +90,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   );
 
   const quickCreate = useQuickCreate();
+  const focus = useFocusSession();
 
   // Actions are rebuilt when the route or the portfolio changes, which is
   // what keeps "New task" scoped to the project on screen.
@@ -103,8 +105,9 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         navigate: (to) => void navigate(to),
         quickCreate: (kind, forProject) => quickCreate.open(kind, { project: forProject }),
         reportFriction: () => setFrictionRoute(`${location.pathname}${location.search}`),
+        startFocus: focus ? (forProject, projectName) => focus.start({ project: forProject, projectName }) : undefined,
       }),
-    [location.pathname, location.search, navigate, project, projectsData, quickCreate],
+    [focus, location.pathname, location.search, navigate, project, projectsData, quickCreate],
   );
 
   const closeFriction = useCallback(() => setFrictionRoute(undefined), []);

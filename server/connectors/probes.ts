@@ -23,6 +23,8 @@ import {
   outreachAddress,
 } from "../outreach/auth";
 import { isFishConfigured, synthesise } from "../voice/fish";
+import { disconnectSpotify, isSpotifyConfigured, isSpotifyConnected, spotifyRedirectUri, testSpotify } from "../learning/spotify";
+import { fetchYouTubeMetadata } from "../learning/youtube";
 import { testSetup } from "../supabase/client";
 import { listSetups, recordTest } from "../supabase/setups";
 import { getVirtec, isVirtecConfigured, isVirtecWritable, VIRTEC_PATHS, virtecConfigurationProblem } from "../virtec/client";
@@ -89,6 +91,7 @@ export const NON_SECRET = new Set([
   "POSTHOG_HOST",
   "SENTRY_ORG",
   "SUPABASE_URL",
+  "SPOTIFY_CLIENT_ID",
 ]);
 
 /** A variable the Setup form may write. The only names `.env` can be written with. */
@@ -437,6 +440,63 @@ export const PROBES: Record<string, Probe> = {
       } catch (error) {
         return failure(error);
       }
+    },
+  },
+
+  youtube: {
+    async local() {
+      return {
+        configured: true,
+        setup: [{ label: "No key needed: videos play in YouTube's own embedded player", kind: "path", done: true }],
+        connectHint: "Nothing to set up. AgentOS saves a video's address and title, plays it through YouTube's embed, and never downloads it.",
+      };
+    },
+    async test() {
+      // YouTube's very first video: as stable a public id as exists.
+      const metadata = await fetchYouTubeMetadata("jNQXAC9IVRw");
+      return metadata.author
+        ? { ok: true, detail: `oEmbed answered (“${metadata.title}”).` }
+        : { ok: false, detail: "YouTube's oEmbed endpoint did not answer." };
+    },
+  },
+
+  spotify: {
+    async local() {
+      const configured = isSpotifyConfigured();
+      const connected = await isSpotifyConnected();
+      return {
+        configured: connected,
+        detail: !configured ? "SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET are not set." : connected ? undefined : "Not signed in.",
+        setup: [
+          env("SPOTIFY_CLIENT_ID"),
+          env("SPOTIFY_CLIENT_SECRET"),
+          { label: `Redirect URI registered: ${spotifyRedirectUri()}`, kind: "path", done: configured },
+          { label: "Signed in to Spotify", kind: "oauth", done: connected },
+        ],
+        connectHint: configured
+          ? "Sign in with Spotify. Playback control and the in-app player need Premium; reading what's playing does not."
+          : `Create an app at developer.spotify.com, add ${spotifyRedirectUri()} as its redirect URI, then paste its client id and secret here.`,
+        connectUrl: configured && !connected ? "/api/spotify/connect" : undefined,
+        canDisconnect: connected,
+      };
+    },
+    test: testSpotify,
+    async disconnect() {
+      await disconnectSpotify();
+    },
+  },
+
+  notebooks: {
+    async local() {
+      return {
+        configured: true,
+        setup: [{ label: "Linked notebooks work without an account", kind: "path", done: true }],
+        connectHint:
+          "Notebooks are linked by address and opened in their own tool. AgentOS does not read or automate NotebookLM; learnings come back through capture.",
+      };
+    },
+    async test() {
+      return { ok: true, detail: "Linked notebooks are stored locally." };
     },
   },
 

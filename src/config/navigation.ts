@@ -1,6 +1,7 @@
 import {
   Activity,
   BookOpen,
+  GraduationCap,
   Bot,
   CalendarClock,
   Gauge,
@@ -48,6 +49,8 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "work" },
   // The Obsidian vault as a graph: notes, links, backlinks, and what agents are told.
   { label: "Memory", href: "/memory", icon: Network, section: "work" },
+  // Watch, listen, research — and capture what was learned into Knowledge.
+  { label: "Learning", href: "/learning", icon: GraduationCap, section: "work" },
   // Still `/designs` underneath. Creative, because product imagery, brand
   // references and client visuals are not "designs" in the interface sense.
   { label: "Creative", href: "/designs", icon: Images, section: "work" },

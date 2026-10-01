@@ -3,6 +3,7 @@ import { useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppShellActionsContext } from "./app-shell-actions-context";
+import { AppShellMediaContext } from "./app-shell-media-context";
 import { AppShellVoiceContext } from "./app-shell-voice-context";
 import { SystemIndicator, type SystemState } from "./system-indicator";
 
@@ -106,6 +107,7 @@ export function AppShell({
   const location = useLocation();
   const shellActions = useContext(AppShellActionsContext);
   const voiceLauncher = useContext(AppShellVoiceContext);
+  const media = useContext(AppShellMediaContext);
 
   return (
     <div
@@ -162,7 +164,7 @@ export function AppShell({
         ) : null}
         <aside
           className={cn(
-            "os-stage os-navigation-drawer absolute inset-y-0 left-0 z-20 flex w-[min(82vw,232px)] flex-col border-r border-os-border bg-os-surface transition-transform duration-150",
+            "os-stage os-navigation-drawer absolute inset-y-0 left-0 z-20 flex min-h-0 w-[min(82vw,232px)] flex-col border-r border-os-border bg-os-surface transition-transform duration-150",
           )}
           data-open={isNavigationOpen}
           inert={!navigationIsAvailable}
@@ -192,6 +194,7 @@ export function AppShell({
               );
             })}
           </nav>
+          {media}
           {voiceLauncher ? <div className="border-t border-os-border p-3">{voiceLauncher}</div> : null}
           <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-os-border px-6 py-3">
             {navigationItems

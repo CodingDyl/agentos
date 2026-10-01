@@ -156,7 +156,7 @@ export async function draftCloseout(service: MemoryService, project: string, tas
 function checkScope(project: string, taskId: string, request: CompleteTaskRequest, service: MemoryService) {
   for (const decision of request.memory ?? []) {
     const { proposal } = decision;
-    if (proposal.project !== project || proposal.sourceTask.toUpperCase() !== taskId.toUpperCase()) {
+    if (proposal.project !== project || (proposal.sourceTask ?? "").toUpperCase() !== taskId.toUpperCase()) {
       throw new CloseoutError("A memory proposal does not belong to this task.", 400);
     }
     if (decision.action === "update") {

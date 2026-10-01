@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Timer } from "lucide-react";
 import type { ProjectTask } from "@shared/agentos-types";
 import type {
   DelegationPlan,
@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { ContextPicker } from "./context-picker";
 import { DocumentList } from "./document-list";
 import { TaskCloseoutPanel } from "./task-closeout-panel";
+import { useFocusSession } from "@/features/learning/focus-session-context";
 import { taskJobState } from "./task-job-state";
 
 /**
@@ -98,6 +99,7 @@ export function TaskPanel({
   const recheck = useRouteTaskDelegation(project);
   const start = useStartTaskDelegation(project);
   const executionOptions = useExecutionOptions();
+  const focus = useFocusSession();
 
   const [plan, setPlan] = useState<DelegationPlan>();
   const [editing, setEditing] = useState(false);
@@ -272,6 +274,17 @@ export function TaskPanel({
         <span className="os-meta text-os-subtle">{task.section}</span>
         {task.completed ? (
           <StatusPill status="completed" label="Complete" />
+        ) : null}
+        {!task.completed && focus ? (
+          <button
+            type="button"
+            onClick={() => focus.start({ project, taskId: task.id })}
+            className="os-focus-ring os-meta ml-auto inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-os-muted hover:text-foreground"
+            title="Start a focus session on this task (a timer in the sidebar, optional music)"
+          >
+            <Timer className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+            {focus.session?.taskId === task.id ? "In focus" : "Focus"}
+          </button>
         ) : null}
       </div>
 

@@ -40,6 +40,8 @@ export interface ActionContext {
   recent?: readonly string[];
   navigate: (to: string) => void;
   quickCreate: (kind: QuickCreateTarget, project?: string) => void;
+  /** Starts a focus session (timer, optional music) for a workspace. Optional. */
+  startFocus?: (project: string, projectName?: string) => void;
   /** Opens the friction report for the screen on show. Absent, the action is not offered. */
   reportFriction?: () => void;
 }
@@ -89,12 +91,14 @@ export function buildActions(context: ActionContext): PaletteAction[] {
       label: "Start focus",
       hint: inContext ? `/work-on ${inContext.slug}` : "/start-day",
       keywords: ["session", "work on", "begin"],
-      run: () =>
+      run: () => {
+        if (project) context.startFocus?.(project, inContext?.name);
         navigate(
           project
             ? `/agent?project=${encodeURIComponent(project)}&run=${encodeURIComponent(`/work-on ${project}`)}`
             : `/agent?run=${encodeURIComponent("/start-day")}`,
-        ),
+        );
+      },
     },
     {
       id: "work:delegate",
@@ -207,4 +211,5 @@ export const SEARCH_GROUP_LABELS: Record<SearchHitKind, string> = {
   design: "Creative",
   job: "Worker jobs",
   session: "Sessions",
+  learning: "Learnings",
 };

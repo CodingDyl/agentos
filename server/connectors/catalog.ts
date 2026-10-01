@@ -356,6 +356,48 @@ export const CONNECTORS: readonly CatalogConnector[] = [
       { action: "generate", name: "Generate images (spends credits)", risk: "write-external", implementedBy: "server/designs/generation.ts" },
     ],
   },
+  // Learning: media and research that feed Knowledge and, with approval, Memory.
+  {
+    id: "youtube",
+    name: "YouTube",
+    description: "Save videos to Learning, watch them embedded, and capture timestamped notes.",
+    category: "creative",
+    tier: 5,
+    icon: "youtube",
+    integrated: true,
+    capabilities: [
+      { action: "embed", name: "Play videos in YouTube's embedded player", risk: "read", implementedBy: "src/features/learning/youtube-player.tsx" },
+      { action: "import_video", name: "Save a video's title and channel (oEmbed)", risk: "read", implementedBy: "server/learning/youtube.ts" },
+    ],
+  },
+  {
+    id: "spotify",
+    name: "Spotify",
+    description: "What's playing, playlists and library, playback controls and an in-app player for focus sessions.",
+    category: "creative",
+    tier: 5,
+    icon: "music",
+    integrated: true,
+    capabilities: [
+      { action: "read_playback", name: "Read what's playing and devices", risk: "read", implementedBy: "server/learning/spotify.ts" },
+      { action: "read_library", name: "Read playlists, saved and recent tracks", risk: "read", implementedBy: "server/learning/spotify.ts" },
+      { action: "control_playback", name: "Play, pause, skip, seek and set volume", risk: "write-external", implementedBy: "server/learning/spotify.ts" },
+    ],
+  },
+  {
+    id: "notebooks",
+    name: "Notebook provider",
+    description: "Research notebooks (NotebookLM or similar) linked to Learning. AgentOS keeps the link; research happens there.",
+    category: "productivity",
+    tier: 5,
+    icon: "notebook",
+    integrated: true,
+    capabilities: [
+      { action: "link_notebook", name: "Record and open linked notebooks", risk: "write-local", implementedBy: "server/learning/notebooks.ts" },
+      { action: "create_external", name: "Create notebooks in the provider", risk: "write-external" },
+      { action: "add_source", name: "Add sources to a provider notebook", risk: "write-external" },
+    ],
+  },
   {
     id: "figma",
     name: "Figma",
