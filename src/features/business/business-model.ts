@@ -2,6 +2,7 @@ import type { BusinessClient } from "@shared/business-types";
 
 export const BUSINESS_TABS = [
   { value: "overview", label: "Overview" },
+  { value: "growth", label: "Growth" },
   { value: "clients", label: "Clients" },
   { value: "quotes", label: "Quotes" },
   { value: "agreements", label: "Agreements" },

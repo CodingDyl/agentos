@@ -8,6 +8,7 @@ import { useBusiness, useLinkClientWorkspace, useRefreshBusiness, useSetEntityWo
 import { useProjects } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { ClientDraftForm } from "./business-draft";
+import { GrowthSection } from "./business-growth-section";
 import { AgreementsSection, FollowUpsSection, MaintenanceSection, QuotesSection } from "./business-sections";
 import { BUSINESS_TABS, formatRand, isBusinessTab, matchesClient, sortClients, type BusinessTab } from "./business-model";
 
@@ -123,6 +124,8 @@ function Business({
       <div className="mt-6" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "overview" ? (
           <Overview entity={entity} clients={clients} onOpenClient={onClient} />
+        ) : tab === "growth" ? (
+          <GrowthSection entity={entity} data={data} onTab={onTab} onClient={onClient} />
         ) : tab === "clients" ? (
           <Clients entity={entity} clients={clients} clientId={clientId} onClient={onClient} />
         ) : tab === "quotes" ? (
