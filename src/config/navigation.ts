@@ -12,8 +12,11 @@ import {
   Network,
   Plug,
   Sun,
+<<<<<<< HEAD
   SquareTerminal,
   SwatchBook,
+=======
+>>>>>>> origin/task/laughing-sagan-x43ej3
   Target,
   Wallet,
 } from "lucide-react";
@@ -72,5 +75,6 @@ export const navigationItems: AppShellNavigationItem[] = [
   // The workers and the jobs they are busy with — kept one click away, in the
   // footer, rather than leading the main list.
   { label: "Agents", href: "/workers", icon: Bot, section: "footer" },
-  { label: "Design system", href: "/design-system", icon: SwatchBook, section: "footer" },
+  // The `/design-system` route still exists as a reference page; it is
+  // deliberately not linked from the navigation.
 ];
