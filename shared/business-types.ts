@@ -93,6 +93,87 @@ export const BusinessEntitySummarySchema = BusinessEntitySchema.extend({
 });
 export type BusinessEntitySummary = z.infer<typeof BusinessEntitySummarySchema>;
 
+/** A quote, with who it is for and how long it has been waiting. */
+export const BusinessQuoteSchema = z.object({
+  id: z.string(),
+  entityId: z.string(),
+  clientId: z.string().optional(),
+  clientName: z.string(),
+  projectType: z.string().optional(),
+  status: z.string().optional(),
+  totalAmount: z.number(),
+  createdAt: z.string().optional(),
+  /** Whole days since it was created; absent when Virtec gave no date. */
+  ageDays: z.number().optional(),
+  /** Pending for a week or more: the quote most likely to go quiet. */
+  stale: z.boolean(),
+});
+export type BusinessQuote = z.infer<typeof BusinessQuoteSchema>;
+
+/** A project's letter agreement. The document itself stays in Virtec. */
+export const BusinessAgreementSchema = z.object({
+  projectId: z.string(),
+  entityId: z.string(),
+  clientId: z.string().optional(),
+  clientName: z.string(),
+  projectType: z.string().optional(),
+  /** `pending`, `approved`, `declined`, `signed`. */
+  status: z.string(),
+  amount: z.number().optional(),
+});
+export type BusinessAgreement = z.infer<typeof BusinessAgreementSchema>;
+
+/** A maintenance project billed on a repeating cycle. */
+export const BusinessRetainerSchema = z.object({
+  projectId: z.string(),
+  entityId: z.string(),
+  clientId: z.string().optional(),
+  clientName: z.string(),
+  projectType: z.string().optional(),
+  frequency: z.string(),
+  amount: z.number(),
+  /** What it is worth per month; `ad-hoc` retainers are worth nothing until billed. */
+  monthlyEquivalent: z.number(),
+  status: z.string().optional(),
+  serviceSku: z.string().optional(),
+});
+export type BusinessRetainer = z.infer<typeof BusinessRetainerSchema>;
+
+export const BusinessFollowUpSchema = z.object({
+  id: z.string(),
+  entityId: z.string(),
+  type: z.string().optional(),
+  customerId: z.string().optional(),
+  customerName: z.string(),
+  companyName: z.string().optional(),
+  customerEmail: z.string().optional(),
+  projectName: z.string().optional(),
+  amount: z.number().optional(),
+  dueAt: z.string().optional(),
+  overdue: z.boolean(),
+  reason: z.string().optional(),
+  suggestedSubject: z.string().optional(),
+  suggestedMessage: z.string().optional(),
+});
+export type BusinessFollowUp = z.infer<typeof BusinessFollowUpSchema>;
+
+export const FOLLOW_UP_ACTIONS = ["sent", "snooze", "dismiss"] as const;
+export const FollowUpActionSchema = z.object({
+  action: z.enum(FOLLOW_UP_ACTIONS),
+  /** Snooze length in days; ignored by the other actions. */
+  days: z.number().int().min(1).max(30).default(3),
+});
+export type FollowUpAction = z.infer<typeof FollowUpActionSchema>;
+
+export const BusinessRevenueSchema = z.object({
+  monthlyRecurringRevenue: z.number().optional(),
+  pendingQuoteValue: z.number().optional(),
+  acceptedQuoteValueThisMonth: z.number().optional(),
+  totalRevenue: z.number().optional(),
+  quoteConversionRate: z.number().optional(),
+  overdueInvoiceCount: z.number().optional(),
+});
+
 export const BusinessDataSchema = z.object({
   /** False when Virtec's environment variables are not set. */
   virtecConfigured: z.boolean(),
@@ -103,5 +184,10 @@ export const BusinessDataSchema = z.object({
   virtecProblem: z.string().optional(),
   entities: z.array(BusinessEntitySummarySchema),
   clients: z.array(BusinessClientSchema),
+  quotes: z.array(BusinessQuoteSchema),
+  agreements: z.array(BusinessAgreementSchema),
+  retainers: z.array(BusinessRetainerSchema),
+  followUps: z.array(BusinessFollowUpSchema),
+  revenue: BusinessRevenueSchema.optional(),
 });
 export type BusinessData = z.infer<typeof BusinessDataSchema>;

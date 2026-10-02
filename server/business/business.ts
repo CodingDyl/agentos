@@ -1,4 +1,4 @@
-import type { BusinessClient, BusinessData, BusinessEntitySummary } from "../../shared/business-types";
+import type { BusinessAgreement, BusinessClient, BusinessData, BusinessEntitySummary, BusinessFollowUp, BusinessQuote, BusinessRetainer } from "../../shared/business-types";
 import type { VirtecSnapshot } from "../../shared/virtec-types";
 import { isVirtecWritable } from "../virtec/client";
 import { getVirtecSnapshot } from "../virtec/snapshot";
@@ -19,7 +19,17 @@ function isLive(status: string | undefined): boolean {
 }
 
 /** Every Virtec client belongs to the entity whose source is Virtec. */
-export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, writable: boolean): BusinessData {
+const MONTHS_PER_CYCLE: Record<string, number> = { monthly: 1, quarterly: 3, biannual: 6, annual: 12 };
+const STALE_QUOTE_DAYS = 7;
+const DAY = 86_400_000;
+
+/** What a retainer is worth per month. An `ad-hoc` one is billed when it happens, so counts as nothing. */
+export function monthlyEquivalent(frequency: string, amount: number): number {
+  const months = MONTHS_PER_CYCLE[frequency.trim().toLowerCase()];
+  return months ? Math.round((amount / months) * 100) / 100 : 0;
+}
+
+export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, writable: boolean, now: Date = new Date()): BusinessData {
   const virtecEntity = state.entities.find((entity) => entity.source === "virtec");
 
   const clients: BusinessClient[] = virtecEntity
@@ -72,6 +82,84 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
     };
   });
 
+  const entityId = virtecEntity?.id;
+  const names = new Map(snapshot.clients.map((client) => [client.id, client.companyName ?? client.name]));
+  const nameFor = (clientId: string | undefined, fallback?: string) => (clientId ? names.get(clientId) : undefined) ?? fallback ?? "Unknown client";
+
+  const quotes: BusinessQuote[] = entityId
+    ? snapshot.quotes.map((quote) => {
+        const created = quote.createdAt ? Date.parse(quote.createdAt) : NaN;
+        const ageDays = Number.isNaN(created) ? undefined : Math.max(0, Math.floor((now.getTime() - created) / DAY));
+        return {
+          id: quote.id,
+          entityId,
+          clientId: quote.clientId,
+          clientName: nameFor(quote.clientId),
+          projectType: quote.projectType,
+          status: quote.status,
+          totalAmount: quote.totalAmount ?? 0,
+          createdAt: quote.createdAt,
+          ageDays,
+          stale: quote.status === "pending" && ageDays !== undefined && ageDays >= STALE_QUOTE_DAYS,
+        };
+      })
+    : [];
+
+  const agreements: BusinessAgreement[] = entityId
+    ? snapshot.projects.flatMap((project) =>
+        project.agreementStatus
+          ? [{ projectId: project.id, entityId, clientId: project.clientId, clientName: nameFor(project.clientId, project.clientName), projectType: project.projectType, status: project.agreementStatus, amount: project.amount }]
+          : [],
+      )
+    : [];
+
+  const retainers: BusinessRetainer[] = entityId
+    ? snapshot.projects.flatMap((project) =>
+        project.maintenanceFrequency && isLive(project.status)
+          ? [
+              {
+                projectId: project.id,
+                entityId,
+                clientId: project.clientId,
+                clientName: nameFor(project.clientId, project.clientName),
+                projectType: project.projectType,
+                frequency: project.maintenanceFrequency,
+                amount: project.maintenanceAmount ?? 0,
+                monthlyEquivalent: monthlyEquivalent(project.maintenanceFrequency, project.maintenanceAmount ?? 0),
+                status: project.status,
+                serviceSku: project.serviceSku,
+              },
+            ]
+          : [],
+      )
+    : [];
+
+  // Open ones, and snoozed ones whose snooze has run out.
+  const followUps: BusinessFollowUp[] = entityId
+    ? snapshot.followUps
+        .filter((followUp) => followUp.status === "open" || (followUp.status === "snoozed" && (!followUp.snoozedUntil || Date.parse(followUp.snoozedUntil) <= now.getTime())))
+        .map((followUp) => {
+          const due = followUp.dueAt ? Date.parse(followUp.dueAt) : NaN;
+          return {
+            id: followUp.id,
+            entityId,
+            type: followUp.type,
+            customerId: followUp.customerId,
+            customerName: followUp.customerName ?? nameFor(followUp.customerId),
+            companyName: followUp.companyName,
+            customerEmail: followUp.customerEmail,
+            projectName: followUp.projectName,
+            amount: followUp.amount,
+            dueAt: followUp.dueAt,
+            overdue: !Number.isNaN(due) && due < now.getTime(),
+            reason: followUp.reason,
+            suggestedSubject: followUp.suggestedSubject,
+            suggestedMessage: followUp.suggestedMessage,
+          };
+        })
+        .sort((a, b) => Number(b.overdue) - Number(a.overdue) || (a.dueAt ?? "").localeCompare(b.dueAt ?? ""))
+    : [];
+
   const failed = Object.entries(snapshot.sources ?? {}).filter(([, status]) => !status.ok).map(([source]) => source);
 
   return {
@@ -81,6 +169,11 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
     virtecProblem: snapshot.configured && failed.length > 0 ? `Virtec could not be read for: ${failed.join(", ")}.` : undefined,
     entities,
     clients: clients.sort((a, b) => a.name.localeCompare(b.name)),
+    quotes: quotes.sort((a, b) => Number(b.stale) - Number(a.stale) || (b.ageDays ?? 0) - (a.ageDays ?? 0)),
+    agreements,
+    retainers: retainers.sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent),
+    followUps,
+    revenue: snapshot.revenue,
   };
 }
 

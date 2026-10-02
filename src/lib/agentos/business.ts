@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BusinessDataSchema, type BusinessData } from "@shared/business-types";
+import { BusinessDataSchema, type BusinessData, type FollowUpAction } from "@shared/business-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -65,4 +65,13 @@ export function useSetEntityWorkspaces() {
     ({ entityId }) => `/api/business/entities/${encodeURIComponent(entityId)}/workspaces`,
     ({ workspaces }) => ({ workspaces }),
   );
+}
+
+export function useFollowUpAction() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...action }: { id: string } & Partial<FollowUpAction> & Pick<FollowUpAction, "action">) =>
+      request(`/api/business/follow-ups/${encodeURIComponent(id)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) }),
+    onSuccess: (data) => client.setQueryData(businessKey(), data),
+  });
 }

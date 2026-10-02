@@ -3,6 +3,10 @@ import type { BusinessClient } from "@shared/business-types";
 export const BUSINESS_TABS = [
   { value: "overview", label: "Overview" },
   { value: "clients", label: "Clients" },
+  { value: "quotes", label: "Quotes" },
+  { value: "agreements", label: "Agreements" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "follow-ups", label: "Follow-ups" },
 ] as const;
 
 export type BusinessTab = (typeof BUSINESS_TABS)[number]["value"];
@@ -32,4 +36,14 @@ export function matchesClient(client: BusinessClient, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
   return [client.name, client.companyName, client.email].some((field) => field?.toLowerCase().includes(needle));
+}
+
+/** A follow-up as an email a person can review and send themselves. Nothing is sent from here. */
+export function followUpMailto(email: string | undefined, subject: string | undefined, message: string | undefined): string | undefined {
+  if (!email) return undefined;
+  const params = new URLSearchParams();
+  if (subject) params.set("subject", subject);
+  if (message) params.set("body", message);
+  const query = params.toString().replace(/\+/g, "%20");
+  return `mailto:${encodeURIComponent(email).replace(/%40/g, "@")}${query ? `?${query}` : ""}`;
 }

@@ -9,7 +9,7 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-business-"));
 process.env.AGENTOS_UI_DIR = directory;
 
 const store = await import("../store");
-const { buildBusiness } = await import("../business");
+const { buildBusiness, monthlyEquivalent } = await import("../business");
 
 const businessDir = path.join(directory, "business");
 
@@ -103,5 +103,62 @@ describe("buildBusiness", () => {
   it("reports which Virtec sources failed", async () => {
     const data = buildBusiness({ ...snapshot, sources: { quotes: { ok: false, error: "x", skipped: 0 } } } as unknown as VirtecSnapshot, await store.readBusinessState(), false);
     assert.match(data.virtecProblem ?? "", /quotes/);
+  });
+});
+
+describe("buildBusiness: stage 2 views", () => {
+  const now = new Date("2026-10-10T12:00:00.000Z");
+  const rich = {
+    configured: true,
+    sources: {},
+    leads: [],
+    inbound: [],
+    clients: [{ id: "c1", name: "Ada", companyName: "Ada Law" }],
+    quotes: [
+      { id: "old", clientId: "c1", status: "pending", totalAmount: 500, createdAt: "2026-10-01T00:00:00.000Z", features: [] },
+      { id: "new", clientId: "c1", status: "pending", totalAmount: 100, createdAt: "2026-10-09T00:00:00.000Z", features: [] },
+      { id: "won", clientId: "c1", status: "accepted", totalAmount: 900, createdAt: "2026-09-01T00:00:00.000Z", features: [] },
+      { id: "undated", clientId: "gone", status: "pending", features: [] },
+    ],
+    projects: [
+      { id: "p1", clientId: "c1", status: "active", agreementStatus: "pending", maintenanceFrequency: "quarterly", maintenanceAmount: 3000 },
+      { id: "p2", clientId: "c1", status: "completed", maintenanceFrequency: "monthly", maintenanceAmount: 999 },
+      { id: "p3", clientName: "Cash Client", status: "active", maintenanceFrequency: "ad-hoc", maintenanceAmount: 800 },
+    ],
+    followUps: [
+      { id: "late", customerId: "c1", status: "open", dueAt: "2026-10-05T00:00:00.000Z" },
+      { id: "soon", customerId: "c1", status: "open", dueAt: "2026-10-20T00:00:00.000Z" },
+      { id: "woke", customerId: "c1", status: "snoozed", snoozedUntil: "2026-10-09T00:00:00.000Z", dueAt: "2026-10-01T00:00:00.000Z" },
+      { id: "asleep", customerId: "c1", status: "snoozed", snoozedUntil: "2026-10-15T00:00:00.000Z" },
+      { id: "done", customerId: "c1", status: "sent" },
+    ],
+  } as unknown as VirtecSnapshot;
+
+  it("flags only week-old pending quotes as stale, and puts them first", async () => {
+    const { quotes } = buildBusiness(rich, await store.readBusinessState(), false, now);
+    assert.deepEqual(quotes.map((quote) => quote.id)[0], "old");
+    assert.equal(quotes.find((quote) => quote.id === "old")?.stale, true);
+    assert.equal(quotes.find((quote) => quote.id === "new")?.stale, false);
+    assert.equal(quotes.find((quote) => quote.id === "won")?.stale, false, "an accepted quote is never stale");
+    const undated = quotes.find((quote) => quote.id === "undated");
+    assert.equal(undated?.ageDays, undefined);
+    assert.equal(undated?.stale, false);
+    assert.equal(undated?.clientName, "Unknown client");
+  });
+
+  it("lists agreements and live retainers, valuing them per month", async () => {
+    const data = buildBusiness(rich, await store.readBusinessState(), false, now);
+    assert.deepEqual(data.agreements.map((agreement) => [agreement.projectId, agreement.status]), [["p1", "pending"]]);
+    assert.deepEqual(data.retainers.map((retainer) => [retainer.projectId, retainer.monthlyEquivalent]), [["p1", 1000], ["p3", 0]]);
+    assert.equal(data.retainers.find((retainer) => retainer.projectId === "p3")?.clientName, "Cash Client");
+    assert.equal(monthlyEquivalent("annual", 1200), 100);
+    assert.equal(monthlyEquivalent("weird", 50), 0);
+  });
+
+  it("shows open and woken follow-ups, overdue first", async () => {
+    const { followUps } = buildBusiness(rich, await store.readBusinessState(), false, now);
+    assert.deepEqual(followUps.map((followUp) => followUp.id), ["woke", "late", "soon"]);
+    assert.equal(followUps.find((followUp) => followUp.id === "soon")?.overdue, false);
+    assert.equal(followUps.find((followUp) => followUp.id === "late")?.overdue, true);
   });
 });

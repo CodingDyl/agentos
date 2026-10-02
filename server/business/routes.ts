@@ -1,5 +1,8 @@
 import express from "express";
-import { ClientWorkspaceLinkSchema, EntityWorkspacesPatchSchema } from "../../shared/business-types";
+import { ClientWorkspaceLinkSchema, EntityWorkspacesPatchSchema, FollowUpActionSchema } from "../../shared/business-types";
+import { isVirtecWritable } from "../virtec/client";
+import { getVirtecSnapshot } from "../virtec/snapshot";
+import { dismissFollowUp, markFollowUpSent, snoozeFollowUp } from "../virtec/writes";
 import { parse } from "../traction/route-helpers";
 import { getBusiness } from "./business";
 import { BusinessNotFoundError, setClientWorkspace, setEntityWorkspaces } from "./store";
@@ -50,5 +53,43 @@ businessRouter.put("/clients/:id/workspace", async (request, response) => {
     response.json(await getBusiness());
   } catch (error) {
     fail(response, error, "link the client");
+  }
+});
+
+/**
+ * A person handled a follow-up (wrote to the client, put it off, or decided it
+ * is not worth chasing). The change is made in Virtec, which owns follow-ups;
+ * nothing is kept locally, so a failed write is reported rather than hidden.
+ */
+businessRouter.post("/follow-ups/:id", async (request, response) => {
+  const body = parse(FollowUpActionSchema, request.body, response, "follow-up action");
+  if (!body) return;
+
+  try {
+    if (!isVirtecWritable()) {
+      response.status(409).json({ error: "Virtec write access is not set up (VIRTEC_WRITE_API_KEY)." });
+      return;
+    }
+    // Only a follow-up Virtec actually has; the id goes into a Virtec URL.
+    const known = (await getVirtecSnapshot()).followUps.some((followUp) => followUp.id === request.params.id);
+    if (!known) {
+      response.status(404).json({ error: "No such follow-up" });
+      return;
+    }
+
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    midnight.setDate(midnight.getDate() + body.days);
+
+    const outcome =
+      body.action === "sent" ? await markFollowUpSent(request.params.id) : body.action === "dismiss" ? await dismissFollowUp(request.params.id) : await snoozeFollowUp(request.params.id, midnight);
+
+    if (!outcome.ok) {
+      response.status(502).json({ error: outcome.error });
+      return;
+    }
+    response.json(await getBusiness());
+  } catch (error) {
+    fail(response, error, "update the follow-up");
   }
 });

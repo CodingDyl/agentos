@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { BusinessClient } from "../../../../shared/business-types";
-import { isBusinessTab, matchesClient, sortClients } from "../business-model";
+import { followUpMailto, isBusinessTab, matchesClient, sortClients } from "../business-model";
 
 function client(id: string, extra: Partial<BusinessClient> = {}): BusinessClient {
   return { id, entityId: "virtec", name: id, active: true, maintenance: false, totalSpent: 0, projects: [], quotes: [], activeProjectCount: 0, pendingQuoteValue: 0, openFollowUps: 0, ...extra };
@@ -23,7 +23,16 @@ describe("business model", () => {
 
   it("only accepts known tabs", () => {
     assert.ok(isBusinessTab("clients"));
-    assert.ok(!isBusinessTab("quotes"));
+    assert.ok(!isBusinessTab("invoices"));
     assert.ok(!isBusinessTab(null));
+  });
+
+  it("builds a mailto that keeps spaces, newlines and ampersands intact", () => {
+    const link = followUpMailto("ada@example.com", "Quote & scope", "Hi Ada,\nChecking in.");
+    assert.ok(link?.startsWith("mailto:ada@example.com?"));
+    const params = new URL(link as string).searchParams;
+    assert.equal(params.get("subject"), "Quote & scope");
+    assert.equal(params.get("body"), "Hi Ada,\nChecking in.");
+    assert.equal(followUpMailto(undefined, "x", "y"), undefined);
   });
 });

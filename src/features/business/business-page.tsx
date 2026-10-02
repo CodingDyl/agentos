@@ -7,6 +7,7 @@ import { useNavigationItems } from "@/config/use-navigation";
 import { useBusiness, useLinkClientWorkspace, useRefreshBusiness, useSetEntityWorkspaces } from "@/lib/agentos/business";
 import { useProjects } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
+import { AgreementsSection, FollowUpsSection, MaintenanceSection, QuotesSection } from "./business-sections";
 import { BUSINESS_TABS, formatRand, isBusinessTab, matchesClient, sortClients, type BusinessTab } from "./business-model";
 
 /**
@@ -121,8 +122,16 @@ function Business({
       <div className="mt-6" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "overview" ? (
           <Overview entity={entity} clients={clients} onOpenClient={onClient} />
-        ) : (
+        ) : tab === "clients" ? (
           <Clients entity={entity} clients={clients} clientId={clientId} onClient={onClient} />
+        ) : tab === "quotes" ? (
+          <QuotesSection entity={entity} data={data} />
+        ) : tab === "agreements" ? (
+          <AgreementsSection entity={entity} data={data} />
+        ) : tab === "maintenance" ? (
+          <MaintenanceSection entity={entity} data={data} />
+        ) : (
+          <FollowUpsSection entity={entity} data={data} />
         )}
       </div>
     </div>
