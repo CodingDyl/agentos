@@ -42,6 +42,8 @@ const env = {
   ANTHROPIC_API_KEY: "",
   ANTHROPIC_AUTH_TOKEN: "",
   FISH_API_KEY: "",
+  // Operator creates new project folders here: a throwaway stand-in for the SSD.
+  AGENTOS_PROJECTS_ROOT: path.join(E2E_ROOT, "projects"),
   // Connectors' "Save & connect" writes here, never to the repository's own .env.
   AGENTOS_ENV_FILE: path.join(E2E_ROOT, ".env"),
 };
@@ -53,6 +55,7 @@ if (role === "data") {
   fs.cpSync(path.join(here, "fixtures", "vault"), env.AGENTOS_ROOT, { recursive: true });
   fs.mkdirSync(env.AGENTOS_UI_DIR, { recursive: true });
   fs.mkdirSync(env.AGENTOS_MEDIA_DIR, { recursive: true });
+  fs.mkdirSync(env.AGENTOS_PROJECTS_ROOT, { recursive: true });
   child = spawn("npx", ["tsx", "server/index.ts"], { cwd: repo, env, stdio: "inherit" });
 } else if (role === "web") {
   child = spawn("npx", ["vite", "--port", WEB_PORT, "--strictPort", "--host", "127.0.0.1"], { cwd: repo, env, stdio: "inherit" });

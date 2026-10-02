@@ -43,6 +43,8 @@ export interface EmailMessage {
   body: string;
   /** For a reply: the Message-ID being answered, so mail clients thread it. */
   inReplyTo?: string;
+  /** The sender name and the mailbox's own address. Gmail sends from the authenticated account either way. */
+  from?: { name: string; address: string };
 }
 
 /** The raw message, `\r\n` line endings, ready to base64url. */
@@ -51,6 +53,7 @@ export function buildMessage({
   subject,
   body,
   inReplyTo,
+  from,
 }: EmailMessage): string {
   if (!isPlainAddress(to))
     throw new MimeError("The recipient is not a plain email address.");
@@ -66,7 +69,12 @@ export function buildMessage({
     );
   }
 
+  if (from && (!isPlainAddress(from.address) || CONTROL.test(from.name)))
+    throw new MimeError("The sender is not valid.");
+  const fromName = from?.name.replace(/["<>\\]/g, "").trim();
+
   const headers = [
+    ...(from ? [`From: ${fromName ? `${/^[ -~]*$/.test(fromName) ? `"${fromName}"` : encodeHeader(fromName)} ` : ""}<${from.address}>`] : []),
     `To: ${to}`,
     `Subject: ${encodeHeader(subject.trim())}`,
     "MIME-Version: 1.0",

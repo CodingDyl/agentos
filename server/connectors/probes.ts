@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import type { ConnectorSetupItem } from "../../shared/connector-types";
 import { findOnPath, envKeySet } from "../ai-stack/detect";
 import { agentOSRoot } from "../agentos/filesystem";
+import { configuredProjectsRoot, PROJECTS_ROOT_ENV, resolveProjectsRoot } from "../operator/project-folder";
 import { accountStatus, binary as higgsfieldBinary } from "../designs/higgsfield";
 import { investecGet, isInvestecConfigured, missingInvestecVariables } from "../finance/investec";
 import { getHermesStatus, hermesFetch } from "../hermes/client";
@@ -22,6 +23,7 @@ import {
   isOutreachConnected,
   outreachAddress,
 } from "../outreach/auth";
+import { isApolloConfigured, searchPeopleAtDomain } from "../outreach/apollo";
 import { isFishConfigured, synthesise } from "../voice/fish";
 import { disconnectSpotify, isSpotifyConfigured, isSpotifyConnected, spotifyRedirectUri, testSpotify } from "../learning/spotify";
 import { fetchYouTubeMetadata } from "../learning/youtube";
@@ -58,6 +60,7 @@ export interface LocalProbe {
   missingGrants?: Record<string, string>;
   connectHint: string;
   connectUrl?: string;
+  extraActions?: { label: string; hint?: string; href?: string; post?: string }[];
   canDisconnect?: boolean;
 }
 
@@ -154,7 +157,22 @@ export const PROBES: Record<string, Probe> = {
   filesystem: {
     async local() {
       const root = agentOSRoot();
-      const setup: ConnectorSetupItem[] = [{ label: "AGENTOS_ROOT (defaults to ~/AgentOS)", kind: "path", done: false }];
+      const projectsRoot = configuredProjectsRoot();
+      // Where Operator creates new project folders. Optional: the vault works
+      // without it. Not a secret, so its value is shown.
+      const projects: ConnectorSetupItem = {
+        label: `${PROJECTS_ROOT_ENV}: where new project folders go`,
+        kind: "env",
+        envName: PROJECTS_ROOT_ENV,
+        optional: true,
+        done: await resolveProjectsRoot(projectsRoot).then(
+          () => true,
+          () => false,
+        ),
+        value: projectsRoot,
+        placeholder: "/Volumes/SSD/Developer",
+      };
+      const setup: ConnectorSetupItem[] = [{ label: "AGENTOS_ROOT (defaults to ~/AgentOS)", kind: "path", done: false }, projects];
       try {
         const stat = await fs.stat(root);
         setup[0].done = stat.isDirectory();
@@ -169,7 +187,15 @@ export const PROBES: Record<string, Probe> = {
       try {
         await fs.access(agentOSRoot(), fs.constants.R_OK | fs.constants.W_OK);
         const entries = await fs.readdir(agentOSRoot());
-        return { ok: true, detail: `Readable and writable, ${entries.length} entries at the top level.` };
+        // The projects folder is reported beside the vault, not as its health:
+        // an unplugged SSD doesn't make the vault unusable.
+        const projects = configuredProjectsRoot()
+          ? await resolveProjectsRoot().then(
+              (real) => ` New project folders go in ${real}.`,
+              (error: unknown) => ` ${error instanceof Error ? error.message : "The projects folder can't be used."}`,
+            )
+          : "";
+        return { ok: true, detail: `Readable and writable, ${entries.length} entries at the top level.${projects}` };
       } catch {
         return { ok: false, detail: "The vault folder can't be read and written." };
       }
@@ -318,6 +344,25 @@ export const PROBES: Record<string, Probe> = {
           ? "Sign in with Google. The inbox and the outreach mailbox are separate grants; disconnecting removes both, and Calendar with the inbox."
           : "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, restart the data adapter, then sign in.",
         connectUrl: clientSet && !inbox ? "/api/mail/connect" : undefined,
+        extraActions:
+          clientSet && !outreach
+            ? [
+                ...(inbox
+                  ? [
+                      {
+                        label: "Use my inbox account for outreach",
+                        hint: "Sends outreach from the Gmail account already connected, with no second sign-in.",
+                        post: "/api/outreach/use-inbox",
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Sign in a separate outreach mailbox",
+                  hint: "Choose a different Google account. It must be allowed on the AgentOS Google app (a test user while the app is in Testing).",
+                  href: "/api/outreach/connect",
+                },
+              ]
+            : [],
         canDisconnect: inbox || outreach,
       };
     },
@@ -411,6 +456,28 @@ export const PROBES: Record<string, Probe> = {
         const listed = await investecGet<{ accounts?: unknown[] }>("/za/pb/v1/accounts");
         const count = Array.isArray(listed.accounts) ? listed.accounts.length : 0;
         return { ok: true, detail: `Investec answered with ${count} account${count === 1 ? "" : "s"}.` };
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  },
+
+  apollo: {
+    async local() {
+      const configured = isApolloConfigured();
+      return {
+        configured,
+        detail: configured ? undefined : "APOLLO_API_KEY is not set.",
+        setup: [env("APOLLO_API_KEY")],
+        connectHint:
+          "Paste an Apollo API key (Apollo → Settings → Integrations → API, a master key). Searching is free; revealing an email spends one credit and only happens when you press Reveal.",
+      };
+    },
+    async test() {
+      try {
+        // A one-person search: it costs no credits, and proves the key works.
+        await searchPeopleAtDomain("apollo.io", 1);
+        return { ok: true, detail: "Apollo accepted the key. Searching is free; only revealing an email spends a credit." };
       } catch (error) {
         return failure(error);
       }

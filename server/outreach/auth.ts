@@ -54,10 +54,13 @@ export class OutreachAuthError extends Error {
 }
 
 interface StoredOutreachAuth {
+  /** Empty when `source` is "inbox": that connection borrows the inbox's token and holds none of its own. */
   refreshToken: string;
   address: string;
   obtainedAt: string;
   scope?: string;
+  /** "own" is a separate Google account; "inbox" sends from the account the inbox already has connected. */
+  source?: "own" | "inbox";
 }
 
 function authFile(): string {
@@ -118,7 +121,8 @@ async function readStored(): Promise<StoredOutreachAuth | undefined> {
     const parsed: unknown = JSON.parse(await fs.readFile(authFile(), "utf8"));
     const value = parsed as Partial<StoredOutreachAuth>;
     return typeof value.refreshToken === "string" &&
-      typeof value.address === "string"
+      typeof value.address === "string" &&
+      (value.refreshToken !== "" || value.source === "inbox")
       ? (value as StoredOutreachAuth)
       : undefined;
   } catch {
@@ -140,6 +144,10 @@ async function writeStored(auth: StoredOutreachAuth): Promise<void> {
 
 export async function outreachAddress(): Promise<string | undefined> {
   return (await readStored())?.address;
+}
+
+export async function outreachUsesInbox(): Promise<boolean> {
+  return (await readStored())?.source === "inbox";
 }
 
 export async function isOutreachConnected(): Promise<boolean> {
@@ -270,6 +278,44 @@ export async function completeOutreachConnection(
   return { address };
 }
 
+/**
+ * Sends outreach from the account the inbox already has connected, instead of
+ * a separate one. A choice the person makes on purpose: it gives up the
+ * separation a second mailbox gives, so nothing does it unasked.
+ *
+ * Stores no token. Every send borrows the inbox's own, so disconnecting the
+ * inbox stops outreach with it, and disconnecting outreach leaves the inbox
+ * exactly as it was.
+ */
+export async function useInboxForOutreach(): Promise<{ address: string }> {
+  if (!(await isPrimaryConnected()))
+    throw new OutreachAuthError(
+      "The inbox is not connected yet. Connect Gmail first.",
+      "unauthorized",
+    );
+
+  const address = await profileAddress(await getPrimaryAccessToken());
+  if (!address)
+    throw new OutreachAuthError(
+      "The inbox is connected, but its address could not be read from Google.",
+      "failed",
+    );
+
+  await writeStored({
+    refreshToken: "",
+    address,
+    obtainedAt: new Date().toISOString(),
+    source: "inbox",
+  });
+  cached = undefined;
+  return { address };
+}
+
+/** The inbox's address when it is connected and answers; lets the console offer it. */
+export async function inboxAddressForOutreach(): Promise<string | undefined> {
+  return mainInboxAddress();
+}
+
 let cached: { token: string; expiresAt: number } | undefined;
 
 /** A fresh access token for the outreach mailbox, minted from its own refresh token. */
@@ -282,6 +328,17 @@ export async function getOutreachAccessToken(): Promise<string> {
       "The outreach mailbox is not connected.",
       "unauthorized",
     );
+
+  if (stored.source === "inbox") {
+    try {
+      return await getPrimaryAccessToken();
+    } catch {
+      throw new OutreachAuthError(
+        "The inbox connection this outreach mailbox borrows is not available. Reconnect Gmail.",
+        "unauthorized",
+      );
+    }
+  }
 
   const { clientId, clientSecret } = credentials();
   let response: Response;

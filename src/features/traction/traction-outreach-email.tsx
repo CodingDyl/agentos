@@ -2,7 +2,7 @@ import { ExternalLink, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Prospect } from "@shared/traction-types";
-import { MAX_EMAIL_BODY } from "@shared/outreach-types";
+import { MAX_EMAIL_BODY, type EmailCandidate } from "@shared/outreach-types";
 import {
   FieldLabel,
   PAPER_FOCUS,
@@ -15,15 +15,20 @@ import {
   useDisconnectOutreach,
   useCheckReplies,
   useDraftOutreachEmail,
+  useApolloPeople,
+  useApolloReveal,
   useDraftReply,
+  useFindProspectEmail,
   useProspectReplies,
   useOutreachStatus,
+  useUseInboxForOutreach,
   useRemoveSuppression,
   useSaveOutreachSignature,
   useSendOutreachEmail,
   useSuppressions,
   type GmailDraftResult,
 } from "@/lib/agentos/outreach";
+import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { formatShortDate } from "./traction-model";
 
@@ -46,6 +51,7 @@ const RETURN_MESSAGES: Record<string, string> = {
 export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
   const status = useOutreachStatus();
   const disconnect = useDisconnectOutreach();
+  const useInbox = useUseInboxForOutreach();
   const [searchParams, setSearchParams] = useSearchParams();
   const returned = searchParams.get("outreach");
 
@@ -100,6 +106,33 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
             Connect the separate account you send outreach from. Choose it in
             Google&apos;s account list, not your main inbox.
           </p>
+          {status.data.inboxAddress ? (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => useInbox.mutate()}
+                disabled={useInbox.isPending}
+                className={cn(
+                  "inline-flex min-h-8 cursor-pointer items-center rounded-none border-[1.5px] border-paper-gold bg-paper-white px-3 font-semibold text-paper-moss hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-60",
+                  PAPER_FOCUS,
+                )}
+              >
+                {useInbox.isPending
+                  ? "Connecting…"
+                  : `Use ${status.data.inboxAddress}`}
+              </button>
+              <p className="mt-1 text-paper-sage">
+                Sends from the Gmail account already connected, with no second
+                sign-in. Cold email then comes from the same mailbox as your
+                inbox.
+              </p>
+              {useInbox.error ? (
+                <p role="alert" className="mt-1 text-paper-flame-deep">
+                  {useInbox.error.message}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <a
             href="/api/outreach/connect"
             className={cn(
@@ -117,6 +150,9 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
           <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-[13px] text-paper-char">
             Sending as{" "}
             <span className="font-semibold">{status.data.address}</span>
+            {status.data.usesInbox ? (
+              <span className="text-paper-sage">(your inbox account)</span>
+            ) : null}
             <button
               type="button"
               onClick={() => disconnect.mutate()}
@@ -234,6 +270,7 @@ function Composer({
           {prospect.email ?? "no email on file"}
         </span>
       </p>
+      {prospect.email ? null : <EmailFinder prospect={prospect} />}
       {blocker ? (
         <p className="mt-1 text-[13px] text-paper-sage">{blocker}</p>
       ) : null}
@@ -526,6 +563,166 @@ function CheckReplies({ lastSyncAt }: { lastSyncAt?: string }) {
               ]
                 .filter(Boolean)
                 .join(", ") + "."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+const KIND_LABEL = {
+  owner: "Owner",
+  person: "Person",
+  role: "Role mailbox",
+  general: "General",
+} as const;
+
+/**
+ * Looks for the prospect's address on their own website and offers what it
+ * finds, best first. It only suggests: an address is saved when a person
+ * presses Use, so a wrong guess never reaches a send.
+ */
+export function EmailFinder({ prospect }: { prospect: Prospect }) {
+  const find = useFindProspectEmail();
+  const update = useUpdateProspect();
+  const apollo = useApolloPeople();
+  const reveal = useApolloReveal();
+  const [revealed, setRevealed] = useState<EmailCandidate[]>([]);
+  const [noEmailFor, setNoEmailFor] = useState<string[]>([]);
+  const candidates = [...revealed, ...(find.data?.candidates ?? [])].filter(
+    (candidate, index, all) => all.findIndex((other) => other.address === candidate.address) === index,
+  );
+
+  return (
+    <div className="mt-2">
+      {prospect.website ? (
+        <PaperButton
+          variant="ghost"
+          disabled={find.isPending}
+          onClick={() => find.mutate(prospect.id)}
+        >
+          {find.isPending ? "Reading their website…" : "Find email on their website"}
+        </PaperButton>
+      ) : (
+        <p className="text-[13px] text-paper-sage">
+          Add this prospect&apos;s website and the address can be looked for there.
+        </p>
+      )}
+
+      {find.error ? (
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
+          {find.error.message}
+        </p>
+      ) : null}
+
+      {prospect.website ? (
+        <div className="mt-2">
+          <PaperButton
+            variant="ghost"
+            disabled={apollo.isPending}
+            onClick={() => apollo.mutate(prospect.id)}
+          >
+            {apollo.isPending ? "Asking Apollo…" : "Ask Apollo who runs it"}
+          </PaperButton>
+          <p className="mt-1 text-[12px] text-paper-sage">
+            Names and titles are free. Revealing an address spends one Apollo credit.
+          </p>
+        </div>
+      ) : null}
+      {apollo.error ? (
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
+          {apollo.error.message}
+        </p>
+      ) : null}
+      {apollo.data && apollo.data.people.length === 0 ? (
+        <p role="status" className="mt-2 text-[13px] text-paper-sage">
+          Apollo has nobody with an owner or director title at {apollo.data.domain}.
+        </p>
+      ) : null}
+      {apollo.data && apollo.data.people.length > 0 ? (
+        <ul className="mt-2 space-y-1.5" aria-label="People Apollo found">
+          {apollo.data.people.map((person) => (
+            <li
+              key={person.id}
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-paper-linen px-3 py-2 text-[13px] leading-5 text-paper-char"
+            >
+              <span className="min-w-0">
+                <span className="block font-semibold">
+                  {person.firstName} {person.lastName}
+                </span>
+                <span className="block text-paper-sage">{person.title || "No title listed"}</span>
+              </span>
+              {noEmailFor.includes(person.id) ? (
+                <span className="text-paper-sage">No email on record</span>
+              ) : (
+                <PaperButton
+                  variant="ghost"
+                  disabled={reveal.isPending}
+                  onClick={() =>
+                    reveal.mutate(
+                      { prospectId: prospect.id, personId: person.id },
+                      {
+                        onSuccess: (candidate) => {
+                          if (candidate) setRevealed((current) => [candidate, ...current]);
+                          else setNoEmailFor((current) => [...current, person.id]);
+                        },
+                      },
+                    )
+                  }
+                >
+                  {reveal.isPending && reveal.variables?.personId === person.id
+                    ? "Revealing…"
+                    : "Reveal email (1 credit)"}
+                </PaperButton>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {reveal.error ? (
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
+          {reveal.error.message}
+        </p>
+      ) : null}
+
+      {find.data && candidates.length === 0 ? (
+        <p role="status" className="mt-2 text-[13px] leading-5 text-paper-sage">
+          No address is printed on the {find.data.pagesRead} page
+          {find.data.pagesRead === 1 ? "" : "s"} read. Add one by hand with Edit.
+        </p>
+      ) : null}
+
+      {candidates.length > 0 ? (
+        <ul className="mt-2 space-y-1.5" aria-label="Addresses found on their website">
+          {candidates.map((candidate) => (
+            <li
+              key={candidate.address}
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-paper-linen px-3 py-2 text-[13px] leading-5 text-paper-char"
+            >
+              <span className="min-w-0">
+                <span className="block break-all font-semibold">{candidate.address}</span>
+                <span className="block text-paper-sage">
+                  {KIND_LABEL[candidate.kind]} · {candidate.note}
+                </span>
+              </span>
+              <PaperButton
+                variant="ghost"
+                disabled={update.isPending}
+                onClick={() =>
+                  update.mutate({
+                    prospectId: prospect.id,
+                    patch: { email: candidate.address },
+                  })
+                }
+              >
+                Use
+              </PaperButton>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {update.error ? (
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
+          {update.error.message}
         </p>
       ) : null}
     </div>

@@ -192,6 +192,7 @@ export async function getConnector(id: string): Promise<ConnectorDetail> {
     setup: local?.setup ?? (unavailable?.setup ?? []).map((name) => env(name)),
     connectHint: local?.connectHint ?? unavailable?.hint ?? "AgentOS has no adapter for this service yet.",
     connectUrl: local?.connectUrl,
+    extraActions: local?.extraActions ?? [],
     canDisconnect: Boolean(local?.canDisconnect && PROBES[connector.id]?.disconnect),
     recentUses: usesFor(connector.id),
   };

@@ -13,7 +13,6 @@ import { TractionToday } from "@/features/traction";
 import { FrictionButton, SprintScorecard } from "@/features/validation";
 import { formatRelativeTime } from "@/lib/format";
 import {
-  useCaptures,
   useMissionControl,
   useProjects,
   useRecentDocuments,
@@ -24,7 +23,13 @@ import { ActiveWorkList } from "./active-work-list";
 import { AttentionList } from "./attention-list";
 import { FocusBlock } from "./focus-block";
 import { degradedSources, formatToday, greeting, isEvening } from "./mission-control-model";
-import { TodayCaptured, TodayStrip, TodayWorkspaces } from "./today";
+import { TodayStrip, TodayWorkspaces } from "./today";
+import { TodayCaptured } from "./today-captured";
+import { CompassRail } from "./compass-rail";
+import { MorningMode } from "./morning-mode";
+import { YourThree } from "./your-three";
+import { useFocusToday } from "@/lib/agentos/focus";
+import { useCaptureTriage } from "@/lib/agentos/capture-triage";
 import { DayWrapUp, MorningPlan, TodayCalendar } from "./today-day";
 import { TodayLink } from "./today-kit";
 import { TodayNews, TodayTrending } from "./today-world";
@@ -94,16 +99,23 @@ export function MissionControlPage() {
 function MissionControl({ data }: { data: MissionControlData }) {
   const degraded = degradedSources(data.sources);
   const { data: sprint } = useValidationSprint();
-  const { data: captures } = useCaptures();
+  // The same list the Captured section sorts, so the strip and the section always agree.
+  const { data: triage } = useCaptureTriage();
   // The whole portfolio, not Mission Control's live subset: a low-priority
   // workspace's Now tasks are still planned for today.
   const { data: portfolio } = useProjects();
   const projects = portfolio?.projects ?? data.projects;
-  const captured = captures?.items ?? [];
+  const captured = triage?.items ?? [];
   const [mode, setMode] = useState<"plan" | "wrap">(() => (isEvening() ? "wrap" : "plan"));
+  const focus = useFocusToday();
+  // "auto" shows morning mode only while today has no check-in; "open" keeps it up through the plan.
+  const [morning, setMorning] = useState<"auto" | "open" | "closed">("auto");
+  const needsCheckIn = Boolean(focus.data && !focus.data.day.checkIn && !focus.data.day.skipped);
+  const showMorning = Boolean(focus.data) && (morning === "open" || (morning === "auto" && needsCheckIn));
 
   return (
     <>
+      {showMorning && focus.data ? <MorningMode today={focus.data} onStart={() => setMorning("open")} onClose={() => setMorning("closed")} /> : null}
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div>
           <p className="text-[13px] font-medium text-paper-sage">{formatToday()}</p>
@@ -143,6 +155,7 @@ function MissionControl({ data }: { data: MissionControlData }) {
 
       <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-12">
+          {focus.data ? <YourThree today={focus.data} onCheckIn={() => setMorning("open")} /> : null}
           {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
           <AttentionList items={data.attention} dismissed={data.dismissed} workers={data.workers} />
           {data.focus ? <FocusBlock focus={data.focus} /> : null}
@@ -154,9 +167,10 @@ function MissionControl({ data }: { data: MissionControlData }) {
         </div>
 
         <div className="min-w-0 space-y-12">
+          <CompassRail />
           <TodayCalendar />
           <ActiveWorkList items={data.activeWork} />
-          <TodayCaptured captures={captured} />
+          <TodayCaptured />
           <RecentActivity data={data} />
           <UsageSummary />
           <RecentDocuments />

@@ -62,6 +62,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     capabilities: [
       { action: "read_vault", name: "Read the vault", risk: "read", implementedBy: "server/agentos/filesystem.ts" },
       { action: "write_project_files", name: "Write tasks, decisions and project files", risk: "write-local", implementedBy: "server/agentos/mutations/writer.ts" },
+      { action: "create_directory", name: "Create project folders outside the vault", risk: "write-local", implementedBy: "server/operator/project-folder.ts" },
       { action: "delete_files", name: "Delete files", risk: "destructive" },
     ],
   },
@@ -75,6 +76,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     integrated: true,
     capabilities: [
       { action: "read_status", name: "Read branches and working tree", risk: "read", implementedBy: "server/agentos/git.ts" },
+      { action: "init", name: "Initialise repositories", risk: "write-local" },
       { action: "create_branch", name: "Create branches", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
       { action: "switch_branch", name: "Switch branches", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
       { action: "commit", name: "Commit", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
@@ -221,6 +223,19 @@ export const CONNECTORS: readonly CatalogConnector[] = [
       { action: "text_to_speech", name: "Speak replies (spends credits)", risk: "write-external", implementedBy: "server/voice/fish.ts" },
       { action: "speech_to_text", name: "Transcribe speech (spends credits)", risk: "write-external", implementedBy: "server/voice/fish.ts" },
       { action: "clone_voice", name: "Clone a voice", risk: "write-external", policy: "approval" },
+    ],
+  },
+  {
+    id: "apollo",
+    name: "Apollo",
+    description: "Finds the owner or director of a business and their email address, for outreach.",
+    category: "business",
+    tier: 2,
+    icon: "search",
+    integrated: true,
+    capabilities: [
+      { action: "search_people", name: "Find people at a company (free)", risk: "read", implementedBy: "server/outreach/apollo.ts" },
+      { action: "reveal_email", name: "Reveal one person's email (spends a credit)", risk: "write-external", implementedBy: "server/outreach/apollo.ts" },
     ],
   },
   {

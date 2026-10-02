@@ -1,7 +1,7 @@
 import express, { type Response } from "express";
 import {
   DEFAULT_DAILY_CAP,
-  EmailContentSchema,
+  GmailDraftRequestSchema,
   MAX_DAILY_CAP,
   OutreachSettingsInputSchema,
   SendRequestSchema,
@@ -22,8 +22,18 @@ import {
   settleSend,
   TractionNotFoundError,
 } from "../traction/store";
+import { caseRouter } from "./case-routes";
+import { allow, ApolloError, revealEmail, searchPeopleAtDomain } from "./apollo";
+import type { Sender } from "../../shared/outreach-case";
+import { OutreachBriefSchema, type OutreachBrief } from "../../shared/outreach-plays";
+import { researchProspect } from "./research";
+import { computeOutreachStats } from "./stats";
+import { EmailFinderError, findEmailsForWebsite, siteDomain } from "./email-finder";
 import {
   buildOutreachConsentUrl,
+  inboxAddressForOutreach,
+  outreachUsesInbox,
+  useInboxForOutreach,
   disconnectOutreach,
   isOutreachConfigured,
   OutreachAuthError,
@@ -52,6 +62,7 @@ import { syncOutreachInbox } from "./sync";
  * request can change what an email says but not who it goes to.
  */
 export const outreachRouter = express.Router();
+outreachRouter.use(caseRouter);
 
 /** Emails allowed in any 24 hours. `OUTREACH_DAILY_CAP`, clamped to 1..50; 10 when unset or unreadable. */
 export function dailyCap(): number {
@@ -97,6 +108,8 @@ outreachRouter.get("/status", async (_request, response) => {
       configured: isOutreachConfigured(),
       connected: address !== undefined,
       address,
+      usesInbox: await outreachUsesInbox(),
+      inboxAddress: await inboxAddressForOutreach(),
       signature: state.outreach.signature,
       lastSyncAt: state.outreachSync.lastSyncAt,
       sentToday: sentInLastDay(state),
@@ -122,6 +135,15 @@ outreachRouter.get("/connect", (request, response) => {
   }
 });
 
+/** Sends outreach from the account the inbox already has connected. */
+outreachRouter.post("/use-inbox", async (_request, response) => {
+  try {
+    response.json(await useInboxForOutreach());
+  } catch (error) {
+    fail(response, error, "use the inbox account for outreach");
+  }
+});
+
 outreachRouter.post("/disconnect", async (_request, response) => {
   await disconnectOutreach();
   response.json({ ok: true });
@@ -142,10 +164,108 @@ outreachRouter.put("/settings", async (request, response) => {
   }
 });
 
-/** Hermes drafts the email (subject and body, signature included) for a person to edit. Nothing is created or sent. */
-outreachRouter.post("/prospects/:id/draft", async (request, response) => {
+/**
+ * Looks for the prospect's email address on their own website. Returns
+ * suggestions, ranked; nothing is saved until a person accepts one.
+ */
+outreachRouter.post("/prospects/:id/find-email", async (request, response) => {
   try {
-    response.json(await draftOutreachEmail(request.params.id));
+    const state = await readState();
+    const prospect = state.prospects.find((entry) => entry.id === request.params.id);
+    if (!prospect) {
+      response.status(404).json({ error: "That prospect does not exist." });
+      return;
+    }
+    response.json(await findEmailsForWebsite(prospect.website));
+  } catch (error) {
+    if (error instanceof EmailFinderError) {
+      response.status(409).json({ error: error.message });
+      return;
+    }
+    fail(response, error, "look for the email address");
+  }
+});
+
+/** Who runs the business, from Apollo. Free: names and titles only, no addresses. */
+outreachRouter.post("/prospects/:id/apollo/people", async (request, response) => {
+  try {
+    const prospect = (await readState()).prospects.find((entry) => entry.id === request.params.id);
+    const domain = siteDomain(prospect?.website);
+    if (!prospect || !domain) {
+      response.status(409).json({ error: "This prospect needs its own website (not a social page) before Apollo can look the business up." });
+      return;
+    }
+    allow("search_people", "company search");
+    response.json({ domain, people: await searchPeopleAtDomain(domain) });
+  } catch (error) {
+    apolloFail(response, error);
+  }
+});
+
+/** One person's email. This is the step that spends an Apollo credit. */
+outreachRouter.post("/prospects/:id/apollo/reveal", async (request, response) => {
+  try {
+    const personId = typeof request.body?.personId === "string" ? request.body.personId : "";
+    const prospect = (await readState()).prospects.find((entry) => entry.id === request.params.id);
+    const domain = siteDomain(prospect?.website);
+    if (!personId || !prospect || !domain) {
+      response.status(400).json({ error: "Choose a person to reveal." });
+      return;
+    }
+    allow("reveal_email", "reveal one email");
+    const found = await revealEmail(personId, domain);
+    response.json({ candidate: found ? { address: found.address, kind: "owner", source: "Apollo", note: found.verified ? "Verified by Apollo" : "Found by Apollo, not verified" } : null });
+  } catch (error) {
+    apolloFail(response, error);
+  }
+});
+
+function senderFor(state: { senders: Sender[] }, senderId: string | undefined): Sender | undefined {
+  return senderId ? state.senders.find((entry) => entry.id === senderId) : undefined;
+}
+
+function apolloFail(response: Response, error: unknown): void {
+  if (error instanceof ApolloError) {
+    response.status(error.reason === "failed" ? 502 : 409).json({ error: error.message });
+    return;
+  }
+  fail(response, error, "ask Apollo");
+}
+
+/** The website review, in AgentOS: checks from the markup, and up to three things Hermes noticed. Saves nothing. */
+outreachRouter.post("/prospects/:id/research", async (request, response) => {
+  try {
+    const prospect = (await readState()).prospects.find((entry) => entry.id === request.params.id);
+    if (!prospect) throw new TractionNotFoundError(`No prospect ${request.params.id}`);
+    response.json(await researchProspect(prospect));
+  } catch (error) {
+    fail(response, error, "review the website");
+  }
+});
+
+/** Sent emails, reply rates, what works, and follow-ups due. Read only. */
+outreachRouter.get("/stats", async (_request, response) => {
+  try {
+    response.json(computeOutreachStats(await readState()));
+  } catch (error) {
+    fail(response, error, "read the outreach results");
+  }
+});
+
+/**
+ * Hermes drafts the email (subject and body, signature included) for a
+ * person to edit. Nothing is created or sent. A body, when there is one, is
+ * the composer's brief: the play, its inputs and the call to action.
+ */
+outreachRouter.post("/prospects/:id/draft", async (request, response) => {
+  let brief: OutreachBrief | undefined;
+  if (request.body && typeof request.body === "object" && "play" in request.body) {
+    const parsed = parse(OutreachBriefSchema, request.body, response, "outreach brief");
+    if (!parsed) return;
+    brief = parsed;
+  }
+  try {
+    response.json(await draftOutreachEmail(request.params.id, brief));
   } catch (error) {
     fail(response, error, "draft the email");
   }
@@ -159,7 +279,7 @@ outreachRouter.post("/prospects/:id/draft", async (request, response) => {
  * signature, which is where the sender's identity and the opt-out line live.
  */
 outreachRouter.post("/prospects/:id/gmail-draft", async (request, response) => {
-  const content = parse(EmailContentSchema, request.body, response, "email");
+  const content = parse(GmailDraftRequestSchema, request.body, response, "email");
   if (!content) return;
 
   try {
@@ -177,7 +297,12 @@ outreachRouter.post("/prospects/:id/gmail-draft", async (request, response) => {
         .json({ error: "Connect the outreach mailbox first." });
       return;
     }
-    const signature = state.outreach.signature.trim();
+    const sender = senderFor(state, content.senderId);
+    if (content.senderId && !sender) {
+      response.status(422).json({ error: "That company no longer exists. Choose another." });
+      return;
+    }
+    const signature = (sender?.signature ?? state.outreach.signature).trim();
     const blocker = recipientBlocker(prospect, signature);
     if (blocker) {
       response.status(422).json({ error: blocker });
@@ -207,12 +332,14 @@ outreachRouter.post("/prospects/:id/gmail-draft", async (request, response) => {
       to: prospect.email as string,
       subject: content.subject,
       body: content.body,
+      from: sender ? { name: sender.fromName, address } : undefined,
     });
     await logOutreach({
       prospectId: prospect.id,
       kind: "draft",
       to: prospect.email as string,
       subject: content.subject,
+      play: content.play,
       gmailDraftId: created.draftId,
     });
     response
@@ -233,7 +360,7 @@ outreachRouter.post("/prospects/:id/gmail-draft", async (request, response) => {
  * recipient in it, and no way to send to more than one prospect per call.
  *
  * Refused (429) when the address is on the do-not-contact list, was emailed
- * in the last 14 days, or the daily cap is reached. A cold email must carry
+ * too recently for the follow-up schedule, or the daily cap is reached. A cold email must carry
  * the signature and its opt-out line.
  */
 outreachRouter.post("/prospects/:id/send", async (request, response) => {
@@ -248,14 +375,20 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
     );
     if (!prospect)
       throw new TractionNotFoundError(`No prospect ${request.params.id}`);
-    if (!(await outreachAddress())) {
+    const mailbox = await outreachAddress();
+    if (!mailbox) {
       response
         .status(409)
         .json({ error: "Connect the outreach mailbox first." });
       return;
     }
 
-    const signature = state.outreach.signature.trim();
+    const sender = senderFor(state, content.senderId);
+    if (content.senderId && !sender) {
+      response.status(422).json({ error: "That company no longer exists. Choose another." });
+      return;
+    }
+    const signature = (sender?.signature ?? state.outreach.signature).trim();
     const blocker = recipientBlocker(prospect, signature);
     if (blocker) {
       response.status(422).json({ error: blocker });
@@ -286,12 +419,18 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
       });
       return;
     }
-    const message = { to, subject: content.subject, body: content.body, inReplyTo: replyTo?.messageIdHeader };
+    const message = {
+      to,
+      subject: content.subject,
+      body: content.body,
+      inReplyTo: replyTo?.messageIdHeader,
+      from: sender ? { name: sender.fromName, address: mailbox } : undefined,
+    };
     // Refuse a malformed email before a slot is reserved for it.
     buildMessage(message);
 
     reservationId = (
-      await reserveSend({ prospectId: prospect.id, subject: content.subject, dailyCap: dailyCap(), isReply: Boolean(replyTo) })
+      await reserveSend({ prospectId: prospect.id, subject: content.subject, dailyCap: dailyCap(), isReply: Boolean(replyTo), play: content.play })
     ).id;
     const sent = await sendMessage(message, replyTo?.threadId);
     await settleSend(reservationId, {

@@ -87,6 +87,8 @@ import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
 import { databasesRouter } from "./supabase/routes";
+import { operatorRouter } from "./operator/routes";
+import { reconcileOperatorRuns } from "./operator/service";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -289,6 +291,10 @@ import { JevError } from "./mail/jev-client";
 import { runMailSync, syncDepsFor } from "./mail/sync";
 import { activeMailClassifier } from "./mail/classifier";
 import { captureNote, CAPTURE_PATH, parseCaptures } from "./agentos/capture";
+import { compassRouter } from "./compass/routes";
+import { focusRouter } from "./focus/routes";
+import { acceptCapture, CaptureTriageError, deleteCapture, readTriage, suggestHomes } from "./agentos/capture-triage";
+import { CaptureAcceptSchema } from "../shared/capture-types";
 import { getKnowledge } from "./agentos/knowledge";
 import { CaptureRequestSchema } from "../shared/agentos-types";
 import {
@@ -350,6 +356,8 @@ app.use("/api/traction", tractionRouter);
 /** Business: the companies being run and their clients, read from Virtec. */
 app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
+app.use("/api/compass", compassRouter);
+app.use("/api/focus", focusRouter);
 
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
 app.use("/api/finance", financeRouter);
@@ -357,6 +365,9 @@ app.use("/api/route-policy", routePolicyRouter);
 
 /** Connectors: every service AgentOS can reach, its switch, and each capability's policy. */
 app.use("/api/connectors", connectorsRouter);
+
+/** Operator: one request in, planned against Connectors, approved, executed, and recorded as a run. */
+app.use("/api/operator", operatorRouter);
 
 /** Databases: named Supabase setups, their workspace links, and the Database tab's rows. */
 app.use("/api/databases", databasesRouter);
@@ -553,6 +564,24 @@ app.get("/api/mail/oauth/callback", async (request, response) => {
   const code = typeof request.query.code === "string" ? request.query.code : undefined;
 
   if (!code) {
+    // Google comes back without a code when consent is cancelled or refused
+    // (for instance an account that is not a listed test user). For the
+    // outreach mailbox, return to the page with the reason rather than
+    // stranding the person on a blank error page.
+    const returned = typeof request.query.state === "string" ? request.query.state : undefined;
+    const outreachReturn = parseOutreachState(returned);
+
+    if (outreachReturn) {
+      const origin = outreachReturn.origin ?? process.env.AGENTOS_WEB_ORIGIN ?? "http://localhost:1420";
+      const googleError = typeof request.query.error === "string" ? request.query.error : "no authorization code";
+      const reason =
+        googleError === "access_denied"
+          ? "Google did not allow that account to connect. Cancelled, or the account is not a test user of the AgentOS Google app."
+          : `Google returned ${googleError}.`;
+      response.redirect(`${origin}/traction?tab=prospects&outreach=${encodeURIComponent(reason)}`);
+      return;
+    }
+
     response.status(400).send("Missing authorization code.");
     return;
   }
@@ -3336,6 +3365,60 @@ app.get("/api/capture", async (_request, response) => {
   }
 });
 
+/** The inbox with Hermes' suggested home for each note, and the homes there are. */
+app.get("/api/capture/triage", async (_request, response) => {
+  try {
+    response.json(await readTriage());
+  } catch (error) {
+    console.error("[agentos] capture triage read failed:", error);
+    response.status(500).json({ error: "Unable to read captured notes" });
+  }
+});
+
+/** Asks Hermes where each unsorted note belongs. One call; answers are cached per note. */
+app.post("/api/capture/suggest", async (_request, response) => {
+  try {
+    response.json(await suggestHomes());
+  } catch (error) {
+    if (error instanceof CaptureTriageError) {
+      response.status(502).json({ error: error.message });
+      return;
+    }
+    mutationFailed(error, response);
+  }
+});
+
+/** Files a note where the person chose and takes it out of the inbox. */
+app.post("/api/capture/:id/accept", async (request, response) => {
+  const body = CaptureAcceptSchema.safeParse({ ...(request.body ?? {}), id: request.params.id });
+  if (!body.success) {
+    response.status(400).json({ error: "That is not a place a note can be filed." });
+    return;
+  }
+  try {
+    response.json(await acceptCapture(body.data.id, body.data.destination));
+  } catch (error) {
+    if (error instanceof CaptureTriageError) {
+      response.status(409).json({ error: error.message });
+      return;
+    }
+    mutationFailed(error, response);
+  }
+});
+
+app.delete("/api/capture/:id", async (request, response) => {
+  try {
+    await deleteCapture(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    if (error instanceof CaptureTriageError) {
+      response.status(409).json({ error: error.message });
+      return;
+    }
+    mutationFailed(error, response);
+  }
+});
+
 /**
  * Captures a note. Appends one line; no model is consulted, so this answers
  * as fast as the disk does and cannot fail because Hermes is down.
@@ -4139,6 +4222,12 @@ app.listen(PORT, HOST, () => {
         `[agentos] ${interrupted.length} worker job${interrupted.length === 1 ? "" : "s"} marked interrupted from the previous run: ${interrupted.map((job) => job.id).join(", ")}`,
       );
     }
+  });
+
+  // Operator runs are held in this process too: one caught mid-run is marked
+  // stopped with what it had finished, never resumed.
+  void reconcileOperatorRuns().catch((error: unknown) => {
+    console.error("[agentos] could not settle interrupted operator runs:", error);
   });
 
   startStallWatch();

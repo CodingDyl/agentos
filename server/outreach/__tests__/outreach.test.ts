@@ -560,13 +560,13 @@ describe("sending", () => {
     assert.equal(sendCalls.length, 0);
   });
 
-  it("will not email an address twice inside 14 days, even from another prospect", async () => {
+  it("will not follow up before the follow-up is due, even from another prospect", async () => {
     const made = await seed();
     await completeOutreachConnection("code");
     assert.equal((await send(made.id)).status, 201);
     const again = await send(made.id);
     assert.equal(again.status, 429);
-    assert.match(String(again.body.error), /waits 14 days/);
+    assert.match(String(again.body.error), /next follow-up is due/);
 
     const twin = await store.createProspect({
       ...ProspectInputSchema.parse({
@@ -788,12 +788,13 @@ describe("replies", () => {
     assert.equal((await api(`/prospects/${made.id}/replies/nope/draft`, { method: "POST" })).status, 422);
   });
 
-  it("answers in the same thread, inside the 14-day window and without the cold signature", async () => {
+  it("answers in the same thread, and without the cold signature", async () => {
     const made = await sentProspect();
     inbox = [{ id: "m1", threadId: "t1", from: "jane@parkview.example", subject: "Your listing pages", text: "What would it cost?", messageId: "<abc123@mail.example>" }];
     await api("/sync", { method: "POST" });
 
-    assert.equal((await send(made.id)).status, 429, "a plain second email is still a repeat");
+    // They wrote back: from here it is a conversation, so the follow-up schedule no longer applies.
+    assert.equal((await send(made.id)).status, 201, "a reply ends the cold sequence");
     const answered = await send(made.id, { replyToId: "m1", subject: "Re: Your listing pages", body: "Around R15k. Free for a call this week?" });
     assert.equal(answered.status, 201);
 
@@ -813,5 +814,105 @@ describe("replies", () => {
     assert.equal((await send(made.id, { replyToId: "unknown", subject: "Re: hi", body: "x" })).status, 422);
     await api("/suppressions", { method: "POST", body: JSON.stringify({ address: "jane@parkview.example" }) });
     assert.equal((await send(made.id, { replyToId: "m1", subject: "Re: hi", body: "x" })).status, 429);
+  });
+});
+
+describe("outreach cases", () => {
+  const SENDER = {
+    company: "Virtara",
+    fromName: "Dylan at Virtara",
+    about: "Websites for small businesses",
+    website: "virtara.co.za",
+    signature: 'Dylan, Virtara\nNot for you? Reply "no thanks" and I will not email you again.',
+    defaultMonthly: "R450 a month",
+    defaultSetup: "",
+    defaultProject: "from R25,000",
+  };
+
+  it("saves edits, remembers who filled each field, and mirrors the opening line onto the prospect", async () => {
+    const made = await seed({ observation: undefined });
+    const write = (patch: Record<string, unknown>, by = "you") =>
+      api(`/cases/${made.id}`, { method: "PATCH", body: JSON.stringify({ patch, by }) });
+
+    const saved = await write({ hook: "Your Book Now button opens a dead page.", findings: ["No booking", "No WhatsApp"] }, "agent");
+    assert.equal(saved.status, 200);
+    const entry = saved.body.case as Record<string, unknown>;
+    assert.deepEqual(entry.findings, ["No booking", "No WhatsApp"]);
+    assert.deepEqual(entry.filledBy, { hook: "agent", findings: "agent" });
+    assert.equal((await store.readState()).prospects[0].observation, "Your Book Now button opens a dead page.");
+
+    const cleared = await write({ findings: null });
+    assert.deepEqual((cleared.body.case as Record<string, unknown>).findings, []);
+    assert.equal((await write({ previewUrl: "javascript:alert(1)" })).status, 400);
+    assert.equal((await write({ nonsense: "x" })).status, 400);
+  });
+
+  it("lets Hermes fill only the empty fields, unless asked to replace them", async () => {
+    const made = await seed({ website: undefined });
+    await api(`/cases/${made.id}`, { method: "PATCH", body: JSON.stringify({ patch: { about: "Mine" } }) });
+    hermesReply = JSON.stringify({
+      about: "Hermes' version",
+      findings: ["They have no website"],
+      howWeHelp: "Build one",
+      hook: "Searching for you finds only a Facebook page.",
+      path: "build_first",
+      pathReason: "No site",
+      framing: ["A ready site, R450 a month", "No upfront cost"],
+      offer: "A ready site",
+    });
+    const briefed = (await api(`/cases/${made.id}/brief`, { method: "POST", body: "{}" })).body.case as Record<string, unknown>;
+    assert.equal(briefed.about, "Mine");
+    assert.equal(briefed.hook, "Searching for you finds only a Facebook page.");
+    assert.equal(briefed.path, "build_first");
+    assert.deepEqual(briefed.framing, ["A ready site, R450 a month", "No upfront cost"]);
+    assert.equal((briefed.filledBy as Record<string, string>).about, "you");
+
+    const replaced = (await api(`/cases/${made.id}/brief`, { method: "POST", body: JSON.stringify({ replace: true }) })).body.case as Record<string, unknown>;
+    assert.equal(replaced.about, "Hermes' version");
+  });
+
+  it("drafts from the case with the company's signature, and sends as that company", async () => {
+    const made = await seed();
+    await completeOutreachConnection("code");
+    const sender = (await api("/senders", { method: "POST", body: JSON.stringify(SENDER) })).body.sender as { id: string };
+
+    const early = await api(`/cases/${made.id}/draft`, { method: "POST" });
+    assert.equal(early.status, 422);
+    assert.match(String(early.body.error), /an approach/);
+
+    await api(`/cases/${made.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ patch: { hook: "No viewing button on mobile.", path: "cold_pitch", offer: "A new property site", senderId: sender.id } }),
+    });
+    let seen = "";
+    const before = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("/chat/completions")) seen = String(init?.body);
+      return before(url as string, init);
+    }) as typeof fetch;
+    hermesReply = '{ "subject": "Your listing pages", "body": "Hi Jane,\\n\\nNo viewing button on mobile. Worth a look?" }';
+    const drafted = await api(`/cases/${made.id}/draft`, { method: "POST" });
+    globalThis.fetch = before;
+    assert.equal(drafted.status, 200);
+    const draft = (drafted.body.case as { draft: { subject: string; body: string } }).draft;
+    assert.ok(draft.body.endsWith(`--\n${SENDER.signature}`));
+    assert.match(seen, /Dylan at Virtara/);
+    assert.match(seen, /Do not include any links/);
+
+    const sent = await api(`/prospects/${made.id}/send`, {
+      method: "POST",
+      body: JSON.stringify({ ...draft, confirm: true, senderId: sender.id, play: "cold_pitch" }),
+    });
+    assert.equal(sent.status, 201);
+    const raw = Buffer.from(sendCalls[0].raw, "base64url").toString("utf8");
+    assert.match(raw, /^From: "Dylan at Virtara" <[^>]+@[^>]+>\r\n/);
+    assert.equal((await store.readState()).outreachLog[0].play, "cold_pitch");
+
+    // The mailbox's own signature is not the rule when a company is chosen: the company's is.
+    const missing = await api(`/prospects/${made.id}/gmail-draft`, {
+      method: "POST",
+      body: JSON.stringify({ subject: "s", body: `x\n\n--\n${SIGNATURE}`, senderId: sender.id }),
+    });
+    assert.equal(missing.status, 422);
   });
 });

@@ -11,6 +11,7 @@ import { TractionCrmTab } from "./traction-crm-tab";
 import { TractionExperimentsTab } from "./traction-experiments-tab";
 import { isTractionTab, TRACTION_TABS, type TractionTab } from "./traction-model";
 import { TractionOffersTab } from "./traction-offers-tab";
+import { TractionOutreachTab } from "./traction-outreach-tab";
 import { TractionOverviewTab } from "./traction-overview-tab";
 import { TractionPipelineTab } from "./traction-pipeline-tab";
 import { TractionProspectsTab } from "./traction-prospects-tab";
@@ -84,6 +85,7 @@ export function TractionPage() {
             studyId={searchParams.get("study") ?? undefined}
             onTab={(next) => update({ tab: next === "overview" ? undefined : next, prospect: undefined, study: undefined })}
             onProspect={(prospectId) => update({ tab: "prospects", prospect: prospectId })}
+            onCompose={(prospectId) => update({ tab: "outreach", prospect: prospectId })}
           />
         )}
       </PaperStage>
@@ -98,6 +100,7 @@ function Traction({
   studyId,
   onTab,
   onProspect,
+  onCompose,
 }: {
   data: TractionData;
   tab: TractionTab;
@@ -105,6 +108,7 @@ function Traction({
   studyId: string | undefined;
   onTab: (tab: TractionTab) => void;
   onProspect: (prospectId: string | undefined) => void;
+  onCompose: (prospectId: string | undefined) => void;
 }) {
   const month = new Date(`${data.today}T12:00:00`).toLocaleDateString("en-GB", { month: "long" });
 
@@ -126,7 +130,8 @@ function Traction({
 
       <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="pt-8">
         {tab === "overview" ? <TractionOverviewTab data={data} onTab={onTab} /> : null}
-        {tab === "prospects" ? <TractionProspectsTab data={data} selectedId={prospectId} onSelect={onProspect} /> : null}
+        {tab === "prospects" ? <TractionProspectsTab data={data} selectedId={prospectId} onSelect={onProspect} onCompose={onCompose} /> : null}
+        {tab === "outreach" ? <TractionOutreachTab data={data} prospectId={prospectId} onCompose={onCompose} onOpenProspect={onProspect} /> : null}
         {tab === "pipeline" ? <TractionPipelineTab data={data} onOpen={(id) => onProspect(id)} /> : null}
         {tab === "waiting" ? <TractionWaitingTab data={data} /> : null}
         {tab === "clients" ? <TractionClientsTab data={data} /> : null}

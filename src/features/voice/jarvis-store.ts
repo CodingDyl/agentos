@@ -6,6 +6,18 @@ import type { MicPermission } from "./mic-permission";
 import type { VoicePhase } from "./voice-model";
 import type { TimingSummary } from "./voice-timings";
 
+/**
+ * A page that takes over what Jarvis hears. Operator uses it so that speech
+ * becomes a run (and "approve", "stop", "status" act on the run on screen)
+ * instead of a Hermes chat message.
+ */
+export interface JarvisIntercept {
+  /** Who Jarvis is talking for, e.g. "Operator". Shown on the launcher and panel. */
+  label: string;
+  /** Return true when handled. The page answers through `announce`. */
+  handle: (text: string) => boolean;
+}
+
 export interface JarvisApi {
   isOpen: boolean;
   open: () => void;
@@ -47,6 +59,13 @@ export interface JarvisApi {
   voice?: VoiceStatus;
   setVoiceOn: (enabled: boolean) => void;
   run: UseAgentRunResult;
+  /** The page Jarvis is working for right now, when one has taken over. */
+  target?: string;
+  setIntercept: (intercept: JarvisIntercept | undefined) => void;
+  /** Says a line on the page's behalf: shown as the reply, spoken when voice is on. */
+  announce: (text: string) => void;
+  /** Voice is on, configured, and not silenced for this exchange. */
+  canSpeak: boolean;
 }
 
 export const JarvisContext = createContext<JarvisApi | null>(null);

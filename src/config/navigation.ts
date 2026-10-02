@@ -5,6 +5,7 @@ import {
   GraduationCap,
   Bot,
   CalendarClock,
+  Compass,
   Gauge,
   Images,
   Inbox,
@@ -12,6 +13,7 @@ import {
   Network,
   Plug,
   Sun,
+  SquareTerminal,
   Target,
   Wallet,
 } from "lucide-react";
@@ -27,7 +29,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  *                                     where the day starts, what arrived, the
  *                                     customers to go and get, the companies
  *                                     and clients being served, and the money
- * WORK    Workspaces · Knowledge · Memory · Creative
+ * WORK    Operator · Workspaces · Knowledge · Memory · Creative
  * SYSTEM  Automations · Connectors · Operations · Activity
  * ```
  *
@@ -50,6 +52,10 @@ export const navigationItems: AppShellNavigationItem[] = [
   // Money as its own pillar: read-only from Investec, so it can sit at the
   // same level as the day without ever being able to act on it.
   { label: "Finance", href: "/finance", icon: Wallet, section: "primary" },
+  // The execution surface: say what you want done; it is planned against
+  // Connectors, approved where it writes, run, and recorded. First in Work
+  // because it is where work starts.
+  { label: "Operator", href: "/operator", icon: SquareTerminal, section: "work" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "work" },
   // The Obsidian vault as a graph: notes, links, backlinks, and what agents are told.
@@ -69,6 +75,8 @@ export const navigationItems: AppShellNavigationItem[] = [
   // The workers and the jobs they are busy with — kept one click away, in the
   // footer, rather than leading the main list.
   { label: "Agents", href: "/workers", icon: Bot, section: "footer" },
+  // Direction, goals and which project serves which: what Today plans against.
+  { label: "Compass", href: "/compass", icon: Compass, section: "footer" },
   // The `/design-system` route still exists as a reference page; it is
   // deliberately not linked from the navigation.
 ];
