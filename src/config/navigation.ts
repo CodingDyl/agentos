@@ -1,6 +1,7 @@
 import {
   Activity,
   BookOpen,
+  Briefcase,
   GraduationCap,
   Bot,
   CalendarClock,
@@ -22,8 +23,10 @@ import type { AppShellNavigationItem } from "@/components/os";
  * Organised around the operator's work, not around the agents doing it:
  *
  * ```text
- * Today · Inbox · Traction · Finance  where the day starts, what arrived,
- *                                     the customers to go and get, and the money
+ * Today · Inbox · Traction · Business · Finance
+ *                                     where the day starts, what arrived, the
+ *                                     customers to go and get, the companies
+ *                                     and clients being served, and the money
  * WORK    Workspaces · Knowledge · Memory · Creative
  * SYSTEM  Automations · Connectors · Operations · Activity
  * ```
@@ -41,6 +44,9 @@ export const navigationItems: AppShellNavigationItem[] = [
   // Customer acquisition, at the same level as the day itself. In the work
   // list it would sit below the build and lose to it every time.
   { label: "Traction", href: "/traction", icon: Target, section: "primary" },
+  // The companies being run (Virtec, Pantry Pilot, Voxmachine) and the
+  // clients each one serves; the CRM's successor.
+  { label: "Business", href: "/business", icon: Briefcase, section: "primary" },
   // Money as its own pillar: read-only from Investec, so it can sit at the
   // same level as the day without ever being able to act on it.
   { label: "Finance", href: "/finance", icon: Wallet, section: "primary" },

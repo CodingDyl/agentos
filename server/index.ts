@@ -74,6 +74,7 @@ import {
 } from "./activity";
 import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
+import { businessRouter } from "./business/routes";
 import { tractionRouter } from "./traction/routes";
 import { voiceRouter } from "./voice/routes";
 import { memoryRouter } from "./memory/routes";
@@ -345,6 +346,9 @@ app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
 app.use("/api/traction", tractionRouter);
+
+/** Business: the companies being run and their clients, read from Virtec. */
+app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
 
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */

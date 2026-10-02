@@ -10,6 +10,7 @@ import {
 } from "@/features/automations";
 import { ConnectorDetailPage, ConnectorsPage } from "@/features/connectors";
 import { MailPage } from "@/features/mail";
+import { BusinessPage } from "@/features/business";
 import { TractionPage } from "@/features/traction";
 import { FinancePage } from "@/features/finance";
 import { MissionControlPage } from "@/features/mission-control";
@@ -60,6 +61,7 @@ function App() {
           <Route path="/mail" element={<Redirect to="/inbox" />} />
           {/* Getting customers, beside the work — not under it. */}
           <Route path="/traction" element={<TractionPage />} />
+          <Route path="/business" element={<BusinessPage />} />
           <Route path="/growth" element={<Redirect to="/traction" />} />
           {/* Money: read-only from Investec, the arithmetic done here. */}
           <Route path="/finance" element={<FinancePage />} />
