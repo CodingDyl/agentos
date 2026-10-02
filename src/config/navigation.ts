@@ -12,11 +12,8 @@ import {
   Network,
   Plug,
   Sun,
-<<<<<<< HEAD
   SquareTerminal,
   SwatchBook,
-=======
->>>>>>> origin/task/laughing-sagan-x43ej3
   Target,
   Wallet,
 } from "lucide-react";
@@ -42,8 +39,6 @@ export const navigationItems: AppShellNavigationItem[] = [
   // `/` is where the day starts. The screen is still Mission Control
   // underneath; what it answers first is "what does today look like?".
   { label: "Today", href: "/", icon: Sun, section: "primary" },
-  // Direction, goals and which project serves which: what Today plans against.
-  { label: "Compass", href: "/compass", icon: Compass, section: "primary" },
   // An attention source, the same layer as Today — not a project tool.
   { label: "Inbox", href: "/inbox", icon: Inbox, section: "primary" },
   // Customer acquisition, at the same level as the day itself. In the work
@@ -75,6 +70,8 @@ export const navigationItems: AppShellNavigationItem[] = [
   // The workers and the jobs they are busy with — kept one click away, in the
   // footer, rather than leading the main list.
   { label: "Agents", href: "/workers", icon: Bot, section: "footer" },
+  // Direction, goals and which project serves which: what Today plans against.
+  { label: "Compass", href: "/compass", icon: Compass, section: "footer" },
   // The `/design-system` route still exists as a reference page; it is
   // deliberately not linked from the navigation.
 ];
