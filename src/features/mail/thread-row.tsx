@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Archive, Trash2 } from "lucide-react";
 import type { MailBucket, MailThread } from "@shared/mail-types";
+import { Link } from "react-router-dom";
+import { useClientMatcher } from "@/lib/agentos/business";
 import { formatRelativeTime } from "@/lib/format";
 import {
   useClearMailCorrection,
@@ -46,6 +48,7 @@ const READ_ONLY_HINT = "Reconnect Gmail to allow this";
  * full body — and, like Gmail, opening an unread thread marks it read.
  */
 export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: ThreadRowProps) {
+  const client = useClientMatcher()(thread.fromEmail);
   const [expanded, setExpanded] = useState(false);
   const body = useMailThreadBody(thread.threadId, expanded);
   const correct = useCorrectMailThread();
@@ -112,6 +115,16 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
               </span>
             ))
           )}
+          {client ? (
+            <Link
+              to={`/business?tab=clients&client=${encodeURIComponent(client.id)}`}
+              onClick={(event) => event.stopPropagation()}
+              className="mail-tag mail-tag--client"
+              title="Open this client in Business"
+            >
+              {(client.companyName ?? client.name).toUpperCase()}
+            </Link>
+          ) : null}
           {countdown ? (
             <span className="mail-tag mail-tag--countdown" title="Low priority mail moves to Gmail Trash after 24 hours">
               {countdown}

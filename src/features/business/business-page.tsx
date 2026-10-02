@@ -343,6 +343,28 @@ function ClientDetail({ client }: { client: BusinessClient }) {
         {link.error ? <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">{link.error.message}</p> : null}
       </PaperSection>
 
+      <PaperSection label="Mail" count={client.mail.length}>
+        {client.mail.length === 0 ? (
+          <p className="text-[14px] text-paper-char">No recent Inbox threads from {client.email ? client.email : "this client"}.</p>
+        ) : (
+          <ul className="divide-y divide-paper-mist border-y border-paper-mist">
+            {client.mail.map((thread) => (
+              <li key={thread.threadId} className="grid gap-0.5 py-3">
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span className={cn("min-w-0 truncate text-[14px]", thread.unread && "font-semibold")}>{thread.subject}</span>
+                  <span className="flex items-center gap-2 text-[12.5px] text-paper-sage">
+                    {thread.needsYou ? <Tag tone="flame">Needs you</Tag> : null}
+                    <time dateTime={thread.messageDate}>{new Date(thread.messageDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</time>
+                  </span>
+                </span>
+                <span className="truncate text-[12.5px] text-paper-sage">{thread.snippet}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link to="/inbox" className="mt-2 inline-block text-[13px] text-paper-blue hover:underline">Open Inbox</Link>
+      </PaperSection>
+
       <PaperSection label="Projects" count={client.projects.length}>
         {client.projects.length === 0 ? (
           <p className="text-[14px] text-paper-char">No projects.</p>

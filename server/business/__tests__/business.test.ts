@@ -162,3 +162,19 @@ describe("buildBusiness: stage 2 views", () => {
     assert.equal(followUps.find((followUp) => followUp.id === "late")?.overdue, true);
   });
 });
+
+describe("buildBusiness: mail", () => {
+  it("attaches a client's Inbox threads, newest first, and marks Needs you", async () => {
+    const thread = (threadId: string, fromEmail: string, messageDate: string) => ({ threadId, fromEmail, subject: threadId, snippet: "", messageDate, classified: true, unread: false });
+    const mail = {
+      generatedAt: "",
+      needsYou: [thread("urgent", "ada@adalaw.co.za", "2026-10-02T00:00:00.000Z")],
+      fyi: [thread("older", "billing@adalaw.co.za", "2026-09-01T00:00:00.000Z"), thread("stranger", "x@elsewhere.com", "2026-10-01T00:00:00.000Z")],
+      lowPriority: [],
+    };
+    const withEmail = { ...snapshot, clients: [{ id: "c1", name: "Ada", email: "ada@adalaw.co.za" }] } as unknown as VirtecSnapshot;
+    const data = buildBusiness(withEmail, await store.readBusinessState(), false, new Date(), mail);
+    const ada = data.clients.find((client) => client.id === "c1");
+    assert.deepEqual(ada?.mail.map((entry) => [entry.threadId, entry.needsYou]), [["urgent", true], ["older", false]]);
+  });
+});

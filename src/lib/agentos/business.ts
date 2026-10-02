@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BusinessDataSchema, type BusinessData, type FollowUpAction } from "@shared/business-types";
+import { clientMailMatcher } from "@shared/business-mail";
+import { BusinessDataSchema, type BusinessClient, type BusinessData, type FollowUpAction } from "@shared/business-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -74,4 +76,10 @@ export function useFollowUpAction() {
       request(`/api/business/follow-ups/${encodeURIComponent(id)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) }),
     onSuccess: (data) => client.setQueryData(businessKey(), data),
   });
+}
+
+/** Which Business client a sender is, for tagging Inbox threads. Shares Business's one cached read. */
+export function useClientMatcher(): (fromEmail: string | undefined) => BusinessClient | undefined {
+  const { data } = useBusiness();
+  return useMemo(() => clientMailMatcher(data?.clients ?? []), [data]);
 }

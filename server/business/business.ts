@@ -1,5 +1,8 @@
 import type { BusinessAgreement, BusinessClient, BusinessData, BusinessEntitySummary, BusinessFollowUp, BusinessQuote, BusinessRetainer } from "../../shared/business-types";
+import { clientMailMatcher } from "../../shared/business-mail";
+import type { MailData, MailThread } from "../../shared/mail-types";
 import type { VirtecSnapshot } from "../../shared/virtec-types";
+import { readMailData } from "../mail/store";
 import { isVirtecWritable } from "../virtec/client";
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import { readBusinessState, type BusinessState } from "./store";
@@ -29,8 +32,13 @@ export function monthlyEquivalent(frequency: string, amount: number): number {
   return months ? Math.round((amount / months) * 100) / 100 : 0;
 }
 
-export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, writable: boolean, now: Date = new Date()): BusinessData {
+/** Per client, at most this many threads: the screen shows recent contact, not an archive. */
+const MAIL_PER_CLIENT = 10;
+
+export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, writable: boolean, now: Date = new Date(), mail?: MailData): BusinessData {
   const virtecEntity = state.entities.find((entity) => entity.source === "virtec");
+
+  const mailByClient = groupMail(snapshot, mail);
 
   const clients: BusinessClient[] = virtecEntity
     ? snapshot.clients.map((client) => {
@@ -67,6 +75,7 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
           pendingQuoteValue: quotes.filter((quote) => quote.status === "pending").reduce((sum, quote) => sum + (quote.totalAmount ?? 0), 0),
           openFollowUps: followUps.length,
           workspace: state.clientWorkspaces[client.id],
+          mail: mailByClient.get(client.id) ?? [],
         };
       })
     : [];
@@ -177,7 +186,40 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
   };
 }
 
+function groupMail(snapshot: VirtecSnapshot, mail: MailData | undefined): Map<string, BusinessClient["mail"]> {
+  const grouped = new Map<string, BusinessClient["mail"]>();
+  if (!mail) return grouped;
+
+  const match = clientMailMatcher(snapshot.clients);
+  const tagged: [MailThread, boolean][] = [
+    ...mail.needsYou.map((thread): [MailThread, boolean] => [thread, true]),
+    ...mail.fyi.map((thread): [MailThread, boolean] => [thread, false]),
+    ...mail.lowPriority.map((thread): [MailThread, boolean] => [thread, false]),
+  ];
+
+  for (const [thread, needsYou] of tagged) {
+    const client = match(thread.fromEmail);
+    if (!client) continue;
+    const list = grouped.get(client.id) ?? [];
+    list.push({ threadId: thread.threadId, subject: thread.subject, snippet: thread.snippet, messageDate: thread.messageDate, unread: thread.unread, needsYou });
+    grouped.set(client.id, list);
+  }
+
+  for (const [id, list] of grouped) grouped.set(id, list.sort((a, b) => b.messageDate.localeCompare(a.messageDate)).slice(0, MAIL_PER_CLIENT));
+  return grouped;
+}
+
+/** The Inbox's stored threads, or nothing: Business never fails because Mail is not set up. */
+function storedMail(): MailData | undefined {
+  try {
+    return readMailData();
+  } catch (error) {
+    console.error("[agentos] business: Inbox threads could not be read:", error instanceof Error ? error.message : error);
+    return undefined;
+  }
+}
+
 export async function getBusiness(options: { fresh?: boolean } = {}): Promise<BusinessData> {
   const [snapshot, state] = await Promise.all([getVirtecSnapshot(options), readBusinessState()]);
-  return buildBusiness(snapshot, state, isVirtecWritable());
+  return buildBusiness(snapshot, state, isVirtecWritable(), new Date(), storedMail());
 }

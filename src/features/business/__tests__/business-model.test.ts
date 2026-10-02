@@ -4,7 +4,7 @@ import type { BusinessClient } from "../../../../shared/business-types";
 import { followUpMailto, isBusinessTab, matchesClient, sortClients } from "../business-model";
 
 function client(id: string, extra: Partial<BusinessClient> = {}): BusinessClient {
-  return { id, entityId: "virtec", name: id, active: true, maintenance: false, totalSpent: 0, projects: [], quotes: [], activeProjectCount: 0, pendingQuoteValue: 0, openFollowUps: 0, ...extra };
+  return { id, entityId: "virtec", name: id, active: true, maintenance: false, totalSpent: 0, projects: [], quotes: [], activeProjectCount: 0, pendingQuoteValue: 0, openFollowUps: 0, mail: [], ...extra };
 }
 
 describe("business model", () => {

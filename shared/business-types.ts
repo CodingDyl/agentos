@@ -66,6 +66,18 @@ export const BusinessClientQuoteSchema = z.object({
   createdAt: z.string().optional(),
 });
 
+/** One Inbox thread, matched to a client by its sender. */
+export const BusinessClientMailSchema = z.object({
+  threadId: z.string(),
+  subject: z.string(),
+  snippet: z.string(),
+  messageDate: z.string(),
+  unread: z.boolean(),
+  /** In the Inbox's Needs you bucket. */
+  needsYou: z.boolean(),
+});
+export type BusinessClientMail = z.infer<typeof BusinessClientMailSchema>;
+
 export const BusinessClientSchema = z.object({
   id: z.string(),
   entityId: z.string(),
@@ -82,6 +94,8 @@ export const BusinessClientSchema = z.object({
   openFollowUps: z.number(),
   /** The workspace this client's work lives in, when one has been linked. */
   workspace: WorkspaceSlugSchema.optional(),
+  /** Recent Inbox threads from this client, newest first. */
+  mail: z.array(BusinessClientMailSchema).default([]),
 });
 export type BusinessClient = z.infer<typeof BusinessClientSchema>;
 
