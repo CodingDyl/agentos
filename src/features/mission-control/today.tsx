@@ -103,45 +103,6 @@ export function TodayStrip({
   );
 }
 
-/** What was captured and not yet filed. */
-export function TodayCaptured({ captures, className }: { captures: readonly CapturedItem[]; className?: string }) {
-  const recent = [...captures].slice(-4).reverse();
-
-  return (
-    <PaperSection
-      id="captured"
-      label="Captured"
-      count={captures.length > 0 ? captures.length : undefined}
-      className={className}
-      action={
-        captures.length > 0 ? (
-          <TodayLink to={`/agent?run=${encodeURIComponent("/start-day")}`}>File with Hermes</TodayLink>
-        ) : null
-      }
-    >
-      {recent.length === 0 ? (
-        <p className="text-[14px] leading-6 text-paper-char">
-          Nothing waiting to be filed. Capture from anywhere with the pen in the top bar, or ⌘⇧C.
-        </p>
-      ) : (
-        <ul className="space-y-2.5">
-          {recent.map((item, index) => (
-            <li key={`${index}-${item.text}`} className="min-w-0 text-[14px] leading-6 text-paper-moss">
-              {item.text}
-              {item.workspace || item.kind ? (
-                <span className="ml-2 text-[12.5px] text-paper-sage">{item.workspace ?? item.kind}</span>
-              ) : null}
-            </li>
-          ))}
-          {captures.length > recent.length ? (
-            <li className="text-[12.5px] text-paper-sage">+{captures.length - recent.length} earlier</li>
-          ) : null}
-        </ul>
-      )}
-    </PaperSection>
-  );
-}
-
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 } as const;
 
 /**

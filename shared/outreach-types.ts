@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PlaySchema } from "./outreach-plays";
 
 /**
  * Outreach: writing to prospects from a separate mailbox.
@@ -10,7 +11,7 @@ import { z } from "zod";
  * prospect's stored address) and never sends on a timer.
  */
 
-/** One email per address per this many days, from AgentOS. */
+/** The wait used when the follow-up schedule has nothing to say. See `sequenceRefusal`. */
 export const REPEAT_WINDOW_DAYS = 14;
 /** Default and ceiling for emails sent in any rolling 24 hours. */
 export const DEFAULT_DAILY_CAP = 10;
@@ -53,6 +54,10 @@ export const OutreachStatusSchema = z.object({
   connected: z.boolean(),
   /** The connected mailbox, as Google reports it. */
   address: z.string().optional(),
+  /** Whether that mailbox is the inbox's own account rather than a separate one. */
+  usesInbox: z.boolean().default(false),
+  /** The inbox's address, when it is connected, so it can be offered as the sender. */
+  inboxAddress: z.string().optional(),
   signature: z.string(),
   /** When the outreach mailbox was last read for replies. */
   lastSyncAt: z.string().optional(),
@@ -78,6 +83,8 @@ export const OutreachLogEntrySchema = z.object({
   kind: z.enum(["draft", "sending", "sent", "unconfirmed"]),
   to: z.string(),
   subject: z.string(),
+  /** The play the email was written with, for "what works". Absent for emails written by hand. */
+  play: PlaySchema.optional(),
   gmailDraftId: z.string().optional(),
   gmailMessageId: z.string().optional(),
   threadId: z.string().optional(),
@@ -119,8 +126,17 @@ export const SuppressionInputSchema = z
   .strict();
 
 /** The confirmation that a person looked at the preview. Recipient is never in it. */
+/** A Gmail draft request: the email, and the play it was written with. */
+export const GmailDraftRequestSchema = EmailContentSchema.extend({
+  play: PlaySchema.optional(),
+  /** Which of your companies it is from: its name and signature. Absent uses the mailbox's own signature. */
+  senderId: z.string().max(80).optional(),
+}).strict();
+
 export const SendRequestSchema = EmailContentSchema.extend({
   confirm: z.literal(true),
+  play: PlaySchema.optional(),
+  senderId: z.string().max(80).optional(),
   /** Answering something they wrote: the id of a stored reply from this prospect. Threads the email and lifts the 14-day rule. */
   replyToId: z.string().max(200).optional(),
 }).strict();
@@ -159,3 +175,23 @@ export type OutreachSyncResult = z.infer<typeof OutreachSyncResultSchema>;
 
 export type Suppression = z.infer<typeof SuppressionSchema>;
 export type SuppressionReason = z.infer<typeof SuppressionReasonSchema>;
+
+/** One email address found on a prospect's own website. A suggestion; nothing is saved until a person accepts it. */
+export const EmailCandidateSchema = z.object({
+  address: z.string(),
+  /** Who it most likely reaches: a named person near an owner-type title, a named person, a role mailbox, or a general one. */
+  kind: z.enum(["owner", "person", "role", "general"]),
+  /** The page it was read from. */
+  source: z.string(),
+  /** Why it was ranked where it was, in a few words. */
+  note: z.string(),
+});
+
+export const EmailFindResultSchema = z.object({
+  candidates: z.array(EmailCandidateSchema),
+  /** How many of the site's pages were read. */
+  pagesRead: z.number().int(),
+});
+
+export type EmailCandidate = z.infer<typeof EmailCandidateSchema>;
+export type EmailFindResult = z.infer<typeof EmailFindResultSchema>;

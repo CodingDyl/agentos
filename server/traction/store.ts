@@ -1,3 +1,5 @@
+import { OutreachCaseSchema, SenderSchema } from "../../shared/outreach-case";
+import { FOLLOW_UP_DAYS, MAX_TOUCHES, type Play } from "../../shared/outreach-plays";
 import { LeadMagnetSchema } from "../../shared/lead-magnet-types";
 import {
   OUTREACH_LOG_LIMIT,
@@ -109,6 +111,10 @@ const StateSchema = z.object({
   /** Messages from prospects, read from the outreach mailbox. */
   outreachReplies: z.array(OutreachReplySchema).default([]),
   outreachSync: z.object({ lastSyncAt: z.string().optional() }).default({}),
+  /** Per prospect: the brief, the decision and the draft. See shared/outreach-case.ts. */
+  outreachCases: z.record(z.string(), OutreachCaseSchema).default({}),
+  /** The companies you send outreach as. */
+  senders: z.array(SenderSchema).default([]),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -146,6 +152,8 @@ function emptyState(): TractionState {
     suppressions: [],
     outreachReplies: [],
     outreachSync: {},
+    outreachCases: {},
+    senders: [],
   };
 }
 
@@ -361,6 +369,7 @@ export function deleteProspect(id: string): Promise<void> {
       (snooze) => !snooze.itemId.endsWith(`:${id}`),
     );
     state.mailLinks = state.mailLinks.filter((link) => link.prospectId !== id);
+    delete state.outreachCases[id];
     // What they owed is still owed; it just stops pointing at a record that is gone.
     state.waiting = state.waiting.map((item) =>
       item.prospectId === id ? { ...item, prospectId: undefined } : item,
@@ -1028,11 +1037,49 @@ export function removeSuppression(address: string): Promise<void> {
  * clicks (or two tabs) cannot both pass. The reservation counts against the
  * cap and the repeat rule at once; `settleSend` turns it into the outcome.
  */
+/**
+ * The follow-up rule, for an email to someone who has not written back.
+ *
+ * A short sequence is how cold email works in practice: most replies come
+ * to the second or third email, not the first. So an unanswered address may
+ * get at most MAX_TOUCHES emails, each at least FOLLOW_UP_DAYS after the one
+ * before, and then AgentOS stops for good. A reply from them resets it: from
+ * then on it is a conversation, not a sequence.
+ *
+ * Counted per address, across prospects, so a duplicate record is no way
+ * around it. Returns the reason in words, or undefined when it may go.
+ */
+export function sequenceRefusal(
+  state: Pick<TractionState, "outreachLog" | "outreachReplies">,
+  to: string,
+  now: number,
+): string | undefined {
+  const lastReply = state.outreachReplies
+    .filter((reply) => sameAddress(reply.fromEmail, to))
+    .reduce((latest, reply) => Math.max(latest, Date.parse(reply.at)), 0);
+  const sends = state.outreachLog
+    .filter((entry) => SEND_KINDS.includes(entry.kind) && sameAddress(entry.to, to) && Date.parse(entry.at) > lastReply)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  if (sends.length === 0) return undefined;
+
+  if (sends.length >= MAX_TOUCHES) {
+    return `${to} has had ${sends.length} emails with no reply. AgentOS stops there: a fourth unanswered email is spam.`;
+  }
+  const last = sends[sends.length - 1];
+  const wait = FOLLOW_UP_DAYS[sends.length - 1] ?? REPEAT_WINDOW_DAYS;
+  const dueAt = Date.parse(last.at) + wait * DAY_MS;
+  if (now < dueAt) {
+    return `${to} was emailed on ${last.at.slice(0, 10)}. The next follow-up is due on ${new Date(dueAt).toISOString().slice(0, 10)} (${wait} days after the last email).`;
+  }
+  return undefined;
+}
+
 export function reserveSend(input: {
   prospectId: string;
   subject: string;
   dailyCap: number;
   isReply?: boolean;
+  play?: Play;
 }): Promise<OutreachLogEntry> {
   return mutate((state) => {
     const prospect = findProspect(state, input.prospectId);
@@ -1047,16 +1094,9 @@ export function reserveSend(input: {
 
     const now = Date.now();
     // Answering someone who wrote to us is not a repeat. The cap and the do-not-contact list still apply.
-    const recent = input.isReply ? undefined : state.outreachLog.find(
-      (entry) =>
-        SEND_KINDS.includes(entry.kind) &&
-        sameAddress(entry.to, to) &&
-        now - Date.parse(entry.at) < REPEAT_WINDOW_DAYS * DAY_MS,
-    );
-    if (recent) {
-      throw new SendRefusedError(
-        `${to} was emailed on ${recent.at.slice(0, 10)}. AgentOS waits ${REPEAT_WINDOW_DAYS} days between emails to one address.`,
-      );
+    if (!input.isReply) {
+      const refusal = sequenceRefusal(state, to, now);
+      if (refusal) throw new SendRefusedError(refusal);
     }
 
     if (sentInLastDay(state, now) >= input.dailyCap) {
@@ -1071,6 +1111,7 @@ export function reserveSend(input: {
       kind: "sending",
       to,
       subject: input.subject,
+      play: input.play,
       at: new Date(now).toISOString(),
     };
     state.outreachLog = [...state.outreachLog, entry].slice(

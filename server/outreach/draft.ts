@@ -1,3 +1,4 @@
+import { briefGaps, CTAS, playById, type OutreachBrief } from "../../shared/outreach-plays";
 import { MAX_EMAIL_BODY, type EmailContent, type OutreachReply } from "../../shared/outreach-types";
 import type { Icp, Offer, Prospect } from "../../shared/traction-types";
 import { HermesError, sendToHermes } from "../hermes/client";
@@ -39,8 +40,11 @@ export function buildEmailPacket(context: {
   prospect: Prospect;
   icp: Icp;
   offer: Offer;
+  brief?: OutreachBrief;
 }): string {
-  const { prospect, icp, offer } = context;
+  const { prospect, icp, offer, brief } = context;
+  const play = brief ? playById(brief.play) : undefined;
+  const cta = brief ? CTAS.find((entry) => entry.id === brief.cta) : undefined;
   const followUp = prospect.stage !== "target" || Boolean(prospect.lastTouchAt);
 
   return [
@@ -62,7 +66,7 @@ export function buildEmailPacket(context: {
     `THEIR COMPANY: ${prospect.company}`,
     prospect.contact ? `THE PERSON: ${prospect.contact}` : undefined,
     prospect.segment ? `WHAT THEY ARE: ${prospect.segment}` : undefined,
-    `THEIR WEBSITE: ${prospect.website}`,
+    `THEIR WEBSITE: ${prospect.website ?? "none: they have no website of their own"}`,
     `WHAT I NOTICED (specific and checkable): ${prospect.observation}`,
     prospect.angle ? `THE ANGLE TO OPEN WITH: ${prospect.angle}` : undefined,
     prospect.reasons.length > 0
@@ -72,6 +76,13 @@ export function buildEmailPacket(context: {
     `WHO I AM SELLING TO: ${icp.name}. ${icp.offer}`,
     `WHAT I AM OFFERING THEM: ${offer.name}: ${offer.offer}`,
     offer.problem ? `THE PROBLEM IT SOLVES: ${offer.problem}` : undefined,
+    play && brief?.play !== "own_offer" ? `THE APPROACH: ${play.name}. ${play.whyItWorks}` : undefined,
+    brief?.previewUrl ? `THE PREVIEW I BUILT FOR THEM (include this exact link once): ${brief.previewUrl}` : undefined,
+    brief && brief.fixes.length > 0 ? `THE FIXES TO NAME (as written):\n${brief.fixes.map((fix) => `- ${fix}`).join("\n")}` : undefined,
+    brief?.price ? `PRICE TO QUOTE (exactly as written, never change it): ${brief.price}` : brief ? "PRICE: do not mention a price." : undefined,
+    brief?.proof ? `SIMILAR WORK I HAVE DONE: ${brief.proof}` : undefined,
+    brief?.extra ? `ALSO MENTION: ${brief.extra}` : undefined,
+    cta ? `HOW TO END: ${cta.line}` : undefined,
     "",
     "Reply with a single JSON object and nothing else:",
     '{ "subject": "under 8 words, specific, no clickbait", "body": "the email" }',
@@ -148,29 +159,47 @@ export function draftingBlocker(
   return undefined;
 }
 
+/**
+ * The offer a brief stands for. A play is a complete offer on its own, so a
+ * prospect drafted from the composer needs no saved offer; "one of your
+ * offers" uses the saved one it names.
+ */
+export function offerForBrief(brief: OutreachBrief, offers: readonly Offer[]): Offer | undefined {
+  if (brief.play === "own_offer") return offers.find((entry) => entry.id === brief.offerId);
+  const play = playById(brief.play);
+  const now = new Date().toISOString();
+  return { id: `play:${play.id}`, name: play.name, offer: play.pitch, problem: play.bestFor, upsells: [], createdAt: now, updatedAt: now };
+}
+
 export async function draftOutreachEmail(
   prospectId: string,
+  brief?: OutreachBrief,
 ): Promise<EmailContent> {
   const state = await readState();
   const prospect = state.prospects.find((entry) => entry.id === prospectId);
   if (!prospect) throw new TractionNotFoundError(`No prospect ${prospectId}`);
 
-  const blocker = draftingBlocker(
-    prospect,
-    state.icp,
-    state.offers,
-    state.outreach.signature,
-  );
-  if (blocker || !state.icp)
-    throw new OutreachDraftError(blocker ?? "Add an ICP first.");
-  const offer = state.offers.find(
-    (entry) => entry.id === prospect.offerId,
-  ) as Offer;
+  let offer: Offer | undefined;
+  if (brief) {
+    const recipient = recipientBlocker(prospect, state.outreach.signature);
+    if (recipient) throw new OutreachDraftError(recipient);
+    if (!state.icp) throw new OutreachDraftError("Describe who you sell to first (Traction → Overview → ICP).");
+    if (!prospect.observation) throw new OutreachDraftError("Choose or write one specific thing you noticed about them first.");
+    const missing = briefGaps(brief);
+    if (missing.length > 0) throw new OutreachDraftError(`Add ${missing.join(", ")} first.`);
+    offer = offerForBrief(brief, state.offers);
+    if (!offer) throw new OutreachDraftError("That offer no longer exists. Choose another.");
+  } else {
+    const blocker = draftingBlocker(prospect, state.icp, state.offers, state.outreach.signature);
+    if (blocker || !state.icp) throw new OutreachDraftError(blocker ?? "Add an ICP first.");
+    offer = state.offers.find((entry) => entry.id === prospect.offerId) as Offer;
+  }
+  if (!state.icp) throw new OutreachDraftError("Add an ICP first.");
 
   let reply: string;
   try {
     reply = await sendToHermes(
-      buildEmailPacket({ prospect, icp: state.icp, offer }),
+      buildEmailPacket({ prospect, icp: state.icp, offer, brief }),
       { operation: "other", timeoutMs: 90_000 },
     );
   } catch (error) {

@@ -29,6 +29,7 @@ import type { LeadMagnet } from "@shared/lead-magnet-types";
 export type TractionTab =
   | "overview"
   | "prospects"
+  | "outreach"
   | "pipeline"
   | "waiting"
   | "clients"
@@ -42,6 +43,7 @@ export type TractionTab =
 export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "overview", label: "Overview" },
   { value: "prospects", label: "Prospects" },
+  { value: "outreach", label: "Outreach" },
   { value: "pipeline", label: "Pipeline" },
   { value: "waiting", label: "Waiting on" },
   { value: "clients", label: "Clients & referrals" },

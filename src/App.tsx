@@ -12,6 +12,7 @@ import { ConnectorDetailPage, ConnectorsPage } from "@/features/connectors";
 import { MailPage } from "@/features/mail";
 import { OperatorPage } from "@/features/operator";
 import { TractionPage } from "@/features/traction";
+import { CompassPage } from "@/features/compass";
 import { FinancePage } from "@/features/finance";
 import { MissionControlPage } from "@/features/mission-control";
 import { AgentDetailPage, OperationsPage } from "@/features/operations";
@@ -57,6 +58,7 @@ function App() {
               answering "what should I do now?" is two screens nobody trusts. */}
           <Route path="/" element={<MissionControlPage />} />
           <Route path="/today" element={<Navigate to="/" replace />} />
+          <Route path="/compass" element={<CompassPage />} />
           <Route path="/inbox" element={<MailPage />} />
           <Route path="/mail" element={<Redirect to="/inbox" />} />
           {/* Getting customers, beside the work — not under it. */}

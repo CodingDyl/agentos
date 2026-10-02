@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowLeft, Check, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ConnectorCapability, ConnectorDetail } from "@shared/connector-types";
@@ -76,6 +77,26 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
   const setEnabled = useSetConnectorEnabled();
   const test = useTestConnector();
   const disconnect = useDisconnectConnector();
+  const queryClient = useQueryClient();
+  const [runError, setRunError] = useState<string | undefined>();
+  const [runningAction, setRunningAction] = useState<string | undefined>();
+
+  async function runAction(post: string) {
+    setRunError(undefined);
+    setRunningAction(post);
+    try {
+      const response = await fetch(post, { method: "POST" });
+      if (!response.ok) {
+        const failure = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(failure?.error ?? "That did not work.");
+      }
+      await queryClient.invalidateQueries();
+    } catch (error) {
+      setRunError(error instanceof Error ? error.message : "That did not work.");
+    } finally {
+      setRunningAction(undefined);
+    }
+  }
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
 
   const counts = capabilityCounts(connector.capabilities);
@@ -160,6 +181,36 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
             >
               Connect
             </a>
+          ) : null}
+          {connector.extraActions.map((action) =>
+            action.post ? (
+              <PaperButton
+                key={action.label}
+                variant="amber"
+                disabled={runningAction !== undefined}
+                title={action.hint}
+                onClick={() => void runAction(action.post as string)}
+              >
+                {runningAction === action.post ? "Connecting…" : action.label}
+              </PaperButton>
+            ) : (
+              <a
+                key={action.label}
+                href={action.href}
+                title={action.hint}
+                className={cn(
+                  "inline-flex min-h-8 items-center rounded-none border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen",
+                  PAPER_FOCUS,
+                )}
+              >
+                {action.label}
+              </a>
+            ),
+          )}
+          {runError ? (
+            <p role="alert" className="basis-full text-[13px] text-paper-flame-deep">
+              {runError}
+            </p>
           ) : null}
           {connector.canDisconnect ? (
             confirmingDisconnect ? (

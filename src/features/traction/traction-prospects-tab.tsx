@@ -26,10 +26,13 @@ export function TractionProspectsTab({
   data,
   selectedId,
   onSelect,
+  onCompose,
 }: {
   data: TractionData;
   selectedId: string | undefined;
   onSelect: (prospectId: string | undefined) => void;
+  /** Opens the outreach composer for this prospect. */
+  onCompose: (prospectId: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState<StageFilter>("open");
@@ -59,7 +62,7 @@ export function TractionProspectsTab({
       />
     </PaperCard>
   ) : selected ? (
-    <ProspectPanel key={selected.id} data={data} prospect={selected} onClose={() => onSelect(undefined)} />
+    <ProspectPanel key={selected.id} data={data} prospect={selected} onClose={() => onSelect(undefined)} onCompose={() => onCompose(selected.id)} />
   ) : null;
 
   return (
@@ -162,7 +165,7 @@ export function TractionProspectsTab({
   );
 }
 
-function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospect: Prospect; onClose: () => void }) {
+function ProspectPanel({ data, prospect, onClose, onCompose }: { data: TractionData; prospect: Prospect; onClose: () => void; onCompose: () => void }) {
   const [editing, setEditing] = useState(false);
   const update = useUpdateProspect();
   const remove = useDeleteProspect();
@@ -263,28 +266,30 @@ function ProspectPanel({ data, prospect, onClose }: { data: TractionData; prospe
         ) : null}
       </dl>
 
-      {/* The brand guard, stated where the decision to write is made. */}
+      {/* The brand guard, stated where the decision to write is made. The composer is where it gets resolved. */}
       <div className={cn("mt-5 rounded-none px-3 py-3", gaps.length > 0 ? "bg-paper-linen" : "border border-paper-green")}>
         {gaps.length > 0 ? (
           <>
-            <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">Not enough context for personalised outreach</p>
-            <p className="mt-1 text-[13px] leading-5 text-paper-sage">Missing: {gapLabels(gaps).join(", ")}.</p>
+            <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">Not ready to write yet</p>
+            <p className="mt-1 text-[13px] leading-5 text-paper-sage">
+              Missing: {gapLabels(gaps).join(", ")}. The outreach composer reviews their website and walks you through the rest.
+            </p>
           </>
         ) : (
-          <p className="text-[13px] leading-5 text-paper-char">Ready for a personalised draft. Hermes drafts; you review and send.</p>
+          <p className="text-[13px] leading-5 text-paper-char">Ready for a personalised email. Hermes drafts; you review and send.</p>
         )}
-        {ask.kind !== "referral" ? (
-          <Link
-            to={hermesHref(ask.prompt)}
-            className={cn(
-              "mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-white",
-              PAPER_FOCUS,
-            )}
-          >
-            {ask.kind === "research" ? <Search className="size-3.5" aria-hidden="true" /> : <PenLine className="size-3.5" aria-hidden="true" />}
-            {ask.kind === "research" ? "Run website review" : "Draft outreach"}
-          </Link>
-        ) : null}
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <PaperButton variant="amber" onClick={onCompose}>
+            <PenLine className="size-3.5" aria-hidden="true" />
+            Write outreach email
+          </PaperButton>
+          {ask.kind !== "referral" ? (
+            <Link to={hermesHref(ask.prompt)} className={cn("inline-flex items-center gap-1.5 text-[13px] text-paper-sage hover:text-paper-moss hover:underline", PAPER_FOCUS)}>
+              <Search className="size-3.5" aria-hidden="true" />
+              Ask Hermes in chat instead
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <ProspectEmailSection prospect={prospect} />

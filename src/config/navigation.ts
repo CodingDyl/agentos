@@ -4,6 +4,7 @@ import {
   GraduationCap,
   Bot,
   CalendarClock,
+  Compass,
   Gauge,
   Images,
   Inbox,
@@ -38,6 +39,8 @@ export const navigationItems: AppShellNavigationItem[] = [
   // `/` is where the day starts. The screen is still Mission Control
   // underneath; what it answers first is "what does today look like?".
   { label: "Today", href: "/", icon: Sun, section: "primary" },
+  // Direction, goals and which project serves which: what Today plans against.
+  { label: "Compass", href: "/compass", icon: Compass, section: "primary" },
   // An attention source, the same layer as Today — not a project tool.
   { label: "Inbox", href: "/inbox", icon: Inbox, section: "primary" },
   // Customer acquisition, at the same level as the day itself. In the work

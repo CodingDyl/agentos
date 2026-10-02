@@ -137,6 +137,17 @@ export const ConnectorDetailSchema = ConnectorSummarySchema.extend({
   connectHint: z.string(),
   /** A same-origin URL that starts an OAuth connection, when there is one. */
   connectUrl: z.string().optional(),
+  /** Further sign-in steps: a link to a consent screen, or a same-origin POST that finishes the step. */
+  extraActions: z
+    .array(
+      z.object({
+        label: z.string(),
+        hint: z.string().optional(),
+        href: z.string().optional(),
+        post: z.string().optional(),
+      }),
+    )
+    .default([]),
   /** Whether AgentOS can disconnect it itself (OAuth grants it stores). */
   canDisconnect: z.boolean(),
   recentUses: z.array(ConnectorUseSchema),

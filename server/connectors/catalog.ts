@@ -226,6 +226,19 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     ],
   },
   {
+    id: "apollo",
+    name: "Apollo",
+    description: "Finds the owner or director of a business and their email address, for outreach.",
+    category: "business",
+    tier: 2,
+    icon: "search",
+    integrated: true,
+    capabilities: [
+      { action: "search_people", name: "Find people at a company (free)", risk: "read", implementedBy: "server/outreach/apollo.ts" },
+      { action: "reveal_email", name: "Reveal one person's email (spends a credit)", risk: "write-external", implementedBy: "server/outreach/apollo.ts" },
+    ],
+  },
+  {
     id: "virtec",
     name: "Virtec CRM",
     description: "Leads, clients, follow-ups and quotes.",
