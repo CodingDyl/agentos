@@ -3,6 +3,7 @@ import type { BusinessAgreement, BusinessData, BusinessEntitySummary, BusinessFo
 import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
 import { useFollowUpAction } from "@/lib/agentos/business";
 import { cn } from "@/lib/utils";
+import { ClientDraftForm } from "./business-draft";
 import { followUpMailto, formatRand } from "./business-model";
 
 /**
@@ -140,6 +141,7 @@ export function FollowUpsSection({ entity, data }: Scoped) {
 
 function FollowUpRow({ followUp, writable }: { followUp: BusinessFollowUp; writable: boolean }) {
   const [open, setOpen] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const act = useFollowUpAction();
   const mail = followUpMailto(followUp.customerEmail, followUp.suggestedSubject, followUp.suggestedMessage);
   const name = followUp.companyName ?? followUp.customerName;
@@ -161,10 +163,24 @@ function FollowUpRow({ followUp, writable }: { followUp: BusinessFollowUp; writa
       {open ? (
         <div className="mt-3 grid gap-3">
           {followUp.suggestedMessage ? <p className="max-w-[70ch] border-l-2 border-paper-mist pl-3 text-[13.5px] leading-6 whitespace-pre-wrap text-paper-char">{followUp.suggestedMessage}</p> : null}
+          {drafting && followUp.customerId ? (
+            <ClientDraftForm
+              request={{ clientId: followUp.customerId, followUpId: followUp.id }}
+              initialSubject={followUp.suggestedSubject}
+              initialBody={followUp.suggestedMessage}
+              showSubject
+              onClose={() => setDrafting(false)}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2">
+            {followUp.customerId && !drafting ? (
+              <PaperButton variant="ghost" onClick={() => setDrafting(true)}>
+                Draft in Gmail
+              </PaperButton>
+            ) : null}
             {mail ? (
               <a href={mail} className={cn("inline-flex min-h-8 items-center border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen", PAPER_FOCUS)}>
-                Write email
+                Open in mail app
               </a>
             ) : null}
             <PaperButton variant="amber" disabled={!writable || act.isPending} onClick={() => act.mutate({ id: followUp.id, action: "sent" })}>

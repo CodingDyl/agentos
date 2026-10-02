@@ -7,6 +7,7 @@ import { useNavigationItems } from "@/config/use-navigation";
 import { useBusiness, useLinkClientWorkspace, useRefreshBusiness, useSetEntityWorkspaces } from "@/lib/agentos/business";
 import { useProjects } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
+import { ClientDraftForm } from "./business-draft";
 import { AgreementsSection, FollowUpsSection, MaintenanceSection, QuotesSection } from "./business-sections";
 import { BUSINESS_TABS, formatRand, isBusinessTab, matchesClient, sortClients, type BusinessTab } from "./business-model";
 
@@ -289,13 +290,14 @@ function Clients({ entity, clients, clientId, onClient }: { entity: BusinessEnti
         </ul>
       </div>
 
-      {selected ? <ClientDetail client={selected} /> : <p className="text-[14px] text-paper-sage">Select a client to see their work.</p>}
+      {selected ? <ClientDetail key={selected.id} client={selected} /> : <p className="text-[14px] text-paper-sage">Select a client to see their work.</p>}
     </div>
   );
 }
 
 function ClientDetail({ client }: { client: BusinessClient }) {
   const { data: projects } = useProjects();
+  const [replyingTo, setReplyingTo] = useState<string>();
   const link = useLinkClientWorkspace();
   const workspace = projects?.projects.find((project) => project.slug === client.workspace);
 
@@ -358,6 +360,15 @@ function ClientDetail({ client }: { client: BusinessClient }) {
                   </span>
                 </span>
                 <span className="truncate text-[12.5px] text-paper-sage">{thread.snippet}</span>
+                {replyingTo === thread.threadId ? (
+                  <div className="mt-2">
+                    <ClientDraftForm request={{ clientId: client.id, threadId: thread.threadId }} showSubject={false} onClose={() => setReplyingTo(undefined)} />
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setReplyingTo(thread.threadId)} className={cn("mt-1 w-fit cursor-pointer text-[12.5px] text-paper-blue hover:underline", PAPER_FOCUS)}>
+                    Draft reply
+                  </button>
+                )}
               </li>
             ))}
           </ul>

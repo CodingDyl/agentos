@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientMailMatcher } from "@shared/business-mail";
-import { BusinessDataSchema, type BusinessClient, type BusinessData, type FollowUpAction } from "@shared/business-types";
+import { BusinessDataSchema, BusinessDraftResultSchema, type BusinessDraftRequest, type BusinessDraftResult, type BusinessClient, type BusinessData, type FollowUpAction } from "@shared/business-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -82,4 +82,23 @@ export function useFollowUpAction() {
 export function useClientMatcher(): (fromEmail: string | undefined) => BusinessClient | undefined {
   const { data } = useBusiness();
   return useMemo(() => clientMailMatcher(data?.clients ?? []), [data]);
+}
+
+/** Creates a Gmail draft to a client. Nothing is sent; the result links to Drafts. */
+export function useCreateClientDraft() {
+  return useMutation({
+    mutationFn: async (draft: BusinessDraftRequest): Promise<BusinessDraftResult> => {
+      let response: Response;
+      try {
+        response = await fetch("/api/business/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
+      } catch {
+        throw new AgentOSRequestError("The AgentOS data adapter is not responding. Is it running?");
+      }
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) throw new AgentOSRequestError((payload as { error?: string } | null)?.error ?? "The draft could not be created.", response.status);
+      const parsed = BusinessDraftResultSchema.safeParse(payload);
+      if (!parsed.success) throw new AgentOSRequestError("The draft was created, but the answer was not readable.");
+      return parsed.data;
+    },
+  });
 }

@@ -1,6 +1,7 @@
 import type { AgentFailureReason } from "../../shared/agentos-types";
 import { MAIL_MAX_AGE_DAYS, MAIL_THREAD_LIMIT } from "../../shared/mail-types";
 import { authorize } from "../connectors/policy";
+import { buildMessage, toRaw, type EmailMessage } from "../outreach/mime";
 import { getAccessToken } from "./gmail-auth";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -18,8 +19,11 @@ export class GmailError extends Error {
 async function gmailFetch(path: string, init?: { method: "POST"; body?: unknown }): Promise<unknown> {
   const token = await getAccessToken();
 
-  // Every POST this client makes is a label change or a move to Trash.
-  const decision = init?.method === "POST"
+  // A draft is a person's own reply, created because they pressed the button;
+  // every other POST is a label change or a move to Trash.
+  const decision = path === "/drafts"
+    ? authorize("gmail.draft", { initiator: "person", detail: "Created one client reply draft" })
+    : init?.method === "POST"
     ? authorize("gmail.modify", { initiator: "system", detail: path.endsWith("/trash") ? "Moved a thread to Trash" : "Changed a thread's labels" })
     : authorize("gmail.read", { initiator: "system" });
   if (!decision.allowed) throw new GmailError(decision.reason, "not-configured");
@@ -206,4 +210,28 @@ export async function getThreadBody(threadId: string): Promise<string> {
   const latest = messages[messages.length - 1];
 
   return extractPlainText(latest?.payload) ?? "(No plain-text body was found for this message.)";
+}
+
+/** What a reply needs from a thread: its latest Message-ID (to thread the reply), subject, and sender. */
+export async function getReplyContext(threadId: string): Promise<{ messageId?: string; subject: string; fromEmail?: string }> {
+  const payload = (await gmailFetch(
+    `/threads/${encodeURIComponent(threadId)}?format=metadata&metadataHeaders=Message-ID&metadataHeaders=Subject&metadataHeaders=From`,
+  )) as GmailThreadResponse;
+  const latest = (payload.messages ?? []).at(-1);
+  if (!latest) throw new GmailError(`Thread ${threadId} has no messages.`, "failed");
+  const messageId = header(latest, "Message-ID") ?? header(latest, "Message-Id");
+  return { messageId: messageId?.trim(), subject: header(latest, "Subject") ?? "", fromEmail: parseFromHeader(header(latest, "From")).email };
+}
+
+/**
+ * Puts an email in the inbox mailbox's Drafts. Nothing is sent: a person
+ * opens it in Gmail, reads it, and presses Send.
+ */
+export async function createInboxDraft(message: EmailMessage, threadId?: string): Promise<{ draftId: string }> {
+  const result = (await gmailFetch("/drafts", {
+    method: "POST",
+    body: { message: { raw: toRaw(buildMessage(message)), ...(threadId ? { threadId } : {}) } },
+  })) as { id?: unknown };
+  if (typeof result.id !== "string") throw new GmailError("Gmail created something, but not what AgentOS expected.", "failed");
+  return { draftId: result.id };
 }

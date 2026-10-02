@@ -205,3 +205,25 @@ export const BusinessDataSchema = z.object({
   revenue: BusinessRevenueSchema.optional(),
 });
 export type BusinessData = z.infer<typeof BusinessDataSchema>;
+
+/**
+ * A draft a person asked for. The recipient is never taken from the request:
+ * the server uses the address Virtec holds for the client (or the follow-up),
+ * or the sender of a thread already matched to that client.
+ */
+export const BusinessDraftRequestSchema = z.object({
+  clientId: z.string().min(1).max(128),
+  followUpId: z.string().min(1).max(128).optional(),
+  threadId: z.string().regex(/^[A-Za-z0-9]{1,64}$/).optional(),
+  subject: z.string().max(200).optional(),
+  body: z.string().min(1).max(20_000),
+});
+export type BusinessDraftRequest = z.infer<typeof BusinessDraftRequestSchema>;
+
+export const BusinessDraftResultSchema = z.object({
+  draftId: z.string(),
+  to: z.string(),
+  /** Gmail's Drafts folder, where the person reviews and sends it. */
+  url: z.string(),
+});
+export type BusinessDraftResult = z.infer<typeof BusinessDraftResultSchema>;

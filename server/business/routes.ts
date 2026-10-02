@@ -1,8 +1,10 @@
 import express from "express";
-import { ClientWorkspaceLinkSchema, EntityWorkspacesPatchSchema, FollowUpActionSchema } from "../../shared/business-types";
+import { BusinessDraftRequestSchema, ClientWorkspaceLinkSchema, EntityWorkspacesPatchSchema, FollowUpActionSchema } from "../../shared/business-types";
 import { isVirtecWritable } from "../virtec/client";
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import { dismissFollowUp, markFollowUpSent, snoozeFollowUp } from "../virtec/writes";
+import { createInboxDraft, getReplyContext, GmailError } from "../mail/gmail-client";
+import { MimeError } from "../outreach/mime";
 import { parse } from "../traction/route-helpers";
 import { getBusiness } from "./business";
 import { BusinessNotFoundError, setClientWorkspace, setEntityWorkspaces } from "./store";
@@ -91,5 +93,76 @@ businessRouter.post("/follow-ups/:id", async (request, response) => {
     response.json(await getBusiness());
   } catch (error) {
     fail(response, error, "update the follow-up");
+  }
+});
+
+/** "Re: " once, never "Re: Re: ". */
+export function replySubject(subject: string): string {
+  const clean = subject.replace(/[\r\n]+/g, " ").trim() || "your message";
+  return /^re:/i.test(clean) ? clean.slice(0, 150) : `Re: ${clean}`.slice(0, 150);
+}
+
+/**
+ * A person asked for a draft to a client: a follow-up's suggested email, or a
+ * reply to one of their threads. It lands in Gmail Drafts; nothing is sent.
+ */
+businessRouter.post("/drafts", async (request, response) => {
+  const body = parse(BusinessDraftRequestSchema, request.body, response, "draft");
+  if (!body) return;
+
+  try {
+    const business = await getBusiness();
+    const client = business.clients.find((entry) => entry.id === body.clientId);
+    if (!client) {
+      response.status(404).json({ error: "No such client" });
+      return;
+    }
+
+    let to: string | undefined;
+    let subject = body.subject?.trim() ?? "";
+    let inReplyTo: string | undefined;
+
+    if (body.threadId) {
+      if (!client.mail.some((thread) => thread.threadId === body.threadId)) {
+        response.status(404).json({ error: "That thread is not one of this client's" });
+        return;
+      }
+      const context = await getReplyContext(body.threadId);
+      to = context.fromEmail;
+      inReplyTo = context.messageId && /^<[^<>\s]{1,300}>$/.test(context.messageId) ? context.messageId : undefined;
+      subject = replySubject(context.subject || subject || "Your message");
+    } else if (body.followUpId) {
+      const followUp = business.followUps.find((entry) => entry.id === body.followUpId && entry.customerId === client.id);
+      if (!followUp) {
+        response.status(404).json({ error: "No such follow-up for this client" });
+        return;
+      }
+      to = followUp.customerEmail ?? client.email;
+      subject ||= followUp.suggestedSubject ?? "";
+    } else {
+      to = client.email;
+    }
+
+    if (!to) {
+      response.status(422).json({ error: "Virtec has no email address for this client." });
+      return;
+    }
+    if (!subject) {
+      response.status(400).json({ error: "The draft needs a subject." });
+      return;
+    }
+
+    const draft = await createInboxDraft({ to, subject, body: body.body, inReplyTo }, body.threadId);
+    response.json({ draftId: draft.draftId, to, url: "https://mail.google.com/mail/#drafts" });
+  } catch (error) {
+    if (error instanceof MimeError) {
+      response.status(422).json({ error: error.message });
+      return;
+    }
+    if (error instanceof GmailError) {
+      response.status(error.reason === "unauthorized" ? 401 : 502).json({ error: `${error.message} Check that Gmail is connected in Inbox.` });
+      return;
+    }
+    fail(response, error, "create the draft");
   }
 });
