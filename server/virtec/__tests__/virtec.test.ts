@@ -64,6 +64,18 @@ describe("normalise", () => {
     assert.equal("pdfUrl" in items[0], false);
   });
 
+  it("preserves legacy quote amounts, dates, and links without exposing either PDF field", () => {
+    const { items } = normaliseQuotes({ quotes: [{ id: "old", project_id: "p1", client_id: "c1", project_type: "Website", total_amount: 4500.25, created_at: "2026-03-26T13:01:48.524Z", pdf_url: "SECRET", pdfUrl: "SECRET" }] });
+    assert.equal(items[0].totalAmount, 4500.25);
+    assert.equal(items[0].createdAt, "2026-03-26T13:01:48.524Z");
+    assert.equal(items[0].clientId, "c1");
+    assert.equal(items[0].projectId, "p1");
+    assert.equal(items[0].projectType, "Website");
+    assert.equal(JSON.stringify(items).includes("SECRET"), false);
+    const modern = normaliseQuotes([{ id: "new", totalAmount: 0, total_amount: 500 }]).items[0];
+    assert.equal(modern.totalAmount, 0);
+  });
+
   it("accepts a bare array as well as the documented envelope", () => {
     assert.equal(normaliseFollowUps([{ id: "f1", status: "open" }]).items.length, 1);
     assert.throws(() => normaliseFollowUps({ nothing: [] }));

@@ -156,7 +156,7 @@ function RetryActions({
 
   const { jobId, worker, limitHit } = item.retry;
   const nameOf = (id: string) => workers.find((entry) => entry.id === id)?.name ?? id;
-  const others = alternativesFor(item, workers).slice(0, 3);
+  const others = alternativesFor(item, workers);
   const pendingOn = retry.isPending ? (retry.variables as { worker?: string } | undefined)?.worker ?? worker : undefined;
 
   const run = (target?: string) =>

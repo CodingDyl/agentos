@@ -116,6 +116,15 @@ after(() => {
 });
 
 describe("project configuration", () => {
+  it("round-trips every registered worker preference", async () => {
+    const { WorkerPreferenceSchema } = await import("../../../../shared/agentos-types");
+    for (const workerPreference of WorkerPreferenceSchema.options) {
+      const config = mergeConfiguration(parseConfiguration("# Project\n"), { workerPreference });
+      const document = applyConfiguration("# Project\n", config);
+      assert.equal(parseConfiguration(document).workerPreference, workerPreference);
+    }
+  });
+
   it("reads the section, tolerating case and backticks", () => {
     const config = parseConfiguration(PROJECT);
 

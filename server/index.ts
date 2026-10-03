@@ -348,6 +348,7 @@ const HOST = "127.0.0.1";
 const app = express();
 
 app.disable("x-powered-by");
+app.use("/api/business/ledger", express.json({ limit: "16mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */

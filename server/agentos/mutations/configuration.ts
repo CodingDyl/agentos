@@ -1,6 +1,7 @@
 import {
   DEFAULT_PROJECT_CONFIGURATION,
   ProjectConfigurationSchema,
+  WorkerPreferenceSchema,
   type ProjectConfiguration,
   type ProjectConfigurationPatch,
 } from "../../../shared/agentos-types";
@@ -124,7 +125,7 @@ export function parseConfiguration(markdown: string | undefined): ProjectConfigu
     defaultBranch: raw.defaultBranch?.trim() || undefined,
     workerPreference: readEnum(
       raw.workerPreference,
-      ["auto", "grok", "claude"] as const,
+      WorkerPreferenceSchema.options,
       DEFAULT_PROJECT_CONFIGURATION.workerPreference,
     ),
     visualVerification: readEnum(

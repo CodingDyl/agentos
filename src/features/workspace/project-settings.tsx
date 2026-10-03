@@ -26,6 +26,7 @@ import {
   usePatchProject,
   useProjectSettings,
   useVercelProjects,
+  useWorkers,
 } from "@/lib/agentos/queries";
 import { useWorkspaceFeedback } from "./use-workspace-feedback";
 
@@ -46,11 +47,6 @@ import { useWorkspaceFeedback } from "./use-workspace-feedback";
 
 const STATES: readonly ProjectState[] = ["active", "incubating", "paused", "blocked", "completed"];
 const PRIORITIES: readonly ProjectPriority[] = ["high", "medium", "low"];
-const WORKERS: readonly { value: WorkerPreference; label: string; hint: string }[] = [
-  { value: "auto", label: "Auto", hint: "Hermes routes each job." },
-  { value: "grok", label: "Grok", hint: "Always suggest Grok." },
-  { value: "claude", label: "Claude", hint: "Always suggest Claude." },
-];
 const VISUAL: readonly { value: VisualVerificationDefault; label: string; hint: string }[] = [
   { value: "off", label: "Off", hint: "Never on by default." },
   { value: "ui-tasks", label: "UI tasks", hint: "On when Hermes scopes it as UI work." },
@@ -153,6 +149,7 @@ const PREFIX = /^[A-Z][A-Z0-9]{0,7}$/;
 
 export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () => void }) {
   const settings = useProjectSettings(slug);
+  const workers = useWorkers();
   const library = useDesignLibrary();
   const vercel = useVercelProjects();
   const patch = usePatchProject(slug);
@@ -165,6 +162,15 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
   // refetch mid-edit must not overwrite what is being typed.
   const loaded = settings.data;
   const form = draft ?? (loaded ? toDraft(loaded) : undefined);
+  const workerOptions: { value: WorkerPreference; label: string; hint: string }[] = [
+    { value: "auto", label: "Auto", hint: "Hermes routes each job." },
+    ...(workers.data?.workers ?? [])
+      .filter((worker) => worker.available && worker.enabled !== false && worker.id !== "mock" && worker.capabilities.includes("code"))
+      .map((worker) => ({ value: worker.id, label: worker.name, hint: `Prefer ${worker.name} for coding jobs.` })),
+  ];
+  const unavailablePreference = form && form.workerPreference !== "auto" && !workerOptions.some((option) => option.value === form.workerPreference)
+    ? workers.data?.workers.find((worker) => worker.id === form.workerPreference)
+    : undefined;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -317,7 +323,12 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
 
             <Group label="Delegation defaults">
               <Field label="Worker preference">
-                <Choice value={form.workerPreference} options={WORKERS} onChange={(value) => update("workerPreference", value)} />
+                <Choice value={form.workerPreference} options={workerOptions} onChange={(value) => update("workerPreference", value)} />
+                {unavailablePreference ? (
+                  <p className="mt-2 text-[13px] text-os-subtle" role="status">
+                    Saved preference: {unavailablePreference.name}. {unavailablePreference.unavailableReason ?? "This worker is unavailable for coding jobs."}
+                  </p>
+                ) : null}
               </Field>
               <Field label="Visual verification">
                 <Choice value={form.visualVerification} options={VISUAL} onChange={(value) => update("visualVerification", value)} />
@@ -558,7 +569,7 @@ function Choice<T extends string>({
 
   return (
     <div className="mt-3">
-      <div role="radiogroup" className="inline-flex overflow-hidden rounded-md border border-os-border">
+      <div role="radiogroup" className="inline-flex max-w-full flex-wrap rounded-md border border-os-border">
         {options.map((option) => {
           const selected = option.value === value;
           return (

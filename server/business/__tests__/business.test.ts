@@ -72,6 +72,14 @@ describe("business store", () => {
 });
 
 describe("buildBusiness", () => {
+  it("includes a legacy quote in its client's pipeline through an exact project link", async () => {
+    const source = { ...snapshot, quotes: [{ id: "legacy", projectId: "p1", status: "pending", totalAmount: 4500, features: [] }] };
+    const data = buildBusiness(source, await store.readBusinessState(), false);
+    assert.equal(data.entities[0].pendingQuoteValue, 4500);
+    assert.equal(data.clients.find((client) => client.id === "c1")?.pendingQuoteValue, 4500);
+    assert.equal(data.quotes[0].clientName, "Ada Law");
+    assert.equal(data.quotes[0].clientId, "c1");
+  });
   it("rolls projects, quotes and follow-ups up per client", async () => {
     const state = await store.readBusinessState();
     state.clientWorkspaces.c1 = "ada-site";

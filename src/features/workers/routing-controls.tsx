@@ -78,7 +78,7 @@ export function RoutingControls({
             value={manualId ?? ""}
             onChange={onManualChange}
             options={[
-              ...(executionOptions.data?.options ?? []).map((option) => ({
+              ...(executionOptions.data?.options ?? []).filter((option) => option.enabled && option.available).map((option) => ({
                 value: option.id,
                 label: optionLabel(option, name),
               })),
