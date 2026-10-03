@@ -8,9 +8,11 @@ import { MimeError } from "../outreach/mime";
 import { parse } from "../traction/route-helpers";
 import { getBusiness } from "./business";
 import { BusinessNotFoundError, setClientWorkspace, setEntityWorkspaces } from "./store";
+import { businessLedgerRouter } from "./ledger-routes";
 
 /** Business: entities, clients and the workspace links between them. */
 export const businessRouter = express.Router();
+businessRouter.use("/ledger", businessLedgerRouter);
 
 function fail(response: express.Response, error: unknown, what: string): void {
   if (error instanceof BusinessNotFoundError) {

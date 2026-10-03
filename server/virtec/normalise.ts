@@ -203,13 +203,13 @@ export function normaliseQuotes(payload: unknown): Normalised<VirtecQuote> {
     (raw) =>
       defined({
         id: text(raw.id),
-        projectId: text(raw.projectId),
-        projectType: text(raw.projectType),
-        clientId: text(raw.clientId),
-        totalAmount: number(raw.totalAmount),
+        projectId: text(raw.projectId) ?? text(raw.project_id),
+        projectType: text(raw.projectType) ?? text(raw.project_type),
+        clientId: text(raw.clientId) ?? text(raw.client_id),
+        totalAmount: number(raw.totalAmount) ?? number(raw.total_amount),
         status: text(raw.status),
         features: strings(raw.features),
-        createdAt: timestamp(raw.createdAt),
+        createdAt: timestamp(raw.createdAt) ?? timestamp(raw.created_at),
       }),
     VirtecQuoteSchema,
   );

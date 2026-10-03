@@ -427,6 +427,7 @@ export function useSetAiEnabled() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.aiStack() });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
+      void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "execution-options"] });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
     },
     networkMode: "always",
@@ -443,6 +444,7 @@ export function useSetAiModel() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.aiStack() });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
+      void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "execution-options"] });
     },
     networkMode: "always",
     retry: 0,

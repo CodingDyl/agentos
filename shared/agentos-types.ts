@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WorkerIdSchema } from "./worker-ids";
 import { WorkspaceModuleSchema, WorkspaceTypeSchema } from "./workspace";
 
 /**
@@ -154,7 +155,7 @@ export const ProjectGitSchema = z.object({
 });
 
 /** Which worker a project's delegations default to. `auto` lets routing decide. */
-export const WorkerPreferenceSchema = z.enum(["auto", "grok", "claude"]);
+export const WorkerPreferenceSchema = z.enum(["auto", ...WorkerIdSchema.options]);
 
 /**
  * When a project's delegated work is verified visually by default.

@@ -39,11 +39,15 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
   const virtecEntity = state.entities.find((entity) => entity.source === "virtec");
 
   const mailByClient = groupMail(snapshot, mail);
+  // Older quotes carry a project ID but no client ID. Resolve the exact link
+  // so the client totals and the full quote list describe the same pipeline.
+  const projectClients = new Map(snapshot.projects.map((project) => [project.id, project.clientId]));
+  const sourceQuotes = snapshot.quotes.map((quote) => ({ ...quote, clientId: quote.clientId ?? projectClients.get(quote.projectId ?? "") }));
 
   const clients: BusinessClient[] = virtecEntity
     ? snapshot.clients.map((client) => {
         const projects = snapshot.projects.filter((project) => project.clientId === client.id);
-        const quotes = snapshot.quotes.filter((quote) => quote.clientId === client.id);
+        const quotes = sourceQuotes.filter((quote) => quote.clientId === client.id);
         const followUps = snapshot.followUps.filter((followUp) => followUp.customerId === client.id && followUp.status === "open");
 
         return {
@@ -96,7 +100,7 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
   const nameFor = (clientId: string | undefined, fallback?: string) => (clientId ? names.get(clientId) : undefined) ?? fallback ?? "Unknown client";
 
   const quotes: BusinessQuote[] = entityId
-    ? snapshot.quotes.map((quote) => {
+    ? sourceQuotes.map((quote) => {
         const created = quote.createdAt ? Date.parse(quote.createdAt) : NaN;
         const ageDays = Number.isNaN(created) ? undefined : Math.max(0, Math.floor((now.getTime() - created) / DAY));
         return {
