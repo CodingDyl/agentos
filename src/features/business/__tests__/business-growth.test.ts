@@ -21,9 +21,10 @@ const data: BusinessData = {
     client("other", { entityId: "voxmachine", totalSpent: 99999 }),
   ],
   quotes: [
-    { id: "q1", entityId: "virtec", clientName: "x", status: "accepted", totalAmount: 1000, stale: false },
-    { id: "q2", entityId: "virtec", clientName: "x", status: "accepted", totalAmount: 3000, stale: false },
-    { id: "q3", entityId: "virtec", clientName: "x", status: "pending", totalAmount: 500, stale: true },
+    { id: "q1", entityId: "virtec", clientName: "x", status: "accepted", totalAmount: 1000, stale: false, kind: "project" },
+    { id: "q2", entityId: "virtec", clientName: "x", status: "accepted", totalAmount: 3000, stale: false, kind: "project" },
+    { id: "q4", entityId: "virtec", clientName: "x", status: "accepted", totalAmount: 50, stale: false, kind: "maintenance" },
+    { id: "q3", entityId: "virtec", clientName: "x", status: "pending", totalAmount: 500, stale: true, kind: "project" },
   ],
   agreements: [{ projectId: "p3", entityId: "virtec", clientName: "busy", status: "pending" }],
   retainers: [
@@ -42,7 +43,7 @@ describe("buildGrowth", () => {
     assert.equal(growth.largestClient?.share, 0.8, "another business's client never counts");
     assert.equal(growth.largestRetainer?.share, 0.75);
     assert.equal(growth.retainerShare, 2 / 3);
-    assert.equal(growth.averageAcceptedQuote, 2000);
+    assert.equal(growth.averageAcceptedQuote, 2000, "maintenance charges are not build prices");
   });
 
   it("offers a care plan only to active, finished, unretained clients", () => {

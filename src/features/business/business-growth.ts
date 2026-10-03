@@ -27,7 +27,7 @@ export interface GrowthReport {
   largestRetainer?: { clientName: string; share: number };
   /** Active clients whose work is done and who have no care plan: the next offer to make. */
   upsell: BusinessClient[];
-  /** The average accepted quote, the price point actually being bought. */
+  /** The average accepted project quote, the price point actually being bought. */
   averageAcceptedQuote?: number;
   checklist: GrowthCheck[];
 }
@@ -61,7 +61,8 @@ export function buildGrowth(data: BusinessData, entity: BusinessEntitySummary): 
     .filter((client) => !client.maintenance && !onRetainer.has(client.id) && client.projects.length > 0 && client.activeProjectCount === 0)
     .sort((a, b) => b.totalSpent - a.totalSpent);
 
-  const accepted = quotes.filter((quote) => quote.status === "accepted" && quote.totalAmount > 0);
+  // Build prices only: a monthly maintenance charge is not what a project sells for.
+  const accepted = quotes.filter((quote) => quote.kind === "project" && quote.status === "accepted" && quote.totalAmount > 0);
   const averageAcceptedQuote = accepted.length > 0 ? accepted.reduce((sum, quote) => sum + quote.totalAmount, 0) / accepted.length : undefined;
 
   const checklist: GrowthCheck[] = [

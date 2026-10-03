@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { BusinessAgreement, BusinessData, BusinessEntitySummary, BusinessFollowUp, BusinessQuote, BusinessRetainer } from "@shared/business-types";
-import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PaperButton, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useFollowUpAction } from "@/lib/agentos/business";
 import { cn } from "@/lib/utils";
 import { ClientDraftForm } from "./business-draft";
+import { QuoteCalculator } from "./business-quote-calculator";
 import { followUpMailto, formatRand } from "./business-model";
 
 /**
@@ -37,23 +38,47 @@ function Row({ title, detail, children }: { title: string; detail?: string; chil
 
 const QUOTE_TONE = { accepted: "green", pending: "marigold", rejected: "muted" } as const;
 
+type QuoteFilter = "all" | BusinessQuote["kind"];
+
 export function QuotesSection({ entity, data }: Scoped) {
-  const quotes = forEntity(data.quotes, entity);
+  const [filter, setFilter] = useState<QuoteFilter>("all");
+  const [calculating, setCalculating] = useState(false);
+  const all = forEntity(data.quotes, entity);
+  const quotes = filter === "all" ? all : all.filter((quote) => quote.kind === filter);
   const pending = quotes.filter((quote) => quote.status === "pending");
   const pendingValue = pending.reduce((sum, quote) => sum + quote.totalAmount, 0);
 
-  if (quotes.length === 0) return <Empty>No quotes recorded.</Empty>;
-
   return (
     <div className="grid gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SegmentedControl
+          label="Quote type"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "all", label: `All (${all.length})` },
+            { value: "project", label: `Project (${all.filter((quote) => quote.kind === "project").length})` },
+            { value: "maintenance", label: `Maintenance (${all.filter((quote) => quote.kind === "maintenance").length})` },
+          ]}
+        />
+        {!calculating ? (
+          <PaperButton variant="amber" onClick={() => setCalculating(true)}>
+            New quote
+          </PaperButton>
+        ) : null}
+      </div>
+      {calculating ? <QuoteCalculator onClose={() => setCalculating(false)} /> : null}
+      {quotes.length === 0 ? <Empty>No quotes of this type recorded.</Empty> : null}
       <p className="text-[14px] text-paper-char">
         {pending.length} waiting, worth <strong>{formatRand(pendingValue)}</strong>
         {data.revenue?.quoteConversionRate !== undefined ? <> · {Math.round(data.revenue.quoteConversionRate)}% of quotes accepted</> : null}.
       </p>
+      {quotes.length > 0 ? (
       <PaperSection label="Quotes" count={quotes.length}>
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
           {quotes.map((quote: BusinessQuote) => (
             <Row key={quote.id} title={quote.clientName} detail={quote.projectType}>
+              {quote.kind === "maintenance" ? <Tag tone="blue">Maintenance</Tag> : null}
               {quote.ageDays !== undefined ? <span>{quote.ageDays}d</span> : null}
               {quote.stale ? <Tag tone="flame">Gone quiet</Tag> : null}
               <span className="font-semibold">{formatRand(quote.totalAmount)}</span>
@@ -62,6 +87,7 @@ export function QuotesSection({ entity, data }: Scoped) {
           ))}
         </ul>
       </PaperSection>
+      ) : null}
     </div>
   );
 }

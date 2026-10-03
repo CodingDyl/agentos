@@ -1,7 +1,9 @@
 import type { BusinessAgreement, BusinessClient, BusinessData, BusinessEntitySummary, BusinessFollowUp, BusinessQuote, BusinessRetainer } from "../../shared/business-types";
 import { clientMailMatcher } from "../../shared/business-mail";
 import type { MailData, MailThread } from "../../shared/mail-types";
-import type { VirtecSnapshot } from "../../shared/virtec-types";
+import type { Prospect } from "../../shared/traction-types";
+import { VIRTEC_CLIENT_PREFIX, type VirtecSnapshot } from "../../shared/virtec-types";
+import { readState as readTractionState } from "../traction/store";
 import { readMailData } from "../mail/store";
 import { isVirtecWritable } from "../virtec/client";
 import { getVirtecSnapshot } from "../virtec/snapshot";
@@ -35,10 +37,22 @@ export function monthlyEquivalent(frequency: string, amount: number): number {
 /** Per client, at most this many threads: the screen shows recent contact, not an archive. */
 const MAIL_PER_CLIENT = 10;
 
-export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, writable: boolean, now: Date = new Date(), mail?: MailData): BusinessData {
+/** A quote is maintenance when its project bills on a cycle, or its type says so. */
+const MAINTENANCE_TYPE = /maint|retainer|care plan|hosting|support plan/i;
+
+export function buildBusiness(
+  snapshot: VirtecSnapshot,
+  state: BusinessState,
+  writable: boolean,
+  now: Date = new Date(),
+  mail?: MailData,
+  prospects?: readonly Prospect[],
+): BusinessData {
   const virtecEntity = state.entities.find((entity) => entity.source === "virtec");
 
   const mailByClient = groupMail(snapshot, mail);
+  const prospectFor = prospectMatcher(snapshot, prospects ?? []);
+  const projectById = new Map(snapshot.projects.map((project) => [project.id, project]));
 
   const clients: BusinessClient[] = virtecEntity
     ? snapshot.clients.map((client) => {
@@ -76,6 +90,7 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
           openFollowUps: followUps.length,
           workspace: state.clientWorkspaces[client.id],
           mail: mailByClient.get(client.id) ?? [],
+          prospect: prospectFor(client.id),
         };
       })
     : [];
@@ -110,6 +125,7 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
           createdAt: quote.createdAt,
           ageDays,
           stale: quote.status === "pending" && ageDays !== undefined && ageDays >= STALE_QUOTE_DAYS,
+          kind: isMaintenanceQuote(quote.projectType, quote.projectId ? projectById.get(quote.projectId) : undefined) ? ("maintenance" as const) : ("project" as const),
         };
       })
     : [];
@@ -183,6 +199,39 @@ export function buildBusiness(snapshot: VirtecSnapshot, state: BusinessState, wr
     retainers: retainers.sort((a, b) => b.monthlyEquivalent - a.monthlyEquivalent),
     followUps,
     revenue: snapshot.revenue,
+    pipeline: prospects ? buildPipeline(prospects, now) : undefined,
+  };
+}
+
+function isMaintenanceQuote(projectType: string | undefined, project: VirtecSnapshot["projects"][number] | undefined): boolean {
+  return Boolean(project?.maintenanceFrequency || project?.serviceSku || (projectType && MAINTENANCE_TYPE.test(projectType)));
+}
+
+/** A client's prospect: the one imported from it, else one with the same email. */
+function prospectMatcher(snapshot: VirtecSnapshot, prospects: readonly Prospect[]): (clientId: string) => BusinessClient["prospect"] {
+  const byCrm = new Map(prospects.filter((prospect) => prospect.crmId).map((prospect) => [prospect.crmId as string, prospect]));
+  const byEmail = new Map(prospects.filter((prospect) => prospect.email).map((prospect) => [(prospect.email as string).toLowerCase(), prospect]));
+  const emails = new Map(snapshot.clients.map((client) => [client.id, client.email?.toLowerCase()]));
+
+  return (clientId) => {
+    const email = emails.get(clientId);
+    const prospect = byCrm.get(`${VIRTEC_CLIENT_PREFIX}${clientId}`) ?? (email ? byEmail.get(email) : undefined);
+    return prospect ? { id: prospect.id, stage: prospect.stage, relationship: prospect.relationship, referralAsked: Boolean(prospect.referralAskedAt) } : undefined;
+  };
+}
+
+export function buildPipeline(prospects: readonly Prospect[], now: Date): BusinessData["pipeline"] {
+  const stages: Record<string, number> = {};
+  for (const prospect of prospects) stages[prospect.stage] = (stages[prospect.stage] ?? 0) + 1;
+  const month = now.toISOString().slice(0, 7);
+
+  return {
+    stages,
+    proposals: prospects
+      .filter((prospect) => prospect.stage === "proposal")
+      .sort((a, b) => (a.nextActionDate ?? "9999").localeCompare(b.nextActionDate ?? "9999"))
+      .map((prospect) => ({ id: prospect.id, company: prospect.company, nextAction: prospect.nextAction, nextActionDate: prospect.nextActionDate })),
+    wonThisMonth: prospects.filter((prospect) => prospect.stage === "won" && prospect.stageChangedAt.slice(0, 7) === month).length,
   };
 }
 
@@ -219,7 +268,17 @@ function storedMail(): MailData | undefined {
   }
 }
 
+/** Traction's prospects, or nothing: Business never fails because Traction's store cannot be read. */
+async function storedProspects(): Promise<Prospect[] | undefined> {
+  try {
+    return (await readTractionState()).prospects;
+  } catch (error) {
+    console.error("[agentos] business: Traction prospects could not be read:", error instanceof Error ? error.message : error);
+    return undefined;
+  }
+}
+
 export async function getBusiness(options: { fresh?: boolean } = {}): Promise<BusinessData> {
-  const [snapshot, state] = await Promise.all([getVirtecSnapshot(options), readBusinessState()]);
-  return buildBusiness(snapshot, state, isVirtecWritable(), new Date(), storedMail());
+  const [snapshot, state, prospects] = await Promise.all([getVirtecSnapshot(options), readBusinessState(), storedProspects()]);
+  return buildBusiness(snapshot, state, isVirtecWritable(), new Date(), storedMail(), prospects);
 }

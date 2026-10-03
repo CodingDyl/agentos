@@ -9,6 +9,7 @@ import { useProjects } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { ClientDraftForm } from "./business-draft";
 import { GrowthSection } from "./business-growth-section";
+import { QuoteCalculator } from "./business-quote-calculator";
 import { AgreementsSection, FollowUpsSection, MaintenanceSection, QuotesSection } from "./business-sections";
 import { BUSINESS_TABS, formatRand, isBusinessTab, matchesClient, sortClients, type BusinessTab } from "./business-model";
 
@@ -123,7 +124,7 @@ function Business({
 
       <div className="mt-6" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "overview" ? (
-          <Overview entity={entity} clients={clients} onOpenClient={onClient} />
+          <Overview entity={entity} clients={clients} pipeline={data.pipeline} onOpenClient={onClient} />
         ) : tab === "growth" ? (
           <GrowthSection entity={entity} data={data} onTab={onTab} onClient={onClient} />
         ) : tab === "clients" ? (
@@ -177,7 +178,44 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Overview({ entity, clients, onOpenClient }: { entity: BusinessEntitySummary; clients: BusinessClient[]; onOpenClient: (id: string) => void }) {
+const STAGE_ORDER = ["target", "contacted", "conversation", "proposal", "won", "lost"] as const;
+
+/** Traction's pipeline: what is coming. It lives on Traction; this is the view from the business. */
+function Pipeline({ pipeline }: { pipeline: NonNullable<BusinessData["pipeline"]> }) {
+  return (
+    <PaperSection label="Pipeline from Traction" action={<Link to="/traction?tab=pipeline" className="text-[13px] text-paper-blue hover:underline">Open Traction</Link>}>
+      <dl className="grid grid-cols-3 gap-4 sm:grid-cols-6">
+        {STAGE_ORDER.map((stage) => (
+          <div key={stage}>
+            <dt className="text-[12.5px] capitalize text-paper-sage">{stage}</dt>
+            <dd className="font-paper-display text-[20px] font-bold">{pipeline.stages[stage] ?? 0}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-[13px] text-paper-sage">{pipeline.wonThisMonth} won this month.</p>
+      {pipeline.proposals.length > 0 ? (
+        <>
+          <h3 className="mt-4 text-[13px] font-semibold">Proposals to quote</h3>
+          <ul className="mt-1 divide-y divide-paper-mist border-y border-paper-mist">
+            {pipeline.proposals.map((proposal) => (
+              <li key={proposal.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-[14px]">
+                <Link to={`/traction?tab=prospects&prospect=${encodeURIComponent(proposal.id)}`} className="font-semibold hover:underline">
+                  {proposal.company}
+                </Link>
+                <span className="text-[12.5px] text-paper-sage">
+                  {proposal.nextAction ?? "No next action"}
+                  {proposal.nextActionDate ? ` · ${proposal.nextActionDate}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </PaperSection>
+  );
+}
+
+function Overview({ entity, clients, pipeline, onOpenClient }: { entity: BusinessEntitySummary; clients: BusinessClient[]; pipeline?: BusinessData["pipeline"]; onOpenClient: (id: string) => void }) {
   const waiting = sortClients(clients).filter((client) => client.openFollowUps > 0 || client.pendingQuoteValue > 0).slice(0, 6);
 
   return (
@@ -190,6 +228,8 @@ function Overview({ entity, clients, onOpenClient }: { entity: BusinessEntitySum
           <Stat label="On maintenance" value={String(entity.maintenanceClientCount)} />
         </dl>
       </PaperCard>
+
+      {pipeline && entity.source === "virtec" ? <Pipeline pipeline={pipeline} /> : null}
 
       <PaperSection label="Needs a nudge" count={waiting.length}>
         {waiting.length === 0 ? (
@@ -227,8 +267,32 @@ function EntityWorkspaces({ entity }: { entity: BusinessEntitySummary }) {
     save.mutate({ entityId: entity.id, workspaces: next });
   };
 
+  const linked = all.filter((project) => entity.workspaces.includes(project.slug));
+
   return (
     <PaperSection label={`${entity.name} workspaces`} count={entity.workspaces.length}>
+      {linked.length > 0 ? (
+        <ul className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {linked.map((project) => (
+            <li key={project.slug}>
+              <Link to={`/workspaces/${project.slug}`} className={cn("block h-full border border-paper-mist p-3 hover:bg-paper-cream", PAPER_FOCUS)}>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[14.5px] font-semibold">{project.name}</span>
+                  <Tag tone={project.state === "blocked" ? "flame" : project.state === "active" ? "green" : "muted"}>{project.state}</Tag>
+                </span>
+                {project.milestone ? (
+                  <span className="mt-1 block truncate text-[12.5px] text-paper-sage">
+                    {project.milestone.title} · {project.milestone.progress.percent}%{project.milestone.targetDate ? ` by ${project.milestone.targetDate}` : ""}
+                  </span>
+                ) : null}
+                <span className="mt-1 block truncate text-[13px] text-paper-char">{project.nextAction ?? "No next action set"}</span>
+                {project.nowCount ? <span className="mt-1 block text-[12.5px] text-paper-sage">{project.nowCount} task{project.nowCount === 1 ? "" : "s"} in progress</span> : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <h3 className="mb-2 text-[13px] font-semibold text-paper-char">Link workspaces</h3>
       {all.length === 0 ? (
         <p className="text-[14px] text-paper-char">No workspaces yet. <Link to="/workspaces" className="text-paper-blue hover:underline">Create one</Link>.</p>
       ) : (
@@ -301,6 +365,7 @@ function Clients({ entity, clients, clientId, onClient }: { entity: BusinessEnti
 function ClientDetail({ client }: { client: BusinessClient }) {
   const { data: projects } = useProjects();
   const [replyingTo, setReplyingTo] = useState<string>();
+  const [quoting, setQuoting] = useState(false);
   const link = useLinkClientWorkspace();
   const workspace = projects?.projects.find((project) => project.slug === client.workspace);
 
@@ -318,7 +383,25 @@ function ClientDetail({ client }: { client: BusinessClient }) {
           <Stat label="Quoted, waiting" value={formatRand(client.pendingQuoteValue)} />
           <Stat label="Follow-ups" value={String(client.openFollowUps)} />
         </dl>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {client.prospect ? (
+            <Link to={`/traction?tab=prospects&prospect=${encodeURIComponent(client.prospect.id)}`} className="inline-flex items-center gap-2 text-[13px] text-paper-blue hover:underline">
+              Traction: <Tag>{client.prospect.stage}</Tag>
+              {client.prospect.relationship ? <Tag tone="green">{client.prospect.relationship}</Tag> : null}
+              {client.prospect.stage === "won" && !client.prospect.referralAsked ? <Tag tone="marigold">Ask for a referral</Tag> : null}
+            </Link>
+          ) : (
+            <span className="text-[13px] text-paper-sage">Not in Traction.</span>
+          )}
+          {!quoting ? (
+            <PaperButton variant="ghost" onClick={() => setQuoting(true)}>
+              New quote
+            </PaperButton>
+          ) : null}
+        </div>
       </header>
+
+      {quoting ? <QuoteCalculator clientName={client.companyName ?? client.name} onClose={() => setQuoting(false)} /> : null}
 
       <PaperSection label="Workspace">
         <div className="flex flex-wrap items-center gap-3">

@@ -178,3 +178,49 @@ describe("buildBusiness: mail", () => {
     assert.deepEqual(ada?.mail.map((entry) => [entry.threadId, entry.needsYou]), [["urgent", true], ["older", false]]);
   });
 });
+
+describe("buildBusiness: quote kinds and Traction", () => {
+  const prospect = (id: string, extra: Record<string, unknown>) => ({ id, company: id, stage: "target", source: "outbound", reasons: [], stageChangedAt: "2026-10-01T00:00:00.000Z", createdAt: "", updatedAt: "", ...extra });
+
+  const withKinds = {
+    ...snapshot,
+    clients: [
+      { id: "c1", name: "Ada", email: "ada@adalaw.co.za" },
+      { id: "c2", name: "Bo", email: "bo@bo.com" },
+    ],
+    quotes: [
+      { id: "build", clientId: "c1", projectId: "p1", projectType: "Website", features: [] },
+      { id: "byProject", clientId: "c1", projectId: "pm", projectType: "Website", features: [] },
+      { id: "byType", clientId: "c1", projectType: "Monthly Maintenance", features: [] },
+    ],
+    projects: [
+      { id: "p1", clientId: "c1", status: "active" },
+      { id: "pm", clientId: "c1", status: "active", maintenanceFrequency: "monthly" },
+    ],
+  } as unknown as VirtecSnapshot;
+
+  it("tells maintenance quotes from project quotes", async () => {
+    const { quotes } = buildBusiness(withKinds, await store.readBusinessState(), false);
+    const kinds = Object.fromEntries(quotes.map((quote) => [quote.id, quote.kind]));
+    assert.deepEqual(kinds, { build: "project", byProject: "maintenance", byType: "maintenance" });
+  });
+
+  it("links a client to its Traction prospect by import, then by email, and summarises the pipeline", async () => {
+    const prospects = [
+      prospect("imported", { crmId: "virtec:client:c1", stage: "won", relationship: "strong", stageChangedAt: "2026-10-02T00:00:00.000Z" }),
+      prospect("byEmail", { email: "BO@bo.com", stage: "won", stageChangedAt: "2026-08-01T00:00:00.000Z" }),
+      prospect("p1", { stage: "proposal", nextActionDate: "2026-10-09" }),
+      prospect("p2", { stage: "proposal", nextActionDate: "2026-10-05" }),
+    ];
+    const data = buildBusiness(withKinds, await store.readBusinessState(), false, new Date("2026-10-15T00:00:00.000Z"), undefined, prospects as never);
+    assert.equal(data.clients.find((client) => client.id === "c1")?.prospect?.id, "imported");
+    assert.equal(data.clients.find((client) => client.id === "c2")?.prospect?.id, "byEmail");
+    assert.deepEqual(data.pipeline?.stages, { won: 2, proposal: 2 });
+    assert.deepEqual(data.pipeline?.proposals.map((entry) => entry.id), ["p2", "p1"], "soonest next action first");
+    assert.equal(data.pipeline?.wonThisMonth, 1);
+  });
+
+  it("leaves the pipeline out when Traction could not be read", async () => {
+    assert.equal(buildBusiness(withKinds, await store.readBusinessState(), false).pipeline, undefined);
+  });
+});

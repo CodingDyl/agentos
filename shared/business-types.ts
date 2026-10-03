@@ -96,6 +96,8 @@ export const BusinessClientSchema = z.object({
   workspace: WorkspaceSlugSchema.optional(),
   /** Recent Inbox threads from this client, newest first. */
   mail: z.array(BusinessClientMailSchema).default([]),
+  /** The Traction prospect this client came from, when there is one. */
+  prospect: z.object({ id: z.string(), stage: z.string(), relationship: z.string().optional(), referralAsked: z.boolean() }).optional(),
 });
 export type BusinessClient = z.infer<typeof BusinessClientSchema>;
 
@@ -121,6 +123,8 @@ export const BusinessQuoteSchema = z.object({
   ageDays: z.number().optional(),
   /** Pending for a week or more: the quote most likely to go quiet. */
   stale: z.boolean(),
+  /** A once-off build, or a recurring maintenance charge. */
+  kind: z.enum(["project", "maintenance"]).default("project"),
 });
 export type BusinessQuote = z.infer<typeof BusinessQuoteSchema>;
 
@@ -188,6 +192,15 @@ export const BusinessRevenueSchema = z.object({
   overdueInvoiceCount: z.number().optional(),
 });
 
+/** Traction's pipeline, as Business shows it: what is coming, not who is already paying. */
+export const BusinessPipelineSchema = z.object({
+  stages: z.record(z.string(), z.number()),
+  /** Prospects at proposal: the quotes most worth writing next. */
+  proposals: z.array(z.object({ id: z.string(), company: z.string(), nextAction: z.string().optional(), nextActionDate: z.string().optional() })),
+  wonThisMonth: z.number(),
+});
+export type BusinessPipeline = z.infer<typeof BusinessPipelineSchema>;
+
 export const BusinessDataSchema = z.object({
   /** False when Virtec's environment variables are not set. */
   virtecConfigured: z.boolean(),
@@ -203,6 +216,8 @@ export const BusinessDataSchema = z.object({
   retainers: z.array(BusinessRetainerSchema),
   followUps: z.array(BusinessFollowUpSchema),
   revenue: BusinessRevenueSchema.optional(),
+  /** Absent when Traction's store could not be read. */
+  pipeline: BusinessPipelineSchema.optional(),
 });
 export type BusinessData = z.infer<typeof BusinessDataSchema>;
 
