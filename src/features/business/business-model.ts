@@ -2,13 +2,14 @@ import type { BusinessClient } from "@shared/business-types";
 
 export const BUSINESS_TABS = [
   { value: "overview", label: "Overview" },
-  { value: "billing", label: "Billing & cash flow" },
-  { value: "growth", label: "Growth" },
-  { value: "clients", label: "Clients" },
+  { value: "clients", label: "Clients & projects" },
   { value: "quotes", label: "Quotes" },
+  { value: "invoices", label: "Invoices & payments" },
+  { value: "maintenance", label: "Recurring services" },
+  { value: "expenses", label: "Expenses" },
   { value: "agreements", label: "Agreements" },
-  { value: "maintenance", label: "Maintenance" },
   { value: "follow-ups", label: "Follow-ups" },
+  { value: "growth", label: "Growth" },
   { value: "setup", label: "Setup & import" },
 ] as const;
 

@@ -4,7 +4,6 @@ import { PAPER_FOCUS, PaperButton, PaperSection, SegmentedControl, Tag } from "@
 import { useFollowUpAction } from "@/lib/agentos/business";
 import { cn } from "@/lib/utils";
 import { ClientDraftForm } from "./business-draft";
-import { QuoteCalculator } from "./business-quote-calculator";
 import { followUpMailto, formatRand } from "./business-model";
 
 /**
@@ -42,7 +41,6 @@ type QuoteFilter = "all" | BusinessQuote["kind"];
 
 export function QuotesSection({ entity, data }: Scoped) {
   const [filter, setFilter] = useState<QuoteFilter>("all");
-  const [calculating, setCalculating] = useState(false);
   const all = forEntity(data.quotes, entity);
   const quotes = filter === "all" ? all : all.filter((quote) => quote.kind === filter);
   const pending = quotes.filter((quote) => quote.status === "pending");
@@ -61,13 +59,7 @@ export function QuotesSection({ entity, data }: Scoped) {
             { value: "maintenance", label: `Maintenance (${all.filter((quote) => quote.kind === "maintenance").length})` },
           ]}
         />
-        {!calculating ? (
-          <PaperButton variant="amber" onClick={() => setCalculating(true)}>
-            New quote
-          </PaperButton>
-        ) : null}
       </div>
-      {calculating ? <QuoteCalculator onClose={() => setCalculating(false)} /> : null}
       {quotes.length === 0 ? <Empty>No quotes of this type recorded.</Empty> : null}
       <p className="text-[14px] text-paper-char">
         {pending.length} waiting, worth <strong>{formatRand(pendingValue)}</strong>

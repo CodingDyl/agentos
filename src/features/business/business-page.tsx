@@ -8,7 +8,7 @@ import { useBusiness, useLinkClientWorkspace, useRefreshBusiness, useSetEntityWo
 import { useProjects } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { ClientDraftForm } from "./business-draft";
-import { BusinessBilling } from "./business-billing";
+import { BusinessDetails, CashFlowSummary, LedgerRecords } from "./business-billing";
 import { BusinessSetup } from "./business-setup";
 import { GrowthSection } from "./business-growth-section";
 import { QuoteCalculator } from "./business-quote-calculator";
@@ -125,26 +125,78 @@ function Business({
       </div>
 
       <div className="mt-6" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === "setup" ? (
-          <BusinessSetup key={entity.id} entity={entity} />
-        ) : tab === "billing" ? (
-          <BusinessBilling key={entity.id} entityId={entity.id} entityName={entity.name} />
-        ) : tab === "overview" ? (
-          <Overview entity={entity} clients={clients} pipeline={data.pipeline} onOpenClient={onClient} />
-        ) : tab === "growth" ? (
-          <GrowthSection entity={entity} data={data} onTab={onTab} onClient={onClient} />
+        {tab === "overview" ? (
+          <div className="grid gap-8">
+            <CashFlowSummary key={entity.id} entityId={entity.id} />
+            <Overview entity={entity} clients={clients} pipeline={data.pipeline} onOpenClient={onClient} />
+          </div>
         ) : tab === "clients" ? (
-          <Clients entity={entity} clients={clients} clientId={clientId} onClient={onClient} />
+          <div className="grid gap-8">
+            <LedgerRecords key={`${entity.id}-clients`} entityId={entity.id} entityName={entity.name} kinds={["client", "project"]} />
+            <CrmView entity={entity} label="Clients in Virtec CRM">
+              <Clients entity={entity} clients={clients} clientId={clientId} onClient={onClient} />
+            </CrmView>
+          </div>
         ) : tab === "quotes" ? (
-          <QuotesSection entity={entity} data={data} />
+          <div className="grid gap-8">
+            <QuoteCalculatorToggle />
+            <LedgerRecords key={`${entity.id}-quotes`} entityId={entity.id} entityName={entity.name} kinds={["quote"]} />
+            <CrmView entity={entity} label="Quotes in Virtec CRM">
+              <QuotesSection entity={entity} data={data} />
+            </CrmView>
+          </div>
+        ) : tab === "invoices" ? (
+          <LedgerRecords key={`${entity.id}-invoices`} entityId={entity.id} entityName={entity.name} kinds={["invoice", "payment"]} />
+        ) : tab === "maintenance" ? (
+          <div className="grid gap-8">
+            <LedgerRecords key={`${entity.id}-services`} entityId={entity.id} entityName={entity.name} kinds={["service"]} />
+            <CrmView entity={entity} label="Retainers in Virtec CRM">
+              <MaintenanceSection entity={entity} data={data} />
+            </CrmView>
+          </div>
+        ) : tab === "expenses" ? (
+          <LedgerRecords key={`${entity.id}-expenses`} entityId={entity.id} entityName={entity.name} kinds={["expense"]} />
         ) : tab === "agreements" ? (
           <AgreementsSection entity={entity} data={data} />
-        ) : tab === "maintenance" ? (
-          <MaintenanceSection entity={entity} data={data} />
-        ) : (
+        ) : tab === "follow-ups" ? (
           <FollowUpsSection entity={entity} data={data} />
+        ) : tab === "growth" ? (
+          <GrowthSection entity={entity} data={data} onTab={onTab} onClient={onClient} />
+        ) : (
+          <div className="grid gap-8">
+            <BusinessDetails key={`${entity.id}-details`} entityId={entity.id} entityName={entity.name} />
+            <BusinessSetup key={entity.id} entity={entity} />
+          </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Read-only records still owned by Virtec, shown under the AgentOS records
+ * while the migration runs. Businesses without a CRM show nothing here.
+ */
+function CrmView({ entity, label, children }: { entity: BusinessEntitySummary; label: string; children: React.ReactNode }) {
+  if (entity.source !== "virtec") return null;
+  return (
+    <section aria-label={label} className="border-t border-paper-mist pt-6">
+      <h2 className="mb-1 text-[15px] font-semibold">{label}</h2>
+      <p className="mb-4 text-[13px] text-paper-sage">Read from the CRM. Import them in Setup &amp; import to manage them here.</p>
+      {children}
+    </section>
+  );
+}
+
+function QuoteCalculatorToggle() {
+  const [open, setOpen] = useState(false);
+  return open ? (
+    <QuoteCalculator onClose={() => setOpen(false)} />
+  ) : (
+    <div>
+      <PaperButton variant="ghost" onClick={() => setOpen(true)}>
+        Price a quote
+      </PaperButton>
     </div>
   );
 }
@@ -154,7 +206,7 @@ function VirtecNotice({ data, entity }: { data: BusinessData; entity: BusinessEn
   if (entity.source !== "virtec") {
     return (
       <p className="mt-4 max-w-[70ch] text-[13.5px] leading-6 text-paper-char">
-        {entity.name} has no client source yet. Its clients, quotes and retainers will live here once local records arrive; nothing from Virtec is shown against it.
+        {entity.name} has no CRM. Its clients, projects, quotes and services are kept in AgentOS; nothing from Virtec is shown against it.
       </p>
     );
   }

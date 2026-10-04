@@ -67,7 +67,7 @@ export function applyBusinessOperation(entity: BusinessEntity, input: BusinessOp
       if (!input.record) return reject("A record is required.");
       let record = input.record;
       const old = records.find((row) => row.id === record.id);
-      if (record.entityId !== entity.id || record.kind === "project") return reject("Invalid business record.");
+      if (record.entityId !== entity.id) return reject("Invalid business record.");
       if (old && (old.kind !== record.kind || old.source !== record.source || old.sourceId !== record.sourceId)) return reject("Record identity cannot change.");
       if (!old && (record.source !== "agentos" || record.id !== record.sourceId)) return reject("New records must be owned by Agentos.");
       if (old?.voided) return reject("Voided records cannot be edited.");

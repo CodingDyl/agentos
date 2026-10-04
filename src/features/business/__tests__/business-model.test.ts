@@ -23,7 +23,7 @@ describe("business model", () => {
 
   it("only accepts known tabs", () => {
     assert.ok(isBusinessTab("clients"));
-    assert.ok(!isBusinessTab("invoices"));
+    assert.ok(!isBusinessTab("billing"), "the old combined tab is gone");
     assert.ok(!isBusinessTab(null));
   });
 

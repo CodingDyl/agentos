@@ -118,3 +118,15 @@ it("calculates VAT exactly, requires explicit registration and freezes printed s
   const rendered = renderBusinessDocument(issued, "Client");
   assert.match(rendered, /Test address/); assert.match(rendered, /Test bank details/); assert.match(rendered, /VAT 15%/); assert.ok(!rendered.includes("New bank"));
 });
+it("creates projects for a client and refuses links that do not exist or disagree", () => {
+  setup();
+  save({ ...base("proj"), kind: "project", clientId: "client", title: "New website", status: "planning", currency: "ZAR", amountMinor: 2500000 });
+  const status = getBusinessLedgerStatus(entity.id);
+  assert.equal(status.counts.project, 1);
+  assert.throws(() => save({ ...base("orphan"), kind: "project", clientId: "nobody", title: "Orphan", currency: "ZAR" }), /client link/);
+  save({ ...base("other"), kind: "client", name: "Other Client" });
+  assert.throws(
+    () => save({ ...base("svc"), kind: "service", clientId: "other", projectId: "proj", title: "Care", state: "needs_setup", currency: "ZAR" }),
+    /disagree/,
+  );
+});
