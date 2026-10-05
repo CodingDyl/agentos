@@ -248,6 +248,7 @@ async function runToPreview(api: FakeApi, pushes: { args: readonly string[]; env
       vault.set(`case:${prospectId}`, url);
     },
     sleep: async () => undefined,
+    linkWorkspaceRepo: async () => false,
   };
   const { run } = store.createOrReuseRun({ prospectId: `p-${caseNumber}`, company: "Total Electric", websiteUrl: "https://te.example", targetMarket: "Homeowners", location: "Cape Town", conversionGoal: "Book", requiredFunctions: ["contact_form"], designTemplate: "DESIGN.md", skillVersion: "1.2.0" });
   const handlers = upToFunctions();

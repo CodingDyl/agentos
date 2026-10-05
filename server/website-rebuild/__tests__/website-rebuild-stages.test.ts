@@ -119,6 +119,7 @@ function fakeStageDeps(worker: FakeWorker, overrides: Partial<StageDeps> = {}): 
     },
     serveNext: async () => ({ url: "http://127.0.0.1:9", stop: () => undefined }),
     readDesignTemplate: async () => "# Template\n## Tokens\n## Typography\n",
+    linkWorkspaceRepo: async () => false,
     // Never the real GitHub or Vercel: publishing is stage 7's test, with its own fakes.
     publish: {
       ...stages.defaultStageDeps.publish,
