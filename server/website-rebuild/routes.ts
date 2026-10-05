@@ -1,7 +1,19 @@
 import path from "node:path";
 import express from "express";
 import { agentOSRoot } from "../agentos/filesystem";
-import { REBUILD_SKILL_ID, RebuildDecisionInputSchema, RebuildStageIdSchema, RebuildStartSchema } from "../../shared/website-rebuild-types";
+import {
+  REBUILD_SKILL_ID,
+  RebuildDecisionInputSchema,
+  RebuildRetryInputSchema,
+  RebuildStageIdSchema,
+  RebuildStartSchema,
+  WORKER_STAGES,
+  type RebuildRun,
+  type RebuildStageId,
+  type StageWorkerOption,
+} from "../../shared/website-rebuild-types";
+import { cancelJob } from "../workers/job-manager";
+import { listWorkers } from "../workers/registry";
 import { advanceInBackground, currentSkillVersion } from "./runner";
 import { isSkillEnabled } from "../skills/registry";
 import { createOrReuseRun, decide, listRuns, readRun, RebuildError, recoverAbandonedStages, resetForRetry, runForProspect, runForWorkspace } from "./store";
@@ -26,6 +38,23 @@ rebuildRouter.use((request, response, next) => {
   }
   next();
 });
+
+/** Workers able to do a stage: research workers for research, coding workers for the rest. Never the mock or Ollama. */
+async function stageWorkerOptions(run: RebuildRun, stage: RebuildStageId): Promise<StageWorkerOption[]> {
+  const needs = WORKER_STAGES[stage];
+  if (!needs) throw new RebuildError("This stage doesn't use a worker.", 422);
+  const plan = run.workerPlan[stage as keyof RebuildRun["workerPlan"]] ?? [];
+  const capable = listWorkers().filter((worker) => !worker.simulated && worker.id !== "mock" && worker.capabilities.includes(needs));
+  const options = await Promise.all(
+    capable.map(async (worker) => {
+      const health = await worker.healthCheck().catch(() => ({ available: false, reason: "could not report its health" }));
+      return { id: worker.id, name: worker.name, available: health.available, reason: health.available ? undefined : health.reason, inPlan: plan.includes(worker.id) };
+    }),
+  );
+  // The plan's order first, then the rest; available before unavailable within each.
+  const rank = (option: StageWorkerOption) => (option.inPlan ? plan.indexOf(option.id) : 100) + (option.available ? 0 : 1000);
+  return options.sort((left, right) => rank(left) - rank(right));
+}
 
 function fail(response: express.Response, error: unknown): void {
   if (error instanceof RebuildError) {
@@ -116,11 +145,36 @@ rebuildRouter.post("/", async (request, response) => {
   }
 });
 
-rebuildRouter.post("/:id/stages/:stage/retry", async (request, response) => {
+/** Every worker that could do this stage, healthy or not, for the "retry with another worker" choice. */
+rebuildRouter.get("/:id/stages/:stage/workers", async (request, response) => {
   try {
     const run = readRun(request.params.id);
+    response.json({ workers: await stageWorkerOptions(run, stageParam(request.params.stage)) });
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+rebuildRouter.post("/:id/stages/:stage/retry", async (request, response) => {
+  const input = RebuildRetryInputSchema.safeParse(request.body ?? {});
+  if (!input.success) {
+    response.status(422).json({ error: "That is not a worker AgentOS knows." });
+    return;
+  }
+  try {
+    const run = readRun(request.params.id);
+    const stage = stageParam(request.params.stage);
     if (!(await isSkillEnabled(run.skillId))) throw new RebuildError(`The ${run.skillId} skill is disabled in Connectors → Skills. Enable it before retrying.`);
-    resetForRetry(run.id, stageParam(request.params.stage));
+    const worker = input.data.worker;
+    if (worker && worker !== "plan") {
+      const option = (await stageWorkerOptions(run, stage)).find((entry) => entry.id === worker);
+      if (!option) throw new RebuildError(`${worker} can't do the ${stage} stage.`, 422);
+      if (!option.available) throw new RebuildError(`${option.name} is not available: ${option.reason ?? "no reason given"}.`);
+      // The abandoned job is stopped, so two workers never edit the same stage at once.
+      const previous = run.stages.find((entry) => entry.id === stage)?.jobId;
+      if (previous) await cancelJob(previous).catch(() => undefined);
+    }
+    resetForRetry(run.id, stage, worker);
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
   } catch (error) {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { currentStage, RebuildRunSchema, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
+import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
 import { AgentOSRequestError } from "./client";
 
 const base = "/api/rebuilds";
@@ -97,8 +97,23 @@ export function useStartRebuild() {
   return useRunMutation((input: RebuildStartInput) => call(base, RebuildRunSchema, input));
 }
 
+/** Retry a blocked stage, optionally with another worker ("plan" goes back to the stage's usual order). */
 export function useRetryStage(runId: string) {
-  return useRunMutation((stage: RebuildStageId) => call(`${base}/${encodeURIComponent(runId)}/stages/${stage}/retry`, RebuildRunSchema, {}));
+  return useRunMutation(({ stage, worker }: { stage: RebuildStageId; worker?: string }) =>
+    call(`${base}/${encodeURIComponent(runId)}/stages/${stage}/retry`, RebuildRunSchema, worker ? { worker } : {}),
+  );
+}
+
+/** Workers able to do a stage, with whether each is ready now. Read only while the choice is on screen. */
+export function useStageWorkers(runId: string, stage: RebuildStageId, enabled: boolean) {
+  return useQuery({
+    queryKey: ["rebuild", runId, "workers", stage] as const,
+    queryFn: () => call(`${base}/${encodeURIComponent(runId)}/stages/${stage}/workers`, StageWorkerOptionsSchema),
+    enabled,
+    staleTime: 10_000,
+    retry: 0,
+    networkMode: "always",
+  });
 }
 
 export function useDecideStage(runId: string) {

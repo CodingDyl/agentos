@@ -67,6 +67,8 @@ interface FakeWorker {
   available: Set<string>;
   files: (objective: string) => Record<string, string>;
   summary?: string;
+  /** Workers whose jobs fail, as a signed-out CLI would. */
+  failing?: Set<string>;
 }
 
 function fakeStageDeps(worker: FakeWorker, overrides: Partial<StageDeps> = {}): StageDeps {
@@ -91,6 +93,7 @@ function fakeStageDeps(worker: FakeWorker, overrides: Partial<StageDeps> = {}): 
       const id = createJobId();
       worker.jobs.push({ worker: picked.id, objective: request.objective, repoPath: request.repoPath });
       watch.onStarted(id);
+      if (worker.failing?.has(picked.id)) throw new WorkerStageBlocked(`${picked.id}'s job failed: exited with code 1: Not logged in.`);
       const job: WorkerJob = { ...request, worker: picked.id, id, status: "awaiting_review", resolvedWorker: picked.id, createdAt: new Date().toISOString() };
       if (!request.repoPath) return { job: { ...job, result: { summary: worker.summary ?? "" } }, worker: picked };
       const worktree = await createWorktree(request.repoPath, id);
@@ -290,6 +293,36 @@ describe("stages 3 to 6", () => {
   });
 });
 
+describe("switching worker", () => {
+  it("retries a failed stage with the worker the person picks, and keeps using it", async () => {
+    const worker: FakeWorker = { jobs: [], available: new Set(["hermes-worker", "claude-code", "codex"]), files: filesFor, failing: new Set(["claude-code"]) };
+    stages.stageDeps.current = fakeStageDeps(worker);
+    const run = newRun();
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    assert.equal(status(run.id, "hero")?.status, "blocked");
+    assert.match(status(run.id, "hero")?.blocker ?? "", /claude-code's job failed: exited with code 1: Not logged in/);
+
+    store.resetForRetry(run.id, "hero", "codex");
+    assert.equal(status(run.id, "hero")?.workerOverride, "codex");
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    assert.equal(status(run.id, "hero")?.status, "awaiting_approval");
+    assert.equal(worker.jobs.filter((job) => job.objective.startsWith("Design three")).at(-1)?.worker, "codex");
+    assert.equal(store.readRun(run.id).revisions.find((revision) => revision.stage === "hero")?.worker, "codex");
+
+    // A change request goes to the chosen worker, not back to the one that failed.
+    store.decide(run.id, "hero", 1, "changes_requested", "Warmer");
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    assert.equal(worker.jobs.filter((job) => job.objective.startsWith("Design three")).at(-1)?.worker, "codex");
+
+    // "plan" goes back to the usual order.
+    store.decide(run.id, "hero", 2, "changes_requested", "Again");
+    worker.failing = new Set(["claude-code", "codex"]);
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    store.resetForRetry(run.id, "hero", "plan");
+    assert.equal(status(run.id, "hero")?.workerOverride, undefined);
+  });
+});
+
 describe("client repo and helpers", () => {
   it("creates the client repo once, with a first commit, and reuses it", async () => {
     const first = await ensureClientRepo("total-electric", "Total Electric");
@@ -321,5 +354,15 @@ describe("client repo and helpers", () => {
     assert.deepEqual(routesFrom("not json"), ["/"]);
     assert.equal(routeName("/services/electrical"), "services-electrical");
     assert.equal(routeName("/"), "home");
+  });
+});
+
+describe("failure guidance", () => {
+  it("tells the person to sign in again rather than retry, and names the limit when there is one", async () => {
+    const { nextStep } = await import("../workers");
+    assert.match(nextStep({ id: "claude-code", name: "Claude Code" }, "Failed to authenticate: OAuth session expired and could not be refreshed"), /run `claude` in a terminal and use \/login/);
+    assert.match(nextStep({ id: "codex", name: "Codex" }, "401 Unauthorized"), /Codex needs signing in again/);
+    assert.match(nextStep({ id: "codex", name: "Codex" }, "Claude AI usage limit reached"), /usage limit/);
+    assert.match(nextStep({ id: "codex", name: "Codex" }, "exited with code 2"), /^Retry to start a fresh attempt, or try another worker\.$/);
   });
 });

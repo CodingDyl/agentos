@@ -6,6 +6,7 @@ import {
   HERO_CONCEPTS,
   REBUILD_FUNCTION_LABEL,
   REBUILD_STAGES,
+  WORKER_STAGES,
   type RebuildArtifact,
   type RebuildRun,
   type RebuildStage,
@@ -14,7 +15,7 @@ import { AppShell } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
-import { useDecideStage, useRebuild, useRetryStage } from "@/lib/agentos/rebuilds";
+import { useDecideStage, useRebuild, useRetryStage, useStageWorkers } from "@/lib/agentos/rebuilds";
 import { cn } from "@/lib/utils";
 import { StageStatusTag } from "./rebuild-status";
 
@@ -160,10 +161,14 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-paper-flame" aria-hidden="true" />
               {stage.blocker}
             </span>
-            <PaperButton onClick={() => retry.mutate(stage.id)} disabled={retry.isPending}>
+            <PaperButton onClick={() => retry.mutate({ stage: stage.id })} disabled={retry.isPending}>
               <RotateCcw className="size-3.5" aria-hidden="true" /> {retry.isPending ? "Retrying…" : "Retry"}
             </PaperButton>
+            {WORKER_STAGES[stage.id] ? <WorkerSwitch run={run} stage={stage} busy={retry.isPending} onRetry={(worker) => retry.mutate({ stage: stage.id, worker })} /> : null}
           </div>
+        ) : null}
+        {stage.workerOverride && stage.status !== "blocked" ? (
+          <p className="mt-2 text-[12.5px] text-paper-sage">Using {stage.workerOverride} for this stage, as you chose.</p>
         ) : null}
         {retry.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{retry.error.message}</p> : null}
 
@@ -203,6 +208,67 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
         ) : null}
       </PaperCard>
     </li>
+  );
+}
+
+/**
+ * When a worker keeps failing (signed out, out of credits, a bad setting),
+ * pick another one for this stage and retry. The choice sticks to the stage
+ * until changed, so change requests go to the same worker.
+ */
+function WorkerSwitch({ run, stage, busy, onRetry }: { run: RebuildRun; stage: RebuildStage; busy: boolean; onRetry: (worker: string) => void }) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const workers = useStageWorkers(run.id, stage.id, open);
+  const [choice, setChoice] = useState("");
+  const options = workers.data?.workers ?? [];
+  const picked = choice || options.find((option) => option.available && option.id !== stage.workerOverride)?.id || "";
+
+  if (!open) {
+    return (
+      <PaperButton onClick={() => setOpen(true)} disabled={busy}>
+        Try another worker
+      </PaperButton>
+    );
+  }
+
+  return (
+    <div className="basis-full border-t border-paper-flame/30 pt-3">
+      {workers.isPending ? (
+        <p role="status">Checking which workers are ready…</p>
+      ) : workers.error ? (
+        <p role="alert" className="text-paper-flame-deep">{workers.error.message}</p>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <label htmlFor={`${id}-worker`} className="grid gap-1">
+            <FieldLabel>Retry with</FieldLabel>
+            <select id={`${id}-worker`} className={PAPER_INPUT} value={picked} onChange={(event) => setChoice(event.target.value)}>
+              {options.map((option) => (
+                <option key={option.id} value={option.id} disabled={!option.available}>
+                  {option.name}
+                  {option.id === stage.workerOverride ? " (current)" : ""}
+                  {option.available ? "" : `: ${option.reason ?? "not available"}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <PaperButton variant="amber" disabled={busy || !picked} onClick={() => onRetry(picked)}>
+            Retry with {options.find((option) => option.id === picked)?.name ?? "this worker"}
+          </PaperButton>
+          {stage.workerOverride ? (
+            <PaperButton disabled={busy} onClick={() => onRetry("plan")}>
+              Back to the usual order
+            </PaperButton>
+          ) : null}
+          <PaperButton disabled={busy} onClick={() => setOpen(false)}>
+            Cancel
+          </PaperButton>
+          <p className="basis-full text-[12px] text-paper-sage">
+            Unavailable workers are greyed out with the reason; switch them on in Operations → AI Stack. The choice stays with this stage until you change it.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 

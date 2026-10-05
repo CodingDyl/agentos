@@ -23,6 +23,7 @@ import {
   type RebuildWorkerPlan,
 } from "../../shared/website-rebuild-types";
 import { uiStateDir } from "../agentos/session-store";
+import { WorkerIdSchema } from "../../shared/worker-ids";
 
 /**
  * Website rebuild runs, kept in their own `website-rebuild.db`.
@@ -146,6 +147,9 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE runs ADD COLUMN vercel_project TEXT;
   ALTER TABLE runs ADD COLUMN deployment_id TEXT;
   `,
+  `
+  ALTER TABLE stages ADD COLUMN worker_override TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -207,6 +211,7 @@ interface StageRow {
   started_at: string | null;
   finished_at: string | null;
   job_id: string | null;
+  worker_override: string | null;
 }
 
 function parseJson<T>(value: string, fallback: T): T {
@@ -230,6 +235,7 @@ function stagesOf(runId: string): RebuildStage[] {
     startedAt: row.started_at ?? undefined,
     finishedAt: row.finished_at ?? undefined,
     jobId: row.job_id ?? undefined,
+    workerOverride: WorkerIdSchema.safeParse(row.worker_override).data,
   }));
 }
 
@@ -521,12 +527,17 @@ export function blockStage(runId: string, stage: RebuildStageId, owner: string |
 }
 
 /** Puts a blocked stage back in the queue. Its reports and earlier revisions stay. */
-export function resetForRetry(runId: string, stage: RebuildStageId): void {
-  const result = rebuildDatabase()
-    .prepare("UPDATE stages SET status = 'not_started', blocker = NULL, activity = NULL WHERE run_id = ? AND stage = ? AND status = 'blocked'")
-    .run(runId, stage);
+export function resetForRetry(runId: string, stage: RebuildStageId, worker?: string): void {
+  // Choosing a worker forgets the job the stage was waiting on: the next attempt is a fresh one with that worker.
+  const result = worker
+    ? rebuildDatabase()
+        .prepare("UPDATE stages SET status = 'not_started', blocker = NULL, activity = NULL, worker_override = ?, job_id = NULL WHERE run_id = ? AND stage = ? AND status = 'blocked'")
+        .run(worker === "plan" ? null : worker, runId, stage)
+    : rebuildDatabase()
+        .prepare("UPDATE stages SET status = 'not_started', blocker = NULL, activity = NULL WHERE run_id = ? AND stage = ? AND status = 'blocked'")
+        .run(runId, stage);
   if (Number(result.changes) !== 1) throw new RebuildError("Only a blocked stage can be retried.");
-  logEvent(runId, stage, "info", "Retry requested.");
+  logEvent(runId, stage, "info", worker === "plan" ? "Retry requested with the stage's usual worker order." : worker ? `Retry requested with ${worker}.` : "Retry requested.");
   touch(runId);
 }
 
