@@ -33,6 +33,9 @@ import { getVirtec, isVirtecConfigured, isVirtecWritable, VIRTEC_PATHS, virtecCo
 import { isVercelConfigured, readVercelUser } from "../vercel/client";
 import { claudeWorker } from "../workers/providers/claude-worker";
 import { grokWorker } from "../workers/providers/grok-worker";
+import { testLinkedIn } from "../career/linkedin";
+import { timesheetScript } from "../career/timesheet";
+import { togglMe } from "../career/toggl";
 
 /**
  * How AgentOS finds out whether each connector is set up, and tests it.
@@ -95,6 +98,11 @@ export const NON_SECRET = new Set([
   "SENTRY_ORG",
   "SUPABASE_URL",
   "SPOTIFY_CLIENT_ID",
+  "TOGGL_WORKSPACE_ID",
+  "LINKEDIN_PERSON_URN",
+  "LINKEDIN_API_VERSION",
+  "AGENTOS_TIMESHEET_SCRIPT",
+  "AGENTOS_PYTHON_BIN",
 ]);
 
 /** A variable the Setup form may write. The only names `.env` can be written with. */
@@ -595,6 +603,83 @@ export const PROBES: Record<string, Probe> = {
         ? { ok: true, detail: `All ${results.length} database${results.length === 1 ? "" : "s"} answered.` }
         : { ok: false, detail: failed.map((entry) => `${entry.setup.name}: ${entry.result.detail}`).join(" ") };
     },
+  },
+
+  career: {
+    async local() {
+      const script = timesheetScript();
+      const found = await fs
+        .access(script)
+        .then(() => true)
+        .catch(() => false);
+      return {
+        configured: found,
+        detail: found ? undefined : `The timesheet script is not at ${script}.`,
+        setup: [
+          { label: `Timesheet script: ${script}`, kind: "path", done: found },
+          env("AGENTOS_TIMESHEET_SCRIPT", { optional: true, placeholder: "/Users/you/AgentOS/scripts/career/timesheet/extract.py" }),
+          env("AGENTOS_PYTHON_BIN", { optional: true, placeholder: "python3" }),
+        ],
+        connectHint: "Career runs scripts/career/timesheet/extract.py with python3. Copy it into your vault's scripts/career/timesheet to customise mappings.json.",
+      };
+    },
+    async test() {
+      const found = await findBinary(process.env.AGENTOS_PYTHON_BIN?.trim() || "python3");
+      return found ? { ok: true, detail: `Python at ${found}.` } : { ok: false, detail: "python3 is not on the server's PATH." };
+    },
+  },
+
+  toggl: {
+    async local() {
+      const configured = envKeySet("TOGGL_API_TOKEN");
+      return {
+        configured,
+        detail: configured ? undefined : "TOGGL_API_TOKEN is not set.",
+        setup: [env("TOGGL_API_TOKEN"), env("TOGGL_WORKSPACE_ID", { optional: true, placeholder: "6550194" })],
+        connectHint: "Toggl Track → Profile → API token. Read-only: AgentOS only reads time entries and project names.",
+      };
+    },
+    async test() {
+      try {
+        const me = await togglMe();
+        return { ok: true, detail: `Signed in${me.fullname ? ` as ${me.fullname}` : ""}.`, account: me.email };
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  },
+
+  entelect: {
+    async local() {
+      return {
+        configured: true,
+        setup: [{ label: "Portals are opened in the browser, signed in as you", kind: "path", done: true }],
+        connectHint:
+          "Entelect's timesheet and Events sites have no API AgentOS uses. Career prepares the timesheet and the event details, opens the site, and records what you submitted.",
+      };
+    },
+    async test() {
+      return { ok: true, detail: "Nothing to test: AgentOS only opens these sites." };
+    },
+  },
+
+  linkedin: {
+    async local() {
+      const configured = envKeySet("LINKEDIN_ACCESS_TOKEN");
+      return {
+        configured,
+        detail: configured ? undefined : "LINKEDIN_ACCESS_TOKEN is not set. Drafting still works.",
+        setup: [
+          env("LINKEDIN_ACCESS_TOKEN"),
+          env("LINKEDIN_PERSON_URN", { optional: true, placeholder: "urn:li:person:abc123" }),
+          env("LINKEDIN_API_VERSION", { optional: true, placeholder: "202509" }),
+        ],
+        missingGrants: { read_messages: "LinkedIn's messaging API is limited to approved partners. Messages open on linkedin.com." },
+        connectHint:
+          "Create an app at developer.linkedin.com with the “Share on LinkedIn” and “Sign In with LinkedIn using OpenID Connect” products, then generate a member token with w_member_social, openid and profile.",
+      };
+    },
+    test: testLinkedIn,
   },
 
   higgsfield: {

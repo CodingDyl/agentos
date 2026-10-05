@@ -1,0 +1,11 @@
+{
+  "billableProjects": ["R - FNB - Backbase"],
+  "projectAliases": {},
+  "categoryAliases": {},
+  "requireTag": true,
+  "defaults": {
+    "sentiment": "Neutral",
+    "workedFrom": "Home",
+    "ticketNumber": ""
+  }
+}

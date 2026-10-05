@@ -413,6 +413,63 @@ export const CONNECTORS: readonly CatalogConnector[] = [
       { action: "add_source", name: "Add sources to a provider notebook", risk: "write-external" },
     ],
   },
+  // ---------------------------------------------------------------- career
+  {
+    id: "career",
+    name: "Career runbooks",
+    description: "Local Career scripts: the Toggl → Entelect timesheet transformer and its preview.",
+    category: "productivity",
+    tier: 3,
+    icon: "briefcase",
+    integrated: true,
+    capabilities: [
+      { action: "timesheet.transform", name: "Run the timesheet extraction script", risk: "write-local", implementedBy: "server/career/timesheet.ts" },
+      { action: "timesheet.preview", name: "Preview extracted timesheet rows", risk: "read", implementedBy: "server/career/timesheet.ts" },
+    ],
+  },
+  {
+    id: "toggl",
+    name: "Toggl Track",
+    description: "Time tracking. Read-only: the week's time entries feed the timesheet runbook.",
+    category: "productivity",
+    tier: 3,
+    icon: "timer",
+    integrated: true,
+    capabilities: [
+      { action: "read_time_entries", name: "Read time entries and projects", risk: "read", implementedBy: "server/career/toggl.ts" },
+      { action: "open", name: "Open Toggl Track", risk: "read", implementedBy: "server/career/routes.ts" },
+    ],
+  },
+  {
+    id: "entelect",
+    name: "Entelect portals",
+    description: "The employee timesheet and Events sites. No API: AgentOS prepares and opens, a person submits.",
+    category: "business",
+    tier: 3,
+    icon: "building",
+    integrated: true,
+    capabilities: [
+      { action: "timesheet.open", name: "Open the Entelect timesheet", risk: "read", implementedBy: "server/career/routes.ts" },
+      // Recorded after the person submits on the site; never sent by AgentOS.
+      { action: "timesheet.submit", name: "Submit / record a timesheet", risk: "write-external", policy: "approval", implementedBy: "server/career/timesheet.ts" },
+      { action: "events.open", name: "Open Entelect Events", risk: "read", implementedBy: "server/career/routes.ts" },
+      { action: "events.create", name: "Create / record an event", risk: "write-external", policy: "approval", implementedBy: "server/career/routes.ts" },
+    ],
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    description: "Posting as you, after approval. Messages open on linkedin.com: the messaging API is partner-only.",
+    category: "communication",
+    tier: 3,
+    icon: "share",
+    integrated: true,
+    capabilities: [
+      { action: "draft_post", name: "Draft posts with Hermes", risk: "write-local", implementedBy: "server/career/hermes.ts" },
+      { action: "publish_post", name: "Publish approved posts", risk: "external-communication", policy: "approval", implementedBy: "server/career/linkedin.ts" },
+      { action: "read_messages", name: "Read messages", risk: "read" },
+    ],
+  },
   {
     id: "figma",
     name: "Figma",

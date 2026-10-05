@@ -76,6 +76,7 @@ import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { businessRouter } from "./business/routes";
 import { tractionRouter } from "./traction/routes";
+import { careerRouter } from "./career/routes";
 import { voiceRouter } from "./voice/routes";
 import { memoryRouter } from "./memory/routes";
 import { grokBotRouter } from "./workers/grok-bot-routes";
@@ -353,6 +354,8 @@ app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
 app.use("/api/traction", tractionRouter);
+/** Career: employment admin, the work log, growth, and the timesheet / soccer / LinkedIn runbooks. */
+app.use("/api/career", careerRouter);
 
 /** Business: the companies being run and their clients, read from Virtec. */
 app.use("/api/business", businessRouter);
