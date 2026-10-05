@@ -1,5 +1,6 @@
 import "@/styles/mail.css";
 import { useMemo, useRef, useState } from "react";
+import { PenSquare } from "lucide-react";
 import { MAIL_MAX_AGE_DAYS, MAIL_THREAD_LIMIT, type MailClassifier } from "@shared/mail-types";
 import { AppShell } from "@/components/os";
 import { mailConnectUrl } from "@/lib/agentos/client";
@@ -11,6 +12,9 @@ import { MailBulkBar } from "./mail-bulk-bar";
 import { MailFilters } from "./mail-filters";
 import { MailPager } from "./mail-pager";
 import { MailProgressBar } from "./mail-progress";
+import { MailComposer, type ComposerTarget } from "./mail-composer";
+import { MailOutbox } from "./mail-outbox";
+import type { ThreadRowActions } from "./thread-row";
 import { useMailTriage } from "./use-mail-triage";
 import {
   flattenMail,
@@ -69,6 +73,9 @@ export function MailPage() {
   const connected = status.data?.connected ?? false;
 
   const [filter, setFilter] = useState<MailStatusFilter>("all");
+  const [view, setView] = useState<"inbox" | "outbox">("inbox");
+  const [composer, setComposer] = useState<ComposerTarget | undefined>();
+  const [notice, setNotice] = useState<string | undefined>();
   const [page, setPage] = useState(1);
   const listTop = useRef<HTMLDivElement>(null);
 
@@ -77,6 +84,20 @@ export function MailPage() {
 
   const allRows = useMemo(() => (mail.data ? flattenMail(mail.data) : []), [mail.data]);
   const triage = useMailTriage(canModify);
+  const openComposer = (target: ComposerTarget) => {
+    if (composer && !window.confirm("Replace the email you are writing? It has not been sent or saved.")) return;
+    setNotice(undefined);
+    setComposer(target);
+  };
+
+  // `gmail.modify` covers sending; a read-only grant from before it cannot, so rows offer no Reply.
+  const rowActions: ThreadRowActions = canModify
+    ? {
+        ...triage.actions,
+        reply: (thread) =>
+          openComposer({ kind: "reply", threadId: thread.threadId, to: thread.fromEmail, subject: thread.subject }),
+      }
+    : triage.actions;
 
   const rows = useMemo(() => allRows.filter((row) => !triage.gone.has(row.thread.threadId)), [allRows, triage.gone]);
   const counts = useMemo(() => statusCounts(rows), [rows]);
@@ -132,7 +153,16 @@ export function MailPage() {
               <div className="mail-toolbar-actions">
                 <button
                   type="button"
-                  className="mail-btn-amber"
+                  className="mail-btn-amber mail-btn-icon"
+                  onClick={() => openComposer({ kind: "new" })}
+                  disabled={!canModify}
+                  title={canModify ? "Write a new email" : "Reconnect Gmail to allow sending"}
+                >
+                  <PenSquare size={15} aria-hidden="true" /> Compose
+                </button>
+                <button
+                  type="button"
+                  className="mail-btn-ghost"
                   onClick={() => sync.mutate()}
                   disabled={sync.isPending}
                 >
@@ -145,6 +175,36 @@ export function MailPage() {
             ) : null}
           </div>
 
+          {connected ? (
+            <div className="mail-views" role="group" aria-label="Mail view">
+              <button
+                type="button"
+                className={`mail-view${view === "inbox" ? " mail-view--active" : ""}`}
+                aria-pressed={view === "inbox"}
+                onClick={() => setView("inbox")}
+              >
+                Inbox
+              </button>
+              <button
+                type="button"
+                className={`mail-view${view === "outbox" ? " mail-view--active" : ""}`}
+                aria-pressed={view === "outbox"}
+                onClick={() => setView("outbox")}
+              >
+                Sent &amp; drafts
+              </button>
+            </div>
+          ) : null}
+
+          {notice ? (
+            <div className="mail-notice mail-notice--quiet" role="status">
+              <span>{notice}</span>
+              <button type="button" className="mail-link-btn" onClick={() => setNotice(undefined)}>
+                Dismiss
+              </button>
+            </div>
+          ) : null}
+
           <div className="mail-content" ref={listTop}>
             {status.isPending ? (
               <p className="mail-meta">Checking Mail configuration…</p>
@@ -156,9 +216,11 @@ export function MailPage() {
             ) : !connected ? (
               <MailEmptyState
                 title="Gmail is not connected"
-                description="Connect a Gmail account to start triaging your inbox. Access is read-only: AgentOS never sends, labels, or deletes anything."
+                description="Connect a Gmail account to triage, reply, and send from AgentOS. Email is only sent when you press Send, and nothing is ever permanently deleted."
                 action={{ label: "Connect Gmail", href: mailConnectUrl() }}
               />
+            ) : view === "outbox" ? (
+              <MailOutbox onNotice={setNotice} />
             ) : mail.isPending ? (
               <p className="mail-meta">Reading stored mail…</p>
             ) : !mail.data || totalThreads === 0 ? (
@@ -175,8 +237,8 @@ export function MailPage() {
                 {!canModify ? (
                   <div className="mail-notice">
                     <span>
-                      AgentOS has read-only access to this Gmail account. Reconnect once to mark mail read and move it
-                      to Trash. It still can't send or permanently delete anything.
+                      AgentOS has read-only access to this Gmail account. Reconnect once to reply, send, mark mail
+                      read, and move it to Trash. It still can't permanently delete anything.
                     </span>
                     <a className="mail-btn-ghost" href={mailConnectUrl()}>
                       Reconnect Gmail
@@ -220,7 +282,7 @@ export function MailPage() {
                       total={bucketTotals[group.tone]}
                       canModify={canModify}
                       canReprofile={sorted}
-                      actions={triage.actions}
+                      actions={rowActions}
                     />
                   ))
                 )}
@@ -244,6 +306,14 @@ export function MailPage() {
           </div>
         </div>
       </div>
+      {composer ? (
+        <MailComposer
+          key={composer.kind === "reply" ? composer.threadId : "new"}
+          target={composer}
+          onClose={() => setComposer(undefined)}
+          onDone={setNotice}
+        />
+      ) : null}
     </AppShell>
   );
 }

@@ -39,13 +39,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 HEADERS = ["Date", "Project", "Category", "Hours", "Minutes", "Billable", "Description", "TicketNumber", "Sentiment", "WorkedFrom"]
 
 
-def round_minutes(minutes):
-    """Nearest quarter hour, with ties going down (the notebook's 7.5-minute rule)."""
+def round_minutes(minutes, mode="up"):
+    """
+    Quarter hours.
+
+    - "up":      any started quarter counts (the Standard Bank notebook: 1-15 -> 15)
+    - "nearest": nearest quarter, ties down (the earlier FNB notebook: 7.5 -> 0)
+    """
     if minutes <= 0:
         return 0
     quarters = int(minutes // 15)
     remainder = minutes - quarters * 15
-    return quarters * 15 + (15 if remainder > 7.5 else 0)
+    if remainder == 0:
+        return quarters * 15
+    if mode == "nearest":
+        return quarters * 15 + (15 if remainder > 7.5 else 0)
+    return quarters * 15 + 15
 
 
 def load_mappings(path):
@@ -56,6 +65,10 @@ def load_mappings(path):
     mappings.setdefault("categoryAliases", {})
     mappings.setdefault("requireTag", True)
     mappings.setdefault("defaults", {})
+    mappings.setdefault("rounding", "up")
+    mappings.setdefault("aggregate", True)
+    if mappings["rounding"] not in ("up", "nearest"):
+        raise SystemExit("mappings.json: rounding must be 'up' or 'nearest'")
     return mappings
 
 
@@ -86,15 +99,17 @@ def transform(payload, mappings):
         project = mappings["projectAliases"].get(toggl_project, toggl_project) if toggl_project else None
         category = mappings["categoryAliases"].get(tag, tag) if tag else None
 
-        key = (day, project or "", category or "", description)
+        # Without aggregation every Toggl entry is its own row, as the notebook wrote them.
+        key = (day, project or "", category or "", description) if mappings["aggregate"] else (day, project or "", category or "", description, entry.get("id"))
         if key not in grouped:
             grouped[key] = {"seconds": 0, "toggl_project": toggl_project, "project_id": entry.get("project_id")}
         grouped[key]["seconds"] += int(duration)
 
     rows = []
-    for (day, project, category, description), group in sorted(grouped.items()):
+    for key, group in sorted(grouped.items(), key=lambda item: tuple(str(part) for part in item[0])):
+        day, project, category, description = key[:4]
         seconds = group["seconds"]
-        total = round_minutes(seconds / 60)
+        total = round_minutes(seconds / 60, mappings["rounding"])
         issue = None
         if not project:
             issue = "No Toggl project" if group["project_id"] is None else "Toggl project not found"

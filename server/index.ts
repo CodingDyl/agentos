@@ -4,6 +4,7 @@ import express from "express";
 import { AutomationControlSchema, CuratorControlSchema } from "../shared/agentos-types";
 import { WorkerIdSchema } from "../shared/worker-ids";
 import { MailBulkRequestSchema, MailCorrectionSchema } from "../shared/mail-types";
+import { MailComposeRequestSchema, MailPolishRequestSchema, MailSendTagSchema } from "../shared/mail-compose-types";
 import { ZodError } from "zod";
 import {
   ApplyMilestonePlanRequestSchema,
@@ -312,6 +313,17 @@ import {
 import { markThreadsRead, runBulkAction, trashThreads } from "./mail/actions";
 import { readProgress } from "./mail/progress";
 import { scheduleLowPriorityCleanup } from "./mail/auto-clean";
+import {
+  composeMail,
+  discardSavedDraft,
+  listOutbox,
+  OutboxNotFoundError,
+  replyContextFor,
+  retagOutboxItem,
+  sendSavedDraft,
+} from "./mail/compose";
+import { MailPolishError, polishEmail } from "./mail/polish";
+import { MimeError } from "./outreach/mime";
 import { setAiEnabled, setAiModel } from "./ai-stack/settings";
 import { hasConfigurableModel, isToggleable, readAiStack } from "./ai-stack/stack";
 import { SetAiEnabledRequestSchema } from "../shared/ai-stack-types";
@@ -352,6 +364,8 @@ const app = express();
 
 app.disable("x-powered-by");
 app.use("/api/business/ledger", express.json({ limit: "16mb" }));
+// Attachments arrive base64-encoded: 18 MB of files is 24 MB of JSON.
+app.use("/api/mail/compose", express.json({ limit: "26mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
@@ -528,12 +542,12 @@ app.get("/api/dashboard", async (_request, response) => {
 });
 
 /**
- * Mail: Gmail, read-only, classified by Jev.
+ * Mail: Gmail, classified by Jev.
  *
  * Opening the page never calls Gmail or Jev — only Refresh and the explicit
- * actions below do. Access is `gmail.modify`: marking read and moving to
- * Trash are the only changes made in Gmail, and only when the person asks.
- * Nothing here sends mail or deletes permanently.
+ * actions below do. Access is `gmail.modify`: marking read, moving to Trash,
+ * labelling, and sending or drafting mail the person wrote and pressed Send
+ * or Save draft on. Nothing here deletes mail permanently.
  */
 app.get("/api/mail/status", async (_request, response) => {
   try {
@@ -679,6 +693,106 @@ function sendMailActionError(response: express.Response, error: unknown, fallbac
   console.error(`[agentos] ${fallback}:`, error);
   response.status(500).json({ error: fallback });
 }
+
+/** Answers a compose failure: a bad address or file is the person's to fix (422), a missing draft is 404. */
+function sendComposeError(response: express.Response, error: unknown, fallback: string): void {
+  if (error instanceof MimeError) {
+    response.status(422).json({ error: error.message });
+    return;
+  }
+  if (error instanceof OutboxNotFoundError) {
+    response.status(404).json({ error: error.message });
+    return;
+  }
+  sendMailActionError(response, error, fallback);
+}
+
+/** Sends an email, or saves it to Gmail Drafts, written in the Inbox. A person pressed the button. */
+app.post("/api/mail/compose", async (request, response) => {
+  const parsed = MailComposeRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? "That email is not complete." });
+    return;
+  }
+  if (parsed.data.mode === "send" && !parsed.data.body.trim() && parsed.data.attachments.length === 0) {
+    response.status(400).json({ error: "The email is empty." });
+    return;
+  }
+  try {
+    response.json(await composeMail(parsed.data));
+  } catch (error) {
+    sendComposeError(response, error, parsed.data.mode === "send" ? "Unable to send that email" : "Unable to save that draft");
+  }
+});
+
+/** Fixes grammar and tone with Hermes. Nothing is sent; the person reviews the result. */
+app.post("/api/mail/polish", async (request, response) => {
+  const parsed = MailPolishRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? "Send { body }." });
+    return;
+  }
+  try {
+    response.json(await polishEmail(parsed.data));
+  } catch (error) {
+    if (error instanceof MailPolishError) {
+      response.status(409).json({ error: error.message });
+      return;
+    }
+    console.error("[agentos] mail polish failed:", error);
+    response.status(500).json({ error: "Unable to polish that email" });
+  }
+});
+
+/** Email written in AgentOS, sent and drafts, newest first. `?tag=business` narrows it. */
+app.get("/api/mail/outbox", (request, response) => {
+  const tag = MailSendTagSchema.safeParse(request.query.tag);
+  try {
+    response.json({ items: listOutbox(tag.success ? tag.data : undefined) });
+  } catch (error) {
+    console.error("[agentos] mail outbox read failed:", error);
+    response.status(500).json({ error: "Unable to read sent mail" });
+  }
+});
+
+app.post("/api/mail/outbox/:id/send", async (request, response) => {
+  try {
+    response.json(await sendSavedDraft(request.params.id));
+  } catch (error) {
+    sendComposeError(response, error, "Unable to send that draft");
+  }
+});
+
+app.post("/api/mail/outbox/:id/tag", async (request, response) => {
+  const tag = MailSendTagSchema.safeParse((request.body as { tag?: unknown } | undefined)?.tag);
+  if (!tag.success) {
+    response.status(400).json({ error: "Send { tag: normal | business | virtara }." });
+    return;
+  }
+  try {
+    response.json(await retagOutboxItem(request.params.id, tag.data));
+  } catch (error) {
+    sendComposeError(response, error, "Unable to change that tag");
+  }
+});
+
+app.delete("/api/mail/outbox/:id", async (request, response) => {
+  try {
+    await discardSavedDraft(request.params.id);
+    response.json({ ok: true });
+  } catch (error) {
+    sendComposeError(response, error, "Unable to discard that draft");
+  }
+});
+
+/** Who a reply to this thread goes to, and its subject, for the composer. */
+app.get("/api/mail/:threadId/reply-context", async (request, response) => {
+  try {
+    response.json(await replyContextFor(request.params.threadId));
+  } catch (error) {
+    sendMailActionError(response, error, "Unable to read that thread");
+  }
+});
 
 /** A person's correction of Jev. Stored locally and sent to Jev as an example on later calls. */
 app.post("/api/mail/:threadId/correct", (request, response) => {

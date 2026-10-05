@@ -178,8 +178,8 @@ export const CONNECTORS: readonly CatalogConnector[] = [
       { action: "read", name: "Read mail", risk: "read", implementedBy: "server/mail/gmail-client.ts" },
       { action: "search", name: "Search mail", risk: "read", implementedBy: "server/mail/gmail-client.ts" },
       { action: "modify", name: "Mark read and move to Trash", risk: "write-external", implementedBy: "server/mail/gmail-client.ts" },
-      { action: "draft", name: "Create drafts", risk: "write-external", implementedBy: "server/outreach/gmail.ts" },
-      { action: "send", name: "Send email", risk: "external-communication", implementedBy: "server/outreach/gmail.ts" },
+      { action: "draft", name: "Create drafts", risk: "write-external", implementedBy: "server/mail/gmail-client.ts" },
+      { action: "send", name: "Send email", risk: "external-communication", implementedBy: "server/mail/gmail-client.ts" },
     ],
   },
   {

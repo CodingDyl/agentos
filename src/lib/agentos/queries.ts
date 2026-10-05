@@ -35,6 +35,16 @@ import {
   syncMail,
 } from "./client";
 import type { MailBulkAction, MailCorrection } from "@shared/mail-types";
+import type { MailComposeRequest, MailPolishRequest, MailSendTag } from "@shared/mail-compose-types";
+import {
+  composeMail,
+  discardMailDraft,
+  getMailOutbox,
+  getMailReplyContext,
+  polishMail,
+  retagMailOutboxItem,
+  sendMailDraft,
+} from "./client";
 import type { AutomationControl } from "@shared/agentos-types";
 import type { MissionControlData } from "@shared/mission-control-types";
 import { getAiStack, setAiEnabled, setAiModel } from "./client";
@@ -215,6 +225,8 @@ export const agentosKeys = {
   mailStatus: () => [...agentosKeys.all, "mail-status"] as const,
   mailBody: (threadId: string) => [...agentosKeys.all, "mail-body", threadId] as const,
   mailProgress: () => [...agentosKeys.all, "mail-progress"] as const,
+  mailOutbox: (tag?: string) => [...agentosKeys.all, "mail-outbox", tag ?? "all"] as const,
+  mailReplyContext: (threadId: string) => [...agentosKeys.all, "mail-reply-context", threadId] as const,
   /** Tags every mail mutation, so the progress bar knows when to start watching. */
   mailAction: () => [...agentosKeys.all, "mail-action"] as const,
   aiStack: () => [...agentosKeys.all, "ai-stack"] as const,
@@ -399,6 +411,73 @@ export function useDisconnectMail() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
     },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Email written in AgentOS, sent and drafts. Local read: never a Gmail call. */
+export function useMailOutbox(tag?: MailSendTag) {
+  return useQuery({
+    queryKey: agentosKeys.mailOutbox(tag),
+    queryFn: () => getMailOutbox(tag),
+    staleTime: 15_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+/** Prefill for a reply: who it goes to and its subject. Read once the composer opens on a thread. */
+export function useMailReplyContext(threadId: string | undefined) {
+  return useQuery({
+    queryKey: agentosKeys.mailReplyContext(threadId ?? ""),
+    queryFn: () => getMailReplyContext(threadId ?? ""),
+    enabled: Boolean(threadId),
+    staleTime: 5 * 60_000,
+    retry: 0,
+    networkMode: "always",
+  });
+}
+
+function useOutboxInvalidation() {
+  const queryClient = useQueryClient();
+  return () => void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "mail-outbox"] });
+}
+
+/** Sends or saves a draft. Never retried: a retry after a lost answer could send twice. */
+export function useComposeMail() {
+  const invalidate = useOutboxInvalidation();
+  return useMutation({
+    mutationFn: (request: MailComposeRequest) => composeMail(request),
+    onSuccess: invalidate,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function usePolishMail() {
+  return useMutation({
+    mutationFn: (request: MailPolishRequest) => polishMail(request),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useSendMailDraft() {
+  const invalidate = useOutboxInvalidation();
+  return useMutation({ mutationFn: sendMailDraft, onSettled: invalidate, networkMode: "always", retry: 0 });
+}
+
+export function useDiscardMailDraft() {
+  const invalidate = useOutboxInvalidation();
+  return useMutation({ mutationFn: discardMailDraft, onSettled: invalidate, networkMode: "always", retry: 0 });
+}
+
+export function useRetagMailOutboxItem() {
+  const invalidate = useOutboxInvalidation();
+  return useMutation({
+    mutationFn: ({ id, tag }: { id: string; tag: MailSendTag }) => retagMailOutboxItem(id, tag),
+    onSettled: invalidate,
     networkMode: "always",
     retry: 0,
   });

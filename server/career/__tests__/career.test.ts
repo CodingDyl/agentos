@@ -105,7 +105,7 @@ describe("timesheet script", () => {
         input: JSON.stringify({
           weekStart: "2026-09-28",
           weekEnd: "2026-10-04",
-          projects: [{ id: 1, name: "R - FNB - Backbase" }],
+          projects: [{ id: 1, name: "R - Standard Bank - CIB GM - MM" }],
           entries: [
             { id: 1, start: "2026-09-28T08:00:00Z", duration: 600, project_id: 1, tags: ["Development"], description: "Standup" },
             { id: 2, start: "2026-09-28T12:00:00Z", duration: 600, project_id: 1, tags: ["Development"], description: "Standup" },
@@ -124,7 +124,7 @@ describe("timesheet script", () => {
     assert.equal(result.runningEntries, 1);
     assert.equal(result.rows.length, 2);
     const standup = result.rows.find((item) => item.description === "Standup");
-    assert.equal(standup?.minutes, 15, "two 10-minute entries become 20 minutes, rounded to 15");
+    assert.equal(standup?.minutes, 30, "two 10-minute entries become 20 minutes, rounded up to 30");
     assert.equal(standup?.billable, true);
     assert.equal(standup?.mapped, true);
     const admin = result.rows.find((item) => item.description === "Admin");
