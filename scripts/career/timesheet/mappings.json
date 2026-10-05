@@ -1,8 +1,10 @@
 {
-  "billableProjects": ["R - FNB - Backbase"],
+  "billableProjects": ["R - Standard Bank - CIB GM - MM"],
   "projectAliases": {},
   "categoryAliases": {},
   "requireTag": true,
+  "rounding": "up",
+  "aggregate": true,
   "defaults": {
     "sentiment": "Neutral",
     "workedFrom": "Home",
