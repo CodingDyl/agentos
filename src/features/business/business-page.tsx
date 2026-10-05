@@ -155,7 +155,7 @@ function Business({
             </CrmView>
           </div>
         ) : tab === "expenses" ? (
-          <LedgerRecords key={`${entity.id}-expenses`} entityId={entity.id} entityName={entity.name} kinds={["expense"]} />
+          <LedgerRecords key={`${entity.id}-expenses`} entityId={entity.id} entityName={entity.name} kinds={["expense"]} entityNames={new Map(data.entities.map((candidate) => [candidate.id, candidate.name]))} />
         ) : tab === "agreements" ? (
           <AgreementsSection entity={entity} data={data} />
         ) : tab === "follow-ups" ? (
