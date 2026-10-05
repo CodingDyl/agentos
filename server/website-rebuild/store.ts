@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   DEFAULT_WORKER_PLAN,
   GATED_STAGES,
+  HERO_CONCEPTS,
   REBUILD_SKILL_ID,
   RebuildWorkerPlanSchema,
   STAGE_ORDER,
@@ -130,6 +131,16 @@ const MIGRATIONS: readonly string[] = [
 
   CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id, id);
   `,
+  `
+  ALTER TABLE runs ADD COLUMN repo_path TEXT;
+  ALTER TABLE runs ADD COLUMN hero_choice TEXT;
+  ALTER TABLE stages ADD COLUMN job_id TEXT;
+  ALTER TABLE artifacts ADD COLUMN media TEXT NOT NULL DEFAULT 'document';
+  ALTER TABLE revisions ADD COLUMN ref TEXT;
+  ALTER TABLE revisions ADD COLUMN worker TEXT;
+  ALTER TABLE revisions ADD COLUMN job_id TEXT;
+  ALTER TABLE decisions ADD COLUMN choice TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -170,6 +181,8 @@ interface RunRow {
   skill_id: string;
   skill_version: string;
   workspace_slug: string | null;
+  repo_path: string | null;
+  hero_choice: string | null;
   preview_url: string | null;
   created_at: string;
   updated_at: string;
@@ -185,6 +198,7 @@ interface StageRow {
   approved_revision: number | null;
   started_at: string | null;
   finished_at: string | null;
+  job_id: string | null;
 }
 
 function parseJson<T>(value: string, fallback: T): T {
@@ -207,6 +221,7 @@ function stagesOf(runId: string): RebuildStage[] {
     approvedRevision: row.approved_revision ?? undefined,
     startedAt: row.started_at ?? undefined,
     finishedAt: row.finished_at ?? undefined,
+    jobId: row.job_id ?? undefined,
   }));
 }
 
@@ -228,23 +243,25 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     skillId: row.skill_id,
     skillVersion: row.skill_version,
     workspaceSlug: row.workspace_slug ?? undefined,
+    repoPath: row.repo_path ?? undefined,
+    heroChoice: row.hero_choice ?? undefined,
     previewUrl: row.preview_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     stages: stagesOf(row.id),
     artifacts: withDetail
-      ? (db.prepare("SELECT * FROM artifacts WHERE run_id = ? ORDER BY created_at").all(row.id) as unknown as { id: string; stage: RebuildStageId; title: string; path: string; href: string; revision: number; created_at: string }[]).map(
-          (artifact): RebuildArtifact => ({ id: artifact.id, stage: artifact.stage, title: artifact.title, path: artifact.path, href: artifact.href, revision: artifact.revision, createdAt: artifact.created_at }),
+      ? (db.prepare("SELECT * FROM artifacts WHERE run_id = ? ORDER BY created_at, title").all(row.id) as unknown as { id: string; stage: RebuildStageId; media: "document" | "image"; title: string; path: string; href: string; revision: number; created_at: string }[]).map(
+          (artifact): RebuildArtifact => ({ id: artifact.id, stage: artifact.stage, media: artifact.media, title: artifact.title, path: artifact.path, href: artifact.media === "image" ? `/api/rebuilds/${encodeURIComponent(row.id)}/artifacts/${encodeURIComponent(artifact.id)}` : artifact.href, revision: artifact.revision, createdAt: artifact.created_at }),
         )
       : [],
     revisions: withDetail
-      ? (db.prepare("SELECT * FROM revisions WHERE run_id = ? ORDER BY created_at").all(row.id) as unknown as { stage: RebuildStageId; revision: number; summary: string; artifact_ids: string; created_at: string }[]).map(
-          (revision): RebuildRevision => ({ stage: revision.stage, revision: revision.revision, summary: revision.summary, artifactIds: parseJson<string[]>(revision.artifact_ids, []), createdAt: revision.created_at }),
+      ? (db.prepare("SELECT * FROM revisions WHERE run_id = ? ORDER BY created_at").all(row.id) as unknown as { stage: RebuildStageId; revision: number; summary: string; artifact_ids: string; ref: string | null; worker: string | null; job_id: string | null; created_at: string }[]).map(
+          (revision): RebuildRevision => ({ stage: revision.stage, revision: revision.revision, summary: revision.summary, artifactIds: parseJson<string[]>(revision.artifact_ids, []), ref: revision.ref ?? undefined, worker: revision.worker ?? undefined, jobId: revision.job_id ?? undefined, createdAt: revision.created_at }),
         )
       : [],
     decisions: withDetail
-      ? (db.prepare("SELECT * FROM decisions WHERE run_id = ? ORDER BY at").all(row.id) as unknown as { id: string; stage: RebuildStageId; revision: number; decision: "approved" | "changes_requested"; note: string | null; at: string }[]).map(
-          (decision): RebuildDecision => ({ id: decision.id, stage: decision.stage, revision: decision.revision, decision: decision.decision, note: decision.note ?? undefined, at: decision.at }),
+      ? (db.prepare("SELECT * FROM decisions WHERE run_id = ? ORDER BY at").all(row.id) as unknown as { id: string; stage: RebuildStageId; revision: number; decision: "approved" | "changes_requested"; note: string | null; choice: string | null; at: string }[]).map(
+          (decision): RebuildDecision => ({ id: decision.id, stage: decision.stage, revision: decision.revision, decision: decision.decision, note: decision.note ?? undefined, choice: decision.choice ?? undefined, at: decision.at }),
         )
       : [],
     events: withDetail
@@ -338,7 +355,7 @@ function touch(runId: string): void {
   rebuildDatabase().prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(iso(), runId);
 }
 
-export function setRunField(runId: string, field: "workspace_slug" | "preview_url", value: string): void {
+export function setRunField(runId: string, field: "workspace_slug" | "preview_url" | "repo_path", value: string): void {
   rebuildDatabase().prepare(`UPDATE runs SET ${field} = ?, updated_at = ? WHERE id = ?`).run(value, iso(), runId);
 }
 
@@ -402,14 +419,14 @@ export function setActivity(runId: string, stage: RebuildStageId, owner: string,
 }
 
 /** Records a report file the stage wrote. Retrying replaces the row for the same file instead of adding another. */
-export function recordArtifact(runId: string, stage: RebuildStageId, input: { title: string; path: string; href: string; revision: number }): string {
+export function recordArtifact(runId: string, stage: RebuildStageId, input: { title: string; path: string; href: string; revision: number; media?: "document" | "image" }): string {
   const db = rebuildDatabase();
   const existing = db.prepare("SELECT id FROM artifacts WHERE run_id = ? AND path = ?").get(runId, input.path) as { id: string } | undefined;
   const id = existing?.id ?? randomUUID();
   db.prepare(
-    `INSERT INTO artifacts (id, run_id, stage, title, path, href, revision, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(run_id, path) DO UPDATE SET title = excluded.title, href = excluded.href, revision = excluded.revision, created_at = excluded.created_at`,
-  ).run(id, runId, stage, input.title, input.path, input.href, input.revision, iso());
+    `INSERT INTO artifacts (id, run_id, stage, title, path, href, revision, created_at, media) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(run_id, path) DO UPDATE SET title = excluded.title, href = excluded.href, revision = excluded.revision, created_at = excluded.created_at, media = excluded.media`,
+  ).run(id, runId, stage, input.title, input.path, input.href, input.revision, iso(), input.media ?? "document");
   return id;
 }
 
@@ -418,7 +435,14 @@ export function recordArtifact(runId: string, stage: RebuildStageId, input: { ti
  * then waits for approval of exactly that revision; any later stage that had
  * already moved on is paused, because what it built on has changed.
  */
-export function completeStage(runId: string, stage: RebuildStageId, owner: string, summary: string, artifactIds: readonly string[]): number {
+export function completeStage(
+  runId: string,
+  stage: RebuildStageId,
+  owner: string,
+  summary: string,
+  artifactIds: readonly string[],
+  meta: { ref?: string; worker?: string; jobId?: string } = {},
+): number {
   requireLease(runId, stage, owner);
   const db = rebuildDatabase();
   const gated = GATED_STAGES.has(stage);
@@ -426,10 +450,12 @@ export function completeStage(runId: string, stage: RebuildStageId, owner: strin
   try {
     const { revision } = db.prepare("SELECT revision FROM stages WHERE run_id = ? AND stage = ?").get(runId, stage) as { revision: number };
     const next = revision + 1;
-    db.prepare("INSERT INTO revisions (run_id, stage, revision, summary, artifact_ids, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(runId, stage, next, summary.slice(0, 2000), JSON.stringify(artifactIds), iso());
+    db.prepare("INSERT INTO revisions (run_id, stage, revision, summary, artifact_ids, created_at, ref, worker, job_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      runId, stage, next, summary.slice(0, 2000), JSON.stringify(artifactIds), iso(), meta.ref ?? null, meta.worker ?? null, meta.jobId ?? null,
+    );
     db.prepare(
       `UPDATE stages SET status = ?, revision = ?, approved_revision = CASE WHEN ? THEN approved_revision ELSE ? END,
-         activity = NULL, blocker = NULL, lease_owner = NULL, lease_until = NULL, finished_at = ?
+         activity = NULL, blocker = NULL, lease_owner = NULL, lease_until = NULL, finished_at = ?, job_id = NULL
        WHERE run_id = ? AND stage = ?`,
     ).run(gated ? "awaiting_approval" : "complete", next, gated ? 1 : 0, next, iso(), runId, stage);
 
@@ -447,6 +473,12 @@ export function completeStage(runId: string, stage: RebuildStageId, owner: strin
     db.exec("ROLLBACK");
     throw error;
   }
+}
+
+/** Remembers the worker job a stage is waiting on, so a retry or a restart resumes it rather than starting a duplicate. */
+export function setStageJob(runId: string, stage: RebuildStageId, owner: string, jobId: string | null): void {
+  requireLease(runId, stage, owner);
+  rebuildDatabase().prepare("UPDATE stages SET job_id = ? WHERE run_id = ? AND stage = ?").run(jobId, runId, stage);
 }
 
 /** Ends an attempt that could not finish. The stage waits for a person to retry it. */
@@ -474,7 +506,7 @@ export function resetForRetry(runId: string, stage: RebuildStageId): void {
  * revision is the latest and is waiting for review, so an approval can never
  * land on a deliverable nobody looked at.
  */
-export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string): void {
+export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string, choice?: string): void {
   if (!GATED_STAGES.has(stage)) throw new RebuildError(`${stage} has no approval checkpoint.`, 422);
   if (decision === "changes_requested" && !note?.trim()) throw new RebuildError("Say what should change.", 422);
   const db = rebuildDatabase();
@@ -484,10 +516,15 @@ export function decide(runId: string, stage: RebuildStageId, revision: number, d
     if (!row) throw new RebuildError("That rebuild does not exist.", 404);
     if (row.revision !== revision) throw new RebuildError(`Revision ${revision} is not the latest. Review revision ${row.revision} instead.`);
     if (row.status !== "awaiting_approval") throw new RebuildError("This revision is not waiting for review.");
+    // The build follows one concept, so approving the concepts means choosing one of them.
+    if (stage === "hero" && decision === "approved" && !(HERO_CONCEPTS as readonly string[]).includes(choice ?? "")) {
+      throw new RebuildError("Choose which concept to build before approving.", 422);
+    }
 
-    db.prepare("INSERT INTO decisions (id, run_id, stage, revision, decision, note, at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(randomUUID(), runId, stage, revision, decision, note?.trim() || null, iso());
+    db.prepare("INSERT INTO decisions (id, run_id, stage, revision, decision, note, at, choice) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(randomUUID(), runId, stage, revision, decision, note?.trim() || null, iso(), choice ?? null);
     if (decision === "approved") {
       db.prepare("UPDATE stages SET status = 'complete', approved_revision = ? WHERE run_id = ? AND stage = ?").run(revision, runId, stage);
+      if (stage === "hero") db.prepare("UPDATE runs SET hero_choice = ? WHERE id = ?").run(choice ?? null, runId);
     } else {
       // Back in the queue for a new revision that answers the note.
       db.prepare("UPDATE stages SET status = 'not_started', activity = ? WHERE run_id = ? AND stage = ?").run(`Changes requested on revision ${revision}`, runId, stage);
@@ -497,7 +534,7 @@ export function decide(runId: string, stage: RebuildStageId, revision: number, d
     db.exec("ROLLBACK");
     throw error;
   }
-  logEvent(runId, stage, "info", decision === "approved" ? `Revision ${revision} approved.` : `Changes requested on revision ${revision}: ${note?.trim()}`);
+  logEvent(runId, stage, "info", decision === "approved" ? `Revision ${revision} approved${choice ? ` with ${choice}` : ""}.` : `Changes requested on revision ${revision}: ${note?.trim()}`);
   touch(runId);
 }
 

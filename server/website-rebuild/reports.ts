@@ -16,7 +16,7 @@ export function reportFile(run: Pick<RebuildRun, "companySlug">, name: string): 
   return `${run.companySlug}_${name}.md`;
 }
 
-function frontMatter(title: string, run: RebuildRun, extra: Record<string, string> = {}): string {
+export function frontMatter(title: string, run: RebuildRun, extra: Record<string, string> = {}): string {
   const lines = {
     title,
     type: "research",
@@ -146,4 +146,13 @@ export function buildManifest(run: RebuildRun, capture: CaptureResult): string {
     ...(manifest.failed.length > 0 ? manifest.failed.map((entry) => `- ${entry.url}: ${entry.reason}`) : ["Nothing."]),
     "",
   ].join("\n");
+}
+
+/**
+ * A report a worker or Hermes wrote, under AgentOS' own front matter. Any
+ * front matter the author added is dropped: provenance is AgentOS' to state.
+ */
+export function wrapReport(run: RebuildRun, title: string, body: string, extra: Record<string, string> = {}): string {
+  const withoutFrontMatter = body.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+  return `${frontMatter(`${run.company}: ${title}`, run, extra)}${withoutFrontMatter}\n`;
 }

@@ -82,7 +82,11 @@ export function useRetryStage(runId: string) {
 }
 
 export function useDecideStage(runId: string) {
-  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string }) =>
-    call(`${base}/${encodeURIComponent(runId)}/stages/${input.stage}/${input.decision}`, RebuildRunSchema, { revision: input.revision, ...(input.note ? { note: input.note } : {}) }),
+  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string }) =>
+    call(`${base}/${encodeURIComponent(runId)}/stages/${input.stage}/${input.decision}`, RebuildRunSchema, {
+      revision: input.revision,
+      ...(input.note ? { note: input.note } : {}),
+      ...(input.choice ? { choice: input.choice } : {}),
+    }),
   );
 }

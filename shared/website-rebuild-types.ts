@@ -53,14 +53,18 @@ export const RebuildWorkerPlanSchema = z.object({
   hero: z.array(WorkerIdSchema).min(1),
   build: z.array(WorkerIdSchema).min(1),
   functions: z.array(WorkerIdSchema).min(1),
+  /** A second model reads the build before each checkpoint. Empty skips it. */
+  review: z.array(WorkerIdSchema).default(["codex"]),
 });
 export type RebuildWorkerPlan = z.infer<typeof RebuildWorkerPlanSchema>;
 
 export const DEFAULT_WORKER_PLAN: RebuildWorkerPlan = {
-  research: ["gemini", "hermes-worker", "grok"],
+  // Grok Bot first: free, but started by hand, so research waits for you to trigger it.
+  research: ["grok-bot", "hermes-worker", "claude-code", "gemini"],
   hero: ["claude-code", "codex", "claude"],
   build: ["claude-code", "codex", "claude"],
   functions: ["codex", "claude-code", "claude"],
+  review: ["codex"],
 };
 
 const Text = (max: number) => z.string().trim().min(1).max(max);
@@ -84,6 +88,8 @@ export type RebuildStartInput = z.input<typeof RebuildStartSchema>;
 export const RebuildArtifactSchema = z.object({
   id: z.string(),
   stage: RebuildStageIdSchema,
+  /** `image` artifacts are screenshots, served by the rebuild API. */
+  media: z.enum(["document", "image"]).default("document"),
   title: z.string(),
   /** Vault-relative path; the workspace's Documents tab opens it. */
   path: z.string(),
@@ -97,6 +103,11 @@ export const RebuildRevisionSchema = z.object({
   revision: z.number().int().positive(),
   summary: z.string(),
   artifactIds: z.array(z.string()),
+  /** The client-repo commit this revision is, for stages that change code. */
+  ref: z.string().optional(),
+  /** Which worker produced it, and the job that ran. */
+  worker: z.string().optional(),
+  jobId: z.string().optional(),
   createdAt: z.string(),
 });
 
@@ -106,6 +117,8 @@ export const RebuildDecisionSchema = z.object({
   revision: z.number().int().positive(),
   decision: z.enum(["approved", "changes_requested"]),
   note: z.string().optional(),
+  /** For the hero checkpoint: the concept chosen. */
+  choice: z.string().optional(),
   at: z.string(),
 });
 
@@ -131,6 +144,8 @@ export const RebuildStageSchema = z.object({
   approvedRevision: z.number().int().positive().optional(),
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
+  /** The worker job this stage is waiting on, so a retry resumes it instead of starting another. */
+  jobId: z.string().optional(),
 });
 
 export const RebuildRunSchema = z.object({
@@ -149,6 +164,10 @@ export const RebuildRunSchema = z.object({
   /** The skill version this run follows. A newer skill never changes a run already under way. */
   skillVersion: z.string(),
   workspaceSlug: z.string().optional(),
+  /** Where the client's site code lives. */
+  repoPath: z.string().optional(),
+  /** The hero concept approved at checkpoint 1, which the build follows. */
+  heroChoice: z.string().optional(),
   previewUrl: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -173,8 +192,12 @@ export const RebuildDecisionInputSchema = z
   .object({
     revision: z.number().int().positive(),
     note: z.string().trim().max(4000).optional(),
+    choice: z.string().trim().max(40).optional(),
   })
   .strict();
+
+/** The three hero concepts' folder names in the client repo. */
+export const HERO_CONCEPTS = ["concept-a", "concept-b", "concept-c"] as const;
 
 export type RebuildArtifact = z.infer<typeof RebuildArtifactSchema>;
 export type RebuildRevision = z.infer<typeof RebuildRevisionSchema>;

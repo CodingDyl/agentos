@@ -6,6 +6,8 @@ import { after, beforeEach, describe, it } from "node:test";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-rebuild-"));
 process.env.AGENTOS_UI_DIR = root;
+// Never the real SSD: stage 3 would otherwise create a repo there and start real workers.
+process.env.AGENTOS_CLIENT_SITES_DIR = "/Volumes/agentos-test-drive-not-present/clients";
 
 const store = await import("../store");
 const { advance, STAGE_HANDLERS, StageBlocked } = await import("../runner");
@@ -77,7 +79,7 @@ describe("runs", () => {
 });
 
 describe("the runner", () => {
-  it("creates the workspace, writes the capture reports, and stops honestly at a stage not built yet", async () => {
+  it("creates the workspace, writes the capture reports, and stops at research when the client drive is missing", async () => {
     written.clear();
     const { run } = newRun();
     await advance(run.id, STAGE_HANDLERS, fakeDeps);
@@ -87,7 +89,7 @@ describe("the runner", () => {
     assert.equal(status(run.id, "workspace")?.status, "complete");
     assert.equal(status(run.id, "capture")?.status, "complete");
     assert.equal(status(run.id, "research")?.status, "blocked");
-    assert.match(status(run.id, "research")?.blocker ?? "", /not built yet/);
+    assert.match(status(run.id, "research")?.blocker ?? "", /^Connect agentos-test-drive-not-present/);
     assert.deepEqual(
       [...written.keys()].sort(),
       [
@@ -140,7 +142,7 @@ describe("approval checkpoints", () => {
     assert.equal(store.claimStage(run.id, "build", "someone"), false);
     assert.match(store.startBlocker(store.readRun(run.id), "build") ?? "", /approval of hero revision 1/);
 
-    store.decide(run.id, "hero", 1, "approved");
+    store.decide(run.id, "hero", 1, "approved", undefined, "concept-a");
     await advance(run.id, allProduce, fakeDeps);
     assert.equal(status(run.id, "build")?.status, "awaiting_approval");
   });
@@ -163,7 +165,7 @@ describe("approval checkpoints", () => {
     assert.equal(status(run.id, "hero")?.status, "awaiting_approval");
     // Approving the old revision is refused; the new one is what was reviewed.
     assert.throws(() => store.decide(run.id, "hero", 1, "approved"), /not the latest/);
-    store.decide(run.id, "hero", 2, "approved");
+    store.decide(run.id, "hero", 2, "approved", undefined, "concept-b");
     const decisions = store.readRun(run.id).decisions;
     assert.deepEqual(decisions.map((entry) => [entry.revision, entry.decision]), [[1, "changes_requested"], [2, "approved"]]);
   });
@@ -171,7 +173,7 @@ describe("approval checkpoints", () => {
   it("a new revision of an approved deliverable pauses the work that depended on it", async () => {
     const { run } = newRun();
     await advance(run.id, allProduce, fakeDeps);
-    store.decide(run.id, "hero", 1, "approved");
+    store.decide(run.id, "hero", 1, "approved", undefined, "concept-a");
     await advance(run.id, allProduce, fakeDeps);
     assert.equal(status(run.id, "build")?.status, "awaiting_approval");
 

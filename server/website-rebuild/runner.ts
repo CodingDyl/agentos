@@ -4,19 +4,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
 import { REBUILD_SKILL_ID, STAGE_ORDER, type RebuildRun, type RebuildStageId } from "../../shared/website-rebuild-types";
-import { readOptionalFile } from "../agentos/filesystem";
+import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, toSlug } from "../agentos/mutations/projects";
 import { editFile } from "../agentos/mutations/writer";
-import { captureSite, fetchRobots, withBrowserLoader, type CaptureResult } from "./capture";
+import { captureSite, fetchRobots, withBrowserLoader } from "./capture";
 import { REPORT_DIR, buildManifest, buildStructure, buildTranscript, reportFile } from "./reports";
+import { StageBlocked, type RunnerDeps, type StageContext, type StageHandler } from "./stage-kit";
+import { buildStage, functionsStage, heroStage, researchStage } from "./stages";
 import {
   blockStage,
   claimStage,
   completeStage,
   logEvent,
   readRun,
+  openChangeRequest,
   recordArtifact,
   setActivity,
+  setStageJob,
   setRunField,
   startBlocker,
 } from "./store";
@@ -32,30 +36,8 @@ import {
  * started twice.
  */
 
-export interface StageContext {
-  run: RebuildRun;
-  stage: RebuildStageId;
-  /** Shown on the stage while it works, and renews the lease. */
-  activity: (message: string) => void;
-  log: (message: string, level?: "info" | "warning" | "error") => void;
-  /** Writes a report into the workspace's documents and records it against this stage. */
-  writeReport: (name: string, title: string, markdown: string) => Promise<string>;
-}
-
-export interface StageOutcome {
-  summary: string;
-  artifactIds: string[];
-}
-
-export type StageHandler = (context: StageContext, deps: RunnerDeps) => Promise<StageOutcome>;
-
-export class StageBlocked extends Error {}
-
-export interface RunnerDeps {
-  ensureWorkspace: (run: RebuildRun) => Promise<{ slug: string; reused: boolean }>;
-  capture: (url: string, onProgress: (message: string) => void) => Promise<CaptureResult>;
-  writeDocument: (relativePath: string, markdown: string) => Promise<void>;
-}
+export { StageBlocked } from "./stage-kit";
+export type { RunnerDeps, StageContext, StageHandler, StageOutcome } from "./stage-kit";
 
 const PROJECTS_DIR = "projects";
 
@@ -79,6 +61,13 @@ export const defaultRunnerDeps: RunnerDeps = {
     withBrowserLoader((loadPage) => captureSite(url, { fetchRobots, loadPage, now: () => new Date(), onProgress })),
   writeDocument: async (relativePath, markdown) => {
     await editFile({ relativePath, label: "rebuild.report", apply: () => markdown });
+  },
+  writeBinary: async (relativePath, sourceFile) => {
+    const root = path.resolve(agentOSRoot());
+    const target = path.resolve(root, relativePath);
+    if (!target.startsWith(`${root}${path.sep}`)) throw new Error(`Refusing to write outside the vault: ${relativePath}`);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.copyFile(sourceFile, target);
   },
 };
 
@@ -108,7 +97,7 @@ const captureStage: StageHandler = async (context, deps) => {
   return { summary: `Captured ${captured.length} page${captured.length === 1 ? "" : "s"}; ${skipped.length} skipped, ${failed.length} failed.`, artifactIds: ids };
 };
 
-/** Stages 3 to 7 arrive in later phases. Until then they stop the run honestly instead of pretending. */
+/** Stage 7 arrives in phase 3. Until then it stops the run honestly instead of pretending. */
 const notBuiltYet: StageHandler = async (context) => {
   throw new StageBlocked(`The ${context.stage} stage is not built yet. It arrives in the next phase of the website rebuild workflow.`);
 };
@@ -116,10 +105,10 @@ const notBuiltYet: StageHandler = async (context) => {
 export const STAGE_HANDLERS: Record<RebuildStageId, StageHandler> = {
   workspace: workspaceStage,
   capture: captureStage,
-  research: notBuiltYet,
-  hero: notBuiltYet,
-  build: notBuiltYet,
-  functions: notBuiltYet,
+  research: researchStage,
+  hero: heroStage,
+  build: buildStage,
+  functions: functionsStage,
   preview: notBuiltYet,
 };
 
@@ -128,9 +117,16 @@ const advancing = new Set<string>();
 /** Runs one claimed stage to its end: a new revision, or a blocker. Never throws. */
 async function runStage(runId: string, stage: RebuildStageId, owner: string, handlers: Record<RebuildStageId, StageHandler>, deps: RunnerDeps): Promise<boolean> {
   const run = readRun(runId);
+  const record = run.stages.find((entry) => entry.id === stage);
+  if (!record) throw new Error(`Run ${runId} has no ${stage} stage.`);
+  const revision = record.revision + 1;
+  const artifactHref = (relativePath: string, slug: string) => `/workspaces/${encodeURIComponent(slug)}?tab=documents&doc=${encodeURIComponent(relativePath)}`;
   const context: StageContext = {
     run,
     stage,
+    record,
+    revision,
+    changeRequest: openChangeRequest(runId, stage)?.note,
     activity: (message) => setActivity(runId, stage, owner, message),
     log: (message, level = "info") => logEvent(runId, stage, level, message),
     writeReport: async (name, title, markdown) => {
@@ -138,19 +134,24 @@ async function runStage(runId: string, stage: RebuildStageId, owner: string, han
       if (!latest.workspaceSlug) throw new StageBlocked("The run has no workspace yet.");
       const relativePath = `${PROJECTS_DIR}/${latest.workspaceSlug}/${REPORT_DIR}/${reportFile(latest, name)}`;
       await deps.writeDocument(relativePath, markdown);
-      const stageRevision = (latest.stages.find((entry) => entry.id === stage)?.revision ?? 0) + 1;
-      return recordArtifact(runId, stage, {
-        title,
-        path: relativePath,
-        href: `/workspaces/${encodeURIComponent(latest.workspaceSlug)}?tab=documents&doc=${encodeURIComponent(relativePath)}`,
-        revision: stageRevision,
-      });
+      return recordArtifact(runId, stage, { title, path: relativePath, href: artifactHref(relativePath, latest.workspaceSlug), revision });
     },
+    writeImage: async (name, title, file) => {
+      const latest = readRun(runId);
+      if (!latest.workspaceSlug) throw new StageBlocked("The run has no workspace yet.");
+      if (!deps.writeBinary) throw new StageBlocked("Screenshots cannot be stored in this setup.");
+      // One file per revision, so an earlier revision's screenshots stay as they were reviewed.
+      const relativePath = `${PROJECTS_DIR}/${latest.workspaceSlug}/${REPORT_DIR}/screens/${stage}-r${revision}-${name}.png`;
+      await deps.writeBinary(relativePath, file);
+      const id = recordArtifact(runId, stage, { title, path: relativePath, href: "", revision, media: "image" });
+      return id;
+    },
+    rememberJob: (jobId) => setStageJob(runId, stage, owner, jobId),
   };
 
   try {
     const outcome = await handlers[stage](context, deps);
-    completeStage(runId, stage, owner, outcome.summary, outcome.artifactIds);
+    completeStage(runId, stage, owner, outcome.summary, outcome.artifactIds, { ref: outcome.ref, worker: outcome.worker, jobId: outcome.jobId });
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : "The stage failed.";
