@@ -168,8 +168,10 @@ async function work(
   candidates: RebuildRun["workerPlan"]["research"],
   buildRequest: Parameters<typeof runJob>[0],
 ): Promise<{ job: WorkerJob; worker: PickedWorker }> {
+  // A worker the person picked on the stage wins over the plan's order.
+  const workers = context.record.workerOverride ? [context.record.workerOverride] : candidates;
   try {
-    return await deps.runJob(buildRequest, candidates, context.record.jobId, {
+    return await deps.runJob(buildRequest, workers, context.record.jobId, {
       onProgress: context.activity,
       onStarted: (jobId) => {
         context.rememberJob(jobId);

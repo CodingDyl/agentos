@@ -147,6 +147,8 @@ export const RebuildStageSchema = z.object({
   finishedAt: z.string().optional(),
   /** The worker job this stage is waiting on, so a retry resumes it instead of starting another. */
   jobId: z.string().optional(),
+  /** A worker the person picked for this stage, used instead of the plan's order until they pick again. */
+  workerOverride: WorkerIdSchema.optional(),
 });
 
 export const RebuildRunSchema = z.object({
@@ -229,3 +231,23 @@ export function companyFileSlug(company: string): string {
 export function currentStage(stages: readonly RebuildStage[]): RebuildStage | undefined {
   return STAGE_ORDER.map((id) => stages.find((stage) => stage.id === id)).find((stage) => stage && stage.status !== "complete");
 }
+
+/** Stages that hand their work to a worker, and what the worker must be able to do. */
+export const WORKER_STAGES: Partial<Record<RebuildStageId, "research" | "code">> = {
+  research: "research",
+  hero: "code",
+  build: "code",
+  functions: "code",
+};
+
+export const StageWorkerOptionSchema = z.object({
+  id: WorkerIdSchema,
+  name: z.string(),
+  available: z.boolean(),
+  reason: z.string().optional(),
+  /** On this stage's usual list. */
+  inPlan: z.boolean(),
+});
+export const StageWorkerOptionsSchema = z.object({ workers: z.array(StageWorkerOptionSchema) });
+export const RebuildRetryInputSchema = z.object({ worker: z.union([WorkerIdSchema, z.literal("plan")]).optional() }).strict();
+export type StageWorkerOption = z.infer<typeof StageWorkerOptionSchema>;

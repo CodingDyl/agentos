@@ -88,6 +88,17 @@ function describe(job: WorkerJob, workerName: string): string {
   }
 }
 
+/** What to do about a failed job, in the person's terms. A login problem is not fixed by retrying. */
+export function nextStep(worker: PickedWorker, error: string): string {
+  if (/authenticat|oauth|log ?in|not logged|unauthori[sz]ed|credentials|session expired/i.test(error)) {
+    return worker.id === "claude-code"
+      ? "Claude Code's login on this machine has lapsed: run `claude` in a terminal and use /login (or set CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token` in .env), then retry, or try another worker."
+      : `${worker.name} needs signing in again on this machine. Sign in, then retry, or try another worker.`;
+  }
+  if (/usage limit|rate limit|quota|credit/i.test(error)) return `${worker.name} has hit a usage limit. Wait for it to reset, or try another worker.`;
+  return "Retry to start a fresh attempt, or try another worker.";
+}
+
 /**
  * Starts the job, or picks up the one already started for this stage, and
  * waits until its work is ready to look at. A failed job is a blocker that
@@ -125,7 +136,7 @@ export async function runJob(
     if (FAILED.has(job.status) || job.status === "changes_required") {
       const tests = (job.result?.tests ?? []).filter((test) => !test.success).map((test) => test.command);
       throw new WorkerStageBlocked(
-        `${worker.name}'s job ${job.id} ${job.status === "changes_required" ? "needs changes" : job.status}: ${job.error ?? job.result?.summary ?? "no detail"}${tests.length > 0 ? ` (failed: ${tests.join(", ")})` : ""}. Retry to start a fresh attempt.`,
+        `${worker.name}'s job ${job.id} ${job.status === "changes_required" ? "needs changes" : job.status}: ${job.error ?? job.result?.summary ?? "no detail"}${tests.length > 0 ? ` (failed: ${tests.join(", ")})` : ""}. ${nextStep(worker, job.error ?? "")}`,
       );
     }
     watch.onProgress(describe(job, worker.name));
