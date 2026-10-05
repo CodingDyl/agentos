@@ -87,6 +87,7 @@ import { memoryService } from "./memory/service";
 import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
 import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
+import { rebuildRouter, recoverRebuildsAtStartup } from "./website-rebuild/routes";
 import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
@@ -376,6 +377,8 @@ app.use("/api/career", careerRouter);
 /** Business: the companies being run and their clients, read from Virtec. */
 app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
+app.use("/api/rebuilds", rebuildRouter);
+recoverRebuildsAtStartup();
 app.use("/api/compass", compassRouter);
 app.use("/api/focus", focusRouter);
 app.use("/api/calendar", calendarRouter);
