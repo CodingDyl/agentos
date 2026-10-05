@@ -4,6 +4,7 @@ import { money, today } from "./business-billing-format";
 import { BusinessProfilePanel, BusinessRecordCorrections } from "./business-billing-controls";
 import { businessInvoicePaid, calculateBusinessTotals } from "@shared/business-billing-calculations";
 import { useState } from "react";
+import { FinanceExpenseImport } from "./business-finance-import";
 import { businessRecordLabel, type BusinessLedgerRecord } from "@shared/business-ledger-types";
 import { PAPER_INPUT, PaperButton, PaperCard, PaperSection } from "@/components/paper";
 import { businessLedgerUrl, useBusinessLedger, useBusinessOperation } from "@/lib/agentos/business-ledger";
@@ -13,7 +14,7 @@ const labels: Record<Kind, string> = { client: "Clients", project: "Projects", q
  * One tab's share of the local ledger: the records of the kinds that tab owns
  * (Clients owns clients and projects, Quotes owns quotes, and so on).
  */
-export function LedgerRecords({ entityId, entityName, kinds }: { entityId: string; entityName: string; kinds: readonly Kind[] }) {
+export function LedgerRecords({ entityId, entityName, kinds, entityNames }: { entityId: string; entityName: string; kinds: readonly Kind[]; entityNames?: ReadonlyMap<string, string> }) {
   const ledger = useBusinessLedger(entityId);
   const operation = useBusinessOperation(entityId);
   const [kind, setKind] = useState<Kind>(kinds[0] ?? "client");
@@ -21,6 +22,8 @@ export function LedgerRecords({ entityId, entityName, kinds }: { entityId: strin
   const [billingDate, setBillingDate] = useState(today());
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string>();
+  const [financeImport, setFinanceImport] = useState(false);
+  const [imported, setImported] = useState<number>();
   const records = ledger.data?.records ?? [];
   const run = (input: Omit<Parameters<typeof operation.mutate>[0], "revision">) => {
     if (!ledger.data) return;
@@ -35,7 +38,9 @@ export function LedgerRecords({ entityId, entityName, kinds }: { entityId: strin
     {error || operation.error || ledger.error ? <p role="alert" className="border border-paper-flame-deep p-3 text-paper-flame-deep">{error ?? operation.error?.message ?? ledger.error?.message}</p> : null}
     {operation.isSuccess ? <p role="status" className="text-sm text-paper-moss">Saved to your local business ledger.</p> : null}
     <PaperSection label={labels[kind]} count={rows.length}>
-      <div className="mb-5 flex flex-wrap items-end gap-3"><PaperButton variant="amber" disabled={!ledger.data || operation.isPending} onClick={() => { setEditing("new"); operation.reset(); }}>New {kind}</PaperButton><Field label="Search records"><input className={PAPER_INPUT} value={query} onChange={(event) => setQuery(event.target.value)} /></Field></div>
+      <div className="mb-5 flex flex-wrap items-end gap-3"><PaperButton variant="amber" disabled={!ledger.data || operation.isPending} onClick={() => { setEditing("new"); operation.reset(); }}>New {kind}</PaperButton>{kind === "expense" ? <PaperButton disabled={!ledger.data || operation.isPending} aria-expanded={financeImport} onClick={() => { setFinanceImport((open) => !open); setImported(undefined); }}>Import from Finance</PaperButton> : null}<Field label="Search records"><input className={PAPER_INPUT} value={query} onChange={(event) => setQuery(event.target.value)} /></Field></div>
+      {imported !== undefined ? <p role="status" className="mb-5 text-sm text-paper-moss">Imported {imported} business expense{imported === 1 ? "" : "s"} from Finance.</p> : null}
+      {kind === "expense" && financeImport ? <FinanceExpenseImport entityId={entityId} entityName={entityName} entityNames={entityNames ?? new Map([[entityId, entityName]])} revision={ledger.data?.revision} onClose={() => setFinanceImport(false)} onImported={(count) => { setImported(count); setFinanceImport(false); }} /> : null}
       {kind === "service" ? <div className="mb-5 flex flex-wrap items-end gap-3"><Field label="Bill services due through"><input required type="date" className={PAPER_INPUT} value={billingDate} onChange={(event) => setBillingDate(event.target.value)} /></Field><PaperButton disabled={operation.isPending || !billingDate} onClick={() => run({ action: "generate", date: billingDate })}>Generate next invoice drafts</PaperButton><p className="basis-full text-sm text-paper-sage">One due period per active service per run. Review and issue each draft. No emails or charges are sent.</p></div> : null}
       {editing ? <RecordEditor key={editing === "new" ? `${kind}-new` : editing.id} kind={kind} record={editing === "new" ? undefined : editing} entityId={entityId} entityName={entityName} profile={ledger.data?.profile} records={records} busy={operation.isPending} onCancel={() => setEditing(undefined)} onSave={(record) => run({ action: "save", record })} onError={setError} /> : null}
       <div className="grid gap-3">{rows.map((record) => {

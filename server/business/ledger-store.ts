@@ -73,6 +73,17 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/** Which business each of these record ids belongs to. Ids are unique across every business. */
+export function businessLedgerRecordOwners(ids: readonly string[]): Map<string, string> {
+  const owners = new Map<string, string>();
+  const find = database().prepare("SELECT entity_id FROM ledger_records WHERE id = ?");
+  for (const id of new Set(ids)) {
+    const row = find.get(id) as { entity_id: string } | undefined;
+    if (row) owners.set(id, row.entity_id);
+  }
+  return owners;
+}
+
 export function getBusinessLedgerStatus(entityId: string): BusinessLedgerStatus {
   const records = recordsFor(entityId);
   const last = database().prepare("SELECT imported_at, preview FROM ledger_imports WHERE entity_id = ? ORDER BY rowid DESC LIMIT 1").get(entityId) as { imported_at: string; preview: string } | undefined;

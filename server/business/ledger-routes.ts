@@ -1,6 +1,8 @@
 import { buildBusinessHistory } from "./ledger-history";
 import { BusinessOperationSchema, applyBusinessOperation } from "./ledger-operations";
 import { renderBusinessDocument } from "./ledger-print";
+import { financeBusinessExpenses, importFinanceExpenses } from "./finance-import";
+import { FinanceExpenseImportRequestSchema } from "../../shared/business-finance-import";
 import express from "express";
 import { z } from "zod";
 import { getVirtecSnapshot } from "../virtec/snapshot";
@@ -59,6 +61,20 @@ businessLedgerRouter.get("/:entityId/documents/:id/print", async (request, respo
     response.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'");
     response.type("html").send(renderBusinessDocument(record, client?.kind === "client" ? client.companyName ?? client.name : ""));
   } catch (error) { fail(response, error); }
+});
+
+/** Finance transactions marked as business, and which business each was already imported into. */
+businessLedgerRouter.get("/:entityId/finance-expenses", async (request, response) => {
+  try {
+    await entity(request.params.entityId);
+    response.json(financeBusinessExpenses());
+  } catch (error) { fail(response, error); }
+});
+businessLedgerRouter.post("/:entityId/finance-expenses/import", async (request, response) => {
+  const input = FinanceExpenseImportRequestSchema.safeParse(request.body);
+  if (!input.success) { response.status(422).json({ error: "Choose up to 500 Finance transactions to import." }); return; }
+  try { response.json(importFinanceExpenses(await entity(request.params.entityId), input.data)); }
+  catch (error) { fail(response, error); }
 });
 
 businessLedgerRouter.get("/:entityId", async (request, response) => {

@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { BusinessProfile } from "@shared/business-ledger-types";
 import { BusinessImportPreviewSchema, BusinessLedgerStatusSchema } from "@shared/business-ledger-types";
 import { AgentOSRequestError } from "./client";
+import { FinanceBusinessExpensesSchema } from "@shared/business-finance-import";
 
 const key = (entityId: string) => ["business-ledger", entityId] as const;
 export const businessLedgerUrl = (entityId: string) => `/api/business/ledger/${encodeURIComponent(entityId)}`;
@@ -43,6 +44,30 @@ export function useBusinessOperation(entityId: string) {
   return useMutation({
     mutationFn: (input: { revision: number; action: "save" | "issue" | "accept" | "convert" | "generate" | "void" | "allocate" | "profile" | "reconcile"; requestId?: string; reason?: string; profile?: BusinessProfile; allocations?: { invoiceId: string; amountMinor: number }[]; record?: unknown; id?: string; date?: string }) => request(`${businessLedgerUrl(entityId)}/operate`, BusinessLedgerStatusSchema, { ...input, requestId: input.requestId ?? crypto.randomUUID() }),
     onSuccess: (data) => client.setQueryData(key(entityId), data),
+    onError: () => { void client.invalidateQueries({ queryKey: key(entityId) }); },
+  });
+}
+
+/** Finance transactions marked as business. Only read when the import panel is open. */
+export function useFinanceBusinessExpenses(entityId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...key(entityId), "finance-expenses"] as const,
+    queryFn: () => request(`${businessLedgerUrl(entityId)}/finance-expenses`, FinanceBusinessExpensesSchema),
+    enabled,
+    staleTime: 0,
+    retry: 1,
+  });
+}
+
+export function useImportFinanceExpenses(entityId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { revision: number; transactionIds: string[] }) =>
+      request(`${businessLedgerUrl(entityId)}/finance-expenses/import`, BusinessLedgerStatusSchema, { ...input, requestId: crypto.randomUUID() }),
+    onSuccess: (data) => {
+      client.setQueryData(key(entityId), data);
+      void client.invalidateQueries({ queryKey: [...key(entityId), "finance-expenses"] });
+    },
     onError: () => { void client.invalidateQueries({ queryKey: key(entityId) }); },
   });
 }
