@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { HERO_CONCEPTS, REBUILD_FUNCTION_LABEL, type RebuildRun } from "../../shared/website-rebuild-types";
 import type { WorkerJob } from "../../shared/worker-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
+import { patchProject } from "../agentos/mutations/projects";
 import { HermesError, sendToHermes } from "../hermes/client";
 import { writeCase } from "../outreach/cases";
 import { ClientRepoUnavailable, commitFiles, ensureClientRepo, git, readRepoFile, repoFolderName } from "./client-repo";
@@ -71,6 +72,8 @@ export interface StageDeps {
   sleep: (ms: number) => Promise<void>;
   /** Minutes to wait for Vercel before blocking. */
   deployTimeoutMs: number;
+  /** Records the client repo as the workspace's repository, unless the workspace already names one. */
+  linkWorkspaceRepo: (slug: string, repo: string) => Promise<boolean>;
 }
 
 const publishCalls = {
@@ -123,6 +126,15 @@ export const defaultStageDeps: StageDeps = {
   },
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   deployTimeoutMs: 20 * 60 * 1000,
+  linkWorkspaceRepo: async (slug, repo) => {
+    const project = await readOptionalFile(`${PROJECTS_DIR}/${slug}/PROJECT.md`);
+    if (!project) return false;
+    const current = /Local repo(?:sitory)?\s*:\s*(.+)$/im.exec(project)?.[1]?.trim();
+    // A path the person set is theirs; only an empty one is filled in.
+    if (current && !/^_?not set_?$/i.test(current)) return false;
+    await patchProject({ slug, repoPath: repo });
+    return true;
+  },
 };
 
 /** Tests swap these out; the app uses the defaults. */
@@ -140,6 +152,8 @@ async function repoFor(context: StageContext, deps: StageDeps): Promise<string> 
   try {
     const repo = await deps.ensureRepo(context.run.workspaceSlug, context.run.company);
     if (repo !== context.run.repoPath) setRunField(context.run.id, "repo_path", repo);
+    // Checked every time, so a rebuild whose repo predates this still gets linked. Never overwrites a path the person set.
+    if (await deps.linkWorkspaceRepo(context.run.workspaceSlug, repo).catch(() => false)) context.log(`Linked ${repo} as the workspace's repository, so Settings and the Repository tab show it.`);
     return repo;
   } catch (error) {
     if (error instanceof ClientRepoUnavailable) throw new StageBlocked(error.message);

@@ -1,3 +1,4 @@
+import { normaliseWorkerModel } from "../../ai-stack/model-names";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -155,6 +156,14 @@ export const claudeCodeWorker = createCliWorker({
     const env: NodeJS.ProcessEnv = { ...base, DISABLE_AUTOUPDATER: "1" };
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_AUTH_TOKEN;
+    // Claude Code reads ANTHROPIC_MODEL when no --model is passed. A display name
+    // there ("Opus 5.5") fails every job with unrecognized_model, so it is
+    // translated like the AI Stack field, or dropped if it can't be.
+    if (env.ANTHROPIC_MODEL !== undefined) {
+      const model = normaliseWorkerModel("claude-code", env.ANTHROPIC_MODEL).model;
+      if (model) env.ANTHROPIC_MODEL = model;
+      else delete env.ANTHROPIC_MODEL;
+    }
     return env;
   },
   reader: () => claudeCodeReader(),
