@@ -86,7 +86,17 @@ describe("workspace tabs", () => {
     const tabs = resolveWorkspaceTabs({ type: "software", configured: ["documents", "tasks"], hasRepository: true });
 
     assert.deepEqual(tabs.primary, ["documents", "tasks"]);
+    // Every module but Website rebuild, which only a workspace with a rebuild ever shows.
+    assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length - 1);
+    assert.ok(![...tabs.primary, ...tabs.more].includes("rebuild"));
+  });
+
+  it("puts a client rebuild first, and only when the workspace has one", () => {
+    const tabs = resolveWorkspaceTabs({ type: "client", hasRebuild: true });
+    assert.equal(tabs.primary[0], "rebuild");
     assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length);
+    // Configured modules still get it: the tab follows the rebuild, not the settings.
+    assert.equal(resolveWorkspaceTabs({ type: "client", configured: ["tasks"], hasRebuild: true }).primary[0], "rebuild");
   });
 
   it("calls a client's roadmap Milestones", () => {

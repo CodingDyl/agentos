@@ -60,6 +60,25 @@ export function useRebuildForProspect(prospectId: string) {
   });
 }
 
+/** The rebuild a workspace belongs to, or null for a workspace that is not a client rebuild. */
+export function useRebuildForWorkspace(slug: string) {
+  return useQuery({
+    queryKey: ["rebuild", "workspace", slug] as const,
+    queryFn: async () => {
+      try {
+        return await call(`${base}/by-workspace/${encodeURIComponent(slug)}`, RebuildRunSchema);
+      } catch (error) {
+        if (error instanceof AgentOSRequestError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    enabled: Boolean(slug),
+    refetchInterval: (query) => pollWhileBusy(query.state.data ?? undefined),
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
 function useRunMutation<TInput>(request: (input: TInput) => Promise<RebuildRun>) {
   const client = useQueryClient();
   return useMutation({
@@ -67,6 +86,7 @@ function useRunMutation<TInput>(request: (input: TInput) => Promise<RebuildRun>)
     onSuccess: (run) => {
       client.setQueryData(key(run.id), run);
       client.setQueryData(prospectKey(run.prospectId), run);
+      if (run.workspaceSlug) client.setQueryData(["rebuild", "workspace", run.workspaceSlug], run);
     },
     networkMode: "always",
     retry: 0,

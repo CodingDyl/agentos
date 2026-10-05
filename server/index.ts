@@ -327,6 +327,7 @@ import {
 import { MailPolishError, polishEmail } from "./mail/polish";
 import { MimeError } from "./outreach/mime";
 import { setAiEnabled, setAiModel } from "./ai-stack/settings";
+import { normaliseWorkerModel } from "./ai-stack/model-names";
 import { hasConfigurableModel, isToggleable, readAiStack } from "./ai-stack/stack";
 import { SetAiEnabledRequestSchema } from "../shared/ai-stack-types";
 import { runSeoAudit } from "./seo/audit";
@@ -906,10 +907,16 @@ app.put("/api/ai-stack/:id", (request, response) => {
     return;
   }
 
+  const checked = model !== undefined ? normaliseWorkerModel(id, model) : {};
+  if (checked.error) {
+    response.status(400).json({ error: checked.error });
+    return;
+  }
+
   try {
     if (enabled !== undefined) setAiEnabled(id, enabled);
-    if (model !== undefined) setAiModel(id, model);
-    response.json({ id, enabled, model });
+    if (model !== undefined) setAiModel(id, checked.model);
+    response.json({ id, enabled, model: model === undefined ? undefined : (checked.model ?? "") });
   } catch (error) {
     console.error("[agentos] ai stack switch failed:", error);
     response.status(500).json({ error: "Unable to save that switch" });

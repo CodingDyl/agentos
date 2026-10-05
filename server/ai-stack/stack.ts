@@ -7,6 +7,7 @@ import path from "node:path";
 import { claudeWorker } from "../workers/providers/claude-worker";
 import { claudeCodeWorker, codexWorker, geminiWorker, hermesWorker } from "../workers/providers/cli-workers";
 import { grokWorker } from "../workers/providers/grok-worker";
+import { ollamaWorker } from "../workers/providers/ollama-worker";
 import { envKeySet, findApp, findConfig, findOnPath, serverAnswers } from "./detect";
 import { readClaudeCodeUsage, readCodexUsage } from "./local-usage";
 import { aiModel, isAiEnabled, OPT_IN, switchedOffReason } from "./settings";
@@ -91,7 +92,7 @@ const CATALOG: readonly CatalogEntry[] = [
     configs: [".claude"],
     health: () => claudeCodeWorker.healthCheck(),
     localUsage: readClaudeCodeUsage,
-    modelPlaceholder: "sonnet",
+    modelPlaceholder: "opus or claude-opus-5-5",
   },
   {
     id: "claude-desktop",
@@ -226,10 +227,13 @@ const CATALOG: readonly CatalogEntry[] = [
     name: "Ollama",
     vendor: "Ollama",
     kind: "local-runtime",
+    integration: "Runs small, bounded text tasks on a local model through the route policy. No tools, repository or web access. Choose models in Workers → Ollama.",
     clis: ["ollama"],
     apps: ["Ollama"],
     configs: [".ollama"],
     servers: [{ label: "Ollama server", url: "http://127.0.0.1:11434/api/tags" }],
+    // Integrated since the Ollama worker landed; without this the stack listed it as detected-only, with no switch.
+    health: () => ollamaWorker.healthCheck(),
   },
   {
     id: "lm-studio",

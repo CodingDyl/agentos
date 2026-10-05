@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { OllamaModelConfig } from "../../../shared/route-policy-types";
 import type { WorkerJob, WorkerJobResult } from "../../../shared/worker-types";
-import { ollamaSettings } from "../../ai-stack/settings";
+import { isAiEnabled, ollamaSettings, switchedOffReason } from "../../ai-stack/settings";
 import {
   buildOllamaOptions,
   DEFAULT_OLLAMA_BASE_URL,
@@ -215,6 +215,8 @@ export const ollamaWorker: Worker = {
   capabilities: [],
 
   async healthCheck() {
+    // The AI Stack switch comes first, as for every other worker: off is off, whatever the models say.
+    if (!isAiEnabled("ollama")) return { available: false, reason: switchedOffReason("Ollama") };
     const settings = ollamaSettings();
     const enabled = Object.entries(settings?.models ?? {}).filter(([, c]) => c.enabled);
     if (enabled.length === 0) {
