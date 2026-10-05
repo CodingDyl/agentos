@@ -168,6 +168,11 @@ export const RebuildRunSchema = z.object({
   repoPath: z.string().optional(),
   /** The hero concept approved at checkpoint 1, which the build follows. */
   heroChoice: z.string().optional(),
+  /** `owner/name` of the client's private GitHub repo, once stage 7 made it. */
+  githubRepo: z.string().optional(),
+  vercelProject: z.string().optional(),
+  /** The Vercel deployment being built or checked, so a retry waits on it instead of requesting another. */
+  deploymentId: z.string().optional(),
   previewUrl: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),

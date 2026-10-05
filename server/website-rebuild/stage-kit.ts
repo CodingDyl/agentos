@@ -39,6 +39,8 @@ export interface RunnerDeps {
   writeDocument: (relativePath: string, markdown: string) => Promise<void>;
   /** Copies a file into the vault at a vault-relative path. */
   writeBinary?: (relativePath: string, sourceFile: string) => Promise<void>;
+  /** Whether the run's skill may run. Asked before every stage. */
+  skillEnabled?: (skillId: string) => Promise<boolean>;
 }
 
 export type StageHandler = (context: StageContext, deps: RunnerDeps) => Promise<StageOutcome>;

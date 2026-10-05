@@ -17,6 +17,7 @@ const { createWorktree } = await import("../../workers/worktree");
 const { createJobId } = await import("../../workers/job-store");
 const { routesFrom, routeName } = await import("../screens");
 const { HermesError } = await import("../../hermes/client");
+const { PublishError } = await import("../publish");
 type RunnerDeps = import("../runner").RunnerDeps;
 type StageDeps = import("../stages").StageDeps;
 type WorkerJob = import("../../../shared/worker-types").WorkerJob;
@@ -118,6 +119,13 @@ function fakeStageDeps(worker: FakeWorker, overrides: Partial<StageDeps> = {}): 
     },
     serveNext: async () => ({ url: "http://127.0.0.1:9", stop: () => undefined }),
     readDesignTemplate: async () => "# Template\n## Tokens\n## Typography\n",
+    // Never the real GitHub or Vercel: publishing is stage 7's test, with its own fakes.
+    publish: {
+      ...stages.defaultStageDeps.publish,
+      ensurePrivateRepo: async () => {
+        throw new PublishError("Publishing is not part of this test.");
+      },
+    },
     today: () => "2026-10-05",
     ...overrides,
   };
@@ -205,7 +213,7 @@ describe("stages 3 to 6", () => {
 
     store.decide(run.id, "functions", 1, "approved");
     await advance(run.id, STAGE_HANDLERS, runnerDeps);
-    assert.match(status(run.id, "preview")?.blocker ?? "", /not built yet/);
+    assert.match(status(run.id, "preview")?.blocker ?? "", /Publishing is not part of this test/);
     // The working copy is clean and on main: everything went in through commits.
     assert.equal(git(repo, "status", "--porcelain"), "");
   });

@@ -9,6 +9,7 @@ import { useConnectors, useSetConnectorEnabled } from "@/lib/agentos/connectors"
 import { cn } from "@/lib/utils";
 import { ConnectorIcon } from "./connector-icon";
 import { formatWhen, groupConnectors, statusLabel, statusTone, switchNote, TIER_LABEL } from "./connectors-model";
+import { SkillsSection } from "./skills-section";
 
 /**
  * Connectors: the capability registry.
@@ -98,6 +99,9 @@ export function ConnectorsPage() {
             </PaperSection>
           </>
         )}
+
+        {/* Read on its own, so a connector problem never hides the skills. */}
+        <SkillsSection />
       </PaperStage>
     </AppShell>
   );

@@ -2,11 +2,24 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { HERO_CONCEPTS, type RebuildRun } from "../../shared/website-rebuild-types";
+import { HERO_CONCEPTS, REBUILD_FUNCTION_LABEL, type RebuildRun } from "../../shared/website-rebuild-types";
 import type { WorkerJob } from "../../shared/worker-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { HermesError, sendToHermes } from "../hermes/client";
-import { ClientRepoUnavailable, commitFiles, ensureClientRepo, readRepoFile } from "./client-repo";
+import { writeCase } from "../outreach/cases";
+import { ClientRepoUnavailable, commitFiles, ensureClientRepo, git, readRepoFile, repoFolderName } from "./client-repo";
+import {
+  ensurePrivateRepo,
+  ensureVercelProject,
+  findPreviewDeployment,
+  openPreviewsToLinkHolders,
+  PublishError,
+  pushRef,
+  readDeployment,
+  requestPreviewDeployment,
+  type VercelDeploymentState,
+} from "./publish";
+import { checkPreview, qaTable } from "./qa";
 import {
   FIVE_KEY_AREAS,
   FUNCTIONALITY_REPORT,
@@ -51,7 +64,24 @@ export interface StageDeps {
   readDesignTemplate: (template: string) => Promise<string | undefined>;
   today: () => string;
   scratchDir: (name: string) => Promise<string>;
+  publish: typeof publishCalls;
+  checkPreview: typeof checkPreview;
+  /** Puts the preview link on the lead's outreach case, the field the email draft uses. */
+  savePreviewLink: (prospectId: string, url: string) => Promise<void>;
+  sleep: (ms: number) => Promise<void>;
+  /** Minutes to wait for Vercel before blocking. */
+  deployTimeoutMs: number;
 }
+
+const publishCalls = {
+  ensurePrivateRepo,
+  pushRef,
+  ensureVercelProject,
+  openPreviewsToLinkHolders,
+  findPreviewDeployment,
+  requestPreviewDeployment,
+  readDeployment,
+};
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -86,6 +116,13 @@ export const defaultStageDeps: StageDeps = {
   },
   today: () => new Date().toISOString().slice(0, 10),
   scratchDir: (name) => fs.mkdtemp(path.join(os.tmpdir(), `agentos-rebuild-${name}-`)),
+  publish: publishCalls,
+  checkPreview,
+  savePreviewLink: async (prospectId, url) => {
+    await writeCase(prospectId, { previewUrl: url }, "agent");
+  },
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  deployTimeoutMs: 20 * 60 * 1000,
 };
 
 /** Tests swap these out; the app uses the defaults. */
@@ -380,6 +417,156 @@ export const functionsStage: StageHandler = async (context) => {
     worker: worker.name,
     jobId: job.id,
   };
+};
+
+// ------------------------------------------------------------------ stage 7
+
+/** The commit a person approved last: the features revision, or the build when no features were built. */
+export function approvedCommit(run: RebuildRun): string | undefined {
+  for (const stage of ["functions", "build"] as const) {
+    const approved = run.stages.find((entry) => entry.id === stage)?.approvedRevision;
+    const ref = run.revisions.find((revision) => revision.stage === stage && revision.revision === approved)?.ref;
+    if (ref) return ref;
+  }
+  return undefined;
+}
+
+export function handoffMessage(run: RebuildRun, url: string): string {
+  const features = run.requiredFunctions.filter((value) => value !== "ecommerce").map((value) => REBUILD_FUNCTION_LABEL[value].toLowerCase());
+  return [
+    "Hi there,",
+    "",
+    `I put together a new version of the ${run.company} website to show what it could look like: ${url}`,
+    "",
+    `It works on phones and desktops${features.length > 0 ? `, and includes ${features.length === 1 ? "a " : ""}${features.join(" and ")}` : ""}. Everything on it comes from your current site, so nothing is invented, and anything marked as a placeholder just needs your details.`,
+    "",
+    "Have a look when you have a minute and let me know what you think.",
+    "",
+    "[Your name]",
+  ].join("\n");
+}
+
+async function publishStep<T>(step: () => Promise<T>): Promise<T> {
+  try {
+    return await step();
+  } catch (error) {
+    if (error instanceof PublishError) throw new StageBlocked(error.message);
+    throw error;
+  }
+}
+
+/**
+ * Stage 7: the approved revision, live on a Vercel preview a client can open.
+ *
+ * Private GitHub repo on the token's account; the approved commit pushed to a
+ * `preview` branch (never `main` after the first push, so nothing reaches
+ * production); Vercel's Git integration builds it; previews are opened to
+ * anyone with the link; then the preview is checked as a stranger would see
+ * it. Each step looks before it acts, so a retry never makes a second repo,
+ * project or deployment.
+ */
+export const previewStage: StageHandler = async (context) => {
+  const deps = stageDeps.current;
+  const { run } = context;
+  const commit = approvedCommit(run);
+  if (!commit) throw new StageBlocked("There is no approved build to publish. Approve the copy and structure (and features) first.");
+  const repoPath = await repoFor(context, deps);
+  const name = repoFolderName(run.workspaceSlug ?? run.companySlug);
+
+  context.activity("Finding or creating the private GitHub repo");
+  const { repo, created } = await publishStep(() => deps.publish.ensurePrivateRepo(name, `${run.company} website rebuild (AgentOS preview)`));
+  setRunField(run.id, "github_repo", repo.fullName);
+  context.log(created ? `Created the private repo ${repo.fullName}.` : `Using the existing private repo ${repo.fullName}.`);
+
+  if (created) {
+    // `main` gets only the first commit, so it becomes the default branch and Vercel's production branch never carries the preview.
+    const root = (await git(repoPath, ["rev-list", "--max-parents=0", commit])).split("\n")[0];
+    await publishStep(() => deps.publish.pushRef(repoPath, repo, root, "main", false));
+  }
+
+  context.activity("Finding or creating the Vercel project");
+  const { project } = await publishStep(() => deps.publish.ensureVercelProject(name, repo));
+  setRunField(run.id, "vercel_project", project.id);
+  await publishStep(() => deps.publish.openPreviewsToLinkHolders(project));
+
+  context.activity(`Pushing the approved commit ${commit.slice(0, 7)} to the preview branch`);
+  await publishStep(() => deps.publish.pushRef(repoPath, repo, commit, "preview", true));
+
+  // Vercel builds on push; if no deployment of this commit shows up, ask for one.
+  // Counted in polls rather than clock time, so the waits are exact whatever `sleep` does.
+  const POLL_MS = 10_000;
+  let deployment: VercelDeploymentState | undefined;
+  for (let poll = 0; !deployment && poll < (3 * 60 * 1000) / POLL_MS; poll += 1) {
+    deployment = await publishStep(() => deps.publish.findPreviewDeployment(project, commit));
+    if (!deployment) {
+      context.activity("Waiting for Vercel to pick up the push");
+      await deps.sleep(POLL_MS);
+    }
+  }
+  if (!deployment) {
+    context.log("Vercel did not start a build from the push, so AgentOS asked for one.", "warning");
+    deployment = await publishStep(() => deps.publish.requestPreviewDeployment(project, repo, "preview", commit));
+  }
+  setRunField(run.id, "deployment_id", deployment.id);
+
+  for (let poll = 0; !["READY", "ERROR", "CANCELED"].includes(deployment.state); poll += 1) {
+    if (poll * POLL_MS > deps.deployTimeoutMs) throw new StageBlocked(`Vercel has not finished building ${deployment.url} after ${Math.round(deps.deployTimeoutMs / 60000)} minutes. Check it in Vercel, then retry.`);
+    context.activity(`Vercel is building the preview (${deployment.state.toLowerCase()})`);
+    await deps.sleep(POLL_MS);
+    deployment = await publishStep(() => deps.publish.readDeployment(deployment?.id ?? ""));
+  }
+  if (deployment.state !== "READY") throw new StageBlocked(`Vercel's build ${deployment.state === "ERROR" ? "failed" : "was cancelled"}${deployment.errorMessage ? `: ${deployment.errorMessage}` : ""}. Open the deployment in Vercel for the log, fix it with a change request on the features, then retry.`);
+
+  context.activity("Checking the preview as a visitor with no login");
+  const routes = routesFrom(await git(repoPath, ["show", `${commit}:sitemap.json`]).catch(() => undefined));
+  const qa = await deps.checkPreview(deployment.url, routes, run.requiredFunctions);
+
+  const artifactIds: string[] = [];
+  if (qa.checks[0]?.status === "pass") {
+    try {
+      const shots = await deps.screenshot(routes.slice(0, 3).map((route) => ({ name: routeName(route), target: `${deployment?.url}${route}` })), await deps.scratchDir("preview"));
+      for (const shot of shots) artifactIds.push(await context.writeImage(`${shot.name}-${shot.viewport}`, `${shot.name} (${shot.viewport})`, shot.file));
+    } catch (error) {
+      context.log(`Screenshots of the preview could not be taken: ${error instanceof Error ? error.message : "unknown error"}.`, "warning");
+    }
+  }
+
+  const report = [
+    "## Preview",
+    "",
+    `- Link: ${deployment.url}`,
+    `- Commit: ${commit} (approved revision, pushed to the \`preview\` branch of ${repo.fullName})`,
+    `- Vercel deployment: ${deployment.id}`,
+    "- Access: anyone with the link, no login. Not promoted to production; no domain or DNS changes.",
+    `- Checked: ${new Date().toISOString()}`,
+    "",
+    "## Checks as a visitor with no login",
+    "",
+    qaTable(qa),
+    "",
+    "## Message for the client",
+    "",
+    "Not sent. Copy it into an email when you are ready.",
+    "",
+    "```text",
+    handoffMessage(run, deployment.url),
+    "```",
+    "",
+  ].join("\n");
+  artifactIds.unshift(await context.writeReport("preview_handoff", "Preview handoff", wrapReport(run, "preview handoff", report, { previewUrl: deployment.url, commit })));
+
+  if (!qa.passed) {
+    const failed = qa.checks.filter((check) => check.status === "fail").map((check) => `${check.check}: ${check.detail}`);
+    throw new StageBlocked(`The preview is deployed but did not pass its checks. ${failed.join(" ")} The handoff report has the details.`);
+  }
+
+  setRunField(run.id, "preview_url", deployment.url);
+  try {
+    await deps.savePreviewLink(run.prospectId, deployment.url);
+  } catch (error) {
+    context.log(`The preview link could not be saved on the lead: ${error instanceof Error ? error.message : "unknown error"}. It is in the handoff report.`, "warning");
+  }
+  return { summary: `Live at ${deployment.url} for anyone with the link. Every check passed.`, artifactIds, ref: commit };
 };
 
 export type { StageOutcome };

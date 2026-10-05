@@ -10,7 +10,8 @@ import { editFile } from "../agentos/mutations/writer";
 import { captureSite, fetchRobots, withBrowserLoader } from "./capture";
 import { REPORT_DIR, buildManifest, buildStructure, buildTranscript, reportFile } from "./reports";
 import { StageBlocked, type RunnerDeps, type StageContext, type StageHandler } from "./stage-kit";
-import { buildStage, functionsStage, heroStage, researchStage } from "./stages";
+import { buildStage, functionsStage, heroStage, previewStage, researchStage } from "./stages";
+import { isSkillEnabled } from "../skills/registry";
 import {
   blockStage,
   claimStage,
@@ -97,11 +98,6 @@ const captureStage: StageHandler = async (context, deps) => {
   return { summary: `Captured ${captured.length} page${captured.length === 1 ? "" : "s"}; ${skipped.length} skipped, ${failed.length} failed.`, artifactIds: ids };
 };
 
-/** Stage 7 arrives in phase 3. Until then it stops the run honestly instead of pretending. */
-const notBuiltYet: StageHandler = async (context) => {
-  throw new StageBlocked(`The ${context.stage} stage is not built yet. It arrives in the next phase of the website rebuild workflow.`);
-};
-
 export const STAGE_HANDLERS: Record<RebuildStageId, StageHandler> = {
   workspace: workspaceStage,
   capture: captureStage,
@@ -109,8 +105,11 @@ export const STAGE_HANDLERS: Record<RebuildStageId, StageHandler> = {
   hero: heroStage,
   build: buildStage,
   functions: functionsStage,
-  preview: notBuiltYet,
+  preview: previewStage,
 };
+
+export const skillPausedReason = (skillId: string) =>
+  `Paused: the ${skillId} skill is disabled in Connectors → Skills. Everything so far is kept. Enable it, then retry.`;
 
 const advancing = new Set<string>();
 
@@ -176,6 +175,11 @@ export async function advance(runId: string, handlers = STAGE_HANDLERS, deps = d
       const run = readRun(runId);
       const next = STAGE_ORDER.map((id) => run.stages.find((stage) => stage.id === id)).find((stage) => stage && stage.status !== "complete");
       if (!next || next.status !== "not_started" || startBlocker(run, next.id)) return;
+      // A disabled skill lets the stage in hand finish, then stops here, before the next one starts.
+      if (!(await (deps.skillEnabled ?? isSkillEnabled)(run.skillId))) {
+        blockStage(runId, next.id, undefined, skillPausedReason(run.skillId));
+        return;
+      }
       if (!claimStage(runId, next.id, owner)) return;
       if (!(await runStage(runId, next.id, owner, handlers, deps))) return;
     }

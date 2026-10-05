@@ -1,7 +1,7 @@
 ---
 name: agentos-website-to-preview
 description: Rebuild a prospect's website from research to a client-accessible Vercel preview, in seven stages with three approval checkpoints. Use when a lead on the "Build it first" path needs a new site.
-version: 1.1.0
+version: 1.2.0
 requires: [hermes, github, vercel]
 ---
 
@@ -43,8 +43,12 @@ checkpoints. Never move past a checkpoint on your own.
 6. **Functional components (checkpoint).** Only the functions the run asks for
    (contact form, blog, bookings, newsletter, shop). Test every journey end to
    end and save `<slug>_functionality_test_report.md`. Stop for approval.
-7. **Vercel preview.** Push the approved revision to the client's GitHub repo,
-   let Vercel's Git integration build a preview, check it as a signed-out
-   visitor, and write `<slug>_preview_handoff.md` with the exact URL, QA
-   results and a ready-to-send message. Never promote to production, change
-   DNS, or message the client.
+7. **Vercel preview.** Create (or reuse) a private GitHub repo on the
+   token owner's account. `main` only ever gets the first commit; the
+   approved revision is pushed to a `preview` branch, and Vercel's Git
+   integration builds it. Previews of client projects are open to anyone
+   with the link (no Vercel login), by the operator's choice. Check the
+   deployment as a signed-out visitor (pages, assets, requested features,
+   without submitting any form), then write `<slug>_preview_handoff.md` with
+   the exact URL, the commit, QA results and a ready-to-send message. Never
+   promote to production, change DNS, or message the client.
