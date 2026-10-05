@@ -10,13 +10,10 @@
  */
 
 .memory-field {
-  /* A dark field, lit from the middle: light only reads as light on dark. */
-  background:
-    radial-gradient(ellipse 70% 60% at 50% 46%, rgb(30 36 120 / 0.55) 0%, rgb(9 11 52 / 0.35) 45%, transparent 75%),
-    radial-gradient(ellipse at 50% 50%, #080a2c 0%, #04051a 60%, #020210 100%);
+  background: var(--color-canvas);
   transition:
-    transform 800ms cubic-bezier(0.16, 1, 0.3, 1),
-    filter 800ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* The graph steps back while a note is open, and slides to stay in view. */
@@ -48,12 +45,12 @@
 }
 
 .memory-panel {
-  animation: memory-panel-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: memory-panel-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Nearer layers travel further and arrive later: depth, not decoration. */
 .memory-layer {
-  animation: memory-layer-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: memory-layer-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: var(--memory-layer-delay, 0ms);
 }
 
@@ -104,23 +101,23 @@
 }
 
 .memory-backdrop {
-  animation: memory-backdrop-in 240ms ease-out both;
+  animation: memory-backdrop-in 200ms ease-out both;
 }
 
 .memory-dialog {
-  animation: memory-dialog-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: memory-dialog-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .memory-step[data-direction="forward"] {
-  animation: memory-step-forward 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: memory-step-forward 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .memory-step[data-direction="back"] {
-  animation: memory-step-back 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: memory-step-back 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .memory-progress {
-  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: left center;
 }
 

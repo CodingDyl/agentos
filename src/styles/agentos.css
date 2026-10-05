@@ -1,95 +1,76 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource/inter/latin-400.css";
-@import "@fontsource/inter/latin-500.css";
-@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
-/* Hermes faces: a light, genuinely condensed display and a compressed feature
-   face. Substitutes for the licensed Rules faces the reference site uses. */
-@import "@fontsource-variable/roboto-condensed/wght.css";
-@import "@fontsource/barlow-condensed/latin-500.css";
-
+@import "@fontsource/barlow-condensed/latin-700.css";
+@import "@fontsource/barlow-condensed/latin-800.css";
 @custom-variant dark (&:is(.dark *));
-
-/*
- * Hermes — electric blue and warm paper.
- *
- * The one palette the whole product draws from (DESIGN.md). Hermes Blue is the
- * stage: the shell, primary actions and active state. Hermes Paper is the page.
- * Deep Ink is text on paper. Yellow is a single accent, used only on the blue
- * stage where it reads. Everything else is a tint of these.
- *
- * The `--paper-*` names are historical: they were the PostHog-derived Paper
- * world this replaced, and screens still address them. Their values are now the
- * Hermes palette, so every screen moved together.
- */
 :root {
-  --hermes-blue: #0000f2;
-  --hermes-paper: #f2f2f2;
-  --hermes-ink: #000091;
-  --hermes-yellow: #f2f200;
-
-  --paper-desk: #e6e6f2;
-  /* The page itself, and anything that sits flat on it. */
-  --paper-white: #f2f2f2;
-  --paper-cream: #fbfbfb;
-  --paper-linen: #e6e6f2;
-  --paper-stone: #dcdcf2;
-  /* Text on paper, from Deep Ink down. Contrast on the page: 13.3, 10.9, 6.6. */
-  --paper-moss: #000091;
-  --paper-char: #1d1d9d;
-  --paper-sage: #4949ae;
-  /* Borders of controls (3.7:1) and never body text. */
-  --paper-ash: #7474c0;
-  /* Hairlines between things. Decorative: 1.9:1. */
-  --paper-mist: #a9a9f2;
-  --paper-blue: #0000f2;
-  /* The accent fill (was amber): Hermes Blue, so the primary action is blue. */
-  --paper-amber: #0000f2;
-  --paper-amber-deep: #000091;
-  /* Outline-action border. */
-  --paper-gold: #0000f2;
-  --paper-marigold: #f2f200;
-  /* Danger is the one non-palette hue: an error has to read as an error. */
-  --paper-flame: #d4002a;
-  --paper-flame-deep: #b00020;
-  /* Confirmation is the brand blue, told apart from the rest by its words. */
-  --paper-green: #0000f2;
-}
-
-:root {
-  color-scheme: light;
-
-  /* AgentOS canvas and surfaces: paper, with a whisper of blue in the raised tones */
-  --os-background: #f2f2f2;
-  --os-surface: #f8f8fc;
-  --os-surface-raised: #e6e6f2;
-  --os-surface-active: #dcdcf2;
-
-  /* AgentOS text: Deep Ink and two tints of it */
-  --os-foreground: #000091;
-  --os-muted-foreground: #1d1d9d;
-  --os-subtle-foreground: #4949ae;
-
-  /* AgentOS structure */
-  --os-border: rgb(0 0 145 / 20%);
-  --os-border-strong: rgb(0 0 145 / 40%);
-
-  /* AgentOS semantic signals. Warning is a dark yellow so it can be read as text. */
-  --os-amber: #0000f2;
-  --os-success: #000091;
-  --os-warning: #6b5f00;
-  --os-danger: #b00020;
-
-  /* AgentOS geometry: mostly square. Buttons and inputs are 0; nothing is soft. */
-  --os-radius-sm: 0px;
-  --os-radius-input: 0px;
-  --os-radius-md: 2px;
-  --os-radius-lg: 4px;
-
-  /* AgentOS spacing */
+  color-scheme: dark;
+  --color-canvas: #090b0a;
+  --color-surface: #111512;
+  --color-surface-raised: #1a201c;
+  --color-surface-hover: #252d27;
+  --color-border: #3f4b42;
+  --color-border-control: #728176;
+  --color-text: #f2f4eb;
+  --color-text-secondary: #b7c2b9;
+  --color-text-muted: #89998d;
+  --color-paper: #f2f4eb;
+  --color-on-paper: #090b0a;
+  --color-accent: #beff32;
+  --color-accent-hover: #a4e51f;
+  --color-brand: #bf6bff;
+  --color-success: #6be3a0;
+  --color-warning: #ffd166;
+  --color-danger: #ff7a8a;
+  --color-info: #6cdcf7;
+  --paper-desk: var(--color-canvas);
+  --paper-white: var(--color-surface);
+  --paper-cream: var(--color-surface-hover);
+  --paper-linen: var(--color-surface-raised);
+  --paper-stone: var(--color-surface-hover);
+  --paper-moss: var(--color-text);
+  --paper-char: var(--color-text-secondary);
+  --paper-sage: var(--color-text-muted);
+  --paper-ash: var(--color-border-control);
+  --paper-mist: var(--color-border);
+  --paper-blue: var(--color-accent);
+  --paper-amber: var(--color-accent);
+  --paper-amber-deep: var(--color-accent-hover);
+  --paper-gold: var(--color-border-control);
+  --paper-marigold: var(--color-warning);
+  --paper-flame: var(--color-danger);
+  --paper-flame-deep: var(--color-danger);
+  --paper-green: var(--color-success);
+  --os-background: var(--color-canvas);
+  --os-surface: var(--color-surface);
+  --os-surface-raised: var(--color-surface-raised);
+  --os-surface-active: var(--color-surface-hover);
+  --os-foreground: var(--color-text);
+  --os-muted-foreground: var(--color-text-secondary);
+  --os-subtle-foreground: var(--color-text-muted);
+  --os-border: var(--color-border);
+  --os-border-strong: var(--color-border-control);
+  --os-amber: var(--color-accent);
+  --os-success: var(--color-success);
+  --os-warning: var(--color-warning);
+  --os-danger: var(--color-danger);
+  --os-font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --os-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --os-font-display: "Barlow Condensed", Impact, sans-serif;
+  --os-font-compressed: var(--os-font-display);
+  --os-radius-sm: 2px; --os-radius-input: 2px; --os-radius-md: 2px; --os-radius-lg: 2px;
+  --os-text-display: clamp(40px, 4vw, 64px); --os-text-page: 40px;
+  --os-text-section: 18px; --os-text-card: 16px; --os-text-body: 16px;
+  --os-text-small: 14px; --os-text-meta: 12px;
+  --control-height: 40px;
+  --shadow-overlay: 0 12px 32px rgb(0 0 0 / .45);
+  --scrim: rgb(0 0 0 / .72);
   --os-space-1: 4px;
   --os-space-2: 8px;
   --os-space-3: 12px;
@@ -100,55 +81,39 @@
   --os-space-10: 40px;
   --os-space-12: 48px;
   --os-space-16: 64px;
-
-  /* AgentOS typography */
-  --os-font-sans: "Inter", Arial, ui-sans-serif, system-ui, sans-serif;
-  --os-font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
-  --os-font-display: "Roboto Condensed Variable", "Roboto Condensed", "Arial Narrow", sans-serif;
-  --os-font-compressed: "Barlow Condensed", "Roboto Condensed Variable", "Arial Narrow", sans-serif;
-  --os-text-display: clamp(2.5rem, 5vw, 4rem);
-  --os-text-page: 2rem;
-  --os-text-section: 1.375rem;
-  --os-text-card: 1rem;
-  --os-text-body: 0.9375rem;
-  --os-text-small: 0.8125rem;
-  --os-text-meta: 0.6875rem;
-
-  /* shadcn theme mapping */
-  --background: var(--os-background);
-  --foreground: var(--os-foreground);
-  --card: var(--os-surface);
-  --card-foreground: var(--os-foreground);
-  --popover: var(--os-surface-raised);
-  --popover-foreground: var(--os-foreground);
-  --primary: #0000f2;
-  --primary-foreground: #f2f2f2;
-  --secondary: var(--os-surface-active);
-  --secondary-foreground: var(--os-foreground);
-  --muted: #e6e6f2;
-  --muted-foreground: var(--os-muted-foreground);
-  --accent: #e6e6f2;
-  --accent-foreground: var(--os-foreground);
-  --destructive: var(--os-danger);
-  --border: var(--os-border);
-  --input: rgb(0 0 145 / 40%);
-  --ring: #0000f2;
-  --radius: var(--os-radius-md);
-  --sidebar: var(--os-surface);
-  --sidebar-foreground: var(--os-foreground);
-  --sidebar-primary: #0000f2;
-  --sidebar-primary-foreground: #f2f2f2;
-  --sidebar-accent: var(--os-surface-active);
-  --sidebar-accent-foreground: var(--os-foreground);
-  --sidebar-border: var(--os-border);
-  --sidebar-ring: var(--os-amber);
-  --chart-1: var(--os-amber);
-  --chart-2: var(--os-success);
-  --chart-3: var(--os-muted-foreground);
-  --chart-4: var(--os-danger);
-  --chart-5: var(--os-subtle-foreground);
+  --background: #090b0a;
+  --foreground: #f2f4eb;
+  --card: #111512;
+  --card-foreground: #f2f4eb;
+  --popover: #1a201c;
+  --popover-foreground: #f2f4eb;
+  --primary: #beff32;
+  --primary-foreground: #090b0a;
+  --secondary: #1a201c;
+  --secondary-foreground: #f2f4eb;
+  --muted: #252d27;
+  --muted-foreground: #b7c2b9;
+  --accent: #beff32;
+  --accent-foreground: #090b0a;
+  --destructive: #ff7a8a;
+  --border: #3f4b42;
+  --input: #728176;
+  --ring: #beff32;
+  --sidebar: #111512;
+  --sidebar-foreground: #f2f4eb;
+  --sidebar-primary: #beff32;
+  --sidebar-primary-foreground: #090b0a;
+  --sidebar-accent: #252d27;
+  --sidebar-accent-foreground: #f2f4eb;
+  --sidebar-border: #3f4b42;
+  --sidebar-ring: #beff32;
+  --radius: 2px;
+  --chart-1: var(--color-accent);
+  --chart-2: var(--color-success);
+  --chart-3: var(--color-brand);
+  --chart-4: var(--color-danger);
+  --chart-5: var(--color-info);
 }
-
 @theme inline {
   --font-sans: var(--os-font-sans);
   --font-mono: var(--os-font-mono);
@@ -220,7 +185,7 @@
 
   --font-paper-display: var(--os-font-display);
   --font-paper-compressed: var(--os-font-compressed);
-  --font-paper-utility: var(--os-font-display);
+  --font-paper-utility: var(--os-font-sans);
   --font-paper-ui: var(--os-font-sans);
 
   --radius-sm: var(--os-radius-sm);
@@ -229,154 +194,81 @@
   --radius-xl: var(--os-radius-lg);
 }
 
+
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-
-  html {
-    @apply bg-background font-sans text-foreground antialiased;
-  }
-
-  body {
-    @apply m-0 min-w-80 bg-background text-foreground;
-    min-height: 100vh;
-    font-size: var(--os-text-body);
-    line-height: 1.5;
-  }
-
-  button,
-  a,
-  input,
-  textarea {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  ::selection {
-    color: #f2f2f2;
-    background: #0000f2;
-  }
+  * { @apply border-border; }
+  html { @apply bg-background font-sans text-foreground antialiased; }
+  body { margin: 0; min-width: 320px; font-size: 16px; line-height: 1.55; }
+  button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
+  button, input, select { font-family: var(--os-font-sans); }
+  ::selection { color: var(--color-on-paper); background: var(--primary); }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; box-shadow: 0 0 0 2px var(--color-on-paper); }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select { min-height: var(--control-height); }
+  textarea { line-height: 1.6; }
 }
-
 @layer utilities {
-  /* The page. Flat paper: the blue lives in the chrome, not behind the content. */
-  .os-environment {
-    background-color: var(--os-background);
-  }
+  .os-environment { background: var(--color-canvas); }
+  .os-stage { background: var(--color-surface); color: var(--color-text); }
+  .os-meta { font-family: var(--os-font-mono); font-size: 12px; font-weight: 400; line-height: 1.5; letter-spacing: .025em; }
+  .os-focus-ring:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; box-shadow: 0 0 0 2px var(--color-on-paper); }
+  .os-navigation-drawer { transform: translateX(-100%); }
+  .os-navigation-drawer[data-open="true"] { transform: translateX(0); }
+}
+@media (min-width: 768px) { .os-navigation-drawer { position: static; width: auto; transform: none; } }
+.font-paper-display, .font-paper-compressed { font-family: var(--os-font-sans); }
+main h1, h1.font-paper-display:not([data-heading="compact"]) {
+  font-family: var(--os-font-display); font-size: clamp(40px,4vw,64px); font-weight: 800;
+  line-height: 1; letter-spacing: -.02em; text-transform: uppercase;
+}
+main h1[data-heading="compact"] { font-size: 24px; }
+.collective-paper-label { position: relative; isolation: isolate; display: inline-flex; padding: 5px 12px 7px; color: var(--color-on-paper); font-family: var(--os-font-display); font-size: 22px; font-weight: 700; line-height: 1.15; text-transform: uppercase; }
+.collective-paper-label::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--color-paper); clip-path: polygon(1% 6%, 14% 0, 23% 5%, 41% 1%, 60% 5%, 79% 0, 98% 5%, 100% 34%, 98% 56%, 100% 88%, 84% 96%, 65% 92%, 47% 100%, 29% 93%, 11% 100%, 0 92%, 2% 64%, 0 35%); }
+.collective-tape { position: absolute; display: block; width: 78px; height: 23px; background: var(--color-brand); transform: rotate(-9deg); clip-path: polygon(3% 0,100% 5%,97% 35%,100% 65%,96% 100%,0 93%,3% 55%,0 25%); pointer-events: none; }
+.collective-hero { position: relative; display: flex; min-height: 180px; align-items: center; gap: 24px; border-bottom: 1px solid var(--color-border); padding: 12px 0 24px; }
+.collective-hero-copy { position: relative; flex: 1; min-width: 0; z-index: 1; }
+.collective-hero h1 { width: fit-content; padding: 2px 24px 9px 14px; transform: rotate(-2deg); margin-bottom: 14px; }
+.collective-hero h1::after { content: ""; position: absolute; width: 9px; height: 65%; right: -16px; top: 18%; background: var(--primary); transform: skew(-17deg); }
+.collective-hero .collective-tape { top: -6px; left: 123px; }
+.collective-artwork { pointer-events: none; flex-shrink: 0; width: 235px; height: 170px; color: var(--color-paper); }
+.collective-sidebar-art { margin: auto 12px 12px; padding-top: 18px; position: relative; }
+.collective-sidebar-art .collective-artwork { width: 145px; height: 90px; }
+.collective-sidebar-art .collective-tape { top: 17px; left: 80px; width: 64px; height: 16px; }
+.collective-panel { border: 1px solid var(--color-border); background: var(--color-surface); padding: 20px; border-radius: 2px; }
+.collective-workspace { max-width: 1440px; margin-inline: auto; padding: 24px 32px 40px; }
+.collective-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(300px,360px); gap: 24px; margin-top: 24px; }
+.collective-columns > div { min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+.collective-summary { background: var(--color-border); }
+.collective-summary a { background: var(--color-surface); }
+.collective-summary a:hover { background: var(--color-surface-hover); }
+.collective-summary a:focus-visible { outline-offset: -4px; }
+[role="dialog"] { background-color: var(--color-surface-raised); border: 1px solid var(--color-border-control); box-shadow: var(--shadow-overlay); }
+@media (max-width: 1100px) { .collective-columns { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 767px) {
+  .collective-workspace { padding: 16px; }
+  .collective-hero { min-height: 165px; }
+  .collective-artwork { display: none; }
+  .collective-panel { padding: 16px; }
+  .collective-sidebar-art { display: none; }
+}
+@media (max-height: 950px) { .collective-sidebar-art { display: none; } }
+@media (pointer: coarse) { :root { --control-height: 44px; } button:not([role="switch"]), nav a { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
-  /*
-   * The blue stage: the shell's top bar, sidebar and status bar. It redefines
-   * the tokens locally, so every component inside reads paper-on-blue without
-   * knowing it. Yellow is the accent here and only here, where it reads at 7.7:1.
-   */
-  .os-stage {
-    --os-background: #0000f2;
-    --os-surface: #0000f2;
-    --os-surface-raised: #1d1df2;
-    --os-surface-active: #2c2cf2;
-    --os-foreground: #f2f2f2;
-    --os-muted-foreground: #d0d0f2;
-    --os-subtle-foreground: #bdbdf2;
-    --os-border: rgb(242 242 242 / 24%);
-    --os-border-strong: rgb(242 242 242 / 46%);
-    --os-amber: #f2f200;
-    --os-success: #f2f2f2;
-    --os-warning: #f2f200;
-    --os-danger: #ff9c9c;
-    --background: #0000f2;
-    --foreground: #f2f2f2;
-    --card: #0000f2;
-    --card-foreground: #f2f2f2;
-    --popover: #0000f2;
-    --popover-foreground: #f2f2f2;
-    --primary: #f2f2f2;
-    --primary-foreground: #0000f2;
-    --muted: #1d1df2;
-    --muted-foreground: #d0d0f2;
-    --accent: #1d1df2;
-    --accent-foreground: #f2f2f2;
-    --border: rgb(242 242 242 / 24%);
-    --input: rgb(242 242 242 / 40%);
-    --ring: #f2f200;
-    color: #f2f2f2;
-  }
-
-  /* Small labels: condensed, uppercase, letter-spaced. The reference's utility face. */
-  .os-meta {
-    font-family: var(--os-font-display);
-    font-size: 0.75rem;
-    font-weight: 500;
-    line-height: 1.4;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .os-focus-ring {
-    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
-  }
-
-  .os-navigation-drawer {
-    transform: translateX(-100%);
-  }
-
-  .os-navigation-drawer[data-open="true"] {
-    transform: translateX(0);
-  }
+.collective-hero h1 .collective-paper-label { font-size: inherit; font-weight: inherit; padding: 2px 18px 7px; }
+.collective-hero h1 { padding: 0; }
+.collective-hero .collective-tape { top: -10px; left: 135px; }
+.collective-hero { min-height: 190px; }
+.collective-hero-copy > div > p { line-height: 1.4; }
+main p a { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 420px) {
+  .os-environment > header { padding-inline: 8px; }
+  .os-environment > header > div { gap: 6px; }
+  .os-environment > header [role="status"] { gap: 4px; max-width: 68px; }
+  .os-environment > header [role="status"] .os-meta { font-size: 12px; line-height: 1.2; }
 }
 
-@media (min-width: 768px) {
-  .os-navigation-drawer {
-    position: static;
-    width: auto;
-    transform: none;
-  }
-}
+.collective-hero { padding-block: 8px 20px; }
+.collective-hero h1 { font-size: clamp(40px,4vw,60px); margin-bottom: 10px; }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
-
-/*
- * Headings on every moved screen are the Hermes display face. These sit outside
- * any layer on purpose: they win over the per-element `font-extrabold` and
- * `text-[34px]` the screens were written with, so the whole product changes at
- * once and no screen carries its own idea of a heading.
- *
- * Thin condensed type is the identity (DESIGN.md: "don't replace the thin hero
- * with heavy 700-weight grotesk"), scaled down from the landing page's 108px:
- * page titles top out at 3rem so a task list is never shouted at.
- */
-.font-paper-display {
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-h1.font-paper-display:not([data-heading="compact"]) {
-  font-size: clamp(2.25rem, 3.6vw, 3rem);
-  font-weight: 300;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-/* Feature-scale headings and numerals in the compressed face. */
-.font-paper-compressed {
-  font-weight: 500;
-}
-
-/* Screens still built from the older PageHeader get the same display face. */
-main h1 {
-  font-family: var(--os-font-display);
-  font-weight: 300;
-  letter-spacing: -0.02em;
-}
-
-main h1[data-heading="compact"] {
-  font-weight: 500;
-}
+@media (max-width: 420px) { .collective-brand > span:not(:last-child) { display: none; } }
+@media (min-width: 768px) and (max-width: 1100px) { .collective-hero > .collective-artwork { width: 155px; height: 140px; } }

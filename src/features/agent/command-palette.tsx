@@ -302,7 +302,7 @@ export function CommandPalette({
             spellCheck={false}
             className="min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-sage"
           />
-          <kbd className="hidden shrink-0 rounded-none border border-paper-mist px-1.5 font-mono text-[11.5px] text-paper-sage sm:inline">Esc</kbd>
+          <kbd className="hidden shrink-0 rounded-none border border-paper-mist px-1.5 font-mono text-[12px] text-paper-sage sm:inline">Esc</kbd>
         </div>
 
         {contextProject && stage.kind === "commands" ? (

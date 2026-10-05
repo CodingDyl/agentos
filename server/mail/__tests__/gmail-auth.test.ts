@@ -55,14 +55,14 @@ describe("configuration", () => {
 });
 
 describe("buildConsentUrl", () => {
-  it("asks for Gmail modify and read-only Calendar, never full mail access", () => {
+  it("asks for Gmail modify and Calendar events, never full mail or calendar management access", () => {
     const url = new URL(buildConsentUrl());
 
     assert.equal(url.origin + url.pathname, "https://accounts.google.com/o/oauth2/v2/auth");
     assert.equal(url.searchParams.get("client_id"), "client-id");
     assert.equal(
       url.searchParams.get("scope"),
-      "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.events",
     );
     assert.equal(url.searchParams.get("access_type"), "offline");
     assert.equal(url.searchParams.get("prompt"), "consent");

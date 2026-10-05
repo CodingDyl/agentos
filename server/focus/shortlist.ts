@@ -26,7 +26,7 @@ import { readState } from "../traction/store";
 
 export interface ShortlistInputs {
   compass?: Compass;
-  workspaces: { slug: string; name: string; priority: string; tasks: { id?: string; title: string }[] }[];
+  workspaces: { slug: string; name: string; priority: string; tasks: { id?: string; title: string; scheduled?: boolean }[] }[];
   areaTasks: { area: string; title: string }[];
   followUps: { prospectId: string; company: string; touch: number }[];
 }
@@ -97,7 +97,7 @@ export function buildShortlist(inputs: ShortlistInputs): Candidate[] {
         title: task.title,
         kind: "task",
         source: workspace.name,
-        reason: behindGoal
+        reason: task.scheduled ? "Scheduled for today" : behindGoal
           ? `Serves ${behindGoal}, in an area that is slipping`
           : goalId
             ? `Next in Now, serves ${goalId}`
@@ -107,7 +107,7 @@ export function buildShortlist(inputs: ShortlistInputs): Candidate[] {
         goalId: behindGoal ?? goalId,
         small: SMALL.test(task.title),
         href: `/workspaces/${encodeURIComponent(workspace.slug)}`,
-        score: 40 + lift - index * 3,
+        score: task.scheduled ? 95 - index : 40 + lift - index * 3,
       });
     });
   }
@@ -142,7 +142,9 @@ export async function gatherInputs(): Promise<ShortlistInputs> {
             slug: project.slug,
             name: project.name,
             priority: String(project.priority ?? "").toLowerCase(),
-            tasks: tasks.filter((task) => task.section === "now" && !task.completed).map((task) => ({ id: task.id, title: task.title })),
+            tasks: tasks.filter((task) => !task.completed && task.section !== "archived" && (task.schedule ? task.schedule.date === new Date().toLocaleDateString("en-CA") : task.section === "now"))
+              .sort((a, b) => Number(Boolean(b.schedule)) - Number(Boolean(a.schedule)))
+              .map((task) => ({ id: task.id, title: task.title, scheduled: Boolean(task.schedule) })),
           };
         } catch {
           return { slug: project.slug, name: project.name, priority: "", tasks: [] };

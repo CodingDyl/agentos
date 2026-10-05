@@ -159,7 +159,7 @@ function WorkspaceGroup({ label, workspaces, all }: { label: string; workspaces:
     <section aria-labelledby={`group-${label}`}>
       <h2 id={`group-${label}`} className="mb-2 flex items-center gap-2 font-paper-display text-[15px] font-bold">
         {label}
-        <span className="rounded-full bg-paper-stone px-2 py-px font-paper-ui text-[11.5px] font-medium text-paper-char tabular-nums">{workspaces.length}</span>
+        <span className="rounded-full bg-paper-stone px-2 py-px font-paper-ui text-[12px] font-medium text-paper-char tabular-nums">{workspaces.length}</span>
       </h2>
 
       <ul className="divide-y divide-paper-stone border-y border-paper-mist">

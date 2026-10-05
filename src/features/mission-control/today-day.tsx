@@ -48,7 +48,7 @@ function PlanBody({ plan }: { plan: BriefPlan }) {
         <ol className="mt-4 space-y-2">
           {plan.top.map((task, index) => (
             <li key={task} className="flex gap-3 text-[14.5px] leading-6 text-paper-moss">
-              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-paper-stone text-[11.5px] font-semibold text-paper-char tabular-nums">
+              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-paper-stone text-[12px] font-semibold text-paper-char tabular-nums">
                 {index + 1}
               </span>
               <span className="min-w-0">

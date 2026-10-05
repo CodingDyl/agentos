@@ -177,7 +177,7 @@ function RecommendationCard({ recommendation }: { recommendation: ConnectorRecom
         <ConnectorIcon icon={recommendation.icon} size="sm" />
         <div className="min-w-0">
           {recommendation.projectName ? (
-            <p className="font-paper-utility text-[11.5px] font-medium tracking-[0.1em] text-paper-sage uppercase">
+            <p className="font-paper-utility text-[12px] font-medium tracking-[0.1em] text-paper-sage uppercase">
               For {recommendation.projectName}
             </p>
           ) : null}
@@ -213,7 +213,7 @@ function AvailableRow({ connector }: { connector: ConnectorSummary }) {
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-paper-moss">
           {connector.name}
-          <span className="font-paper-utility text-[11px] font-medium tracking-[0.1em] text-paper-sage uppercase">{TIER_LABEL[connector.tier]}</span>
+          <span className="font-paper-utility text-[12px] font-medium tracking-[0.1em] text-paper-sage uppercase">{TIER_LABEL[connector.tier]}</span>
         </p>
         <p className="truncate text-[12.5px] text-paper-sage">
           {connector.status === "disconnected" ? (connector.statusDetail ?? connector.description) : connector.description}

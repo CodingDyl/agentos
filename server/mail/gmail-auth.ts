@@ -16,14 +16,15 @@ import { uiStateDir } from "../agentos/session-store";
  * connection made under the older read-only grant keeps working for reading
  * and reports `canModifyGmail() === false` until the person reconnects.
  *
- * The same connection also carries `calendar.readonly`, so Today can show
- * the day's events. Read-only: AgentOS never creates or changes an event.
+ * The same connection also carries `calendar.events` for the overview calendar.
+ * Legacy read-only Calendar grants remain readable until the person reconnects.
  */
 
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
-const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const LEGACY_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
 export class GmailAuthError extends Error {
   constructor(
@@ -151,7 +152,11 @@ export function canModifyGmail(): Promise<boolean> {
 }
 
 /** Whether the stored grant covers reading the calendar. */
-export function canReadCalendar(): Promise<boolean> {
+export async function canReadCalendar(): Promise<boolean> {
+  return await hasGrantedScope(CALENDAR_SCOPE) || await hasGrantedScope(LEGACY_CALENDAR_SCOPE);
+}
+
+export function canWriteCalendar(): Promise<boolean> {
   return hasGrantedScope(CALENDAR_SCOPE);
 }
 

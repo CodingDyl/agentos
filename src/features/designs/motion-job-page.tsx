@@ -359,7 +359,7 @@ function StudioLog({ entries, live }: { entries: MotionLogEntry[]; live: boolean
             <span
               className={cn(
                 "break-words",
-                entry.kind === "tool" && "font-mono text-[11.5px] text-paper-char",
+                entry.kind === "tool" && "font-mono text-[12px] text-paper-char",
                 entry.kind === "text" && "text-paper-moss",
                 entry.kind === "system" && "font-medium text-paper-blue",
               )}

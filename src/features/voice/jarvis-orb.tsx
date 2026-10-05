@@ -12,9 +12,9 @@ import type { VoicePhase } from "./voice-model";
  * reduced motion it draws one still frame per state change.
  */
 
-const INK = "0, 0, 145";
-const AMBER = "0, 0, 242";
-const FLAME = "176, 0, 32";
+const INK = "183, 194, 185";
+const AMBER = "190, 255, 50";
+const FLAME = "255, 122, 138";
 const SEGMENTS = 48;
 const PARTICLES = 120;
 

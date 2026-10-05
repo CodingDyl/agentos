@@ -1,3 +1,4 @@
+import { TaskScheduleSchema, CalendarEventIdSchema, type TaskSchedule } from "../../../shared/calendar-types";
 import type { BulkTaskAction } from "../../../shared/agentos-types";
 import { readOptionalFile } from "../filesystem";
 import { parseConfiguration } from "./configuration";
@@ -109,6 +110,8 @@ export async function readTasks(slug: string): Promise<{
     section: TaskSectionName | undefined;
     ready?: boolean;
     after?: string[];
+    schedule?: TaskSchedule;
+    calendarEventId?: string;
   }[];
 }> {
   assertSlug(slug);
@@ -128,12 +131,16 @@ export async function readTasks(slug: string): Promise<{
         section: found?.section,
         ready: block.ready,
         after: block.after,
+        schedule: block.schedule,
+        calendarEventId: block.calendarEventId,
       };
     }),
   };
 }
 
 export interface CreateTaskInput {
+  schedule?: TaskSchedule;
+  calendarEventId?: string;
   slug: string;
   title: string;
   section?: string;
@@ -157,6 +164,8 @@ export async function createTask(
   const slug = assertSlug(input.slug);
   const section = assertSection(input.section ?? "now");
   const title = cleanTitle(input.title);
+  const schedule = input.schedule === undefined ? undefined : TaskScheduleSchema.parse(input.schedule);
+  const calendarEventId = input.calendarEventId === undefined ? undefined : CalendarEventIdSchema.parse(input.calendarEventId);
 
   const relativePath = projectFile(slug, TASKS_FILE);
   const [{ data }, projectMarkdown] = await Promise.all([
@@ -181,7 +190,7 @@ export async function createTask(
       // is still a document, rather than a heading-less fragment.
       const document = parseTaskDocument(current ?? `# Tasks\n`);
 
-      insertTask(document, section, { id: taskId, title });
+      insertTask(document, section, { id: taskId, title, schedule, calendarEventId });
 
       return serializeTaskDocument(document);
     },
@@ -191,6 +200,8 @@ export async function createTask(
 }
 
 export interface UpdateTaskInput {
+  schedule?: TaskSchedule | null;
+  calendarEventId?: string | null;
   slug: string;
   taskId: string;
   title?: string;
@@ -216,6 +227,8 @@ export async function updateTask(
 ): Promise<TaskMutationResult> {
   const slug = assertSlug(input.slug);
   const taskId = assertTaskId(input.taskId);
+  const schedule = input.schedule == null ? input.schedule : TaskScheduleSchema.parse(input.schedule);
+  const calendarEventId = input.calendarEventId == null ? input.calendarEventId : CalendarEventIdSchema.parse(input.calendarEventId);
   const title = input.title === undefined ? undefined : cleanTitle(input.title);
   const section = input.section === undefined ? undefined : assertSection(input.section);
   const after =
@@ -238,13 +251,15 @@ export async function updateTask(
         title !== undefined ||
         input.completed !== undefined ||
         input.ready !== undefined ||
-        after !== undefined
+        after !== undefined || schedule !== undefined || calendarEventId !== undefined
       ) {
         updateInDocument(document, taskId, {
           title,
           completed: input.completed,
           ready: input.ready,
           after,
+          schedule,
+          calendarEventId,
         });
       }
 

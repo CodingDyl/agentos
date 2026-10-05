@@ -567,7 +567,7 @@ function ValidationList({
               </span>
               {/* A passing command explains itself; a failing one has to. */}
               {test.detail && !test.success ? (
-                <pre className="mt-1.5 max-h-40 overflow-auto rounded-md border border-os-border/60 bg-os-border/10 p-2.5 font-mono text-[11px] leading-5 whitespace-pre-wrap break-words text-os-subtle">
+                <pre className="mt-1.5 max-h-40 overflow-auto rounded-md border border-os-border/60 bg-os-border/10 p-2.5 font-mono text-[12px] leading-5 whitespace-pre-wrap break-words text-os-subtle">
                   {test.detail}
                 </pre>
               ) : null}
@@ -1072,7 +1072,7 @@ function DiffViewer({
               <p className="font-mono text-[12px] leading-5 break-all text-os-subtle">
                 {file.path}
               </p>
-              <pre className="mt-2 max-h-96 overflow-auto rounded-md border border-os-border bg-os-border/10 p-3 font-mono text-[11px] leading-5">
+              <pre className="mt-2 max-h-96 overflow-auto rounded-md border border-os-border bg-os-border/10 p-3 font-mono text-[12px] leading-5">
                 {file.patch!.split("\n").map((line, index) => (
                   <span
                     key={index}

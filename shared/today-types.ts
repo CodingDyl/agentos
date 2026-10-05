@@ -9,6 +9,12 @@ import { z } from "zod";
 export const CalendarEventSchema = z.object({
   id: z.string(),
   title: z.string(),
+  description: z.string().optional(),
+  etag: z.string().optional(),
+  allowTasks: z.boolean().optional(),
+  preparation: z.string().optional(),
+  recurringEventId: z.string().optional(),
+  timeZone: z.string().optional(),
   /** ISO 8601 date-time, or `YYYY-MM-DD` for an all-day event. */
   start: z.string(),
   end: z.string().optional(),

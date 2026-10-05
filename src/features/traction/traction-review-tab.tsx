@@ -147,7 +147,7 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
+      <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
       <dd className="font-paper-display text-[18px] font-bold text-paper-moss tabular-nums">{value}</dd>
     </div>
   );

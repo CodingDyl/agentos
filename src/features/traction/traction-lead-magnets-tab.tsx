@@ -645,7 +645,7 @@ function Results({ stats, virtec, source }: { stats: LeadMagnetStats; virtec: "o
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {cells.map(([label, value]) => (
           <div key={label} className="rounded-none border border-paper-mist px-3 py-2">
-            <dt className="text-[11.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
+            <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
             <dd className="font-paper-display text-[22px] font-bold text-paper-moss tabular-nums">{value}</dd>
           </div>
         ))}

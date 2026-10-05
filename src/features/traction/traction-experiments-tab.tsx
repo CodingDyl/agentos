@@ -142,7 +142,7 @@ function ExperimentCard({ experiment, progress, onEdit }: { experiment: Experime
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
+      <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
       <dd className="text-paper-moss">{value}</dd>
     </div>
   );

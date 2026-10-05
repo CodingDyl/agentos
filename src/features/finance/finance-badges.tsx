@@ -22,7 +22,7 @@ const STATE: Record<PayState, { icon: typeof Check; classes: string }> = {
 export function PayBadge({ state, children, className }: { state: PayState; children: ReactNode; className?: string }) {
   const { icon: Icon, classes } = STATE[state];
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-px text-[11.5px] leading-[18px] font-medium", classes, className)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-px text-[12px] leading-[18px] font-medium", classes, className)}>
       <Icon className="size-3" aria-hidden="true" strokeWidth={2.5} />
       {children}
     </span>

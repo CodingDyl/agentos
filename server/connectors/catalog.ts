@@ -185,14 +185,15 @@ export const CONNECTORS: readonly CatalogConnector[] = [
   {
     id: "calendar",
     name: "Google Calendar",
-    description: "Today's events, for the day's agenda and brief.",
+    description: "Events and preparation across your week and month.",
     category: "productivity",
     tier: 2,
     icon: "calendar",
     integrated: true,
     capabilities: [
       { action: "read_events", name: "Read events", risk: "read", implementedBy: "server/today/calendar.ts" },
-      { action: "create_event", name: "Create events", risk: "write-external" },
+      { action: "create_event", name: "Create events", risk: "write-external", implementedBy: "server/calendar/google-calendar.ts" },
+      { action: "edit_event", name: "Edit events", risk: "write-external", implementedBy: "server/calendar/google-calendar.ts" },
       { action: "invite", name: "Send invitations", risk: "external-communication" },
     ],
   },

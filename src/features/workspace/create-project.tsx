@@ -360,7 +360,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
                               current.map((entry, at) => (at === index ? { ...entry, section: event.target.value as ProjectTaskSection } : entry)),
                             )
                           }
-                          className="os-focus-ring rounded-md border border-os-border bg-os-surface px-2 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-os-muted"
+                          className="os-focus-ring rounded-md border border-os-border bg-os-surface px-2 py-2 font-mono text-[12px] uppercase tracking-[0.08em] text-os-muted"
                         >
                           {SECTIONS.map((section) => (
                             <option key={section} value={section}>{section}</option>

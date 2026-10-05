@@ -123,7 +123,7 @@ export function MilestonePlanPanel({
                       <select
                         value={entry.section}
                         onChange={(event) => setTasks((current) => current?.map((item, at) => (at === index ? { ...item, section: event.target.value as ProjectTaskSection } : item)))}
-                        className="os-focus-ring rounded-md border border-os-border bg-os-surface px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-os-muted"
+                        className="os-focus-ring rounded-md border border-os-border bg-os-surface px-2 py-1.5 font-mono text-[12px] uppercase tracking-[0.08em] text-os-muted"
                       >
                         <option value="now">now</option>
                         <option value="next">next</option>

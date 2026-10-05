@@ -1,3 +1,4 @@
+import { CollectiveArtwork, DecorativeTape, PaperLabel } from "@/components/collective/collective-identity";
 import { FileText } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -31,7 +32,8 @@ import { MorningMode } from "./morning-mode";
 import { YourThree } from "./your-three";
 import { useFocusToday } from "@/lib/agentos/focus";
 import { useCaptureTriage } from "@/lib/agentos/capture-triage";
-import { DayWrapUp, MorningPlan, TodayCalendar } from "./today-day";
+import { DayWrapUp, MorningPlan } from "./today-day";
+import { OverviewCalendar, TodayScheduledTasks } from "@/features/calendar/overview-calendar";
 import { TodayLink } from "./today-kit";
 import { TodayNews, TodayTrending } from "./today-world";
 
@@ -117,14 +119,17 @@ function MissionControl({ data }: { data: MissionControlData }) {
   return (
     <>
       {showMorning && focus.data ? <MorningMode today={focus.data} onStart={() => setMorning("open")} onClose={() => setMorning("closed")} /> : null}
-      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+      <header className="collective-hero">
+        <div className="collective-hero-copy">
         <div>
-          <p className="text-[13px] font-medium text-paper-sage">{formatToday()}</p>
-          <h1 className="mt-1 font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-balance text-paper-moss sm:text-[34px]">
-            {greeting("Dylan")}
-          </h1>
+          <h1><PaperLabel>Today</PaperLabel></h1>
+          <DecorativeTape />
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <p className="text-[18px] font-medium text-paper-moss">{greeting("Dylan")}</p>
+            <p className="font-mono text-[12px] text-paper-sage">{formatToday()}</p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <SegmentedControl
             label="Today's view"
             value={mode}
@@ -138,6 +143,8 @@ function MissionControl({ data }: { data: MissionControlData }) {
               most often noticed on the way somewhere. */}
           <FrictionButton surface="mission-control" paper />
         </div>
+        </div>
+        <CollectiveArtwork />
       </header>
 
       {degraded.length > 0 ? (
@@ -154,24 +161,31 @@ function MissionControl({ data }: { data: MissionControlData }) {
         className="mt-6"
       />
 
-      <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-12">
+      <div className="collective-columns">
+        <div className="min-w-0">
           {focus.data ? <YourThree today={focus.data} onCheckIn={() => setMorning("open")} /> : null}
+          <TodayScheduledTasks />
           {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
           <AttentionList items={data.attention} dismissed={data.dismissed} workers={data.workers} />
           {data.focus ? <FocusBlock focus={data.focus} /> : null}
+        </div>
+
+        <div className="min-w-0">
+          <CompassRail />
+          <ActiveWorkList items={data.activeWork} />
+        </div>
+      </div>
+
+      <OverviewCalendar />
+
+      <div className="collective-columns">
+        <div className="min-w-0">
           <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
-          {/* Acquisition beside the build: otherwise the work that feels
-              productive always wins over the work that brings customers. */}
           <TractionToday />
           <CareerToday />
           <FinanceToday />
         </div>
-
-        <div className="min-w-0 space-y-12">
-          <CompassRail />
-          <TodayCalendar />
-          <ActiveWorkList items={data.activeWork} />
+        <div className="min-w-0">
           <TodayCaptured />
           <RecentActivity data={data} />
           <UsageSummary />
@@ -180,7 +194,7 @@ function MissionControl({ data }: { data: MissionControlData }) {
       </div>
 
       {/* The outside world, below everything that is asking for something today. */}
-      <div className="mt-12 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      <div className="collective-columns">
         <TodayNews className="min-w-0" />
         <TodayTrending className="min-w-0" />
       </div>
@@ -192,6 +206,7 @@ function MissionControl({ data }: { data: MissionControlData }) {
           <SprintScorecard sprint={sprint} />
         </div>
       ) : null}
+
     </>
   );
 }
