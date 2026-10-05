@@ -133,7 +133,11 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
               </span>
               {definition.title}
               <StageStatusTag status={stage.status} />
-              {gated ? <span className="text-[12px] font-normal text-paper-sage">Your approval needed</span> : null}
+              {gated && stage.status !== "awaiting_approval" ? (
+                <span className="text-[12px] font-normal text-paper-sage" title="When this stage finishes, it waits for you to approve or request changes before the next one starts.">
+                  Approval checkpoint
+                </span>
+              ) : null}
             </h2>
             <p className="mt-1 text-[13px] leading-5 text-paper-sage">{definition.detail}</p>
           </div>

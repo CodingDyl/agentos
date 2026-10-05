@@ -198,7 +198,7 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
         if (signal.aborted) throw new Error("Cancelled");
 
         if (code !== 0) {
-          const detail = stderr.trim().split("\n").filter(Boolean).slice(-4).join(" ");
+          const detail = exitDetail(stdout, stderr);
           const reason = signalName ? `${spec.name} was stopped by ${signalName}` : `${spec.name} exited with code ${code ?? "unknown"}`;
           throw new Error(detail ? `${reason}: ${detail}` : reason);
         }
@@ -226,6 +226,34 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
       if (child) terminate(child);
     },
   };
+}
+
+/**
+ * Why a CLI exited badly, in its own words. Stderr first; but a tool that
+ * streams JSON (Claude Code with `--output-format stream-json`) reports most
+ * failures (expired login, usage limit, a refused flag) as a final `result`
+ * event on stdout with nothing on stderr, so that is read next, then the
+ * last plain lines of stdout. Without this the job said only "exited with code 1".
+ */
+export function exitDetail(stdout: string, stderr: string): string {
+  const fromStderr = stderr.trim().split("\n").filter(Boolean).slice(-4).join(" ");
+  if (fromStderr) return clip(fromStderr, 600);
+
+  const lines = stdout.trim().split("\n").filter(Boolean);
+  for (const line of [...lines].reverse()) {
+    const event = jsonLine(line);
+    if (!event) continue;
+    const errors = Array.isArray(event.errors) ? event.errors.filter((entry): entry is string => typeof entry === "string") : [];
+    const message =
+      (typeof event.result === "string" && event.result.trim()) ||
+      errors.join(" ") ||
+      (typeof record(event.error)?.message === "string" ? String(record(event.error)?.message) : typeof event.error === "string" ? event.error : "") ||
+      (event.type === "result" && typeof event.subtype === "string" && event.subtype !== "success" ? event.subtype.replace(/_/g, " ") : "");
+    if (message && (event.is_error === true || event.type === "result" || event.type === "error" || event.error !== undefined)) return clip(message, 600);
+  }
+
+  const plain = lines.filter((line) => !line.trim().startsWith("{")).slice(-3).join(" ");
+  return plain ? clip(plain, 600) : "";
 }
 
 /** Parses a line as a JSON object, or nothing. Tools interleave plain text with events. */
