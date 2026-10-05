@@ -1,3 +1,4 @@
+import { normaliseWorkerModel } from "./model-names";
 import fs from "node:fs";
 import path from "node:path";
 import { uiStateDir } from "../agentos/session-store";
@@ -117,7 +118,8 @@ export function setAiEnabled(id: string, enabled: boolean): void {
 
 /** The model the operator chose for an AI, when they chose one. */
 export function aiModel(id: string): string | undefined {
-  return load().models[id];
+  // Read through the normaliser, so a display name saved before it existed ("Opus 5.5") still works.
+  return normaliseWorkerModel(id, load().models[id]).model;
 }
 
 /** An empty model clears the choice, so the tool falls back to its own default. */

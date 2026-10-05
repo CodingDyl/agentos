@@ -302,6 +302,12 @@ export function activeRunCount(skillId: string): number {
   return row.n;
 }
 
+/** The rebuild a workspace belongs to, if it is a client rebuild's workspace. The newest wins. */
+export function runForWorkspace(slug: string): RebuildRun | undefined {
+  const row = rebuildDatabase().prepare("SELECT * FROM runs WHERE workspace_slug = ? ORDER BY created_at DESC LIMIT 1").get(slug) as RunRow | undefined;
+  return row ? toRun(row, true) : undefined;
+}
+
 export function listRuns(): RebuildRunSummary[] {
   const rows = rebuildDatabase().prepare("SELECT * FROM runs ORDER BY updated_at DESC").all() as unknown as RunRow[];
   return rows.map((row) => {

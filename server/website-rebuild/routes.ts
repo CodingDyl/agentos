@@ -4,7 +4,7 @@ import { agentOSRoot } from "../agentos/filesystem";
 import { REBUILD_SKILL_ID, RebuildDecisionInputSchema, RebuildStageIdSchema, RebuildStartSchema } from "../../shared/website-rebuild-types";
 import { advanceInBackground, currentSkillVersion } from "./runner";
 import { isSkillEnabled } from "../skills/registry";
-import { createOrReuseRun, decide, listRuns, readRun, RebuildError, recoverAbandonedStages, resetForRetry, runForProspect } from "./store";
+import { createOrReuseRun, decide, listRuns, readRun, RebuildError, recoverAbandonedStages, resetForRetry, runForProspect, runForWorkspace } from "./store";
 
 /**
  * Website rebuilds. Every route answers with the run's full state, so the page
@@ -45,6 +45,16 @@ function stageParam(value: string): ReturnType<typeof RebuildStageIdSchema.parse
 rebuildRouter.get("/", (_request, response) => {
   try {
     response.json({ runs: listRuns() });
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+rebuildRouter.get("/by-workspace/:slug", (request, response) => {
+  try {
+    const run = runForWorkspace(request.params.slug);
+    if (!run) throw new RebuildError("This workspace has no website rebuild.", 404);
+    response.json(run);
   } catch (error) {
     fail(response, error);
   }

@@ -46,19 +46,26 @@ export function RebuildPage() {
   );
 }
 
-function RebuildView({ run }: { run: RebuildRun }) {
+/** The whole rebuild. `inWorkspace` drops what the workspace page already shows: the breadcrumb and the workspace link. */
+export function RebuildView({ run, inWorkspace = false }: { run: RebuildRun; inWorkspace?: boolean }) {
   const done = run.stages.filter((stage) => stage.status === "complete").length;
   return (
     <div className="grid gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[13px] text-paper-sage">
-            <Link to="/traction?tab=prospects" className="hover:underline">
-              Traction
-            </Link>{" "}
-            / Website rebuild
-          </p>
-          <h1 className="font-paper-display text-[40px] leading-none font-bold tracking-[-0.02em] text-paper-moss">{run.company}</h1>
+          {inWorkspace ? (
+            <h2 className="font-paper-display text-[24px] leading-none font-bold tracking-[-0.01em] text-paper-moss">Website rebuild</h2>
+          ) : (
+            <>
+              <p className="text-[13px] text-paper-sage">
+                <Link to="/traction?tab=prospects" className="hover:underline">
+                  Traction
+                </Link>{" "}
+                / Website rebuild
+              </p>
+              <h1 className="font-paper-display text-[40px] leading-none font-bold tracking-[-0.02em] text-paper-moss">{run.company}</h1>
+            </>
+          )}
           <p className="mt-2 max-w-[80ch] text-[13px] leading-5 text-paper-char">
             <a href={run.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-paper-blue hover:underline">
               {run.websiteUrl}
@@ -71,7 +78,11 @@ function RebuildView({ run }: { run: RebuildRun }) {
           <div className="text-[15px] font-semibold text-paper-moss">
             {done} of {REBUILD_STAGES.length} stages complete
           </div>
-          {run.workspaceSlug ? (
+          {inWorkspace ? (
+            <Link to={`/rebuilds/${encodeURIComponent(run.id)}`} className="text-paper-blue hover:underline">
+              Open full page
+            </Link>
+          ) : run.workspaceSlug ? (
             <Link to={`/workspaces/${encodeURIComponent(run.workspaceSlug)}?tab=documents`} className="text-paper-blue hover:underline">
               Open the workspace
             </Link>

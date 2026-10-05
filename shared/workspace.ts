@@ -34,6 +34,7 @@ export const WorkspaceModuleSchema = z.enum([
   "clients",
   "seo",
   "database",
+  "rebuild",
 ]);
 
 export type WorkspaceType = z.infer<typeof WorkspaceTypeSchema>;
@@ -90,6 +91,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   clients: "Clients",
   seo: "SEO",
   database: "Database",
+  rebuild: "Website rebuild",
 };
 
 /** The label a module's tab carries in a workspace of this type. */
@@ -150,6 +152,8 @@ export function resolveWorkspaceTabs(input: {
   hasRepository?: boolean;
   /** A linked database earns its tab the same way a linked repository does. */
   hasDatabase?: boolean;
+  /** A client website rebuild earns the first tab: while one is running, it is the work. */
+  hasRebuild?: boolean;
 }): WorkspaceTabs {
   const configured = input.configured && input.configured.length > 0 ? input.configured : undefined;
   const primary = [...(configured ?? DEFAULT_WORKSPACE_MODULES[input.type])];
@@ -164,8 +168,12 @@ export function resolveWorkspaceTabs(input: {
     primary.splice(at === -1 ? primary.length : at, 0, "database");
   }
 
-  const unique = primary.filter((module, index) => primary.indexOf(module) === index);
-  const more = WORKSPACE_MODULES.filter((module) => !unique.includes(module));
+  if (input.hasRebuild && !primary.includes("rebuild")) primary.unshift("rebuild");
+  // Without a rebuild there is nothing to show, so the tab is not offered under More either.
+  const withoutEmptyRebuild = input.hasRebuild ? primary : primary.filter((module) => module !== "rebuild");
+
+  const unique = withoutEmptyRebuild.filter((module, index) => withoutEmptyRebuild.indexOf(module) === index);
+  const more = WORKSPACE_MODULES.filter((module) => !unique.includes(module) && (module !== "rebuild" || input.hasRebuild));
 
   return { primary: unique, more };
 }
