@@ -57,6 +57,24 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE mail_threads ADD COLUMN low_priority_since TEXT;
   `,
+  `
+  CREATE TABLE IF NOT EXISTS mail_outbox (
+    id                TEXT PRIMARY KEY,
+    kind              TEXT NOT NULL,
+    gmail_message_id  TEXT,
+    gmail_draft_id    TEXT,
+    thread_id         TEXT,
+    to_list           TEXT NOT NULL,
+    subject           TEXT NOT NULL,
+    tag               TEXT NOT NULL,
+    attachment_count  INTEGER NOT NULL DEFAULT 0,
+    label_applied     INTEGER NOT NULL DEFAULT 0,
+    created_at        TEXT NOT NULL,
+    sent_at           TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_mail_outbox_created ON mail_outbox(created_at);
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

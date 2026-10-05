@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Archive, Trash2 } from "lucide-react";
+import { Archive, Reply, Trash2 } from "lucide-react";
 import type { MailBucket, MailThread } from "@shared/mail-types";
 import { Link } from "react-router-dom";
 import { useClientMatcher } from "@/lib/agentos/business";
@@ -31,6 +31,8 @@ export interface ThreadRowActions {
   archive: (threadId: string) => void;
   trash: (threadId: string) => void;
   setBucket: (threadId: string, bucket: MailBucket) => void;
+  /** Opens the composer on this thread. Absent when the Gmail grant cannot send. */
+  reply?: (thread: MailThread) => void;
 }
 
 interface ThreadRowProps {
@@ -137,13 +139,27 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
           </p>
         ) : null}
         {expanded ? (
-          <div className="mail-thread-expanded-body">
-            {body.isPending
-              ? "Loading the full message…"
-              : body.isError
-                ? "Could not load the full message."
-                : body.data?.body}
-          </div>
+          <>
+            <div className="mail-thread-expanded-body">
+              {body.isPending
+                ? "Loading the full message…"
+                : body.isError
+                  ? "Could not load the full message."
+                  : body.data?.body}
+            </div>
+            {actions.reply ? (
+              <div className="mail-thread-reply">
+                <button
+                  type="button"
+                  className="mail-btn-ghost mail-btn-icon"
+                  onClick={quick(() => actions.reply?.(thread))}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <Reply size={15} aria-hidden="true" /> Reply
+                </button>
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
       <div className="mail-thread-actions">

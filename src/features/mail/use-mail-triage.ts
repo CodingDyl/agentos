@@ -31,7 +31,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
     target instanceof HTMLElement &&
     (target.isContentEditable ||
       ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
-      target.closest(".mail-menu") !== null)
+      target.closest(".mail-menu, .mail-composer") !== null)
   );
 }
 
