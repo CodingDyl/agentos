@@ -16,20 +16,20 @@ const ADDRESS =
   /^[\p{L}\p{N}._%+'-]{1,64}@[\p{L}\p{N}.-]{1,190}\.\p{L}{2,24}$/u;
 
 // eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u001F\u007F]/;
+export const CONTROL = /[\u0000-\u001F\u007F]/;
 
 export function isPlainAddress(value: string): boolean {
   return value.length <= 254 && !value.includes("..") && ADDRESS.test(value);
 }
 
 /** A header value that is pure ASCII passes through; anything else becomes an encoded word (RFC 2047). */
-function encodeHeader(value: string): string {
+export function encodeHeader(value: string): string {
   return /^[ -~]*$/.test(value)
     ? value
     : `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
 }
 
-function base64Lines(text: string): string {
+export function base64Lines(text: string): string {
   return (
     Buffer.from(text, "utf8")
       .toString("base64")

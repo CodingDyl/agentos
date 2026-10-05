@@ -214,6 +214,19 @@ import {
   type MailStatus,
   type MailSyncResult,
 } from "@shared/mail-types";
+import {
+  MailComposeResultSchema,
+  MailOutboxSchema,
+  MailPolishResultSchema,
+  MailReplyContextSchema,
+  type MailComposeRequest,
+  type MailComposeResult,
+  type MailOutbox,
+  type MailPolishRequest,
+  type MailPolishResult,
+  type MailReplyContext,
+  type MailSendTag,
+} from "@shared/mail-compose-types";
 import { AiStackSchema, type AiStack } from "@shared/ai-stack-types";
 import {
   ProjectVercelInfoSchema,
@@ -432,6 +445,46 @@ export function runMailBulkAction(action: MailBulkAction, threadIds: string[]): 
   return workerRequest("/api/mail/bulk", postJson({ action, threadIds }), (value) =>
     MailBulkResultSchema.safeParse(value),
   );
+}
+
+/** Sends an email now, or saves it to Gmail Drafts, from the Inbox composer. */
+export function composeMail(request: MailComposeRequest): Promise<MailComposeResult> {
+  return workerRequest("/api/mail/compose", postJson(request), (value) => MailComposeResultSchema.safeParse(value));
+}
+
+/** Grammar and tone pass by Hermes. Returns text for the person to review; nothing is sent. */
+export function polishMail(request: MailPolishRequest): Promise<MailPolishResult> {
+  return workerRequest("/api/mail/polish", postJson(request), (value) => MailPolishResultSchema.safeParse(value));
+}
+
+/** Who a reply to a thread goes to, and its subject. */
+export function getMailReplyContext(threadId: string): Promise<MailReplyContext> {
+  return workerRequest(`/api/mail/${encodeURIComponent(threadId)}/reply-context`, { method: "GET" }, (value) =>
+    MailReplyContextSchema.safeParse(value),
+  );
+}
+
+/** Email written in AgentOS, sent and drafts, newest first. */
+export function getMailOutbox(tag?: MailSendTag): Promise<MailOutbox> {
+  return readVault(`/api/mail/outbox${tag ? `?tag=${encodeURIComponent(tag)}` : ""}`, (value) =>
+    MailOutboxSchema.safeParse(value),
+  );
+}
+
+export function sendMailDraft(id: string): Promise<MailComposeResult> {
+  return workerRequest(`/api/mail/outbox/${encodeURIComponent(id)}/send`, { method: "POST" }, (value) =>
+    MailComposeResultSchema.safeParse(value),
+  );
+}
+
+export function retagMailOutboxItem(id: string, tag: MailSendTag): Promise<MailComposeResult> {
+  return workerRequest(`/api/mail/outbox/${encodeURIComponent(id)}/tag`, postJson({ tag }), (value) =>
+    MailComposeResultSchema.safeParse(value),
+  );
+}
+
+export function discardMailDraft(id: string): Promise<unknown> {
+  return workerRequest(`/api/mail/outbox/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 /** Hides a thread from the Mail view. Local only — the Gmail message itself is never touched. */

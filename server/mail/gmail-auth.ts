@@ -10,8 +10,9 @@ import { uiStateDir } from "../agentos/session-store";
  * leaves this process — the browser is only ever redirected, never handed
  * the token itself.
  *
- * Access is `gmail.modify`: read, change labels (mark read), and move to
- * Trash. It cannot permanently delete, and nothing here sends mail. A
+ * Access is `gmail.modify`: read, change labels (mark read, Business and
+ * Virtara tags), move to Trash, and send or draft mail a person wrote in the
+ * Inbox and pressed Send on. It cannot permanently delete mail. A
  * connection made under the older read-only grant keeps working for reading
  * and reports `canModifyGmail() === false` until the person reconnects.
  *
