@@ -1,4 +1,6 @@
+import path from "node:path";
 import express from "express";
+import { agentOSRoot } from "../agentos/filesystem";
 import { RebuildDecisionInputSchema, RebuildStageIdSchema, RebuildStartSchema } from "../../shared/website-rebuild-types";
 import { advanceInBackground, currentSkillVersion } from "./runner";
 import { createOrReuseRun, decide, listRuns, readRun, RebuildError, recoverAbandonedStages, resetForRetry, runForProspect } from "./store";
@@ -57,6 +59,27 @@ rebuildRouter.get("/by-prospect/:prospectId", (request, response) => {
   }
 });
 
+/**
+ * A screenshot the run recorded. Only files listed as this run's image
+ * artifacts are served, from inside the vault, so the route cannot be used to
+ * read anything else on the machine.
+ */
+rebuildRouter.get("/:id/artifacts/:artifactId", (request, response) => {
+  try {
+    const artifact = readRun(request.params.id).artifacts.find((entry) => entry.id === request.params.artifactId && entry.media === "image");
+    if (!artifact) throw new RebuildError("No such screenshot.", 404);
+    const root = path.resolve(agentOSRoot());
+    const file = path.resolve(root, artifact.path);
+    if (!file.startsWith(`${root}${path.sep}`) || !file.endsWith(".png")) throw new RebuildError("No such screenshot.", 404);
+    response.setHeader("Cache-Control", "private, max-age=3600");
+    response.sendFile(file, (error) => {
+      if (error && !response.headersSent) response.status(404).json({ error: "That screenshot is no longer on disk." });
+    });
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
 rebuildRouter.get("/:id", (request, response) => {
   try {
     response.json(readRun(request.params.id));
@@ -98,7 +121,7 @@ rebuildRouter.post("/:id/stages/:stage/approve", (request, response) => {
     return;
   }
   try {
-    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note);
+    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note, input.data.choice);
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
   } catch (error) {

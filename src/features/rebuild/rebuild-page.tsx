@@ -3,8 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Loader2, RotateCcw } from "lucide-react";
 import {
   GATED_STAGES,
+  HERO_CONCEPTS,
   REBUILD_FUNCTION_LABEL,
   REBUILD_STAGES,
+  type RebuildArtifact,
   type RebuildRun,
   type RebuildStage,
 } from "@shared/website-rebuild-types";
@@ -102,7 +104,10 @@ function RebuildView({ run }: { run: RebuildRun }) {
 function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage; index: number }) {
   const definition = REBUILD_STAGES[index];
   const retry = useRetryStage(run.id);
-  const artifacts = run.artifacts.filter((artifact) => artifact.stage === stage.id);
+  const artifacts = run.artifacts.filter((artifact) => artifact.stage === stage.id && artifact.media === "document");
+  // Screenshots of the revision on screen: the latest one once it exists, so an old revision's pictures never pass for the new one.
+  const shownRevision = run.artifacts.filter((artifact) => artifact.stage === stage.id && artifact.media === "image").reduce((max, artifact) => Math.max(max, artifact.revision), 0);
+  const images = run.artifacts.filter((artifact) => artifact.stage === stage.id && artifact.media === "image" && artifact.revision === shownRevision);
   const revision = run.revisions.filter((entry) => entry.stage === stage.id).at(-1);
   const gated = GATED_STAGES.has(stage.id);
 
@@ -147,7 +152,19 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
         ) : null}
         {retry.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{retry.error.message}</p> : null}
 
-        {revision && stage.status !== "in_progress" ? <p className="mt-3 text-[13px] text-paper-char">{revision.summary}</p> : null}
+        {revision && stage.status !== "in_progress" ? (
+          <p className="mt-3 text-[13px] text-paper-char">
+            {revision.summary}
+            {revision.worker || revision.ref ? (
+              <span className="text-paper-sage">
+                {" "}
+                ({[revision.worker ? `by ${revision.worker}` : "", revision.ref ? `commit ${revision.ref.slice(0, 7)}` : ""].filter(Boolean).join(", ")})
+              </span>
+            ) : null}
+          </p>
+        ) : null}
+
+        {images.length > 0 && stage.id !== "hero" ? <ScreenshotGallery images={images} revision={shownRevision} /> : null}
 
         {artifacts.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-2" aria-label={`${definition.title} reports`}>
@@ -162,7 +179,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
           </ul>
         ) : null}
 
-        {stage.status === "awaiting_approval" ? <ReviewPanel run={run} stage={stage} /> : null}
+        {stage.status === "awaiting_approval" ? <ReviewPanel run={run} stage={stage} images={images} /> : stage.id === "hero" && images.length > 0 ? <ConceptGallery images={images} chosen={run.heroChoice} /> : null}
 
         {stage.id === "preview" && run.previewUrl ? (
           <a href={run.previewUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue hover:underline">
@@ -175,15 +192,18 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
 }
 
 /** Approve or request changes, always naming the revision on screen, so an approval can't land on something unseen. */
-function ReviewPanel({ run, stage }: { run: RebuildRun; stage: RebuildStage }) {
+function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildStage; images: RebuildArtifact[] }) {
   const id = useId();
   const decide = useDecideStage(run.id);
   const [note, setNote] = useState("");
+  const [choice, setChoice] = useState<string | undefined>(stage.id === "hero" ? run.heroChoice : undefined);
+  const needsChoice = stage.id === "hero";
 
   return (
     <div className="mt-4 border-t border-paper-mist pt-4">
       <p className="text-[13px] font-semibold text-paper-moss">Review revision {stage.revision}</p>
-      <label htmlFor={`${id}-note`} className="mt-2 block">
+      {needsChoice ? <ConceptGallery images={images} chosen={choice} onChoose={setChoice} name={`${id}-concept`} /> : null}
+      <label htmlFor={`${id}-note`} className="mt-3 block">
         <FieldLabel>What should change? (needed to request changes)</FieldLabel>
         <textarea id={`${id}-note`} className={cn(PAPER_INPUT, "min-h-20 w-full max-w-[75ch]")} value={note} onChange={(event) => setNote(event.target.value)} />
       </label>
@@ -192,9 +212,13 @@ function ReviewPanel({ run, stage }: { run: RebuildRun; stage: RebuildStage }) {
           {decide.error.message}
         </p>
       ) : null}
-      <div className="mt-3 flex flex-wrap gap-3">
-        <PaperButton variant="amber" disabled={decide.isPending} onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined })}>
-          Approve revision {stage.revision}
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <PaperButton
+          variant="amber"
+          disabled={decide.isPending || (needsChoice && !choice)}
+          onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined, choice })}
+        >
+          {needsChoice ? (choice ? `Approve and build ${conceptLabel(choice)}` : "Choose a concept to approve") : `Approve revision ${stage.revision}`}
         </PaperButton>
         <PaperButton
           disabled={decide.isPending || !note.trim()}
@@ -203,6 +227,76 @@ function ReviewPanel({ run, stage }: { run: RebuildRun; stage: RebuildStage }) {
           Request changes
         </PaperButton>
       </div>
+    </div>
+  );
+}
+
+const conceptLabel = (concept: string) => `Concept ${concept.replace("concept-", "").toUpperCase()}`;
+
+/** The three heroes side by side, desktop over phone. With `onChoose`, a radio group for picking one. */
+function ConceptGallery({ images, chosen, onChoose, name }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; name?: string }) {
+  return (
+    <div className="mt-3 grid gap-3 lg:grid-cols-3" role={onChoose ? "radiogroup" : undefined} aria-label={onChoose ? "Hero concepts" : undefined}>
+      {HERO_CONCEPTS.map((concept) => {
+        const desktop = images.find((image) => image.path.includes(`-${concept}-desktop`));
+        const mobile = images.find((image) => image.path.includes(`-${concept}-mobile`));
+        const selected = chosen === concept;
+        const body = (
+          <>
+            <span className="flex items-center justify-between gap-2 text-[13px] font-semibold text-paper-moss">
+              {conceptLabel(concept)}
+              {selected ? <CheckCircle2 className="size-4 text-paper-blue" aria-hidden="true" /> : null}
+            </span>
+            <span className="mt-2 grid grid-cols-[1fr_auto] items-start gap-2">
+              {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" loading="lazy" /> : <span className="text-[12px] text-paper-sage">No desktop shot</span>}
+              {mobile ? <img src={mobile.href} alt={`${conceptLabel(concept)} hero at phone width`} className="w-16 border border-paper-mist sm:w-20" loading="lazy" /> : null}
+            </span>
+          </>
+        );
+        return onChoose ? (
+          <label key={concept} className={cn("cursor-pointer border-[1.5px] p-3", selected ? "border-paper-blue bg-paper-white" : "border-paper-mist hover:border-paper-sage")}>
+            <input type="radio" name={name} value={concept} checked={selected} onChange={() => onChoose(concept)} className="sr-only" />
+            {body}
+          </label>
+        ) : (
+          <div key={concept} className={cn("border-[1.5px] p-3", selected ? "border-paper-blue" : "border-paper-mist")}>
+            {body}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Pages of a built revision, each at desktop and phone width. Click to open full size. */
+function ScreenshotGallery({ images, revision }: { images: RebuildArtifact[]; revision: number }) {
+  const pages = [...new Set(images.map((image) => image.title.replace(/ \((desktop|mobile)\)$/, "")))];
+  return (
+    <div className="mt-3">
+      <p className="text-[12px] text-paper-sage">Screenshots of revision {revision}</p>
+      <ul className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {pages.map((page) => {
+          const desktop = images.find((image) => image.title === `${page} (desktop)`);
+          const mobile = images.find((image) => image.title === `${page} (mobile)`);
+          return (
+            <li key={page} className="border border-paper-mist p-2">
+              <p className="mb-1 text-[12.5px] font-semibold text-paper-moss">{page}</p>
+              <div className="grid grid-cols-[1fr_auto] items-start gap-2">
+                {desktop ? (
+                  <a href={desktop.href} target="_blank" rel="noopener noreferrer">
+                    <img src={desktop.href} alt={`${page} at desktop width`} className="w-full" loading="lazy" />
+                  </a>
+                ) : null}
+                {mobile ? (
+                  <a href={mobile.href} target="_blank" rel="noopener noreferrer">
+                    <img src={mobile.href} alt={`${page} at phone width`} className="w-14" loading="lazy" />
+                  </a>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

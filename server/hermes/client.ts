@@ -217,6 +217,11 @@ export interface HermesCallContext {
    * replies are read by machine put their schema here, not in the prompt.
    */
   system?: string;
+  /**
+   * Called with the reply's own reference and model, for callers that must
+   * cite exactly which Hermes run produced a report.
+   */
+  onReply?: (meta: { id?: string; model?: string }) => void;
 }
 
 /**
@@ -284,6 +289,12 @@ export async function sendToHermes(
   } catch (error) {
     console.error("[agentos] could not record Hermes usage:", error);
   }
+
+  const reply = payload as { id?: unknown; model?: unknown } | null;
+  call.onReply?.({
+    id: typeof reply?.id === "string" ? reply.id : undefined,
+    model: typeof reply?.model === "string" ? reply.model : undefined,
+  });
 
   // The guarantee behind the system rule: nothing Hermes returns here is
   // stored or shown with an em dash. Code in the reply is left untouched.

@@ -1,7 +1,7 @@
 ---
 name: agentos-website-to-preview
 description: Rebuild a prospect's website from research to a client-accessible Vercel preview, in seven stages with three approval checkpoints. Use when a lead on the "Build it first" path needs a new site.
-version: 1.0.0
+version: 1.1.0
 requires: [hermes, github, vercel]
 ---
 
