@@ -125,3 +125,19 @@ describe("Hermes usage report", () => {
     assert.equal(hermesUsage(undefined).measurement, "unknown");
   });
 });
+
+describe("why a CLI exited badly", async () => {
+  const { exitDetail } = await import("../providers/cli-worker");
+  it("prefers stderr", () => {
+    assert.equal(exitDetail("", "line one\nError: not logged in\n"), "line one Error: not logged in");
+  });
+  it("reads Claude Code's result event from stdout when stderr is empty", () => {
+    const stdout = ['{"type":"system","subtype":"init"}', '{"type":"result","subtype":"error_during_execution","is_error":true,"result":"Claude AI usage limit reached|1760000000"}'].join("\n");
+    assert.equal(exitDetail(stdout, ""), "Claude AI usage limit reached|1760000000");
+  });
+  it("falls back to the result subtype, then to plain output", () => {
+    assert.equal(exitDetail('{"type":"result","subtype":"error_max_turns","is_error":true}', ""), "error max turns");
+    assert.equal(exitDetail("Invalid API key · Please run /login\n", ""), "Invalid API key · Please run /login");
+    assert.equal(exitDetail("", ""), "");
+  });
+});
