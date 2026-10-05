@@ -1297,11 +1297,17 @@
   padding: 10px 12px;
   border: 1px solid var(--mail-warm-mist);
   border-radius: 0;
-  background: #fff;
+  /* Inherits the panel, like the fields above, so the text stays readable in any theme. */
+  background: transparent;
   font: inherit;
   font-size: 14px;
   line-height: 1.6;
   color: var(--mail-deep-moss);
+  caret-color: currentColor;
+}
+
+.mail-composer-body::placeholder {
+  color: var(--mail-ash-green);
 }
 
 .mail-composer-body[aria-busy="true"] {
@@ -1377,7 +1383,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(230, 230, 242, 0.92);
+  background: color-mix(in srgb, var(--mail-soft-linen) 92%, transparent);
   font-family: var(--mail-font-heading);
   font-size: 18px;
   font-weight: 600;
