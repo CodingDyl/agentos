@@ -21,6 +21,7 @@ import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { EmailFinder } from "./traction-outreach-email";
 import { SenderManager } from "./traction-outreach-senders";
+import { RebuildLauncher } from "@/features/rebuild";
 
 /**
  * One business, from "who are they" to a sent email.
@@ -239,6 +240,7 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
           <CaseLine entry={entry} field="setupPrice" />
         </div>
       ) : null}
+      {entry.path === "build_first" ? <RebuildLauncher prospect={prospect} /> : null}
       {entry.path === "cold_pitch" ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <CaseLine entry={entry} field="projectPrice" />

@@ -13,6 +13,7 @@ import { MailPage } from "@/features/mail";
 import { BusinessPage } from "@/features/business";
 import { OperatorPage } from "@/features/operator";
 import { TractionPage } from "@/features/traction";
+import { RebuildPage } from "@/features/rebuild";
 import { CompassPage } from "@/features/compass";
 import { FinancePage } from "@/features/finance";
 import { CareerPage } from "@/features/career";
@@ -65,6 +66,7 @@ function App() {
           <Route path="/mail" element={<Redirect to="/inbox" />} />
           {/* Getting customers, beside the work — not under it. */}
           <Route path="/traction" element={<TractionPage />} />
+          <Route path="/rebuilds/:id" element={<RebuildPage />} />
           <Route path="/business" element={<BusinessPage />} />
           <Route path="/growth" element={<Redirect to="/traction" />} />
           {/* Money: read-only from Investec, the arithmetic done here. */}
