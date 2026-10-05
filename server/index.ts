@@ -20,6 +20,8 @@ import {
 import { getDashboardData } from "./agentos/dashboard";
 import { getMissionControlData } from "./mission-control/builder";
 import { dismissAttention, restoreAttention } from "./mission-control/dismissals";
+import { readCalendarTasks } from "./calendar/tasks";
+import { calendarRouter } from "./calendar/routes";
 import { getTodayCalendar } from "./today/calendar";
 import { formatAgenda } from "./today/agenda";
 import { getMorningBrief } from "./today/brief";
@@ -359,6 +361,7 @@ app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
 app.use("/api/compass", compassRouter);
 app.use("/api/focus", focusRouter);
+app.use("/api/calendar", calendarRouter);
 
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
 app.use("/api/finance", financeRouter);
@@ -437,7 +440,8 @@ app.get("/api/today/agenda", async (_request, response) => {
     console.error("[agentos] agenda failed:", error);
     calendar = { status: "error" as const, detail: "AgentOS couldn't read the calendar", today: [] };
   }
-  response.type("text/plain").send(formatAgenda(calendar));
+  const scheduled = await readCalendarTasks().catch(() => undefined);
+  response.type("text/plain").send(formatAgenda(calendar, new Date(), scheduled?.tasks));
 });
 
 /** Hermes' newest morning brief, parsed into its plan. */

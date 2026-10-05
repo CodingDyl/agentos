@@ -132,7 +132,7 @@ export function NotePreview({
       const label = wiki.parts.label ?? (wiki.parts.target ? `${wiki.parts.target}${wiki.parts.heading ? ` › ${wiki.parts.heading}` : ""}` : wiki.parts.heading ?? wiki.inner);
       return wiki.embed && link?.resolution === "resolved" ? (
         <span className="inline-flex items-baseline gap-1">
-          <span className="font-paper-utility text-[11px] tracking-[0.08em] text-paper-sage uppercase">Embeds</span>
+          <span className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-sage uppercase">Embeds</span>
           {renderLink(link, label, onOpen)}
         </span>
       ) : (
@@ -165,7 +165,7 @@ export function NotePreview({
           aria-label={closeLabel}
           title={`${closeLabel} (Esc)`}
           className={cn(
-            "absolute top-3 right-3 z-10 inline-flex size-9 cursor-pointer items-center justify-center bg-[#04051a]/70 text-[#eef0ff] backdrop-blur-sm transition-colors duration-150 hover:bg-[#04051a]",
+            "absolute top-3 right-3 z-10 inline-flex size-9 cursor-pointer items-center justify-center bg-paper-linen text-paper-moss backdrop-blur-sm transition-colors duration-150 hover:bg-background",
             PAPER_FOCUS,
           )}
         >
@@ -177,7 +177,7 @@ export function NotePreview({
         {/* Keyed by note: moving between notes replays the layers, not the panel. */}
         <div key={note.id}>
           {/* The header continues the graph's dark field, lit in the note's own colour. */}
-          <header className="relative isolate overflow-hidden bg-[#04051a] px-6 pt-7 pb-6 text-[#eef0ff]">
+          <header className="relative isolate overflow-hidden bg-background px-6 pt-7 pb-6 text-paper-moss">
             <div
               className="memory-hero-glow pointer-events-none absolute -top-28 -left-16 h-80 w-[130%]"
               style={{ background: `radial-gradient(closest-side, ${withAlpha(accent, 0.5)}, ${withAlpha(accent, 0.12)} 55%, transparent)` }}
@@ -185,12 +185,12 @@ export function NotePreview({
             />
             <div className="memory-hero-title relative">
               <div className="memory-layer" data-depth="1">
-                <p className="truncate pr-12 font-mono text-[12px] text-[#b9bdf0]" title={note.id}>{note.id}</p>
+                <p className="truncate pr-12 font-mono text-[12px] text-paper-sage" title={note.id}>{note.id}</p>
                 <h2 data-heading="compact" className="mt-2 font-paper-display text-[30px] leading-[1.08] font-bold tracking-[-0.02em] text-balance text-white">
                   {note.title}
                 </h2>
               </div>
-              <div className="memory-layer mt-3 space-y-2 text-[12.5px] text-[#c9ccf5]" data-depth="2">
+              <div className="memory-layer mt-3 space-y-2 text-[12.5px] text-paper-char" data-depth="2">
                 <p className="tabular-nums">
                   Edited {formatRelativeTime(note.modifiedAt)} · {note.backlinkCount} backlink{note.backlinkCount === 1 ? "" : "s"} · {note.outgoingCount} outgoing ·{" "}
                   <span className="font-mono" title={note.hash}>#{note.hash.slice(0, 8)}</span>
@@ -198,7 +198,7 @@ export function NotePreview({
                 {note.tags.length > 0 || note.aliases.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {note.tags.map((tag) => (
-                      <span key={tag} className="border border-[#eef0ff]/30 px-1.5 py-px text-[12px] text-[#eef0ff]">#{tag}</span>
+                      <span key={tag} className="border border-paper-ash/30 px-1.5 py-px text-[12px] text-paper-moss">#{tag}</span>
                     ))}
                     {note.aliases.map((alias) => (
                       <span key={alias} className="text-[12.5px]">aka “{alias}”</span>
@@ -248,7 +248,7 @@ export function NotePreview({
               <button type="button" className={cn("group flex w-full items-baseline gap-2 px-5 py-2 text-left hover:bg-paper-linen", PAPER_FOCUS)} onClick={() => onOpen(backlink.sourceId)}>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-medium text-paper-moss group-hover:text-paper-blue">{backlink.sourceTitle}</span>
-                  <span className="block truncate font-mono text-[11.5px] text-paper-sage">{backlink.sourceId}</span>
+                  <span className="block truncate font-mono text-[12px] text-paper-sage">{backlink.sourceId}</span>
                 </span>
                 {backlink.count > 1 ? <span className="text-[12px] text-paper-sage tabular-nums">×{backlink.count}</span> : null}
               </button>
@@ -261,7 +261,7 @@ export function NotePreview({
             <li key={link.targetId}>
               <button type="button" className={cn("group flex w-full items-baseline gap-2 px-5 py-2 text-left hover:bg-paper-linen", PAPER_FOCUS)} onClick={() => onOpen(link.targetId!)}>
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-paper-moss group-hover:text-paper-blue">{titleFor(link.targetId!)}</span>
-                <span className="truncate font-mono text-[11.5px] text-paper-sage">{link.targetId}</span>
+                <span className="truncate font-mono text-[12px] text-paper-sage">{link.targetId}</span>
               </button>
             </li>
           ))}
@@ -317,7 +317,7 @@ function LinkSection({ title, count, empty, children }: { title: string; count: 
     <section aria-label={title} className="border-t border-paper-mist py-3">
       <h3 className="flex items-center gap-2 px-5 pb-1.5 font-paper-utility text-[12px] font-semibold tracking-[0.1em] text-paper-char uppercase">
         {title}
-        <span className="bg-paper-stone px-1.5 font-paper-ui text-[11.5px] font-medium tracking-normal tabular-nums">{count}</span>
+        <span className="bg-paper-stone px-1.5 font-paper-ui text-[12px] font-medium tracking-normal tabular-nums">{count}</span>
       </h3>
       {count === 0 ? <p className="px-5 py-1 text-[13.5px] text-paper-sage">{empty}</p> : <ul>{children}</ul>}
     </section>

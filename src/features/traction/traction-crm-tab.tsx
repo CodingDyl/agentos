@@ -132,7 +132,7 @@ function Money({ crm }: { crm: CrmView }) {
       <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
         {figures.map((figure) => (
           <div key={figure.label}>
-            <dt className="text-[11.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{figure.label}</dt>
+            <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{figure.label}</dt>
             <dd className={cn("mt-1 font-paper-display text-[20px] font-bold tabular-nums", figure.loud ? "text-paper-flame-deep" : "text-paper-moss")}>
               {figure.value}
             </dd>

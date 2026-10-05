@@ -10,9 +10,9 @@ import type { VoicePhase } from "./voice-model";
  */
 
 const BARS = 18;
-const CREAM = "255, 230, 203";
-const AMBER = "255, 189, 56";
-const FLAME = "245, 78, 0";
+const CREAM = "242, 244, 235";
+const AMBER = "190, 255, 50";
+const FLAME = "255, 122, 138";
 
 export function VoiceBars({ phase, level, width = 112, height = 24 }: { phase: VoicePhase; level: number; width?: number; height?: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);

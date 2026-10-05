@@ -53,7 +53,7 @@ export function ProjectAgents({
               />
             </div>
             {hermes.data?.model ? (
-              <p className="mt-3 font-mono text-[11px] tracking-[0.04em] text-os-subtle">{hermes.data.model}</p>
+              <p className="mt-3 font-mono text-[12px] tracking-[0.04em] text-os-subtle">{hermes.data.model}</p>
             ) : null}
           </HairlineCard>
         </Section>

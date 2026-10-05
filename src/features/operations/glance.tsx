@@ -58,7 +58,7 @@ function SpendCard({ data }: { data: OperationsData }) {
 
       <div className="mt-auto pt-4">
         <Sparkline values={values} label={`${priced ? "Spend" : "Tokens"} across ${data.window.label.toLowerCase()}`} />
-        <div className="mt-1.5 flex justify-between text-[11.5px] text-paper-sage tabular-nums">
+        <div className="mt-1.5 flex justify-between text-[12px] text-paper-sage tabular-nums">
           <span>{bucketLabel(data.series[0]?.from, data.range)}</span>
           <span>{priced ? "Spend" : "Tokens"}</span>
           <span>{data.range === "today" ? "Now" : "Today"}</span>

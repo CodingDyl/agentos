@@ -63,7 +63,7 @@ export function TodayStrip({
   return (
     <ul
       className={cn(
-        "grid grid-cols-2 gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist lg:grid-cols-4",
+        "collective-summary grid grid-cols-2 gap-px rounded-none border border-paper-mist bg-paper-mist xl:grid-cols-4",
         className,
       )}
     >
@@ -74,7 +74,7 @@ export function TodayStrip({
             <span
               className={cn(
                 "mt-1 block text-[15.5px] leading-6 font-semibold",
-                cell.loud ? "text-paper-flame-deep" : "text-paper-moss",
+                cell.loud ? "text-paper-marigold" : "text-paper-moss",
               )}
             >
               {cell.text}

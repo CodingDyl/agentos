@@ -1,3 +1,4 @@
+import type { TaskSchedule } from "../../shared/calendar-types";
 import { splitTaskTail } from "./mutations/task-document";
 /**
  * Small, deterministic parsers for AgentOS markdown conventions.
@@ -172,6 +173,8 @@ export function getBullets(section: string): string[] {
 
 /** One task line, read into its parts. */
 export interface ParsedTask {
+  schedule?: TaskSchedule;
+  calendarEventId?: string;
   /** Absent when the line carries no id. Such a task cannot be delegated. */
   id?: string;
   title: string;
@@ -212,6 +215,8 @@ export function getTasks(section: string): ParsedTask[] {
           completed: match[1].toLowerCase() === "x",
           ready: tail.ready || undefined,
           after: tail.after.length > 0 ? tail.after : undefined,
+          schedule: tail.schedule,
+          calendarEventId: tail.calendarEventId,
         },
       ];
     })

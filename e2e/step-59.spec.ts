@@ -16,7 +16,8 @@ test.describe("Today", () => {
   test("answers what today looks like and leads to the work that needs attention", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(/Good (morning|afternoon|evening)/);
+    await expect(page.getByRole("heading", { level: 1, name: "Today", exact: true })).toBeVisible();
+    await expect(page.getByText(/Good (morning|afternoon|evening), Dylan/)).toBeVisible();
     // 2 Pantry Pilot + 2 Virtara + 1 AgentOS + 1 Story Keeper open Now tasks.
     await expect(page.getByText("6 tasks across 4 workspaces")).toBeVisible();
 

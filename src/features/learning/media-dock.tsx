@@ -127,7 +127,7 @@ function MiniPlayer() {
         )}
         <Link to="/learning?tab=spotify" className="os-focus-ring min-w-0 flex-1" title={`${track.name} — ${track.artists.join(", ")}`}>
           <span className="block truncate text-[12.5px] text-foreground">♫ {track.name}</span>
-          <span className="block truncate text-[11.5px] text-os-muted">{track.artists.join(", ")}</span>
+          <span className="block truncate text-[12px] text-os-muted">{track.artists.join(", ")}</span>
         </Link>
       </div>
       <div className="mt-1.5 h-0.5 w-full bg-os-border" aria-hidden="true">
@@ -150,7 +150,7 @@ function MiniPlayer() {
         </button>
       </div>
       {spotify.error ? (
-        <p role="alert" className="mt-1 flex items-start gap-1 text-[11.5px] leading-4 text-os-danger">
+        <p role="alert" className="mt-1 flex items-start gap-1 text-[12px] leading-4 text-os-danger">
           <span className="min-w-0 flex-1">{spotify.error}</span>
           <button type="button" onClick={spotify.clearError} aria-label="Dismiss" className="os-focus-ring cursor-pointer">
             <X className="size-3" />

@@ -255,7 +255,7 @@ function AiCard({
             <li
               key={`${evidence.kind}-${evidence.label}`}
               title={evidence.detail}
-              className="inline-flex items-center gap-1.5 rounded-full bg-paper-linen px-2 py-px text-[11.5px] leading-[18px] text-paper-char"
+              className="inline-flex items-center gap-1.5 rounded-full bg-paper-linen px-2 py-px text-[12px] leading-[18px] text-paper-char"
             >
               <span className="font-medium text-paper-moss">{EVIDENCE_LABELS[evidence.kind]}</span>
               {evidence.kind === "config" ? evidence.detail : evidence.label.replace(/ (CLI|app)$/, "")}

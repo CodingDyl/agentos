@@ -99,7 +99,7 @@ export function DesignTile({
 
         {video ? (
           <span
-            className="pointer-events-none absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-none bg-paper-moss/85 px-1.5 py-0.5 font-paper-utility text-[11.5px] font-medium tracking-[0.06em] text-paper-white tabular-nums transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+            className="pointer-events-none absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-none bg-paper-moss/85 px-1.5 py-0.5 font-paper-utility text-[12px] font-medium tracking-[0.06em] text-paper-white tabular-nums transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
           >
             <Play className="size-3 fill-current" strokeWidth={0} aria-hidden="true" />
             {formatDuration(asset.durationSec) || "Video"}
@@ -109,7 +109,7 @@ export function DesignTile({
         {selecting ? (
           <span
             className={cn(
-              "pointer-events-none absolute top-2.5 left-2.5 grid size-5 place-items-center rounded-full border text-[11px] font-mono",
+              "pointer-events-none absolute top-2.5 left-2.5 grid size-5 place-items-center rounded-full border text-[12px] font-mono",
               selected
                 ? "border-paper-blue bg-paper-blue text-paper-white"
                 : "border-paper-sage bg-paper-white/85 text-transparent",

@@ -1,3 +1,5 @@
+import { TaskScheduleSchema, type TaskSchedule } from "../../../shared/calendar-types";
+
 /**
  * `TASKS.md`, as a document that can be edited without being rewritten.
  *
@@ -70,6 +72,8 @@ export interface TaskBlock {
   ready?: boolean;
   /** Ids this task waits on. `· after PP-021, PP-022` on the line. */
   after?: string[];
+  schedule?: TaskSchedule;
+  calendarEventId?: string;
 }
 
 /**
@@ -79,24 +83,32 @@ export interface TaskBlock {
  * - [ ] [PP-024] Chef polish · ready · after PP-021, PP-022
  * ```
  *
- * Two markers only, both optional, separated from the title and each other by
- * ` · `. A title that happens to contain ` · ` keeps every segment that is not
- * one of the two markers, so prose is never eaten. Everything else about a
- * task's state is derived rather than written.
+ * Optional ready/dependency markers and calendar schedule/event metadata use
+ * ` · ` separators. Unknown or invalid segments stay in the title, so prose
+ * is never eaten. Schedule: `scheduled YYYY-MM-DD@HH:mm/minutes` (time optional).
  */
 const TAIL_SEPARATOR = " · ";
 const READY_MARKER = /^ready$/i;
 const AFTER_MARKER = /^after\s+(.+)$/i;
 const TASK_REF = /^[A-Z][A-Z0-9]{0,7}-\d{1,5}$/;
 
-export function splitTaskTail(body: string): { title: string; ready: boolean; after: string[] } {
+export function splitTaskTail(body: string): { title: string; ready: boolean; after: string[]; schedule?: TaskSchedule; calendarEventId?: string } {
   const segments = body.split(TAIL_SEPARATOR);
   const kept: string[] = [];
+  const metadata: { schedule?: TaskSchedule; calendarEventId?: string } = {};
   let ready = false;
   const after: string[] = [];
 
   for (const segment of segments) {
     const trimmed = segment.trim();
+
+    const scheduled = /^scheduled (\d{4}-\d{2}-\d{2})(?:@([0-9:]+))?\/(\d+)$/.exec(trimmed);
+    if (scheduled) {
+      const parsed = TaskScheduleSchema.safeParse({ date: scheduled[1], time: scheduled[2], durationMinutes: Number(scheduled[3]) });
+      if (parsed.success) { metadata.schedule = parsed.data; continue; }
+    }
+    const linked = /^event ([a-zA-Z0-9_-]{1,1024})$/.exec(trimmed);
+    if (linked) { metadata.calendarEventId = linked[1]; continue; }
 
     if (READY_MARKER.test(trimmed)) {
       ready = true;
@@ -120,11 +132,13 @@ export function splitTaskTail(body: string): { title: string; ready: boolean; af
     kept.push(segment);
   }
 
-  return { title: kept.join(TAIL_SEPARATOR).trim(), ready, after: [...new Set(after)] };
+  return { title: kept.join(TAIL_SEPARATOR).trim(), ready, after: [...new Set(after)], ...metadata };
 }
 
-export function renderTaskTail(task: Pick<TaskBlock, "ready" | "after">): string {
+export function renderTaskTail(task: Pick<TaskBlock, "ready" | "after" | "schedule" | "calendarEventId">): string {
   const parts: string[] = [];
+  if (task.schedule) parts.push(`scheduled ${task.schedule.date}${task.schedule.time ? `@${task.schedule.time}` : ""}/${task.schedule.durationMinutes}`);
+  if (task.calendarEventId) parts.push(`event ${task.calendarEventId}`);
   if (task.ready) parts.push("ready");
   if (task.after && task.after.length > 0) parts.push(`after ${task.after.join(", ")}`);
 
@@ -208,6 +222,8 @@ export function parseTaskDocument(markdown: string): TaskDocument {
         completed: task[3].toLowerCase() === "x",
         id: identified?.[1],
         title: tail.title,
+        schedule: tail.schedule,
+        calendarEventId: tail.calendarEventId,
         ready: tail.ready || undefined,
         after: tail.after.length > 0 ? tail.after : undefined,
       });
@@ -428,6 +444,8 @@ function insertionPoint(document: TaskDocument, range: SectionRange): number {
 }
 
 export interface NewTask {
+  schedule?: TaskSchedule;
+  calendarEventId?: string;
   id: string;
   title: string;
   completed?: boolean;
@@ -450,6 +468,8 @@ export function insertTask(
     completed: task.completed ?? false,
     id: task.id,
     title: task.title,
+    schedule: task.schedule,
+    calendarEventId: task.calendarEventId,
   };
 
   block.raw = renderTask(block);
@@ -530,7 +550,7 @@ export function moveTask(
 export function updateTask(
   document: TaskDocument,
   id: string,
-  patch: { title?: string; completed?: boolean; ready?: boolean; after?: string[] },
+  patch: { title?: string; completed?: boolean; ready?: boolean; after?: string[]; schedule?: TaskSchedule | null; calendarEventId?: string | null },
 ): TaskBlock | undefined {
   const found = findTask(document, id);
   if (!found) return undefined;
@@ -539,6 +559,8 @@ export function updateTask(
 
   const next: TaskBlock = {
     ...found.block,
+    schedule: patch.schedule === undefined ? found.block.schedule : patch.schedule ?? undefined,
+    calendarEventId: patch.calendarEventId === undefined ? found.block.calendarEventId : patch.calendarEventId ?? undefined,
     title: patch.title?.trim() || found.block.title,
     completed: patch.completed ?? found.block.completed,
     ready: (patch.ready ?? found.block.ready) || undefined,

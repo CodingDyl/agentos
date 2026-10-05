@@ -1,3 +1,4 @@
+import type { CalendarTask } from "../../shared/calendar-types";
 import type { CalendarEvent, TodayCalendar } from "../../shared/today-types";
 
 /**
@@ -23,22 +24,25 @@ function eventLine(event: CalendarEvent): string {
   return `- ${when}: ${event.title}${extras ? ` (${extras})` : ""}`;
 }
 
-export function formatAgenda(calendar: TodayCalendar, now: Date = new Date()): string {
+export function formatAgenda(calendar: TodayCalendar, now: Date = new Date(), tasks: CalendarTask[] = []): string {
   const day = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const header = `Calendar for ${day} (from AgentOS, Google Calendar, read-only)`;
 
+  const today = now.toLocaleDateString("en-CA");
+  const scheduled = tasks.filter((task) => !task.completed && task.schedule?.date === today);
+  const taskLines = scheduled.length ? ["", "Tasks scheduled for today (existing AgentOS tasks, do not recreate):", ...scheduled.map((task) => `- ${task.schedule?.time ?? "Any time"}: [${task.taskId}] ${task.title} (${task.projectName})`)] : [];
   if (calendar.status !== "ready") {
-    return `${header}\nThe calendar is unavailable today: ${calendar.detail ?? calendar.status}. Plan the day without calendar context and say so briefly.`;
+    return `${header}\nThe calendar is unavailable today: ${calendar.detail ?? calendar.status}. Plan the day without calendar context and say so briefly.${taskLines.join("\n")}`;
   }
 
   const lines = [header];
   if (calendar.today.length === 0) {
-    lines.push("No events today. The whole day is free for focused work.");
+    lines.push("No events today. Use the scheduled tasks to plan focused work.");
   } else {
     lines.push(...calendar.today.map(eventLine));
     const timed = calendar.today.filter((event) => !event.allDay).length;
     lines.push(`${timed} timed ${timed === 1 ? "event" : "events"} today.`);
   }
   if (calendar.tomorrowFirst) lines.push(`Tomorrow starts with: ${eventLine(calendar.tomorrowFirst).slice(2)}`);
-  return lines.join("\n");
+  return [...lines, ...taskLines].join("\n");
 }

@@ -193,7 +193,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onKeyDown={onKeyDown}>
-      <button type="button" aria-label="Close" tabIndex={-1} onClick={requestClose} className="memory-backdrop absolute inset-0 cursor-default bg-[#04051a]/65" />
+      <button type="button" aria-label="Close" tabIndex={-1} onClick={requestClose} className="memory-backdrop absolute inset-0 cursor-default bg-background/65" />
 
       <div
         ref={dialog}
@@ -378,7 +378,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                   <dt className="text-paper-sage">Folder</dt>
                   <dd className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-mono text-[13px]">{folder ? `${folder}/` : "Vault root"}</span>
-                    {folderIsNew ? <span className="bg-paper-marigold px-1.5 text-[11.5px] font-semibold tracking-[0.06em] text-paper-moss uppercase">New</span> : null}
+                    {folderIsNew ? <span className="bg-paper-marigold px-1.5 text-[12px] font-semibold tracking-[0.06em] text-primary-foreground uppercase">New</span> : null}
                   </dd>
                   <dt className="text-paper-sage">File</dt>
                   <dd className="truncate font-mono text-[13px]">{fileName}</dd>

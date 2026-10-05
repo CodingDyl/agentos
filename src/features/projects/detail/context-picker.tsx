@@ -132,7 +132,7 @@ export function ContextPicker({
             <p className="os-meta text-os-subtle">Also named by Hermes</p>
             <ul className="mt-1 space-y-0.5">
               {unpriced.map((entry) => (
-                <li key={entry} className="truncate font-mono text-[11px] leading-5 text-os-subtle">
+                <li key={entry} className="truncate font-mono text-[12px] leading-5 text-os-subtle">
                   {entry}
                 </li>
               ))}

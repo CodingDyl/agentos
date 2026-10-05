@@ -1,5 +1,7 @@
+import { useMissionControl } from "@/lib/agentos/queries";
+import { CollectiveArtwork, DecorativeTape } from "@/components/collective/collective-identity";
 import { Menu, X, type LucideIcon } from "lucide-react";
-import { useContext, useEffect, useState, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppShellActionsContext } from "./app-shell-actions-context";
@@ -72,14 +74,23 @@ export function AppShell({
   navigationItems,
   pageId,
   activeHref,
-  systemState = "online",
-  systemLabel = "Hermes online",
+  systemState,
+  systemLabel,
   agentState = "idle",
   agentLabel = "Agent / idle",
   contextLabel,
   modelLabel = "Local workspace",
   className,
 }: AppShellProps) {
+  const connection = useMissionControl();
+  const hermes = connection.data?.system.find((item) => item.id === "hermes");
+  const connectionState: SystemState = connection.isError ? "offline" : !hermes ? "idle" :
+    hermes.status === "offline" || hermes.status === "failed" ? "offline" :
+    hermes.status === "unknown" ? "idle" : hermes.status === "attention" ? "degraded" : "online";
+  const connectionLabel = connection.isError ? "Hermes unavailable" : !hermes ? "Hermes checking" :
+    hermes.status === "unknown" ? "Hermes unknown" : `Hermes ${connectionState}`;
+  const navigationRef = useRef<HTMLElement>(null);
+  const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window === "undefined"
@@ -95,13 +106,20 @@ export function AppShell({
   }, []);
 
   useEffect(() => {
-    if (!isNavigationOpen) return;
-    const closeNavigationOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsNavigationOpen(false);
+    if (!isNavigationOpen || isDesktop) return;
+    const drawer = navigationRef.current;
+    drawer?.querySelector<HTMLElement>("a, button")?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); setIsNavigationOpen(false); }
+      if (event.key !== "Tab" || !drawer) return;
+      const controls = Array.from(drawer.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex="0"]')).filter((element) => element.getClientRects().length > 0);
+      const first = controls[0]; const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
-    document.addEventListener("keydown", closeNavigationOnEscape);
-    return () => document.removeEventListener("keydown", closeNavigationOnEscape);
-  }, [isNavigationOpen]);
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); navigationTriggerRef.current?.focus(); };
+  }, [isNavigationOpen, isDesktop]);
 
   const navigationIsAvailable = isDesktop || isNavigationOpen;
   const location = useLocation();
@@ -112,7 +130,7 @@ export function AppShell({
   return (
     <div
       className={cn(
-        "os-environment grid h-dvh grid-rows-[48px_minmax(0,1fr)_40px] overflow-hidden text-foreground",
+        "os-environment grid grid-cols-[minmax(0,1fr)] h-dvh grid-rows-[56px_minmax(0,1fr)_32px] overflow-hidden text-foreground",
         className,
       )}
     >
@@ -127,6 +145,7 @@ export function AppShell({
         <div className="flex items-center gap-3">
           <button
             type="button"
+            ref={navigationTriggerRef}
             onClick={() => setIsNavigationOpen((isOpen) => !isOpen)}
             className="os-focus-ring -ml-2 inline-flex size-10 cursor-pointer items-center justify-center rounded-md text-os-muted transition-colors hover:bg-os-surface-raised hover:text-foreground md:hidden"
             aria-label={isNavigationOpen ? "Close navigation" : "Open navigation"}
@@ -140,7 +159,8 @@ export function AppShell({
           </button>
           <Link
             to="/"
-            className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-none font-paper-utility text-[15px] font-medium tracking-[0.14em] uppercase"
+            aria-label="AgentOS home"
+            className="collective-brand os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-none font-paper-utility text-[15px] font-medium tracking-[0.14em] uppercase"
           >
             <span className="text-os-muted">Agent</span>
             <span className="text-os-subtle">/</span>
@@ -149,13 +169,13 @@ export function AppShell({
         </div>
         <div className="flex items-center gap-3 sm:gap-4">
           {shellActions}
-          <SystemIndicator state={systemState} label={systemLabel} />
+          <SystemIndicator state={systemState ?? connectionState} label={systemLabel ?? connectionLabel} title={hermes?.detail} />
         </div>
       </header>
 
       {/* One row the height of the stage, so a sidebar longer than the window
           scrolls inside itself instead of running under the status bar. */}
-      <div className="relative grid min-h-0 grid-rows-[minmax(0,1fr)] md:grid-cols-[232px_minmax(0,1fr)]">
+      <div className="relative grid min-h-0 grid-rows-[minmax(0,1fr)] md:grid-cols-[224px_minmax(0,1fr)]">
         {isNavigationOpen ? (
           <button
             type="button"
@@ -165,8 +185,11 @@ export function AppShell({
           />
         ) : null}
         <aside
+          ref={navigationRef}
+          role={!isDesktop && isNavigationOpen ? "dialog" : undefined}
+          aria-modal={!isDesktop && isNavigationOpen ? true : undefined}
           className={cn(
-            "os-stage os-navigation-drawer absolute inset-y-0 left-0 z-20 flex min-h-0 w-[min(82vw,232px)] flex-col border-r border-os-border bg-os-surface transition-transform duration-150",
+            "os-stage os-navigation-drawer absolute inset-y-0 left-0 z-20 flex min-h-0 w-[min(82vw,224px)] flex-col border-r border-os-border bg-os-surface transition-transform duration-150",
           )}
           data-open={isNavigationOpen}
           inert={!navigationIsAvailable}
@@ -195,6 +218,7 @@ export function AppShell({
                 </div>
               );
             })}
+            <div className="collective-sidebar-art" aria-hidden="true"><CollectiveArtwork /><DecorativeTape /></div>
           </nav>
           {media}
           {voiceLauncher ? <div className="border-t border-os-border p-3">{voiceLauncher}</div> : null}
@@ -223,7 +247,7 @@ export function AppShell({
           </div>
         </aside>
 
-        <main id="agentos-main" tabIndex={-1} data-agentos-page={pageId} className="min-w-0 overflow-y-auto outline-none">
+        <main inert={!isDesktop && isNavigationOpen} id="agentos-main" tabIndex={-1} data-agentos-page={pageId} className="min-w-0 overflow-y-auto outline-none">
           {children}
         </main>
       </div>
@@ -271,9 +295,9 @@ function NavigationLink({
         to={item.href}
         onClick={onNavigate}
         className={cn(
-          "os-focus-ring group relative flex min-h-10 cursor-pointer items-center gap-3 rounded-none px-3 font-paper-utility text-[13px] font-medium tracking-[0.1em] uppercase transition-colors duration-150",
+          "os-focus-ring group relative flex min-h-10 cursor-pointer items-center gap-3 rounded-none px-3 font-paper-ui text-[14px] font-medium transition-colors duration-150",
           isActive
-            ? "bg-os-surface-raised text-foreground"
+            ? "bg-primary text-primary-foreground"
             : "text-os-muted hover:bg-os-surface-raised/70 hover:text-foreground",
         )}
         aria-current={isActive ? "page" : undefined}
@@ -282,14 +306,14 @@ function NavigationLink({
           <span className="absolute inset-y-2 left-0 w-[3px] bg-os-amber" aria-hidden="true" />
         ) : null}
         <Icon
-          className={cn("size-4 text-os-subtle transition-colors", isActive && "text-os-amber")}
+          className={cn("size-4 transition-colors", isActive ? "text-primary-foreground" : "text-os-subtle")}
           strokeWidth={1.5}
           aria-hidden="true"
         />
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
         {item.badge ? (
           <span
-            className="shrink-0 rounded-none bg-os-warning px-1.5 py-0.5 text-[11px] leading-4 font-medium text-[#0000f2] tabular-nums"
+            className="shrink-0 rounded-none bg-os-warning px-1.5 py-0.5 text-[12px] leading-4 font-medium text-primary-foreground tabular-nums"
             aria-label={`${item.badge} waiting on you`}
           >
             {item.badge}

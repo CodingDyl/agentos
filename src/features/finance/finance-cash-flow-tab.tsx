@@ -29,7 +29,7 @@ export function FinanceCashFlowTab({ data }: { data: FinanceData }) {
                   </div>
                   <span className={cn("w-24 text-right text-[13.5px] tabular-nums", month.saved < 0 ? "font-semibold text-paper-flame-deep" : "text-paper-moss")}>
                     {money(month.saved)}
-                    {current ? <span className="block text-[11.5px] font-normal text-paper-sage">so far</span> : null}
+                    {current ? <span className="block text-[12px] font-normal text-paper-sage">so far</span> : null}
                   </span>
                 </li>
               );

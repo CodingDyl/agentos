@@ -9,31 +9,30 @@
  * `App.css` already use for Fontsource packages — never a JS-side import.
  */
 
-@import "@fontsource-variable/inter-tight";
 @import "@fontsource/ibm-plex-sans/latin-400.css";
 @import "@fontsource/ibm-plex-sans/latin-500.css";
 @import "@fontsource/ibm-plex-sans/latin-600.css";
 @import "@fontsource/ibm-plex-sans/latin-700.css";
 
 :root {
-  --mail-sandy-desk: #e6e6f2;
-  --mail-paper-white: #f2f2f2;
-  --mail-cream-paper: #fbfbfb;
-  --mail-soft-linen: #e6e6f2;
-  --mail-pale-stone: #dcdcf2;
-  --mail-deep-moss: #000091;
-  --mail-olive-char: #1d1d9d;
-  --mail-sage-gray: #4949ae;
-  --mail-ash-green: #7474c0;
-  --mail-warm-mist: #a9a9f2;
-  --mail-amber-glow: #0000f2;
-  --mail-dark-amber: #000091;
-  --mail-burnished-gold: #0000f2;
-  --mail-marigold: #f2f200;
-  --mail-flame-orange: #b00020;
-  --mail-moss-green: #0000f2;
-  --mail-font-heading: "Roboto Condensed Variable", "Roboto Condensed", "Arial Narrow", sans-serif;
-  --mail-font-ui: "Inter", Arial, ui-sans-serif, system-ui, sans-serif;
+  --mail-sandy-desk: var(--paper-desk);
+  --mail-paper-white: var(--paper-white);
+  --mail-cream-paper: var(--paper-cream);
+  --mail-soft-linen: var(--paper-linen);
+  --mail-pale-stone: var(--paper-stone);
+  --mail-deep-moss: var(--paper-moss);
+  --mail-olive-char: var(--paper-char);
+  --mail-sage-gray: var(--paper-sage);
+  --mail-ash-green: var(--paper-ash);
+  --mail-warm-mist: var(--paper-mist);
+  --mail-amber-glow: var(--paper-blue);
+  --mail-dark-amber: var(--paper-amber-deep);
+  --mail-burnished-gold: var(--paper-gold);
+  --mail-marigold: var(--paper-marigold);
+  --mail-flame-orange: var(--paper-flame);
+  --mail-moss-green: var(--paper-green);
+  --mail-font-heading: var(--os-font-display);
+  --mail-font-ui: var(--os-font-sans);
   --mail-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -76,8 +75,8 @@
 }
 
 .mail-title {
-  font-family: var(--mail-font-heading);
-  font-weight: 300;
+  font-family: var(--mail-font-ui);
+  font-weight: 800;
   font-size: clamp(2.25rem, 3.6vw, 3rem);
   line-height: 1;
   letter-spacing: -0.02em;
@@ -98,7 +97,7 @@
 
 .mail-btn-amber {
   background: var(--mail-amber-glow);
-  color: var(--mail-deep-moss);
+  color: var(--color-on-paper);
   border: none;
   border-radius: 0;
   padding: 8px 16px;
@@ -112,7 +111,7 @@
 
 .mail-btn-amber:hover {
   background: var(--mail-dark-amber);
-  color: #fff;
+  color: var(--color-on-paper);
 }
 
 .mail-btn-amber:disabled {
@@ -149,7 +148,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--mail-font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -163,10 +162,10 @@
 
 .mail-bucket-count {
   background: var(--mail-ash-green);
-  color: #fff;
+  color: var(--color-on-paper);
   border-radius: 0;
   padding: 1px 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .mail-bucket-label--needs .mail-bucket-count {
@@ -204,7 +203,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--mail-font-heading);
+  font-family: var(--mail-font-ui);
   font-weight: 700;
   font-size: 13px;
   background: var(--mail-soft-linen);
@@ -220,7 +219,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-family: var(--mail-font-heading);
+  font-family: var(--mail-font-ui);
   font-weight: 600;
   font-size: 14.5px;
   letter-spacing: -0.01em;
@@ -249,14 +248,14 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #b00020;
+  background: var(--color-danger);
   flex-shrink: 0;
 }
 
 .mail-thread-error {
   margin: 8px 0 0;
   font-size: 12.5px;
-  color: #b00020;
+  color: var(--color-danger);
 }
 
 .mail-thread-snippet {
@@ -276,7 +275,7 @@
 
 .mail-tag {
   font-family: var(--mail-font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.02em;
   border-radius: 0;
@@ -285,12 +284,12 @@
 
 .mail-tag--client {
   background: var(--mail-flame-orange);
-  color: #fff;
+  color: var(--color-on-paper);
 }
 
 .mail-tag--finance {
   background: var(--mail-marigold);
-  color: var(--mail-deep-moss);
+  color: var(--color-on-paper);
 }
 
 .mail-tag--reply {
@@ -301,7 +300,7 @@
 
 .mail-tag--noreply {
   background: var(--mail-moss-green);
-  color: #fff;
+  color: var(--color-on-paper);
 }
 
 /* A thread the person placed themselves — inked, not coloured, so it never competes with the category. */
@@ -337,7 +336,7 @@
 
 .mail-thread-when {
   font-family: var(--mail-font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--mail-ash-green);
   white-space: nowrap;
   margin-top: 2px;
@@ -349,7 +348,7 @@
 }
 
 .mail-empty-title {
-  font-family: var(--mail-font-heading);
+  font-family: var(--mail-font-ui);
   font-weight: 700;
   font-size: 17px;
   margin: 0 0 8px;
@@ -396,14 +395,14 @@
 
 .mail-filter-count {
   font-family: var(--mail-font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--mail-sage-gray);
   font-variant-numeric: tabular-nums;
 }
 
 /* Needs you keeps its flame even at rest, so the one bucket that asks for action reads first. */
 .mail-filter--needs .mail-filter-count {
-  color: #b00020;
+  color: var(--color-danger);
   font-weight: 600;
 }
 
@@ -586,23 +585,23 @@
 }
 
 .mail-bulk-btn--danger {
-  color: #b00020;
+  color: var(--color-danger);
 }
 
 .mail-bulk-btn--danger:hover:not(:disabled) {
-  border-color: #b00020;
-  background: #fdf1eb;
+  border-color: var(--color-danger);
+  background: var(--color-surface-raised);
 }
 
 .mail-bulk--confirm .mail-bulk-btn--danger {
-  background: #b00020;
-  border-color: #b00020;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
   color: var(--mail-paper-white);
 }
 
 .mail-bulk--confirm .mail-bulk-btn--danger:hover {
-  background: #8a0018;
-  border-color: #8a0018;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
   color: var(--mail-paper-white);
 }
 
@@ -646,7 +645,7 @@
   padding: 12px 14px;
   border: 1px solid var(--mail-burnished-gold);
   border-radius: 0;
-  background: #fdf8ec;
+  background: var(--color-surface-raised);
   font-size: 13.5px;
   color: var(--mail-deep-moss);
 }
@@ -825,13 +824,13 @@
 }
 
 .mail-menu-item--danger {
-  color: #b00020;
+  color: var(--color-danger);
 }
 
 .mail-menu-item--armed,
 .mail-menu-item--armed:hover:not(:disabled),
 .mail-menu-item--armed:focus-visible {
-  background: #b00020;
+  background: var(--color-danger);
   color: var(--mail-paper-white);
 }
 
@@ -997,9 +996,9 @@
 }
 
 .mail-quick-btn--danger:hover:not(:disabled) {
-  color: #b00020;
-  border-color: #f0b3bd;
-  background: #fdf1eb;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background: var(--color-surface-raised);
 }
 
 /* Keep is the rescue from the 24-hour clock, so it never hides. */
@@ -1045,9 +1044,9 @@
   margin: -8px 0 16px;
   padding: 8px 12px;
   border-radius: 0;
-  background: #fdf1eb;
+  background: var(--color-surface-raised);
   font-size: 13px;
-  color: #8a2c00;
+  color: var(--color-warning);
 }
 
 .mail-kbd {
@@ -1059,7 +1058,7 @@
   border-radius: 0;
   background: var(--mail-paper-white);
   font-family: var(--mail-font-mono);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
   text-align: center;
   color: var(--mail-olive-char);
@@ -1088,3 +1087,6 @@
     transition: none;
   }
 }
+
+.mail-title { font-family: var(--os-font-display); }
+.mail-btn-amber, .mail-btn-ghost { min-height: var(--control-height); }

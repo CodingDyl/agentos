@@ -322,7 +322,7 @@ function CapabilityRow({ connectorId, capability }: { connectorId: string; capab
             {!capability.implemented ? <Tag tone="muted">Not built</Tag> : null}
           </p>
           <p className="mt-0.5 text-[12.5px] text-paper-sage">
-            <code className="font-mono text-[11.5px]">{capability.id}</code>
+            <code className="font-mono text-[12px]">{capability.id}</code>
             {note ? ` · ${note}` : ""}
             {capability.implemented && capability.unavailableReason ? ` · ${capability.unavailableReason}` : ""}
           </p>
@@ -337,7 +337,7 @@ function CapabilityRow({ connectorId, capability }: { connectorId: string; capab
         {capability.policyOverridden ? (
           <PaperButton
             variant="quiet"
-            className="min-h-7 px-2 text-[11.5px]"
+            className="min-h-7 px-2 text-[12px]"
             disabled={setPolicy.isPending}
             onClick={() => setPolicy.mutate({ id: connectorId, capabilityId: capability.id, policy: null })}
             title={`Back to the default: ${capability.defaultPolicy}`}

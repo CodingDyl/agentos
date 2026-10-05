@@ -21,18 +21,19 @@ import {
 import { useNavigationItems } from "@/config/use-navigation";
 
 const colorTokens = [
-  { name: "Hermes Blue", value: "#0000F2", className: "bg-paper-blue" },
-  { name: "Hermes Paper", value: "#F2F2F2", className: "bg-paper-white" },
-  { name: "Deep Ink", value: "#000091", className: "bg-paper-moss" },
-  { name: "Dark Blue", value: "20% blue / black", className: "bg-[color-mix(in_srgb,#0000f2_20%,#000)]" },
-  { name: "Yellow accent", value: "#F2F200", className: "bg-paper-marigold" },
-  { name: "Ink 90", value: "#1D1D9D", className: "bg-paper-char" },
-  { name: "Ink 70", value: "#4949AE", className: "bg-paper-sage" },
-  { name: "Control border", value: "#7474C0", className: "bg-paper-ash" },
-  { name: "Hairline", value: "#A9A9F2", className: "bg-paper-mist" },
-  { name: "Linen", value: "#E6E6F2", className: "bg-paper-linen" },
-  { name: "Stone", value: "#DCDCF2", className: "bg-paper-stone" },
-  { name: "Danger", value: "#B00020", className: "bg-paper-flame-deep" },
+  { name: "Ink canvas", value: "#090B0A", className: "bg-background" },
+  { name: "Graphite surface", value: "#111512", className: "bg-paper-white" },
+  { name: "Raised surface", value: "#1A201C", className: "bg-paper-linen" },
+  { name: "Paper / text", value: "#F2F4EB", className: "bg-paper-moss" },
+  { name: "Acid lime", value: "#BEFF32", className: "bg-primary" },
+  { name: "Purple tape", value: "#BF6BFF", className: "bg-[var(--color-brand)]" },
+  { name: "Secondary text", value: "#B7C2B9", className: "bg-paper-char" },
+  { name: "Metadata", value: "#89998D", className: "bg-paper-sage" },
+  { name: "Control border", value: "#728176", className: "bg-paper-ash" },
+  { name: "Divider", value: "#3F4B42", className: "bg-paper-mist" },
+  { name: "Success", value: "#6BE3A0", className: "bg-paper-green" },
+  { name: "Attention", value: "#FFD166", className: "bg-paper-marigold" },
+  { name: "Danger", value: "#FF7A8A", className: "bg-paper-flame" },
 ];
 
 const statusStates: AgentStatus[] = [
@@ -78,7 +79,7 @@ export function DesignSystemPage() {
       <div className="mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
         <PageHeader
           title="AgentOS visual foundation"
-          description="The Hermes system: electric blue and warm paper, thin condensed type, square controls. Every screen inherits these decisions rather than inventing new ones."
+          description="Collective: ink and graphite workspaces, acid-lime commands, torn paper, and purple tape. Shared tokens keep every screen consistent."
           actions={
             <>
               <StatusPill status="healthy" label="V1 foundation" />
@@ -92,8 +93,8 @@ export function DesignSystemPage() {
         <div className="mt-12 space-y-14 pb-16">
           <SpecimenSection
             label="Palette"
-            title="Electric blue, warm paper"
-            description="Blue is the stage: the shell, primary actions, active state. Paper is the page. Deep Ink is the text. Yellow appears only on blue. Danger is the one hue outside the palette, because an error has to read as one."
+            title="Ink, paper, and acid lime"
+            description="Dark surfaces keep work readable. Lime marks primary actions and selection; purple is decorative. Mint, amber, coral, and cyan preserve distinct semantic states."
           >
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 xl:grid-cols-6">
               {colorTokens.map((token) => (
@@ -105,7 +106,7 @@ export function DesignSystemPage() {
           <SpecimenSection
             label="Typography"
             title="Thin condensed display, plain body"
-            description="Roboto Condensed carries titles at a light weight, and Barlow Condensed the feature headings. Inter is for reading and action. IBM Plex Mono is reserved for commands and indices. These stand in for the licensed Rules faces."
+            description="Barlow Condensed carries bold display headings. IBM Plex Sans is for reading and controls; IBM Plex Mono is for logs and metadata. All fonts are bundled locally."
           >
             <div className="border-y border-os-border">
               <TypeSpecimen
@@ -150,7 +151,7 @@ export function DesignSystemPage() {
           <SpecimenSection
             label="Labels & actions"
             title="Controls state their purpose plainly"
-            description="Hermes Blue is the primary action, square, with paper text. Secondary actions are outlined in blue. Nothing is pill-shaped except a switch."
+            description="Lime primary actions use ink text. Secondary controls use graphite surfaces and visible borders. All controls retain clear keyboard focus."
           >
             <div className="grid gap-8 xl:grid-cols-2">
               <div>

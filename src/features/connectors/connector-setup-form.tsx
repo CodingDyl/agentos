@@ -63,7 +63,7 @@ export function ConnectorSetupForm({ connector }: { connector: ConnectorDetail }
               {save.isPending ? "Connecting…" : "Save & connect"}
             </PaperButton>
             <span className="text-[12.5px] text-paper-sage">
-              Written to <code className="font-mono text-[11.5px]">.env</code> on this machine. Enter works from any field.
+              Written to <code className="font-mono text-[12px]">.env</code> on this machine. Enter works from any field.
             </span>
           </div>
         </form>

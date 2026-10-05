@@ -226,7 +226,7 @@ export function MemoryPage() {
               className={cn(PAPER_INPUT, "min-h-9 w-full pr-9 pl-9 text-[14px]")}
             />
             <kbd
-              className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 border border-paper-mist px-1.5 font-mono text-[11px] text-paper-sage sm:block"
+              className="pointer-events-none absolute top-1/2 right-2.5 hidden -translate-y-1/2 border border-paper-mist px-1.5 font-mono text-[12px] text-paper-sage sm:block"
               aria-hidden="true"
             >
               /
@@ -280,7 +280,7 @@ export function MemoryPage() {
             <button
               type="button"
               aria-label="Close files"
-              className="fixed inset-0 z-30 bg-[#04051a]/50 @min-[900px]/memory:hidden"
+              className="fixed inset-0 z-30 bg-background/50 @min-[900px]/memory:hidden"
               onClick={() => setDrawerOpen(false)}
             />
           ) : null}
@@ -351,7 +351,7 @@ export function MemoryPage() {
               >
                 <FilePlus2 className="size-4" strokeWidth={1.75} aria-hidden="true" />
                 New note
-                <kbd className="ml-auto hidden border border-paper-white/40 px-1.5 font-mono text-[11px] tracking-normal normal-case @min-[900px]/memory:inline" aria-hidden="true">
+                <kbd className="ml-auto hidden border border-paper-white/40 px-1.5 font-mono text-[12px] tracking-normal normal-case @min-[900px]/memory:inline" aria-hidden="true">
                   N
                 </kbd>
               </PaperButton>
@@ -359,7 +359,7 @@ export function MemoryPage() {
           </nav>
 
           {/* Everything else is the graph. */}
-          <section aria-label="Graph" className="relative isolate min-h-[420px] min-w-0 overflow-hidden bg-[#020210]">
+          <section aria-label="Graph" className="relative isolate min-h-[420px] min-w-0 overflow-hidden bg-background">
             <div
               className="memory-field absolute inset-0"
               data-note-open={Boolean(noteId)}
@@ -391,7 +391,7 @@ export function MemoryPage() {
               className="pointer-events-none absolute top-0 left-0 z-10 flex flex-wrap items-start gap-2 p-3 transition-[right] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
               style={clearOfPanel}
             >
-              <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 bg-[#04051a]/70 p-1.5 backdrop-blur-md">
+              <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 bg-paper-linen p-1.5 backdrop-blur-md">
                 <FieldSegment label="Graph scope" options={SCOPES} value={scope} onChange={(value) => update({ scope: value === "global" ? undefined : value })} />
                 {scope === "local" ? (
                   <FieldSegment label="Depth" options={DEPTHS} value={depth} onChange={(value) => update({ depth: value === "1" ? undefined : value })} />
@@ -402,7 +402,7 @@ export function MemoryPage() {
                     aria-label="Show notes with tag"
                     value={tag}
                     onChange={(event) => update({ tag: event.target.value || undefined })}
-                    className={cn("min-h-7 cursor-pointer border border-white/20 bg-transparent px-2 text-[12.5px] text-[#eef0ff] [&>option]:text-paper-moss", PAPER_FOCUS)}
+                    className={cn("min-h-7 cursor-pointer border border-white/20 bg-transparent px-2 text-[12.5px] text-paper-moss [&>option]:text-paper-moss", PAPER_FOCUS)}
                   >
                     <option value="">Any tag</option>
                     {tags.slice(0, 60).map((entry) => (
@@ -421,7 +421,7 @@ export function MemoryPage() {
                 <FieldToggle pressed={arrows} onClick={() => update({ arrows: arrows ? undefined : "1" })}>Arrows</FieldToggle>
                 <FieldToggle pressed={reducedMotion} onClick={toggleMotion}>Still</FieldToggle>
               </div>
-              <div className="pointer-events-auto ml-auto flex items-center bg-[#04051a]/70 p-1 backdrop-blur-md">
+              <div className="pointer-events-auto ml-auto flex items-center bg-paper-linen p-1 backdrop-blur-md">
                 <FieldIcon label="Zoom out" onClick={() => graphRef.current?.zoomBy(1 / 1.4)}><Minus /></FieldIcon>
                 <FieldIcon label="Zoom in" onClick={() => graphRef.current?.zoomBy(1.4)}><Plus /></FieldIcon>
                 <FieldIcon label="Fit to view" onClick={() => graphRef.current?.fit()}><Maximize /></FieldIcon>
@@ -449,7 +449,7 @@ export function MemoryPage() {
 
             {graphData && graphData.nodes.length > 0 ? (
               <div
-                className="pointer-events-none absolute bottom-0 left-0 z-10 flex flex-wrap items-end justify-between gap-3 p-3 text-[12px] text-[#c9ccf5]"
+                className="pointer-events-none absolute bottom-0 left-0 z-10 flex flex-wrap items-end justify-between gap-3 p-3 text-[12px] text-paper-char"
                 style={clearOfPanel}
               >
                 {colorBy !== "random" ? (
@@ -557,7 +557,7 @@ function FieldSegment<T extends string>({
             className={cn(
               "min-h-7 cursor-pointer px-2.5 text-[12.5px] font-medium transition-colors duration-150",
               FIELD_FOCUS,
-              selected ? "bg-[#eef0ff] text-[#04051a]" : "text-[#c9ccf5] hover:bg-white/10 hover:text-white",
+              selected ? "bg-primary text-primary-foreground" : "text-paper-char hover:bg-white/10 hover:text-white",
             )}
           >
             {option.label}
@@ -577,7 +577,7 @@ function FieldToggle({ pressed, onClick, children }: { pressed: boolean; onClick
       className={cn(
         "min-h-7 cursor-pointer border px-2.5 text-[12.5px] font-medium transition-colors duration-150",
         FIELD_FOCUS,
-        pressed ? "border-[#eef0ff] bg-[#eef0ff] text-[#04051a]" : "border-white/15 text-[#c9ccf5] hover:border-white/40 hover:text-white",
+        pressed ? "border-paper-ash bg-primary text-primary-foreground" : "border-white/15 text-paper-char hover:border-white/40 hover:text-white",
       )}
     >
       {children}
@@ -593,7 +593,7 @@ function FieldIcon({ label, onClick, children }: { label: string; onClick: () =>
       title={label}
       onClick={onClick}
       className={cn(
-        "inline-flex size-8 cursor-pointer items-center justify-center text-[#c9ccf5] transition-colors duration-150 hover:bg-white/10 hover:text-white [&>svg]:size-4 [&>svg]:stroke-[1.75]",
+        "inline-flex size-8 cursor-pointer items-center justify-center text-paper-char transition-colors duration-150 hover:bg-white/10 hover:text-white [&>svg]:size-4 [&>svg]:stroke-[1.75]",
         FIELD_FOCUS,
       )}
     >
@@ -604,13 +604,13 @@ function FieldIcon({ label, onClick, children }: { label: string; onClick: () =>
 
 function FilterChip({ children, onClear }: { children: ReactNode; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 bg-[#eef0ff] py-0.5 pr-0.5 pl-2 text-[12.5px] font-medium text-[#04051a]">
+    <span className="inline-flex items-center gap-1 bg-primary py-0.5 pr-0.5 pl-2 text-[12.5px] font-medium text-primary-foreground">
       Only {children}
       <button
         type="button"
         onClick={onClear}
         aria-label={`Stop filtering by ${String(children)}`}
-        className={cn("inline-flex size-6 cursor-pointer items-center justify-center hover:bg-[#04051a]/10", PAPER_FOCUS)}
+        className={cn("inline-flex size-6 cursor-pointer items-center justify-center hover:bg-background/10", PAPER_FOCUS)}
       >
         <X className="size-3.5" strokeWidth={2} aria-hidden="true" />
       </button>
@@ -658,7 +658,7 @@ function GraphMessage({
   if (!message) return null;
   return (
     <div className="pointer-events-none absolute bottom-12 left-0 z-10 flex justify-center p-4" style={style}>
-      <p role="status" className="max-w-[52ch] border border-white/15 bg-[#04051a]/80 px-4 py-2.5 text-center text-[13.5px] leading-6 text-[#eef0ff] backdrop-blur-md">
+      <p role="status" className="max-w-[52ch] border border-white/15 bg-paper-linen px-4 py-2.5 text-center text-[13.5px] leading-6 text-paper-moss backdrop-blur-md">
         {message}
       </p>
     </div>

@@ -1,4 +1,5 @@
-import { useEffect, useId, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useState, type ButtonHTMLAttributes, type HTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
+import { PaperLabel } from "@/components/collective/collective-identity";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,8 +37,8 @@ function useArrived(): boolean {
  */
 export function PaperStage({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-full bg-paper-white font-paper-ui text-paper-moss">
-      <div className="mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10">{children}</div>
+    <div className="min-h-full bg-background font-paper-ui text-paper-moss">
+      <div className="collective-workspace w-full">{children}</div>
     </div>
   );
 }
@@ -59,10 +60,10 @@ export function PaperSection({
   className?: string;
 }) {
   return (
-    <section id={id} aria-label={label} className={cn(id && "scroll-mt-8", className)}>
+    <section id={id} aria-label={label} className={cn("collective-panel", id && "scroll-mt-8", className)}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
-          {label}
+          <PaperLabel>{label}</PaperLabel>
           {count !== undefined ? (
             <span className="rounded-none bg-paper-stone px-2 py-px font-paper-ui text-[12px] font-medium tracking-normal text-paper-char tabular-nums">
               {count}
@@ -90,9 +91,9 @@ type ButtonVariant = "amber" | "ghost" | "quiet" | "danger";
 const BUTTON: Record<ButtonVariant, string> = {
   // The primary action is Hermes Blue with paper text (9:1). "amber" is the
   // variant's historical name and every screen still calls it that.
-  amber: "bg-paper-blue text-paper-white hover:bg-paper-moss",
+  amber: "bg-primary text-primary-foreground hover:bg-[var(--color-accent-hover)]",
   // The secondary action: blue outline, blue label, the same square footprint.
-  ghost: "border-[1.5px] border-paper-blue text-paper-blue hover:bg-paper-linen",
+  ghost: "border border-paper-ash bg-paper-linen text-paper-moss hover:bg-paper-stone",
   quiet: "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
   // Refusing or stopping something. Flame-deep is the AA-safe flame for text.
   danger: "border-[1.5px] border-paper-flame-deep text-paper-flame-deep hover:bg-paper-linen",
@@ -109,7 +110,7 @@ export function PaperButton({
       type="button"
       {...props}
       className={cn(
-        "inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-none px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] uppercase transition-[background-color,color,transform] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-[var(--control-height)] cursor-pointer items-center justify-center gap-1.5 rounded-none px-3.5 font-paper-ui text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
         PAPER_FOCUS,
         BUTTON[variant],
         className,
@@ -123,12 +124,12 @@ export function PaperButton({
 type TagTone = "flame" | "green" | "marigold" | "muted" | "blue";
 
 const TAG: Record<TagTone, string> = {
-  flame: "bg-paper-flame-deep text-paper-white",
-  green: "bg-paper-green text-paper-white",
+  flame: "bg-paper-flame/10 text-paper-flame",
+  green: "bg-paper-green/10 text-paper-green",
   // Ink on the brand yellow is 12:1. Yellow is never text on paper.
-  marigold: "bg-paper-marigold text-paper-moss",
+  marigold: "bg-paper-marigold/10 text-paper-marigold",
   muted: "bg-paper-stone text-paper-char",
-  blue: "bg-paper-blue text-paper-white",
+  blue: "bg-paper-blue/10 text-paper-blue",
 };
 
 /** The world's only pill: a small categorical tag. */
@@ -138,6 +139,18 @@ export function Tag({ tone = "muted", children, className }: { tone?: TagTone; c
       {children}
     </span>
   );
+}
+
+/** Standard radio/tab arrow keys without changing selection callbacks. */
+function moveChoice<T extends string>(event: KeyboardEvent<HTMLDivElement>, options: readonly { value: T }[], value: T, onChange: (value: T) => void) {
+  const index = options.findIndex((option) => option.value === value);
+  const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 :
+    event.key === "ArrowRight" || event.key === "ArrowDown" ? (index + 1) % options.length :
+    event.key === "ArrowLeft" || event.key === "ArrowUp" ? (index - 1 + options.length) % options.length : -1;
+  if (next < 0 || !options[next]) return;
+  event.preventDefault();
+  onChange(options[next].value);
+  event.currentTarget.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
 }
 
 /** A small set of choices, one selected. The paper version of a segmented control. */
@@ -153,7 +166,7 @@ export function SegmentedControl<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-none border border-paper-mist bg-paper-linen p-0.5">
+    <div role="radiogroup" aria-label={label} onKeyDown={(event) => moveChoice(event, options, value, onChange)} className="inline-flex rounded-none border border-paper-mist bg-paper-linen p-0.5">
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -162,11 +175,12 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              "min-h-7 cursor-pointer rounded-none px-3 text-[13px] font-medium transition-colors duration-150",
+              "min-h-[var(--control-height)] cursor-pointer rounded-none px-3 text-[14px] font-medium transition-colors duration-150",
               PAPER_FOCUS,
-              selected ? "bg-paper-white text-paper-moss ring-1 ring-paper-mist" : "text-paper-sage hover:text-paper-moss",
+              selected ? "bg-primary text-primary-foreground" : "text-paper-sage hover:text-paper-moss",
             )}
           >
             {option.label}
@@ -190,7 +204,7 @@ export function PaperTabs<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--paper-mist)]">
+    <div role="tablist" aria-label={label} onKeyDown={(event) => moveChoice(event, options, value, onChange)} className="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--paper-mist)]">
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -200,6 +214,7 @@ export function PaperTabs<T extends string>({
             type="button"
             role="tab"
             aria-selected={selected}
+            tabIndex={selected ? 0 : -1}
             aria-controls={`panel-${option.value}`}
             onClick={() => onChange(option.value)}
             className={cn(
@@ -471,7 +486,7 @@ export function PaperSwitch({
 }
 
 export const PAPER_INPUT =
-  "min-h-8 rounded-none border border-paper-ash bg-paper-white px-3 text-[14px] text-paper-moss placeholder:text-paper-sage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
+  "min-h-[var(--control-height)] rounded-none border border-paper-ash bg-paper-white px-3 text-[14px] text-paper-moss placeholder:text-paper-sage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
 
 /** Small uppercase-free field label, above its input. */
 export function FieldLabel({ children }: { children: ReactNode }) {

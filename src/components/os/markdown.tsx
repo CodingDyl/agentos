@@ -83,7 +83,7 @@ const SKINS: Record<MarkdownTone, Skin> = {
     td: "text-paper-moss",
     pre: "rounded-none border-paper-mist bg-paper-linen",
     preText: "text-paper-sage",
-    lang: "text-[11.5px] text-paper-sage",
+    lang: "text-[12px] text-paper-sage",
     codeText: "text-paper-moss",
     quote: "border-paper-mist text-paper-sage",
     rule: "border-paper-mist",

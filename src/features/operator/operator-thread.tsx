@@ -49,7 +49,7 @@ function UserBubble({ run }: { run: OperatorRun }) {
     <div className="flex justify-end">
       <div className="max-w-[min(85%,620px)]">
         <p className="bg-paper-blue px-4 py-3 text-[15px] leading-6 whitespace-pre-line text-paper-white">{run.input}</p>
-        <p className="mt-1 text-right text-[11.5px] text-paper-sage tabular-nums">
+        <p className="mt-1 text-right text-[12px] text-paper-sage tabular-nums">
           <span className="font-paper-utility tracking-[0.1em] uppercase">{run.mode}</span> · {formatTime(run.startedAt)}
         </p>
       </div>
@@ -70,7 +70,7 @@ function Typing() {
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="mt-3">
-      <p className="font-paper-utility text-[11.5px] font-medium tracking-[0.12em] text-paper-sage uppercase">{label}</p>
+      <p className="font-paper-utility text-[12px] font-medium tracking-[0.12em] text-paper-sage uppercase">{label}</p>
       <div className="mt-1">{children}</div>
     </div>
   );
@@ -256,9 +256,9 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
           ) : null}
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11.5px] text-paper-sage">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-paper-sage">
           <span className="font-paper-utility tracking-[0.1em] uppercase">Jarvis · Operator</span>
-          <Tag tone={runStatusTone(run.status)} className="text-[10.5px] leading-4">
+          <Tag tone={runStatusTone(run.status)} className="text-[12px] leading-4">
             {runStatusLabel(run.status)}
           </Tag>
           {isStoppable(run.status) ? null : <span className="tabular-nums">{formatTime(run.completedAt)}</span>}

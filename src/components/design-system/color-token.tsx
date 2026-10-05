@@ -17,7 +17,7 @@ export function ColorToken({ name, value, className }: ColorTokenProps) {
         aria-hidden="true"
       />
       <p className="mt-3 truncate text-[13px] text-foreground">{name}</p>
-      <p className="mt-1 font-mono text-[10px] tracking-[0.04em] text-os-subtle uppercase">
+      <p className="mt-1 font-mono text-[12px] tracking-[0.04em] text-os-subtle uppercase">
         {value}
       </p>
     </div>

@@ -951,7 +951,7 @@ function TaskRow({
                     onChange={(event) => setAfterDraft(event.target.value)}
                     placeholder="PP-021, PP-022"
                     aria-label={`Tasks ${task.id} waits on`}
-                    className="os-focus-ring w-40 rounded-md border border-os-border bg-transparent px-2 py-1 font-mono text-[11px] uppercase tracking-[0.06em] text-foreground placeholder:text-os-subtle"
+                    className="os-focus-ring w-40 rounded-md border border-os-border bg-transparent px-2 py-1 font-mono text-[12px] uppercase tracking-[0.06em] text-foreground placeholder:text-os-subtle"
                   />
                   <button type="submit" disabled={busy} className="os-focus-ring os-meta cursor-pointer rounded-md px-1.5 py-1 text-os-muted hover:text-foreground disabled:opacity-30">
                     Set

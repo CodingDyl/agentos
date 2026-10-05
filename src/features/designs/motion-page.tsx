@@ -243,7 +243,7 @@ function BriefComposer({
                 <span className={cn("text-[12.5px] leading-[18px]", selected ? "text-paper-white/85" : "text-paper-sage")}>
                   {entry.description}
                 </span>
-                <span className={cn("mt-auto pt-1 font-paper-utility text-[11px] tracking-[0.08em] uppercase", selected ? "text-paper-white/70" : "text-paper-sage")}>
+                <span className={cn("mt-auto pt-1 font-paper-utility text-[12px] tracking-[0.08em] uppercase", selected ? "text-paper-white/70" : "text-paper-sage")}>
                   {entry.id === "custom" ? "Studio rules apply" : sourceLabel(entry.source)}
                 </span>
               </button>
@@ -336,7 +336,7 @@ function BriefComposer({
                     {FORMAT_NAME[format]} <span className="text-paper-sage tabular-nums">{format}</span>
                   </span>
                   {order === 0 && formats.length > 1 ? (
-                    <span className="font-paper-utility text-[10.5px] tracking-[0.08em] text-paper-blue uppercase">Master</span>
+                    <span className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-blue uppercase">Master</span>
                   ) : null}
                 </button>
               );

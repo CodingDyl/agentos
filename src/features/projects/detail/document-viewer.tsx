@@ -156,7 +156,7 @@ export function DocumentViewer({
 
             <div>
               <SectionLabel>File</SectionLabel>
-              <p className="mt-2 break-all font-mono text-[11px] leading-5 tracking-[0.02em] text-os-subtle">
+              <p className="mt-2 break-all font-mono text-[12px] leading-5 tracking-[0.02em] text-os-subtle">
                 {data.artifact.origin === "repo" ? `<repo>/${data.artifact.relativePath}` : `~/AgentOS/${data.artifact.relativePath}`}
               </p>
               <p className="os-meta mt-2 text-os-subtle tabular-nums">

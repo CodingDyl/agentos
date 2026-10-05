@@ -76,10 +76,10 @@ export function CaseStudyScreenshots({
                       {isPending ? "Loading…" : "No longer in Creative"}
                     </div>
                   )}
-                  <span className="absolute top-1 left-1 rounded-none bg-paper-white/90 px-1.5 text-[11px] font-semibold text-paper-moss tabular-nums">{index + 1}</span>
+                  <span className="absolute top-1 left-1 rounded-none bg-paper-white/90 px-1.5 text-[12px] font-semibold text-paper-moss tabular-nums">{index + 1}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-1">
-                  <span className="min-w-0 truncate text-[11.5px] text-paper-sage">{asset?.filename ?? id.slice(0, 8)}</span>
+                  <span className="min-w-0 truncate text-[12px] text-paper-sage">{asset?.filename ?? id.slice(0, 8)}</span>
                   <span className="flex shrink-0">
                     <button
                       type="button"

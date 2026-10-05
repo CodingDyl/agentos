@@ -1,3 +1,4 @@
+import { TaskScheduleSchema } from "./calendar-types";
 import { z } from "zod";
 import { WorkerIdSchema } from "./worker-ids";
 import { WorkspaceModuleSchema, WorkspaceTypeSchema } from "./workspace";
@@ -100,6 +101,8 @@ export const TaskExecutionStatusSchema = z.enum([
 ]);
 
 export const ProjectTaskSchema = z.object({
+  schedule: TaskScheduleSchema.optional(),
+  calendarEventId: z.string().optional(),
   id: z.string().optional(),
   title: z.string(),
   section: ProjectTaskSectionSchema,

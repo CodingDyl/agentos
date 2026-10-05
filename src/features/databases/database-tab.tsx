@@ -189,7 +189,7 @@ function Rows({ setup, table }: { setup: DatabaseSetup; table: DatabaseTable }) 
                       {column.primaryKey ? <KeyRound className="size-3" aria-label="Primary key" /> : null}
                       {column.name}
                     </span>
-                    <span className="block font-paper-ui text-[11px] font-normal text-paper-sage">{column.format ?? column.type}</span>
+                    <span className="block font-paper-ui text-[12px] font-normal text-paper-sage">{column.format ?? column.type}</span>
                   </th>
                 ))}
               </tr>

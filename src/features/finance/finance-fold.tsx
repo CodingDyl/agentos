@@ -30,7 +30,7 @@ export function CloseButton({ label, onClick, showLabel = false, className }: { 
       {showLabel ? (
         <>
           <span>Close</span>
-          <kbd className="hidden rounded-none border border-paper-mist bg-paper-linen px-1 font-paper-ui text-[10.5px] font-medium text-paper-sage sm:inline">Esc</kbd>
+          <kbd className="hidden rounded-none border border-paper-mist bg-paper-linen px-1 font-paper-ui text-[12px] font-medium text-paper-sage sm:inline">Esc</kbd>
         </>
       ) : null}
     </button>

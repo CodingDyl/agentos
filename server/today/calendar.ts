@@ -14,12 +14,16 @@ const CALENDAR_API = "https://www.googleapis.com/calendar/v3/calendars/primary/e
 
 interface GoogleEvent {
   id?: string;
+  etag?: string;
+  description?: string;
+  recurringEventId?: string;
+  extendedProperties?: { private?: Record<string, string> };
   status?: string;
   summary?: string;
   location?: string;
   htmlLink?: string;
   hangoutLink?: string;
-  start?: { dateTime?: string; date?: string };
+  start?: { dateTime?: string; date?: string; timeZone?: string };
   end?: { dateTime?: string; date?: string };
   attendees?: { self?: boolean; responseStatus?: string }[];
   conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] };
@@ -42,6 +46,12 @@ export function readCalendarEvents(payload: unknown): CalendarEvent[] {
     events.push({
       id: raw.id,
       title: raw.summary?.trim() || "(No title)",
+      description: raw.description,
+      etag: raw.etag,
+      timeZone: raw.start?.timeZone,
+      recurringEventId: raw.recurringEventId,
+      allowTasks: raw.extendedProperties?.private?.agentosAllowTasks === "true",
+      preparation: raw.extendedProperties?.private?.agentosPreparation ?? "",
       start,
       end: raw.end?.dateTime ?? raw.end?.date,
       allDay: !raw.start?.dateTime,

@@ -503,7 +503,7 @@ function WorkspaceTabs({
             >
               {tab === "overview" ? "Overview" : moduleLabel(tab, type)}
               {badge ? (
-                <span className="rounded-full bg-paper-stone px-1.5 text-[11px] leading-[17px] text-paper-char tabular-nums">{badge}</span>
+                <span className="rounded-full bg-paper-stone px-1.5 text-[12px] leading-[17px] text-paper-char tabular-nums">{badge}</span>
               ) : null}
             </button>
           );

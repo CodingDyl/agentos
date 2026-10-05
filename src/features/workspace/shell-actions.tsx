@@ -38,7 +38,7 @@ export function ShellActions() {
       <button
         type="button"
         onClick={() => quickCreate.open("capture", { project })}
-        className="os-focus-ring inline-flex min-h-8 cursor-pointer items-center gap-2 rounded-md border border-os-border px-2.5 text-os-muted transition-colors duration-150 hover:border-os-amber/60 hover:text-os-amber"
+        className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-primary bg-primary px-2.5 text-primary-foreground transition-colors duration-150 hover:bg-[var(--color-accent-hover)]"
         aria-label="Capture a note"
         title="Capture a note (⌘⇧C)"
       >
@@ -49,18 +49,18 @@ export function ShellActions() {
       <button
         type="button"
         onClick={() => palette.open("all")}
-        className="os-focus-ring hidden min-h-8 cursor-pointer items-center gap-2 rounded-md border border-os-border px-2.5 text-os-subtle transition-colors duration-150 hover:border-os-border-strong hover:text-foreground sm:inline-flex"
+        className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-os-border px-2.5 text-os-subtle transition-colors duration-150 hover:border-os-border-strong hover:text-foreground sm:inline-flex"
         aria-label="Search AgentOS"
       >
         <Search className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
-        <span className="os-meta">Search</span>
-        <kbd className="os-meta rounded-sm border border-os-border px-1 text-os-subtle">⌘K</kbd>
+        <span className="os-meta hidden sm:inline">Search</span>
+        <kbd className="hidden sm:inline os-meta rounded-sm border border-os-border px-1 text-os-subtle">⌘K</kbd>
       </button>
 
       <button
         type="button"
         onClick={() => palette.open("create")}
-        className="os-focus-ring inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-os-border text-os-muted transition-colors duration-150 hover:border-os-amber/60 hover:text-os-amber"
+        className="os-focus-ring inline-flex size-10 cursor-pointer items-center justify-center rounded-md border border-os-border text-os-muted transition-colors duration-150 hover:border-os-amber/60 hover:text-os-amber"
         aria-label="Quick create"
         title="Quick create"
       >
