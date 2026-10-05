@@ -1,8 +1,9 @@
 import path from "node:path";
 import express from "express";
 import { agentOSRoot } from "../agentos/filesystem";
-import { RebuildDecisionInputSchema, RebuildStageIdSchema, RebuildStartSchema } from "../../shared/website-rebuild-types";
+import { REBUILD_SKILL_ID, RebuildDecisionInputSchema, RebuildStageIdSchema, RebuildStartSchema } from "../../shared/website-rebuild-types";
 import { advanceInBackground, currentSkillVersion } from "./runner";
+import { isSkillEnabled } from "../skills/registry";
 import { createOrReuseRun, decide, listRuns, readRun, RebuildError, recoverAbandonedStages, resetForRetry, runForProspect } from "./store";
 
 /**
@@ -96,6 +97,7 @@ rebuildRouter.post("/", async (request, response) => {
     return;
   }
   try {
+    if (!(await isSkillEnabled(REBUILD_SKILL_ID))) throw new RebuildError(`The ${REBUILD_SKILL_ID} skill is disabled in Connectors → Skills. Enable it to start a rebuild.`);
     const { run, created } = createOrReuseRun({ ...parsed.data, skillVersion: await currentSkillVersion() });
     advanceInBackground(run.id);
     response.status(created ? 201 : 200).json(run);
@@ -104,9 +106,11 @@ rebuildRouter.post("/", async (request, response) => {
   }
 });
 
-rebuildRouter.post("/:id/stages/:stage/retry", (request, response) => {
+rebuildRouter.post("/:id/stages/:stage/retry", async (request, response) => {
   try {
-    resetForRetry(readRun(request.params.id).id, stageParam(request.params.stage));
+    const run = readRun(request.params.id);
+    if (!(await isSkillEnabled(run.skillId))) throw new RebuildError(`The ${run.skillId} skill is disabled in Connectors → Skills. Enable it before retrying.`);
+    resetForRetry(run.id, stageParam(request.params.stage));
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
   } catch (error) {

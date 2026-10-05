@@ -10,6 +10,10 @@ import { authorize } from "../connectors/policy";
  * called from this file. A personal access token carries the same
  * permissions as the account it was created under, so this file is the
  * actual read-only boundary, not the token.
+ *
+ * The one place AgentOS writes to Vercel is the website rebuild's preview
+ * stage (`server/website-rebuild/publish.ts`), each call behind its own
+ * connector capability. Production deployments are never requested there.
  */
 
 const API_BASE = "https://api.vercel.com";

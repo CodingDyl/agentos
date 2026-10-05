@@ -88,6 +88,7 @@ import { completeOutreachConnection, OutreachAuthError, parseOutreachState } fro
 import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
 import { rebuildRouter, recoverRebuildsAtStartup } from "./website-rebuild/routes";
+import { skillsRouter } from "./skills/routes";
 import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
@@ -378,6 +379,7 @@ app.use("/api/career", careerRouter);
 app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
 app.use("/api/rebuilds", rebuildRouter);
+app.use("/api/skills", skillsRouter);
 recoverRebuildsAtStartup();
 app.use("/api/compass", compassRouter);
 app.use("/api/focus", focusRouter);

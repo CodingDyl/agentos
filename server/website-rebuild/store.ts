@@ -141,6 +141,11 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE revisions ADD COLUMN job_id TEXT;
   ALTER TABLE decisions ADD COLUMN choice TEXT;
   `,
+  `
+  ALTER TABLE runs ADD COLUMN github_repo TEXT;
+  ALTER TABLE runs ADD COLUMN vercel_project TEXT;
+  ALTER TABLE runs ADD COLUMN deployment_id TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -183,6 +188,9 @@ interface RunRow {
   workspace_slug: string | null;
   repo_path: string | null;
   hero_choice: string | null;
+  github_repo: string | null;
+  vercel_project: string | null;
+  deployment_id: string | null;
   preview_url: string | null;
   created_at: string;
   updated_at: string;
@@ -245,6 +253,9 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     workspaceSlug: row.workspace_slug ?? undefined,
     repoPath: row.repo_path ?? undefined,
     heroChoice: row.hero_choice ?? undefined,
+    githubRepo: row.github_repo ?? undefined,
+    vercelProject: row.vercel_project ?? undefined,
+    deploymentId: row.deployment_id ?? undefined,
     previewUrl: row.preview_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -281,6 +292,14 @@ export function readRun(id: string): RebuildRun {
 export function runForProspect(prospectId: string): RebuildRun | undefined {
   const row = rebuildDatabase().prepare("SELECT * FROM runs WHERE prospect_id = ?").get(prospectId) as RunRow | undefined;
   return row ? toRun(row, true) : undefined;
+}
+
+/** Runs on this skill that still have work left: what disabling it would pause. */
+export function activeRunCount(skillId: string): number {
+  const row = rebuildDatabase()
+    .prepare("SELECT COUNT(DISTINCT runs.id) AS n FROM runs JOIN stages ON stages.run_id = runs.id WHERE runs.skill_id = ? AND stages.status != 'complete'")
+    .get(skillId) as { n: number };
+  return row.n;
 }
 
 export function listRuns(): RebuildRunSummary[] {
@@ -355,7 +374,11 @@ function touch(runId: string): void {
   rebuildDatabase().prepare("UPDATE runs SET updated_at = ? WHERE id = ?").run(iso(), runId);
 }
 
-export function setRunField(runId: string, field: "workspace_slug" | "preview_url" | "repo_path", value: string): void {
+export function setRunField(
+  runId: string,
+  field: "workspace_slug" | "preview_url" | "repo_path" | "github_repo" | "vercel_project" | "deployment_id",
+  value: string,
+): void {
   rebuildDatabase().prepare(`UPDATE runs SET ${field} = ?, updated_at = ? WHERE id = ?`).run(value, iso(), runId);
 }
 
