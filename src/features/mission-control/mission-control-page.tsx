@@ -10,6 +10,7 @@ import { formatTime, sourceLabel, toneFor } from "@/features/activity";
 import { UsageSummary } from "@/features/operations";
 import { documentHref, TYPE_LABELS } from "@/features/projects/documents-model";
 import { FinanceToday } from "@/features/finance";
+import { CareerToday } from "@/features/career";
 import { TractionToday } from "@/features/traction";
 import { FrictionButton, SprintScorecard } from "@/features/validation";
 import { formatRelativeTime } from "@/lib/format";
@@ -181,6 +182,7 @@ function MissionControl({ data }: { data: MissionControlData }) {
         <div className="min-w-0">
           <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
           <TractionToday />
+          <CareerToday />
           <FinanceToday />
         </div>
         <div className="min-w-0">

@@ -304,6 +304,11 @@ export const EVENT_TYPES = {
     level: "success",
     title: "Spotify connected",
   },
+  "career.work_logged": { source: "user", level: "info", title: "Work logged" },
+  "career.timesheet_extracted": { source: "user", level: "info", title: "Timesheet extracted" },
+  "career.timesheet_submitted": { source: "user", level: "success", title: "Timesheet submitted" },
+  "career.soccer_event": { source: "user", level: "success", title: "Soccer event created" },
+  "career.linkedin_published": { source: "user", level: "success", title: "LinkedIn post published" },
   "friction.reported": {
     source: "user",
     level: "info",

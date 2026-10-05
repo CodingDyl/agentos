@@ -2,6 +2,7 @@ import {
   Activity,
   BookOpen,
   Briefcase,
+  BriefcaseBusiness,
   GraduationCap,
   Bot,
   CalendarClock,
@@ -29,7 +30,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  *                                     where the day starts, what arrived, the
  *                                     customers to go and get, the companies
  *                                     and clients being served, and the money
- * WORK    Operator · Workspaces · Knowledge · Memory · Creative
+ * WORK    Operator · Workspaces · Career · Knowledge · Memory · Creative
  * SYSTEM  Automations · Connectors · Operations · Activity
  * ```
  *
@@ -57,6 +58,9 @@ export const navigationItems: AppShellNavigationItem[] = [
   // because it is where work starts.
   { label: "Operator", href: "/operator", icon: SquareTerminal, section: "work" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
+  // The day job: employment admin, the work log, growth and LinkedIn. Beside
+  // Workspaces rather than inside them — it is not one of the businesses.
+  { label: "Career", href: "/career", icon: BriefcaseBusiness, section: "work" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "work" },
   // The Obsidian vault as a graph: notes, links, backlinks, and what agents are told.
   { label: "Memory", href: "/memory", icon: Network, section: "work" },
