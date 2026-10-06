@@ -25,6 +25,8 @@ import {
   clearMailCorrection,
   correctMailThread,
   disconnectMail,
+  linkTitanMailbox,
+  unlinkTitanMailbox,
   getMail,
   getMailStatus,
   getMailProgress,
@@ -410,6 +412,32 @@ export function useDisconnectMail() {
     mutationFn: disconnectMail,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Links or unlinks the Virtara mailbox; either way the Inbox's account list changes. */
+export function useLinkTitanMailbox() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: linkTitanMailbox,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useUnlinkTitanMailbox() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: unlinkTitanMailbox,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mail() });
     },
     networkMode: "always",
     retry: 0,

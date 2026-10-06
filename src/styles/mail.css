@@ -1511,3 +1511,75 @@ section[aria-label="Sent and drafts"] > .mail-filters {
     transition: none;
   }
 }
+
+/* ── Mail accounts: Gmail and the Virtara (Titan) mailbox ── */
+.mail-tag--account {
+  background: transparent;
+  color: var(--mail-deep-moss);
+  box-shadow: inset 0 0 0 1px var(--mail-deep-moss);
+}
+
+.mail-accounts {
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid var(--mail-warm-mist);
+  background: var(--mail-cream-paper);
+}
+
+.mail-accounts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mail-accounts-title {
+  margin: 0;
+  font-family: var(--mail-font-heading);
+  font-size: 16px;
+  color: var(--mail-deep-moss);
+}
+
+.mail-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--mail-warm-mist);
+}
+
+.mail-account-name {
+  font-weight: 600;
+  color: var(--mail-deep-moss);
+}
+
+.mail-account-detail {
+  font-family: var(--mail-font-mono);
+  font-size: 12px;
+  color: var(--mail-sage-gray);
+  overflow-wrap: anywhere;
+}
+
+.mail-account-form {
+  margin-top: 12px;
+}
+
+.mail-account-help {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--mail-olive-char);
+}
+
+.mail-account-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.mail-account-filter {
+  margin-bottom: 12px;
+}

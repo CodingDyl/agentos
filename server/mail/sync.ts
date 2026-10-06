@@ -1,4 +1,6 @@
 import { MAIL_THREAD_LIMIT, type MailClassifier, type MailSyncResult } from "../../shared/mail-types";
+import { MAIL_ACCOUNT_LABEL, type MailAccountId } from "../../shared/mail-account-types";
+import { isGmailConfigured, isGmailConnected } from "./gmail-auth";
 import {
   getThreadSummary,
   listInboxThreadIds,
@@ -7,42 +9,72 @@ import {
 } from "./gmail-client";
 import { startProgress } from "./progress";
 import { classifyThread, type ClassificationResult, type ClassifyThreadInput } from "./jev-client";
+import { getTitanThreadSummary, listTitanInboxThreadIds, listTitanUnreadThreadIds } from "./titan-client";
+import { titanAccount } from "./titan-credentials";
 import {
-  existingThreadIds,
+  existingThreadIdsFor,
   insertThreadIfNew,
   listCorrectionExamples,
   listUnclassifiedThreadIds,
   readThreadSummary,
   storeClassification,
   syncUnreadState,
+  type ThreadSummaryInput,
 } from "./store";
 
 /** How many of the person's past corrections travel with each Jev call. */
 const CORRECTION_EXAMPLES = 8;
 
-/**
- * The calls a sync needs, injected so tests can exercise the real store
- * against fake Gmail/Jev instead of mocking module internals.
- */
-export interface MailSyncDeps {
+/** One mailbox a sync reads: Gmail, or the Virtara mailbox over IMAP. */
+export interface MailSource {
+  account?: MailAccountId;
   listInboxThreadIds: () => Promise<string[]>;
-  getThreadSummary: (threadId: string) => Promise<GmailThreadSummary>;
+  getThreadSummary: (threadId: string) => Promise<GmailThreadSummary | ThreadSummaryInput>;
   /** Absent in tests that don't care about read state: it is then left as stored. */
   listUnreadInboxThreadIds?: () => Promise<Set<string>>;
+}
+
+/**
+ * The calls a sync needs, injected so tests can exercise the real store
+ * against fake Gmail/Jev instead of mocking module internals. Either one
+ * mailbox's calls directly, or `sources` for several.
+ */
+export interface MailSyncDeps extends Partial<MailSource> {
+  sources?: MailSource[];
   /** Absent when no classifier is active: threads are stored unsorted. */
   classifyThread?: (input: ClassifyThreadInput) => Promise<ClassificationResult>;
 }
 
-const defaultDeps: MailSyncDeps = {
-  listInboxThreadIds,
-  getThreadSummary,
-  listUnreadInboxThreadIds,
-  classifyThread,
+const gmailSource: MailSource = { account: "gmail", listInboxThreadIds, getThreadSummary, listUnreadInboxThreadIds };
+
+const titanSource: MailSource = {
+  account: "titan",
+  listInboxThreadIds: () => listTitanInboxThreadIds(),
+  getThreadSummary: getTitanThreadSummary,
+  listUnreadInboxThreadIds: () => listTitanUnreadThreadIds(),
 };
 
+/**
+ * The linked mailboxes. Gmail is always included when nothing else is
+ * linked, so an unconnected Inbox still says "Gmail is not connected"
+ * rather than quietly syncing nothing.
+ */
+export async function linkedMailSources(): Promise<MailSource[]> {
+  const titan = (await titanAccount()) !== undefined;
+  const gmail = isGmailConfigured() && (await isGmailConnected());
+  if (!titan) return [gmailSource];
+  return gmail ? [gmailSource, titanSource] : [titanSource];
+}
+
 /** Sync with whichever classifier is active — or none, under `manual`. */
-export function syncDepsFor(classifier: MailClassifier): MailSyncDeps {
-  return classifier === "jev" ? defaultDeps : { ...defaultDeps, classifyThread: undefined };
+export async function syncDepsFor(classifier: MailClassifier): Promise<MailSyncDeps> {
+  return { sources: await linkedMailSources(), classifyThread: classifier === "jev" ? classifyThread : undefined };
+}
+
+function sourcesOf(deps: MailSyncDeps): MailSource[] {
+  if (deps.sources) return deps.sources;
+  if (!deps.listInboxThreadIds || !deps.getThreadSummary) return [];
+  return [{ account: deps.account ?? "gmail", listInboxThreadIds: deps.listInboxThreadIds, getThreadSummary: deps.getThreadSummary, listUnreadInboxThreadIds: deps.listUnreadInboxThreadIds }];
 }
 
 /**
@@ -86,7 +118,7 @@ export async function profileThread(
  * failed classification never aborts the sync; it is counted and left for
  * the next Refresh to retry.
  */
-export async function runMailSync(deps: MailSyncDeps = defaultDeps): Promise<MailSyncResult> {
+export async function runMailSync(deps: MailSyncDeps = { sources: [gmailSource], classifyThread }): Promise<MailSyncResult> {
   const progress = startProgress("sync");
   try {
     return await syncWithProgress(deps, progress);
@@ -99,24 +131,47 @@ async function syncWithProgress(
   deps: MailSyncDeps,
   progress: ReturnType<typeof startProgress>,
 ): Promise<MailSyncResult> {
-  // Defensive: whatever the lister returns, only the newest window is fetched.
-  const remoteIds = (await deps.listInboxThreadIds()).slice(0, MAIL_THREAD_LIMIT);
-  const known = existingThreadIds();
-  const newIds = remoteIds.filter((id) => !known.has(id));
+  // Each mailbox is listed first, so the progress bar knows the whole job.
+  // One mailbox failing (a changed Titan password, Gmail offline) still lets
+  // the others sync; only when every one fails does the Refresh fail.
+  const sources = sourcesOf(deps);
+  const warnings: string[] = [];
+  const listed: { source: MailSource; remoteIds: string[]; newIds: string[] }[] = [];
+  let firstError: unknown;
 
-  progress.phase("fetching", newIds.length);
-  for (const threadId of newIds) {
-    const summary = await deps.getThreadSummary(threadId);
-    insertThreadIfNew(summary);
-    progress.advance(true);
+  for (const source of sources) {
+    try {
+      // Defensive: whatever the lister returns, only the newest window is fetched.
+      const remoteIds = (await source.listInboxThreadIds()).slice(0, MAIL_THREAD_LIMIT);
+      const known = existingThreadIdsFor(source.account ?? "gmail");
+      listed.push({ source, remoteIds, newIds: remoteIds.filter((id) => !known.has(id)) });
+    } catch (error) {
+      firstError ??= error;
+      warnings.push(`${MAIL_ACCOUNT_LABEL[source.account ?? "gmail"]}: ${error instanceof Error ? error.message : "could not be read"}`);
+    }
   }
+  if (listed.length === 0 && firstError !== undefined) throw firstError;
 
-  if (deps.listUnreadInboxThreadIds) {
-    syncUnreadState(remoteIds, await deps.listUnreadInboxThreadIds());
+  let added = 0;
+  progress.phase("fetching", listed.reduce((total, entry) => total + entry.newIds.length, 0));
+  for (const { source, remoteIds, newIds } of listed) {
+    try {
+      for (const threadId of newIds) {
+        insertThreadIfNew(await source.getThreadSummary(threadId));
+        added += 1;
+        progress.advance(true);
+      }
+      if (source.listUnreadInboxThreadIds) syncUnreadState(remoteIds, await source.listUnreadInboxThreadIds());
+    } catch (error) {
+      // Gmail failing part-way has always failed the Refresh; a second mailbox only warns.
+      if (sources.length === 1) throw error;
+      console.error(`[agentos] mail sync of ${source.account ?? "gmail"} stopped part-way:`, error);
+      warnings.push(`${MAIL_ACCOUNT_LABEL[source.account ?? "gmail"]}: ${error instanceof Error ? error.message : "stopped part-way"}`);
+    }
   }
 
   const classify = deps.classifyThread;
-  if (!classify) return { added: newIds.length, classified: 0, failed: 0 };
+  if (!classify) return { added, classified: 0, failed: 0, ...(warnings.length > 0 ? { warnings } : {}) };
 
   let classified = 0;
   let failed = 0;
@@ -136,5 +191,5 @@ async function syncWithProgress(
     }
   }
 
-  return { added: newIds.length, classified, failed };
+  return { added, classified, failed, ...(warnings.length > 0 ? { warnings } : {}) };
 }

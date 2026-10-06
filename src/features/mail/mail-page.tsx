@@ -14,6 +14,7 @@ import { MailPager } from "./mail-pager";
 import { MailProgressBar } from "./mail-progress";
 import { MailComposer, type ComposerTarget } from "./mail-composer";
 import { MailOutbox } from "./mail-outbox";
+import { MailAccountsPanel } from "./mail-accounts-panel";
 import type { ThreadRowActions } from "./thread-row";
 import { useMailTriage } from "./use-mail-triage";
 import {
@@ -26,7 +27,7 @@ import {
 } from "./mail-model";
 
 /**
- * Inbox: what arrived. Today that is Gmail, read-only.
+ * Inbox: what arrived, in Gmail and the Virtara (Titan) mailbox, merged into one list.
  *
  * Sorting into Needs you / FYI / Low priority is done by whichever classifier
  * is active — Jev when it is configured, otherwise `manual`, which lists every
@@ -62,6 +63,14 @@ const FILTER_EMPTY: Record<Exclude<MailStatusFilter, "all">, string> = {
   unsorted: "Jev has sorted everything.",
 };
 
+type MailAccountFilter = "all" | "gmail" | "titan";
+
+const ACCOUNT_FILTERS: readonly { value: MailAccountFilter; label: string }[] = [
+  { value: "all", label: "All accounts" },
+  { value: "gmail", label: "Gmail" },
+  { value: "titan", label: "Virtara" },
+];
+
 export function MailPage() {
   const navigationItems = useNavigationItems();
   const status = useMailStatus();
@@ -71,6 +80,12 @@ export function MailPage() {
 
   const configured = status.data?.configured ?? false;
   const connected = status.data?.connected ?? false;
+  const accounts = status.data?.accounts ?? [];
+  const titanLinked = accounts.some((account) => account.id === "titan" && account.connected);
+  // Either mailbox makes the Inbox usable: Gmail, or the Virtara mailbox on its own.
+  const anyConnected = connected || titanLinked;
+  const [accountFilter, setAccountFilter] = useState<MailAccountFilter>("all");
+  const [showAccounts, setShowAccounts] = useState(false);
 
   const [filter, setFilter] = useState<MailStatusFilter>("all");
   const [view, setView] = useState<"inbox" | "outbox">("inbox");
@@ -81,9 +96,11 @@ export function MailPage() {
 
   const sorted = status.data?.classifier === "jev";
   const canModify = status.data?.canModify ?? false;
+  // Virtara mail can always be marked read or moved; Gmail needs its write grant (the server checks each thread).
+  const canAct = canModify || titanLinked;
 
   const allRows = useMemo(() => (mail.data ? flattenMail(mail.data) : []), [mail.data]);
-  const triage = useMailTriage(canModify);
+  const triage = useMailTriage(canAct);
   const openComposer = (target: ComposerTarget) => {
     if (composer && !window.confirm("Replace the email you are writing? It has not been sent or saved.")) return;
     setNotice(undefined);
@@ -99,7 +116,13 @@ export function MailPage() {
       }
     : triage.actions;
 
-  const rows = useMemo(() => allRows.filter((row) => !triage.gone.has(row.thread.threadId)), [allRows, triage.gone]);
+  const rows = useMemo(
+    () =>
+      allRows.filter(
+        (row) => !triage.gone.has(row.thread.threadId) && (accountFilter === "all" || (row.thread.account ?? "gmail") === accountFilter),
+      ),
+    [allRows, triage.gone, accountFilter],
+  );
   const counts = useMemo(() => statusCounts(rows), [rows]);
   const current = paginateMail(rows, filter, page, PAGE_SIZE);
   const totalThreads = rows.length;
@@ -118,6 +141,18 @@ export function MailPage() {
     for (const row of rows) if (matchesStatus(row, filter)) totals[row.tone] += 1;
     return totals;
   }, [rows, filter]);
+
+  const changeAccount = (value: MailAccountFilter) => {
+    setAccountFilter(value);
+    setPage(1);
+  };
+
+  const refresh = () =>
+    sync.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.warnings?.length) setNotice(`Some mail could not be read. ${result.warnings.join(" ")}`);
+      },
+    });
 
   const changeFilter = (value: MailStatusFilter) => {
     setFilter(value);
@@ -146,36 +181,53 @@ export function MailPage() {
                 {status.data?.lastSyncedAt
                   ? ` · last synced ${new Date(status.data.lastSyncedAt).toLocaleString()}`
                   : ""}
-                {connected ? ` · ${CLASSIFIER_LABEL[status.data?.classifier ?? "manual"]}` : ""}
+                {anyConnected ? ` · ${CLASSIFIER_LABEL[status.data?.classifier ?? "manual"]}` : ""}
               </div>
             </div>
-            {connected ? (
-              <div className="mail-toolbar-actions">
+            <div className="mail-toolbar-actions">
+              <button
+                type="button"
+                className="mail-btn-ghost"
+                aria-expanded={showAccounts}
+                onClick={() => setShowAccounts((open) => !open)}
+                disabled={status.isPending}
+              >
+                Accounts
+              </button>
+              {anyConnected ? (
+                <>
                 <button
                   type="button"
                   className="mail-btn-amber mail-btn-icon"
                   onClick={() => openComposer({ kind: "new" })}
                   disabled={!canModify}
-                  title={canModify ? "Write a new email" : "Reconnect Gmail to allow sending"}
+                  title={canModify ? "Write a new email (sent from Gmail)" : connected ? "Reconnect Gmail to allow sending" : "Connect Gmail to send"}
                 >
                   <PenSquare size={15} aria-hidden="true" /> Compose
                 </button>
                 <button
                   type="button"
                   className="mail-btn-ghost"
-                  onClick={() => sync.mutate()}
+                  onClick={refresh}
                   disabled={sync.isPending}
                 >
                   {sync.isPending ? "Refreshing…" : "Refresh"}
                 </button>
-                <button type="button" className="mail-btn-ghost" onClick={() => disconnect.mutate()}>
-                  Disconnect
-                </button>
-              </div>
-            ) : null}
+                {connected ? (
+                  <button type="button" className="mail-btn-ghost" onClick={() => disconnect.mutate()}>
+                    Disconnect Gmail
+                  </button>
+                ) : null}
+                </>
+              ) : null}
+            </div>
           </div>
 
-          {connected ? (
+          {showAccounts ? (
+            <MailAccountsPanel accounts={accounts} onClose={() => setShowAccounts(false)} onNotice={setNotice} />
+          ) : null}
+
+          {anyConnected ? (
             <div className="mail-views" role="group" aria-label="Mail view">
               <button
                 type="button"
@@ -208,15 +260,15 @@ export function MailPage() {
           <div className="mail-content" ref={listTop}>
             {status.isPending ? (
               <p className="mail-meta">Checking Mail configuration…</p>
-            ) : !configured ? (
+            ) : !configured && !titanLinked ? (
               <MailEmptyState
                 title="The inbox is not connected yet"
-                description="Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart the server. A classifier such as Jev (JEV_API_KEY) is optional. Without one, threads are listed unsorted."
+                description="Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then restart the server, or link the Virtara mailbox under Accounts. A classifier such as Jev (JEV_API_KEY) is optional. Without one, threads are listed unsorted."
               />
-            ) : !connected ? (
+            ) : !anyConnected ? (
               <MailEmptyState
                 title="Gmail is not connected"
-                description="Connect a Gmail account to triage, reply, and send from AgentOS. Email is only sent when you press Send, and nothing is ever permanently deleted."
+                description="Connect a Gmail account to triage, reply, and send from AgentOS, or link the Virtara mailbox under Accounts. Email is only sent when you press Send, and nothing is ever permanently deleted."
                 action={{ label: "Connect Gmail", href: mailConnectUrl() }}
               />
             ) : view === "outbox" ? (
@@ -234,7 +286,7 @@ export function MailPage() {
               />
             ) : (
               <>
-                {!canModify ? (
+                {connected && !canModify ? (
                   <div className="mail-notice">
                     <span>
                       AgentOS has read-only access to this Gmail account. Reconnect once to reply, send, mark mail
@@ -245,6 +297,21 @@ export function MailPage() {
                     </a>
                   </div>
                 ) : null}
+                {titanLinked ? (
+                  <div className="mail-filters mail-account-filter" role="group" aria-label="Filter by account">
+                    {ACCOUNT_FILTERS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`mail-filter${accountFilter === option.value ? " mail-filter--active" : ""}`}
+                        aria-pressed={accountFilter === option.value}
+                        onClick={() => changeAccount(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="mail-controls">
                   {sorted ? <MailFilters value={filter} counts={counts} onChange={changeFilter} /> : <span />}
                   <MailBulkBar
@@ -252,7 +319,7 @@ export function MailPage() {
                     threadIds={filteredIds}
                     unreadIds={unreadIds}
                     scopeLabel={FILTER_LABEL[filter]}
-                    canModify={canModify}
+                    canModify={canAct}
                     canReprofile={sorted}
                   />
                 </div>
@@ -280,7 +347,7 @@ export function MailPage() {
                       tone={group.tone}
                       rows={group.rows}
                       total={bucketTotals[group.tone]}
-                      canModify={canModify}
+                      canModify={canAct}
                       canReprofile={sorted}
                       actions={rowActions}
                     />

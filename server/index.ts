@@ -295,6 +295,9 @@ import {
 import { getThreadBody, GmailError } from "./mail/gmail-client";
 import { JevError } from "./mail/jev-client";
 import { runMailSync, syncDepsFor } from "./mail/sync";
+import { closeTitanConnection, getTitanThreadBody, TitanError, verifyTitanLogin } from "./mail/titan-client";
+import { forgetTitanCredentials, saveTitanCredentials, titanAccount, TitanCredentialsError } from "./mail/titan-credentials";
+import { MAIL_ACCOUNT_LABEL, mailAccountOf, TitanConnectRequestSchema, type MailAccountSummary } from "../shared/mail-account-types";
 import { activeMailClassifier } from "./mail/classifier";
 import { captureNote, CAPTURE_PATH, parseCaptures } from "./agentos/capture";
 import { compassRouter } from "./compass/routes";
@@ -561,6 +564,11 @@ app.get("/api/mail/status", async (_request, response) => {
     // reported separately, so a missing Jev key never hides the mail.
     const configured = isGmailConfigured();
     const connected = configured && (await isGmailConnected());
+    const titan = await titanAccount();
+    const accounts: MailAccountSummary[] = [
+      { id: "gmail", label: MAIL_ACCOUNT_LABEL.gmail, connected },
+      { id: "titan", label: MAIL_ACCOUNT_LABEL.titan, connected: titan !== undefined, address: titan?.address, server: titan?.imapHost },
+    ];
 
     response.json({
       configured,
@@ -569,6 +577,7 @@ app.get("/api/mail/status", async (_request, response) => {
       canModify: connected && (await canModifyGmail()),
       lastSyncedAt: lastSyncedAt(),
       threadCount: threadCount(),
+      accounts,
     });
   } catch (error) {
     console.error("[agentos] mail status failed:", error);
@@ -646,12 +655,45 @@ app.post("/api/mail/disconnect", async (_request, response) => {
   response.json({ ok: true });
 });
 
+/**
+ * Links the Virtara (Titan) mailbox. The login is tried against the server
+ * first and only saved when it works, sealed on this machine. The password
+ * is never echoed back, logged, or sent anywhere but the mailbox's servers.
+ */
+app.post("/api/mail/accounts/titan", async (request, response) => {
+  const parsed = TitanConnectRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? "Enter the mailbox address and password." });
+    return;
+  }
+  try {
+    await verifyTitanLogin(parsed.data);
+    closeTitanConnection();
+    await saveTitanCredentials(parsed.data);
+    response.json({ ok: true, address: parsed.data.address });
+  } catch (error) {
+    if (error instanceof TitanError) {
+      response.status(error.reason === "unauthorized" ? 401 : 409).json({ error: error.message, reason: error.reason });
+      return;
+    }
+    console.error("[agentos] linking the Virtara mailbox failed:", error instanceof Error ? error.message : "unknown error");
+    response.status(500).json({ error: "Unable to link the Virtara mailbox" });
+  }
+});
+
+/** Unlinks the Virtara mailbox: forgets the login. Its cached threads stay until they age out of the window. */
+app.delete("/api/mail/accounts/titan", async (_request, response) => {
+  closeTitanConnection();
+  await forgetTitanCredentials();
+  response.json({ ok: true });
+});
+
 /** A manual sync: fetches new INBOX threads and classifies anything unclassified. */
 app.post("/api/mail/sync", async (_request, response) => {
   try {
-    response.json(await runMailSync(syncDepsFor(activeMailClassifier())));
+    response.json(await runMailSync(await syncDepsFor(activeMailClassifier())));
   } catch (error) {
-    if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof JevError) {
+    if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof JevError || error instanceof TitanError) {
       response.status(409).json({ error: error.message, reason: error.reason });
       return;
     }
@@ -692,8 +734,12 @@ app.post("/api/mail/:threadId/remove", (request, response) => {
 
 /** Answers a Gmail/Jev failure as a 409 the page can explain; anything else is a 500. */
 function sendMailActionError(response: express.Response, error: unknown, fallback: string): void {
-  if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof JevError) {
+  if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof JevError || error instanceof TitanError) {
     response.status(409).json({ error: error.message, reason: error.reason });
+    return;
+  }
+  if (error instanceof TitanCredentialsError) {
+    response.status(409).json({ error: error.message, reason: "unauthorized" });
     return;
   }
   console.error(`[agentos] ${fallback}:`, error);
@@ -793,6 +839,10 @@ app.delete("/api/mail/outbox/:id", async (request, response) => {
 
 /** Who a reply to this thread goes to, and its subject, for the composer. */
 app.get("/api/mail/:threadId/reply-context", async (request, response) => {
+  if (mailAccountOf(request.params.threadId) === "titan") {
+    response.status(409).json({ error: "Replying from the Virtara mailbox is not switched on yet." });
+    return;
+  }
   try {
     response.json(await replyContextFor(request.params.threadId));
   } catch (error) {
@@ -847,7 +897,7 @@ app.post("/api/mail/:threadId/trash", async (request, response) => {
 app.post("/api/mail/bulk", async (request, response) => {
   const parsed = MailBulkRequestSchema.safeParse(request.body);
   if (!parsed.success) {
-    response.status(400).json({ error: "Send an action and up to 150 thread ids." });
+    response.status(400).json({ error: "Send an action and up to 300 thread ids." });
     return;
   }
   try {
@@ -860,10 +910,11 @@ app.post("/api/mail/bulk", async (request, response) => {
 /** One thread's full plain-text body — fetched only when a person opens it, never stored. */
 app.get("/api/mail/:threadId/body", async (request, response) => {
   try {
-    const body = await getThreadBody(request.params.threadId);
+    const threadId = request.params.threadId;
+    const body = mailAccountOf(threadId) === "titan" ? await getTitanThreadBody(threadId) : await getThreadBody(threadId);
     response.json({ body });
   } catch (error) {
-    if (error instanceof GmailAuthError || error instanceof GmailError) {
+    if (error instanceof GmailAuthError || error instanceof GmailError || error instanceof TitanError) {
       response.status(409).json({ error: error.message, reason: error.reason });
       return;
     }

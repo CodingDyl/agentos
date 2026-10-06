@@ -414,6 +414,15 @@ export function disconnectMail(): Promise<unknown> {
   return workerRequest("/api/mail/disconnect", { method: "POST" });
 }
 
+/** Links the Virtara (Titan) mailbox. The server tries the login before saving it. */
+export function linkTitanMailbox(request: { address: string; password: string; imapHost?: string; smtpHost?: string }): Promise<unknown> {
+  return workerRequest("/api/mail/accounts/titan", postJson(request));
+}
+
+export function unlinkTitanMailbox(): Promise<unknown> {
+  return workerRequest("/api/mail/accounts/titan", { method: "DELETE" });
+}
+
 /** How far the current Refresh or "Ask Jev again" has got. */
 export function getMailProgress(): Promise<MailProgress> {
   return readVault("/api/mail/progress", (value) => MailProgressSchema.safeParse(value));

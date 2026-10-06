@@ -108,6 +108,11 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
         <div className="mail-thread-subject">{thread.subject}</div>
         <div className="mail-thread-snippet">{thread.snippet}</div>
         <div className="mail-tags">
+          {thread.account === "titan" ? (
+            <span className="mail-tag mail-tag--account" title="Arrived in the Virtara mailbox">
+              VIRTARA
+            </span>
+          ) : null}
           {reprofile.isPending ? (
             <span className="mail-tag mail-tag--muted">ASKING JEV…</span>
           ) : (
@@ -128,7 +133,7 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
             </Link>
           ) : null}
           {countdown ? (
-            <span className="mail-tag mail-tag--countdown" title="Low priority mail moves to Gmail Trash after 24 hours">
+            <span className="mail-tag mail-tag--countdown" title="Low priority mail moves to Trash after 24 hours">
               {countdown}
             </span>
           ) : null}
@@ -147,7 +152,7 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
                   ? "Could not load the full message."
                   : body.data?.body}
             </div>
-            {actions.reply ? (
+            {actions.reply && thread.account !== "titan" ? (
               <div className="mail-thread-reply">
                 <button
                   type="button"
