@@ -123,3 +123,20 @@ describe("refusing an incomplete job", () => {
     );
   });
 });
+
+describe("a job's skill", () => {
+  it("puts the copied instructions in the brief, after the constraints that still win", () => {
+    const packet = buildContextPacket({
+      ...job(),
+      skill: { id: "seo-audit", name: "seo-audit", version: "1.0.1", instructions: "# SEO audit\nCheck titles." },
+    });
+    assert.match(packet, /\nSkill: seo-audit \(v1\.0\.1\)\n/);
+    assert.match(packet, /the constraints win/);
+    assert.match(packet, /# SEO audit\nCheck titles\./);
+    assert.ok(packet.indexOf("Constraints:") < packet.indexOf("Skill: seo-audit"));
+  });
+
+  it("is absent when the job has no skill", () => {
+    assert.doesNotMatch(buildContextPacket(job()), /Skill:/);
+  });
+});

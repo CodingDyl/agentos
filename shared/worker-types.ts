@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { JobSkillSchema } from "./skill-types";
 import {
   VisualAcceptanceContextSchema,
   VisualVerificationResultSchema,
@@ -115,6 +116,12 @@ export const WorkerJobRequestSchema = z.object({
   worker: z.union([WorkerIdSchema, z.literal("auto")]),
   project: z.string(),
   objective: z.string().min(1),
+  /**
+   * A skill from Connectors → Skills to work by. Its instructions are copied
+   * onto the job when it is created (`skill`), so editing the skill later
+   * never changes a job that already started.
+   */
+  skillId: z.string().max(64).optional(),
   /** Absolute path to the repository the work happens in. */
   repoPath: z.string().optional(),
   /** Commit-ish the isolated copy branches from. Defaults to the checkout. */
@@ -334,6 +341,8 @@ export const WorkerJobResultSchema = z.object({
 
 export const WorkerJobSchema = WorkerJobRequestSchema.extend({
   id: z.string(),
+  /** The skill's instructions as they were when the job was created. */
+  skill: JobSkillSchema.optional(),
   status: WorkerJobStatusSchema,
   /** The worker that actually ran it, once `auto` has been resolved. */
   resolvedWorker: WorkerIdSchema.optional(),

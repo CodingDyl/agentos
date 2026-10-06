@@ -215,6 +215,11 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
                 {(job.resolvedWorker ?? job.worker).toUpperCase()} · {job.project}
                 {duration ? ` · ${duration}` : ""}
               </span>
+              {job.skill ? (
+                <span className="os-meta text-os-subtle" title="The skill's instructions as they were when this job was created">
+                  Skill: {job.skill.name} v{job.skill.version}
+                </span>
+              ) : null}
               {!finished && lastHeard ? (
                 <span className={stalled ? "os-meta text-os-warning" : "os-meta text-os-subtle"}>
                   Last heard {formatRelativeTime(lastHeard)}

@@ -1,13 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SkillSummarySchema, SkillsResponseSchema, type SkillSummary } from "@shared/skill-types";
+import { z } from "zod";
+import {
+  SkillParseResultSchema,
+  SkillSummarySchema,
+  SkillsResponseSchema,
+  type SkillDraftInput,
+  type SkillSummary,
+} from "@shared/skill-types";
 import { AgentOSRequestError } from "./client";
 
 const key = ["agentos-skills"] as const;
 
-async function call<T>(url: string, parse: (value: unknown) => { success: true; data: T } | { success: false }, body?: unknown): Promise<T> {
+async function call<T>(
+  url: string,
+  parse: (value: unknown) => { success: true; data: T } | { success: false },
+  body?: unknown,
+  method: "POST" | "PUT" | "DELETE" = "POST",
+): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url, body === undefined ? undefined : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    response = await fetch(
+      url,
+      body === undefined && method === "POST"
+        ? undefined
+        : { method, ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) },
+    );
   } catch {
     throw new AgentOSRequestError("The AgentOS server is not responding.");
   }
@@ -41,6 +58,39 @@ export function useSetSkillEnabled() {
         current ? { skills: current.skills.map((entry) => (entry.id === skill.id ? { ...entry, enabled: skill.enabled } : entry)) } : current,
       );
     },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Adds a skill, or saves an edit to one added here (`id` set). */
+export function useSaveSkill() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, draft }: { id?: string; draft: SkillDraftInput }) =>
+      id
+        ? call(`/api/skills/${encodeURIComponent(id)}`, (value) => SkillSummarySchema.safeParse(value), draft, "PUT")
+        : call("/api/skills", (value) => SkillSummarySchema.safeParse(value), draft),
+    onSuccess: () => void client.invalidateQueries({ queryKey: key }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useDeleteSkill() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => call(`/api/skills/${encodeURIComponent(id)}`, (value) => z.object({ ok: z.literal(true) }).safeParse(value), undefined, "DELETE"),
+    onSuccess: () => void client.invalidateQueries({ queryKey: key }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Reads an uploaded SKILL.md into the form. Saves nothing. */
+export function useParseSkill() {
+  return useMutation({
+    mutationFn: (markdown: string) => call("/api/skills/parse", (value) => SkillParseResultSchema.safeParse(value), { markdown }),
     networkMode: "always",
     retry: 0,
   });

@@ -19,6 +19,8 @@ import {
 import type { WorkerRoutingDecision } from "../../shared/worker-routing-types";
 import { collectWorkerUsage } from "../usage/collector";
 import { buildContextPacket, resolveContextFiles } from "./context-builder";
+import { listConnectors } from "../connectors/registry";
+import { SkillError, skillForJob } from "../skills/registry";
 import { retrieveMemoryContext } from "../memory/retrieval";
 import { memoryService } from "../memory/service";
 import {
@@ -181,9 +183,24 @@ export interface StartJobResult {
 export async function startJob(
   request: WorkerJobRequest,
   /** Fields the job carries from birth that are not part of the request, e.g. `retryOf`. */
-  extra: Pick<Partial<WorkerJob>, "retryOf"> = {},
+  extra: Pick<Partial<WorkerJob>, "retryOf" | "skill"> = {},
 ): Promise<StartJobResult> {
   let resolved: Awaited<ReturnType<typeof resolveWorkerId>>;
+
+  // A named skill is checked and copied first: a disabled skill, or one whose
+  // connectors are not connected, never leaves a job behind. A retry brings
+  // the copy its first attempt had, so it runs by the same instructions.
+  let skill = extra.skill;
+  if (!skill && request.skillId) {
+    try {
+      skill = await skillForJob(request.skillId, {
+        connectors: async () => (await listConnectors()).connectors,
+        activeRuns: () => 0,
+      });
+    } catch (error) {
+      return { error: error instanceof SkillError ? error.message : "The skill could not be read." };
+    }
+  }
 
   // The route policy plans a job once, here, before anything runs. A decision
   // the caller already holds (the console showed it) is honoured as-is, and a
@@ -269,6 +286,7 @@ export async function startJob(
     revision: 1,
     createdAt: new Date().toISOString(),
     ...extra,
+    ...(skill ? { skill } : {}),
   };
 
   // First attempt of a policy-routed job: the exact option, recorded before
@@ -617,9 +635,10 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     acceptanceCriteria: previous.acceptanceCriteria,
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
+    skillId: previous.skillId,
   };
 
-  const started = await startJob(request, { retryOf: previous.id });
+  const started = await startJob(request, { retryOf: previous.id, ...(previous.skill ? { skill: previous.skill } : {}) });
 
   if (started.job) {
     emit(started.job.id, "job.progress", `Retry of ${previous.id}`, { retryOf: previous.id });
