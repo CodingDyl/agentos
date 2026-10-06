@@ -36,12 +36,12 @@ describe("finding rendered images in whatever comes back", () => {
     assert.deepEqual(urls, ["https://cdn.test/a.png"]);
   });
 
-  it("reads a response printed one document per line", () => {
+  it("reads each job's result_url when the jobs are printed one per line", () => {
     const urls = extractImageUrls(
       [
         '{"event":"queued"}',
-        '{"event":"done","url":"https://cdn.test/one.jpg"}',
-        '{"event":"done","url":"https://cdn.test/two.webp"}',
+        '{"status":"completed","result_url":"https://cdn.test/one.jpg"}',
+        '{"status":"completed","result_url":"https://cdn.test/two.webp"}',
       ].join("\n"),
     );
 
@@ -49,6 +49,37 @@ describe("finding rendered images in whatever comes back", () => {
       "https://cdn.test/one.jpg",
       "https://cdn.test/two.webp",
     ]);
+  });
+
+  it("saves one result per job, not its thumbnail or the references it was given", () => {
+    // The shape that turned one requested image into two, and brought every
+    // reference back into the library as a "generated" concept.
+    const output = JSON.stringify([
+      {
+        id: "job-1",
+        status: "completed",
+        result_url: "https://cdn.test/result.png",
+        thumbnail_url: "https://cdn.test/result-min.webp",
+        min: { url: "https://cdn.test/result-min.png" },
+        params: {
+          prompt: "a poster",
+          image_references: ["https://uploads.test/ref-a.jpg", "https://uploads.test/ref-b.png"],
+        },
+        medias: [{ url: "https://uploads.test/ref-a.jpg" }],
+      },
+    ]);
+
+    assert.deepEqual(extractImageUrls(output), ["https://cdn.test/result.png"]);
+  });
+
+  it("keeps only the first plausible picture when no job names its result", () => {
+    // Unknown shape: better one right image than every image in the payload.
+    const output = JSON.stringify({
+      job: { output: { url: "https://cdn.test/out.png" }, alt: "https://cdn.test/out-2.png" },
+      input: { image: "https://uploads.test/ref.png" },
+    });
+
+    assert.deepEqual(extractImageUrls(output), ["https://cdn.test/out.png"]);
   });
 
   it("falls back to reading plain text when nothing parses", () => {

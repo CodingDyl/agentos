@@ -19,6 +19,7 @@ export const LIBRARY_FILTERS: readonly {
   { value: "uploaded", label: "Inspiration" },
   { value: "generated", label: "Generated" },
   { value: "videos", label: "Videos" },
+  { value: "reference", label: "References" },
   { value: "approved", label: "Approved" },
   { value: "favorites", label: "Favourites" },
 ];
@@ -84,6 +85,9 @@ export function filterAssets(
   query: LibraryQuery,
 ): DesignAsset[] {
   return assets.filter((asset) => {
+    // References are what a generation was given, not work: kept for
+    // provenance and under their own filter, but out of the main feed.
+    if (query.filter === "all" && asset.type === "reference") return false;
     if (query.filter === "favorites" && !asset.favorite) return false;
     if (query.filter === "approved" && !asset.approved) return false;
     if (query.filter === "videos" && asset.mediaType !== "video") return false;
