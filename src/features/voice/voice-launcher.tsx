@@ -26,6 +26,8 @@ export function VoiceLauncher() {
           ? "No FISH_API_KEY on server"
           : jarvis.audioNote && jarvis.phase === "idle"
             ? "Voice failed. Open text for why"
+            : jarvis.holding && jarvis.phase === "listening"
+              ? "Listening. Let go of Ctrl to send"
             : jarvis.askingMic
         ? "Allow the microphone in the browser prompt"
         : jarvis.phase === "confirming" && jarvis.transcript
@@ -35,9 +37,11 @@ export function VoiceLauncher() {
           : jarvis.phase === "idle" && canRecord && jarvis.micPermission === "prompt"
             ? "Tap to allow microphone"
             : jarvis.phase === "idle" && canRecord
-              ? jarvis.target
-                ? `Ready. Tell ${jarvis.target} what to do`
-                : "Ready. Tap to talk"
+              ? jarvis.pushToTalk
+                ? "Ready. Hold Ctrl to talk"
+                : jarvis.target
+                  ? `Ready. Tell ${jarvis.target} what to do`
+                  : "Ready. Tap to talk"
               : PHASE_LABEL[jarvis.phase];
 
   return (

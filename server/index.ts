@@ -336,6 +336,7 @@ import { setAiEnabled, setAiModel } from "./ai-stack/settings";
 import { normaliseWorkerModel } from "./ai-stack/model-names";
 import { hasConfigurableModel, isToggleable, readAiStack } from "./ai-stack/stack";
 import { SetAiEnabledRequestSchema } from "../shared/ai-stack-types";
+import { SPOKEN_STYLE } from "../shared/voice-types";
 import { runSeoAudit } from "./seo/audit";
 import { markFindingFiled, readFinding, readProjectSeo } from "./seo/store";
 import { getProjectVercelInfo, isVercelConfigured, listVercelProjects, VercelError } from "./vercel/client";
@@ -4189,17 +4190,20 @@ app.get("/api/agent/skills", async (_request, response) => {
 });
 
 app.post("/api/agent/runs", async (request, response) => {
-  const { message, project } = request.body ?? {};
+  const { message, project, spoken } = request.body ?? {};
 
   if (typeof message !== "string" || message.trim().length === 0) {
     response.status(400).json({ error: "Message is required" });
     return;
   }
 
+  // Said out loud to Jarvis: ask for an answer worth hearing. The style is
+  // fixed here, so the flag can only ever add this one known line.
+  const said = spoken === true ? `${SPOKEN_STYLE}\n\n${message}` : message;
   const input =
     typeof project === "string" && project.trim().length > 0
-      ? `Current project: ${project}\n\n${message}`
-      : message;
+      ? `Current project: ${project}\n\n${said}`
+      : said;
 
   try {
     // The session is resolved here, from the project, so a run can never be

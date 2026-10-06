@@ -55,6 +55,8 @@ happens only when you send a message or run a command.
 | `server/operator/engine.ts` | Plan → approve → execute → record; Stop halts, cancels jobs, rolls nothing back |
 | `server/operator/operations.ts` | What Operator can do today, each an existing AgentOS operation |
 | `server/operator/project-folder.ts` | New project folders: only `<AGENTOS_PROJECTS_ROOT>/<slug>`; a missing root (unplugged SSD) is reported, never created |
+| `src/features/voice/push-to-talk.ts` | Hold Control alone to talk, let go to send; any other key makes it a shortcut and discards the recording |
+| `src/features/voice/small-talk.ts` | Greetings, thanks, goodbye: answered instantly in Jarvis's voice, time-aware, no model call |
 | `src/features/operator/jarvis-operator.ts` | Jarvis on Operator: voice commands, the spoken approve → confirm gate, run narration |
 | `server/workers/worker.ts` | The provider-neutral worker contract |
 | `server/workers/registry.ts` | Which workers exist; the only place one is named |

@@ -2,7 +2,7 @@ import { Send, Square, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { withoutEmDashes } from "@shared/plain-text";
 import { Markdown } from "@/components/os";
-import { PAPER_FOCUS, PaperButton } from "@/components/paper";
+import { PAPER_FOCUS, PaperButton, PaperSwitch } from "@/components/paper";
 import { ApprovalCard } from "@/features/agent/approval-card";
 import { ProposalCard } from "@/features/agent/proposal-card";
 import { readProposal } from "@/features/agent/proposal";
@@ -53,11 +53,15 @@ export function JarvisPanel() {
     ? "Voice is off. Type below; answers stay text only."
     : !jarvis.voice?.configured
       ? "FISH_API_KEY isn't set on the server (restart it after editing .env). Type below; answers stay text only."
+      : listening && jarvis.holding
+        ? "Listening. Let go of Ctrl to send."
       : listening
         ? "Listening. It sends when you stop talking."
         : jarvis.phase === "speaking"
           ? "Speaking. Tap to stop."
-          : "Tap the orb to talk.";
+          : jarvis.pushToTalk
+            ? "Tap the orb, or hold Ctrl anywhere, to talk."
+            : "Tap the orb to talk.";
 
   return (
     <section
@@ -212,6 +216,13 @@ export function JarvisPanel() {
         ) : null}
 
         {timingLine ? <p className="text-[12.5px] leading-5 text-paper-sage">Last exchange: {timingLine}.</p> : null}
+
+        <label className="flex items-center justify-between gap-3 border-t border-paper-mist pt-3 text-[13px] text-paper-char">
+          <span>
+            Hold <kbd className="font-mono text-[12px]">Ctrl</kbd> to talk, anywhere in AgentOS
+          </span>
+          <PaperSwitch checked={jarvis.pushToTalk} onChange={jarvis.setPushToTalk} label="Hold Control to talk to Jarvis" />
+        </label>
       </div>
 
       {working || jarvis.phase === "speaking" ? (

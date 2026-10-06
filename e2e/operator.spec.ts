@@ -148,6 +148,25 @@ test.describe("Operator", () => {
     await expect(jarvis.getByText(/Plan ready for Voice Plan\./)).toBeVisible();
   });
 
+  test("small talk is answered by Jarvis at once, not turned into a run", async ({ page }) => {
+    await page.goto("/operator");
+    const messages = page.getByRole("region", { name: "Conversation" }).getByRole("listitem", { name: /^Request:/ });
+    // Earlier tests left runs; wait for the thread before counting it.
+    await expect(messages.first()).toBeVisible();
+    const before = await messages.count();
+    const jarvis = page.getByRole("region", { name: "Jarvis" });
+    await jarvis.getByRole("button", { name: "Show Jarvis transcript" }).click();
+    const panel = page.getByRole("dialog", { name: "Jarvis" });
+
+    await panel.getByLabel("Your message").fill("Good morning Jarvis");
+    await panel.getByRole("button", { name: "Send" }).click();
+    await expect(jarvis.getByText(/^(Good (morning|afternoon|evening)|Morning|Afternoon|Evening|Still up|Burning|It's).*sir/)).toBeVisible();
+    await expect(messages).toHaveCount(before);
+
+    // The hold-Control switch lives in his panel.
+    await expect(panel.getByRole("switch", { name: "Hold Control to talk to Jarvis" })).toBeVisible();
+  });
+
   test("Ask is read-only, and says so when Hermes can't answer", async ({ page }) => {
     await page.goto("/operator");
     await send(page, "What are the biggest problems with Virtara?", "Ask");
