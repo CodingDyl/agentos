@@ -20,3 +20,12 @@ export const VoiceSpeakInputSchema = z.object({
 });
 
 export type VoiceFailureReason = "not-configured" | "switched-off" | "unauthorized" | "failed" | "empty";
+
+/**
+ * How Hermes should sound when you *speak* to Jarvis. Sent ahead of spoken
+ * messages only, so typed work on the Agent page keeps its normal voice.
+ */
+export const SPOKEN_STYLE =
+  "(Spoken to Jarvis by voice. Reply as Jarvis: warm, quick, a touch of dry wit, and address me as sir. " +
+  "Talk the way a person speaks: one to three short sentences unless I ask for detail, no markdown, lists or headings. " +
+  "If you did something, say what in plain words.)";
