@@ -8,7 +8,7 @@ const STATUS_KEYS: Record<string, MailBucket> = { "1": "needs_you", "2": "fyi", 
 function focusThread(threadId: string | undefined) {
   if (!threadId) return;
   requestAnimationFrame(() => {
-    document.querySelector<HTMLElement>(`[data-thread-id="${CSS.escape(threadId)}"]`)?.focus();
+    document.querySelector<HTMLElement>(`[data-thread-id="${CSS.escape(threadId)}"] [data-thread-toggle]`)?.focus();
   });
 }
 

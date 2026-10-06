@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Archive, Reply, Trash2 } from "lucide-react";
 import type { MailBucket, MailThread } from "@shared/mail-types";
 import { Link } from "react-router-dom";
@@ -52,6 +52,7 @@ const READ_ONLY_HINT = "Reconnect Gmail to allow this";
 export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: ThreadRowProps) {
   const client = useClientMatcher()(thread.fromEmail);
   const [expanded, setExpanded] = useState(false);
+  const bodyId = useId();
   const mailbox = thread.account === "titan" ? "Virtara" : "Gmail";
   const body = useMailThreadBody(thread.threadId, expanded);
   const correct = useCorrectMailThread();
@@ -83,31 +84,47 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
     run();
   };
 
+  // The row is not itself a button: a button's contents are hidden from
+  // assistive tech, which would take Reply, Done and Delete with them. The
+  // sender, subject and snippet form the real toggle button; a click on the
+  // rest of the row opens it too, for the mouse.
   return (
     <div
       className={`mail-thread mail-thread--${tone}${thread.unread ? " mail-thread--unread" : ""}`}
       data-thread-id={thread.threadId}
       data-unread={thread.unread}
       onClick={toggle}
-      role="button"
-      tabIndex={0}
-      aria-expanded={expanded}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter" || event.key === " " || event.key === "o") {
-          event.preventDefault();
-          toggle();
-        }
-      }}
     >
-      <div className="mail-thread-avatar">{threadInitial(thread)}</div>
+      <div className="mail-thread-avatar" aria-hidden="true">
+        {threadInitial(thread)}
+      </div>
       <div className="mail-thread-body">
-        <div className="mail-thread-sender">
-          {thread.unread ? <span className="mail-unread-dot" aria-label="Unread" /> : null}
-          {threadSender(thread)}
-        </div>
-        <div className="mail-thread-subject">{thread.subject}</div>
-        <div className="mail-thread-snippet">{thread.snippet}</div>
+        <button
+          type="button"
+          className="mail-thread-toggle"
+          data-thread-toggle=""
+          aria-expanded={expanded}
+          aria-controls={bodyId}
+          onClick={quick(toggle)}
+          onKeyDown={(event) => {
+            if (event.key === "o") {
+              event.preventDefault();
+              toggle();
+            }
+          }}
+        >
+          <span className="mail-thread-sender">
+            {thread.unread ? (
+              <>
+                <span className="mail-unread-dot" aria-hidden="true" />
+                <span className="mail-visually-hidden">Unread: </span>
+              </>
+            ) : null}
+            {threadSender(thread)}
+          </span>
+          <span className="mail-thread-subject">{thread.subject}</span>
+          <span className="mail-thread-snippet">{thread.snippet}</span>
+        </button>
         <div className="mail-tags">
           {thread.account === "titan" ? (
             <span className="mail-tag mail-tag--account" title="Arrived in the Virtara mailbox">
@@ -146,7 +163,7 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
         ) : null}
         {expanded ? (
           <>
-            <div className="mail-thread-expanded-body">
+            <div className="mail-thread-expanded-body" id={bodyId}>
               {body.isPending
                 ? "Loading the full message…"
                 : body.isError

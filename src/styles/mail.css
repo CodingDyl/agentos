@@ -226,7 +226,26 @@
   color: var(--mail-olive-char);
 }
 
+/* The row's toggle: looks like the row, behaves like a button. Its focus ring is drawn on the whole row. */
+.mail-thread-toggle {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mail-thread .mail-thread-toggle:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .mail-thread-subject {
+  display: block;
   font-size: 13.5px;
   color: var(--mail-olive-char);
   margin-top: 1px;
@@ -259,6 +278,7 @@
 }
 
 .mail-thread-snippet {
+  display: block;
   font-size: 13px;
   color: var(--mail-sage-gray);
   margin-top: 1px;
@@ -837,7 +857,7 @@
 .mail-menu-trigger:focus-visible,
 .mail-menu-chip:focus-visible,
 .mail-bulk-btn:focus-visible,
-.mail-thread:focus-visible {
+.mail-thread:has(.mail-thread-toggle:focus-visible) {
   outline: 2px solid var(--mail-burnished-gold);
   outline-offset: 2px;
 }
