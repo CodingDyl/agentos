@@ -1,14 +1,17 @@
 import type { MailBulkAction, MailBulkResult } from "../../shared/mail-types";
 import { canModifyGmail, GmailAuthError } from "./gmail-auth";
+import { mailAccountOf } from "../../shared/mail-account-types";
 import { archiveThread, setThreadRead, trashThread } from "./gmail-client";
+import { archiveTitanThread, setTitanThreadRead, trashTitanThread } from "./titan-client";
 import { removeThread, setUnread, visibleThreadIds } from "./store";
 import { startProgress } from "./progress";
 import { profileThread } from "./sync";
 
 /**
- * Mail's write actions. Gmail stays the source of truth: each change is made
- * in Gmail first and mirrored into `mail.db` only once Gmail accepts it, so
- * the Inbox never shows a thread as read or deleted when Gmail disagrees.
+ * Mail's write actions. The mailbox stays the source of truth: each change is
+ * made in Gmail (or on the Virtara mailbox's IMAP server) first and mirrored
+ * into `mail.db` only once the server accepts it, so the Inbox never shows a
+ * thread as read or deleted when the mailbox disagrees.
  */
 
 export interface MailActionDeps {
@@ -19,11 +22,17 @@ export interface MailActionDeps {
   profileThread: (threadId: string) => Promise<void>;
 }
 
+/** Sends each thread's action to the mailbox it came from. */
+export const routedMailActions = {
+  setThreadRead: (threadId: string, read: boolean) =>
+    mailAccountOf(threadId) === "titan" ? setTitanThreadRead(threadId, read) : setThreadRead(threadId, read),
+  trashThread: (threadId: string) => (mailAccountOf(threadId) === "titan" ? trashTitanThread(threadId) : trashThread(threadId)),
+  archiveThread: (threadId: string) => (mailAccountOf(threadId) === "titan" ? archiveTitanThread(threadId) : archiveThread(threadId)),
+};
+
 const defaultDeps: MailActionDeps = {
   canModify: canModifyGmail,
-  setThreadRead,
-  trashThread,
-  archiveThread,
+  ...routedMailActions,
   profileThread: (threadId) => profileThread(threadId),
 };
 
@@ -59,7 +68,9 @@ async function forEachLimited(
   return { succeeded, failed };
 }
 
-async function requireModify(deps: MailActionDeps): Promise<void> {
+/** Gmail's grant matters only for Gmail threads; the Virtara mailbox's login can always change its own mail. */
+async function requireModify(deps: MailActionDeps, threadIds: readonly string[]): Promise<void> {
+  if (threadIds.every((threadId) => mailAccountOf(threadId) === "titan")) return;
   if (!(await deps.canModify())) {
     throw new GmailAuthError(
       "Gmail is connected read-only. Reconnect Gmail to allow marking read and moving to Trash.",
@@ -73,8 +84,9 @@ export async function markThreadsRead(
   read: boolean,
   deps: MailActionDeps = defaultDeps,
 ): Promise<MailBulkResult> {
-  await requireModify(deps);
-  return forEachLimited(visibleThreadIds(threadIds), async (threadId) => {
+  const ids = visibleThreadIds(threadIds);
+  await requireModify(deps, ids);
+  return forEachLimited(ids, async (threadId) => {
     await deps.setThreadRead(threadId, read);
     setUnread([threadId], !read);
   });
@@ -85,8 +97,9 @@ export async function trashThreads(
   threadIds: readonly string[],
   deps: MailActionDeps = defaultDeps,
 ): Promise<MailBulkResult> {
-  await requireModify(deps);
-  return forEachLimited(visibleThreadIds(threadIds), async (threadId) => {
+  const ids = visibleThreadIds(threadIds);
+  await requireModify(deps, ids);
+  return forEachLimited(ids, async (threadId) => {
     await deps.trashThread(threadId);
     removeThread(threadId);
   });
@@ -97,8 +110,9 @@ export async function archiveThreads(
   threadIds: readonly string[],
   deps: MailActionDeps = defaultDeps,
 ): Promise<MailBulkResult> {
-  await requireModify(deps);
-  return forEachLimited(visibleThreadIds(threadIds), async (threadId) => {
+  const ids = visibleThreadIds(threadIds);
+  await requireModify(deps, ids);
+  return forEachLimited(ids, async (threadId) => {
     await deps.archiveThread(threadId);
     removeThread(threadId);
   });

@@ -1,6 +1,7 @@
 import { LOW_PRIORITY_TTL_HOURS, type MailBulkResult } from "../../shared/mail-types";
 import { canModifyGmail } from "./gmail-auth";
-import { trashThread } from "./gmail-client";
+import { mailAccountOf } from "../../shared/mail-account-types";
+import { routedMailActions } from "./actions";
 import { lowPriorityExpiredBefore, refreshLowPriorityClock, removeThread } from "./store";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -10,24 +11,27 @@ export interface AutoCleanDeps {
   trashThread: (threadId: string) => Promise<void>;
 }
 
-const defaultDeps: AutoCleanDeps = { canModify: canModifyGmail, trashThread };
+const defaultDeps: AutoCleanDeps = { canModify: canModifyGmail, trashThread: routedMailActions.trashThread };
 
 /**
  * Moves every thread that has sat in Low priority for `LOW_PRIORITY_TTL_HOURS`
  * to Gmail's Trash (recoverable there for 30 days) and drops it from the Inbox.
  *
- * Gmail first, then local — a thread Gmail refuses stays put and is retried
- * next run. Does nothing under a read-only grant: a clean-up that can only
- * hide threads locally would quietly desync AgentOS from Gmail.
+ * Mailbox first, then local — a thread the server refuses stays put and is
+ * retried next run. Skips Gmail threads under a read-only grant: a clean-up
+ * that can only hide threads locally would quietly desync AgentOS from Gmail.
+ * Virtara threads go to that mailbox's own Trash.
  */
 export async function cleanExpiredLowPriority(
   now: Date = new Date(),
   deps: AutoCleanDeps = defaultDeps,
 ): Promise<MailBulkResult> {
-  if (!(await deps.canModify())) return { succeeded: 0, failed: 0 };
+  const gmailWritable = await deps.canModify();
 
   refreshLowPriorityClock(now);
-  const expired = lowPriorityExpiredBefore(new Date(now.getTime() - LOW_PRIORITY_TTL_HOURS * HOUR_MS));
+  const expired = lowPriorityExpiredBefore(new Date(now.getTime() - LOW_PRIORITY_TTL_HOURS * HOUR_MS)).filter(
+    (threadId) => gmailWritable || mailAccountOf(threadId) === "titan",
+  );
 
   let succeeded = 0;
   let failed = 0;
@@ -43,7 +47,7 @@ export async function cleanExpiredLowPriority(
   }
 
   if (succeeded > 0 || failed > 0) {
-    console.log(`[agentos] Low priority clean-up: ${succeeded} moved to Gmail Trash, ${failed} failed.`);
+    console.log(`[agentos] Low priority clean-up: ${succeeded} moved to Trash, ${failed} failed.`);
   }
   return { succeeded, failed };
 }

@@ -75,6 +75,10 @@ const MIGRATIONS: readonly string[] = [
 
   CREATE INDEX IF NOT EXISTS idx_mail_outbox_created ON mail_outbox(created_at);
   `,
+  `
+  ALTER TABLE mail_threads ADD COLUMN account TEXT NOT NULL DEFAULT 'gmail';
+  CREATE INDEX IF NOT EXISTS idx_mail_threads_account_date ON mail_threads(account, message_date);
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

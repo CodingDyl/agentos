@@ -7,6 +7,7 @@ import {
   type MailData,
   type MailThread,
 } from "../../shared/mail-types";
+import { mailAccountOf, type MailAccountId } from "../../shared/mail-account-types";
 import { bucketFor, buildMailBuckets } from "./bucketing";
 import { mailDatabase } from "./db";
 
@@ -16,6 +17,17 @@ import { mailDatabase } from "./db";
  * fall out of the window as the calendar moves on.
  */
 export const mailClock = { now: (): Date => new Date() };
+
+/**
+ * The Inbox's window as SQL: visible threads from the last month, at most
+ * `MAIL_THREAD_LIMIT` per account, so a busy Gmail never pushes the Virtara
+ * mailbox out of view. Takes (cutoff, limit) as its two parameters.
+ */
+const WINDOW = `
+  SELECT * FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY account ORDER BY message_date DESC) AS account_rank
+    FROM mail_threads WHERE removed = 0 AND message_date >= ?
+  ) WHERE account_rank <= ?`;
 
 /** What Gmail gave us for a thread — the input to `insertThreadIfNew`. */
 export interface ThreadSummaryInput {
@@ -72,6 +84,7 @@ interface MailThreadRow {
   user_category: string | null;
   corrected_at: string | null;
   low_priority_since: string | null;
+  account: string;
 }
 
 function toMailThread(row: MailThreadRow): MailThread {
@@ -94,13 +107,14 @@ function toMailThread(row: MailThreadRow): MailThread {
     userBucket: text(row.user_bucket) as MailBucket | undefined,
     userCategory: text(row.user_category) as MailCategory | undefined,
     lowPrioritySince: text(row.low_priority_since),
+    account: row.account === "titan" ? "titan" : "gmail",
   };
 }
 
 const INSERT_SUMMARY = `
   INSERT OR IGNORE INTO mail_threads (
-    thread_id, from_name, from_email, subject, snippet, message_date, synced_at, unread
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    thread_id, from_name, from_email, subject, snippet, message_date, synced_at, unread, account
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 /**
@@ -123,6 +137,7 @@ export function insertThreadIfNew(summary: ThreadSummaryInput): void {
       summary.messageDate,
       new Date().toISOString(),
       summary.unread ? 1 : 0,
+      mailAccountOf(summary.threadId),
     );
 }
 
@@ -144,10 +159,7 @@ export function existingThreadIds(): Set<string> {
 export function listUnclassifiedThreadIds(): string[] {
   const rows = mailDatabase()
     .prepare(
-      `SELECT thread_id FROM (
-         SELECT thread_id, classified FROM mail_threads
-         WHERE removed = 0 AND message_date >= ? ORDER BY message_date DESC LIMIT ?
-       ) WHERE classified = 0`,
+      `SELECT thread_id FROM (${WINDOW}) WHERE classified = 0 ORDER BY message_date DESC`,
     )
     .all(mailCutoff(mailClock.now()), MAIL_THREAD_LIMIT) as unknown as { thread_id: string }[];
 
@@ -322,7 +334,7 @@ export function visibleThreadIds(threadIds: readonly string[]): string[] {
 
 function visibleThreads(): MailThread[] {
   const rows = mailDatabase()
-    .prepare("SELECT * FROM mail_threads WHERE removed = 0 AND message_date >= ? ORDER BY message_date DESC LIMIT ?")
+    .prepare(`${WINDOW} ORDER BY message_date DESC`)
     .all(mailCutoff(mailClock.now()), MAIL_THREAD_LIMIT) as unknown as MailThreadRow[];
   return rows.map(toMailThread);
 }
@@ -356,6 +368,14 @@ export function lowPriorityExpiredBefore(cutoff: Date): string[] {
   return rows.map((row) => row.thread_id);
 }
 
+/** Every cached thread of one account, for diffing that account's server list. */
+export function existingThreadIdsFor(account: MailAccountId): Set<string> {
+  const rows = mailDatabase()
+    .prepare("SELECT thread_id FROM mail_threads WHERE account = ?")
+    .all(account) as unknown as { thread_id: string }[];
+  return new Set(rows.map((row) => row.thread_id));
+}
+
 export function threadCount(): number {
   const rows = mailDatabase()
     .prepare("SELECT COUNT(*) as count FROM mail_threads")
@@ -383,7 +403,7 @@ export function lastSyncedAt(): string | undefined {
 export function readMailData(): MailData {
   refreshLowPriorityClock();
   const rows = mailDatabase()
-    .prepare("SELECT * FROM mail_threads WHERE removed = 0 AND message_date >= ? ORDER BY message_date DESC LIMIT ?")
+    .prepare(`${WINDOW} ORDER BY message_date DESC`)
     .all(mailCutoff(mailClock.now()), MAIL_THREAD_LIMIT) as unknown as MailThreadRow[];
 
   const threads = rows.map(toMailThread);

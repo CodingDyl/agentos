@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MailAccountIdSchema, MailAccountSummarySchema } from "./mail-account-types";
 
 /**
  * The Inbox's window: only this many of the most recent INBOX threads are
@@ -83,6 +84,8 @@ export const MailThreadSchema = z.object({
   userCategory: MailCategorySchema.optional(),
   /** ISO 8601 — when this thread entered Low priority. Absent while it's anywhere else. */
   lowPrioritySince: z.string().optional(),
+  /** Which mailbox it arrived in: the Virtara (Titan) mailbox, or Gmail when absent. */
+  account: MailAccountIdSchema.optional(),
 });
 
 /**
@@ -118,12 +121,16 @@ export const MailStatusSchema = z.object({
   canModify: z.boolean().default(false),
   lastSyncedAt: z.string().optional(),
   threadCount: z.number().int().nonnegative(),
+  /** Every mailbox the Inbox can read, linked or not. Never carries a password. */
+  accounts: z.array(MailAccountSummarySchema).default([]),
 });
 
 export const MailSyncResultSchema = z.object({
   added: z.number().int().nonnegative(),
   classified: z.number().int().nonnegative(),
   failed: z.number().int().nonnegative(),
+  /** A mailbox that could not be read this time, while the others were. */
+  warnings: z.array(z.string()).optional(),
 });
 
 /** A person's correction of Jev's profile for one thread. Omitted fields are left as they are. */
@@ -136,7 +143,7 @@ export const MailBulkActionSchema = z.enum(["mark_read", "archive", "trash", "re
 
 export const MailBulkRequestSchema = z.object({
   action: MailBulkActionSchema,
-  threadIds: z.array(z.string().min(1)).min(1).max(MAIL_THREAD_LIMIT),
+  threadIds: z.array(z.string().min(1)).min(1).max(MAIL_THREAD_LIMIT * 2),
 });
 
 export const MailBulkResultSchema = z.object({
