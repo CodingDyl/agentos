@@ -98,17 +98,49 @@ export function hermesAnalysisPrompt(run: RebuildRun, transcript: string, struct
   ].join("\n");
 }
 
+/**
+ * How the three concepts use the client's brand. Without a kit, three free
+ * directions as before; with one, a spectrum from faithful to bold, so the
+ * person can choose how far to move from what the client has today.
+ */
+function heroBrand(run: RebuildRun): { read: string; directions: string; images: string } {
+  const kit = run.brandKit;
+  const used = (kit?.assets ?? []).filter((asset) => asset.include);
+  if (!kit || (used.length === 0 && kit.colors.length === 0 && kit.fonts.length === 0)) {
+    return {
+      read: "",
+      directions: "The three must be clearly different directions, not one palette in three shades.",
+      images: "no remote images: use CSS shapes, gradients or inline SVG",
+    };
+  }
+  const hasLogo = used.some((asset) => asset.kind === "logo");
+  const hasPhotos = used.some((asset) => asset.kind === "photo");
+  return {
+    read: " Then brand/BRAND.md: the client's own logo, photos, colours and fonts, with the files beside it in brand/.",
+    directions: [
+      "The three are a spectrum from the client's current brand, each clearly different from the others:",
+      "  - concept-a, Faithful: their colours and fonts, refined. Someone who knows the business recognises it at once.",
+      "  - concept-b, Evolved: keeps their logo and main brand colour; new typography, supporting palette and layout.",
+      "  - concept-c, Bold: a confident new direction that still uses their logo and works beside it.",
+      `  Every concept uses ${hasLogo ? "the primary logo, brand/logo.*, in the navigation, never redrawn or recoloured" : "the company name as a wordmark (there is no logo)"}.${hasPhotos ? " Use the client's photos from brand/photos/ where a photo helps; never stock imagery." : ""} Record in each DESIGN.md which brand colours and fonts it keeps.`,
+      "  Fonts: no web fonts from the internet. Name the client's font first in the font stack with a close system fallback, and note it in DESIGN.md.",
+    ].join("\n"),
+    images: "the only images allowed are the client's files in brand/, referenced by relative path (for example ../../brand/logo.png); otherwise CSS shapes, gradients or inline SVG",
+  };
+}
+
 export function heroBrief(run: RebuildRun, note?: string): string {
+  const brand = heroBrand(run);
   return [
     `Design three distinct hero sections for ${run.company}'s new website.`,
     "",
     ...client(run),
     "",
-    "Read first: docs/current-site/ (what the current site says), research/ (competitors and improvements, if present) and design/TEMPLATE.md (the design system format to follow).",
+    `Read first: docs/current-site/ (what the current site says), research/ (competitors and improvements, if present) and design/TEMPLATE.md (the design system format to follow).${brand.read}`,
     "",
     "Create exactly these files:",
-    "- design/concept-a/DESIGN.md, design/concept-b/DESIGN.md, design/concept-c/DESIGN.md: each a complete design system written with the same sections and structure as design/TEMPLATE.md (colour tokens, typography, spacing, components, do and don't), but with its own values. The three must be clearly different directions, not one palette in three shades. Give each a short name in its first heading.",
-    "- design/concept-a/hero.html, design/concept-b/hero.html, design/concept-c/hero.html: the hero section of the home page in that system, as one self-contained HTML file. All CSS inline in a <style> tag, no JavaScript, no external requests (no CDNs, no web fonts from the internet, no remote images: use CSS shapes, gradients or inline SVG). It must look right at 1440px and at 390px wide. Use the client's real name, offer and the call to action for the goal above. Navigation bar included.",
+    `- design/concept-a/DESIGN.md, design/concept-b/DESIGN.md, design/concept-c/DESIGN.md: each a complete design system written with the same sections and structure as design/TEMPLATE.md (colour tokens, typography, spacing, components, do and don't), but with its own values. ${brand.directions} Give each a short name in its first heading.`,
+    `- design/concept-a/hero.html, design/concept-b/hero.html, design/concept-c/hero.html: the hero section of the home page in that system, as one self-contained HTML file. All CSS inline in a <style> tag, no JavaScript, no external requests (no CDNs, no web fonts from the internet; ${brand.images}). It must look right at 1440px and at 390px wide. Use the client's real name, offer and the call to action for the goal above. Navigation bar included.`,
     "",
     "Quality bar: semantic HTML (header, nav, main, h1), visible focus styles, colour contrast of at least 4.5:1 for text, a CTA a visitor cannot miss.",
     ...changeNote(note),
@@ -134,10 +166,20 @@ export function buildBrief(run: RebuildRun, concept: string, note?: string): str
     "- Navigation in a header on every page; footer with contact details.",
     "- The call to action for the goal is prominent on every page. It may link to /contact for now; working forms come in the next stage.",
     "- Write sitemap.json at the repository root: a JSON array of the routes, e.g. [\"/\", \"/services\", \"/contact\"].",
+    ...buildBrand(run),
     ...changeNote(note),
     "",
     ...COMMON,
   ].join("\n");
+}
+
+function buildBrand(run: RebuildRun): string[] {
+  const used = (run.brandKit?.assets ?? []).filter((asset) => asset.include);
+  if (!run.brandKit || (used.length === 0 && run.brandKit.fonts.length === 0)) return [];
+  return [
+    "- Brand: brand/BRAND.md lists the client's own logo, photos, colours and fonts. Copy the files you use into public/brand/ and render them with next/image (width, height and real alt text you write yourself; do not copy alt text blindly). The primary logo, brand/logo.*, goes in the header and links home. Use their photos where a photo helps; never stock imagery.",
+    "- Fonts: load a font with next/font/google only if it is a Google Font. Otherwise use the closest open-licence match and add a line to CONTENT_TODO.md naming the original font and the substitute.",
+  ];
 }
 
 export function functionsBrief(run: RebuildRun, note?: string): string {

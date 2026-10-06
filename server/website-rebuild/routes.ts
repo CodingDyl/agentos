@@ -1,7 +1,11 @@
+import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
 import path from "node:path";
 import express from "express";
 import { agentOSRoot } from "../agentos/filesystem";
 import {
+  BrandKitEditSchema,
+  BrandUploadKindSchema,
   REBUILD_SKILL_ID,
   RebuildDecisionInputSchema,
   RebuildRetryInputSchema,
@@ -14,9 +18,13 @@ import {
 } from "../../shared/website-rebuild-types";
 import { cancelJob } from "../workers/job-manager";
 import { listWorkers } from "../workers/registry";
+import { readDimensions } from "../designs/media";
+import { BRAND_EXTENSION } from "./brand";
+import { MAX_BRAND_IMAGE_BYTES, toSafeRaster } from "./capture";
+import { REPORT_DIR } from "./reports";
 import { advanceInBackground, currentSkillVersion } from "./runner";
 import { isSkillEnabled } from "../skills/registry";
-import { createOrReuseRun, decide, listRuns, readRun, RebuildError, recoverAbandonedStages, resetForRetry, runForProspect, runForWorkspace } from "./store";
+import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, runForProspect, runForWorkspace } from "./store";
 
 /**
  * Website rebuilds. Every route answers with the run's full state, so the page
@@ -32,8 +40,10 @@ rebuildRouter.use((request, response, next) => {
     response.status(403).json({ error: "Website rebuilds are only available on this machine." });
     return;
   }
-  if (request.method !== "GET" && !request.is("application/json")) {
-    response.status(415).json({ error: "Send JSON." });
+  // JSON, or an image for the one upload route: neither can be sent by a plain cross-site form.
+  const upload = request.method === "POST" && /^\/[^/]+\/brand\/assets$/.test(request.path);
+  if (request.method !== "GET" && !(upload ? request.is("image/*") : request.is("application/json"))) {
+    response.status(415).json({ error: upload ? "Send the image file itself, with its image type." : "Send JSON." });
     return;
   }
   next();
@@ -210,6 +220,55 @@ rebuildRouter.post("/:id/stages/:stage/request-changes", (request, response) => 
     decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "changes_requested", input.data.note);
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+/** The person's changes to the brand kit: which images, in what order, and the colours and fonts. */
+rebuildRouter.post("/:id/brand", (request, response) => {
+  const input = BrandKitEditSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(422).json({ error: input.error.issues[0]?.message ?? "That brand kit is not valid." });
+    return;
+  }
+  try {
+    response.json(editBrandKit(readRun(request.params.id).id, input.data));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+/**
+ * Adds a logo or photo to the brand kit. The body is the file; its type is
+ * read from its bytes, SVG and ICO are rasterised to PNG, and the server
+ * names the file, so nothing the browser sends becomes a path.
+ */
+rebuildRouter.post("/:id/brand/assets", express.raw({ type: "image/*", limit: MAX_BRAND_IMAGE_BYTES }), async (request, response) => {
+  const kind = BrandUploadKindSchema.safeParse(request.query.kind);
+  if (!kind.success) {
+    response.status(422).json({ error: "Say whether this is a logo or a photo." });
+    return;
+  }
+  try {
+    const run = readRun(request.params.id);
+    if (!run.workspaceSlug) throw new RebuildError("This rebuild has no workspace yet. Wait for the first stage to finish.");
+    if (!Buffer.isBuffer(request.body) || request.body.length === 0) throw new RebuildError("The upload was empty.", 400);
+    const safe = await toSafeRaster(request.body);
+    if (!safe) throw new RebuildError("That file is not an image AgentOS can use. Send a PNG, JPEG, WebP, GIF, AVIF, SVG or ICO under 5 MB.", 415);
+    const extension = BRAND_EXTENSION[safe.contentType];
+    const id = `${kind.data}-upload-${randomUUID().slice(0, 8)}`;
+    const relativePath = `projects/${run.workspaceSlug}/${REPORT_DIR}/brand/${id}.${extension}`;
+    const root = path.resolve(agentOSRoot());
+    const target = path.resolve(root, relativePath);
+    if (!target.startsWith(`${root}${path.sep}`)) throw new RebuildError("That workspace is not inside the vault.");
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, safe.data);
+    const capture = run.stages.find((stage) => stage.id === "capture");
+    const artifactId = recordArtifact(run.id, "capture", { title: kind.data === "logo" ? "Uploaded logo" : "Uploaded photo", path: relativePath, href: "", revision: Math.max(1, capture?.revision ?? 1), media: "image" });
+    const alt = typeof request.query.alt === "string" ? request.query.alt.trim().slice(0, 300) : "";
+    const measured = readDimensions(safe.data);
+    response.status(201).json(addBrandAsset(run.id, { id, kind: kind.data, artifactId, path: relativePath, sourceUrl: "uploaded", alt: alt || undefined, width: measured?.width, height: measured?.height, include: true }));
   } catch (error) {
     fail(response, error);
   }

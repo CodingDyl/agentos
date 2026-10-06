@@ -185,7 +185,8 @@ export const BrandColorSchema = z.object({
 });
 
 export const BrandFontSchema = z.object({
-  family: z.string().min(1).max(80),
+  /** A family name only: it is written into a worker's brief, so nothing that reads as markup or an instruction. */
+  family: z.string().trim().min(1).max(60).regex(/^[\p{L}\p{N} _.-]+$/u, "A font name may use letters, numbers, spaces, dots, dashes and underscores."),
   role: z.enum(["body", "heading"]),
 });
 
@@ -197,6 +198,20 @@ export const BrandKitSchema = z.object({
   colors: z.array(BrandColorSchema),
   fonts: z.array(BrandFontSchema),
 });
+
+/** What a person may change on the kit: which images are used, in what order, and the colours and fonts. */
+export const BrandKitEditSchema = z
+  .object({
+    /** Every asset's id in the order wanted; the first included logo is the primary one. */
+    assets: z.array(z.object({ id: z.string().min(1).max(80), include: z.boolean() }).strict()).max(60),
+    colors: z.array(BrandColorSchema.omit({ weight: true }).strict()).max(12),
+    fonts: z.array(BrandFontSchema.strict()).max(6),
+  })
+  .strict();
+export type BrandKitEdit = z.infer<typeof BrandKitEditSchema>;
+
+export const MAX_BRAND_ASSETS = 40;
+export const BrandUploadKindSchema = z.enum(["logo", "photo"]);
 
 export type BrandAsset = z.infer<typeof BrandAssetSchema>;
 export type BrandColor = z.infer<typeof BrandColorSchema>;

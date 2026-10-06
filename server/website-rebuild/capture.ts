@@ -250,21 +250,7 @@ export async function withBrowserLoader<T>(run: (loadPage: (url: string) => Prom
     const context = await browser.newContext({ userAgent: "AgentOS website capture (+https://github.com/CodingDyl/agentos)" });
     const budget: DownloadBudget = { remaining: MAX_BRAND_TOTAL_BYTES, seen: new Set() };
 
-    // SVG and ICO files become PNGs in a page of their own: shown through an <img>, which never runs
-    // a script, with every network request refused, so a hostile logo can neither execute nor call out.
-    const sandbox = await browser.newContext({ viewport: { width: 1200, height: 1200 } });
-    await sandbox.route("**/*", (route) => route.abort());
-    const rasterise: Rasterise = async (data, contentType) => {
-      const page = await sandbox.newPage();
-      try {
-        await page.setContent(`<body style="margin:0;background:transparent"><img id="asset" style="display:block;max-width:1200px;max-height:1200px;min-width:${contentType === "image/svg+xml" ? 480 : 16}px" src="data:${contentType};base64,${data.toString("base64")}"></body>`);
-        const image = page.locator("#asset");
-        const loaded = await image.evaluate((element) => (element as unknown as { complete: boolean; naturalWidth: number }).complete && (element as unknown as { naturalWidth: number }).naturalWidth > 0);
-        return loaded ? await image.screenshot({ omitBackground: true, type: "png" }) : undefined;
-      } finally {
-        await page.close();
-      }
-    };
+    const rasterise = await sandboxRasteriser(browser);
 
     const loadPage = async (url: string): Promise<CapturedPage> => {
       const page = await context.newPage();
@@ -324,7 +310,7 @@ export async function withBrowserLoader<T>(run: (loadPage: (url: string) => Prom
 
 /** The image formats a brand kit stores as they are. Anything else is rasterised to PNG or dropped. */
 export const BRAND_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"] as const;
-const MAX_BRAND_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_BRAND_IMAGE_BYTES = 5 * 1024 * 1024;
 /** Across the whole capture, so a photo-heavy site cannot fill the disk or the memory. */
 const MAX_BRAND_TOTAL_BYTES = 60 * 1024 * 1024;
 const MAX_LOGOS_PER_PAGE = 3;
@@ -344,6 +330,46 @@ export function sniffImage(data: Buffer): (typeof BRAND_IMAGE_TYPES)[number] | "
   const head = data.subarray(0, 1024).toString("utf8").replace(/^\uFEFF/, "").trimStart();
   if (/^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE svg[^>]*>\s*)?<svg[\s>]/i.test(head)) return "image/svg+xml";
   return undefined;
+}
+
+type Browser = Awaited<ReturnType<Awaited<ReturnType<typeof chromium>>["launch"]>>;
+
+/**
+ * SVG and ICO files become PNGs in a page of their own: shown through an <img>, which never runs
+ * a script, with every network request refused, so a hostile logo can neither execute nor call out.
+ */
+async function sandboxRasteriser(browser: Browser): Promise<Rasterise> {
+  const sandbox = await browser.newContext({ viewport: { width: 1200, height: 1200 } });
+  await sandbox.route("**/*", (route) => route.abort());
+  return async (data, contentType) => {
+    const page = await sandbox.newPage();
+    try {
+      await page.setContent(`<body style="margin:0;background:transparent"><img id="asset" style="display:block;max-width:1200px;max-height:1200px;min-width:${contentType === "image/svg+xml" ? 480 : 16}px" src="data:${contentType};base64,${data.toString("base64")}"></body>`);
+      const image = page.locator("#asset");
+      const loaded = await image.evaluate((element) => (element as unknown as { complete: boolean; naturalWidth: number }).complete && (element as unknown as { naturalWidth: number }).naturalWidth > 0);
+      return loaded ? await image.screenshot({ omitBackground: true, type: "png" }) : undefined;
+    } finally {
+      await page.close();
+    }
+  };
+}
+
+/**
+ * One image, made safe to store: a raster file as it is, SVG or ICO as a PNG,
+ * anything else refused. For uploads, which arrive without a capture's browser.
+ */
+export async function toSafeRaster(data: Buffer): Promise<{ data: Buffer; contentType: (typeof BRAND_IMAGE_TYPES)[number] } | undefined> {
+  if (data.length === 0 || data.length > MAX_BRAND_IMAGE_BYTES) return undefined;
+  const sniffed = sniffImage(data);
+  if (!sniffed) return undefined;
+  if (sniffed !== "image/svg+xml" && sniffed !== "image/x-icon") return { data, contentType: sniffed };
+  const browser = await (await chromium()).launch();
+  try {
+    const png = await (await sandboxRasteriser(browser))(data, sniffed);
+    return png ? { data: png, contentType: "image/png" } : undefined;
+  } finally {
+    await browser.close();
+  }
 }
 
 interface DownloadBudget {

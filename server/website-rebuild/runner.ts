@@ -139,10 +139,12 @@ async function saveBrandKit(context: StageContext, capture: CaptureResult): Prom
       });
       artifactIds.push(artifactId);
     }
+    // A recapture replaces what came from the site, never what a person uploaded.
+    const uploaded = (readRun(context.run.id).brandKit?.assets ?? []).filter((asset) => asset.sourceUrl === "uploaded");
     const kit: BrandKit = {
       capturedAt: capture.manifest.capturedAt,
-      source: "capture",
-      assets,
+      source: uploaded.length > 0 ? "edited" : "capture",
+      assets: [...uploaded.filter((asset) => asset.kind === "logo"), ...assets, ...uploaded.filter((asset) => asset.kind === "photo")],
       colors: summariseColors(capture.pages.flatMap((page) => page.brand?.colors ?? [])),
       fonts: summariseFonts(capture.pages.flatMap((page) => page.brand?.fonts ?? [])),
     };

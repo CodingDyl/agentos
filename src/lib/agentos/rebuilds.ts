@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
+import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type BrandKitEdit, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
 import { AgentOSRequestError } from "./client";
 
 const base = "/api/rebuilds";
@@ -124,4 +124,34 @@ export function useDecideStage(runId: string) {
       ...(input.choice ? { choice: input.choice } : {}),
     }),
   );
+}
+
+/** Saves which brand images are used, their order, and the colours and fonts. */
+export function useUpdateBrandKit(runId: string) {
+  return useRunMutation((edit: BrandKitEdit) => call(`${base}/${encodeURIComponent(runId)}/brand`, RebuildRunSchema, edit));
+}
+
+/** Adds a logo or photo the person has, sent as the file itself. */
+export function useUploadBrandAsset(runId: string) {
+  return useRunMutation(async ({ file, kind }: { file: File; kind: "logo" | "photo" }) => {
+    let response: Response;
+    try {
+      response = await fetch(`${base}/${encodeURIComponent(runId)}/brand/assets?kind=${kind}&alt=${encodeURIComponent(file.name.replace(/\.[a-z0-9]+$/i, ""))}`, {
+        method: "POST",
+        // Some systems give SVG or ICO no type; any image type is fine, the server reads the bytes.
+        headers: { "Content-Type": file.type.startsWith("image/") ? file.type : "image/png" },
+        body: file,
+      });
+    } catch {
+      throw new AgentOSRequestError("The AgentOS server is not responding.");
+    }
+    const value: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      const message = value && typeof value === "object" && "error" in value && typeof value.error === "string" ? value.error : response.status === 413 ? "Images are limited to 5 MB." : "The upload failed.";
+      throw new AgentOSRequestError(message, response.status);
+    }
+    const parsed = RebuildRunSchema.safeParse(value);
+    if (!parsed.success) throw new AgentOSRequestError("The website rebuild answer was not what AgentOS expected.");
+    return parsed.data;
+  });
 }
