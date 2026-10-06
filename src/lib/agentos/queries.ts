@@ -27,6 +27,7 @@ import {
   disconnectMail,
   linkTitanMailbox,
   unlinkTitanMailbox,
+  updateTitanSenderName,
   getMail,
   getMailStatus,
   getMailProgress,
@@ -423,6 +424,18 @@ export function useLinkTitanMailbox() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: linkTitanMailbox,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useUpdateTitanSenderName() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateTitanSenderName,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
     },

@@ -256,7 +256,9 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
               <option value="gmail" disabled={!gmailCanSend}>
                 Gmail{gmailCanSend ? "" : " (connect Gmail to send)"}
               </option>
-              <option value="titan">Virtara ({titan.address})</option>
+              <option value="titan">
+                Virtara ({titan.senderName ? `${titan.senderName} <${titan.address ?? ""}>` : titan.address})
+              </option>
             </select>
           </div>
         ) : null}

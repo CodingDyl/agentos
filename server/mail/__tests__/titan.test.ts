@@ -20,7 +20,7 @@ const { markThreadsRead } = await import("../actions");
 const { cleanExpiredLowPriority } = await import("../auto-clean");
 const credentials = await import("../titan-credentials");
 const { summaryFromMessage, plainTextOf, describeTitanError, TitanError } = await import("../titan-client");
-const { mailAccountOf, parseTitanThreadId, titanThreadId, TitanConnectRequestSchema } = await import("../../../shared/mail-account-types");
+const { mailAccountOf, parseTitanThreadId, titanThreadId, TitanConnectRequestSchema, TitanUpdateRequestSchema } = await import("../../../shared/mail-account-types");
 
 before(() => {
   mailDatabase();
@@ -94,8 +94,23 @@ describe("Titan credentials", () => {
     assert.equal("password" in (visible ?? {}), false);
     assert.equal((await credentials.readTitanCredentials())?.password, "very-secret-password");
 
+    await credentials.updateTitanSenderName("Dylan Petzer");
+    assert.equal((await credentials.titanAccount())?.senderName, "Dylan Petzer");
+    assert.equal((await credentials.readTitanCredentials())?.password, "very-secret-password", "renaming keeps the sealed password");
+    await credentials.updateTitanSenderName("");
+    assert.equal((await credentials.titanAccount())?.senderName, undefined);
+
     await credentials.forgetTitanCredentials();
     assert.equal(await credentials.titanAccount(), undefined);
+    await assert.rejects(credentials.updateTitanSenderName("x"), /not linked/);
+  });
+
+  it("refuses a sender name that could break the From header", () => {
+    assert.equal(TitanUpdateRequestSchema.safeParse({ senderName: "Dylan Petzer" }).success, true);
+    assert.equal(TitanUpdateRequestSchema.safeParse({ senderName: "" }).success, true);
+    assert.equal(TitanUpdateRequestSchema.safeParse({ senderName: "Dylan <ceo@bank.test>" }).success, false);
+    assert.equal(TitanUpdateRequestSchema.safeParse({ senderName: "a\nBcc: x@y.z" }).success, false);
+    assert.equal(TitanUpdateRequestSchema.safeParse({ senderName: "x".repeat(101) }).success, false);
   });
 });
 
