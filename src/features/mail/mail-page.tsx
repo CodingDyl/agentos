@@ -107,12 +107,19 @@ export function MailPage() {
     setComposer(target);
   };
 
-  // `gmail.modify` covers sending; a read-only grant from before it cannot, so rows offer no Reply.
-  const rowActions: ThreadRowActions = canModify
+  // `gmail.modify` covers sending; a read-only grant from before it cannot. The Virtara mailbox can always send.
+  const canSend = canModify || titanLinked;
+  const rowActions: ThreadRowActions = canSend
     ? {
         ...triage.actions,
         reply: (thread) =>
-          openComposer({ kind: "reply", threadId: thread.threadId, to: thread.fromEmail, subject: thread.subject }),
+          openComposer({
+            kind: "reply",
+            threadId: thread.threadId,
+            to: thread.fromEmail,
+            subject: thread.subject,
+            account: thread.account ?? "gmail",
+          }),
       }
     : triage.actions;
 
@@ -200,8 +207,8 @@ export function MailPage() {
                   type="button"
                   className="mail-btn-amber mail-btn-icon"
                   onClick={() => openComposer({ kind: "new" })}
-                  disabled={!canModify}
-                  title={canModify ? "Write a new email (sent from Gmail)" : connected ? "Reconnect Gmail to allow sending" : "Connect Gmail to send"}
+                  disabled={!canSend}
+                  title={canSend ? "Write a new email" : connected ? "Reconnect Gmail to allow sending" : "Connect Gmail to send"}
                 >
                   <PenSquare size={15} aria-hidden="true" /> Compose
                 </button>

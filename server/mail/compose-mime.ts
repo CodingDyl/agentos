@@ -13,6 +13,11 @@ import { base64Lines, CONTROL, encodeHeader, isPlainAddress, MimeError } from ".
  */
 
 export interface ComposedEmail {
+  /** Set when sending over SMTP, which (unlike Gmail's API) needs the message to say who it is from. */
+  from?: string;
+  /** RFC 5322 date, and a Message-ID the message can be found by later. Gmail adds both itself. */
+  date?: Date;
+  messageId?: string;
   to: readonly string[];
   cc?: readonly string[];
   bcc?: readonly string[];
@@ -76,7 +81,13 @@ export function buildComposedMessage(email: ComposedEmail): string {
     throw new MimeError("The message being answered is not a valid Message-ID.");
   }
 
+  if (email.from !== undefined && !isPlainAddress(email.from)) throw new MimeError("The sending address is not valid.");
+  if (email.messageId !== undefined && !/^<[^<>\s]{1,300}>$/.test(email.messageId)) throw new MimeError("The Message-ID is not valid.");
+
   const headers = [
+    ...(email.from ? [`From: ${email.from}`] : []),
+    ...(email.date ? [`Date: ${email.date.toUTCString().replace("GMT", "+0000")}`] : []),
+    ...(email.messageId ? [`Message-ID: ${email.messageId}`] : []),
     ...(to.length > 0 ? [`To: ${to.join(", ")}`] : []),
     ...(cc.length > 0 ? [`Cc: ${cc.join(", ")}`] : []),
     // Gmail removes Bcc from what recipients receive and delivers to it from here.
@@ -101,7 +112,7 @@ export function buildComposedMessage(email: ComposedEmail): string {
   const boundary = `agentos_${randomBytes(12).toString("hex")}`;
   const parts = attachments.map((attachment) => {
     const filename = safeFilename(attachment.filename);
-    if (isBlockedAttachment(filename)) throw new MimeError(`Gmail does not allow ${filename} to be sent.`);
+    if (isBlockedAttachment(filename)) throw new MimeError(`${filename} is a file type mail servers block. Zip it or share a link instead.`);
     const mimeType = MIME_TYPE.test(attachment.mimeType) ? attachment.mimeType : "application/octet-stream";
     return [
       `Content-Type: ${mimeType}; name="${encodeHeader(filename)}"`,
@@ -122,4 +133,28 @@ export function buildComposedMessage(email: ComposedEmail): string {
     `--${boundary}--`,
     "",
   ].join("\r\n");
+}
+
+/**
+ * The copy that goes over SMTP: the same message without its Bcc header, so
+ * Bcc recipients stay hidden from everyone else. (Gmail's API does this
+ * itself; an SMTP server delivers the headers exactly as given.) Folded
+ * continuation lines of the Bcc header go with it.
+ */
+export function withoutBccHeader(raw: string): string {
+  const split = raw.search(/\r?\n\r?\n/);
+  if (split < 0) return raw;
+  const head = raw.slice(0, split);
+  const lines = head.split(/\r?\n/);
+  const kept: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    if (/^[ \t]/.test(line)) {
+      if (!skipping) kept.push(line);
+      continue;
+    }
+    skipping = /^bcc\s*:/i.test(line);
+    if (!skipping) kept.push(line);
+  }
+  return `${kept.join("\r\n")}${raw.slice(split)}`;
 }

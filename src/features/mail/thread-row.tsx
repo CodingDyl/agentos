@@ -52,6 +52,7 @@ const READ_ONLY_HINT = "Reconnect Gmail to allow this";
 export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: ThreadRowProps) {
   const client = useClientMatcher()(thread.fromEmail);
   const [expanded, setExpanded] = useState(false);
+  const mailbox = thread.account === "titan" ? "Virtara" : "Gmail";
   const body = useMailThreadBody(thread.threadId, expanded);
   const correct = useCorrectMailThread();
   const clearCorrection = useClearMailCorrection();
@@ -152,7 +153,7 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
                   ? "Could not load the full message."
                   : body.data?.body}
             </div>
-            {actions.reply && thread.account !== "titan" ? (
+            {actions.reply ? (
               <div className="mail-thread-reply">
                 <button
                   type="button"
@@ -183,8 +184,8 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
           <button
             type="button"
             className="mail-quick-btn"
-            aria-label="Done: archive in Gmail"
-            title={canModify ? "Done: archive in Gmail (e)" : READ_ONLY_HINT}
+            aria-label={`Done: archive in ${mailbox}`}
+            title={canModify ? `Done: archive in ${mailbox} (e)` : READ_ONLY_HINT}
             disabled={!canModify}
             onClick={quick(() => actions.archive(thread.threadId))}
           >
@@ -193,8 +194,8 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
           <button
             type="button"
             className="mail-quick-btn mail-quick-btn--danger"
-            aria-label="Delete: move to Gmail Trash"
-            title={canModify ? "Delete: move to Gmail Trash (#)" : READ_ONLY_HINT}
+            aria-label={`Delete: move to ${mailbox} Trash`}
+            title={canModify ? `Delete: move to ${mailbox} Trash (#)` : READ_ONLY_HINT}
             disabled={!canModify}
             onClick={quick(() => actions.trash(thread.threadId))}
           >

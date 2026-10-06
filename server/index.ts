@@ -839,10 +839,6 @@ app.delete("/api/mail/outbox/:id", async (request, response) => {
 
 /** Who a reply to this thread goes to, and its subject, for the composer. */
 app.get("/api/mail/:threadId/reply-context", async (request, response) => {
-  if (mailAccountOf(request.params.threadId) === "titan") {
-    response.status(409).json({ error: "Replying from the Virtara mailbox is not switched on yet." });
-    return;
-  }
   try {
     response.json(await replyContextFor(request.params.threadId));
   } catch (error) {
