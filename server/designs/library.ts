@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
@@ -8,7 +8,7 @@ import type {
   DesignLibrary,
 } from "../../shared/agentos-types";
 import { uiStateDir } from "../agentos/session-store";
-import { deleteImage, type Dimensions } from "./media";
+import { deleteImage, ORIGINALS, resolveMedia, type Dimensions } from "./media";
 
 /**
  * The design library's metadata.
@@ -57,6 +57,12 @@ export interface StoredAsset {
   generationId?: string;
   referenceAssetIds?: string[];
   approved?: boolean;
+  /**
+   * SHA-256 of the original file: the same picture uploaded twice is one
+   * asset. Absent on assets stored before fingerprints existed, which are
+   * fingerprinted the first time a lookup needs them.
+   */
+  sha256?: string;
 }
 
 export interface StoredLibrary {
@@ -141,6 +147,7 @@ function readStoredAsset(value: unknown): StoredAsset | undefined {
     generationId: asString(value.generationId),
     referenceAssetIds: asStrings(value.referenceAssetIds),
     approved: value.approved === true,
+    sha256: typeof value.sha256 === "string" && /^[0-9a-f]{64}$/.test(value.sha256) ? value.sha256 : undefined,
   };
 }
 
@@ -300,10 +307,54 @@ export interface CreateAssetInput {
   model?: string;
   generationId?: string;
   referenceAssetIds?: string[];
+  /** When given, an asset with the same fingerprint is returned instead of a second copy. */
+  sha256?: string;
+}
+
+/** The fingerprint an asset's file is known by. */
+export function fingerprint(data: Buffer): string {
+  return createHash("sha256").update(data).digest("hex");
+}
+
+/**
+ * An image already in the library with exactly these bytes.
+ *
+ * Images stored before fingerprints existed are read and fingerprinted here,
+ * once, and the result kept. Videos are not: reading hundreds of megabytes to
+ * answer one upload is not worth it, and new videos carry a fingerprint anyway.
+ */
+export async function findAssetByFingerprint(sha256: string): Promise<DesignAsset | undefined> {
+  return transaction(async (library) => {
+    const known = library.assets.find((asset) => asset.sha256 === sha256);
+    if (known) return toWireAsset(known, library.boards);
+
+    for (const asset of library.assets) {
+      if (asset.sha256 || asset.mediaType === "video") continue;
+      try {
+        asset.sha256 = fingerprint(await fs.readFile(resolveMedia(ORIGINALS, asset.storedName)));
+      } catch {
+        continue; // The file is gone; nothing to match.
+      }
+    }
+    const backfilled = library.assets.find((asset) => asset.sha256 === sha256);
+    return backfilled ? toWireAsset(backfilled, library.boards) : undefined;
+  });
 }
 
 export async function createAsset(input: CreateAssetInput): Promise<DesignAsset> {
+  return (await createAssetOnce(input)).asset;
+}
+
+/**
+ * Adds an asset, unless one with the same fingerprint arrived first: two
+ * copies of one file dropped at once would otherwise both pass the lookup
+ * before either was written. `created: false` hands back the one that won.
+ */
+export async function createAssetOnce(input: CreateAssetInput): Promise<{ asset: DesignAsset; created: boolean }> {
   return transaction((library) => {
+    const existing = input.sha256 ? library.assets.find((entry) => entry.sha256 === input.sha256) : undefined;
+    if (existing) return { asset: toWireAsset(existing, library.boards), created: false };
+
     const asset: StoredAsset = {
       id: input.id,
       filename: input.filename,
@@ -326,10 +377,11 @@ export async function createAsset(input: CreateAssetInput): Promise<DesignAsset>
       generationId: input.generationId,
       referenceAssetIds: input.referenceAssetIds,
       approved: false,
+      sha256: input.sha256,
     };
 
     library.assets.push(asset);
-    return toWireAsset(asset, library.boards);
+    return { asset: toWireAsset(asset, library.boards), created: true };
   });
 }
 
