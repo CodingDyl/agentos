@@ -72,6 +72,8 @@ export interface ComposeDeps {
 export interface TitanComposeDeps {
   /** The linked address, or undefined when the mailbox is not linked. */
   address: () => Promise<string | undefined>;
+  /** The name shown next to the address on sent mail. */
+  senderName?: () => Promise<string | undefined>;
   send: (raw: string, envelope: SmtpEnvelope) => Promise<void>;
   appendSent: (raw: string) => Promise<void>;
   saveDraft: (raw: string, messageId: string) => Promise<string>;
@@ -82,6 +84,7 @@ export interface TitanComposeDeps {
 
 export const defaultTitanComposeDeps: TitanComposeDeps = {
   address: async () => (await titanAccount())?.address,
+  senderName: async () => (await titanAccount())?.senderName,
   send: sendTitanRaw,
   appendSent: appendTitanSent,
   saveDraft: saveTitanDraft,
@@ -268,6 +271,7 @@ async function composeFromTitan(input: MailComposeInput, deps: ComposeDeps): Pro
   const messageId = `<${randomUUID()}@${domain}>`;
   const raw = buildComposedMessage({
     from,
+    fromName: await titan.senderName?.(),
     date: deps.now(),
     messageId,
     to: input.to,

@@ -44,16 +44,28 @@ export function mailAccountOf(threadId: string): MailAccountId {
 
 const HOST = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 
+/** The name recipients see next to the address. One line, no angle brackets, so it can't change the From address. */
+export const SenderNameSchema = z
+  .string()
+  .trim()
+  .max(100, "Keep the sender name under 100 characters.")
+  // eslint-disable-next-line no-control-regex
+  .refine((value) => !/[\u0000-\u001F\u007F<>]/.test(value), "The sender name can't contain line breaks or angle brackets.");
+
 /** What the person types to link the mailbox. The password is never sent back by any route. */
 export const TitanConnectRequestSchema = z.object({
   address: z.string().trim().toLowerCase().email("Enter the full mailbox address."),
   password: z.string().min(1, "Enter the mailbox password.").max(512),
+  senderName: SenderNameSchema.optional(),
   imapHost: z.string().trim().regex(HOST, "That is not a server name.").default(TITAN_DEFAULTS.imapHost),
   imapPort: z.number().int().min(1).max(65535).default(TITAN_DEFAULTS.imapPort),
   smtpHost: z.string().trim().regex(HOST, "That is not a server name.").default(TITAN_DEFAULTS.smtpHost),
   smtpPort: z.number().int().min(1).max(65535).default(TITAN_DEFAULTS.smtpPort),
 });
 export type TitanConnectRequest = z.infer<typeof TitanConnectRequestSchema>;
+
+/** Changes to a linked mailbox that need no new login. An empty name clears it. */
+export const TitanUpdateRequestSchema = z.object({ senderName: SenderNameSchema });
 
 /** One linked account as the page sees it: never a password. */
 export const MailAccountSummarySchema = z.object({
@@ -62,5 +74,6 @@ export const MailAccountSummarySchema = z.object({
   connected: z.boolean(),
   address: z.string().optional(),
   server: z.string().optional(),
+  senderName: z.string().optional(),
 });
 export type MailAccountSummary = z.infer<typeof MailAccountSummarySchema>;

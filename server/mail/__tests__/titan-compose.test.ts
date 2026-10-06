@@ -9,7 +9,7 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-mail-titan-comp
 process.env.AGENTOS_UI_DIR = directory;
 
 const { closeMailDatabase, mailDatabase } = await import("../db");
-const { withoutBccHeader } = await import("../compose-mime");
+const { fromHeader, withoutBccHeader } = await import("../compose-mime");
 const { chooseSendAccount, composeMail, discardSavedDraft, replyContextFor, retagOutboxItem, sendSavedDraft, OutboxNotFoundError } = await import("../compose");
 const { MailComposeRequestSchema } = await import("../../../shared/mail-compose-types");
 const { TitanDraftMissingError, TitanError } = await import("../titan-client");
@@ -38,11 +38,12 @@ interface TitanRecord {
   deleted: string[];
 }
 
-function fakes(options: { linked?: boolean; appendFails?: boolean } = {}) {
+function fakes(options: { linked?: boolean; appendFails?: boolean; senderName?: string } = {}) {
   const titanRecord: TitanRecord = { sent: [], appended: [], drafts: new Map(), deleted: [] };
   const gmailSent: string[] = [];
   const titan: TitanComposeDeps = {
     address: async () => (options.linked === false ? undefined : ADDRESS),
+    senderName: async () => options.senderName,
     send: async (raw, envelope) => void titanRecord.sent.push({ raw, from: envelope.from, to: envelope.to }),
     appendSent: async (raw) => {
       if (options.appendFails) throw new Error("NO [OVERQUOTA]");
@@ -197,5 +198,27 @@ describe("withoutBccHeader", () => {
   it("drops Bcc and its folded lines, and leaves the body alone", () => {
     const raw = "To: a@b.co\r\nBcc: x@y.co,\r\n z@y.co\r\nSubject: Hi\r\n\r\nBcc: stays in the body\r\n";
     assert.equal(withoutBccHeader(raw), "To: a@b.co\r\nSubject: Hi\r\n\r\nBcc: stays in the body\r\n");
+  });
+});
+
+describe("the Virtara sender name", () => {
+  it("quotes a plain name, encodes any other, and leaves a bare address alone", () => {
+    assert.equal(fromHeader(ADDRESS, "Dylan Petzer"), `"Dylan Petzer" <${ADDRESS}>`);
+    assert.equal(fromHeader(ADDRESS, 'Dylan "DP" Petzer'), `"Dylan \\"DP\\" Petzer" <${ADDRESS}>`);
+    assert.equal(fromHeader(ADDRESS, "Zoë"), `=?UTF-8?B?${Buffer.from("Zoë").toString("base64")}?= <${ADDRESS}>`);
+    assert.equal(fromHeader(ADDRESS, "  "), ADDRESS);
+    assert.equal(fromHeader(ADDRESS, undefined), ADDRESS);
+  });
+
+  it("can never add a header or change the address", () => {
+    assert.throws(() => fromHeader(ADDRESS, "Dylan\r\nBcc: x@evil.test"), /line breaks/);
+    assert.throws(() => fromHeader(ADDRESS, "Dylan <ceo@bank.test>"), /angle brackets/);
+  });
+
+  it("goes on mail sent from Virtara", async () => {
+    const { deps, titanRecord } = fakes({ senderName: "Dylan Petzer" });
+    await composeMail(request(), deps);
+    assert.match(titanRecord.sent[0].raw, /^From: "Dylan Petzer" <dylanpetzer@virtara\.co\.za>\r\n/);
+    assert.equal(titanRecord.sent[0].from, ADDRESS, "the SMTP envelope keeps the bare address");
   });
 });

@@ -296,8 +296,8 @@ import { getThreadBody, GmailError } from "./mail/gmail-client";
 import { JevError } from "./mail/jev-client";
 import { runMailSync, syncDepsFor } from "./mail/sync";
 import { closeTitanConnection, getTitanThreadBody, TitanError, verifyTitanLogin } from "./mail/titan-client";
-import { forgetTitanCredentials, saveTitanCredentials, titanAccount, TitanCredentialsError } from "./mail/titan-credentials";
-import { MAIL_ACCOUNT_LABEL, mailAccountOf, TitanConnectRequestSchema, type MailAccountSummary } from "../shared/mail-account-types";
+import { forgetTitanCredentials, saveTitanCredentials, titanAccount, TitanCredentialsError, updateTitanSenderName } from "./mail/titan-credentials";
+import { MAIL_ACCOUNT_LABEL, mailAccountOf, TitanConnectRequestSchema, TitanUpdateRequestSchema, type MailAccountSummary } from "../shared/mail-account-types";
 import { activeMailClassifier } from "./mail/classifier";
 import { captureNote, CAPTURE_PATH, parseCaptures } from "./agentos/capture";
 import { compassRouter } from "./compass/routes";
@@ -567,7 +567,7 @@ app.get("/api/mail/status", async (_request, response) => {
     const titan = await titanAccount();
     const accounts: MailAccountSummary[] = [
       { id: "gmail", label: MAIL_ACCOUNT_LABEL.gmail, connected },
-      { id: "titan", label: MAIL_ACCOUNT_LABEL.titan, connected: titan !== undefined, address: titan?.address, server: titan?.imapHost },
+      { id: "titan", label: MAIL_ACCOUNT_LABEL.titan, connected: titan !== undefined, address: titan?.address, server: titan?.imapHost, senderName: titan?.senderName },
     ];
 
     response.json({
@@ -678,6 +678,26 @@ app.post("/api/mail/accounts/titan", async (request, response) => {
     }
     console.error("[agentos] linking the Virtara mailbox failed:", error instanceof Error ? error.message : "unknown error");
     response.status(500).json({ error: "Unable to link the Virtara mailbox" });
+  }
+});
+
+/** Sets the name shown next to the Virtara address on sent mail. No new login: the sealed password is kept. */
+app.patch("/api/mail/accounts/titan", async (request, response) => {
+  const parsed = TitanUpdateRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? "Send { senderName }." });
+    return;
+  }
+  try {
+    await updateTitanSenderName(parsed.data.senderName);
+    response.json({ ok: true, senderName: parsed.data.senderName || undefined });
+  } catch (error) {
+    if (error instanceof TitanCredentialsError) {
+      response.status(409).json({ error: error.message });
+      return;
+    }
+    console.error("[agentos] updating the Virtara sender name failed:", error instanceof Error ? error.message : "unknown error");
+    response.status(500).json({ error: "Unable to save the sender name" });
   }
 });
 

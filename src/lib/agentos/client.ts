@@ -415,8 +415,16 @@ export function disconnectMail(): Promise<unknown> {
 }
 
 /** Links the Virtara (Titan) mailbox. The server tries the login before saving it. */
-export function linkTitanMailbox(request: { address: string; password: string; imapHost?: string; smtpHost?: string }): Promise<unknown> {
+export function linkTitanMailbox(request: { address: string; password: string; senderName?: string; imapHost?: string; smtpHost?: string }): Promise<unknown> {
   return workerRequest("/api/mail/accounts/titan", postJson(request));
+}
+
+export function updateTitanSenderName(senderName: string): Promise<unknown> {
+  return workerRequest("/api/mail/accounts/titan", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ senderName }),
+  });
 }
 
 export function unlinkTitanMailbox(): Promise<unknown> {

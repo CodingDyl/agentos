@@ -15,6 +15,8 @@ import { base64Lines, CONTROL, encodeHeader, isPlainAddress, MimeError } from ".
 export interface ComposedEmail {
   /** Set when sending over SMTP, which (unlike Gmail's API) needs the message to say who it is from. */
   from?: string;
+  /** The name shown next to `from`. Quoted, or RFC 2047-encoded when it is not plain ASCII. */
+  fromName?: string;
   /** RFC 5322 date, and a Message-ID the message can be found by later. Gmail adds both itself. */
   date?: Date;
   messageId?: string;
@@ -68,6 +70,15 @@ function wrapBase64(data: string): string {
   return (data.match(/.{1,76}/g) ?? []).join("\r\n");
 }
 
+/** `"Dylan Petzer" <dylan@virtara.co.za>`, or the bare address when there is no name. */
+export function fromHeader(address: string, name: string | undefined): string {
+  const display = name?.trim();
+  if (!display) return address;
+  if (CONTROL.test(display) || /[<>]/.test(display)) throw new MimeError("The sender name can't contain line breaks or angle brackets.");
+  const phrase = /^[ -~]*$/.test(display) ? `"${display.replace(/["\\]/g, (character) => `\\${character}`)}"` : encodeHeader(display);
+  return `${phrase} <${address}>`;
+}
+
 /** The raw message, `\r\n` line endings, ready to base64url. */
 export function buildComposedMessage(email: ComposedEmail): string {
   const to = addressList(email.to, "To");
@@ -85,7 +96,7 @@ export function buildComposedMessage(email: ComposedEmail): string {
   if (email.messageId !== undefined && !/^<[^<>\s]{1,300}>$/.test(email.messageId)) throw new MimeError("The Message-ID is not valid.");
 
   const headers = [
-    ...(email.from ? [`From: ${email.from}`] : []),
+    ...(email.from ? [`From: ${fromHeader(email.from, email.fromName)}`] : []),
     ...(email.date ? [`Date: ${email.date.toUTCString().replace("GMT", "+0000")}`] : []),
     ...(email.messageId ? [`Message-ID: ${email.messageId}`] : []),
     ...(to.length > 0 ? [`To: ${to.join(", ")}`] : []),
