@@ -16,7 +16,7 @@ import {
   type LeadMagnetTrack,
 } from "@shared/lead-magnet-types";
 import type { Offer, TractionData } from "@shared/traction-types";
-import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
+import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, Tag } from "@/components/paper";
 import {
   useCreateLeadMagnet,
   useDeleteLeadMagnet,
@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CaseStudyScreenshots } from "./traction-case-study-screenshots";
 import { optional, toList } from "./traction-model";
+import { usePagination, useRevealOnPage } from "@/lib/use-pagination";
 
 /**
  * Lead magnets: something genuinely useful, given for an email.
@@ -57,6 +58,8 @@ const EMPTY_STATS: LeadMagnetStats = { signups: 0, signupsLast7Days: 0, emailed:
 
 export function TractionLeadMagnetsTab({ data }: { data: TractionData }) {
   const [open, setOpen] = useState<string | undefined>(data.leadMagnets[0]?.id);
+  const pager = usePagination(data.leadMagnets, "", 10);
+  useRevealOnPage(pager, data.leadMagnets, (magnet) => magnet.id, open);
 
   return (
     <div className="space-y-12">
@@ -69,7 +72,7 @@ export function TractionLeadMagnetsTab({ data }: { data: TractionData }) {
 
         {data.leadMagnets.length === 0 ? null : (
           <ul className="mt-6 space-y-4">
-            {data.leadMagnets.map((magnet) =>
+            {pager.pageItems.map((magnet) =>
               open === magnet.id ? (
                 <li key={magnet.id}>
                   <LeadMagnetEditor
@@ -106,6 +109,7 @@ export function TractionLeadMagnetsTab({ data }: { data: TractionData }) {
             )}
           </ul>
         )}
+        <PaperPagination pager={pager} label="Lead magnet pages" />
       </PaperSection>
     </div>
   );

@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { PaperButton, PaperCard } from "@/components/paper";
+import { PaperButton, PaperCard, PaperPagination } from "@/components/paper";
 import { useFinanceBusinessExpenses, useImportFinanceExpenses } from "@/lib/agentos/business-ledger";
 import { money } from "./business-billing-format";
+import { usePagination } from "@/lib/use-pagination";
 
 interface FinanceExpenseImportProps {
   entityId: string;
@@ -24,6 +25,8 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
   const candidates = useMemo(() => finance.data?.candidates ?? [], [finance.data]);
   const open = useMemo(() => candidates.filter((candidate) => !candidate.importedInto), [candidates]);
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
+  // Ticks are kept across pages; the selected count and total cover every page.
+  const pager = usePagination(candidates);
 
   const chosen = open.filter((candidate) => !unticked.has(candidate.transactionId));
   const total = chosen.reduce((sum, candidate) => sum + candidate.amountMinor, 0);
@@ -95,8 +98,8 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
             </span>
           </div>
 
-          <ul className="mt-3 grid max-h-[420px] gap-1 overflow-y-auto" aria-label="Business transactions in Finance">
-            {candidates.map((candidate) => {
+          <ul className="mt-3 grid gap-1" aria-label="Business transactions in Finance">
+            {pager.pageItems.map((candidate) => {
               const done = Boolean(candidate.importedInto);
               const where = candidate.importedInto === entityId ? "here" : `into ${entityNames.get(candidate.importedInto ?? "") ?? "another business"}`;
               return (
@@ -127,6 +130,7 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
               );
             })}
           </ul>
+          <PaperPagination pager={pager} label="Finance transaction pages" />
 
           {importExpenses.error ? (
             <p role="alert" className="mt-3 border border-paper-flame-deep p-3 text-paper-flame-deep">

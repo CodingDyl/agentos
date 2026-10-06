@@ -3,11 +3,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { chaseDate, daysBetween, WAITING_CHASE_AFTER_DAYS } from "@shared/traction-dates";
 import type { TractionData, WaitingOn, WaitingOnInput } from "@shared/traction-types";
-import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
+import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, Tag } from "@/components/paper";
 import { useProjects } from "@/lib/agentos/queries";
 import { useDeleteWaiting, useResolveWaiting, useSaveWaiting } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { formatShortDate, hermesHref, optional, prospectHref, waitingPrompt } from "./traction-model";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Waiting On — everything someone else owes.
@@ -19,6 +20,7 @@ import { formatShortDate, hermesHref, optional, prospectHref, waitingPrompt } fr
 
 export function TractionWaitingTab({ data }: { data: TractionData }) {
   const [editing, setEditing] = useState<string | "new" | undefined>(data.waiting.length === 0 ? "new" : undefined);
+  const pager = usePagination(data.waiting);
 
   return (
     <PaperSection
@@ -43,7 +45,7 @@ export function TractionWaitingTab({ data }: { data: TractionData }) {
         editing === "new" ? null : <p className="text-[14px] leading-6 text-paper-char">Nothing outstanding. Nobody owes you anything right now.</p>
       ) : (
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-          {data.waiting.map((item) =>
+          {pager.pageItems.map((item) =>
             editing === item.id ? (
               <li key={item.id} className="py-4">
                 <WaitingForm data={data} item={item} onDone={() => setEditing(undefined)} canCancel />
@@ -54,6 +56,7 @@ export function TractionWaitingTab({ data }: { data: TractionData }) {
           )}
         </ul>
       )}
+      <PaperPagination pager={pager} label="Waiting pages" />
     </PaperSection>
   );
 }

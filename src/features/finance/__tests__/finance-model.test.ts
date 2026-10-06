@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { debtPayState, excerpt, formatChange, narrativeSection, splitNarrative, goalStatusLabel, subscriptionPayState, upcomingPayments, utilisationTone } from "../finance-model";
-import { pageWindow, sliceForPage, clampPage, pageCountFor } from "../finance-pagination-model";
+import { pageWindow, sliceForPage, clampPage, pageCountFor } from "../../../lib/pagination-model";
 
 describe("formatChange", () => {
   it("signs a change and admits when there is nothing to compare", () => {

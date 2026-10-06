@@ -1,7 +1,7 @@
 import { Check, Copy, Download, MessageSquareQuote, PenLine, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { CaseStudy, CaseStudyStatus, TractionData } from "@shared/traction-types";
-import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
+import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, Tag } from "@/components/paper";
 import {
   useDeleteCaseStudy,
   useDismissOpportunity,
@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CaseStudyScreenshots } from "./traction-case-study-screenshots";
 import { optional, toList } from "./traction-model";
+import { usePagination, useRevealOnPage } from "@/lib/use-pagination";
 
 /**
  * Case studies — evidence, captured while it is fresh.
@@ -33,13 +34,16 @@ export function TractionCaseStudiesTab({ data, openId }: { data: TractionData; o
   const start = useStartCaseStudy();
   const dismiss = useDismissOpportunity();
   const [open, setOpen] = useState<string | undefined>(openId ?? data.caseStudies[0]?.id);
+  const opportunities = usePagination(data.caseStudyOpportunities, "", 10);
+  const studies = usePagination(data.caseStudies, "", 10);
+  useRevealOnPage(studies, data.caseStudies, (study) => study.id, open);
 
   return (
     <div className="space-y-12">
       {data.caseStudyOpportunities.length > 0 ? (
         <PaperSection label="Finished projects without a case study" count={data.caseStudyOpportunities.length}>
           <ul className="divide-y divide-paper-stone border-y border-paper-mist">
-            {data.caseStudyOpportunities.map((opportunity) => {
+            {opportunities.pageItems.map((opportunity) => {
               const busy = (start.isPending && start.variables && "fromOpportunity" in start.variables && start.variables.fromOpportunity === opportunity.source) || false;
               return (
                 <li key={opportunity.source} className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -65,6 +69,7 @@ export function TractionCaseStudiesTab({ data, openId }: { data: TractionData; o
               );
             })}
           </ul>
+          <PaperPagination pager={opportunities} label="Finished project pages" />
         </PaperSection>
       ) : null}
 
@@ -92,7 +97,7 @@ export function TractionCaseStudiesTab({ data, openId }: { data: TractionData; o
           </p>
         ) : (
           <ul className="space-y-4">
-            {data.caseStudies.map((study) =>
+            {studies.pageItems.map((study) =>
               open === study.id ? (
                 <li key={study.id}>
                   <CaseStudyEditor study={study} onClose={() => setOpen(undefined)} />
@@ -121,6 +126,7 @@ export function TractionCaseStudiesTab({ data, openId }: { data: TractionData; o
             )}
           </ul>
         )}
+        <PaperPagination pager={studies} label="Case study pages" />
         {start.error ?? dismiss.error ? (
           <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
             {(start.error ?? dismiss.error)?.message}

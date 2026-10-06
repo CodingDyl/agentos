@@ -1,11 +1,12 @@
 import { Check, PenLine } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Prospect, TractionData } from "@shared/traction-types";
-import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PaperButton, PaperPagination, PaperSection, Tag } from "@/components/paper";
 import { useProjects } from "@/lib/agentos/queries";
 import { useQueueAction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { formatShortDate, hermesHref, hermesPrompt, prospectHref } from "./traction-model";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Clients and referral opportunities.
@@ -36,6 +37,7 @@ export function TractionClientsTab({ data }: { data: TractionData }) {
       return rank[a.relationship ?? "cold"] - rank[b.relationship ?? "cold"];
     });
 
+  const pager = usePagination(clients);
   const projectState = (slug: string | undefined) => projects?.projects.find((project) => project.slug === slug);
 
   return (
@@ -46,7 +48,7 @@ export function TractionClientsTab({ data }: { data: TractionData }) {
         </p>
       ) : (
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-          {clients.map((client) => {
+          {pager.pageItems.map((client) => {
             const project = projectState(client.workspace);
             const prompt = hermesPrompt({
               prospect: client,
@@ -122,6 +124,7 @@ export function TractionClientsTab({ data }: { data: TractionData }) {
           })}
         </ul>
       )}
+      <PaperPagination pager={pager} label="Client pages" />
       {action.error ? (
         <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
           {action.error.message}

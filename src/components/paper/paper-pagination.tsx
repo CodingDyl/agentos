@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { PAPER_FOCUS } from "@/components/paper";
 import { cn } from "@/lib/utils";
-import { pageWindow, type PageSize } from "./finance-pagination-model";
+import { pageWindow, type PageSize } from "@/lib/pagination-model";
+import type { Pager } from "@/lib/use-pagination";
+import { PAPER_FOCUS } from "./paper";
 
 /**
  * Page controls for a long list: which rows are showing, previous and next,
@@ -11,35 +12,14 @@ import { pageWindow, type PageSize } from "./finance-pagination-model";
  * pager over ten rows is noise. Every button is at least 36px tall and the
  * current page is marked with `aria-current`, not only with colour.
  */
-export function Pagination({
-  page,
-  pageCount,
-  from,
-  to,
-  total,
-  size,
-  sizes,
-  onPage,
-  onSize,
-  label,
-}: {
-  page: number;
-  pageCount: number;
-  from: number;
-  to: number;
-  total: number;
-  size: PageSize;
-  sizes: readonly PageSize[];
-  onPage: (page: number) => void;
-  onSize: (size: PageSize) => void;
-  label: string;
-}) {
+export function PaperPagination<T>({ pager, label, className }: { pager: Pager<T>; label: string; className?: string }) {
+  const { page, pageCount, from, to, total, size, sizes, setPage: onPage, setSize: onSize } = pager;
   if (total <= sizes[0]) return null;
 
   const button = "inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-none border px-2 text-[13px] font-medium tabular-nums transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <nav aria-label={label} className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+    <nav aria-label={label} className={cn("mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3", className)}>
       <p className="text-[13px] text-paper-char tabular-nums" aria-live="polite">
         Showing <span className="font-semibold text-paper-moss">{from}-{to}</span> of {total}
       </p>

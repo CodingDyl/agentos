@@ -2,12 +2,13 @@ import { ExternalLink, PenLine, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { SOURCE_LABELS, type Prospect, type ProspectStage, type TractionData } from "@shared/traction-types";
-import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, Tag } from "@/components/paper";
 import { useDeleteProspect, useUnlinkMailThread, useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { formatShortDate, gapLabels, hermesHref, hermesPrompt, PIPELINE_STAGES, stageLabel } from "./traction-model";
 import { ProspectEmailSection } from "./traction-outreach-email";
 import { ProspectForm } from "./traction-prospect-form";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Prospects: the list, and one prospect at a time beside it.
@@ -49,6 +50,7 @@ export function TractionProspectsTab({
       .filter((prospect) => !term || `${prospect.company} ${prospect.contact ?? ""} ${prospect.segment ?? ""}`.toLowerCase().includes(term))
       .sort((a, b) => (a.nextActionDate ?? "9999").localeCompare(b.nextActionDate ?? "9999") || a.company.localeCompare(b.company));
   }, [data.prospects, filter, search]);
+  const pager = usePagination(rows, `${filter}|${search}`);
 
   const panel = adding ? (
     <PaperCard className="p-5">
@@ -70,6 +72,8 @@ export function TractionProspectsTab({
       <PaperSection
         label="Prospects"
         count={rows.length}
+        // A grid item shrinks only with min-w-0; without it the table's minimum width widens the page on a phone.
+        className="min-w-0"
         action={
           <PaperButton
             variant="amber"
@@ -116,6 +120,7 @@ export function TractionProspectsTab({
               : "No prospect matches."}
           </p>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[36rem] border-collapse text-left text-[14px]">
               <thead>
@@ -127,7 +132,7 @@ export function TractionProspectsTab({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((prospect) => (
+                {pager.pageItems.map((prospect) => (
                   <tr key={prospect.id} className={cn("border-b border-paper-stone", prospect.id === selectedId && "bg-paper-linen")}>
                     <td className="py-2.5 pr-3">
                       <button
@@ -157,6 +162,8 @@ export function TractionProspectsTab({
               </tbody>
             </table>
           </div>
+          <PaperPagination pager={pager} label="Prospect pages" />
+          </>
         )}
       </PaperSection>
 

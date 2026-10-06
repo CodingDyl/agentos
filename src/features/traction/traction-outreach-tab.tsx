@@ -3,12 +3,13 @@ import { useMemo, useState } from "react";
 import { CASE_STAGE_LABEL, caseStage, type CaseStage, type OutreachCase } from "@shared/outreach-case";
 import { playById, PLAYS, type OutreachStats, type Rate, type SentEmail } from "@shared/outreach-plays";
 import type { Prospect, TractionData } from "@shared/traction-types";
-import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperEmpty, PaperError, PaperSection, SegmentedControl, Tag } from "@/components/paper";
+import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperEmpty, PaperError, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useOutreachStats } from "@/lib/agentos/outreach";
 import { useOutreachCases } from "@/lib/agentos/outreach-cases";
 import { cn } from "@/lib/utils";
 import { formatShortDate } from "./traction-model";
 import { OutreachCaseView } from "./traction-outreach-case";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Outreach: pick a business, get to know it, decide the offer, send one
@@ -118,6 +119,7 @@ function WriteView({
       .filter((prospect) => !term || `${prospect.company} ${prospect.segment ?? ""}`.toLowerCase().includes(term))
       .sort((a, b) => FIT_ORDER[a.fit ?? "none"] - FIT_ORDER[b.fit ?? "none"] || a.company.localeCompare(b.company));
   }, [data.prospects, filter, search, stageOf]);
+  const pager = usePagination(rows, `${filter}|${search}`, 10);
 
   const selected = data.prospects.find((prospect) => prospect.id === prospectId);
   const entry = selected ? (cases[selected.id] ?? blankCase(selected.id)) : undefined;
@@ -145,8 +147,8 @@ function WriteView({
         {rows.length === 0 ? (
           <p className="mt-4 text-[13px] text-paper-sage">{filter === "emailed" ? "Nobody emailed yet." : "No businesses here. Profile some in the Virtec tab."}</p>
         ) : (
-          <ul className="mt-3 max-h-[70vh] divide-y divide-paper-mist overflow-y-auto border-y border-paper-mist">
-            {rows.map((prospect) => {
+          <ul className="mt-3 divide-y divide-paper-mist border-y border-paper-mist">
+            {pager.pageItems.map((prospect) => {
               const stage = stageOf(prospect);
               const active = prospect.id === prospectId;
               return (
@@ -172,6 +174,7 @@ function WriteView({
             })}
           </ul>
         )}
+        <PaperPagination pager={pager} label="Business pages" />
       </nav>
 
       <div className="min-w-0">
@@ -251,6 +254,7 @@ function Figure({ label, value, note }: { label: string; value: string; note: st
 }
 
 function FollowUps({ stats, onWrite }: { stats: OutreachStats; onWrite: (prospectId: string) => void }) {
+  const pager = usePagination(stats.followUpsDue, "", 10);
   return (
     <PaperSection label="Follow-ups due" count={stats.followUpsDue.length}>
       {stats.followUpsDue.length === 0 ? (
@@ -259,7 +263,7 @@ function FollowUps({ stats, onWrite }: { stats: OutreachStats; onWrite: (prospec
         </p>
       ) : (
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-          {stats.followUpsDue.map((due) => (
+          {pager.pageItems.map((due) => (
             <li key={due.prospectId} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <span className="min-w-0">
                 <span className="block font-semibold text-paper-moss">{due.company}</span>
@@ -274,6 +278,7 @@ function FollowUps({ stats, onWrite }: { stats: OutreachStats; onWrite: (prospec
           ))}
         </ul>
       )}
+      <PaperPagination pager={pager} label="Follow-up pages" />
     </PaperSection>
   );
 }
@@ -287,6 +292,7 @@ const STATUS: Record<SentEmail["status"], { label: string; tone: "green" | "mute
 };
 
 function SentList({ emails, onOpen }: { emails: SentEmail[]; onOpen: (prospectId: string) => void }) {
+  const pager = usePagination(emails);
   return (
     <PaperSection label="Emails" count={emails.length}>
       {emails.length === 0 ? (
@@ -303,7 +309,7 @@ function SentList({ emails, onOpen }: { emails: SentEmail[]; onOpen: (prospectId
               </tr>
             </thead>
             <tbody>
-              {emails.map((email) => (
+              {pager.pageItems.map((email) => (
                 <tr key={email.id} className="border-b border-paper-mist align-top">
                   <td className="py-2.5 pr-3 whitespace-nowrap text-paper-char tabular-nums">{formatShortDate(email.at)}</td>
                   <td className="py-2.5 pr-3">
@@ -325,6 +331,7 @@ function SentList({ emails, onOpen }: { emails: SentEmail[]; onOpen: (prospectId
           </table>
         </div>
       )}
+      <PaperPagination pager={pager} label="Sent email pages" />
     </PaperSection>
   );
 }

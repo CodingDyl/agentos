@@ -2,7 +2,7 @@ import { Check, Clock, ExternalLink, PenLine, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { QueueItem, TractionData } from "@shared/traction-types";
-import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PaperButton, PaperPagination, Tag } from "@/components/paper";
 import { useConfirmMailLink, useDismissMailSuggestion, useQueueAction } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { magnetForSource } from "@shared/lead-magnet-types";
@@ -18,6 +18,7 @@ import {
   stageLabel,
   waitingPrompt,
 } from "./traction-model";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Today's traction: the revenue work, one item at a time.
@@ -63,7 +64,9 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
   const confirmReply = useConfirmMailLink();
   const notTheirs = useDismissMailSuggestion();
   const navigate = useNavigate();
-  const items = limit ? data.queue.slice(0, limit) : data.queue;
+  // The overview shows the top few; the full queue pages, numbered across pages.
+  const pager = usePagination(limit ? data.queue.slice(0, limit) : data.queue);
+  const items = pager.pageItems;
 
   if (data.queue.length === 0) {
     return (
@@ -113,7 +116,7 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
 
           return (
             <li key={item.id} className="grid gap-3 py-4 sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-start">
-              <span className="hidden font-paper-display text-[15px] font-bold text-paper-ash tabular-nums sm:block">{index + 1}.</span>
+              <span className="hidden font-paper-display text-[15px] font-bold text-paper-ash tabular-nums sm:block">{pager.from + index}.</span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-[15px] leading-6 font-semibold text-paper-moss">{item.title}</h3>
@@ -211,6 +214,7 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
           );
         })}
       </ol>
+      <PaperPagination pager={pager} label="Queue pages" />
 
       {action.error ? (
         <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">

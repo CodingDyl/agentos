@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { BusinessClient, BusinessData, BusinessEntitySummary } from "@shared/business-types";
 import { AppShell } from "@/components/os";
-import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage, PaperTabs, SegmentedControl, Tag } from "@/components/paper";
+import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, PaperStage, PaperTabs, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useBusiness, useLinkClientWorkspace, useRefreshBusiness, useSetEntityWorkspaces } from "@/lib/agentos/business";
 import { useProjects } from "@/lib/agentos/queries";
@@ -14,6 +14,7 @@ import { GrowthSection } from "./business-growth-section";
 import { QuoteCalculator } from "./business-quote-calculator";
 import { AgreementsSection, FollowUpsSection, MaintenanceSection, QuotesSection } from "./business-sections";
 import { BUSINESS_TABS, formatRand, isBusinessTab, matchesClient, sortClients, type BusinessTab } from "./business-model";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Business — the companies being run and the clients each one serves.
@@ -326,6 +327,7 @@ function EntityWorkspaces({ entity }: { entity: BusinessEntitySummary }) {
   };
 
   const linked = all.filter((project) => entity.workspaces.includes(project.slug));
+  const linkPager = usePagination(all, "", 25);
 
   return (
     <PaperSection label={`${entity.name} workspaces`} count={entity.workspaces.length}>
@@ -355,7 +357,7 @@ function EntityWorkspaces({ entity }: { entity: BusinessEntitySummary }) {
         <p className="text-[14px] text-paper-char">No workspaces yet. <Link to="/workspaces" className="text-paper-blue hover:underline">Create one</Link>.</p>
       ) : (
         <ul className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-          {all.map((project) => {
+          {linkPager.pageItems.map((project) => {
             const checked = entity.workspaces.includes(project.slug);
             return (
               <li key={project.slug}>
@@ -373,6 +375,7 @@ function EntityWorkspaces({ entity }: { entity: BusinessEntitySummary }) {
           })}
         </ul>
       )}
+      <PaperPagination pager={linkPager} label="Workspace pages" />
       {save.error ? <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">{save.error.message}</p> : null}
     </PaperSection>
   );
@@ -382,6 +385,7 @@ function Clients({ entity, clients, clientId, onClient }: { entity: BusinessEnti
   const [query, setQuery] = useState("");
   const shown = sortClients(clients).filter((client) => matchesClient(client, query));
   const selected = clients.find((client) => client.id === clientId);
+  const pager = usePagination(shown, query);
 
   if (clients.length === 0) {
     return <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">{entity.name} has no clients recorded.</p>;
@@ -395,7 +399,7 @@ function Clients({ entity, clients, clientId, onClient }: { entity: BusinessEnti
           <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, company or email" className={cn(PAPER_INPUT, "w-full")} />
         </label>
         <ul className="mt-3 divide-y divide-paper-mist border-y border-paper-mist" aria-label="Clients">
-          {shown.map((client) => (
+          {pager.pageItems.map((client) => (
             <li key={client.id}>
               <button
                 type="button"
@@ -413,6 +417,7 @@ function Clients({ entity, clients, clientId, onClient }: { entity: BusinessEnti
           ))}
           {shown.length === 0 ? <li className="px-2 py-3 text-[14px] text-paper-char">No client matches “{query}”.</li> : null}
         </ul>
+        <PaperPagination pager={pager} label="Client pages" />
       </div>
 
       {selected ? <ClientDetail key={selected.id} client={selected} /> : <p className="text-[14px] text-paper-sage">Select a client to see their work.</p>}
