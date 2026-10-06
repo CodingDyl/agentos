@@ -1583,3 +1583,20 @@ section[aria-label="Sent and drafts"] > .mail-filters {
 .mail-account-filter {
   margin-bottom: 12px;
 }
+
+.mail-composer-from {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 10px 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--mail-deep-moss);
+}
+
+/* The native option list ignores the page theme in some browsers; keep it readable in both. */
+.mail-composer-from option {
+  color: var(--mail-deep-moss);
+  background: var(--mail-paper-white);
+}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MailAccountIdSchema } from "./mail-account-types";
 
 /**
  * Writing mail from the Inbox: new emails, replies, drafts, attachments, and
@@ -68,6 +69,12 @@ export const MailComposeRequestSchema = z
     subject: z.string().max(400),
     body: z.string().max(MAIL_MAX_BODY_CHARS),
     tag: MailSendTagSchema.default("normal"),
+    /**
+     * Which mailbox sends it. Absent: a reply goes from the mailbox it
+     * arrived in, a Virtara-tagged email from the Virtara mailbox when it is
+     * linked, and everything else from Gmail.
+     */
+    from: MailAccountIdSchema.optional(),
     /** Set when answering a thread from the Inbox: threads the reply in Gmail. */
     replyToThreadId: z.string().min(1).max(200).optional(),
     attachments: z.array(MailAttachmentSchema).max(MAIL_ATTACHMENT_MAX_COUNT).default([]),
@@ -88,6 +95,8 @@ export const MailOutboxItemSchema = z.object({
   to: z.array(z.string()),
   subject: z.string(),
   tag: MailSendTagSchema,
+  /** The mailbox it was sent or drafted from. Absent on mail written before there was a choice: Gmail. */
+  account: MailAccountIdSchema.optional(),
   attachmentCount: z.number().int().nonnegative(),
   threadId: z.string().optional(),
   /** Whether the tag's Gmail label is on the message. Always true for `normal`. */

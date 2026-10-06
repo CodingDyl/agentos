@@ -27,6 +27,8 @@ function OutboxRow({ item, onNotice }: OutboxRowProps) {
   const failure = [send, discard, retag].find((mutation) => mutation.isError)?.error;
 
   const when = item.sentAt ?? item.createdAt;
+  const virtara = item.account === "titan";
+  const mailbox = virtara ? "Virtara" : "Gmail";
 
   return (
     <li className={`mail-outbox-row mail-outbox-row--${item.tag}`}>
@@ -55,12 +57,17 @@ function OutboxRow({ item, onNotice }: OutboxRowProps) {
               </option>
             ))}
           </select>
+          {virtara ? (
+            <span className="mail-tag mail-tag--account" title="Sent from the Virtara mailbox">
+              FROM VIRTARA
+            </span>
+          ) : null}
           {item.attachmentCount > 0 ? (
             <span className="mail-tag mail-tag--muted">
               <Paperclip size={10} aria-hidden="true" /> {item.attachmentCount}
             </span>
           ) : null}
-          {item.kind === "sent" && item.tag !== "normal" && !item.labelApplied ? (
+          {!virtara && item.kind === "sent" && item.tag !== "normal" && !item.labelApplied ? (
             <span className="mail-tag mail-tag--countdown" title="Gmail did not accept the label. Change the tag to try again.">
               NOT LABELLED IN GMAIL
             </span>
@@ -83,7 +90,7 @@ function OutboxRow({ item, onNotice }: OutboxRowProps) {
                 type="button"
                 className="mail-quick-btn"
                 aria-label={`Send draft: ${item.subject}`}
-                title="Send this draft as it is in Gmail now"
+                title={`Send this draft as it is in ${mailbox} now`}
                 disabled={busy}
                 onClick={() => {
                   if (!window.confirm(`Send "${item.subject}" to ${item.to.join(", ")}?`)) return;
@@ -96,10 +103,10 @@ function OutboxRow({ item, onNotice }: OutboxRowProps) {
                 type="button"
                 className="mail-quick-btn mail-quick-btn--danger"
                 aria-label={`Discard draft: ${item.subject}`}
-                title="Delete this draft from Gmail"
+                title={`Delete this draft from ${mailbox}`}
                 disabled={busy}
                 onClick={() => {
-                  if (!window.confirm(`Discard the draft "${item.subject}"? This deletes it from Gmail.`)) return;
+                  if (!window.confirm(`Discard the draft "${item.subject}"? This deletes it from ${mailbox}.`)) return;
                   discard.mutate(item.id);
                 }}
               >
@@ -107,16 +114,18 @@ function OutboxRow({ item, onNotice }: OutboxRowProps) {
               </button>
             </>
           ) : null}
-          <a
-            className="mail-quick-btn"
-            href={gmailLink(item)}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={item.kind === "draft" ? "Open Drafts in Gmail to edit" : "Open in Gmail"}
-            title={item.kind === "draft" ? "Edit in Gmail" : "Open in Gmail"}
-          >
-            <ExternalLink size={15} aria-hidden="true" />
-          </a>
+          {virtara ? null : (
+            <a
+              className="mail-quick-btn"
+              href={gmailLink(item)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={item.kind === "draft" ? "Open Drafts in Gmail to edit" : "Open in Gmail"}
+              title={item.kind === "draft" ? "Edit in Gmail" : "Open in Gmail"}
+            >
+              <ExternalLink size={15} aria-hidden="true" />
+            </a>
+          )}
         </div>
       </div>
     </li>
@@ -192,7 +201,8 @@ export function MailOutbox({ onNotice }: { onNotice: (message: string) => void }
       )}
       <p className="mail-shortcuts">
         Only email written in AgentOS is listed here. Business and Virtara are also Gmail labels, so in Gmail search{" "}
-        <code>label:business</code> or <code>label:virtara</code>.
+        <code>label:business</code> or <code>label:virtara</code>. Email sent from the Virtara mailbox is filed in its
+        own Sent folder, and its tag is kept here.
       </p>
     </section>
   );

@@ -142,7 +142,7 @@ describe("buildComposedMessage", () => {
   it("refuses a file type Gmail blocks", () => {
     assert.throws(
       () => buildComposedMessage({ to: ["a@example.com"], subject: "Hi", body: "x", attachments: [{ filename: "setup.exe", mimeType: "application/octet-stream", data: "AA==" }] }),
-      /does not allow/,
+      /mail servers block/,
     );
   });
 

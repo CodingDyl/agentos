@@ -124,18 +124,11 @@ export function closeTitanConnection(): void {
   void current.client.logout().catch(() => current.client.close());
 }
 
-async function withInbox<T>(run: (client: ImapFlow, uidValidity: string) => Promise<T>): Promise<T> {
+async function withConnection<T>(run: (client: ImapFlow) => Promise<T>): Promise<T> {
   const current = await connection();
   clearTimeout(current.idle);
   try {
-    const lock = await current.client.getMailboxLock("INBOX");
-    try {
-      const mailbox = current.client.mailbox;
-      if (!mailbox) throw new TitanError("Titan did not open the Inbox.", "failed");
-      return await run(current.client, mailbox.uidValidity.toString());
-    } finally {
-      lock.release();
-    }
+    return await run(current.client);
   } catch (error) {
     throw describeTitanError(error);
   } finally {
@@ -144,6 +137,28 @@ async function withInbox<T>(run: (client: ImapFlow, uidValidity: string) => Prom
     }, IDLE_CLOSE_MS);
     current.idle.unref();
   }
+}
+
+/** Runs with a folder selected and locked, handing over its UIDVALIDITY. */
+async function withFolder<T>(
+  folder: string | ((client: ImapFlow) => Promise<string>),
+  run: (client: ImapFlow, uidValidity: string) => Promise<T>,
+): Promise<T> {
+  return withConnection(async (client) => {
+    const path = typeof folder === "string" ? folder : await folder(client);
+    const lock = await client.getMailboxLock(path);
+    try {
+      const mailbox = client.mailbox;
+      if (!mailbox) throw new TitanError(`Titan did not open ${path}.`, "failed");
+      return await run(client, mailbox.uidValidity.toString());
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+function withInbox<T>(run: (client: ImapFlow, uidValidity: string) => Promise<T>): Promise<T> {
+  return withFolder("INBOX", run);
 }
 
 /** The UID inside a Titan thread id, provided the mailbox has not been renumbered since it was cached. */
@@ -246,7 +261,7 @@ export async function setTitanThreadRead(threadId: string, read: boolean): Promi
 }
 
 /** The server's folder for a special use (`\Trash`, `\Archive`), by flag first and then by name. */
-async function specialFolder(client: ImapFlow, use: "\\Trash" | "\\Archive", names: readonly string[], create: boolean): Promise<string> {
+async function specialFolder(client: ImapFlow, use: "\\Trash" | "\\Archive" | "\\Sent" | "\\Drafts", names: readonly string[], create: boolean): Promise<string> {
   const folders = await client.list();
   const flagged = folders.find((folder) => folder.specialUse === use);
   if (flagged) return flagged.path;
@@ -272,5 +287,98 @@ export async function archiveTitanThread(threadId: string): Promise<void> {
     const uid = String(uidIn(threadId, uidValidity));
     const archive = await specialFolder(client, "\\Archive", ["archive", "archives"], true);
     await client.messageMove(uid, archive, { uid: true });
+  });
+}
+
+const SENT_NAMES = ["sent", "sent items", "sent messages"] as const;
+const DRAFT_NAMES = ["drafts", "draft"] as const;
+
+const sentFolder = (client: ImapFlow) => specialFolder(client, "\\Sent", SENT_NAMES, true);
+const draftsFolder = (client: ImapFlow) => specialFolder(client, "\\Drafts", DRAFT_NAMES, true);
+
+function addressesOf(list: MessageAddressObject[] | undefined): string[] {
+  return (list ?? []).map((entry) => entry.address?.trim().toLowerCase()).filter((email): email is string => Boolean(email));
+}
+
+/** What a reply needs from a Virtara message: its Message-ID, subject, and who to answer. */
+export async function getTitanReplyContext(
+  threadId: string,
+): Promise<{ messageId?: string; subject: string; fromEmail?: string; replyToEmail?: string; toEmails: string[] }> {
+  return withInbox(async (client, uidValidity) => {
+    const uid = uidIn(threadId, uidValidity);
+    const message = await client.fetchOne(String(uid), { uid: true, envelope: true }, { uid: true });
+    if (!message || !message.envelope) throw new TitanError("That Virtara message is no longer in the Inbox.", "failed");
+    const envelope = message.envelope;
+    return {
+      messageId: envelope.messageId?.trim(),
+      subject: envelope.subject ?? "",
+      fromEmail: addressesOf(envelope.from)[0],
+      replyToEmail: addressesOf(envelope.replyTo)[0],
+      toEmails: addressesOf(envelope.to),
+    };
+  });
+}
+
+/** A saved draft's place in the Drafts folder: `<uidvalidity>:<uid>`. */
+function draftRef(uidValidity: string, uid: number): string {
+  return `${uidValidity}:${uid}`;
+}
+
+function parseDraftRef(ref: string): { uidValidity: string; uid: number } {
+  const match = /^(\d{1,20}):(\d{1,10})$/.exec(ref);
+  if (!match) throw new TitanError("That Virtara draft reference is damaged.", "failed");
+  return { uidValidity: match[1], uid: Number(match[2]) };
+}
+
+/** Thrown when a draft is gone from Titan: sent, edited (which saves it anew) or deleted in the Titan app. */
+export class TitanDraftMissingError extends TitanError {
+  constructor() {
+    super("That draft is no longer in the Virtara Drafts folder. It may have been sent, edited, or deleted in Titan.", "failed");
+  }
+}
+
+/** Files a copy of a sent email in the Sent folder, read, as a desktop mail app would. */
+export async function appendTitanSent(raw: string): Promise<void> {
+  await withConnection(async (client) => {
+    await client.append(await sentFolder(client), raw, ["\\Seen"]);
+  });
+}
+
+/** Saves an email to the Drafts folder. Returns its reference, found by Message-ID when the server does not report the UID. */
+export async function saveTitanDraft(raw: string, messageId: string): Promise<string> {
+  return withConnection(async (client) => {
+    const folder = await draftsFolder(client);
+    const appended = await client.append(folder, raw, ["\\Draft", "\\Seen"]);
+    if (appended && appended.uid && appended.uidValidity !== undefined) return draftRef(appended.uidValidity.toString(), appended.uid);
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const uids = (await client.search({ header: { "message-id": messageId } }, { uid: true })) || [];
+      const uid = uids.at(-1);
+      const mailbox = client.mailbox;
+      if (!uid || !mailbox) throw new TitanError("Titan saved the draft but did not say where.", "failed");
+      return draftRef(mailbox.uidValidity.toString(), uid);
+    } finally {
+      lock.release();
+    }
+  });
+}
+
+/** A saved draft's full source, as it stands in Titan now. */
+export async function readTitanDraft(ref: string): Promise<string> {
+  const { uidValidity, uid } = parseDraftRef(ref);
+  return withFolder(draftsFolder, async (client, current) => {
+    if (current !== uidValidity) throw new TitanDraftMissingError();
+    const message = await client.fetchOne(String(uid), { uid: true, source: true }, { uid: true });
+    if (!message || !message.source) throw new TitanDraftMissingError();
+    return message.source.toString("utf8");
+  });
+}
+
+/** Deletes a saved draft. Already gone counts as done. */
+export async function deleteTitanDraft(ref: string): Promise<void> {
+  const { uidValidity, uid } = parseDraftRef(ref);
+  await withFolder(draftsFolder, async (client, current) => {
+    if (current !== uidValidity) return;
+    await client.messageDelete(String(uid), { uid: true });
   });
 }
