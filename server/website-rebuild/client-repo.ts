@@ -86,15 +86,25 @@ export async function ensureClientRepo(slug: string, company: string): Promise<s
   return repo;
 }
 
-/** Copies reports into the repo (so workers can read them) and commits them. Unchanged files make no commit. */
-export async function commitFiles(repo: string, files: Record<string, string>, message: string): Promise<string | undefined> {
+/**
+ * Copies reports into the repo (so workers can read them) and commits them. Unchanged files make no commit.
+ * `replace` names a folder that is emptied first, so a file dropped since the last commit is removed too.
+ */
+export async function commitFiles(repo: string, files: Record<string, string | Buffer>, message: string, options: { replace?: string } = {}): Promise<string | undefined> {
+  const paths = Object.keys(files);
+  if (options.replace) {
+    const folder = path.resolve(repo, options.replace);
+    if (!folder.startsWith(`${path.resolve(repo)}${path.sep}`)) throw new Error(`Refusing to replace outside the repository: ${options.replace}`);
+    await fs.rm(folder, { recursive: true, force: true });
+    paths.push(options.replace);
+  }
   for (const [relative, contents] of Object.entries(files)) {
     const target = path.resolve(repo, relative);
     if (!target.startsWith(`${path.resolve(repo)}${path.sep}`)) throw new Error(`Refusing to write outside the repository: ${relative}`);
     await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, contents, "utf8");
+    await fs.writeFile(target, contents);
   }
-  await git(repo, ["add", "-A", ...Object.keys(files)]);
+  await git(repo, ["add", "-A", "--", ...paths]);
   const staged = await git(repo, ["diff", "--cached", "--name-only"]);
   if (!staged) return undefined;
   await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", message]);

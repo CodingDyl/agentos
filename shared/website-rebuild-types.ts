@@ -151,6 +151,58 @@ export const RebuildStageSchema = z.object({
   workerOverride: WorkerIdSchema.optional(),
 });
 
+/**
+ * The prospect's own branding, read from their current site at capture:
+ * logos, photos, colours and fonts. The concepts and the build use it so the
+ * new site looks like *their* business, not a template.
+ *
+ * Images are stored in the workspace as image artifacts. Every asset can be
+ * left out (`include: false`) before the hero stage seeds `brand/` into the
+ * client repo. SVG and ICO files never get this far: capture rasterises them
+ * to PNG, so no client-supplied markup reaches a worker, a page or Vercel.
+ */
+export const BrandAssetSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["logo", "photo"]),
+  /** The image artifact that holds the file. */
+  artifactId: z.string(),
+  /** Vault-relative path of the stored file. */
+  path: z.string(),
+  /** Where it was found on the client's site. */
+  sourceUrl: z.string(),
+  alt: z.string().optional(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  include: z.boolean().default(true),
+});
+
+export const BrandColorRoleSchema = z.enum(["background", "text", "heading", "header", "accent", "link"]);
+export const BrandColorSchema = z.object({
+  hex: z.string().regex(/^#[0-9a-f]{6}$/),
+  role: BrandColorRoleSchema,
+  /** How many sampled elements used it: a rough measure of how much it matters. */
+  weight: z.number().int().positive(),
+});
+
+export const BrandFontSchema = z.object({
+  family: z.string().min(1).max(80),
+  role: z.enum(["body", "heading"]),
+});
+
+export const BrandKitSchema = z.object({
+  capturedAt: z.string(),
+  /** `capture` until a person changes it. */
+  source: z.enum(["capture", "edited"]).default("capture"),
+  assets: z.array(BrandAssetSchema),
+  colors: z.array(BrandColorSchema),
+  fonts: z.array(BrandFontSchema),
+});
+
+export type BrandAsset = z.infer<typeof BrandAssetSchema>;
+export type BrandColor = z.infer<typeof BrandColorSchema>;
+export type BrandFont = z.infer<typeof BrandFontSchema>;
+export type BrandKit = z.infer<typeof BrandKitSchema>;
+
 export const RebuildRunSchema = z.object({
   id: z.string(),
   prospectId: z.string(),
@@ -171,6 +223,8 @@ export const RebuildRunSchema = z.object({
   repoPath: z.string().optional(),
   /** The hero concept approved at checkpoint 1, which the build follows. */
   heroChoice: z.string().optional(),
+  /** The client's branding from their current site, once capture has run. */
+  brandKit: BrandKitSchema.optional(),
   /** `owner/name` of the client's private GitHub repo, once stage 7 made it. */
   githubRepo: z.string().optional(),
   vercelProject: z.string().optional(),

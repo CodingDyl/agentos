@@ -19,8 +19,8 @@ export interface StageContext {
   log: (message: string, level?: "info" | "warning" | "error") => void;
   /** Writes a Markdown report into the workspace's documents and records it against this stage. */
   writeReport: (name: string, title: string, markdown: string) => Promise<string>;
-  /** Copies a screenshot into the workspace and records it as an image of this revision. */
-  writeImage: (name: string, title: string, file: string) => Promise<string>;
+  /** Copies a screenshot (or, with `folder` and `extension`, a brand image) into the workspace and records it as an image of this revision. */
+  writeImage: (name: string, title: string, file: string, options?: { folder?: "screens" | "brand"; extension?: string }) => Promise<string>;
   /** Remembers the worker job this stage waits on, so a retry resumes it. */
   rememberJob: (jobId: string | null) => void;
 }

@@ -110,8 +110,11 @@ rebuildRouter.get("/:id/artifacts/:artifactId", (request, response) => {
     if (!artifact) throw new RebuildError("No such screenshot.", 404);
     const root = path.resolve(agentOSRoot());
     const file = path.resolve(root, artifact.path);
-    if (!file.startsWith(`${root}${path.sep}`) || !file.endsWith(".png")) throw new RebuildError("No such screenshot.", 404);
+    // Raster formats only: an SVG could carry script, and capture never stores one.
+    if (!file.startsWith(`${root}${path.sep}`) || !/\.(png|jpg|webp|gif|avif)$/.test(file)) throw new RebuildError("No such screenshot.", 404);
     response.setHeader("Cache-Control", "private, max-age=3600");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
     response.sendFile(file, (error) => {
       if (error && !response.headersSent) response.status(404).json({ error: "That screenshot is no longer on disk." });
     });

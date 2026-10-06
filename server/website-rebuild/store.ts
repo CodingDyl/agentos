@@ -7,9 +7,11 @@ import {
   GATED_STAGES,
   HERO_CONCEPTS,
   REBUILD_SKILL_ID,
+  BrandKitSchema,
   RebuildWorkerPlanSchema,
   STAGE_ORDER,
   companyFileSlug,
+  type BrandKit,
   type RebuildArtifact,
   type RebuildDecision,
   type RebuildEvent,
@@ -150,6 +152,9 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE stages ADD COLUMN worker_override TEXT;
   `,
+  `
+  ALTER TABLE runs ADD COLUMN brand_kit TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -192,6 +197,7 @@ interface RunRow {
   workspace_slug: string | null;
   repo_path: string | null;
   hero_choice: string | null;
+  brand_kit: string | null;
   github_repo: string | null;
   vercel_project: string | null;
   deployment_id: string | null;
@@ -259,6 +265,7 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     workspaceSlug: row.workspace_slug ?? undefined,
     repoPath: row.repo_path ?? undefined,
     heroChoice: row.hero_choice ?? undefined,
+    brandKit: row.brand_kit ? BrandKitSchema.safeParse(parseJson(row.brand_kit, null)).data : undefined,
     githubRepo: row.github_repo ?? undefined,
     vercelProject: row.vercel_project ?? undefined,
     deploymentId: row.deployment_id ?? undefined,
@@ -392,6 +399,12 @@ export function setRunField(
   value: string,
 ): void {
   rebuildDatabase().prepare(`UPDATE runs SET ${field} = ?, updated_at = ? WHERE id = ?`).run(value, iso(), runId);
+}
+
+/** Replaces the run's brand kit. Validated here, so a bad kit never reaches a worker. */
+export function setBrandKit(runId: string, kit: BrandKit): void {
+  const parsed = BrandKitSchema.parse(kit);
+  rebuildDatabase().prepare("UPDATE runs SET brand_kit = ?, updated_at = ? WHERE id = ?").run(JSON.stringify(parsed), iso(), runId);
 }
 
 export function logEvent(runId: string, stage: RebuildStageId | undefined, level: RebuildEvent["level"], message: string): void {

@@ -1,7 +1,7 @@
 ---
 name: agentos-website-to-preview
 description: Rebuild a prospect's website from research to a client-accessible Vercel preview, in seven stages with three approval checkpoints. Use when a lead on the "Build it first" path needs a new site.
-version: 1.2.0
+version: 1.3.0
 requires: [hermes, github, vercel]
 ---
 
@@ -28,7 +28,11 @@ checkpoints. Never move past a checkpoint on your own.
 ## Stages
 
 1. **Workspace.** Create or reuse the client's workspace.
-2. **Website capture.** Transcript, current structure and crawl manifest of the current site.
+2. **Website capture.** Transcript, current structure and crawl manifest of the current site,
+   plus the brand kit (`<slug>_brand_kit.md`): the logo, up to twelve photos, the colours and
+   the fonts the site uses. SVG and ICO files are converted to PNG; nothing from the site that
+   could run code is kept. Before the hero stage, the included assets are copied to `brand/`
+   in the client repo with `brand/BRAND.md`.
 3. **Research and Hermes.** Five competitors doing well digitally in the same
    market and area, five evidence-backed reasons for each, and the five
    highest-impact improvements for the client
