@@ -1,10 +1,10 @@
 import express from "express";
-import { SkillEnabledInputSchema } from "../../shared/skill-types";
+import { SkillDraftSchema, SkillEnabledInputSchema, SkillParseInputSchema } from "../../shared/skill-types";
 import { listConnectors } from "../connectors/registry";
 import { activeRunCount } from "../website-rebuild/store";
-import { listSkills, setSkillEnabled, SkillError, type SkillDeps } from "./registry";
+import { deleteAddedSkill, listSkills, parseSkillMarkdown, saveAddedSkill, setSkillEnabled, SkillError, type SkillDeps } from "./registry";
 
-/** The Skills section of Connectors: list skills, and switch them on or off. */
+/** The Skills section of Connectors: list skills, switch them on or off, and add, edit or delete your own. */
 export const skillsRouter = express.Router();
 
 skillsRouter.use((request, response, next) => {
@@ -14,7 +14,8 @@ skillsRouter.use((request, response, next) => {
     response.status(403).json({ error: "Skills can only be changed on this machine." });
     return;
   }
-  if (request.method !== "GET" && !request.is("application/json")) {
+  // A DELETE carries no body; everything else that writes must be JSON.
+  if (request.method !== "GET" && request.method !== "DELETE" && !request.is("application/json")) {
     response.status(415).json({ error: "Send JSON." });
     return;
   }
@@ -32,6 +33,60 @@ skillsRouter.get("/", async (_request, response) => {
   } catch (error) {
     console.error("[agentos] skills could not be read:", error);
     response.status(500).json({ error: "Skills could not be read." });
+  }
+});
+
+function sendSkillError(response: express.Response, error: unknown, fallback: string): void {
+  if (error instanceof SkillError) {
+    response.status(error.status).json({ error: error.message });
+    return;
+  }
+  console.error(`[agentos] ${fallback}:`, error);
+  response.status(500).json({ error: fallback });
+}
+
+/** Reads an uploaded SKILL.md into the form for review. Saves nothing. */
+skillsRouter.post("/parse", (request, response) => {
+  const input = SkillParseInputSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(400).json({ error: input.error.issues[0]?.message ?? "Send { markdown }." });
+    return;
+  }
+  response.json(parseSkillMarkdown(input.data.markdown));
+});
+
+skillsRouter.post("/", async (request, response) => {
+  const draft = SkillDraftSchema.safeParse(request.body);
+  if (!draft.success) {
+    response.status(400).json({ error: draft.error.issues[0]?.message ?? "That skill is not complete." });
+    return;
+  }
+  try {
+    response.status(201).json(await saveAddedSkill(draft.data, undefined, deps));
+  } catch (error) {
+    sendSkillError(response, error, "The skill could not be saved.");
+  }
+});
+
+skillsRouter.put("/:id", async (request, response) => {
+  const draft = SkillDraftSchema.safeParse(request.body);
+  if (!draft.success) {
+    response.status(400).json({ error: draft.error.issues[0]?.message ?? "That skill is not complete." });
+    return;
+  }
+  try {
+    response.json(await saveAddedSkill(draft.data, request.params.id, deps));
+  } catch (error) {
+    sendSkillError(response, error, "The skill could not be saved.");
+  }
+});
+
+skillsRouter.delete("/:id", async (request, response) => {
+  try {
+    await deleteAddedSkill(request.params.id, deps);
+    response.json({ ok: true });
+  } catch (error) {
+    sendSkillError(response, error, "The skill could not be deleted.");
   }
 });
 

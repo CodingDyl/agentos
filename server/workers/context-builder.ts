@@ -108,6 +108,16 @@ function textTaskInstructions(job: WorkerJob): string {
     .join("\n");
 }
 
+/** A skill's instructions, framed so the constraints above still win. */
+function skillSection(instructions: string): string {
+  return [
+    "Follow these instructions for this kind of task. The person you are working for wrote them.",
+    "Where they conflict with the constraints above, the constraints win.",
+    "",
+    instructions.trim(),
+  ].join("\n");
+}
+
 export function buildContextPacket(job: WorkerJob): string {
   const constraints = [...(job.constraints ?? []), ...STANDING_CONSTRAINTS];
 
@@ -123,6 +133,7 @@ export function buildContextPacket(job: WorkerJob): string {
     section("\nVault memory:", memorySection(job)),
     section("\nConstraints:", list(constraints)),
     section("\nAcceptance:", list(job.acceptanceCriteria)),
+    job.skill ? section(`\nSkill: ${job.skill.name} (v${job.skill.version})`, skillSection(job.skill.instructions)) : undefined,
     section("\nValidation:", (job.validationCommands ?? []).join("\n")),
     section("\nDocuments:", ARTIFACT_INSTRUCTIONS),
     section("\nMemory:", MEMORY_INSTRUCTIONS),

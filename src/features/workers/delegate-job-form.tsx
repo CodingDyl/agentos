@@ -20,6 +20,7 @@ import {
   useRouteWorkerJob,
   useStartWorkerJob,
 } from "@/lib/agentos/queries";
+import { useSkills } from "@/lib/agentos/skills";
 import { RoutePolicyPanel } from "./route-policy-panel";
 import { RoutingControls } from "./routing-controls";
 import { optionLabel, parseSchemaInput } from "./route-policy-model";
@@ -63,6 +64,12 @@ export function DelegateJobForm({
   const projects = projectsData?.projects ?? [];
 
   const [objective, setObjective] = useState("");
+  const [skillId, setSkillId] = useState("");
+  const skills = useSkills();
+  // Bundled skills drive their own AgentOS flows (the website rebuild); the
+  // ones offered here are the person's own, for any job.
+  const jobSkills = (skills.data?.skills ?? []).filter((skill) => skill.source !== "bundled" && skill.enabled);
+  const chosenSkill = jobSkills.find((skill) => skill.id === skillId);
   const [selection, setSelection] = useState<Selection>("auto");
 
   // Route policy. `auto` and `local_only` are ways of choosing; `manual` is the
@@ -205,6 +212,7 @@ export function DelegateJobForm({
         expectedOutput,
         project,
         objective: objective.trim(),
+        skillId: chosenSkill?.id,
         repoPath: repoPath.trim() || undefined,
         visualAcceptance: visualAcceptance?.enabled ? visualAcceptance : undefined,
       },
@@ -226,6 +234,7 @@ export function DelegateJobForm({
         routing: decision,
         project,
         objective: objective.trim(),
+        skillId: chosenSkill?.id,
         repoPath: repoPath.trim() || undefined,
         // Sent only when it was actually turned on: an unenabled contract is a
         // question the operator answered no to, not a setting to carry along.
@@ -267,6 +276,33 @@ export function DelegateJobForm({
             placeholder="Implement the design library masonry grid"
             className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
           />
+        </label>
+
+        <label className="mt-6 block">
+          <SectionLabel>Skill (optional)</SectionLabel>
+          <select
+            value={skillId}
+            onChange={(event) => setSkillId(event.target.value)}
+            className="os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] text-foreground"
+          >
+            <option value="">No skill</option>
+            {jobSkills.map((skill) => {
+              const missing = skill.requirements.filter((requirement) => !requirement.connected).map((requirement) => requirement.name);
+              return (
+                <option key={skill.id} value={skill.id} disabled={missing.length > 0}>
+                  {skill.name} v{skill.version}
+                  {missing.length > 0 ? ` (needs ${missing.join(", ")})` : ""}
+                </option>
+              );
+            })}
+          </select>
+          <span className="os-meta mt-2 block text-os-subtle">
+            {chosenSkill
+              ? `${chosenSkill.description} Its instructions are copied into the job now, so later edits to the skill won't change it.`
+              : jobSkills.length === 0
+                ? "Add your own skills in Connectors → Skills."
+                : "The worker follows the skill's instructions alongside the objective."}
+          </span>
         </label>
 
         <label className="mt-6 block">

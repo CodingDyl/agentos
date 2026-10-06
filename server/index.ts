@@ -2123,6 +2123,8 @@ app.post("/api/worker-jobs", async (request, response) => {
       worker: body.worker ?? "mock",
       project: String(body.project),
       objective: String(body.objective),
+      // Checked and copied by startJob: a disabled or unknown skill refuses the job.
+      skillId: typeof body.skillId === "string" && body.skillId.trim() ? body.skillId.trim() : undefined,
       repoPath: body.repoPath,
       baseRef: body.baseRef,
       contextFiles: body.contextFiles,

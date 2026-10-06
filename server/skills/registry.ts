@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
-import type { SkillRequirement, SkillSummary } from "../../shared/skill-types";
+import { SKILL_NAME_PATTERN, type JobSkill, type SkillDraft, type SkillParseResult, type SkillRequirement, type SkillSummary } from "../../shared/skill-types";
 import { uiStateDir } from "../agentos/session-store";
 
 /**
@@ -10,26 +11,37 @@ import { uiStateDir } from "../agentos/session-store";
  * ones; `AGENTOS_SKILLS_DIR` can point at more. Each skill is a folder with a
  * `SKILL.md` whose front matter names it.
  *
+ * Skills written or uploaded on the Connectors page live in the AgentOS
+ * state folder (`skills/` next to `skills.json`), one folder each, and are
+ * the only ones the page may edit or delete.
+ *
  * Whether a skill is enabled is stored here, apart from the files, in
  * `skills.json`: bundled skills start enabled, local ones disabled until a
- * person turns them on. Enabling a skill grants nothing: the connectors it
- * requires keep their own switches and credentials.
+ * person turns them on, and added ones enabled because a person just wrote
+ * them. Enabling a skill grants nothing: the connectors it requires keep
+ * their own switches and credentials.
  */
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
+const NAME = SKILL_NAME_PATTERN;
 const VERSION = /^\d+\.\d+\.\d+$/;
 const MAX_SKILL_BYTES = 256 * 1024;
 
 export interface SkillSource {
   dir: string;
-  source: "bundled" | "local";
+  source: "bundled" | "local" | "added";
+}
+
+/** Where skills added on the Connectors page are kept. */
+export function addedSkillsDir(): string {
+  return path.join(uiStateDir(), "skills");
 }
 
 export function skillSources(): SkillSource[] {
   const sources: SkillSource[] = [{ dir: path.join(APP_ROOT, "skills"), source: "bundled" }];
   const local = process.env.AGENTOS_SKILLS_DIR?.trim();
   if (local) sources.push({ dir: path.resolve(local), source: "local" });
+  sources.push({ dir: addedSkillsDir(), source: "added" });
   return sources;
 }
 
@@ -141,7 +153,11 @@ export async function listSkills(deps: SkillDeps): Promise<SkillSummary[]> {
   for (const { dir, source } of skillSources()) {
     let entries: string[];
     try {
-      entries = (await fs.readdir(dir, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+      // Dot-folders are the editor's staging area, never skills.
+      entries = (await fs.readdir(dir, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+        .map((entry) => entry.name)
+        .sort();
     } catch {
       continue;
     }
@@ -163,7 +179,7 @@ export async function listSkills(deps: SkillDeps): Promise<SkillSummary[]> {
         description: skill.description,
         version: skill.version,
         source,
-        enabled: errors.length === 0 && (chosen ?? source === "bundled"),
+        enabled: errors.length === 0 && (chosen ?? source !== "local"),
         requirements,
         errors,
         instructions: skill.instructions,
@@ -203,7 +219,146 @@ export async function isSkillEnabled(id: string): Promise<boolean> {
     if (!skill) continue;
     // A broken skill never runs, whatever was chosen before it broke.
     if (skill.errors.length > 0) return false;
-    return (await readEnablement())[id] ?? source === "bundled";
+    return (await readEnablement())[id] ?? source !== "local";
   }
   return false;
+}
+
+/** A SKILL.md from a draft: YAML front matter, then the instructions. */
+export function skillMarkdown(draft: SkillDraft & { version: string }): string {
+  const data: Record<string, unknown> = { name: draft.name, description: draft.description, version: draft.version };
+  if (draft.requires.length > 0) data.requires = draft.requires;
+  return matter.stringify(`\n${draft.instructions.trim()}\n`, data);
+}
+
+/**
+ * Reads an uploaded SKILL.md into the form, without saving anything. The
+ * person reviews it there; `errors` says what must change before Save works.
+ */
+export function parseSkillMarkdown(markdown: string): SkillParseResult {
+  const errors: string[] = [];
+  let data: Record<string, unknown> = {};
+  let body = markdown;
+  try {
+    const parsed = matter(markdown);
+    data = parsed.data;
+    body = parsed.content;
+  } catch {
+    errors.push("The front matter is not valid YAML.");
+  }
+  const text = (value: unknown) => (typeof value === "string" || typeof value === "number" ? String(value).trim() : "");
+  const name = text(data.name);
+  const description = text(data.description);
+  const version = text(data.version) || undefined;
+  const requires = Array.isArray(data.requires) ? data.requires.filter((entry): entry is string => typeof entry === "string").map((entry) => entry.trim()) : [];
+  if (!name) errors.push("The front matter has no `name`.");
+  if (!description) errors.push("The front matter has no `description`.");
+  if (!body.trim()) errors.push("There are no instructions after the front matter.");
+  return { draft: { name, description, ...(version ? { version } : {}), requires, instructions: body.trim() }, errors };
+}
+
+function bumpPatch(version: string): string {
+  const [major, minor, patch] = version.split(".").map(Number);
+  return `${major}.${minor}.${(patch ?? 0) + 1}`;
+}
+
+async function exists(target: string): Promise<boolean> {
+  return fs.access(target).then(
+    () => true,
+    () => false,
+  );
+}
+
+/**
+ * Writes an added skill. The new SKILL.md is written to a staging folder and
+ * read back with the same checks as every other skill (and its connectors
+ * checked against the ones AgentOS knows); only a clean skill is moved into
+ * place, so a bad save never replaces a good one.
+ *
+ * Editing keeps the name (it is the skill's id) and moves the version on, so
+ * a job that already copied the old instructions is told apart from new ones.
+ */
+export async function saveAddedSkill(draft: SkillDraft, existingId: string | undefined, deps: SkillDeps): Promise<SkillSummary> {
+  const skills = await listSkills(deps);
+  const current = existingId ? skills.find((skill) => skill.id === existingId) : undefined;
+
+  if (existingId) {
+    if (!current) throw new SkillError("No such skill.", 404);
+    if (current.source !== "added") throw new SkillError("Only skills added on this page can be edited here.", 403);
+    if (draft.name !== existingId) throw new SkillError("A skill's name can't change. Add it as a new skill instead.", 422);
+  } else if (skills.some((skill) => skill.id === draft.name)) {
+    throw new SkillError(`There is already a skill called ${draft.name}.`, 409);
+  }
+
+  const version = current
+    ? draft.version && draft.version !== current.version
+      ? draft.version
+      : bumpPatch(current.version)
+    : (draft.version ?? "1.0.0");
+  const markdown = skillMarkdown({ ...draft, version });
+  if (Buffer.byteLength(markdown, "utf8") > MAX_SKILL_BYTES) throw new SkillError("The skill is larger than 256 KB.", 422);
+
+  const root = addedSkillsDir();
+  const staging = path.join(root, `.staging-${randomUUID()}`);
+  const staged = path.join(staging, draft.name);
+  const target = path.join(root, draft.name);
+  await fs.mkdir(staged, { recursive: true });
+  try {
+    await fs.writeFile(path.join(staged, "SKILL.md"), markdown, "utf8");
+    const checked = await readSkill(staged);
+    const connectors = await deps.connectors().catch(() => []);
+    const unknown = draft.requires.filter((id) => !connectors.some((connector) => connector.id === id));
+    const errors = [...(checked?.errors ?? ["The skill could not be read back."]), ...unknown.map((id) => `Requires an unknown connector: ${id}`)];
+    if (errors.length > 0) throw new SkillError(`Fix this before saving: ${errors.join(" ")}`, 422);
+
+    if (current) {
+      const previous = path.join(staging, ".previous");
+      await fs.rename(target, previous);
+      await fs.rename(staged, target);
+    } else {
+      if (await exists(target)) throw new SkillError(`There is already a skill folder called ${draft.name}.`, 409);
+      await fs.rename(staged, target);
+    }
+  } finally {
+    await fs.rm(staging, { recursive: true, force: true });
+  }
+
+  if (!current) {
+    // Written by a person just now: on until they turn it off.
+    const enabled = await readEnablement();
+    enabled[draft.name] = true;
+    await writeEnablement(enabled);
+  }
+
+  const saved = (await listSkills(deps)).find((skill) => skill.id === draft.name);
+  if (!saved) throw new SkillError("The skill was saved but could not be read back.", 500);
+  return saved;
+}
+
+/** Deletes an added skill. Refused while a run uses it; jobs that copied its instructions keep them. */
+export async function deleteAddedSkill(id: string, deps: SkillDeps): Promise<void> {
+  if (!NAME.test(id)) throw new SkillError("No such skill.", 404);
+  const skill = (await listSkills(deps)).find((entry) => entry.id === id);
+  if (!skill) throw new SkillError("No such skill.", 404);
+  if (skill.source !== "added") throw new SkillError("Only skills added on this page can be deleted here.", 403);
+  if (skill.activeRuns > 0) throw new SkillError("A run is using this skill. Finish or cancel it first.", 409);
+  await fs.rm(path.join(addedSkillsDir(), id), { recursive: true, force: true });
+  const enabled = await readEnablement();
+  delete enabled[id];
+  await writeEnablement(enabled);
+}
+
+/**
+ * The instructions a worker job will carry, copied now so later edits never
+ * change a job that already started. Refused when the skill is disabled,
+ * broken, or needs a connector that is not connected.
+ */
+export async function skillForJob(id: string, deps: SkillDeps): Promise<JobSkill> {
+  const skill = NAME.test(id) ? (await listSkills(deps)).find((entry) => entry.id === id) : undefined;
+  if (!skill) throw new SkillError(`There is no skill called ${id}.`, 404);
+  if (skill.errors.length > 0) throw new SkillError(`The ${skill.name} skill has problems: ${skill.errors.join(" ")}`, 422);
+  if (!skill.enabled) throw new SkillError(`The ${skill.name} skill is disabled in Connectors → Skills.`, 409);
+  const missing = skill.requirements.filter((requirement) => !requirement.connected).map((requirement) => requirement.name);
+  if (missing.length > 0) throw new SkillError(`The ${skill.name} skill needs ${missing.join(", ")} connected first.`, 409);
+  return { id: skill.id, name: skill.name, version: skill.version, instructions: skill.instructions };
 }
