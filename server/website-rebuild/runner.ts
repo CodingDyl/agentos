@@ -4,14 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
-import { REBUILD_SKILL_ID, STAGE_ORDER, type BrandAsset, type BrandKit, type RebuildRun, type RebuildStageId } from "../../shared/website-rebuild-types";
+import { REBUILD_SKILL_ID, STAGE_ORDER, socialProfilePlatform, type BrandAsset, type BrandKit, type RebuildRun, type RebuildStageId } from "../../shared/website-rebuild-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, toSlug } from "../agentos/mutations/projects";
 import { editFile } from "../agentos/mutations/writer";
 import { readDimensions } from "../designs/media";
 import { BRAND_EXTENSION, buildBrandReport, chooseBrandImages, summariseColors, summariseFonts } from "./brand";
 import { captureSite, fetchRobots, withBrowserLoader, type CaptureResult } from "./capture";
-import { REPORT_DIR, buildManifest, buildStructure, buildTranscript, reportFile } from "./reports";
+import { REPORT_DIR, buildManifest, buildSkippedReport, buildStructure, buildTranscript, reportFile } from "./reports";
 import { StageBlocked, type RunnerDeps, type StageContext, type StageHandler } from "./stage-kit";
 import { buildStage, functionsStage, heroStage, previewStage, researchStage } from "./stages";
 import { isSkillEnabled } from "../skills/registry";
@@ -54,7 +54,7 @@ async function ensureWorkspace(run: RebuildRun): Promise<{ slug: string; reused:
   const created = await createProject({
     name: run.company,
     slug: existing,
-    goal: `Rebuild ${run.company}'s website (${run.websiteUrl}) and share a Vercel preview. Goal for visitors: ${run.conversionGoal}.`,
+    goal: `${run.websiteUrl ? `Rebuild ${run.company}'s website (${run.websiteUrl})` : `Build ${run.company} a website`} and share a Vercel preview. Goal for visitors: ${run.conversionGoal}.`,
     type: "Client",
     state: "active",
     priority: "medium",
@@ -86,12 +86,48 @@ const workspaceStage: StageHandler = async (context, deps) => {
   return { summary: reused ? `Linked to the existing workspace ${slug}.` : `Workspace ${slug} created.`, artifactIds: [] };
 };
 
+/**
+ * Why capture should not read anything, before it tries: no website, or a
+ * profile on a social platform, which is not theirs to rebuild and mostly
+ * sits behind a login. A person's earlier "skip" counts too.
+ */
+export function captureSkipReason(run: Pick<RebuildRun, "websiteUrl" | "siteNote">): string | undefined {
+  if (run.siteNote) return run.siteNote;
+  if (!run.websiteUrl) return "They have no website.";
+  const platform = socialProfilePlatform(run.websiteUrl);
+  if (platform) return `Their only web presence is a ${platform} page (${run.websiteUrl}), which AgentOS does not read.`;
+  return undefined;
+}
+
+/**
+ * Capture skipped: the stage still completes, with placeholder reports that
+ * say why, so research and the briefs know to work from the intake details
+ * and the research alone.
+ */
+async function skipCapture(context: StageContext, reason: string): Promise<{ summary: string; artifactIds: string[] }> {
+  setRunField(context.run.id, "site_note", reason);
+  context.log(`Website capture skipped: ${reason}`, "warning");
+  const run = { ...context.run, siteNote: reason };
+  const ids = [
+    await context.writeReport("website_transcript", "Website transcript", buildSkippedReport(run, "website transcript", reason)),
+    await context.writeReport("current_structure", "Current structure", buildSkippedReport(run, "current structure", reason)),
+  ];
+  return { summary: `Skipped: ${reason} The rebuild works from the research and the details you gave.`, artifactIds: ids };
+}
+
 const captureStage: StageHandler = async (context, deps) => {
+  const skip = captureSkipReason(context.run);
+  if (skip) return skipCapture(context, skip);
+
   context.activity(`Reading robots.txt for ${context.run.websiteUrl}`);
   const capture = await deps.capture(context.run.websiteUrl, context.activity);
   if (capture.pages.length === 0) {
+    // The site's owner asked crawlers to stay out: that is an answer, not a fault to retry.
+    if (capture.manifest.skipped.some((entry) => entry.url === capture.manifest.startUrl && entry.reason === "disallowed by robots.txt")) {
+      return skipCapture(context, `Their site (${context.run.websiteUrl}) asks automated readers to stay out in robots.txt, so it was not read.`);
+    }
     const reason = capture.manifest.failed[0]?.reason ?? capture.manifest.skipped[0]?.reason ?? "no pages could be read";
-    throw new StageBlocked(`The site could not be captured: ${reason}. Check the address, then retry.`);
+    throw new StageBlocked(`The site could not be captured: ${reason}. Check the address and retry, or skip this step to work without it.`);
   }
   context.activity("Writing the transcript, structure report and crawl manifest");
   const ids = [

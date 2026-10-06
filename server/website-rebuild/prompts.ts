@@ -34,10 +34,13 @@ function changeNote(note: string | undefined): string[] {
 function client(run: RebuildRun): string[] {
   return [
     `Client: ${run.company}`,
-    `Current website: ${run.websiteUrl}`,
+    `Current website: ${run.websiteUrl || "none"}`,
     `Who they sell to: ${run.targetMarket}`,
     `Where: ${run.location}`,
     `What a visitor should do: ${run.conversionGoal}`,
+    ...(run.siteNote
+      ? [`No current site was captured: ${run.siteNote} Work from the research and these details. Every fact about the business you cannot source from them (services, phone, hours, prices, team) is a clearly marked TODO listed in CONTENT_TODO.md.`]
+      : []),
   ];
 }
 

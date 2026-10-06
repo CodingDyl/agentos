@@ -324,6 +324,18 @@ export function DesignsPage() {
               ) : null}
 
               <div className="mt-8 border-t border-paper-mist pt-8">
+                {/* Above the empty state too: an empty library is exactly when
+                    someone starts from an uploaded reference. */}
+                {generating ? (
+                  <GeneratePanel
+                    className="mb-6"
+                    references={assets.filter((asset) =>
+                      selected.includes(asset.id),
+                    )}
+                    onClose={() => setGenerating(false)}
+                  />
+                ) : null}
+
                 {visible.length === 0 ? (
                   <PaperEmpty
                     title={isEmptyLibrary ? "Nothing here yet" : "No matches"}
@@ -343,16 +355,6 @@ export function DesignsPage() {
                   />
                 ) : (
                   <>
-                    {generating ? (
-                      <GeneratePanel
-                        className="mb-6"
-                        references={assets.filter((asset) =>
-                          selected.includes(asset.id),
-                        )}
-                        onClose={() => setGenerating(false)}
-                      />
-                    ) : null}
-
                     <SelectionBar
                       label={
                         visible.length === assets.length

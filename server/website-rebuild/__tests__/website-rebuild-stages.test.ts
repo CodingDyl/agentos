@@ -249,6 +249,29 @@ describe("brand kit", () => {
   });
 });
 
+describe("a client with no website", () => {
+  it("researches without asking Hermes to analyse a site that does not exist, and tells every worker", async () => {
+    let hermesCalls = 0;
+    const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "hermes-worker"]), files: filesFor };
+    stages.stageDeps.current = fakeStageDeps(worker, {
+      hermes: async () => {
+        hermesCalls += 1;
+        return "should not run";
+      },
+    });
+    const { run } = store.createOrReuseRun({ prospectId: `no-site-${caseNumber}`, company: "Total Electric", websiteUrl: "", targetMarket: "Homeowners", location: "Cape Town", conversionGoal: "Book a call-out", requiredFunctions: [], designTemplate: "DESIGN.md", skillVersion: "1.3.0" });
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+
+    assert.equal(status(run.id, "research")?.status, "complete", status(run.id, "research")?.blocker ?? "");
+    assert.equal(status(run.id, "hero")?.status, "awaiting_approval");
+    assert.equal(hermesCalls, 0);
+    assert.match(vault.get("projects/total-electric/docs/website-rebuild/total_electric_hermes_analysis.md") ?? "", /## Not run[\s\S]*no current website/);
+    const hero = worker.jobs.find((job) => job.objective.startsWith("Design three"));
+    assert.match(hero?.objective ?? "", /Current website: none/);
+    assert.match(hero?.objective ?? "", /No current site was captured: They have no website\./);
+  });
+});
+
 describe("stages 3 to 6", () => {
   it("runs research, three concepts, the build and the features, each committed and tagged, stopping at every checkpoint", async () => {
     const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "codex", "hermes-worker"]), files: filesFor };

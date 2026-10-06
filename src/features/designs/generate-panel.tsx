@@ -4,7 +4,7 @@ import type {
   AspectRatio,
   DesignGeneration,
 } from "@shared/design-generation-types";
-import { MAX_VARIATIONS } from "@shared/design-generation-types";
+import { MAX_REFERENCE_IMAGES, MAX_VARIATIONS } from "@shared/design-generation-types";
 import type { DesignAsset } from "@shared/agentos-types";
 import {
   FieldLabel,
@@ -25,6 +25,7 @@ import {
   useProjects,
 } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
+import { GenerateReferencePicker } from "./generate-reference-picker";
 
 /**
  * Making concepts from a direction.
@@ -74,6 +75,11 @@ export function GeneratePanel({
   const [count, setCount] = useState(1);
   const [refine, setRefine] = useState(true);
   const [generation, setGeneration] = useState<DesignGeneration>();
+  // Starts from what was selected in the library; changed here from then on.
+  // Videos never go to an image model as a reference.
+  const [chosenReferences, setChosenReferences] = useState<DesignAsset[]>(() =>
+    references.filter((asset) => asset.mediaType === "image").slice(0, MAX_REFERENCE_IMAGES),
+  );
 
   // Products already used in this project, offered as suggestions rather than
   // as a fixed list: what counts as a product is the operator's business.
@@ -113,7 +119,7 @@ export function GeneratePanel({
         product: product.trim() || undefined,
         model: chosenModel,
         prompt: prompt.trim(),
-        referenceAssetIds: references.map((asset) => asset.id),
+        referenceAssetIds: chosenReferences.map((asset) => asset.id),
         aspectRatio: ratio,
         count,
         refinePrompt: refine,
@@ -229,21 +235,11 @@ export function GeneratePanel({
               </span>
             </label>
 
-            {references.length > 0 ? (
-              <div className="mt-6">
-                <FieldLabel>References</FieldLabel>
-                <div className="flex flex-wrap gap-2">
-                  {references.map((asset) => (
-                    <img
-                      key={asset.id}
-                      src={asset.thumbnailUrl}
-                      alt={asset.filename}
-                      className="size-14 rounded-none object-cover ring-1 ring-paper-mist"
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
+            <GenerateReferencePicker
+              references={chosenReferences}
+              onChange={setChosenReferences}
+              project={project}
+            />
 
             <div className="mt-6 flex flex-wrap gap-x-8 gap-y-6">
               <div>

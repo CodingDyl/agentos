@@ -327,6 +327,18 @@ export const researchStage: StageHandler = async (context) => {
     context.log("Keeping the research already written in this attempt.");
   }
 
+  // No site was captured: there is nothing for Hermes to analyse, and that is recorded rather than faked.
+  if (run.siteNote) {
+    const note = `## Not run\n\nThere is no current website to analyse. ${run.siteNote}\n\nThe rebuild works from the competitor research and the details given when it started.\n`;
+    artifactIds.push(await context.writeReport(HERMES_ANALYSIS, "Hermes analysis", wrapReport(run, "Hermes analysis", note, { skipped: "true" })));
+    return {
+      summary: `Competitor research${researchWorker ? ` by ${researchWorker.name}` : ""} is in the workspace. No Hermes analysis: there is no current site.`,
+      artifactIds,
+      worker: researchWorker?.name,
+      jobId: researchJob?.id,
+    };
+  }
+
   // Hermes is required: a missing analysis is a blocker, never a generic stand-in.
   context.activity("Hermes is analysing the current website");
   let meta: { id?: string; model?: string } = {};

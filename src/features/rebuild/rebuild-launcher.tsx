@@ -51,13 +51,13 @@ export function RebuildLauncher({ prospect }: { prospect: Prospect }) {
     <RebuildStartForm prospect={prospect} onCancel={() => setOpen(false)} />
   ) : (
     <div className="mt-4">
-      <PaperButton variant="amber" onClick={() => setOpen(true)} disabled={!prospect.website}>
+      <PaperButton variant="amber" onClick={() => setOpen(true)}>
         <Hammer className="size-3.5" aria-hidden="true" /> Start website rebuild
       </PaperButton>
       <p className="mt-1 text-[12.5px] text-paper-sage">
         {prospect.website
           ? "Seven stages from their current site to a Vercel preview. You approve the design, the copy and the features before anything moves on."
-          : "Add their website first: the rebuild starts by reading it."}
+          : "No website on file: the rebuild skips reading one and works from research and the details you give."}
       </p>
     </div>
   );
@@ -84,10 +84,10 @@ function RebuildStartForm({ prospect, onCancel }: { prospect: Prospect; onCancel
     });
   };
 
-  const field = (name: string, label: string, defaultValue: string, hint?: string, type = "text") => (
+  const field = (name: string, label: string, defaultValue: string, hint?: string, type = "text", required = true) => (
     <label className="block" htmlFor={`${id}-${name}`}>
       <FieldLabel>{label}</FieldLabel>
-      <input id={`${id}-${name}`} name={name} type={type} required className={PAPER_INPUT} defaultValue={defaultValue} />
+      <input id={`${id}-${name}`} name={name} type={type} required={required} className={PAPER_INPUT} defaultValue={defaultValue} />
       {hint ? <span className="mt-0.5 block text-[12.5px] text-paper-sage">{hint}</span> : null}
     </label>
   );
@@ -99,7 +99,7 @@ function RebuildStartForm({ prospect, onCancel }: { prospect: Prospect; onCancel
       </h4>
       <div className="grid gap-3 sm:grid-cols-2">
         {field("company", "Company", prospect.company)}
-        {field("websiteUrl", "Current website", prospect.website ?? "", undefined, "url")}
+        {field("websiteUrl", "Current website (optional)", prospect.website ?? "", "Leave empty if they have none. A Facebook or other social page is fine: reading the site is skipped.", "url", false)}
         {field("targetMarket", "Target market", prospect.segment ?? "", "Who they sell to, e.g. homeowners needing an electrician")}
         {field("location", "Location", "", "Town or area they serve")}
         {field("conversionGoal", "Main goal for visitors", "Get in touch", "What a visitor should do, e.g. book a call-out")}
@@ -134,7 +134,7 @@ function RebuildStartForm({ prospect, onCancel }: { prospect: Prospect; onCancel
         <PaperButton onClick={onCancel} disabled={start.isPending}>
           Cancel
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">Creates (or reuses) the client's workspace and reads their site. Nothing is sent to anyone.</span>
+        <span className="text-[12.5px] text-paper-sage">Creates (or reuses) the client's workspace and reads their site, if they have one. Nothing is sent to anyone.</span>
       </div>
     </form>
   );

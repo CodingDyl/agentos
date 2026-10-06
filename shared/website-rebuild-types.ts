@@ -74,7 +74,8 @@ export const RebuildStartSchema = z
   .object({
     prospectId: z.string().min(1).max(200),
     company: Text(120),
-    websiteUrl: z.string().trim().url().max(500).regex(/^https?:\/\//, "The website must start with http:// or https://"),
+    /** Empty when they have no website: the capture stage is then skipped. */
+    websiteUrl: z.union([z.literal(""), z.string().trim().url().max(500).regex(/^https?:\/\//, "The website must start with http:// or https://")]).default(""),
     targetMarket: Text(200),
     location: Text(120),
     conversionGoal: Text(200),
@@ -236,6 +237,8 @@ export const RebuildRunSchema = z.object({
   workspaceSlug: z.string().optional(),
   /** Where the client's site code lives. */
   repoPath: z.string().optional(),
+  /** Why there is no captured site to work from (no website, a social page, blocked by robots.txt), when capture was skipped. */
+  siteNote: z.string().optional(),
   /** The hero concept approved at checkpoint 1, which the build follows. */
   heroChoice: z.string().optional(),
   /** The client's branding from their current site, once capture has run. */
@@ -283,6 +286,36 @@ export type RebuildEvent = z.infer<typeof RebuildEventSchema>;
 export type RebuildStage = z.infer<typeof RebuildStageSchema>;
 export type RebuildRun = z.infer<typeof RebuildRunSchema>;
 export type RebuildRunSummary = z.infer<typeof RebuildRunSummarySchema>;
+
+/** Hosts that are a profile on someone else's platform, not a website of the business's own. */
+const SOCIAL_PROFILE_HOSTS: Record<string, string> = {
+  "facebook.com": "Facebook",
+  "fb.com": "Facebook",
+  "fb.me": "Facebook",
+  "instagram.com": "Instagram",
+  "linkedin.com": "LinkedIn",
+  "twitter.com": "X",
+  "x.com": "X",
+  "tiktok.com": "TikTok",
+  "youtube.com": "YouTube",
+  "linktr.ee": "Linktree",
+  "wa.me": "WhatsApp",
+  "g.page": "Google Business",
+  "yelp.com": "Yelp",
+};
+
+/** `"Facebook"` for a Facebook page address, undefined for a real website (or not an address at all). */
+export function socialProfilePlatform(url: string): string | undefined {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^(www|m|mobile|web|business)\./, "");
+  } catch {
+    return undefined;
+  }
+  if (host === "google.com" && /^\/maps\b/.test(new URL(url).pathname)) return "Google Maps";
+  if (host === "maps.google.com" || host === "maps.app.goo.gl") return "Google Maps";
+  return SOCIAL_PROFILE_HOSTS[host] ?? Object.entries(SOCIAL_PROFILE_HOSTS).find(([domain]) => host.endsWith(`.${domain}`))?.[1];
+}
 
 /** `"Total Electric (Pty) Ltd"` → `total_electric_pty_ltd`: safe in any filename. */
 export function companyFileSlug(company: string): string {

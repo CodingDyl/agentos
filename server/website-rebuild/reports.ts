@@ -156,3 +156,16 @@ export function wrapReport(run: RebuildRun, title: string, body: string, extra: 
   const withoutFrontMatter = body.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
   return `${frontMatter(`${run.company}: ${title}`, run, extra)}${withoutFrontMatter}\n`;
 }
+
+/** In place of the transcript or structure report when there was no site to read. Workers read it, so it says what to do instead. */
+export function buildSkippedReport(run: RebuildRun, title: string, reason: string): string {
+  return [
+    frontMatter(`${run.company}: ${title}`, run, { skipped: "true" }),
+    `# ${run.company}: ${title}`,
+    "",
+    `Not captured. ${reason}`,
+    "",
+    "There is no current site to quote. Work from the research and the details in the brief (company, market, location, goal). Every fact about the business that neither gives you is a clearly marked TODO, listed in CONTENT_TODO.md: never invent one.",
+    "",
+  ].join("\n");
+}

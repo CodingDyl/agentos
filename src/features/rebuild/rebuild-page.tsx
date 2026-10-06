@@ -15,7 +15,7 @@ import { AppShell } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
-import { useDecideStage, useRebuild, useRetryStage, useStageWorkers } from "@/lib/agentos/rebuilds";
+import { useDecideStage, useRebuild, useRetryStage, useSkipCapture, useStageWorkers } from "@/lib/agentos/rebuilds";
 import { cn } from "@/lib/utils";
 import { BrandKitPanel } from "./brand-kit-panel";
 import { StageStatusTag } from "./rebuild-status";
@@ -69,9 +69,13 @@ export function RebuildView({ run, inWorkspace = false }: { run: RebuildRun; inW
             </>
           )}
           <p className="mt-2 max-w-[80ch] text-[13px] leading-5 text-paper-char">
-            <a href={run.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-paper-blue hover:underline">
-              {run.websiteUrl}
-            </a>{" "}
+            {run.websiteUrl ? (
+              <a href={run.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-paper-blue hover:underline">
+                {run.websiteUrl}
+              </a>
+            ) : (
+              "No current website"
+            )}{" "}
             · {run.targetMarket} · {run.location} · Goal: {run.conversionGoal}
             {run.requiredFunctions.length > 0 ? ` · Needs: ${run.requiredFunctions.map((value) => REBUILD_FUNCTION_LABEL[value]).join(", ")}` : ""}
           </p>
@@ -117,6 +121,7 @@ export function RebuildView({ run, inWorkspace = false }: { run: RebuildRun; inW
 function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage; index: number }) {
   const definition = REBUILD_STAGES[index];
   const retry = useRetryStage(run.id);
+  const skip = useSkipCapture(run.id);
   const artifacts = run.artifacts.filter((artifact) => artifact.stage === stage.id && artifact.media === "document");
   // Screenshots of the revision on screen: the latest one once it exists, so an old revision's pictures never pass for the new one.
   const shownRevision = run.artifacts.filter((artifact) => artifact.stage === stage.id && artifact.media === "image").reduce((max, artifact) => Math.max(max, artifact.revision), 0);
@@ -165,13 +170,18 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
             <PaperButton onClick={() => retry.mutate({ stage: stage.id })} disabled={retry.isPending}>
               <RotateCcw className="size-3.5" aria-hidden="true" /> {retry.isPending ? "Retrying…" : "Retry"}
             </PaperButton>
+            {stage.id === "capture" ? (
+              <PaperButton onClick={() => skip.mutate()} disabled={skip.isPending || retry.isPending}>
+                {skip.isPending ? "Skipping…" : "Skip this step"}
+              </PaperButton>
+            ) : null}
             {WORKER_STAGES[stage.id] ? <WorkerSwitch run={run} stage={stage} busy={retry.isPending} onRetry={(worker) => retry.mutate({ stage: stage.id, worker })} /> : null}
           </div>
         ) : null}
         {stage.workerOverride && stage.status !== "blocked" ? (
           <p className="mt-2 text-[12.5px] text-paper-sage">Using {stage.workerOverride} for this stage, as you chose.</p>
         ) : null}
-        {retry.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{retry.error.message}</p> : null}
+        {retry.error || skip.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{(retry.error ?? skip.error)?.message}</p> : null}
 
         {revision && stage.status !== "in_progress" ? (
           <p className="mt-3 text-[13px] text-paper-char">

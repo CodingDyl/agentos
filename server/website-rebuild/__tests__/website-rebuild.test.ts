@@ -13,6 +13,7 @@ const store = await import("../store");
 const { advance, STAGE_HANDLERS, StageBlocked } = await import("../runner");
 const { captureSite, parseRobots, robotsAllows, normalizePageUrl } = await import("../capture");
 const { buildManifest, buildStructure, buildTranscript } = await import("../reports");
+const { socialProfilePlatform } = await import("../../../shared/website-rebuild-types");
 type CapturedPage = import("../capture").CapturedPage;
 type RunnerDeps = import("../runner").RunnerDeps;
 type StageHandler = import("../runner").StageHandler;
@@ -226,6 +227,66 @@ describe("leases and recovery", () => {
   it("only a blocked stage can be retried", () => {
     const { run } = newRun();
     assert.throws(() => store.resetForRetry(run.id, "workspace"), /Only a blocked stage/);
+  });
+});
+
+describe("runs without a site to read", () => {
+  const blocked = (runId: string) => status(runId, "research")?.blocker ?? "";
+  const start = (prospectId: string, websiteUrl: string) =>
+    store.createOrReuseRun({ prospectId, company: "Total Electric", websiteUrl, targetMarket: "Homeowners", location: "Cape Town", conversionGoal: "Book a call-out", requiredFunctions: [], designTemplate: "DESIGN.md", skillVersion: "1.3.0" }).run;
+  const neverCapture: RunnerDeps = {
+    ...fakeDeps,
+    capture: async () => {
+      throw new Error("capture must not run");
+    },
+  };
+
+  for (const [label, url, why] of [
+    ["no website", "", /They have no website/],
+    ["a Facebook page", "https://www.facebook.com/totalelectric", /only web presence is a Facebook page/],
+    ["an Instagram profile", "https://instagram.com/totalelectric", /Instagram page/],
+    ["a Linktree", "https://linktr.ee/totalelectric", /Linktree page/],
+  ] as const) {
+    it(`skips capture for ${label} and moves on to research`, async () => {
+      written.clear();
+      const run = start(`skip-${label}`, url);
+      await advance(run.id, STAGE_HANDLERS, neverCapture);
+      assert.equal(status(run.id, "capture")?.status, "complete");
+      assert.match(store.readRun(run.id).siteNote ?? "", why);
+      assert.match(store.readRun(run.id).revisions.find((revision) => revision.stage === "capture")?.summary ?? "", /^Skipped:/);
+      assert.match(written.get("projects/total-electric/docs/website-rebuild/total_electric_website_transcript.md") ?? "", /Not captured\.[\s\S]*never invent one/);
+      // Research is reached: here it stops only because the test has no client drive.
+      assert.match(blocked(run.id), /^Connect agentos-test-drive-not-present/);
+    });
+  }
+
+  it("skips a site whose robots.txt turns crawlers away instead of blocking the rebuild", async () => {
+    const run = start("robots", "https://total-electric.example");
+    await advance(run.id, STAGE_HANDLERS, {
+      ...fakeDeps,
+      capture: async (url) => ({ pages: [], manifest: { startUrl: `${url}/`, capturedAt: "", robots: "obeyed", captured: [], skipped: [{ url: `${url}/`, reason: "disallowed by robots.txt" }], failed: [] } }),
+    });
+    assert.equal(status(run.id, "capture")?.status, "complete");
+    assert.match(store.readRun(run.id).siteNote ?? "", /robots\.txt/);
+  });
+
+  it("still blocks a site that is down, and says it can be skipped", async () => {
+    const run = start("down", "https://total-electric.example");
+    await advance(run.id, STAGE_HANDLERS, {
+      ...fakeDeps,
+      capture: async (url) => ({ pages: [], manifest: { startUrl: url, capturedAt: "", robots: "none", captured: [], skipped: [], failed: [{ url, reason: "answered 503" }] } }),
+    });
+    assert.equal(status(run.id, "capture")?.status, "blocked");
+    assert.match(status(run.id, "capture")?.blocker ?? "", /answered 503.*skip this step/);
+    assert.equal(store.readRun(run.id).siteNote, undefined);
+  });
+
+  it("tells social profiles from real websites", () => {
+    assert.equal(socialProfilePlatform("https://m.facebook.com/pages/x"), "Facebook");
+    assert.equal(socialProfilePlatform("https://www.google.com/maps/place/x"), "Google Maps");
+    assert.equal(socialProfilePlatform("https://total-electric.co.za"), undefined);
+    assert.equal(socialProfilePlatform("https://notfacebook.com"), undefined);
+    assert.equal(socialProfilePlatform("not a url"), undefined);
   });
 });
 
