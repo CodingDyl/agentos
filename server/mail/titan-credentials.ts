@@ -20,6 +20,8 @@ import { uiStateDir } from "../agentos/session-store";
 
 export interface TitanCredentials {
   address: string;
+  /** Shown to recipients next to the address. Absent: the bare address. */
+  senderName?: string;
   password: string;
   imapHost: string;
   imapPort: number;
@@ -94,7 +96,14 @@ async function readStored(): Promise<StoredTitanAccount | undefined> {
 export async function titanAccount(): Promise<Omit<TitanCredentials, "password"> | undefined> {
   const stored = await readStored();
   if (!stored) return undefined;
-  return { address: stored.address, imapHost: stored.imapHost, imapPort: stored.imapPort, smtpHost: stored.smtpHost, smtpPort: stored.smtpPort };
+  return {
+    address: stored.address,
+    ...(stored.senderName ? { senderName: stored.senderName } : {}),
+    imapHost: stored.imapHost,
+    imapPort: stored.imapPort,
+    smtpHost: stored.smtpHost,
+    smtpPort: stored.smtpPort,
+  };
 }
 
 /** The full login, password included. Only the IMAP and SMTP clients call this. */
@@ -117,6 +126,7 @@ export async function saveTitanCredentials(input: TitanConnectRequest): Promise<
   if (!key) throw new TitanCredentialsError("Could not create the mailbox key.");
   const stored: StoredTitanAccount = {
     address: input.address,
+    ...(input.senderName ? { senderName: input.senderName } : {}),
     imapHost: input.imapHost,
     imapPort: input.imapPort,
     smtpHost: input.smtpHost,
@@ -125,6 +135,14 @@ export async function saveTitanCredentials(input: TitanConnectRequest): Promise<
     linkedAt: new Date().toISOString(),
   };
   await writePrivate(accountFile(), `${JSON.stringify(stored, null, 2)}\n`);
+}
+
+/** Sets or clears the sender name, keeping the sealed password as it is. */
+export async function updateTitanSenderName(senderName: string): Promise<void> {
+  const stored = await readStored();
+  if (!stored) throw new TitanCredentialsError("The Virtara mailbox is not linked.");
+  const next: StoredTitanAccount = { ...stored, senderName: senderName || undefined };
+  await writePrivate(accountFile(), `${JSON.stringify(next, null, 2)}\n`);
 }
 
 export async function forgetTitanCredentials(): Promise<void> {

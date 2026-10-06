@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import type { MailAccountSummary } from "@shared/mail-account-types";
-import { useLinkTitanMailbox, useUnlinkTitanMailbox } from "@/lib/agentos/queries";
+import { useLinkTitanMailbox, useUnlinkTitanMailbox, useUpdateTitanSenderName } from "@/lib/agentos/queries";
 import { mailConnectUrl } from "@/lib/agentos/client";
 
 interface MailAccountsPanelProps {
@@ -19,10 +19,16 @@ export function MailAccountsPanel({ accounts, onClose, onNotice }: MailAccountsP
   const id = useId();
   const link = useLinkTitanMailbox();
   const unlink = useUnlinkTitanMailbox();
+  const rename = useUpdateTitanSenderName();
   const gmail = accounts.find((account) => account.id === "gmail");
   const titan = accounts.find((account) => account.id === "titan");
 
   const [address, setAddress] = useState("dylanpetzer@virtara.co.za");
+  const [senderName, setSenderName] = useState("Dylan Petzer");
+  // Once linked, the name is edited in place; undefined means "as saved".
+  const [editedName, setEditedName] = useState<string | undefined>();
+  const savedName = titan?.senderName ?? "";
+  const nameDraft = editedName ?? savedName;
   const [password, setPassword] = useState("");
   const [showServer, setShowServer] = useState(false);
   const [imapHost, setImapHost] = useState("imap.titan.email");
@@ -32,9 +38,20 @@ export function MailAccountsPanel({ accounts, onClose, onNotice }: MailAccountsP
     const sent = password;
     setPassword("");
     link.mutate(
-      { address, password: sent, ...(showServer ? { imapHost } : {}) },
+      { address, password: sent, ...(senderName.trim() ? { senderName: senderName.trim() } : {}), ...(showServer ? { imapHost } : {}) },
       { onSuccess: () => onNotice(`The Virtara mailbox (${address.trim().toLowerCase()}) is linked. Press Refresh to read it.`) },
     );
+  };
+
+  const saveName = (event: FormEvent) => {
+    event.preventDefault();
+    const name = nameDraft.trim();
+    rename.mutate(name, {
+      onSuccess: () => {
+        setEditedName(undefined);
+        onNotice(name ? `Virtara mail now goes out as ${name}.` : "Virtara mail now goes out from the bare address.");
+      },
+    });
   };
 
   const disconnectTitan = () => {
@@ -79,7 +96,36 @@ export function MailAccountsPanel({ accounts, onClose, onNotice }: MailAccountsP
         ) : null}
       </div>
 
-      {titan?.connected ? null : (
+      {titan?.connected ? (
+        <form className="mail-account-form" onSubmit={saveName} aria-label="Virtara sender name">
+          <div className="mail-composer-row">
+            <label htmlFor={`${id}-sender`}>Name</label>
+            <input
+              id={`${id}-sender`}
+              type="text"
+              autoComplete="name"
+              maxLength={100}
+              placeholder="Shown to recipients, e.g. Dylan Petzer"
+              value={nameDraft}
+              onChange={(event) => setEditedName(event.target.value)}
+            />
+          </div>
+          <p className="mail-account-help">
+            Recipients see{" "}
+            <strong>{nameDraft.trim() ? `${nameDraft.trim()} <${titan.address ?? ""}>` : (titan.address ?? "")}</strong>.
+          </p>
+          {rename.error ? (
+            <p className="mail-action-error" role="alert">
+              {rename.error instanceof Error ? rename.error.message : "Could not save the name."}
+            </p>
+          ) : null}
+          <div className="mail-account-actions">
+            <button type="submit" className="mail-btn-ghost" disabled={rename.isPending || nameDraft.trim() === savedName}>
+              {rename.isPending ? "Saving…" : "Save name"}
+            </button>
+          </div>
+        </form>
+      ) : (
         <form className="mail-account-form" onSubmit={submit} aria-label="Link the Virtara mailbox">
           <div className="mail-composer-row">
             <label htmlFor={`${id}-address`}>Email</label>
@@ -90,6 +136,18 @@ export function MailAccountsPanel({ accounts, onClose, onNotice }: MailAccountsP
               required
               value={address}
               onChange={(event) => setAddress(event.target.value)}
+            />
+          </div>
+          <div className="mail-composer-row">
+            <label htmlFor={`${id}-name`}>Name</label>
+            <input
+              id={`${id}-name`}
+              type="text"
+              autoComplete="name"
+              maxLength={100}
+              placeholder="Shown to recipients"
+              value={senderName}
+              onChange={(event) => setSenderName(event.target.value)}
             />
           </div>
           <div className="mail-composer-row">
