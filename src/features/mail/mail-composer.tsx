@@ -7,14 +7,15 @@ import {
   type MailAttachment,
   type MailSendTag,
 } from "@shared/mail-compose-types";
-import { useComposeMail, useMailReplyContext, usePolishMail } from "@/lib/agentos/queries";
+import type { MailAccountId } from "@shared/mail-account-types";
+import { useComposeMail, useMailReplyContext, useMailStatus, usePolishMail } from "@/lib/agentos/queries";
 import { formatBytes, replySubjectFor, splitAddresses } from "./mail-compose-model";
 import { MailTagPicker } from "./mail-tag-picker";
 
 /** What the composer was opened for: a new email, or a reply to one Inbox thread. */
 export type ComposerTarget =
   | { kind: "new" }
-  | { kind: "reply"; threadId: string; to?: string; subject: string };
+  | { kind: "reply"; threadId: string; to?: string; subject: string; account?: MailAccountId };
 
 interface PendingAttachment extends MailAttachment {
   id: string;
@@ -43,9 +44,12 @@ function readAsBase64(file: File): Promise<string> {
 /**
  * Writing an email in the Inbox: a new one, or a reply to a thread.
  *
- * Send and Save draft are the only things that reach Gmail. Polish rewrites
- * the text in place for review and can be undone; it never sends. The tag
- * (Normal, Business, Virtara) is also a Gmail label on the sent email.
+ * Send and Save draft are the only things that reach a mailbox. Polish
+ * rewrites the text in place for review and can be undone; it never sends.
+ * The tag (Normal, Business, Virtara) is also a Gmail label on email sent
+ * from Gmail. With the Virtara mailbox linked, From picks the mailbox: a
+ * reply starts from the one it arrived in, and choosing the Virtara tag
+ * switches to the Virtara mailbox until From is changed by hand.
  */
 export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
   const titleId = useId();
@@ -53,6 +57,10 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
   const replyContext = useMailReplyContext(replyThreadId);
   const compose = useComposeMail();
   const polish = usePolishMail();
+  const status = useMailStatus();
+  const titan = status.data?.accounts.find((account) => account.id === "titan" && account.connected);
+  const gmailCanSend = status.data?.canModify ?? false;
+  const fallbackFrom: MailAccountId = target.kind === "reply" && target.account ? target.account : gmailCanSend || !titan ? "gmail" : "titan";
 
   const [to, setTo] = useState(target.kind === "reply" ? (target.to ?? "") : "");
   const [cc, setCc] = useState("");
@@ -61,6 +69,9 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
   const [subject, setSubject] = useState(target.kind === "reply" ? replySubjectFor(target.subject) : "");
   const [body, setBody] = useState("");
   const [tag, setTag] = useState<MailSendTag>("normal");
+  const [chosenFrom, setChosenFrom] = useState<MailAccountId | undefined>();
+  // Until From is chosen by hand, the Virtara tag means the Virtara mailbox.
+  const from: MailAccountId = !titan ? "gmail" : (chosenFrom ?? (tag === "virtara" ? "titan" : fallbackFrom));
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [beforePolish, setBeforePolish] = useState<{ subject: string; body: string } | undefined>();
   const [problem, setProblem] = useState<string | undefined>();
@@ -106,7 +117,7 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
         break;
       }
       if (isBlockedAttachment(file.name)) {
-        setProblem(`Gmail does not allow ${file.name} to be sent. Zip it or share a link instead.`);
+        setProblem(`${file.name} is a file type mail servers block. Zip it or share a link instead.`);
         continue;
       }
       if (running + file.size > MAIL_ATTACHMENT_MAX_TOTAL_BYTES) {
@@ -179,12 +190,14 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
         subject: subject.trim(),
         body,
         tag,
+        from,
         replyToThreadId: replyThreadId,
         attachments: attachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })),
       },
       {
         onSuccess: (result) => {
-          const where = mode === "send" ? "Sent" : "Saved to Gmail Drafts";
+          const mailbox = from === "titan" ? "Virtara" : "Gmail";
+          const where = mode === "send" ? `Sent from ${mailbox}` : `Saved to ${mailbox} Drafts`;
           onDone(result.warning ?? `${where}: ${result.item.subject}`);
           onClose();
         },
@@ -230,6 +243,23 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
           submit("send");
         }}
       >
+        {titan ? (
+          <div className="mail-composer-row">
+            <label htmlFor={`${titleId}-from`}>From</label>
+            <select
+              id={`${titleId}-from`}
+              className="mail-composer-from"
+              value={from}
+              onChange={(event) => setChosenFrom(event.target.value as MailAccountId)}
+              disabled={busy}
+            >
+              <option value="gmail" disabled={!gmailCanSend}>
+                Gmail{gmailCanSend ? "" : " (connect Gmail to send)"}
+              </option>
+              <option value="titan">Virtara ({titan.address})</option>
+            </select>
+          </div>
+        ) : null}
         <div className="mail-composer-row">
           <label htmlFor={`${titleId}-to`}>To</label>
           <input
