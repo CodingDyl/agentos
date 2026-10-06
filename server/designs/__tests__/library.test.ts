@@ -251,4 +251,44 @@ describe("the design library", () => {
     assert.equal(asset?.favorite, true);
     assert.deepEqual(asset?.tags, ["dark"]);
   });
+
+  describe("fingerprints", () => {
+    const bytes = (seed: string) => Buffer.from(`\x89PNG fake image ${seed}`);
+
+    it("keeps one asset for one file, however many times it arrives", async () => {
+      const sha256 = library.fingerprint(bytes("same"));
+      const first = await library.createAssetOnce({ id: "fp-1", filename: "image.png", storedName: "fp-1.png", hasThumbnail: false, type: "reference", sha256 });
+      // Two drops of the same file racing: the second loses and gets the first back.
+      const second = await library.createAssetOnce({ id: "fp-2", filename: "image.png", storedName: "fp-2.png", hasThumbnail: false, type: "reference", sha256 });
+
+      assert.equal(first.created, true);
+      assert.equal(second.created, false);
+      assert.equal(second.asset.id, "fp-1");
+      assert.equal((await library.findAssetByFingerprint(sha256))?.id, "fp-1");
+      assert.equal((await library.getLibrary()).assets.filter((asset) => asset.id.startsWith("fp-")).length, 1);
+    });
+
+    it("tells apart different files with the same name, as pasted images all are", async () => {
+      const sha256 = library.fingerprint(bytes("other"));
+      const result = await library.createAssetOnce({ id: "fp-3", filename: "image.png", storedName: "fp-3.png", hasThumbnail: false, type: "reference", sha256 });
+      assert.equal(result.created, true);
+    });
+
+    it("fingerprints an image stored before fingerprints existed, once, when asked", async () => {
+      const data = bytes("legacy");
+      await fs.mkdir(path.join(directory, "media", "originals"), { recursive: true });
+      await fs.writeFile(path.join(directory, "media", "originals", "legacy-1.png"), data);
+      await addAsset("legacy-1");
+
+      const found = await library.findAssetByFingerprint(library.fingerprint(data));
+      assert.equal(found?.id, "legacy-1");
+      // Kept, so the next lookup does not read the file again.
+      const stored = JSON.parse(await fs.readFile(path.join(directory, "state", "design-library.json"), "utf8")) as { assets: { id: string; sha256?: string }[] };
+      assert.equal(stored.assets.find((asset) => asset.id === "legacy-1")?.sha256, library.fingerprint(data));
+    });
+
+    it("finds nothing for a file it has never seen", async () => {
+      assert.equal(await library.findAssetByFingerprint(library.fingerprint(bytes("new"))), undefined);
+    });
+  });
 });

@@ -1097,6 +1097,8 @@ export const DesignLibrarySchema = z.object({
 
 export const DesignAssetResponseSchema = z.object({
   asset: DesignAssetSchema,
+  /** The upload matched a file already in the library, which is returned instead of a copy. */
+  duplicate: z.boolean().optional(),
 });
 
 export const DesignBoardResponseSchema = z.object({

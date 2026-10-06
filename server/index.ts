@@ -165,11 +165,13 @@ import {
   UpdateValidationTaskSchema,
 } from "../shared/validation-sprint-types";
 import {
-  createAsset,
+  createAssetOnce,
   createBoard,
   deleteAsset,
   deleteBoard,
+  findAssetByFingerprint,
   findStoredAsset,
+  fingerprint,
   getLibrary,
   setBoardMembership,
   updateAsset,
@@ -177,6 +179,7 @@ import {
 } from "./designs/library";
 import {
   contentTypeFor,
+  deleteImage,
   extensionFor,
   isVideoName,
   ORIGINALS,
@@ -1727,12 +1730,22 @@ app.post(
     }
 
     try {
+      // The same file twice is one asset: a reference dropped into every
+      // generation, or a screenshot uploaded again, reuses what is there.
+      const sha256 = fingerprint(request.body);
+      const existing = await findAssetByFingerprint(sha256);
+      if (existing) {
+        response.status(200).json({ asset: existing, duplicate: true });
+        return;
+      }
+
       const id = randomUUID();
       const stored = video
         ? await storeVideo(id, extension, request.body)
         : await storeImage(id, extension, request.body);
 
-      const asset = await createAsset({
+      const { asset, created } = await createAssetOnce({
+        sha256,
         id,
         // A filename is a label here, never a location.
         filename: queryText(request.query.filename) ?? stored.storedName,
@@ -1744,6 +1757,13 @@ app.post(
         mediaType: video ? "video" : "image",
         durationSec: (stored as { durationSec?: number }).durationSec,
       });
+
+      if (!created) {
+        // An identical upload finished first: keep its asset, drop these files.
+        await deleteImage(stored.storedName);
+        response.status(200).json({ asset, duplicate: true });
+        return;
+      }
 
       await recordActivity({
         type: "design.added",
