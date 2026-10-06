@@ -4,10 +4,11 @@ import { Link } from "react-router-dom";
 import { daysBetween, isoDate } from "@shared/traction-dates";
 import type { CrmView, TractionData } from "@shared/traction-types";
 import { formatRand, inboundOrigin, type VirtecSource } from "@shared/virtec-types";
-import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, SegmentedControl, Tag } from "@/components/paper";
+import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useImportCrm, useLeadNotAFit, useProfileLeads, useRefreshCrm, useScanCandidates, useScanInfo, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { crmFollowUpPrompt, formatShortDate, hermesHref, inboundReplyPrompt, mailtoHref, prospectHref } from "./traction-model";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Virtec, read live.
@@ -145,13 +146,14 @@ function Money({ crm }: { crm: CrmView }) {
 
 function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
   const setFollowUp = useSetCrmFollowUp();
+  const pager = usePagination(crm.followUps, "", 10);
   return (
     <PaperSection label="Follow-ups" count={crm.followUps.length}>
       {crm.followUps.length === 0 ? (
         <Empty>Virtec has nothing open to follow up.</Empty>
       ) : (
         <ul className="divide-y divide-paper-stone border-y border-paper-mist">
-          {crm.followUps.slice(0, 12).map((followUp) => {
+          {pager.pageItems.map((followUp) => {
             const due = followUp.dueAt?.slice(0, 10);
             const overdue = due !== undefined && due < today;
             return (
@@ -207,6 +209,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
           })}
         </ul>
       )}
+      <PaperPagination pager={pager} label="Follow-up pages" />
       {crm.writable ? null : <p className="mt-2 text-[12px] text-paper-sage">Mark follow-ups as sent in Virtec; write-back is off.</p>}
       {setFollowUp.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
@@ -218,6 +221,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
 }
 
 function Quotes({ crm, today }: { crm: CrmView; today: string }) {
+  const pager = usePagination(crm.quotes, "", 10);
   return (
     <PaperSection label="Pending quotes" count={crm.quotes.length}>
       {crm.quotes.length === 0 ? (
@@ -232,7 +236,7 @@ function Quotes({ crm, today }: { crm: CrmView; today: string }) {
             </tr>
           </thead>
           <tbody>
-            {crm.quotes.slice(0, 12).map((quote) => {
+            {pager.pageItems.map((quote) => {
               const age = quote.createdAt ? daysBetween(quote.createdAt, today) : undefined;
               return (
                 <tr key={quote.id} className="border-b border-paper-stone">
@@ -250,17 +254,19 @@ function Quotes({ crm, today }: { crm: CrmView; today: string }) {
           </tbody>
         </table>
       )}
+      <PaperPagination pager={pager} label="Pending quote pages" />
     </PaperSection>
   );
 }
 
 function Projects({ crm }: { crm: CrmView }) {
+  const pager = usePagination(crm.projects, "", 10);
   if (crm.projects.length === 0) return null;
 
   return (
     <PaperSection label="Active projects" count={crm.projects.length}>
       <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {crm.projects.slice(0, 12).map((project) => (
+        {pager.pageItems.map((project) => (
           <li key={project.id}>
             <PaperCard className="h-full">
               <div className="flex items-start justify-between gap-2">
@@ -278,6 +284,7 @@ function Projects({ crm }: { crm: CrmView }) {
           </li>
         ))}
       </ul>
+      <PaperPagination pager={pager} label="Active project pages" />
     </PaperSection>
   );
 }
@@ -292,6 +299,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
   const importLead = useImportCrm();
   const settle = useSetInboundLead();
   const failedToRead = crm.sources?.inbound && !crm.sources.inbound.ok;
+  const pager = usePagination(crm.inbound, "", 10);
 
   return (
     <PaperSection label="Website leads" count={crm.inbound.length}>
@@ -302,7 +310,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
         <Empty>{failedToRead ? "Website leads could not be read from Virtec (see above)." : "No open website leads."}</Empty>
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
-          {crm.inbound.map((lead) => {
+          {pager.pageItems.map((lead) => {
             const importing = importLead.isPending && importLead.variables?.id === lead.id;
             const settling = settle.isPending && settle.variables?.leadId === lead.id;
             return (
@@ -396,6 +404,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
           })}
         </ul>
       )}
+      <PaperPagination pager={pager} label="Website lead pages" />
       {importLead.error ?? settle.error ? (
         <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
           {(importLead.error ?? settle.error)?.message}

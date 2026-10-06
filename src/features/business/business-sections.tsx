@@ -1,10 +1,11 @@
 import { useState } from "react";
 import type { BusinessAgreement, BusinessData, BusinessEntitySummary, BusinessFollowUp, BusinessQuote, BusinessRetainer } from "@shared/business-types";
-import { PAPER_FOCUS, PaperButton, PaperSection, SegmentedControl, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PaperButton, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useFollowUpAction } from "@/lib/agentos/business";
 import { cn } from "@/lib/utils";
 import { ClientDraftForm } from "./business-draft";
 import { followUpMailto, formatRand } from "./business-model";
+import { usePagination } from "@/lib/use-pagination";
 
 /**
  * Quotes, agreements, maintenance and follow-ups.
@@ -45,6 +46,7 @@ export function QuotesSection({ entity, data }: Scoped) {
   const quotes = filter === "all" ? all : all.filter((quote) => quote.kind === filter);
   const pending = quotes.filter((quote) => quote.status === "pending");
   const pendingValue = pending.reduce((sum, quote) => sum + quote.totalAmount, 0);
+  const pager = usePagination(quotes, filter);
 
   return (
     <div className="grid gap-6">
@@ -68,7 +70,7 @@ export function QuotesSection({ entity, data }: Scoped) {
       {quotes.length > 0 ? (
       <PaperSection label="Quotes" count={quotes.length}>
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-          {quotes.map((quote: BusinessQuote) => (
+          {pager.pageItems.map((quote: BusinessQuote) => (
             <Row key={quote.id} title={quote.clientName} detail={quote.projectType}>
               {quote.kind === "maintenance" ? <Tag tone="blue">Maintenance</Tag> : null}
               {quote.ageDays !== undefined ? <span>{quote.ageDays}d</span> : null}
@@ -78,6 +80,7 @@ export function QuotesSection({ entity, data }: Scoped) {
             </Row>
           ))}
         </ul>
+        <PaperPagination pager={pager} label="Quote pages" />
       </PaperSection>
       ) : null}
     </div>
@@ -89,18 +92,20 @@ const AGREEMENT_TONE = { pending: "marigold", approved: "blue", declined: "flame
 
 export function AgreementsSection({ entity, data }: Scoped) {
   const agreements = forEntity(data.agreements, entity).sort((a, b) => AGREEMENT_ORDER.indexOf(a.status) - AGREEMENT_ORDER.indexOf(b.status));
+  const pager = usePagination(agreements);
   if (agreements.length === 0) return <Empty>No letter agreements recorded.</Empty>;
 
   return (
     <PaperSection label="Letter agreements" count={agreements.length}>
       <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-        {agreements.map((agreement: BusinessAgreement) => (
+        {pager.pageItems.map((agreement: BusinessAgreement) => (
           <Row key={agreement.projectId} title={agreement.clientName} detail={agreement.projectType}>
             {agreement.amount !== undefined ? <span className="font-semibold">{formatRand(agreement.amount)}</span> : null}
             <Tag tone={AGREEMENT_TONE[agreement.status as keyof typeof AGREEMENT_TONE] ?? "muted"}>{agreement.status}</Tag>
           </Row>
         ))}
       </ul>
+      <PaperPagination pager={pager} label="Agreement pages" />
     </PaperSection>
   );
 }
@@ -108,6 +113,7 @@ export function AgreementsSection({ entity, data }: Scoped) {
 export function MaintenanceSection({ entity, data }: Scoped) {
   const retainers = forEntity(data.retainers, entity);
   const monthly = retainers.reduce((sum, retainer) => sum + retainer.monthlyEquivalent, 0);
+  const pager = usePagination(retainers);
   if (retainers.length === 0) return <Empty>No live maintenance retainers.</Empty>;
 
   return (
@@ -119,13 +125,14 @@ export function MaintenanceSection({ entity, data }: Scoped) {
       </p>
       <PaperSection label="Retainers" count={retainers.length}>
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-          {retainers.map((retainer: BusinessRetainer) => (
+          {pager.pageItems.map((retainer: BusinessRetainer) => (
             <Row key={retainer.projectId} title={retainer.clientName} detail={[retainer.projectType, retainer.serviceSku].filter(Boolean).join(" · ") || undefined}>
               <span>{formatRand(retainer.amount)}</span>
               <Tag>{retainer.frequency}</Tag>
             </Row>
           ))}
         </ul>
+        <PaperPagination pager={pager} label="Retainer pages" />
       </PaperSection>
     </div>
   );
@@ -141,6 +148,7 @@ const FOLLOW_UP_LABEL: Record<string, string> = {
 
 export function FollowUpsSection({ entity, data }: Scoped) {
   const followUps = forEntity(data.followUps, entity);
+  const pager = usePagination(followUps);
   if (followUps.length === 0) return <Empty>Nothing to follow up.</Empty>;
 
   return (
@@ -149,10 +157,11 @@ export function FollowUpsSection({ entity, data }: Scoped) {
         <p role="status" className="mb-3 text-[13px] text-paper-char">Marking these done needs <code>VIRTEC_WRITE_API_KEY</code>; until then they can be read and emailed, not closed.</p>
       ) : null}
       <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-        {followUps.map((followUp) => (
+        {pager.pageItems.map((followUp) => (
           <FollowUpRow key={followUp.id} followUp={followUp} writable={data.virtecWritable} />
         ))}
       </ul>
+      <PaperPagination pager={pager} label="Follow-up pages" />
     </PaperSection>
   );
 }

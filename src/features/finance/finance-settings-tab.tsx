@@ -1,9 +1,9 @@
+import { PaperPagination } from "@/components/paper";
 import type { FinanceData } from "@shared/finance-types";
 import { PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { useRemoveCorrection, useRestoreAlert, useSyncInvestec } from "@/lib/agentos/finance";
 import { MutationError } from "./finance-kit";
-import { Pagination } from "./finance-pagination";
-import { usePagination } from "./finance-ui-hooks";
+import { usePagination } from "@/lib/use-pagination";
 
 const PRIVACY: readonly string[] = [
   "Investec credentials are read by the server only. They are never sent to the browser or written to disk.",
@@ -80,7 +80,7 @@ INVESTEC_API_KEY=...`}
               ))}
             </ul>
           )}
-          <Pagination label="Categories you taught it pages" {...corrections} onPage={corrections.setPage} onSize={corrections.setSize} />
+          <PaperPagination label="Categories you taught it pages" pager={corrections} />
           <MutationError error={remove.error} />
         </PaperSection>
       </div>

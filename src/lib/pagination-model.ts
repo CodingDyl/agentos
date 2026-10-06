@@ -1,4 +1,7 @@
-/** Pagination arithmetic, kept apart from the component so it can be tested on its own. */
+/**
+ * Pagination arithmetic for every long list in AgentOS, kept apart from the
+ * component so it can be tested on its own.
+ */
 
 export const PAGE_SIZES = [10, 25, 50] as const;
 export type PageSize = (typeof PAGE_SIZES)[number];

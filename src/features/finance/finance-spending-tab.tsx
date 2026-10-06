@@ -1,3 +1,4 @@
+import { PaperPagination } from "@/components/paper";
 import { useState } from "react";
 import type { Category, FinanceData, FinanceTransactionRow } from "@shared/finance-types";
 import { PaperSection, Tag } from "@/components/paper";
@@ -5,8 +6,7 @@ import { useSaveCorrection } from "@/lib/agentos/finance";
 import { cn } from "@/lib/utils";
 import { CategorySuggest, MutationError } from "./finance-kit";
 import { CATEGORY_CHOICES, formatDay, money } from "./finance-model";
-import { Pagination } from "./finance-pagination";
-import { usePagination } from "./finance-ui-hooks";
+import { usePagination } from "@/lib/use-pagination";
 import { CategoryList, IncomeSplit } from "./finance-where-it-goes";
 
 /** Where it went, and the place to say what a payment really was. */
@@ -51,7 +51,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
                 <TransactionLine key={row.id} row={row} jev={data.jev.configured} readOnlySample={data.source.kind === "sample"} />
               ))}
             </ul>
-            <Pagination label="Recent payments pages" {...pager} onPage={pager.setPage} onSize={pager.setSize} />
+            <PaperPagination label="Recent payments pages" pager={pager} />
           </>
         )}
       </PaperSection>
