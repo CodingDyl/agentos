@@ -1,7 +1,7 @@
 ---
 name: agentos-website-to-preview
 description: Rebuild a prospect's website from research to a client-accessible Vercel preview, in seven stages with three approval checkpoints. Use when a lead on the "Build it first" path needs a new site.
-version: 1.2.0
+version: 1.3.0
 requires: [hermes, github, vercel]
 ---
 
@@ -28,7 +28,13 @@ checkpoints. Never move past a checkpoint on your own.
 ## Stages
 
 1. **Workspace.** Create or reuse the client's workspace.
-2. **Website capture.** Transcript, current structure and crawl manifest of the current site.
+2. **Website capture.** Transcript, current structure and crawl manifest of the current site,
+   plus the brand kit (`<slug>_brand_kit.md`): the logo, up to twelve photos, the colours and
+   the fonts the site uses. SVG and ICO files are converted to PNG; nothing from the site that
+   could run code is kept. The person can tick assets off, reorder them, upload a logo or
+   photos, and correct the colours and fonts on the capture stage. Before the hero and build
+   stages, the ticked assets are copied to `brand/` in the client repo with `brand/BRAND.md`.
+   The preview handoff lists every image taken from the client's site, for a rights check.
 3. **Research and Hermes.** Five competitors doing well digitally in the same
    market and area, five evidence-backed reasons for each, and the five
    highest-impact improvements for the client
@@ -37,7 +43,9 @@ checkpoints. Never move past a checkpoint on your own.
    If Hermes is unavailable, the stage is blocked; do not substitute a generic audit.
 4. **Hero concepts (checkpoint).** Three distinct design systems, each written in
    the structure of the supplied `DESIGN.md`, each with a hero section rendered
-   at desktop and mobile widths. Stop for approval of one.
+   at desktop and mobile widths. With a brand kit, the three run from faithful
+   to the client's brand (A), through evolved (B), to bold (C), and every one
+   uses their logo. Stop for approval of one.
 5. **Copy and structure (checkpoint).** The approved design applied to the full
    sitemap, page copy and navigation. Stop for approval.
 6. **Functional components (checkpoint).** Only the functions the run asks for

@@ -17,6 +17,7 @@ import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import { useDecideStage, useRebuild, useRetryStage, useStageWorkers } from "@/lib/agentos/rebuilds";
 import { cn } from "@/lib/utils";
+import { BrandKitPanel } from "./brand-kit-panel";
 import { StageStatusTag } from "./rebuild-status";
 
 /**
@@ -184,7 +185,9 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
           </p>
         ) : null}
 
-        {images.length > 0 && stage.id !== "hero" ? <ScreenshotGallery images={images} revision={shownRevision} /> : null}
+        {/* The capture stage's images are the brand kit, shown in its own panel. */}
+        {images.length > 0 && stage.id !== "hero" && stage.id !== "capture" ? <ScreenshotGallery images={images} revision={shownRevision} /> : null}
+        {stage.id === "capture" && run.brandKit ? <BrandKitPanel run={run} /> : null}
 
         {artifacts.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-2" aria-label={`${definition.title} reports`}>
@@ -199,7 +202,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
           </ul>
         ) : null}
 
-        {stage.status === "awaiting_approval" ? <ReviewPanel run={run} stage={stage} images={images} /> : stage.id === "hero" && images.length > 0 ? <ConceptGallery images={images} chosen={run.heroChoice} /> : null}
+        {stage.status === "awaiting_approval" ? <ReviewPanel run={run} stage={stage} images={images} /> : stage.id === "hero" && images.length > 0 ? <ConceptGallery images={images} chosen={run.heroChoice} branded={Boolean(run.brandKit)} /> : null}
 
         {stage.id === "preview" && run.previewUrl ? (
           <a href={run.previewUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue hover:underline">
@@ -283,7 +286,7 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
   return (
     <div className="mt-4 border-t border-paper-mist pt-4">
       <p className="text-[13px] font-semibold text-paper-moss">Review revision {stage.revision}</p>
-      {needsChoice ? <ConceptGallery images={images} chosen={choice} onChoose={setChoice} name={`${id}-concept`} /> : null}
+      {needsChoice ? <ConceptGallery images={images} chosen={choice} onChoose={setChoice} name={`${id}-concept`} branded={Boolean(run.brandKit)} /> : null}
       <label htmlFor={`${id}-note`} className="mt-3 block">
         <FieldLabel>What should change? (needed to request changes)</FieldLabel>
         <textarea id={`${id}-note`} className={cn(PAPER_INPUT, "min-h-20 w-full max-w-[75ch]")} value={note} onChange={(event) => setNote(event.target.value)} />
@@ -314,8 +317,11 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
 
 const conceptLabel = (concept: string) => `Concept ${concept.replace("concept-", "").toUpperCase()}`;
 
+/** What each concept was asked to do with the client's brand, when there was one. */
+const BRANDED_DIRECTION: Record<string, string> = { "concept-a": "Faithful", "concept-b": "Evolved", "concept-c": "Bold" };
+
 /** The three heroes side by side, desktop over phone. With `onChoose`, a radio group for picking one. */
-function ConceptGallery({ images, chosen, onChoose, name }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; name?: string }) {
+function ConceptGallery({ images, chosen, onChoose, name, branded = false }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; name?: string; branded?: boolean }) {
   return (
     <div className="mt-3 grid gap-3 lg:grid-cols-3" role={onChoose ? "radiogroup" : undefined} aria-label={onChoose ? "Hero concepts" : undefined}>
       {HERO_CONCEPTS.map((concept) => {
@@ -325,7 +331,10 @@ function ConceptGallery({ images, chosen, onChoose, name }: { images: RebuildArt
         const body = (
           <>
             <span className="flex items-center justify-between gap-2 text-[13px] font-semibold text-paper-moss">
-              {conceptLabel(concept)}
+              <span>
+                {conceptLabel(concept)}
+                {branded ? <span className="font-normal text-paper-sage"> · {BRANDED_DIRECTION[concept]}</span> : null}
+              </span>
               {selected ? <CheckCircle2 className="size-4 text-paper-blue" aria-hidden="true" /> : null}
             </span>
             <span className="mt-2 grid grid-cols-[1fr_auto] items-start gap-2">

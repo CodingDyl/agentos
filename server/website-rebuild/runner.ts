@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
-import { REBUILD_SKILL_ID, STAGE_ORDER, type RebuildRun, type RebuildStageId } from "../../shared/website-rebuild-types";
+import { REBUILD_SKILL_ID, STAGE_ORDER, type BrandAsset, type BrandKit, type RebuildRun, type RebuildStageId } from "../../shared/website-rebuild-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, toSlug } from "../agentos/mutations/projects";
 import { editFile } from "../agentos/mutations/writer";
-import { captureSite, fetchRobots, withBrowserLoader } from "./capture";
+import { readDimensions } from "../designs/media";
+import { BRAND_EXTENSION, buildBrandReport, chooseBrandImages, summariseColors, summariseFonts } from "./brand";
+import { captureSite, fetchRobots, withBrowserLoader, type CaptureResult } from "./capture";
 import { REPORT_DIR, buildManifest, buildStructure, buildTranscript, reportFile } from "./reports";
 import { StageBlocked, type RunnerDeps, type StageContext, type StageHandler } from "./stage-kit";
 import { buildStage, functionsStage, heroStage, previewStage, researchStage } from "./stages";
@@ -22,6 +25,7 @@ import {
   recordArtifact,
   setActivity,
   setStageJob,
+  setBrandKit,
   setRunField,
   startBlocker,
 } from "./store";
@@ -41,6 +45,8 @@ export { StageBlocked } from "./stage-kit";
 export type { RunnerDeps, StageContext, StageHandler, StageOutcome } from "./stage-kit";
 
 const PROJECTS_DIR = "projects";
+/** What a stored image may be called. Never `svg`: capture rasterises those. */
+const IMAGE_EXTENSIONS = new Set(Object.values(BRAND_EXTENSION));
 
 async function ensureWorkspace(run: RebuildRun): Promise<{ slug: string; reused: boolean }> {
   const existing = run.workspaceSlug ?? toSlug(run.company);
@@ -95,8 +101,65 @@ const captureStage: StageHandler = async (context, deps) => {
   ];
   const { captured, skipped, failed } = capture.manifest;
   if (failed.length > 0) context.log(`${failed.length} page${failed.length === 1 ? "" : "s"} could not be loaded. They are listed in the crawl manifest.`, "warning");
-  return { summary: `Captured ${captured.length} page${captured.length === 1 ? "" : "s"}; ${skipped.length} skipped, ${failed.length} failed.`, artifactIds: ids };
+  const kit = await saveBrandKit(context, capture);
+  ids.push(...kit.artifactIds);
+  return { summary: `Captured ${captured.length} page${captured.length === 1 ? "" : "s"}; ${skipped.length} skipped, ${failed.length} failed. ${kit.summary}`, artifactIds: ids };
 };
+
+/**
+ * The brand kit: the chosen images stored in the workspace, the colours and
+ * fonts on the run. A failure here is logged, never a blocker: the rebuild
+ * can go on without the client's branding, just less tailored.
+ */
+async function saveBrandKit(context: StageContext, capture: CaptureResult): Promise<{ artifactIds: string[]; summary: string }> {
+  context.activity("Collecting the logo, photos, colours and fonts");
+  let scratch: string | undefined;
+  try {
+    const chosen = chooseBrandImages(capture);
+    const assets: BrandAsset[] = [];
+    const artifactIds: string[] = [];
+    scratch = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-brand-"));
+    for (const { kind, name, image } of chosen) {
+      const extension = BRAND_EXTENSION[image.contentType];
+      const file = path.join(scratch, `${name}.${extension}`);
+      await fs.writeFile(file, image.data);
+      const artifactId = await context.writeImage(name, kind === "logo" ? `Logo (${name})` : `Photo ${name.replace("photo-", "")}`, file, { folder: "brand", extension });
+      const artifact = readRun(context.run.id).artifacts.find((entry) => entry.id === artifactId);
+      const measured = readDimensions(image.data);
+      assets.push({
+        id: name,
+        kind,
+        artifactId,
+        path: artifact?.path ?? "",
+        sourceUrl: image.url,
+        alt: image.alt?.slice(0, 300),
+        width: measured?.width ?? image.width,
+        height: measured?.height ?? image.height,
+        include: true,
+      });
+      artifactIds.push(artifactId);
+    }
+    // A recapture replaces what came from the site, never what a person uploaded.
+    const uploaded = (readRun(context.run.id).brandKit?.assets ?? []).filter((asset) => asset.sourceUrl === "uploaded");
+    const kit: BrandKit = {
+      capturedAt: capture.manifest.capturedAt,
+      source: uploaded.length > 0 ? "edited" : "capture",
+      assets: [...uploaded.filter((asset) => asset.kind === "logo"), ...assets, ...uploaded.filter((asset) => asset.kind === "photo")],
+      colors: summariseColors(capture.pages.flatMap((page) => page.brand?.colors ?? [])),
+      fonts: summariseFonts(capture.pages.flatMap((page) => page.brand?.fonts ?? [])),
+    };
+    setBrandKit(context.run.id, kit);
+    artifactIds.push(await context.writeReport("brand_kit", "Brand kit", buildBrandReport(context.run, kit)));
+    const logos = assets.filter((asset) => asset.kind === "logo").length;
+    const photos = assets.length - logos;
+    return { artifactIds, summary: `Brand kit: ${logos > 0 ? "logo" : "no logo"}, ${photos} photo${photos === 1 ? "" : "s"}, ${kit.colors.length} colour${kit.colors.length === 1 ? "" : "s"}.` };
+  } catch (error) {
+    context.log(`The brand kit could not be collected: ${error instanceof Error ? error.message : "unknown error"}. The rebuild goes on without the client's branding.`, "warning");
+    return { artifactIds: [], summary: "No brand kit." };
+  } finally {
+    if (scratch) await fs.rm(scratch, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
 
 export const STAGE_HANDLERS: Record<RebuildStageId, StageHandler> = {
   workspace: workspaceStage,
@@ -135,12 +198,14 @@ async function runStage(runId: string, stage: RebuildStageId, owner: string, han
       await deps.writeDocument(relativePath, markdown);
       return recordArtifact(runId, stage, { title, path: relativePath, href: artifactHref(relativePath, latest.workspaceSlug), revision });
     },
-    writeImage: async (name, title, file) => {
+    writeImage: async (name, title, file, options = {}) => {
       const latest = readRun(runId);
       if (!latest.workspaceSlug) throw new StageBlocked("The run has no workspace yet.");
       if (!deps.writeBinary) throw new StageBlocked("Screenshots cannot be stored in this setup.");
+      const extension = options.extension ?? "png";
+      if (!IMAGE_EXTENSIONS.has(extension)) throw new Error(`Not an image extension: ${extension}`);
       // One file per revision, so an earlier revision's screenshots stay as they were reviewed.
-      const relativePath = `${PROJECTS_DIR}/${latest.workspaceSlug}/${REPORT_DIR}/screens/${stage}-r${revision}-${name}.png`;
+      const relativePath = `${PROJECTS_DIR}/${latest.workspaceSlug}/${REPORT_DIR}/${options.folder ?? "screens"}/${stage}-r${revision}-${name}.${extension}`;
       await deps.writeBinary(relativePath, file);
       const id = recordArtifact(runId, stage, { title, path: relativePath, href: "", revision, media: "image" });
       return id;

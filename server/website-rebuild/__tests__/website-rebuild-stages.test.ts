@@ -166,6 +166,89 @@ function newRun() {
 const status = (runId: string, stage: RebuildStageId) => store.readRun(runId).stages.find((entry) => entry.id === stage);
 const git = (repo: string, ...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
 
+describe("brand kit", () => {
+  const png = (width: number, height: number, salt: number) => {
+    const data = Buffer.alloc(33 + salt);
+    data.writeUInt32BE(0x89504e47, 0);
+    data.writeUInt32BE(0x0d0a1a0a, 4);
+    data.writeUInt32BE(width, 16);
+    data.writeUInt32BE(height, 20);
+    data[32 + salt] = salt;
+    return data;
+  };
+  const stored = new Map<string, Buffer>();
+  const brandedDeps: RunnerDeps = {
+    ...runnerDeps,
+    capture: async (url) => ({
+      pages: [
+        {
+          url,
+          title: "Total Electric",
+          headings: [{ level: 1, text: "Electricians" }],
+          navigation: [],
+          ctas: [],
+          forms: [],
+          images: 2,
+          imagesWithoutAlt: 0,
+          text: "We fix wiring in Cape Town.",
+          internalLinks: [],
+          brand: {
+            logos: [{ url: `${url}/logo.png`, alt: "Total Electric", width: 240, height: 80, placement: "header", data: png(240, 80, 1), contentType: "image/png" }],
+            photos: [
+              { url: `${url}/van.jpg`, alt: "Our van", width: 1600, height: 900, placement: "content", data: png(1600, 900, 2), contentType: "image/png" },
+              { url: `${url}/van-copy.jpg`, alt: "Same van", width: 1600, height: 900, placement: "content", data: png(1600, 900, 2), contentType: "image/png" },
+            ],
+            colors: [
+              { value: "rgb(255, 255, 255)", role: "background" },
+              { value: "rgb(232, 93, 4)", role: "accent" },
+              { value: "rgba(0, 0, 0, 0)", role: "header" },
+            ],
+            fonts: [{ family: '"Montserrat", sans-serif', role: "heading" }],
+          },
+        },
+      ],
+      manifest: { startUrl: url, capturedAt: "2026-10-05T09:00:00.000Z", robots: "obeyed", captured: [url], skipped: [], failed: [] },
+    }),
+    writeBinary: async (relativePath, source) => {
+      stored.set(relativePath, fs.readFileSync(source));
+    },
+  };
+
+  it("keeps the logo, photos, colours and fonts from capture, and seeds only the included ones into brand/", async () => {
+    stored.clear();
+    const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "hermes-worker"]), files: filesFor };
+    stages.stageDeps.current = fakeStageDeps(worker, { readVaultBinary: async (relativePath) => stored.get(relativePath) });
+    const run = newRun();
+    await advance(run.id, STAGE_HANDLERS, brandedDeps);
+
+    const kit = store.readRun(run.id).brandKit;
+    assert.ok(kit, "the run has a brand kit");
+    // The same bytes at two addresses are one photo.
+    assert.deepEqual(kit.assets.map((asset) => asset.id), ["logo", "photo-01"]);
+    assert.deepEqual(kit.assets.map((asset) => [asset.width, asset.height]), [[240, 80], [1600, 900]]);
+    assert.match(kit.assets[0].path, /^projects\/total-electric\/docs\/website-rebuild\/brand\/capture-r1-logo\.png$/);
+    assert.deepEqual(kit.colors.map((color) => [color.role, color.hex]), [["accent", "#e85d04"], ["background", "#ffffff"]]);
+    assert.deepEqual(kit.fonts, [{ family: "Montserrat", role: "heading" }]);
+    assert.match(status(run.id, "capture")?.blocker ?? store.readRun(run.id).revisions.find((revision) => revision.stage === "capture")?.summary ?? "", /Brand kit: logo, 1 photo, 2 colours/);
+    assert.match(vault.get("projects/total-electric/docs/website-rebuild/total_electric_brand_kit.md") ?? "", /licensed to them, not to us/);
+
+    const repo = store.readRun(run.id).repoPath ?? "";
+    assert.ok(fs.readFileSync(path.join(repo, "brand/logo.png")).equals(stored.get(kit.assets[0].path) as Buffer));
+    assert.ok(fs.existsSync(path.join(repo, "brand/photos/photo-01.png")));
+    assert.match(fs.readFileSync(path.join(repo, "brand/BRAND.md"), "utf8"), /#e85d04 \| accent/);
+
+    // A person leaves the photo out; the next hero revision's brand/ no longer has it.
+    store.setBrandKit(run.id, { ...kit, source: "edited", assets: kit.assets.map((asset) => (asset.kind === "photo" ? { ...asset, include: false } : asset)) });
+    store.decide(run.id, "hero", 1, "changes_requested", "Use the logo bigger");
+    await advance(run.id, STAGE_HANDLERS, brandedDeps);
+    assert.equal(status(run.id, "hero")?.revision, 2, status(run.id, "hero")?.blocker ?? "");
+    assert.ok(fs.existsSync(path.join(repo, "brand/logo.png")));
+    assert.equal(fs.existsSync(path.join(repo, "brand/photos/photo-01.png")), false);
+    assert.doesNotMatch(fs.readFileSync(path.join(repo, "brand/BRAND.md"), "utf8"), /photo-01/);
+    assert.equal(git(repo, "status", "--porcelain"), "");
+  });
+});
+
 describe("stages 3 to 6", () => {
   it("runs research, three concepts, the build and the features, each committed and tagged, stopping at every checkpoint", async () => {
     const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "codex", "hermes-worker"]), files: filesFor };

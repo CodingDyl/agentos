@@ -93,12 +93,15 @@ describe("the runner", () => {
     assert.deepEqual(
       [...written.keys()].sort(),
       [
+        "projects/total-electric/docs/website-rebuild/total_electric_brand_kit.md",
         "projects/total-electric/docs/website-rebuild/total_electric_crawl_manifest.md",
         "projects/total-electric/docs/website-rebuild/total_electric_current_structure.md",
         "projects/total-electric/docs/website-rebuild/total_electric_website_transcript.md",
       ],
     );
-    assert.equal(after.artifacts.length, 3);
+    assert.equal(after.artifacts.length, 4, "the transcript, structure, manifest and brand kit reports");
+    // A site with no branding found still gets a kit, empty, so the stages after it know capture looked.
+    assert.deepEqual(after.brandKit?.assets, []);
   });
 
   it("retrying a stage reuses its report records instead of duplicating them", async () => {
@@ -109,7 +112,7 @@ describe("the runner", () => {
     store.resetForRetry(run.id, "capture");
     await advance(run.id, STAGE_HANDLERS, fakeDeps);
     const after = store.readRun(run.id);
-    assert.equal(after.artifacts.length, 3);
+    assert.equal(after.artifacts.length, 4);
     assert.equal(status(run.id, "capture")?.revision, 2);
     assert.equal(status(run.id, "capture")?.attempts, 2);
   });
@@ -217,7 +220,7 @@ describe("leases and recovery", () => {
     assert.equal(store.recoverAbandonedStages({ atStartup: true }), 1);
     const after = store.readRun(run.id);
     assert.equal(after.stages.find((entry) => entry.id === "research")?.status, "blocked");
-    assert.equal(after.artifacts.length, 3);
+    assert.equal(after.artifacts.length, 4);
   });
 
   it("only a blocked stage can be retried", () => {

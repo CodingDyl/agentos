@@ -8,6 +8,7 @@ import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { patchProject } from "../agentos/mutations/projects";
 import { HermesError, sendToHermes } from "../hermes/client";
 import { writeCase } from "../outreach/cases";
+import { buildBrandBrief, repoBrandFiles } from "./brand";
 import { ClientRepoUnavailable, commitFiles, ensureClientRepo, git, readRepoFile, repoFolderName } from "./client-repo";
 import {
   ensurePrivateRepo,
@@ -39,7 +40,7 @@ import {
 import { REPORT_DIR, reportFile, wrapReport } from "./reports";
 import { routeName, routesFrom, screenshot, serveBuiltNextApp } from "./screens";
 import { StageBlocked, type StageContext, type StageHandler, type StageOutcome } from "./stage-kit";
-import { setRunField } from "./store";
+import { readRun, setRunField } from "./store";
 import { integrateJob, pickWorker, runJob, WorkerStageBlocked, type PickedWorker } from "./workers";
 
 /**
@@ -56,6 +57,8 @@ export interface StageDeps {
   commitFiles: typeof commitFiles;
   readRepoFile: typeof readRepoFile;
   readVaultFile: (relativePath: string) => Promise<string | undefined>;
+  /** A binary file in the vault (a brand image), or undefined if it is gone. */
+  readVaultBinary: (relativePath: string) => Promise<Buffer | undefined>;
   runJob: typeof runJob;
   pickWorker: typeof pickWorker;
   integrate: typeof integrateJob;
@@ -93,6 +96,12 @@ export const defaultStageDeps: StageDeps = {
   commitFiles,
   readRepoFile,
   readVaultFile: (relativePath) => readOptionalFile(relativePath),
+  readVaultBinary: async (relativePath) => {
+    const root = path.resolve(agentOSRoot());
+    const file = path.resolve(root, relativePath);
+    if (!file.startsWith(`${root}${path.sep}`)) return undefined;
+    return fs.readFile(file).catch(() => undefined);
+  },
   runJob,
   pickWorker,
   integrate: integrateJob,
@@ -203,6 +212,27 @@ async function seedCurrentSite(context: StageContext, deps: StageDeps, repo: str
   if (!transcript || !structure) throw new StageBlocked("The website capture reports are missing from the workspace. Retry the website capture stage first.");
   await deps.commitFiles(repo, { "docs/current-site/website_transcript.md": transcript, "docs/current-site/current_structure.md": structure }, "Add the captured current site");
   return { transcript, structure };
+}
+
+/**
+ * The brand kit, as `brand/` in the client repo: the included images and
+ * `brand/BRAND.md`. The folder is rewritten each time, so an asset a person
+ * left out since the last stage is removed, not left behind for a worker.
+ */
+async function seedBrandKit(context: StageContext, deps: StageDeps, repo: string): Promise<void> {
+  const kit = readRun(context.run.id).brandKit;
+  if (!kit) {
+    context.log("There is no brand kit for this run, so the concepts will not use the client's logo or photos.", "warning");
+    return;
+  }
+  const missing: string[] = [];
+  for (const asset of kit.assets.filter((entry) => entry.include)) if (!(await deps.readVaultBinary(asset.path))) missing.push(asset.id);
+  const present = { ...kit, assets: kit.assets.filter((asset) => !missing.includes(asset.id)) };
+  const files: Record<string, string | Buffer> = {};
+  for (const { asset, file } of repoBrandFiles(present)) files[file] = (await deps.readVaultBinary(asset.path)) as Buffer;
+  files["brand/BRAND.md"] = buildBrandBrief(context.run, present);
+  await deps.commitFiles(repo, files, "Add the client's brand kit", { replace: "brand" });
+  if (missing.length > 0) context.log(`${missing.length} brand image${missing.length === 1 ? " is" : "s are"} no longer in the workspace and ${missing.length === 1 ? "was" : "were"} left out: ${missing.join(", ")}.`, "warning");
 }
 
 /** A second model reads the work. Optional: if no reviewer is free, or it fails, the person still reviews. */
@@ -338,6 +368,7 @@ export const heroStage: StageHandler = async (context) => {
   const template = await deps.readDesignTemplate(run.designTemplate);
   if (!template) throw new StageBlocked(`The design template ${run.designTemplate} could not be found in the vault or in AgentOS. Fix the path and retry.`);
   await deps.commitFiles(repo, { "design/TEMPLATE.md": template }, "Add the design system template");
+  await seedBrandKit(context, deps, repo);
 
   const files = HERO_CONCEPTS.flatMap((concept) => [`design/${concept}/DESIGN.md`, `design/${concept}/hero.html`]);
   const { job, worker } = await work(context, deps, run.workerPlan.hero, () => ({
@@ -371,6 +402,8 @@ export const buildStage: StageHandler = async (context) => {
   const { run } = context;
   if (!run.heroChoice) throw new StageBlocked("No hero concept was chosen. Approve the hero stage with a concept first.");
   const repo = await repoFor(context, deps);
+  // Again here, so a change to the kit after the concepts were approved reaches the build.
+  await seedBrandKit(context, deps, repo);
   const { job, worker } = await work(context, deps, run.workerPlan.build, () => ({
     project: run.workspaceSlug ?? "",
     objective: buildBrief(run, run.heroChoice ?? "", context.changeRequest),
@@ -445,6 +478,21 @@ export function approvedCommit(run: RebuildRun): string | undefined {
     if (ref) return ref;
   }
   return undefined;
+}
+
+/** What to check before sharing a preview that uses the client's own images and fonts. Empty without a brand kit. */
+export function brandRightsNote(kit: RebuildRun["brandKit"]): string[] {
+  const used = (kit?.assets ?? []).filter((asset) => asset.include);
+  if (used.length === 0 && (kit?.fonts.length ?? 0) === 0) return [];
+  const fromSite = used.filter((asset) => asset.sourceUrl !== "uploaded");
+  return [
+    "## Images and fonts from the client's site",
+    "",
+    `The preview uses ${used.length} image${used.length === 1 ? "" : "s"} from the brand kit, ${fromSite.length} of them taken from the client's current site. Photos there may be stock images licensed to the client only, and the link is open to anyone who has it. Share it with the client, and confirm the rights before it goes further.`,
+    ...fromSite.map((asset) => `- ${asset.kind}: ${asset.sourceUrl}`),
+    ...(kit && kit.fonts.length > 0 ? [`- Fonts named on their site: ${kit.fonts.map((font) => font.family).join(", ")}. A commercial font needs the client's licence; the build notes any substitute in CONTENT_TODO.md.`] : []),
+    "",
+  ];
 }
 
 export function handoffMessage(run: RebuildRun, url: string): string {
@@ -560,6 +608,7 @@ export const previewStage: StageHandler = async (context) => {
     "",
     qaTable(qa),
     "",
+    ...brandRightsNote(readRun(run.id).brandKit),
     "## Message for the client",
     "",
     "Not sent. Copy it into an email when you are ready.",

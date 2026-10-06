@@ -7,9 +7,14 @@ import {
   GATED_STAGES,
   HERO_CONCEPTS,
   REBUILD_SKILL_ID,
+  BrandKitSchema,
+  MAX_BRAND_ASSETS,
   RebuildWorkerPlanSchema,
   STAGE_ORDER,
   companyFileSlug,
+  type BrandAsset,
+  type BrandKit,
+  type BrandKitEdit,
   type RebuildArtifact,
   type RebuildDecision,
   type RebuildEvent,
@@ -150,6 +155,9 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE stages ADD COLUMN worker_override TEXT;
   `,
+  `
+  ALTER TABLE runs ADD COLUMN brand_kit TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -192,6 +200,7 @@ interface RunRow {
   workspace_slug: string | null;
   repo_path: string | null;
   hero_choice: string | null;
+  brand_kit: string | null;
   github_repo: string | null;
   vercel_project: string | null;
   deployment_id: string | null;
@@ -259,6 +268,7 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     workspaceSlug: row.workspace_slug ?? undefined,
     repoPath: row.repo_path ?? undefined,
     heroChoice: row.hero_choice ?? undefined,
+    brandKit: row.brand_kit ? BrandKitSchema.safeParse(parseJson(row.brand_kit, null)).data : undefined,
     githubRepo: row.github_repo ?? undefined,
     vercelProject: row.vercel_project ?? undefined,
     deploymentId: row.deployment_id ?? undefined,
@@ -392,6 +402,53 @@ export function setRunField(
   value: string,
 ): void {
   rebuildDatabase().prepare(`UPDATE runs SET ${field} = ?, updated_at = ? WHERE id = ?`).run(value, iso(), runId);
+}
+
+/** Replaces the run's brand kit. Validated here, so a bad kit never reaches a worker. */
+export function setBrandKit(runId: string, kit: BrandKit): void {
+  const parsed = BrandKitSchema.parse(kit);
+  rebuildDatabase().prepare("UPDATE runs SET brand_kit = ?, updated_at = ? WHERE id = ?").run(JSON.stringify(parsed), iso(), runId);
+}
+
+/**
+ * A person's changes to the kit: the order and inclusion of the images, and
+ * the colours and fonts. Every existing asset must be listed once, so a stale
+ * page cannot silently drop an image someone uploaded meanwhile.
+ */
+export function editBrandKit(runId: string, edit: BrandKitEdit): RebuildRun {
+  const run = readRun(runId);
+  if (!run.brandKit) throw new RebuildError("This rebuild has no brand kit yet. It is made when the website capture finishes.");
+  const known = new Map(run.brandKit.assets.map((asset) => [asset.id, asset]));
+  const listed = new Set(edit.assets.map((entry) => entry.id));
+  if (listed.size !== edit.assets.length || listed.size !== known.size || [...listed].some((id) => !known.has(id))) {
+    throw new RebuildError("The brand kit changed since this page loaded. Reload and try again.");
+  }
+  const seen = new Set<string>();
+  const colors = edit.colors.filter((color) => {
+    const key = `${color.role}:${color.hex}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  setBrandKit(runId, {
+    ...run.brandKit,
+    source: "edited",
+    assets: edit.assets.map((entry) => ({ ...(known.get(entry.id) as BrandAsset), include: entry.include })),
+    colors: colors.map((color) => ({ ...color, weight: run.brandKit?.colors.find((old) => old.hex === color.hex && old.role === color.role)?.weight ?? 1 })),
+    fonts: edit.fonts,
+  });
+  logEvent(runId, "capture", "info", "The brand kit was edited. The next hero or build revision uses it.");
+  return readRun(runId);
+}
+
+/** Adds an uploaded image to the kit: a logo goes first, so it becomes the primary one. */
+export function addBrandAsset(runId: string, asset: BrandAsset): RebuildRun {
+  const run = readRun(runId);
+  const kit = run.brandKit ?? { capturedAt: iso(), source: "edited" as const, assets: [], colors: [], fonts: [] };
+  if (kit.assets.length >= MAX_BRAND_ASSETS) throw new RebuildError(`A brand kit holds at most ${MAX_BRAND_ASSETS} images. Leave some out or remove them first.`);
+  setBrandKit(runId, { ...kit, source: "edited", assets: asset.kind === "logo" ? [asset, ...kit.assets] : [...kit.assets, asset] });
+  logEvent(runId, "capture", "info", `A ${asset.kind} was added to the brand kit.`);
+  return readRun(runId);
 }
 
 export function logEvent(runId: string, stage: RebuildStageId | undefined, level: RebuildEvent["level"], message: string): void {
