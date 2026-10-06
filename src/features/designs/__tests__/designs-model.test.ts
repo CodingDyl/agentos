@@ -82,8 +82,10 @@ describe("filtering", () => {
 
   const base = { search: "", filter: "all" as const, project: "all" as const };
 
-  it("returns everything by default", () => {
-    assert.equal(filterAssets(assets, base).length, 3);
+  it("returns everything but references by default", () => {
+    // A reference is a generation's input; showing it in the feed made it
+    // look as if it had been generated again.
+    assert.deepEqual(filterAssets(assets, base).map((a) => a.id), ["up", "gen"]);
   });
 
   it("filters by kind", () => {
@@ -102,18 +104,18 @@ describe("filtering", () => {
 
   it("filters by project", () => {
     assert.deepEqual(
-      filterAssets(assets, { ...base, project: "virtara" }).map((a) => a.id),
+      filterAssets(assets, { ...base, filter: "reference", project: "virtara" }).map((a) => a.id),
       ["ref"],
     );
   });
 
   it("combines filters with the search", () => {
     assert.equal(
-      filterAssets(assets, { ...base, project: "virtara", search: "dark" }).length,
+      filterAssets(assets, { ...base, filter: "reference", project: "virtara", search: "dark" }).length,
       1,
     );
     assert.equal(
-      filterAssets(assets, { ...base, project: "virtara", search: "light" }).length,
+      filterAssets(assets, { ...base, filter: "reference", project: "virtara", search: "light" }).length,
       0,
     );
   });

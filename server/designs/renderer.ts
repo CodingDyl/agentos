@@ -121,78 +121,91 @@ export interface RenderOptions {
   kind?: "image" | "video";
 }
 
+const IMAGE_URL = /\.(png|jpe?g|webp|gif|avif)(\?|$)/i;
+const VIDEO_URL = /\.(mp4|webm|mov)(\?|$)/i;
+
 /**
- * Every URL that looks like an image, wherever it sits in the response.
- *
- * Deliberately not a schema. The CLI's success payload has never been seen
- * from here, and a reader keyed to guessed field names would fail on the first
- * real job for a reason nobody could diagnose. A rendered image has to come
- * back as a URL somewhere, so that is what this looks for — in the JSON if it
- * parses, and in the raw text if it does not.
+ * Keys under which a job echoes what it was given, or a smaller copy of what
+ * it made. Their URLs are images too, and saving them is how a reference came
+ * back into the library as a "generated" concept, and one render became two.
  */
-export function extractImageUrls(output: string): string[] {
-  const urls = new Set<string>();
+const NOT_A_RESULT = /^(params|parameters|input|inputs|medias?|image_?references?|references?|image|images_?in|start_?image|end_?image|thumbnail|thumbnails|thumb|min|min_url|preview|poster|cover)$/i;
 
-  const collect = (value: unknown): void => {
-    if (typeof value === "string") {
-      if (/^https?:\/\//i.test(value)) urls.add(value);
-      return;
-    }
-
-    if (Array.isArray(value)) {
-      for (const entry of value) collect(entry);
-      return;
-    }
-
-    if (typeof value === "object" && value !== null) {
-      for (const entry of Object.values(value)) collect(entry);
-    }
-  };
-
-  // The CLI prints one JSON document per line in some modes and one overall in
-  // others, so every line is tried before falling back to a text scan.
+/** Every JSON document in the output: one overall, or one per line, as the CLI prints in different modes. */
+function jsonDocuments(output: string): unknown[] {
+  try {
+    return [JSON.parse(output)];
+  } catch {
+    // Not one document; try each line.
+  }
+  const documents: unknown[] = [];
   for (const line of output.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) continue;
-
     try {
-      collect(JSON.parse(trimmed));
+      documents.push(JSON.parse(trimmed));
     } catch {
-      // Not a complete document on its own; the whole-output attempt below
-      // and the text scan still have a chance at it.
+      // A partial line; the text scan still has a chance at it.
     }
   }
-
-  try {
-    collect(JSON.parse(output));
-  } catch {
-    // Not JSON at all. The text scan is the remaining route.
-  }
-
-  for (const match of output.matchAll(/https?:\/\/[^\s"'<>)\]]+/g)) {
-    urls.add(match[0]);
-  }
-
-  // Anything that is plainly not a picture is dropped. A signed URL carries a
-  // query string, so the extension is looked for before it.
-  return [...urls].filter((url) =>
-    /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(url),
-  );
+  return documents;
 }
 
 /**
- * Every URL that looks like a rendered video, read the same loose way.
+ * The URLs of what one render produced.
  *
- * A video job's payload also carries its poster and input images, so the two
- * lists are kept apart rather than merged: a video run that saved only its
- * thumbnail would look like success and be a still.
+ * `--wait --json` prints the final job objects, each with its own
+ * `result_url` (the CLI's documented field), so that is read first: one job,
+ * one result. Only when no job carries one does it fall back to looking for
+ * any matching URL, skipping inputs and thumbnails, and then it keeps the
+ * first, because a render is one job and must never save more than one file.
+ */
+function extractResults(output: string, kind: RegExp): string[] {
+  const results = new Set<string>();
+  const loose: string[] = [];
+
+  const visit = (value: unknown, key?: string): void => {
+    if (key && NOT_A_RESULT.test(key)) return;
+    if (typeof value === "string") {
+      if (/^https?:\/\//i.test(value) && kind.test(value)) loose.push(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const entry of value) visit(entry);
+      return;
+    }
+    if (typeof value === "object" && value !== null) {
+      const record = value as Record<string, unknown>;
+      if (typeof record.result_url === "string" && kind.test(record.result_url)) results.add(record.result_url);
+      for (const [childKey, entry] of Object.entries(record)) visit(entry, childKey);
+    }
+  };
+
+  const documents = jsonDocuments(output);
+  for (const document of documents) visit(document);
+  if (results.size > 0) return [...results];
+  if (loose.length > 0) return [loose[0]];
+
+  // Not JSON at all: `--wait` without `--json` prints the result URL itself.
+  if (documents.length === 0) {
+    const match = [...output.matchAll(/https?:\/\/[^\s"'<>)\]]+/g)].map((entry) => entry[0]).find((url) => kind.test(url));
+    if (match) return [match];
+  }
+  return [];
+}
+
+/** The image a render produced: at most one per job. */
+export function extractImageUrls(output: string): string[] {
+  return extractResults(output, IMAGE_URL);
+}
+
+/**
+ * The video a render produced. A video job's payload also carries its poster
+ * and input images; only a video URL counts, so a run that saved only its
+ * thumbnail cannot pass for success.
  */
 export function extractVideoUrls(output: string): string[] {
-  const urls = new Set<string>();
-  for (const match of output.matchAll(/https?:\/\/[^\s"'<>)\]]+/g)) {
-    if (/\.(mp4|webm|mov)(\?|$)/i.test(match[0])) urls.add(match[0]);
-  }
-  return [...urls];
+  return extractResults(output, VIDEO_URL);
 }
 
 /** The argument list for one render. Exported so it can be tested. */
