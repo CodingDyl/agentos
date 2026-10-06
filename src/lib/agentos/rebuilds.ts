@@ -104,6 +104,11 @@ export function useRetryStage(runId: string) {
   );
 }
 
+/** Skips a blocked website capture, so the rebuild carries on without the current site. */
+export function useSkipCapture(runId: string) {
+  return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/capture/skip`, RebuildRunSchema, {}));
+}
+
 /** Workers able to do a stage, with whether each is ready now. Read only while the choice is on screen. */
 export function useStageWorkers(runId: string, stage: RebuildStageId, enabled: boolean) {
   return useQuery({
@@ -147,7 +152,7 @@ export function useUploadBrandAsset(runId: string) {
     }
     const value: unknown = await response.json().catch(() => undefined);
     if (!response.ok) {
-      const message = value && typeof value === "object" && "error" in value && typeof value.error === "string" ? value.error : response.status === 413 ? "Images are limited to 5 MB." : "The upload failed.";
+      const message = value && typeof value === "object" && "error" in value && typeof value.error === "string" ? value.error : response.status === 413 ? "Images are limited to 20 MB." : "The upload failed.";
       throw new AgentOSRequestError(message, response.status);
     }
     const parsed = RebuildRunSchema.safeParse(value);

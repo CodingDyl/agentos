@@ -158,6 +158,9 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE runs ADD COLUMN brand_kit TEXT;
   `,
+  `
+  ALTER TABLE runs ADD COLUMN site_note TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -201,6 +204,7 @@ interface RunRow {
   repo_path: string | null;
   hero_choice: string | null;
   brand_kit: string | null;
+  site_note: string | null;
   github_repo: string | null;
   vercel_project: string | null;
   deployment_id: string | null;
@@ -268,6 +272,7 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     workspaceSlug: row.workspace_slug ?? undefined,
     repoPath: row.repo_path ?? undefined,
     heroChoice: row.hero_choice ?? undefined,
+    siteNote: row.site_note ?? undefined,
     brandKit: row.brand_kit ? BrandKitSchema.safeParse(parseJson(row.brand_kit, null)).data : undefined,
     githubRepo: row.github_repo ?? undefined,
     vercelProject: row.vercel_project ?? undefined,
@@ -398,7 +403,7 @@ function touch(runId: string): void {
 
 export function setRunField(
   runId: string,
-  field: "workspace_slug" | "preview_url" | "repo_path" | "github_repo" | "vercel_project" | "deployment_id",
+  field: "workspace_slug" | "preview_url" | "repo_path" | "github_repo" | "vercel_project" | "deployment_id" | "site_note",
   value: string,
 ): void {
   rebuildDatabase().prepare(`UPDATE runs SET ${field} = ?, updated_at = ? WHERE id = ?`).run(value, iso(), runId);

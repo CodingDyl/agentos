@@ -29,6 +29,9 @@ export const AspectRatioSchema = z.enum(["1:1", "4:3", "16:9", "9:16"]);
  */
 export const MAX_VARIATIONS = 4;
 
+/** Reference images one generation can take: Higgsfield's own limit. */
+export const MAX_REFERENCE_IMAGES = 6;
+
 export const DesignGenerationRequestSchema = z.object({
   /** Optional on purpose: not every image belongs to a project. */
   project: z.string().optional(),
@@ -38,7 +41,7 @@ export const DesignGenerationRequestSchema = z.object({
   model: z.string().max(80).optional(),
   prompt: z.string().min(1),
   /** Library assets to generate from. Resolved to paths server-side. */
-  referenceAssetIds: z.array(z.string()).max(6).optional(),
+  referenceAssetIds: z.array(z.string()).max(MAX_REFERENCE_IMAGES).optional(),
   aspectRatio: AspectRatioSchema.optional(),
   count: z.number().int().min(1).max(MAX_VARIATIONS).default(1),
   /**

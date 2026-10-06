@@ -10,6 +10,8 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-rebuild-brand-routes
 const previous = { root: process.env.AGENTOS_ROOT, ui: process.env.AGENTOS_UI_DIR };
 process.env.AGENTOS_ROOT = path.join(root, "vault");
 process.env.AGENTOS_UI_DIR = path.join(root, "ui");
+// Never a real client drive: a stage started in the background stops at research.
+process.env.AGENTOS_CLIENT_SITES_DIR = "/Volumes/agentos-test-drive-not-present/clients";
 
 const store = await import("../store");
 const { rebuildRouter } = await import("../routes");
@@ -126,6 +128,27 @@ describe("uploading to the brand kit", () => {
     const response = await fetch(`${base}/${run.id}/brand/assets?kind=photo`, { method: "POST", headers: { "Content-Type": "image/png" }, body: png });
     assert.equal(response.status, 201);
     assert.equal(store.readRun(run.id).brandKit?.assets.length, 1);
+  });
+});
+
+describe("skipping the website capture", () => {
+  it("skips a blocked capture so the rebuild goes on without the site", async () => {
+    const run = newRun(false);
+    // A capture is only blocked once the workspace exists.
+    store.rebuildDatabase().prepare("UPDATE stages SET status = 'complete', revision = 1 WHERE run_id = ? AND stage = 'workspace'").run(run.id);
+    store.blockStage(run.id, "capture", undefined, "The site could not be captured: answered 503. Check the address and retry, or skip this step to work without it.");
+    const response = await post(`/${run.id}/stages/capture/skip`, {});
+    assert.equal(response.status, 200);
+    assert.match(store.readRun(run.id).siteNote ?? "", /^You chose to skip reading the site after it could not be read \(answered 503\.\)/);
+    // The background run completes the capture as skipped.
+    for (let attempt = 0; attempt < 50 && store.readRun(run.id).stages.find((stage) => stage.id === "capture")?.status !== "complete"; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(store.readRun(run.id).stages.find((stage) => stage.id === "capture")?.status, "complete");
+  });
+
+  it("refuses to skip a capture that is not blocked", async () => {
+    const run = newRun(false);
+    const response = await post(`/${run.id}/stages/capture/skip`, {});
+    assert.equal(response.status, 409);
   });
 });
 

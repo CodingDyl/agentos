@@ -20,11 +20,11 @@ import { cancelJob } from "../workers/job-manager";
 import { listWorkers } from "../workers/registry";
 import { readDimensions } from "../designs/media";
 import { BRAND_EXTENSION } from "./brand";
-import { MAX_BRAND_IMAGE_BYTES, toSafeRaster } from "./capture";
+import { MAX_BRAND_UPLOAD_BYTES, toSafeRaster } from "./capture";
 import { REPORT_DIR } from "./reports";
 import { advanceInBackground, currentSkillVersion } from "./runner";
 import { isSkillEnabled } from "../skills/registry";
-import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, runForProspect, runForWorkspace } from "./store";
+import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, runForProspect, runForWorkspace, setRunField } from "./store";
 
 /**
  * Website rebuilds. Every route answers with the run's full state, so the page
@@ -195,6 +195,26 @@ rebuildRouter.post("/:id/stages/:stage/retry", async (request, response) => {
   }
 });
 
+/**
+ * Skips a blocked website capture: for a site that cannot be read (down,
+ * behind a login, an address that no longer works). The rebuild carries on
+ * from the research and the details given at the start.
+ */
+rebuildRouter.post("/:id/stages/capture/skip", (request, response) => {
+  try {
+    const run = readRun(request.params.id);
+    const capture = run.stages.find((stage) => stage.id === "capture");
+    if (capture?.status !== "blocked") throw new RebuildError("Only a blocked website capture can be skipped.");
+    const why = (capture.blocker ?? "").replace(/^The site could not be captured: /, "").replace(/ Check the address.*$/, "").trim();
+    setRunField(run.id, "site_note", `You chose to skip reading the site${why ? ` after it could not be read (${why.slice(0, 300)})` : ""}.`);
+    resetForRetry(run.id, "capture");
+    advanceInBackground(run.id);
+    response.json(readRun(run.id));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
 rebuildRouter.post("/:id/stages/:stage/approve", (request, response) => {
   const input = RebuildDecisionInputSchema.safeParse(request.body);
   if (!input.success) {
@@ -244,7 +264,7 @@ rebuildRouter.post("/:id/brand", (request, response) => {
  * read from its bytes, SVG and ICO are rasterised to PNG, and the server
  * names the file, so nothing the browser sends becomes a path.
  */
-rebuildRouter.post("/:id/brand/assets", express.raw({ type: "image/*", limit: MAX_BRAND_IMAGE_BYTES }), async (request, response) => {
+rebuildRouter.post("/:id/brand/assets", express.raw({ type: "image/*", limit: MAX_BRAND_UPLOAD_BYTES }), async (request, response) => {
   const kind = BrandUploadKindSchema.safeParse(request.query.kind);
   if (!kind.success) {
     response.status(422).json({ error: "Say whether this is a logo or a photo." });
@@ -255,7 +275,7 @@ rebuildRouter.post("/:id/brand/assets", express.raw({ type: "image/*", limit: MA
     if (!run.workspaceSlug) throw new RebuildError("This rebuild has no workspace yet. Wait for the first stage to finish.");
     if (!Buffer.isBuffer(request.body) || request.body.length === 0) throw new RebuildError("The upload was empty.", 400);
     const safe = await toSafeRaster(request.body);
-    if (!safe) throw new RebuildError("That file is not an image AgentOS can use. Send a PNG, JPEG, WebP, GIF, AVIF, SVG or ICO under 5 MB.", 415);
+    if (!safe) throw new RebuildError("That file is not an image AgentOS can use. Send a PNG, JPEG, WebP, GIF, AVIF, SVG or ICO under 20 MB.", 415);
     const extension = BRAND_EXTENSION[safe.contentType];
     const id = `${kind.data}-upload-${randomUUID().slice(0, 8)}`;
     const relativePath = `projects/${run.workspaceSlug}/${REPORT_DIR}/brand/${id}.${extension}`;

@@ -311,6 +311,8 @@ export async function withBrowserLoader<T>(run: (loadPage: (url: string) => Prom
 /** The image formats a brand kit stores as they are. Anything else is rasterised to PNG or dropped. */
 export const BRAND_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"] as const;
 export const MAX_BRAND_IMAGE_BYTES = 5 * 1024 * 1024;
+/** A file a person uploads: a camera photo or a print-quality logo can be large, and it is one file, not a crawl. */
+export const MAX_BRAND_UPLOAD_BYTES = 20 * 1024 * 1024;
 /** Across the whole capture, so a photo-heavy site cannot fill the disk or the memory. */
 const MAX_BRAND_TOTAL_BYTES = 60 * 1024 * 1024;
 const MAX_LOGOS_PER_PAGE = 3;
@@ -358,8 +360,8 @@ async function sandboxRasteriser(browser: Browser): Promise<Rasterise> {
  * One image, made safe to store: a raster file as it is, SVG or ICO as a PNG,
  * anything else refused. For uploads, which arrive without a capture's browser.
  */
-export async function toSafeRaster(data: Buffer): Promise<{ data: Buffer; contentType: (typeof BRAND_IMAGE_TYPES)[number] } | undefined> {
-  if (data.length === 0 || data.length > MAX_BRAND_IMAGE_BYTES) return undefined;
+export async function toSafeRaster(data: Buffer, maxBytes = MAX_BRAND_UPLOAD_BYTES): Promise<{ data: Buffer; contentType: (typeof BRAND_IMAGE_TYPES)[number] } | undefined> {
+  if (data.length === 0 || data.length > maxBytes) return undefined;
   const sniffed = sniffImage(data);
   if (!sniffed) return undefined;
   if (sniffed !== "image/svg+xml" && sniffed !== "image/x-icon") return { data, contentType: sniffed };
