@@ -1,6 +1,6 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Loader2, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Loader2, MessageSquareText, RotateCcw } from "lucide-react";
 import {
   GATED_STAGES,
   HERO_CONCEPTS,
@@ -12,12 +12,14 @@ import {
   type RebuildStage,
 } from "@shared/website-rebuild-types";
 import { AppShell } from "@/components/os";
-import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage } from "@/components/paper";
+import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
-import { useDecideStage, useRebuild, useRetryStage, useSkipCapture, useStageWorkers } from "@/lib/agentos/rebuilds";
+import { useDecideStage, useRebuild, useRetryStage, useSaveConceptNote, useSkipCapture, useStageWorkers } from "@/lib/agentos/rebuilds";
 import { cn } from "@/lib/utils";
 import { BrandKitPanel } from "./brand-kit-panel";
+import { conceptLabel } from "./concept-label";
+import { ConceptViewer, type NoteState } from "./concept-viewer";
 import { StageStatusTag } from "./rebuild-status";
 
 /**
@@ -289,16 +291,95 @@ function WorkerSwitch({ run, stage, busy, onRetry }: { run: RebuildRun; stage: R
 function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildStage; images: RebuildArtifact[] }) {
   const id = useId();
   const decide = useDecideStage(run.id);
+  const saveNote = useSaveConceptNote(run.id);
   const [note, setNote] = useState("");
   const [choice, setChoice] = useState<string | undefined>(stage.id === "hero" ? run.heroChoice : undefined);
   const needsChoice = stage.id === "hero";
+  const [viewing, setViewing] = useState<string | null>(null);
+  // Notes written on this revision survive a refresh: they start from what the server saved.
+  const [conceptNotes, setConceptNotes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(run.conceptNotes.filter((entry) => entry.stage === stage.id && entry.revision === stage.revision).map((entry) => [entry.concept, entry.note])),
+  );
+  const [noteState, setNoteState] = useState<Record<string, NoteState | undefined>>({});
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const latest = useRef(conceptNotes);
+  useEffect(() => {
+    latest.current = conceptNotes;
+  }, [conceptNotes]);
+
+  const flush = (concept: string) => {
+    clearTimeout(timers.current[concept]);
+    delete timers.current[concept];
+    setNoteState((state) => ({ ...state, [concept]: "saving" }));
+    saveNote.mutate(
+      { revision: stage.revision, concept, note: latest.current[concept] ?? "" },
+      { onSuccess: () => setNoteState((state) => ({ ...state, [concept]: "saved" })), onError: () => setNoteState((state) => ({ ...state, [concept]: "error" })) },
+    );
+  };
+  const changeNote = (concept: string, text: string) => {
+    setConceptNotes((current) => ({ ...current, [concept]: text }));
+    setNoteState((state) => ({ ...state, [concept]: "idle" }));
+    clearTimeout(timers.current[concept]);
+    timers.current[concept] = setTimeout(() => flush(concept), 700);
+  };
+  // Anything still waiting to be saved goes out when the panel closes.
+  useEffect(
+    () => () => {
+      for (const concept of Object.keys(timers.current)) {
+        clearTimeout(timers.current[concept]);
+        void fetch(`/api/rebuilds/${encodeURIComponent(run.id)}/stages/hero/concept-notes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ revision: stage.revision, concept, note: latest.current[concept] ?? "" }),
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    },
+    [run.id, stage.revision],
+  );
+
+  const written = Object.fromEntries(Object.entries(conceptNotes).filter(([, text]) => text.trim()));
+  const hasConceptNotes = Object.keys(written).length > 0;
+  const designs = Object.fromEntries(HERO_CONCEPTS.map((concept) => [concept, run.artifacts.filter((artifact) => artifact.stage === "hero" && artifact.title === `${concept} DESIGN.md`).at(-1)]));
+  const busy = decide.isPending;
 
   return (
     <div className="mt-4 border-t border-paper-mist pt-4">
       <p className="text-[13px] font-semibold text-paper-moss">Review revision {stage.revision}</p>
-      {needsChoice ? <ConceptGallery images={images} chosen={choice} onChoose={setChoice} name={`${id}-concept`} branded={Boolean(run.brandKit)} /> : null}
+      {needsChoice ? (
+        <>
+          <ConceptNotesSummary notes={written} />
+          <ConceptGallery images={images} chosen={choice} onChoose={setChoice} branded={Boolean(run.brandKit)} notes={written} onView={setViewing} />
+          {choice && written[choice] ? (
+            <p className="mt-2 max-w-[75ch] border-l-2 border-paper-blue pl-3 text-[13px] text-paper-char">
+              <span className="font-semibold text-paper-moss">Your notes on {conceptLabel(choice)}:</span> <span className="whitespace-pre-wrap">{written[choice]}</span>
+            </p>
+          ) : null}
+          {viewing ? (
+            <ConceptViewer
+              concept={viewing}
+              onConceptChange={(next) => {
+                if (timers.current[viewing]) flush(viewing);
+                setViewing(next);
+              }}
+              onClose={() => {
+                if (timers.current[viewing]) flush(viewing);
+                setViewing(null);
+              }}
+              images={images}
+              designs={designs}
+              directions={run.brandKit ? BRANDED_DIRECTION : undefined}
+              notes={conceptNotes}
+              noteState={noteState}
+              onNoteChange={changeNote}
+              chosen={choice}
+              onChoose={setChoice}
+            />
+          ) : null}
+        </>
+      ) : null}
       <label htmlFor={`${id}-note`} className="mt-3 block">
-        <FieldLabel>What should change? (needed to request changes)</FieldLabel>
+        <FieldLabel>{needsChoice ? "Anything that applies to all three? (optional when a concept has notes)" : "What should change? (needed to request changes)"}</FieldLabel>
         <textarea id={`${id}-note`} className={cn(PAPER_INPUT, "min-h-20 w-full max-w-[75ch]")} value={note} onChange={(event) => setNote(event.target.value)} />
       </label>
       {decide.error ? (
@@ -309,58 +390,100 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <PaperButton
           variant="amber"
-          disabled={decide.isPending || (needsChoice && !choice)}
-          onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined, choice })}
+          disabled={busy || (needsChoice && !choice)}
+          onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined, choice, conceptNotes: hasConceptNotes ? written : undefined })}
         >
           {needsChoice ? (choice ? `Approve and build ${conceptLabel(choice)}` : "Choose a concept to approve") : `Approve revision ${stage.revision}`}
         </PaperButton>
         <PaperButton
-          disabled={decide.isPending || !note.trim()}
-          onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "request-changes", note: note.trim() }, { onSuccess: () => setNote("") })}
+          disabled={busy || (!note.trim() && !hasConceptNotes)}
+          onClick={() =>
+            decide.mutate(
+              { stage: stage.id, revision: stage.revision, decision: "request-changes", note: note.trim() || undefined, conceptNotes: hasConceptNotes ? written : undefined },
+              { onSuccess: () => setNote("") },
+            )
+          }
         >
-          Request changes
+          Request changes{hasConceptNotes ? ` (${Object.keys(written).length} concept note${Object.keys(written).length === 1 ? "" : "s"})` : ""}
         </PaperButton>
       </div>
     </div>
   );
 }
 
-const conceptLabel = (concept: string) => `Concept ${concept.replace("concept-", "").toUpperCase()}`;
+/** Which concepts already have notes, so feedback is never lost track of. */
+function ConceptNotesSummary({ notes }: { notes: Record<string, string> }) {
+  const withNotes = HERO_CONCEPTS.filter((concept) => notes[concept]);
+  return (
+    <p className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-paper-sage" role="status">
+      <MessageSquareText className="size-3.5" aria-hidden="true" />
+      {withNotes.length === 0 ? (
+        <>Open a concept to leave notes on it.</>
+      ) : (
+        <>
+          Notes on {withNotes.length} of {HERO_CONCEPTS.length}:{" "}
+          {withNotes.map((concept) => (
+            <Tag key={concept} tone="blue">
+              {conceptLabel(concept)}
+            </Tag>
+          ))}
+        </>
+      )}
+    </p>
+  );
+}
 
 /** What each concept was asked to do with the client's brand, when there was one. */
 const BRANDED_DIRECTION: Record<string, string> = { "concept-a": "Faithful", "concept-b": "Evolved", "concept-c": "Bold" };
 
-/** The three heroes side by side, desktop over phone. With `onChoose`, a radio group for picking one. */
-function ConceptGallery({ images, chosen, onChoose, name, branded = false }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; name?: string; branded?: boolean }) {
+/** The three heroes side by side, desktop beside phone. With `onView`, a click opens the concept; with `onChoose`, each also has its own Choose button. */
+function ConceptGallery({ images, chosen, onChoose, branded = false, notes, onView }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; branded?: boolean; notes?: Record<string, string>; onView?: (concept: string) => void }) {
+  const link = "inline-flex min-h-8 cursor-pointer items-center text-[12.5px] font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
   return (
-    <div className="mt-3 grid gap-3 lg:grid-cols-3" role={onChoose ? "radiogroup" : undefined} aria-label={onChoose ? "Hero concepts" : undefined}>
+    <div className="mt-3 grid gap-3 lg:grid-cols-3" role={onChoose ? "group" : undefined} aria-label={onChoose ? "Hero concepts" : undefined}>
       {HERO_CONCEPTS.map((concept) => {
         const desktop = images.find((image) => image.path.includes(`-${concept}-desktop`));
         const mobile = images.find((image) => image.path.includes(`-${concept}-mobile`));
         const selected = chosen === concept;
-        const body = (
-          <>
+        const shots = (
+          <span className="mt-2 grid grid-cols-[1fr_auto] items-start gap-2">
+            {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" loading="lazy" /> : <span className="text-[12px] text-paper-sage">No desktop shot</span>}
+            {mobile ? <img src={mobile.href} alt={`${conceptLabel(concept)} hero at phone width`} className="w-16 border border-paper-mist sm:w-20" loading="lazy" /> : null}
+          </span>
+        );
+        return (
+          <div key={concept} className={cn("border-[1.5px] p-3", selected ? "border-paper-blue bg-paper-white" : "border-paper-mist", onView && !selected && "hover:border-paper-sage")}>
             <span className="flex items-center justify-between gap-2 text-[13px] font-semibold text-paper-moss">
               <span>
                 {conceptLabel(concept)}
                 {branded ? <span className="font-normal text-paper-sage"> · {BRANDED_DIRECTION[concept]}</span> : null}
               </span>
-              {selected ? <CheckCircle2 className="size-4 text-paper-blue" aria-hidden="true" /> : null}
+              <span className="flex items-center gap-2">
+                {notes?.[concept] ? <Tag tone="blue">Notes</Tag> : null}
+                {selected ? <CheckCircle2 className="size-4 text-paper-blue" aria-label="Chosen" /> : null}
+              </span>
             </span>
-            <span className="mt-2 grid grid-cols-[1fr_auto] items-start gap-2">
-              {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" loading="lazy" /> : <span className="text-[12px] text-paper-sage">No desktop shot</span>}
-              {mobile ? <img src={mobile.href} alt={`${conceptLabel(concept)} hero at phone width`} className="w-16 border border-paper-mist sm:w-20" loading="lazy" /> : null}
-            </span>
-          </>
-        );
-        return onChoose ? (
-          <label key={concept} className={cn("cursor-pointer border-[1.5px] p-3", selected ? "border-paper-blue bg-paper-white" : "border-paper-mist hover:border-paper-sage")}>
-            <input type="radio" name={name} value={concept} checked={selected} onChange={() => onChoose(concept)} className="sr-only" />
-            {body}
-          </label>
-        ) : (
-          <div key={concept} className={cn("border-[1.5px] p-3", selected ? "border-paper-blue" : "border-paper-mist")}>
-            {body}
+            {onView ? (
+              <button type="button" onClick={() => onView(concept)} aria-label={`Open ${conceptLabel(concept)} at desktop and phone width, and add notes`} className="block w-full cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue">
+                {shots}
+              </button>
+            ) : (
+              shots
+            )}
+            {onView || onChoose ? (
+              <span className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                {onView ? (
+                  <button type="button" onClick={() => onView(concept)} className={cn(link, "text-paper-blue")}>
+                    View and add notes
+                  </button>
+                ) : null}
+                {onChoose ? (
+                  <button type="button" aria-pressed={selected} onClick={() => onChoose(concept)} className={cn(link, "px-1", selected ? "text-paper-moss" : "text-paper-blue")}>
+                    {selected ? "Chosen to build" : "Choose this one"}
+                  </button>
+                ) : null}
+              </span>
+            ) : null}
           </div>
         );
       })}

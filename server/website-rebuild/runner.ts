@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
-import { REBUILD_SKILL_ID, STAGE_ORDER, socialProfilePlatform, type BrandAsset, type BrandKit, type RebuildRun, type RebuildStageId } from "../../shared/website-rebuild-types";
+import { REBUILD_SKILL_ID, STAGE_ORDER, changeRequestText, socialProfilePlatform, type BrandAsset, type BrandKit, type RebuildRun, type RebuildStageId } from "../../shared/website-rebuild-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, toSlug } from "../agentos/mutations/projects";
 import { editFile } from "../agentos/mutations/writer";
@@ -212,6 +212,9 @@ export const skillPausedReason = (skillId: string) =>
 
 const advancing = new Set<string>();
 
+/** The text a worker is told to act on: the general note and any per-concept notes, or undefined when there is none. */
+const changeRequestOf = (decision: Parameters<typeof changeRequestText>[0] | undefined): string | undefined => (decision ? changeRequestText(decision) || undefined : undefined);
+
 /** Runs one claimed stage to its end: a new revision, or a blocker. Never throws. */
 async function runStage(runId: string, stage: RebuildStageId, owner: string, handlers: Record<RebuildStageId, StageHandler>, deps: RunnerDeps): Promise<boolean> {
   const run = readRun(runId);
@@ -224,7 +227,7 @@ async function runStage(runId: string, stage: RebuildStageId, owner: string, han
     stage,
     record,
     revision,
-    changeRequest: openChangeRequest(runId, stage)?.note,
+    changeRequest: changeRequestOf(openChangeRequest(runId, stage)),
     activity: (message) => setActivity(runId, stage, owner, message),
     log: (message, level = "info") => logEvent(runId, stage, level, message),
     writeReport: async (name, title, markdown) => {

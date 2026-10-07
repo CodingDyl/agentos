@@ -90,7 +90,7 @@ describe("adding skills on the page", () => {
       registry.saveAddedSkill(draft({ name: "agentos-website-to-preview" }), "agentos-website-to-preview", deps),
       /Only skills added on this page/,
     );
-    await assert.rejects(registry.deleteAddedSkill("agentos-website-to-preview", deps), /Only skills added on this page/);
+    await assert.rejects(registry.deleteAddedSkill("agentos-website-to-preview", deps), /Only skills added or installed on this page/);
   });
 
   it("deletes an added skill, unless a run is using it", async () => {
@@ -114,7 +114,14 @@ describe("skills for worker jobs", () => {
   it("copies the instructions of an enabled skill whose connectors are connected", async () => {
     await registry.saveAddedSkill(draft({ requires: ["github"] }), undefined, deps);
     const copy = await registry.skillForJob("seo-audit", deps);
-    assert.deepEqual(copy, { id: "seo-audit", name: "seo-audit", version: "1.0.0", instructions: draft().instructions });
+    assert.deepEqual(copy, {
+      id: "seo-audit",
+      name: "seo-audit",
+      version: "1.0.0",
+      instructions: draft().instructions,
+      // Multi-file skills name files relative to their folder, so the job is told where it is.
+      baseDir: path.join(registry.addedSkillsDir(), "seo-audit"),
+    });
   });
 
   it("refuses a disabled skill, one missing a connection, and an unknown one", async () => {

@@ -68,6 +68,10 @@ export const DEFAULT_WORKER_PLAN: RebuildWorkerPlan = {
   review: ["codex"],
 };
 
+/** The three hero concepts' folder names in the client repo. */
+export const HERO_CONCEPT_IDS = ["concept-a", "concept-b", "concept-c"] as const;
+export const HERO_CONCEPTS = HERO_CONCEPT_IDS;
+
 const Text = (max: number) => z.string().trim().min(1).max(max);
 
 export const RebuildStartSchema = z
@@ -121,7 +125,17 @@ export const RebuildDecisionSchema = z.object({
   note: z.string().optional(),
   /** For the hero checkpoint: the concept chosen. */
   choice: z.string().optional(),
+  /** For the hero checkpoint: what the person wrote on each concept, keyed by concept id. */
+  conceptNotes: z.record(z.string(), z.string()).optional(),
   at: z.string(),
+});
+
+/** A note a person left on one hero concept of one revision, saved before they decide. */
+export const RebuildConceptNoteSchema = z.object({
+  stage: RebuildStageIdSchema,
+  revision: z.number().int().positive(),
+  concept: z.string(),
+  note: z.string(),
 });
 
 export const RebuildEventSchema = z.object({
@@ -257,6 +271,8 @@ export const RebuildRunSchema = z.object({
   artifacts: z.array(RebuildArtifactSchema),
   revisions: z.array(RebuildRevisionSchema),
   decisions: z.array(RebuildDecisionSchema),
+  /** Per-concept notes on revisions, drafts included. */
+  conceptNotes: z.array(RebuildConceptNoteSchema).default([]),
   events: z.array(RebuildEventSchema),
 });
 
@@ -275,11 +291,31 @@ export const RebuildDecisionInputSchema = z
     revision: z.number().int().positive(),
     note: z.string().trim().max(4000).optional(),
     choice: z.string().trim().max(40).optional(),
+    /** Notes keyed by concept id. */
+    conceptNotes: z.partialRecord(z.enum(HERO_CONCEPT_IDS), z.string().trim().max(2000)).optional(),
   })
   .strict();
 
-/** The three hero concepts' folder names in the client repo. */
-export const HERO_CONCEPTS = ["concept-a", "concept-b", "concept-c"] as const;
+/** Saves (or, when empty, clears) one concept's note on the revision under review. */
+export const RebuildConceptNoteInputSchema = z
+  .object({
+    revision: z.number().int().positive(),
+    concept: z.enum(HERO_CONCEPT_IDS),
+    note: z.string().trim().max(2000),
+  })
+  .strict();
+
+/** What a worker is told to change: the general note, then each concept's notes. */
+export function changeRequestText(decision: Pick<z.infer<typeof RebuildDecisionSchema>, "note" | "conceptNotes">): string {
+  const parts: string[] = [];
+  if (decision.note?.trim()) parts.push(decision.note.trim());
+  const perConcept = Object.entries(decision.conceptNotes ?? {}).filter(([, note]) => note.trim());
+  if (perConcept.length > 0) {
+    parts.push(["Notes on individual concepts (apply each only to the concept named):", ...perConcept.map(([concept, note]) => `- ${concept}: ${note.trim()}`)].join("\n"));
+  }
+  return parts.join("\n\n");
+}
+
 
 export type RebuildArtifact = z.infer<typeof RebuildArtifactSchema>;
 export type RebuildRevision = z.infer<typeof RebuildRevisionSchema>;

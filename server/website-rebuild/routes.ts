@@ -7,6 +7,7 @@ import {
   BrandKitEditSchema,
   BrandUploadKindSchema,
   REBUILD_SKILL_ID,
+  RebuildConceptNoteInputSchema,
   RebuildDecisionInputSchema,
   RebuildRetryInputSchema,
   RebuildStageIdSchema,
@@ -24,7 +25,7 @@ import { MAX_BRAND_UPLOAD_BYTES, toSafeRaster } from "./capture";
 import { REPORT_DIR } from "./reports";
 import { advanceInBackground, currentSkillVersion } from "./runner";
 import { isSkillEnabled } from "../skills/registry";
-import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, runForProspect, runForWorkspace, setRunField } from "./store";
+import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, saveConceptNote, runForProspect, runForWorkspace, setRunField } from "./store";
 
 /**
  * Website rebuilds. Every route answers with the run's full state, so the page
@@ -222,8 +223,22 @@ rebuildRouter.post("/:id/stages/:stage/approve", (request, response) => {
     return;
   }
   try {
-    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note, input.data.choice);
+    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note, input.data.choice, input.data.conceptNotes);
     advanceInBackground(request.params.id);
+    response.json(readRun(request.params.id));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+rebuildRouter.post("/:id/stages/:stage/concept-notes", (request, response) => {
+  const input = RebuildConceptNoteInputSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(422).json({ error: "Say which revision and concept the note is on." });
+    return;
+  }
+  try {
+    saveConceptNote(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, input.data.concept, input.data.note);
     response.json(readRun(request.params.id));
   } catch (error) {
     fail(response, error);
@@ -237,7 +252,7 @@ rebuildRouter.post("/:id/stages/:stage/request-changes", (request, response) => 
     return;
   }
   try {
-    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "changes_requested", input.data.note);
+    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "changes_requested", input.data.note, undefined, input.data.conceptNotes);
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
   } catch (error) {

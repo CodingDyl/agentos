@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Download, ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { SkillSummary } from "@shared/skill-types";
 import { PaperButton, PaperSection, PaperSwitch, Tag } from "@/components/paper";
-import { useDeleteSkill, useSetSkillEnabled, useSkills } from "@/lib/agentos/skills";
+import { useDeleteSkill, useSetSkillEnabled, useSkills, useUpdateMarketplaceSkill } from "@/lib/agentos/skills";
+import { MarketplaceInstall } from "./marketplace-install";
 import { SkillEditorForm } from "./skill-editor-form";
 
-const SOURCE_LABEL: Record<SkillSummary["source"], string> = { bundled: "Bundled", local: "Local", added: "Added" };
+const SOURCE_LABEL: Record<SkillSummary["source"], string> = { bundled: "Bundled", local: "Local", added: "Added", marketplace: "GitHub" };
 
 /**
  * Skills sit beside connectors because they are the other half of "what may
@@ -15,7 +16,7 @@ const SOURCE_LABEL: Record<SkillSummary["source"], string> = { bundled: "Bundled
 export function SkillsSection() {
   const skills = useSkills();
   const list = skills.data?.skills ?? [];
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<"write" | "github" | undefined>();
   const [notice, setNotice] = useState<string | undefined>();
 
   return (
@@ -25,29 +26,50 @@ export function SkillsSection() {
         their next stage with everything kept. Skills never carry credentials: the connectors they need keep their own switches.
       </p>
       <p className="mb-4 max-w-[80ch] text-[13px] leading-5 text-paper-sage">
-        Skills you add are offered when you delegate a job in Workers: the worker gets the skill&apos;s instructions with the objective.
+        Skills you add or install are offered when you delegate a job in Workers: the worker gets the skill&apos;s instructions with the objective,
+        and where its files are.
       </p>
-      {adding ? (
+      {adding === "write" ? (
         <div className="mb-4">
           <SkillEditorForm
-            onCancel={() => setAdding(false)}
+            onCancel={() => setAdding(undefined)}
             onDone={(message) => {
-              setAdding(false);
+              setAdding(undefined);
+              setNotice(message);
+            }}
+          />
+        </div>
+      ) : adding === "github" ? (
+        <div className="mb-4">
+          <MarketplaceInstall
+            onCancel={() => setAdding(undefined)}
+            onDone={(message) => {
+              setAdding(undefined);
               setNotice(message);
             }}
           />
         </div>
       ) : (
-        <div className="mb-4">
+        <div className="mb-4 flex flex-wrap gap-2">
           <PaperButton
             type="button"
             variant="amber"
             onClick={() => {
               setNotice(undefined);
-              setAdding(true);
+              setAdding("write");
             }}
           >
             <Plus className="size-3.5" aria-hidden="true" /> Add skill
+          </PaperButton>
+          <PaperButton
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setNotice(undefined);
+              setAdding("github");
+            }}
+          >
+            <Download className="size-3.5" aria-hidden="true" /> Install from GitHub
           </PaperButton>
         </div>
       )}
@@ -68,7 +90,7 @@ export function SkillsSection() {
           {skills.error.message}
         </p>
       ) : list.length === 0 ? (
-        <p className="text-[13px] text-paper-sage">No skills yet. Add one above, or upload a SKILL.md.</p>
+        <p className="text-[13px] text-paper-sage">No skills yet. Add one above, upload a SKILL.md, or install one from GitHub.</p>
       ) : (
         <ul className="grid gap-3">
           {list.map((skill) => (
@@ -85,6 +107,7 @@ export function SkillsSection() {
 function SkillCard({ skill, onNotice }: { skill: SkillSummary; onNotice: (message: string) => void }) {
   const toggle = useSetSkillEnabled();
   const remove = useDeleteSkill();
+  const update = useUpdateMarketplaceSkill();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -109,10 +132,27 @@ function SkillCard({ skill, onNotice }: { skill: SkillSummary; onNotice: (messag
           <h3 className="flex flex-wrap items-center gap-2 font-semibold text-paper-moss">
             {skill.name}
             <span className="font-paper-utility text-[12px] font-normal text-paper-sage">v{skill.version}</span>
-            <Tag tone={skill.source === "bundled" ? "blue" : skill.source === "added" ? "green" : "muted"}>{SOURCE_LABEL[skill.source]}</Tag>
+            <Tag tone={skill.source === "bundled" ? "blue" : skill.source === "added" ? "green" : skill.source === "marketplace" ? "marigold" : "muted"}>{SOURCE_LABEL[skill.source]}</Tag>
             {skill.activeRuns > 0 ? <Tag tone="marigold">{skill.activeRuns} active run{skill.activeRuns === 1 ? "" : "s"}</Tag> : null}
           </h3>
           <p className="mt-1 max-w-[80ch] text-[13px] leading-5 text-paper-char">{skill.description || "No description."}</p>
+          {skill.origin ? (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[12px] text-paper-sage">
+              <a
+                href={`https://github.com/${skill.origin.repo}/tree/${skill.origin.commit}/${skill.origin.path === "." ? "" : skill.origin.path}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 font-medium text-paper-char underline decoration-paper-ash underline-offset-4 hover:text-paper-blue"
+              >
+                {skill.origin.repo}
+                <ExternalLink className="size-3" aria-hidden="true" />
+              </a>
+              <span className="font-mono">
+                {skill.origin.branch} @ {skill.origin.commit.slice(0, 7)}
+              </span>
+              {skill.origin.plugin ? <span>· {skill.origin.plugin} plugin</span> : null}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2 text-[13px]">
           <span className="text-paper-sage">{skill.enabled ? "Enabled" : "Disabled"}</span>
@@ -154,6 +194,44 @@ function SkillCard({ skill, onNotice }: { skill: SkillSummary; onNotice: (messag
       ) : null}
       {toggle.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{toggle.error.message}</p> : null}
       {remove.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{remove.error.message}</p> : null}
+      {update.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{update.error.message}</p> : null}
+
+      {skill.source === "marketplace" ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <PaperButton
+            type="button"
+            variant="ghost"
+            disabled={update.isPending || skill.activeRuns > 0}
+            title={skill.activeRuns > 0 ? "A run is using this skill" : `Pull ${skill.origin?.branch ?? "the branch"} again`}
+            aria-label={`Update ${skill.name} from GitHub`}
+            onClick={() =>
+              update.mutate(skill.id, {
+                onSuccess: (result) =>
+                  onNotice(
+                    result.updated
+                      ? `Updated ${skill.name}: v${result.previousVersion} → v${result.skill.version} (${result.skill.origin?.commit.slice(0, 7)}).`
+                      : `${skill.name} is already up to date with ${skill.origin?.repo}.`,
+                  ),
+              })
+            }
+          >
+            <RefreshCw className={update.isPending ? "size-3.5 motion-safe:animate-spin" : "size-3.5"} aria-hidden="true" /> {update.isPending ? "Checking…" : "Update"}
+          </PaperButton>
+          <PaperButton
+            type="button"
+            variant="danger"
+            disabled={remove.isPending || skill.activeRuns > 0}
+            title={skill.activeRuns > 0 ? "A run is using this skill" : undefined}
+            aria-label={`Uninstall ${skill.name}`}
+            onClick={() => {
+              if (!window.confirm(`Uninstall ${skill.name}? Its folder is deleted; you can install it again from ${skill.origin?.repo ?? "GitHub"}.`)) return;
+              remove.mutate(skill.id, { onSuccess: () => onNotice(`Uninstalled ${skill.name}.`) });
+            }}
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" /> {remove.isPending ? "Removing…" : "Uninstall"}
+          </PaperButton>
+        </div>
+      ) : null}
 
       {skill.source === "added" ? (
         <div className="mt-3 flex flex-wrap gap-2">

@@ -1,10 +1,14 @@
 import express from "express";
-import { SkillDraftSchema, SkillEnabledInputSchema, SkillParseInputSchema } from "../../shared/skill-types";
+import { MarketplaceInstallInputSchema, MarketplaceRepoInputSchema, SkillDraftSchema, SkillEnabledInputSchema, SkillParseInputSchema } from "../../shared/skill-types";
 import { listConnectors } from "../connectors/registry";
 import { activeRunCount } from "../website-rebuild/store";
+import { installMarketplaceSkills, previewMarketplaceRepo, updateMarketplaceSkill } from "./marketplace";
 import { deleteAddedSkill, listSkills, parseSkillMarkdown, saveAddedSkill, setSkillEnabled, SkillError, type SkillDeps } from "./registry";
 
-/** The Skills section of Connectors: list skills, switch them on or off, and add, edit or delete your own. */
+/**
+ * The Skills section of Connectors: list skills, switch them on or off, add,
+ * edit or delete your own, and install skills from GitHub repos.
+ */
 export const skillsRouter = express.Router();
 
 skillsRouter.use((request, response, next) => {
@@ -53,6 +57,43 @@ skillsRouter.post("/parse", (request, response) => {
     return;
   }
   response.json(parseSkillMarkdown(input.data.markdown));
+});
+
+/** Reads a GitHub repo's skills for review: names, versions, conflicts, and what is left out. Installs nothing. */
+skillsRouter.post("/marketplace/preview", async (request, response) => {
+  const input = MarketplaceRepoInputSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(400).json({ error: input.error.issues[0]?.message ?? "Send { repo }." });
+    return;
+  }
+  try {
+    response.json(await previewMarketplaceRepo(input.data.repo, deps));
+  } catch (error) {
+    sendSkillError(response, error, "The repo could not be read.");
+  }
+});
+
+/** Installs the picked skills from the exact commit that was reviewed. */
+skillsRouter.post("/marketplace/install", async (request, response) => {
+  const input = MarketplaceInstallInputSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(400).json({ error: input.error.issues[0]?.message ?? "Send { repo, commit, skills }." });
+    return;
+  }
+  try {
+    response.status(201).json({ installed: await installMarketplaceSkills(input.data, deps) });
+  } catch (error) {
+    sendSkillError(response, error, "The skills could not be installed.");
+  }
+});
+
+/** Pulls the branch a marketplace skill came from again; replaces it only if the branch moved. */
+skillsRouter.post("/:id/update", async (request, response) => {
+  try {
+    response.json(await updateMarketplaceSkill(request.params.id, deps));
+  } catch (error) {
+    sendSkillError(response, error, "The skill could not be updated.");
+  }
 });
 
 skillsRouter.post("/", async (request, response) => {

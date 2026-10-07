@@ -35,6 +35,7 @@ export const WorkspaceModuleSchema = z.enum([
   "seo",
   "database",
   "rebuild",
+  "site",
 ]);
 
 export type WorkspaceType = z.infer<typeof WorkspaceTypeSchema>;
@@ -92,6 +93,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   seo: "SEO",
   database: "Database",
   rebuild: "Website rebuild",
+  site: "Site",
 };
 
 /** The label a module's tab carries in a workspace of this type. */
@@ -152,6 +154,8 @@ export function resolveWorkspaceTabs(input: {
   hasRepository?: boolean;
   /** A linked database earns its tab the same way a linked repository does. */
   hasDatabase?: boolean;
+  /** A linked Vercel project earns the Site tab: the live site, framed, with its deployment health. */
+  hasSite?: boolean;
   /** A client website rebuild earns the first tab: while one is running, it is the work. */
   hasRebuild?: boolean;
 }): WorkspaceTabs {
@@ -168,6 +172,11 @@ export function resolveWorkspaceTabs(input: {
     primary.splice(at === -1 ? primary.length : at, 0, "database");
   }
 
+  if (!configured && input.hasSite && !primary.includes("site")) {
+    const at = primary.indexOf("decisions");
+    primary.splice(at === -1 ? primary.length : at, 0, "site");
+  }
+
   if (input.hasRebuild && !primary.includes("rebuild")) primary.unshift("rebuild");
   // Without a rebuild there is nothing to show, so the tab is not offered under More either.
   const withoutEmptyRebuild = input.hasRebuild ? primary : primary.filter((module) => module !== "rebuild");
@@ -182,7 +191,7 @@ export function resolveWorkspaceTabs(input: {
 export function parseModuleList(value: string | undefined): WorkspaceModule[] {
   if (!value) return [];
 
-  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database" };
+  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site" };
   const modules = value
     .split(/[,;]/)
     .map((word) => word.trim().toLowerCase())

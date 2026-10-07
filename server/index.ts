@@ -190,6 +190,7 @@ import {
   thumbnailNameFor,
   THUMBNAILS,
 } from "./designs/media";
+import { animateRouter } from "./designs/animate-routes";
 import { motionRouter } from "./designs/motion-routes";
 import { readDecision, respondToApproval } from "./hermes/approvals";
 import { accountStatus, estimateCost, listModels } from "./designs/higgsfield";
@@ -340,6 +341,7 @@ import { SPOKEN_STYLE } from "../shared/voice-types";
 import { runSeoAudit } from "./seo/audit";
 import { markFindingFiled, readFinding, readProjectSeo } from "./seo/store";
 import { getProjectVercelInfo, isVercelConfigured, listVercelProjects, VercelError } from "./vercel/client";
+import { readProjectSite } from "./vercel/site";
 import { RunSeoAuditRequestSchema } from "../shared/seo-types";
 import {
   getRun,
@@ -419,6 +421,7 @@ app.use("/api/spotify", spotifyRouter);
 app.use("/api/workers/grok-bot", grokBotRouter);
 
 /** Motion studio: briefs in, Claude Code renders films, finished MP4s land in Creative. */
+app.use("/api/designs/animate", animateRouter);
 app.use("/api/designs/motion", motionRouter);
 
 app.get("/api/health", (_request, response) => {
@@ -1042,6 +1045,43 @@ app.get("/api/projects/:slug/vercel", async (request, response) => {
     }
     console.error("[agentos] project vercel info read failed:", error);
     response.status(500).json({ error: "Unable to read Vercel data for this project" });
+  }
+});
+
+/**
+ * A workspace's Site tab: the production URL to frame inside AgentOS, the
+ * deployment behind it, and whether the site allows being framed. Expected
+ * states (nothing linked, no token, token rejected) answer 200 with a
+ * `status`, so the tab can offer the matching fix.
+ */
+app.get("/api/projects/:slug/site", async (request, response) => {
+  const project = await readProjectSource(request.params.slug, "PROJECT.md").catch(() => undefined);
+  if (!project) {
+    response.status(404).json({ error: "That project is not in the AgentOS portfolio." });
+    return;
+  }
+
+  const configuration = parseConfiguration(project.contents);
+  const projectId = configuration.vercelProjectId;
+  if (!projectId) {
+    response.json({ status: "unlinked" });
+    return;
+  }
+  if (!isVercelConfigured()) {
+    response.json({ status: "not-configured", message: "VERCEL_API_TOKEN is not set in .env." });
+    return;
+  }
+
+  const projectName = configuration.vercelProjectName ?? projectId;
+  try {
+    response.json(await readProjectSite(projectId, projectName));
+  } catch (error) {
+    if (error instanceof VercelError) {
+      response.json({ status: "unavailable", projectName, reason: error.reason, message: error.message });
+      return;
+    }
+    console.error("[agentos] project site read failed:", error);
+    response.status(500).json({ error: "Unable to read this project's site" });
   }
 });
 

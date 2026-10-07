@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
+  MarketplaceInstallResultSchema,
+  MarketplacePreviewSchema,
+  MarketplaceUpdateResultSchema,
   SkillParseResultSchema,
   SkillSummarySchema,
   SkillsResponseSchema,
+  type MarketplaceInstallInput,
   type SkillDraftInput,
   type SkillSummary,
 } from "@shared/skill-types";
@@ -91,6 +95,38 @@ export function useDeleteSkill() {
 export function useParseSkill() {
   return useMutation({
     mutationFn: (markdown: string) => call("/api/skills/parse", (value) => SkillParseResultSchema.safeParse(value), { markdown }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Reads a GitHub repo's skills for review. Installs nothing. */
+export function usePreviewMarketplaceRepo() {
+  return useMutation({
+    mutationFn: (repo: string) => call("/api/skills/marketplace/preview", (value) => MarketplacePreviewSchema.safeParse(value), { repo }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Installs the picked skills from the commit that was reviewed. */
+export function useInstallMarketplaceSkills() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: MarketplaceInstallInput) =>
+      call("/api/skills/marketplace/install", (value) => MarketplaceInstallResultSchema.safeParse(value), input),
+    onSuccess: () => void client.invalidateQueries({ queryKey: key }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Pulls a marketplace skill's branch again; replaces it only if the branch moved. */
+export function useUpdateMarketplaceSkill() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => call(`/api/skills/${encodeURIComponent(id)}/update`, (value) => MarketplaceUpdateResultSchema.safeParse(value), {}),
+    onSuccess: () => void client.invalidateQueries({ queryKey: key }),
     networkMode: "always",
     retry: 0,
   });

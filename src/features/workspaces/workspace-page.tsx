@@ -13,6 +13,7 @@ import {
   Send,
   Settings2,
   Target,
+  Globe,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -41,6 +42,7 @@ import { DatabaseTab } from "@/features/databases";
 import { useProjectDatabases } from "@/lib/agentos/databases";
 import { useRebuildForWorkspace } from "@/lib/agentos/rebuilds";
 import { WorkspaceRebuildTab } from "@/features/rebuild";
+import { SiteTab } from "@/features/site";
 import { stateLabel } from "@/features/projects/projects-model";
 import { HEALTH_LABELS } from "@/features/projects/roadmap-model";
 import { DecisionsEditor, ProjectSettings, SourceViewer, TaskBoard, useWorkspaceFeedback } from "@/features/workspace";
@@ -70,7 +72,7 @@ type WorkspaceTab = "overview" | WorkspaceModule;
 const TAB_ALIASES: Record<string, WorkspaceTab> = { designs: "creative", milestones: "roadmap" };
 
 /** Tabs drawn on paper. Everything else is still Editorial Terminal. */
-const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild"]);
+const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site"]);
 
 function readTab(value: string | null): WorkspaceTab {
   if (!value) return "overview";
@@ -172,6 +174,7 @@ export function WorkspacePage() {
         hasRepository: !!project.git.repositoryPath,
         hasDatabase: (databases.data?.length ?? 0) > 0,
         hasRebuild: Boolean(rebuild.data),
+        hasSite: Boolean(project.configuration.vercelProjectId),
       })
     : { primary: [], more: [] };
 
@@ -217,6 +220,7 @@ export function WorkspacePage() {
                 onAskHermes={askHermes}
                 onDelegate={() => setDelegating(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
+                onViewSite={() => selectTab("site")}
               />
 
               <WorkspaceTabs
@@ -320,6 +324,8 @@ function WorkspacePanel({
       return <DatabaseTab slug={project.slug} />;
     case "rebuild":
       return <WorkspaceRebuildTab slug={project.slug} />;
+    case "site":
+      return <SiteTab slug={project.slug} onOpenSettings={onOpenSettings} />;
     case "decisions":
       return <DecisionsEditor project={project.slug} />;
     case "activity":
@@ -348,6 +354,7 @@ function WorkspaceHeader({
   onAskHermes,
   onDelegate,
   onOpenSettings,
+  onViewSite,
 }: {
   project: ProjectDetail;
   type: WorkspaceType;
@@ -357,6 +364,7 @@ function WorkspaceHeader({
   onAskHermes: () => void;
   onDelegate: () => void;
   onOpenSettings: () => void;
+  onViewSite: () => void;
 }) {
   const [viewingSource, setViewingSource] = useState(false);
   const archive = useArchiveProject(project.slug);
@@ -417,6 +425,12 @@ function WorkspaceHeader({
             <Target className="size-3.5" strokeWidth={2} aria-hidden="true" />
             Start focus
           </PaperButton>
+          {project.configuration.vercelProjectId ? (
+            <PaperButton variant="ghost" onClick={onViewSite} title="Opens the live site here, in the Site tab">
+              <Globe className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              View site
+            </PaperButton>
+          ) : null}
           {showDelegate ? (
             <PaperButton variant="ghost" onClick={onDelegate}>
               <Send className="size-3.5" strokeWidth={2} aria-hidden="true" />

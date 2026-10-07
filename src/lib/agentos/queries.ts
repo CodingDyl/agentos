@@ -54,6 +54,7 @@ import { getAiStack, setAiEnabled, setAiModel } from "./client";
 import {
   createTaskFromSeoFinding,
   getProjectSeo,
+  getProjectSite,
   getProjectVercelInfo,
   getVercelProjects,
   runProjectSeoAudit,
@@ -235,6 +236,7 @@ export const agentosKeys = {
   aiStack: () => [...agentosKeys.all, "ai-stack"] as const,
   vercelProjects: () => [...agentosKeys.all, "vercel-projects"] as const,
   projectVercel: (slug: string) => [...agentosKeys.all, "project-vercel", slug] as const,
+  projectSite: (slug: string) => [...agentosKeys.all, "project-site", slug] as const,
   seo: (slug: string) => [...agentosKeys.all, "seo", slug] as const,
   missionControl: () => [...agentosKeys.all, "mission-control"] as const,
   todayCalendar: () => [...agentosKeys.all, "today-calendar"] as const,
@@ -591,6 +593,26 @@ export function useProjectVercelInfo(slug: string, enabled: boolean) {
     staleTime: 30_000,
     retry: 0,
     networkMode: "always",
+  });
+}
+
+/**
+ * A workspace's Site tab and its header's View site button. While a production
+ * deployment is building it re-reads every 15s, so the strip turns Ready on
+ * its own; otherwise once a minute is plenty.
+ */
+export function useProjectSite(slug: string) {
+  return useQuery({
+    queryKey: agentosKeys.projectSite(slug),
+    queryFn: () => getProjectSite(slug),
+    staleTime: 30_000,
+    retry: 0,
+    networkMode: "always",
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const state = data?.status === "linked" ? data.production?.state : undefined;
+      return state === "BUILDING" || state === "QUEUED" || state === "INITIALIZING" ? 15_000 : 60_000;
+    },
   });
 }
 

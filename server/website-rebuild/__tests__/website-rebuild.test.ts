@@ -13,7 +13,7 @@ const store = await import("../store");
 const { advance, STAGE_HANDLERS, StageBlocked } = await import("../runner");
 const { captureSite, parseRobots, robotsAllows, normalizePageUrl } = await import("../capture");
 const { buildManifest, buildStructure, buildTranscript } = await import("../reports");
-const { socialProfilePlatform } = await import("../../../shared/website-rebuild-types");
+const { socialProfilePlatform, changeRequestText } = await import("../../../shared/website-rebuild-types");
 type CapturedPage = import("../capture").CapturedPage;
 type RunnerDeps = import("../runner").RunnerDeps;
 type StageHandler = import("../runner").StageHandler;
@@ -172,6 +172,26 @@ describe("approval checkpoints", () => {
     store.decide(run.id, "hero", 2, "approved", undefined, "concept-b");
     const decisions = store.readRun(run.id).decisions;
     assert.deepEqual(decisions.map((entry) => [entry.revision, entry.decision]), [[1, "changes_requested"], [2, "approved"]]);
+  });
+
+  it("keeps notes per hero concept, saved on the revision, and sends them with a change request", async () => {
+    const { run } = newRun();
+    await advance(run.id, allProduce, fakeDeps);
+    store.saveConceptNote(run.id, "hero", 1, "concept-a", "Keep the headline, drop the badge");
+    store.saveConceptNote(run.id, "hero", 1, "concept-c", "Too loud");
+    store.saveConceptNote(run.id, "hero", 1, "concept-c", "");
+    assert.deepEqual(store.readRun(run.id).conceptNotes.map((entry) => ({ ...entry })), [{ stage: "hero", revision: 1, concept: "concept-a", note: "Keep the headline, drop the badge" }]);
+    assert.throws(() => store.saveConceptNote(run.id, "hero", 2, "concept-a", "x"), /not the latest/);
+    assert.throws(() => store.saveConceptNote(run.id, "hero", 1, "concept-z", "x"), /Only the hero concepts/);
+    assert.throws(() => store.saveConceptNote(run.id, "build", 1, "concept-a", "x"), /Only the hero concepts/);
+
+    // Concept notes alone are enough to request changes, and reach the worker keyed by concept.
+    store.decide(run.id, "hero", 1, "changes_requested", undefined, undefined, { "concept-a": "Keep the headline, drop the badge", "concept-b": "  " });
+    const request = store.openChangeRequest(run.id, "hero");
+    assert.deepEqual(request?.conceptNotes, { "concept-a": "Keep the headline, drop the badge" });
+    assert.match(changeRequestText(request ?? {}), /concept-a: Keep the headline/);
+    assert.doesNotMatch(changeRequestText(request ?? {}), /concept-b/);
+    assert.throws(() => store.saveConceptNote(run.id, "hero", 1, "concept-a", "late"), /not waiting for review/);
   });
 
   it("a new revision of an approved deliverable pauses the work that depended on it", async () => {

@@ -3,7 +3,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
-import { SKILL_NAME_PATTERN, type JobSkill, type SkillDraft, type SkillParseResult, type SkillRequirement, type SkillSummary } from "../../shared/skill-types";
+import {
+  SKILL_NAME_PATTERN,
+  SkillOriginSchema,
+  type JobSkill,
+  type SkillDraft,
+  type SkillOrigin,
+  type SkillParseResult,
+  type SkillRequirement,
+  type SkillSummary,
+} from "../../shared/skill-types";
 import { uiStateDir } from "../agentos/session-store";
 
 /**
@@ -13,7 +22,9 @@ import { uiStateDir } from "../agentos/session-store";
  *
  * Skills written or uploaded on the Connectors page live in the AgentOS
  * state folder (`skills/` next to `skills.json`), one folder each, and are
- * the only ones the page may edit or delete.
+ * the only ones the page may edit. Skills installed from a GitHub repo live
+ * beside them in `marketplace-skills/`, with where each came from in
+ * `marketplace-skills.json` — see `marketplace.ts`.
  *
  * Whether a skill is enabled is stored here, apart from the files, in
  * `skills.json`: bundled skills start enabled, local ones disabled until a
@@ -29,7 +40,7 @@ const MAX_SKILL_BYTES = 256 * 1024;
 
 export interface SkillSource {
   dir: string;
-  source: "bundled" | "local" | "added";
+  source: "bundled" | "local" | "added" | "marketplace";
 }
 
 /** Where skills added on the Connectors page are kept. */
@@ -37,11 +48,51 @@ export function addedSkillsDir(): string {
   return path.join(uiStateDir(), "skills");
 }
 
+/** Where skills installed from GitHub repos are kept. */
+export function marketplaceSkillsDir(): string {
+  return path.join(uiStateDir(), "marketplace-skills");
+}
+
+function originsFile(): string {
+  return path.join(uiStateDir(), "marketplace-skills.json");
+}
+
+/** Where each marketplace skill came from, by id. A record without its folder is ignored. */
+export async function readOrigins(): Promise<Record<string, SkillOrigin & { version?: string }>> {
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(originsFile(), "utf8"));
+    const skills = parsed && typeof parsed === "object" && "skills" in parsed ? (parsed.skills as Record<string, unknown>) : {};
+    const origins: Record<string, SkillOrigin & { version?: string }> = {};
+    for (const [id, value] of Object.entries(skills ?? {})) {
+      const origin = SkillOriginSchema.safeParse(value);
+      if (!origin.success) continue;
+      const version = value && typeof value === "object" && "version" in value && typeof value.version === "string" ? value.version : undefined;
+      origins[id] = { ...origin.data, ...(version ? { version } : {}) };
+    }
+    return origins;
+  } catch {
+    return {};
+  }
+}
+
+export async function writeOrigins(origins: Record<string, SkillOrigin & { version?: string }>): Promise<void> {
+  await fs.mkdir(uiStateDir(), { recursive: true });
+  const temporary = `${originsFile()}.${process.pid}.tmp`;
+  await fs.writeFile(temporary, `${JSON.stringify({ skills: origins }, null, 2)}\n`, "utf8");
+  await fs.rename(temporary, originsFile());
+}
+
+/** Off unless a person chose: local skills arrive from a folder nobody reviewed here. */
+function enabledByDefault(source: SkillSource["source"]): boolean {
+  return source === "bundled" || source === "added";
+}
+
 export function skillSources(): SkillSource[] {
   const sources: SkillSource[] = [{ dir: path.join(APP_ROOT, "skills"), source: "bundled" }];
   const local = process.env.AGENTOS_SKILLS_DIR?.trim();
   if (local) sources.push({ dir: path.resolve(local), source: "local" });
   sources.push({ dir: addedSkillsDir(), source: "added" });
+  sources.push({ dir: marketplaceSkillsDir(), source: "marketplace" });
   return sources;
 }
 
@@ -49,7 +100,7 @@ function stateFile(): string {
   return path.join(uiStateDir(), "skills.json");
 }
 
-async function readEnablement(): Promise<Record<string, boolean>> {
+export async function readEnablement(): Promise<Record<string, boolean>> {
   try {
     const parsed: unknown = JSON.parse(await fs.readFile(stateFile(), "utf8"));
     if (parsed && typeof parsed === "object" && "enabled" in parsed && typeof parsed.enabled === "object" && parsed.enabled) {
@@ -61,7 +112,7 @@ async function readEnablement(): Promise<Record<string, boolean>> {
   return {};
 }
 
-async function writeEnablement(enabled: Record<string, boolean>): Promise<void> {
+export async function writeEnablement(enabled: Record<string, boolean>): Promise<void> {
   await fs.mkdir(uiStateDir(), { recursive: true });
   const temporary = `${stateFile()}.${process.pid}.tmp`;
   await fs.writeFile(temporary, `${JSON.stringify({ enabled }, null, 2)}\n`, "utf8");
@@ -146,6 +197,7 @@ export interface SkillDeps {
 /** Every skill in every source. A bundled skill wins over a local one with the same folder name. */
 export async function listSkills(deps: SkillDeps): Promise<SkillSummary[]> {
   const enabled = await readEnablement();
+  const origins = await readOrigins();
   const connectors = await deps.connectors().catch(() => []);
   const seen = new Set<string>();
   const skills: SkillSummary[] = [];
@@ -173,13 +225,16 @@ export async function listSkills(deps: SkillDeps): Promise<SkillSummary[]> {
       });
       const errors = [...skill.errors, ...requirements.filter((requirement) => !requirement.known).map((requirement) => `Requires an unknown connector: ${requirement.connector}`)];
       const chosen = enabled[skill.id];
+      const origin = source === "marketplace" ? origins[skill.id] : undefined;
       skills.push({
         id: skill.id,
         name: skill.name,
         description: skill.description,
-        version: skill.version,
+        // A plugin's SKILL.md often carries no version; its plugin.json does, and the install recorded it.
+        version: origin?.version && skill.version === "0.0.0" ? origin.version : skill.version,
         source,
-        enabled: errors.length === 0 && (chosen ?? source !== "local"),
+        ...(origin ? { origin: { repo: origin.repo, branch: origin.branch, commit: origin.commit, path: origin.path, plugin: origin.plugin, installedAt: origin.installedAt } } : {}),
+        enabled: errors.length === 0 && (chosen ?? enabledByDefault(source)),
         requirements,
         errors,
         instructions: skill.instructions,
@@ -219,7 +274,7 @@ export async function isSkillEnabled(id: string): Promise<boolean> {
     if (!skill) continue;
     // A broken skill never runs, whatever was chosen before it broke.
     if (skill.errors.length > 0) return false;
-    return (await readEnablement())[id] ?? source !== "local";
+    return (await readEnablement())[id] ?? enabledByDefault(source);
   }
   return false;
 }
@@ -335,14 +390,23 @@ export async function saveAddedSkill(draft: SkillDraft, existingId: string | und
   return saved;
 }
 
-/** Deletes an added skill. Refused while a run uses it; jobs that copied its instructions keep them. */
+/**
+ * Deletes an added skill, or removes one installed from a repo. Refused while
+ * a run uses it; jobs that copied its instructions keep them. Bundled and
+ * local skills are never deleted here.
+ */
 export async function deleteAddedSkill(id: string, deps: SkillDeps): Promise<void> {
   if (!NAME.test(id)) throw new SkillError("No such skill.", 404);
   const skill = (await listSkills(deps)).find((entry) => entry.id === id);
   if (!skill) throw new SkillError("No such skill.", 404);
-  if (skill.source !== "added") throw new SkillError("Only skills added on this page can be deleted here.", 403);
+  if (skill.source !== "added" && skill.source !== "marketplace") throw new SkillError("Only skills added or installed on this page can be removed here.", 403);
   if (skill.activeRuns > 0) throw new SkillError("A run is using this skill. Finish or cancel it first.", 409);
-  await fs.rm(path.join(addedSkillsDir(), id), { recursive: true, force: true });
+  await fs.rm(path.join(skill.source === "added" ? addedSkillsDir() : marketplaceSkillsDir(), id), { recursive: true, force: true });
+  if (skill.source === "marketplace") {
+    const origins = await readOrigins();
+    delete origins[id];
+    await writeOrigins(origins);
+  }
   const enabled = await readEnablement();
   delete enabled[id];
   await writeEnablement(enabled);
@@ -360,5 +424,7 @@ export async function skillForJob(id: string, deps: SkillDeps): Promise<JobSkill
   if (!skill.enabled) throw new SkillError(`The ${skill.name} skill is disabled in Connectors → Skills.`, 409);
   const missing = skill.requirements.filter((requirement) => !requirement.connected).map((requirement) => requirement.name);
   if (missing.length > 0) throw new SkillError(`The ${skill.name} skill needs ${missing.join(", ")} connected first.`, 409);
-  return { id: skill.id, name: skill.name, version: skill.version, instructions: skill.instructions };
+  const source = skillSources().find((entry) => entry.source === skill.source);
+  const baseDir = source ? path.join(source.dir, skill.id) : undefined;
+  return { id: skill.id, name: skill.name, version: skill.version, instructions: skill.instructions, ...(baseDir ? { baseDir } : {}) };
 }

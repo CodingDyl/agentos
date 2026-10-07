@@ -16,6 +16,20 @@ export const SkillRequirementSchema = z.object({
   known: z.boolean(),
 });
 
+/** Where a marketplace skill came from: the repo, and the exact commit its files are from. */
+export const SkillOriginSchema = z.object({
+  /** `owner/repo`. */
+  repo: z.string(),
+  /** The branch updates follow. */
+  branch: z.string(),
+  commit: z.string(),
+  /** The skill's folder inside the repo, e.g. `plugins/animate/skills/animate`. */
+  path: z.string(),
+  /** The Claude plugin it was published in, when the repo is a plugin marketplace. */
+  plugin: z.string().optional(),
+  installedAt: z.string(),
+});
+
 export const SkillSummarySchema = z.object({
   /** The folder name; also the id used to enable or disable it. */
   id: z.string(),
@@ -25,9 +39,11 @@ export const SkillSummarySchema = z.object({
   /**
    * `bundled` ships with AgentOS; `local` comes from AGENTOS_SKILLS_DIR and
    * starts disabled; `added` was written or uploaded on the Connectors page
-   * and is the only kind that can be edited or deleted there.
+   * and is the only kind that can be edited there; `marketplace` was
+   * installed from a GitHub repo and can be updated from it or removed.
    */
-  source: z.enum(["bundled", "local", "added"]),
+  source: z.enum(["bundled", "local", "added", "marketplace"]),
+  origin: SkillOriginSchema.optional(),
   enabled: z.boolean(),
   requirements: z.array(SkillRequirementSchema),
   /** Why the skill cannot be used. A skill with errors can't be enabled. */
@@ -79,6 +95,11 @@ export const JobSkillSchema = z.object({
   name: z.string(),
   version: z.string(),
   instructions: z.string(),
+  /**
+   * The skill's folder on disk, for skills with more than a SKILL.md: their
+   * instructions name files relative to it.
+   */
+  baseDir: z.string().optional(),
 });
 
 export const SkillsResponseSchema = z.object({ skills: z.array(SkillSummarySchema) });
@@ -91,3 +112,62 @@ export type SkillDraft = z.infer<typeof SkillDraftSchema>;
 export type SkillDraftInput = z.input<typeof SkillDraftSchema>;
 export type SkillParseResult = z.infer<typeof SkillParseResultSchema>;
 export type JobSkill = z.infer<typeof JobSkillSchema>;
+
+/** What a person pastes: `owner/repo`, or any github.com URL into the repo. */
+export const MarketplaceRepoInputSchema = z.object({ repo: z.string().trim().min(1, "Paste owner/repo or a GitHub URL.").max(300) }).strict();
+
+/** One skill found in a repo, before anything is installed. */
+export const MarketplaceCandidateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  version: z.string(),
+  plugin: z.string().optional(),
+  path: z.string(),
+  files: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  /** Why it can't be installed as it is. */
+  errors: z.array(z.string()),
+  /** Already installed from this same repo: installing again is an update. */
+  installed: z.boolean(),
+  /** Another skill already has this id, and marketplace installs never replace one. */
+  conflict: z.string().optional(),
+});
+
+/** A repo read for review. Nothing is installed until the person confirms. */
+export const MarketplacePreviewSchema = z.object({
+  repo: z.string(),
+  url: z.string(),
+  branch: z.string(),
+  commit: z.string(),
+  private: z.boolean(),
+  /** From `.claude-plugin/marketplace.json`, when the repo has one. */
+  marketplace: z.string().optional(),
+  skills: z.array(MarketplaceCandidateSchema),
+  /** Parts of the repo AgentOS deliberately leaves out: hooks, commands, MCP servers, scripts. */
+  notInstalled: z.array(z.string()),
+});
+
+export const MarketplaceInstallInputSchema = z
+  .object({
+    repo: z.string().trim().min(1).max(300),
+    /** The commit the person reviewed; the install uses exactly it. */
+    commit: z.string().regex(/^[0-9a-f]{40}$/, "Review the repo again before installing."),
+    skills: z.array(z.string().regex(SKILL_NAME_PATTERN)).min(1, "Pick at least one skill.").max(20),
+  })
+  .strict();
+
+export const MarketplaceInstallResultSchema = z.object({ installed: z.array(SkillSummarySchema) });
+
+export const MarketplaceUpdateResultSchema = z.object({
+  skill: SkillSummarySchema,
+  updated: z.boolean(),
+  previousVersion: z.string(),
+  previousCommit: z.string(),
+});
+
+export type SkillOrigin = z.infer<typeof SkillOriginSchema>;
+export type MarketplaceCandidate = z.infer<typeof MarketplaceCandidateSchema>;
+export type MarketplacePreview = z.infer<typeof MarketplacePreviewSchema>;
+export type MarketplaceInstallInput = z.infer<typeof MarketplaceInstallInputSchema>;
+export type MarketplaceUpdateResult = z.infer<typeof MarketplaceUpdateResultSchema>;

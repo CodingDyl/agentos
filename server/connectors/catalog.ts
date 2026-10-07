@@ -95,7 +95,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     integrated: true,
     capabilities: [
       { action: "search_repositories", name: "Search public repositories", risk: "read", implementedBy: "server/today/trending.ts" },
-      { action: "read_repository", name: "Read repositories", risk: "read" },
+      { action: "read_repository", name: "Read repositories", risk: "read", implementedBy: "server/skills/marketplace.ts" },
       { action: "create_repository", name: "Create repositories", risk: "write-external" },
       { action: "create_branch", name: "Create branches", risk: "write-external" },
       { action: "push", name: "Push branches", risk: "write-external" },

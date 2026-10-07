@@ -99,6 +99,12 @@ describe("workspace tabs", () => {
     assert.equal(resolveWorkspaceTabs({ type: "client", configured: ["tasks"], hasRebuild: true }).primary[0], "rebuild");
   });
 
+  it("gives a linked Vercel project the Site tab, before Decisions", () => {
+    const tabs = resolveWorkspaceTabs({ type: "client", hasSite: true });
+    assert.equal(tabs.primary[tabs.primary.indexOf("decisions") - 1], "site");
+    assert.ok(resolveWorkspaceTabs({ type: "client" }).more.includes("site"));
+  });
+
   it("calls a client's roadmap Milestones", () => {
     assert.equal(moduleLabel("roadmap", "client"), "Milestones");
     assert.equal(moduleLabel("roadmap", "product"), "Roadmap");

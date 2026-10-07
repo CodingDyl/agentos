@@ -52,3 +52,49 @@ export type VercelDomain = z.infer<typeof VercelDomainSchema>;
 export type VercelDeployment = z.infer<typeof VercelDeploymentSchema>;
 export type VercelProjectsResponse = z.infer<typeof VercelProjectsResponseSchema>;
 export type ProjectVercelInfo = z.infer<typeof ProjectVercelInfoSchema>;
+
+/** Whether a site will draw inside an AgentOS frame, read from its own response headers. */
+export const SiteEmbedSchema = z.object({
+  allowed: z.boolean(),
+  /** Why not, in the operator's terms — e.g. the site sends `X-Frame-Options: DENY`. */
+  reason: z.string().optional(),
+});
+
+/**
+ * Everything a workspace's Site tab needs in one read: the production URL to
+ * frame, the deployment behind it, and whether framing will work at all.
+ *
+ * Expected states — nothing linked, no token, a rejected token — come back as
+ * a `status` rather than an HTTP error, so the tab can say which one it is
+ * and offer the matching fix.
+ */
+export const ProjectSiteSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("unlinked") }),
+  z.object({ status: z.literal("not-configured"), message: z.string() }),
+  z.object({
+    status: z.literal("unavailable"),
+    projectName: z.string(),
+    /** `unauthorized` means the token was rejected; anything else is Vercel or the network. */
+    reason: z.string(),
+    message: z.string(),
+  }),
+  z.object({
+    status: z.literal("linked"),
+    projectId: z.string(),
+    projectName: z.string(),
+    /** The address framed and shown: the shortest verified domain, else the production deployment's own URL. */
+    url: z.string().optional(),
+    urlSource: z.enum(["domain", "deployment"]).optional(),
+    domains: z.array(VercelDomainSchema),
+    /** The newest production deployment, whatever its state. */
+    production: VercelDeploymentSchema.optional(),
+    /** The newest production deployment that is serving — what the URL actually shows. */
+    serving: VercelDeploymentSchema.optional(),
+    embed: SiteEmbedSchema.optional(),
+    checkedAt: z.string(),
+  }),
+]);
+
+export type SiteEmbed = z.infer<typeof SiteEmbedSchema>;
+export type ProjectSite = z.infer<typeof ProjectSiteSchema>;
+export type LinkedProjectSite = Extract<ProjectSite, { status: "linked" }>;

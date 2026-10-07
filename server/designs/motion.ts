@@ -197,7 +197,7 @@ export async function studioInfo(): Promise<MotionStudioInfo> {
 // ---------------------------------------------------------------------------
 
 /** A filesystem-safe version of a label, for names Claude and the operator will read. */
-function slug(text: string, fallback = "film"): string {
+export function slug(text: string, fallback = "film"): string {
   const cleaned = text.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
   return cleaned || fallback;
 }
@@ -326,7 +326,7 @@ export function claudeArgs(
 }
 
 /** The plan, never the API: a key in the environment would switch billing. */
-function planEnvironment(): NodeJS.ProcessEnv {
+export function planEnvironment(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   delete env.ANTHROPIC_API_KEY;
   delete env.ANTHROPIC_AUTH_TOKEN;
@@ -335,7 +335,7 @@ function planEnvironment(): NodeJS.ProcessEnv {
   return env;
 }
 
-function alive(pid: number): boolean {
+export function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -345,7 +345,7 @@ function alive(pid: number): boolean {
 }
 
 /** Stops the whole process group: Claude, and any render it started. */
-function stopGroup(pid: number): void {
+export function stopGroup(pid: number): void {
   for (const signal of ["SIGTERM"] as const) {
     try {
       process.kill(-pid, signal);

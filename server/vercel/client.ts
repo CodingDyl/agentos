@@ -121,9 +121,14 @@ interface VercelDeploymentsResponse {
   deployments: { uid: string; url: string; state?: string; target?: string | null; createdAt: number }[];
 }
 
-export async function getVercelDeployments(projectId: string, limit = 5): Promise<VercelDeployment[]> {
+export async function getVercelDeployments(
+  projectId: string,
+  limit = 5,
+  target?: "production" | "preview",
+): Promise<VercelDeployment[]> {
+  const targetQuery = target ? `&target=${target}` : "";
   const data = await vercelGet<VercelDeploymentsResponse>(
-    `/v6/deployments?projectId=${encodeURIComponent(projectId)}&limit=${limit}`,
+    `/v6/deployments?projectId=${encodeURIComponent(projectId)}&limit=${limit}${targetQuery}`,
     "vercel.read_deployments",
   );
 

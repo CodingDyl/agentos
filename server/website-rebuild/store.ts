@@ -161,6 +161,18 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE runs ADD COLUMN site_note TEXT;
   `,
+  `
+  CREATE TABLE IF NOT EXISTS concept_notes (
+    run_id     TEXT NOT NULL,
+    stage      TEXT NOT NULL,
+    revision   INTEGER NOT NULL,
+    concept    TEXT NOT NULL,
+    note       TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (run_id, stage, revision, concept)
+  );
+  ALTER TABLE decisions ADD COLUMN concept_notes TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -292,9 +304,12 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
         )
       : [],
     decisions: withDetail
-      ? (db.prepare("SELECT * FROM decisions WHERE run_id = ? ORDER BY at").all(row.id) as unknown as { id: string; stage: RebuildStageId; revision: number; decision: "approved" | "changes_requested"; note: string | null; choice: string | null; at: string }[]).map(
-          (decision): RebuildDecision => ({ id: decision.id, stage: decision.stage, revision: decision.revision, decision: decision.decision, note: decision.note ?? undefined, choice: decision.choice ?? undefined, at: decision.at }),
+      ? (db.prepare("SELECT * FROM decisions WHERE run_id = ? ORDER BY at").all(row.id) as unknown as { id: string; stage: RebuildStageId; revision: number; decision: "approved" | "changes_requested"; note: string | null; choice: string | null; concept_notes: string | null; at: string }[]).map(
+          (decision): RebuildDecision => ({ id: decision.id, stage: decision.stage, revision: decision.revision, decision: decision.decision, note: decision.note ?? undefined, choice: decision.choice ?? undefined, conceptNotes: decision.concept_notes ? parseJson<Record<string, string>>(decision.concept_notes, {}) : undefined, at: decision.at }),
         )
+      : [],
+    conceptNotes: withDetail
+      ? (db.prepare("SELECT stage, revision, concept, note FROM concept_notes WHERE run_id = ? ORDER BY revision, concept").all(row.id) as unknown as { stage: RebuildStageId; revision: number; concept: string; note: string }[])
       : [],
     events: withDetail
       ? (db.prepare("SELECT * FROM events WHERE run_id = ? ORDER BY id DESC LIMIT 200").all(row.id) as unknown as { id: number; stage: RebuildStageId | null; at: string; level: RebuildEvent["level"]; message: string }[]).map(
@@ -616,9 +631,11 @@ export function resetForRetry(runId: string, stage: RebuildStageId, worker?: str
  * revision is the latest and is waiting for review, so an approval can never
  * land on a deliverable nobody looked at.
  */
-export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string, choice?: string): void {
+export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string, choice?: string, conceptNotes?: Record<string, string | undefined>): void {
   if (!GATED_STAGES.has(stage)) throw new RebuildError(`${stage} has no approval checkpoint.`, 422);
-  if (decision === "changes_requested" && !note?.trim()) throw new RebuildError("Say what should change.", 422);
+  const perConcept = Object.fromEntries(Object.entries(conceptNotes ?? {}).flatMap(([concept, text]) => (text?.trim() ? [[concept, text.trim()]] : [])));
+  if (Object.keys(perConcept).length > 0 && stage !== "hero") throw new RebuildError("Only the hero concepts take per-concept notes.", 422);
+  if (decision === "changes_requested" && !note?.trim() && Object.keys(perConcept).length === 0) throw new RebuildError("Say what should change.", 422);
   const db = rebuildDatabase();
   db.exec("BEGIN IMMEDIATE");
   try {
@@ -631,7 +648,17 @@ export function decide(runId: string, stage: RebuildStageId, revision: number, d
       throw new RebuildError("Choose which concept to build before approving.", 422);
     }
 
-    db.prepare("INSERT INTO decisions (id, run_id, stage, revision, decision, note, at, choice) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(randomUUID(), runId, stage, revision, decision, note?.trim() || null, iso(), choice ?? null);
+    db.prepare("INSERT INTO decisions (id, run_id, stage, revision, decision, note, at, choice, concept_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      randomUUID(),
+      runId,
+      stage,
+      revision,
+      decision,
+      note?.trim() || null,
+      iso(),
+      choice ?? null,
+      Object.keys(perConcept).length > 0 ? JSON.stringify(perConcept) : null,
+    );
     if (decision === "approved") {
       db.prepare("UPDATE stages SET status = 'complete', approved_revision = ? WHERE run_id = ? AND stage = ?").run(revision, runId, stage);
       if (stage === "hero") db.prepare("UPDATE runs SET hero_choice = ? WHERE id = ?").run(choice ?? null, runId);
@@ -644,7 +671,23 @@ export function decide(runId: string, stage: RebuildStageId, revision: number, d
     db.exec("ROLLBACK");
     throw error;
   }
-  logEvent(runId, stage, "info", decision === "approved" ? `Revision ${revision} approved${choice ? ` with ${choice}` : ""}.` : `Changes requested on revision ${revision}: ${note?.trim()}`);
+  logEvent(runId, stage, "info", decision === "approved" ? `Revision ${revision} approved${choice ? ` with ${choice}` : ""}.` : `Changes requested on revision ${revision}: ${[note?.trim(), ...Object.entries(perConcept).map(([concept, text]) => `${concept}: ${text}`)].filter(Boolean).join(" | ")}`);
+  touch(runId);
+}
+
+/** Saves one concept's note on the revision waiting for review; an empty note clears it. Survives refresh and is sent with the decision. */
+export function saveConceptNote(runId: string, stage: RebuildStageId, revision: number, concept: string, note: string): void {
+  if (stage !== "hero" || !(HERO_CONCEPTS as readonly string[]).includes(concept)) throw new RebuildError("Only the hero concepts take notes.", 422);
+  const db = rebuildDatabase();
+  const row = db.prepare("SELECT status, revision FROM stages WHERE run_id = ? AND stage = ?").get(runId, stage) as { status: RebuildStageStatus; revision: number } | undefined;
+  if (!row) throw new RebuildError("That rebuild does not exist.", 404);
+  if (row.revision !== revision) throw new RebuildError(`Revision ${revision} is not the latest. Review revision ${row.revision} instead.`);
+  if (row.status !== "awaiting_approval") throw new RebuildError("This revision is not waiting for review.");
+  if (note.trim()) {
+    db.prepare("INSERT INTO concept_notes (run_id, stage, revision, concept, note, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(run_id, stage, revision, concept) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at").run(runId, stage, revision, concept, note.trim(), iso());
+  } else {
+    db.prepare("DELETE FROM concept_notes WHERE run_id = ? AND stage = ? AND revision = ? AND concept = ?").run(runId, stage, revision, concept);
+  }
   touch(runId);
 }
 

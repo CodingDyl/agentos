@@ -122,13 +122,19 @@ export function useStageWorkers(runId: string, stage: RebuildStageId, enabled: b
 }
 
 export function useDecideStage(runId: string) {
-  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string }) =>
+  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string; conceptNotes?: Record<string, string> }) =>
     call(`${base}/${encodeURIComponent(runId)}/stages/${input.stage}/${input.decision}`, RebuildRunSchema, {
       revision: input.revision,
       ...(input.note ? { note: input.note } : {}),
       ...(input.choice ? { choice: input.choice } : {}),
+      ...(input.conceptNotes && Object.keys(input.conceptNotes).length > 0 ? { conceptNotes: input.conceptNotes } : {}),
     }),
   );
+}
+
+/** Saves one hero concept's note on the revision under review; an empty note clears it. */
+export function useSaveConceptNote(runId: string) {
+  return useRunMutation((input: { revision: number; concept: string; note: string }) => call(`${base}/${encodeURIComponent(runId)}/stages/hero/concept-notes`, RebuildRunSchema, input));
 }
 
 /** Saves which brand images are used, their order, and the colours and fonts. */

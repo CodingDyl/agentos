@@ -173,7 +173,7 @@ function Film({ job, films }: { job: MotionJobDetail; films: DesignAsset[] }) {
   );
 }
 
-function Films({ films }: { films: DesignAsset[] }) {
+export function Films({ films }: { films: DesignAsset[] }) {
   const [active, setActive] = useState(0);
   const film = films[Math.min(active, films.length - 1)];
   const format = (asset: DesignAsset) =>
@@ -330,7 +330,7 @@ function Sheet({ url, label }: { url: string; label: string }) {
   );
 }
 
-function StudioLog({ entries, live }: { entries: MotionLogEntry[]; live: boolean }) {
+export function StudioLog({ entries, live }: { entries: MotionLogEntry[]; live: boolean }) {
   const scroller = useRef<HTMLOListElement>(null);
   const stuck = useRef(true);
 

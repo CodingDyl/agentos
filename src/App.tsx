@@ -24,6 +24,8 @@ import {
   BoardsPage,
   DesignsPage,
   GenerationsPage,
+  AnimateJobPage,
+  AnimatePage,
   MotionJobPage,
   MotionPage,
 } from "@/features/designs";
@@ -98,6 +100,8 @@ function App() {
           <Route path="/designs" element={<DesignsPage />} />
           <Route path="/designs/boards" element={<BoardsPage />} />
           <Route path="/designs/generations" element={<GenerationsPage />} />
+          <Route path="/designs/animate" element={<AnimatePage />} />
+          <Route path="/designs/animate/:id" element={<AnimateJobPage />} />
           <Route path="/designs/motion" element={<MotionPage />} />
           <Route path="/designs/motion/:id" element={<MotionJobPage />} />
           <Route path="/designs/boards/:id" element={<BoardDetailPage />} />

@@ -229,8 +229,10 @@ import {
 } from "@shared/mail-compose-types";
 import { AiStackSchema, type AiStack } from "@shared/ai-stack-types";
 import {
+  ProjectSiteSchema,
   ProjectVercelInfoSchema,
   VercelProjectsResponseSchema,
+  type ProjectSite,
   type ProjectVercelInfo,
   type VercelProjectSummary,
 } from "@shared/vercel-types";
@@ -547,6 +549,11 @@ export function getProjectVercelInfo(slug: string): Promise<ProjectVercelInfo> {
     (value) => ProjectVercelInfoSchema.safeParse(value),
     "No Vercel project is linked yet.",
   );
+}
+
+/** The Site tab's read: production URL, deployment health, and whether the site can be framed. */
+export function getProjectSite(slug: string): Promise<ProjectSite> {
+  return readVault(`/api/projects/${encodeURIComponent(slug)}/site`, (value) => ProjectSiteSchema.safeParse(value));
 }
 
 /** The SEO tab's whole read: the latest audit in full, plus prior runs as history. Never crawls on its own. */

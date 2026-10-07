@@ -1,4 +1,4 @@
-import { Clapperboard, ImagePlus, PenLine, Search, Upload } from "lucide-react";
+import { Clapperboard, ImagePlus, PenLine, Search, Sparkles, Upload } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { DesignAsset } from "@shared/agentos-types";
@@ -251,6 +251,18 @@ export function DesignsPage() {
                 >
                   <Clapperboard className="size-3.5" aria-hidden="true" />
                   Motion video
+                </PaperButton>
+
+                <PaperButton
+                  variant="ghost"
+                  title="Storyboard, build, deliver"
+                  onClick={() =>
+                    navigate(project === "all" || project === UNASSIGNED ? "/designs/animate" : `/designs/animate?project=${encodeURIComponent(project)}`)
+                  }
+                >
+                  <Sparkles className="size-3.5" aria-hidden="true" />
+                  Claude Motion
+                  <span className="hidden font-normal text-paper-sage 2xl:inline">Storyboard → build → deliver</span>
                 </PaperButton>
               </div>
 

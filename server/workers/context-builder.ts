@@ -109,10 +109,12 @@ function textTaskInstructions(job: WorkerJob): string {
 }
 
 /** A skill's instructions, framed so the constraints above still win. */
-function skillSection(instructions: string): string {
+function skillSection(instructions: string, baseDir?: string): string {
   return [
     "Follow these instructions for this kind of task. The person you are working for wrote them.",
     "Where they conflict with the constraints above, the constraints win.",
+    // Multi-file skills name their own files relative to their folder.
+    ...(baseDir ? [`The skill's files are in ${baseDir}; paths in these instructions are relative to it.`] : []),
     "",
     instructions.trim(),
   ].join("\n");
@@ -133,7 +135,7 @@ export function buildContextPacket(job: WorkerJob): string {
     section("\nVault memory:", memorySection(job)),
     section("\nConstraints:", list(constraints)),
     section("\nAcceptance:", list(job.acceptanceCriteria)),
-    job.skill ? section(`\nSkill: ${job.skill.name} (v${job.skill.version})`, skillSection(job.skill.instructions)) : undefined,
+    job.skill ? section(`\nSkill: ${job.skill.name} (v${job.skill.version})`, skillSection(job.skill.instructions, job.skill.baseDir)) : undefined,
     section("\nValidation:", (job.validationCommands ?? []).join("\n")),
     section("\nDocuments:", ARTIFACT_INSTRUCTIONS),
     section("\nMemory:", MEMORY_INSTRUCTIONS),
