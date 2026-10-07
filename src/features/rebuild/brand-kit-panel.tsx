@@ -7,8 +7,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * The client's branding as capture found it: tick off what the new site
- * should use, put the right logo first, add files the site didn't have, and
- * correct the colours and fonts. The next hero or build revision uses it.
+ * should use, put the right logo first, remove images that are not theirs
+ * (capture also picks up their clients' and partners' logos), add files the
+ * site didn't have, and correct the colours and fonts. The next hero or
+ * build revision uses it. Nothing changes until Save.
  */
 
 type EditableColor = Pick<BrandColor, "hex" | "role">;
@@ -17,12 +19,15 @@ const FONT_ROLES: BrandFont["role"][] = ["body", "heading"];
 
 interface Draft {
   order: { id: string; include: boolean }[];
+  /** Taken out of the kit on Save. */
+  removed: string[];
   colors: EditableColor[];
   fonts: BrandFont[];
 }
 
 const draftOf = (kit: BrandKit): Draft => ({
   order: kit.assets.map((asset) => ({ id: asset.id, include: asset.include })),
+  removed: [],
   colors: kit.colors.map(({ hex, role }) => ({ hex, role })),
   fonts: kit.fonts.map((font) => ({ ...font })),
 });
@@ -53,11 +58,16 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
     change({ ...draft, order });
   };
 
+  const edit = () => ({ assets: draft.order, removed: draft.removed, colors: draft.colors, fonts: draft.fonts.filter((font) => font.family.trim()) });
+
+  const remove = (assetId: string) =>
+    change({ ...draft, order: draft.order.filter((entry) => entry.id !== assetId), removed: [...draft.removed, assetId] });
+
   const send = (file: File | undefined, kind: "logo" | "photo") => {
     if (!file) return;
     // Unsaved edits would be lost when the upload refreshes the kit, so save them with it.
     const uploadFile = () => upload.mutate({ file, kind }, { onSuccess: () => setEditing(null) });
-    if (dirty) save.mutate({ assets: draft.order, colors: draft.colors, fonts: draft.fonts.filter((font) => font.family.trim()) }, { onSuccess: uploadFile });
+    if (dirty) save.mutate(edit(), { onSuccess: uploadFile });
     else uploadFile();
   };
 
@@ -71,7 +81,9 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
           Brand kit
         </h3>
         <p className="text-[12px] text-paper-sage">
-          {included} of {draft.order.length} images used{kit.source === "edited" ? " · edited" : ""}
+          {included} of {draft.order.length} images used
+          {draft.removed.length > 0 ? ` · ${draft.removed.length} to remove on save` : ""}
+          {kit.source === "edited" ? " · edited" : ""}
         </p>
       </div>
       <p className="mt-1 max-w-[80ch] text-[12.5px] leading-5 text-paper-sage">
@@ -107,6 +119,15 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
                   </button>
                   <button type="button" className="p-1 text-paper-sage hover:text-paper-moss disabled:opacity-30" onClick={() => move(index, 1)} disabled={index === assets.length - 1} aria-label={`Move ${asset.id} later`}>
                     <ArrowRight className="size-3.5" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="ml-auto p-1 text-paper-sage hover:text-paper-flame"
+                    onClick={() => remove(asset.id)}
+                    aria-label={`Remove this ${asset.kind} from the brand kit`}
+                    title="Remove from the brand kit (on Save)"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden="true" />
                   </button>
                 </div>
               </li>
@@ -217,7 +238,7 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
           <PaperButton
             variant="amber"
             disabled={save.isPending}
-            onClick={() => save.mutate({ assets: draft.order, colors: draft.colors, fonts: draft.fonts.filter((font) => font.family.trim()) }, { onSuccess: () => setEditing(null) })}
+            onClick={() => save.mutate(edit(), { onSuccess: () => setEditing(null) })}
           >
             {save.isPending ? "Saving…" : "Save brand kit"}
           </PaperButton>

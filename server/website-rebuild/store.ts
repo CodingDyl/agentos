@@ -416,16 +416,19 @@ export function setBrandKit(runId: string, kit: BrandKit): void {
 }
 
 /**
- * A person's changes to the kit: the order and inclusion of the images, and
- * the colours and fonts. Every existing asset must be listed once, so a stale
- * page cannot silently drop an image someone uploaded meanwhile.
+ * A person's changes to the kit: the order and inclusion of the images,
+ * images removed, and the colours and fonts. Every existing asset must be
+ * named exactly once, as kept or removed, so a stale page cannot silently
+ * drop an image someone uploaded meanwhile. A removed image leaves the kit;
+ * its captured file stays with the run's reports.
  */
 export function editBrandKit(runId: string, edit: BrandKitEdit): RebuildRun {
   const run = readRun(runId);
   if (!run.brandKit) throw new RebuildError("This rebuild has no brand kit yet. It is made when the website capture finishes.");
   const known = new Map(run.brandKit.assets.map((asset) => [asset.id, asset]));
-  const listed = new Set(edit.assets.map((entry) => entry.id));
-  if (listed.size !== edit.assets.length || listed.size !== known.size || [...listed].some((id) => !known.has(id))) {
+  const named = [...edit.assets.map((entry) => entry.id), ...edit.removed];
+  const listed = new Set(named);
+  if (listed.size !== named.length || listed.size !== known.size || [...listed].some((id) => !known.has(id))) {
     throw new RebuildError("The brand kit changed since this page loaded. Reload and try again.");
   }
   const seen = new Set<string>();
@@ -442,7 +445,12 @@ export function editBrandKit(runId: string, edit: BrandKitEdit): RebuildRun {
     colors: colors.map((color) => ({ ...color, weight: run.brandKit?.colors.find((old) => old.hex === color.hex && old.role === color.role)?.weight ?? 1 })),
     fonts: edit.fonts,
   });
-  logEvent(runId, "capture", "info", "The brand kit was edited. The next hero or build revision uses it.");
+  logEvent(
+    runId,
+    "capture",
+    "info",
+    `The brand kit was edited${edit.removed.length > 0 ? `, ${edit.removed.length} image${edit.removed.length === 1 ? "" : "s"} removed` : ""}. The next hero or build revision uses it.`,
+  );
   return readRun(runId);
 }
 
