@@ -525,8 +525,23 @@ export function applyEvent(job: Pick<StoredMotionJob, "log" | "sessionId" | "mod
         ((usage?.input_tokens as number) ?? 0) + ((usage?.cache_creation_input_tokens as number) ?? 0) || undefined,
       outputTokens: (usage?.output_tokens as number) ?? undefined,
     };
-    const failed = event.is_error === true || (typeof event.subtype === "string" && event.subtype !== "success");
-    job.resultError = failed ? `Claude Code stopped: ${String(event.subtype ?? "error")}.` : undefined;
+    // Determine if this was actually a failure, not just based on event.subtype
+    // Claude Code can report "success" but still fail the stage (e.g., tool errors, missing deliverables)
+    const subtype = typeof event.subtype === "string" ? event.subtype : undefined;
+    const failed = event.is_error === true || (subtype !== undefined && subtype !== "success");
+    
+    if (failed) {
+      // Provide a concrete error message based on what actually went wrong
+      const errorMessage = subtype === "timeout" ? "Claude Code did not finish within the time limit."
+        : subtype === "cancelled" ? "Claude Code was cancelled."
+        : subtype === "tool_error" ? "A tool call failed during execution."
+        : subtype ? `Claude Code stopped: ${subtype}.`
+        : "Claude Code encountered an error.";
+      job.resultError = errorMessage;
+    } else {
+      // Even on "success", let the settle function verify deliverables exist
+      job.resultError = undefined;
+    }
   }
 }
 
@@ -602,15 +617,20 @@ async function settle(job: StoredMotionJob): Promise<void> {
   }
 
   const filed = await fileOutputs(job);
+  // Never mark as completed when resultError exists, even if films were filed
+  if (job.resultError) {
+    pushLog(job, "system", filed > 0 ? `Filed ${filed} film${filed === 1 ? "" : "s"}, but the run failed validation.` : "No films to file.");
+    await finishWith(job, "failed", job.resultError);
+    return;
+  }
   if (job.assetIds.length > 0) {
     pushLog(job, "system", filed > 0 ? `Filed ${filed} film${filed === 1 ? "" : "s"} in Creative.` : "No new renders to file.");
-    await finishWith(job, "completed", job.resultError);
+    await finishWith(job, "completed", undefined);
     return;
   }
 
   const reason =
-    job.resultError ??
-    ((await stderrTail(job)) || "Claude Code stopped without leaving a film in out/. Resume to let it carry on.");
+    (await stderrTail(job)) || "Claude Code stopped without leaving a film in out/. Resume to let it carry on.";
   await finishWith(job, "failed", reason);
 }
 

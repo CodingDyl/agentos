@@ -19,12 +19,14 @@ import {
   type AnimateStyle,
 } from "../../shared/animate-types";
 import type { MotionLogEntry } from "../../shared/motion-types";
+import type { WorkerJob, WorkerEvent } from "../../shared/worker-types";
 import { recordActivity } from "../activity/ui-events";
 import { uiStateDir } from "../agentos/session-store";
 import { findOnPath } from "../ai-stack/detect";
 import { listConnectors } from "../connectors/registry";
 import { listSkills, skillSources, type SkillDeps } from "../skills/registry";
 import { activeRunCount } from "../website-rebuild/store";
+import { createJobId, saveJob as saveWorkerJob, readJob as readWorkerJob } from "../workers/job-store";
 import { createAsset } from "./library";
 import { mediaRoot, probeVideo, storeVideo } from "./media";
 import {
@@ -167,6 +169,8 @@ const StoredAnimateJobSchema = AnimateJobSchema.extend({
   resultError: z.string().optional(),
   /** What the next run is told, after a decision. */
   pendingPrompt: z.string().optional(),
+  /** The worker job ID for this animate run, so it appears in Workers / Today. */
+  workerJobId: z.string().optional(),
 });
 type StoredJob = z.infer<typeof StoredAnimateJobSchema>;
 
@@ -332,6 +336,71 @@ function revisionPrompt(note: string): string {
     "",
     "Make them, rebuild, re-export every format to the same renders/ names, run tools/review.mjs again, and rewrite checkpoints/delivery/notes.md with the new numbers. End with the same short summary.",
   ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Worker job integration
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates or updates a worker job for this animate run, so it appears in
+ * Workers / Today. The worker job tracks the overall creative run, not
+ * individual stages.
+ */
+async function syncWorkerJob(job: StoredJob): Promise<void> {
+  const workerJobId = job.workerJobId ?? createJobId();
+  
+  // Determine worker job status from animate status
+  let workerStatus: WorkerJob["status"];
+  let error: string | undefined;
+  
+  if (job.status === "queued" || job.status === "running") {
+    workerStatus = "running";
+  } else if (job.status === "awaiting_review") {
+    workerStatus = "awaiting_review";
+  } else if (job.status === "completed") {
+    workerStatus = "completed";
+  } else if (job.status === "failed") {
+    workerStatus = "failed";
+    error = job.error;
+  } else if (job.status === "cancelled") {
+    workerStatus = "cancelled";
+  } else {
+    workerStatus = "failed";
+    error = job.error ?? "Run was interrupted.";
+  }
+  
+  const existing = await readWorkerJob(workerJobId);
+  
+  const workerJob: WorkerJob = {
+    id: workerJobId,
+    worker: "claude-code" as any, // Claude Code as the worker
+    resolvedWorker: "claude-code" as any,
+    status: workerStatus,
+    project: job.request.project,
+    objective: `Claude Motion · ${job.title} · ${job.stage === "story" ? "Story check" : job.stage === "look" ? "Look" : job.stage === "storyboard" ? "Storyboard" : "Build and delivery"}`,
+    createdAt: existing?.createdAt ?? job.createdAt,
+    startedAt: job.startedAt,
+    completedAt: job.completedAt,
+    error,
+    result: job.status === "completed" || job.status === "failed" ? {
+      summary: job.summary ?? (job.status === "completed" ? `Completed ${job.title}` : job.error ?? "Run failed"),
+      artifacts: job.assetIds.map((assetId) => ({
+        title: `Video asset ${assetId}`,
+        path: `/designs?asset=${assetId}`,
+        type: "video",
+      })),
+    } : undefined,
+    lastEventAt: existing?.lastEventAt ?? new Date().toISOString(),
+  };
+  
+  await saveWorkerJob(workerJob);
+  
+  // Store the worker job ID on the animate job for future updates
+  if (!job.workerJobId) {
+    job.workerJobId = workerJobId;
+    await save(job);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -515,6 +584,10 @@ async function start(job: StoredJob): Promise<void> {
   if (attempt === 1) {
     await recordActivity({ type: "motion.started", description: `Claude Motion: ${job.title}`, project: job.request.project, metadata: { animateJobId: job.id } });
   }
+  
+  // Create/update worker job so it appears in Workers / Today
+  await syncWorkerJob(job);
+  
   watch(job.id);
 }
 
@@ -637,6 +710,7 @@ async function settle(job: StoredJob): Promise<void> {
       if (job.run) job.run = { ...job.run, cancelRequested: false };
       pushLog(job, "system", `${checkpoint.stage === "story" ? "Story check" : stage === "look" ? "Look" : "Storyboard"} is ready for your review.`);
       await save(job);
+      await syncWorkerJob(job);
       void pump();
       return;
     }
@@ -648,14 +722,20 @@ async function settle(job: StoredJob): Promise<void> {
   }
 
   const filed = await fileOutputs(job);
+  // Never mark as completed when resultError exists, even if videos were filed
+  if (job.resultError) {
+    pushLog(job, "system", filed > 0 ? `Filed ${filed} video${filed === 1 ? "" : "s"}, but the build failed validation.` : "No videos to file.");
+    await finishWith(job, "failed", job.resultError);
+    return;
+  }
   if (job.assetIds.length > 0) {
     const delivery = await readCheckpoint(job, "build", job.summary);
     if (delivery) job.checkpoints.push(delivery);
     pushLog(job, "system", filed > 0 ? `Filed ${filed} video${filed === 1 ? "" : "s"} in Creative.` : "No new renders to file.");
-    await finishWith(job, "completed", job.resultError);
+    await finishWith(job, "completed", undefined);
     return;
   }
-  const reason = job.resultError ?? ((await stderrTail(job)) || "Claude Code stopped without leaving a video in renders/. Resume to let it carry on.");
+  const reason = (await stderrTail(job)) || "Claude Code stopped without leaving a video in renders/. Resume to let it carry on.";
   await finishWith(job, "failed", reason);
 }
 
@@ -675,6 +755,10 @@ async function finishWith(job: StoredJob, status: "completed" | "failed" | "canc
       metadata: { animateJobId: job.id, assets: job.assetIds.length },
     });
   }
+  
+  // Update worker job with final status
+  await syncWorkerJob(job);
+  
   void pump();
 }
 
