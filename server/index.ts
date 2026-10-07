@@ -672,11 +672,14 @@ app.post("/api/mail/accounts/titan", async (request, response) => {
   }
   try {
     await verifyTitanLogin(parsed.data);
+    console.log(`[agentos] Virtara mailbox linked for ${parsed.data.address} at ${parsed.data.imapHost}:${parsed.data.imapPort}.`);
     closeTitanConnection();
     await saveTitanCredentials(parsed.data);
     response.json({ ok: true, address: parsed.data.address });
   } catch (error) {
     if (error instanceof TitanError) {
+      // The reason and Titan's reply only: never the password.
+      console.warn(`[agentos] Linking the Virtara mailbox failed (${error.reason}) for ${parsed.data.address} at ${parsed.data.imapHost}:${parsed.data.imapPort}: ${error.message}`);
       response.status(error.reason === "unauthorized" ? 401 : 409).json({ error: error.message, reason: error.reason });
       return;
     }
