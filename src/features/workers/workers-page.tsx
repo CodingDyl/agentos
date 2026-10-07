@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { DelegateJobForm } from "./delegate-job-form";
 import { GrokBotPanel } from "./grok-bot-panel";
 import { OllamaPanel } from "./ollama-panel";
-import { formatDuration, isCancellable, isFinished, statusLabel, statusPill } from "./workers-model";
+import { formatDuration, isCancellable, isFinished, jobTitle, statusLabel, statusPill } from "./workers-model";
 
 const PAGE_PADDING =
   "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
@@ -247,7 +247,7 @@ function BusyJob({ job }: { job: WorkerJob }) {
           to={`/workers/jobs/${job.id}`}
           className="os-focus-ring min-w-0 flex-1 cursor-pointer rounded-sm text-[14px] leading-5 text-foreground transition-colors duration-150 hover:text-os-amber"
         >
-          <span className="line-clamp-1">{job.objective}</span>
+          <span className="line-clamp-1">{jobTitle(job.objective)}</span>
           <span className="os-meta mt-1 block text-os-subtle">
             {job.project}
             {job.lastEventAt ?? job.startedAt ? ` · last heard ${formatRelativeTime(job.lastEventAt ?? job.startedAt)}` : ""}
@@ -286,7 +286,7 @@ function BusyJob({ job }: { job: WorkerJob }) {
             type="button"
             disabled={cancel.isPending}
             onClick={() => (live ? cancel.mutate(job.id) : setConfirming(true))}
-            aria-label={`Cancel ${job.objective}`}
+            aria-label={`Cancel ${jobTitle(job.objective, 80)}`}
             className={cn(
               "os-focus-ring os-meta inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-os-border px-2.5 text-os-muted transition-colors duration-150 hover:border-os-danger/50 hover:text-os-danger disabled:opacity-50",
             )}
@@ -313,7 +313,7 @@ function JobRow({ job }: { job: WorkerJob }) {
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
           <div className="min-w-0">
             <h3 className="truncate text-base leading-6 font-medium">
-              {job.objective}
+              {jobTitle(job.objective)}
             </h3>
             <p className="os-meta mt-2 text-os-subtle">
               {(job.resolvedWorker ?? job.worker).toUpperCase()} · {job.project}

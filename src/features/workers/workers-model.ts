@@ -297,3 +297,13 @@ export function visualAcceptanceProblem(
 
   return undefined;
 }
+
+/**
+ * A job's headline: the objective's first line, cut to a readable length. A
+ * generated brief (a website rebuild's research, say) runs to pages; the
+ * page shows the whole thing under "Full brief" instead of as the title.
+ */
+export function jobTitle(objective: string, max = 140): string {
+  const first = objective.split("\n").map((line) => line.trim()).find((line) => line.length > 0) ?? objective.trim();
+  return first.length > max ? `${first.slice(0, max - 1).trimEnd()}…` : first;
+}

@@ -59,9 +59,9 @@ export const RebuildWorkerPlanSchema = z.object({
 export type RebuildWorkerPlan = z.infer<typeof RebuildWorkerPlanSchema>;
 
 export const DEFAULT_WORKER_PLAN: RebuildWorkerPlan = {
-  // Grok Bot first: free, but started by hand, so research waits for you to trigger it.
+  // Grok Bot is started by hand, so it is last and only used when you choose it (Try another worker).
   // Claude Code is not on this list: its jobs are denied WebFetch and WebSearch, so it cannot cite live pages.
-  research: ["grok-bot", "hermes-worker", "gemini"],
+  research: ["hermes-worker", "gemini", "grok-bot"],
   hero: ["claude-code", "codex", "claude"],
   build: ["claude-code", "codex", "claude"],
   functions: ["codex", "claude-code", "claude"],
