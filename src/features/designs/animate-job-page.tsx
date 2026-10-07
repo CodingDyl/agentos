@@ -100,6 +100,32 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
   const pending = job.status === "awaiting_review" ? [...job.checkpoints].reverse().find((entry) => entry.stage === job.stage && !entry.decision) : undefined;
   const earlier = job.checkpoints.filter((entry) => entry !== pending && entry.stage !== "build");
   const delivery = [...job.checkpoints].reverse().find((entry) => entry.stage === "build");
+  
+  // Extract failing step from error message for primary error display
+  const extractFailingStep = (error: string | undefined): { step?: string; reason: string } | undefined => {
+    if (!error) return undefined;
+    
+    // Look for common failing steps: tool names, script names, or stage-specific failures
+    const toolMatch = error.match(/Tool error: (.+?)(?:\n|$)/);
+    if (toolMatch) {
+      return { step: "Tool execution", reason: toolMatch[1] };
+    }
+    
+    const scriptMatch = error.match(/(review\.mjs|export\.mjs|render\.mjs|storyboard\.mjs|tools\/\w+\.mjs)/);
+    if (scriptMatch) {
+      return { step: scriptMatch[1], reason: error };
+    }
+    
+    const stageMatch = error.match(/Claude stopped before drawing the (\w+) frames/);
+    if (stageMatch) {
+      return { step: `${stageMatch[1]} frames`, reason: error };
+    }
+    
+    // Generic - just show the error
+    return { reason: error };
+  };
+  
+  const failingInfo = stopped ? extractFailingStep(job.error) : undefined;
 
   return (
     <>
@@ -130,11 +156,22 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
         <Stepper job={job} />
       </div>
 
-      {job.error ? (
-        <p role="alert" className="mt-6 max-w-[80ch] border border-paper-flame-deep px-4 py-3 text-[13.5px] leading-6 text-paper-flame-deep">
-          {job.error}
-          {stopped ? " Resume carries on in the same session, with everything it has made so far." : ""}
-        </p>
+      {failingInfo ? (
+        <div role="alert" className="mt-6 max-w-[80ch] space-y-2 border border-paper-flame-deep bg-paper-linen px-4 py-3">
+          {failingInfo.step ? (
+            <p className="text-[14px] font-semibold text-paper-flame-deep">
+              Failed at {failingInfo.step}
+            </p>
+          ) : null}
+          <p className="text-[13.5px] leading-6 text-paper-char">
+            {failingInfo.reason}
+          </p>
+          {stopped ? (
+            <p className="text-[13px] text-paper-sage">
+              Resume carries on in the same session, with everything it has made so far.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="mt-10 grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">

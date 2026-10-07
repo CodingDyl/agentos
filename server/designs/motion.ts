@@ -488,7 +488,11 @@ export function describeTool(name: string, input: Record<string, unknown> | unde
 }
 
 /** Applies one line of Claude Code's stream to the record. */
-export function applyEvent(job: Pick<StoredMotionJob, "log" | "sessionId" | "model" | "summary" | "usage" | "resultError">, line: string): void {
+export function applyEvent(
+  job: Pick<StoredMotionJob, "log" | "sessionId" | "model" | "summary" | "usage" | "resultError">, 
+  line: string,
+  context?: { lastToolError?: string; stderr?: string }
+): void {
   let event: Record<string, unknown>;
   try {
     event = JSON.parse(line);
@@ -516,6 +520,18 @@ export function applyEvent(job: Pick<StoredMotionJob, "log" | "sessionId" | "mod
     return;
   }
 
+  // Track tool errors from tool_result events
+  if (event.type === "tool_result") {
+    const isError = event.is_error === true;
+    if (isError && context) {
+      const errorContent = typeof event.content === "string" ? event.content : 
+        Array.isArray(event.content) && typeof event.content[0]?.text === "string" ? event.content[0].text :
+        "Tool execution failed";
+      context.lastToolError = errorContent.trim().slice(0, 200);
+    }
+    return;
+  }
+
   if (event.type === "result") {
     if (typeof event.result === "string") job.summary = event.result.trim();
     const usage = record(event.usage);
@@ -525,18 +541,36 @@ export function applyEvent(job: Pick<StoredMotionJob, "log" | "sessionId" | "mod
         ((usage?.input_tokens as number) ?? 0) + ((usage?.cache_creation_input_tokens as number) ?? 0) || undefined,
       outputTokens: (usage?.output_tokens as number) ?? undefined,
     };
-    // Determine if this was actually a failure, not just based on event.subtype
-    // Claude Code can report "success" but still fail the stage (e.g., tool errors, missing deliverables)
+    
+    // Determine if this was actually a failure
+    // Never use the word "success" in an error message when is_error is true
     const subtype = typeof event.subtype === "string" ? event.subtype : undefined;
-    const failed = event.is_error === true || (subtype !== undefined && subtype !== "success");
+    const isError = event.is_error === true;
+    const failed = isError || (subtype !== undefined && subtype !== "success");
     
     if (failed) {
-      // Provide a concrete error message based on what actually went wrong
-      const errorMessage = subtype === "timeout" ? "Claude Code did not finish within the time limit."
-        : subtype === "cancelled" ? "Claude Code was cancelled."
-        : subtype === "tool_error" ? "A tool call failed during execution."
-        : subtype ? `Claude Code stopped: ${subtype}.`
-        : "Claude Code encountered an error.";
+      // Extract concrete error in priority order:
+      // 1. Last tool error from the stream
+      // 2. Stderr tail (provided via context)
+      // 3. Exit code/subtype (but never say "success" if is_error is true)
+      // 4. Generic fallback
+      let errorMessage: string;
+      
+      if (context?.lastToolError) {
+        errorMessage = `Tool error: ${context.lastToolError}`;
+      } else if (context?.stderr) {
+        errorMessage = `Error: ${context.stderr}`;
+      } else if (subtype && subtype !== "success") {
+        // Only use subtype if it's not "success"
+        errorMessage = subtype === "timeout" ? "Claude Code did not finish within the time limit."
+          : subtype === "cancelled" ? "Claude Code was cancelled."
+          : subtype === "tool_error" ? "A tool call failed during execution."
+          : `Claude Code stopped: ${subtype}.`;
+      } else {
+        // is_error is true but subtype is "success" or missing - use generic
+        errorMessage = "Claude Code encountered an error during execution.";
+      }
+      
       job.resultError = errorMessage;
     } else {
       // Even on "success", let the settle function verify deliverables exist
@@ -560,7 +594,22 @@ async function readNewLines(job: StoredMotionJob): Promise<number> {
     const lastNewline = text.lastIndexOf("\n");
     if (lastNewline < 0) return 0;
     const lines = text.slice(0, lastNewline).split("\n");
-    for (const line of lines) if (line.trim()) applyEvent(job, line);
+    
+    // Track context for error extraction
+    const context = { lastToolError: undefined as string | undefined, stderr: undefined as string | undefined };
+    
+    // Read stderr to include in context
+    const stderrTailContent = await stderrTail(job);
+    if (stderrTailContent) {
+      context.stderr = stderrTailContent;
+    }
+    
+    for (const line of lines) {
+      if (line.trim()) {
+        applyEvent(job, line, context);
+      }
+    }
+    
     job.run.offset += Buffer.byteLength(text.slice(0, lastNewline + 1), "utf8");
     return lines.length;
   } catch {
