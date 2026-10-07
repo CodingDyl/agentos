@@ -155,6 +155,11 @@ export function jobAttention(job: WorkerJob): AttentionItem | undefined {
         label: visual > 0 && code === 0 ? "View visual review" : "View review",
         href: visual > 0 && code === 0 ? `${jobHref(job)}#visual` : jobHref(job),
       },
+      workerJob: {
+        jobId: job.id,
+        canApprove: false,
+        canRevise: code > 0,
+      },
     };
   }
 
@@ -177,6 +182,11 @@ export function jobAttention(job: WorkerJob): AttentionItem | undefined {
           ? "Review passed and the implementation matches the approved design."
           : "Review passed. Nothing has been integrated yet.",
         action: { label: "Review & approve", href: jobHref(job) },
+        workerJob: {
+          jobId: job.id,
+          canApprove: true,
+          canRevise: false,
+        },
       };
     }
 
@@ -192,6 +202,11 @@ export function jobAttention(job: WorkerJob): AttentionItem | undefined {
           ? "Review passed, but the implementation could not be verified visually."
           : "Review passed, but it has not been verified visually yet.",
       action: { label: "Open job", href: `${jobHref(job)}#visual` },
+      workerJob: {
+        jobId: job.id,
+        canApprove: false,
+        canRevise: false,
+      },
     };
   }
 
@@ -204,6 +219,11 @@ export function jobAttention(job: WorkerJob): AttentionItem | undefined {
       ? "The review could not reach a verdict."
       : "Finished and validated. Nobody has reviewed it yet.",
     action: { label: "Open job", href: jobHref(job) },
+    workerJob: {
+      jobId: job.id,
+      canApprove: false,
+      canRevise: false,
+    },
   };
 }
 
