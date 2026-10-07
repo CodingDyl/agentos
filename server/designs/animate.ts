@@ -19,7 +19,7 @@ import {
   type AnimateStyle,
 } from "../../shared/animate-types";
 import type { MotionLogEntry } from "../../shared/motion-types";
-import type { WorkerJob, WorkerEvent } from "../../shared/worker-types";
+import type { WorkerJob } from "../../shared/worker-types";
 import { recordActivity } from "../activity/ui-events";
 import { uiStateDir } from "../agentos/session-store";
 import { findOnPath } from "../ai-stack/detect";
@@ -348,7 +348,13 @@ function revisionPrompt(note: string): string {
  * individual stages.
  */
 async function syncWorkerJob(job: StoredJob): Promise<void> {
-  const workerJobId = job.workerJobId ?? createJobId();
+  // Ensure we have a worker job ID
+  let workerJobId = job.workerJobId;
+  if (!workerJobId) {
+    workerJobId = createJobId();
+    job.workerJobId = workerJobId;
+    await save(job);
+  }
   
   // Determine worker job status from animate status
   let workerStatus: WorkerJob["status"];
@@ -373,11 +379,11 @@ async function syncWorkerJob(job: StoredJob): Promise<void> {
   const existing = await readWorkerJob(workerJobId);
   
   const workerJob: WorkerJob = {
-    id: workerJobId,
+    id: workerJobId as string,
     worker: "claude-code" as any, // Claude Code as the worker
     resolvedWorker: "claude-code" as any,
     status: workerStatus,
-    project: job.request.project,
+    project: job.request.project ?? "unassigned",
     objective: `Claude Motion · ${job.title} · ${job.stage === "story" ? "Story check" : job.stage === "look" ? "Look" : job.stage === "storyboard" ? "Storyboard" : "Build and delivery"}`,
     createdAt: existing?.createdAt ?? job.createdAt,
     startedAt: job.startedAt,
@@ -395,12 +401,6 @@ async function syncWorkerJob(job: StoredJob): Promise<void> {
   };
   
   await saveWorkerJob(workerJob);
-  
-  // Store the worker job ID on the animate job for future updates
-  if (!job.workerJobId) {
-    job.workerJobId = workerJobId;
-    await save(job);
-  }
 }
 
 // ---------------------------------------------------------------------------
