@@ -135,8 +135,8 @@ export async function currentBranch(
 /** Whether a checkout has no uncommitted changes of its own. */
 export async function isClean(repoPath: string): Promise<boolean> {
   try {
-    const { stdout } = await git(repoPath, ["status", "--porcelain", "-uall"]);
-    return stdout.trim().length === 0;
+    const files = await uncommittedFiles(repoPath);
+    return files.length === 0;
   } catch {
     // A repository that cannot be read is not known to be clean, and this
     // answer gates an integration.

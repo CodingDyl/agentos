@@ -104,6 +104,16 @@ export const AttentionItemSchema = z.object({
       limitHit: z.boolean(),
     })
     .optional(),
+  /** Present on a worker job that can be approved, rejected, or revised from here. */
+  workerJob: z
+    .object({
+      jobId: z.string(),
+      /** Whether this job can be approved (has passed review and validation). */
+      canApprove: z.boolean(),
+      /** Whether this job needs revision (has review findings to send back). */
+      canRevise: z.boolean(),
+    })
+    .optional(),
 });
 
 /**

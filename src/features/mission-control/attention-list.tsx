@@ -1,9 +1,9 @@
-import { ArrowRight, RefreshCw, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Check, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { AttentionItem, MissionWorker } from "@shared/mission-control-types";
 import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
-import { useDismissAttention, useRestoreAttention, useRetryWorkerJob } from "@/lib/agentos/queries";
+import { useDismissAttention, useRestoreAttention, useRetryWorkerJob, useApproveWorkerJob, useRejectWorkerJob, useReviseWorkerJob } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { attentionTag } from "./mission-control-model";
 
@@ -137,6 +137,80 @@ function alternativesFor(item: AttentionItem, workers: readonly MissionWorker[])
 }
 
 /**
+ * Approve, reject, or send back for revision, right on the card. Only shown for
+ * worker jobs that are awaiting review or need changes sent back.
+ */
+function WorkerJobActions({
+  item,
+  onActioned,
+}: {
+  item: AttentionItem;
+  onActioned: (message: string) => void;
+}) {
+  const approve = useApproveWorkerJob();
+  const reject = useRejectWorkerJob();
+  const revise = useReviseWorkerJob();
+
+  if (!item.workerJob) return null;
+
+  const { jobId, canApprove, canRevise } = item.workerJob;
+  const busy = approve.isPending || reject.isPending || revise.isPending;
+
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {canApprove ? (
+          <PaperButton
+            variant="ghost"
+            disabled={busy}
+            onClick={() =>
+              approve.mutate(jobId, {
+                onSuccess: () => onActioned("Approved and integrated. It's done."),
+              })
+            }
+          >
+            <Check className="size-3.5" aria-hidden="true" />
+            {approve.isPending ? "Applying..." : "Approve & apply"}
+          </PaperButton>
+        ) : null}
+        {canRevise ? (
+          <PaperButton
+            variant="ghost"
+            disabled={busy}
+            onClick={() =>
+              revise.mutate(jobId, {
+                onSuccess: () => onActioned("Sent back to the worker for revision."),
+              })
+            }
+          >
+            {revise.isPending ? "Sending..." : "Send back"}
+          </PaperButton>
+        ) : null}
+        <PaperButton
+          variant="quiet"
+          disabled={busy}
+          onClick={() =>
+            reject.mutate(
+              { id: jobId },
+              {
+                onSuccess: () => onActioned("Rejected. The work was not integrated."),
+              },
+            )
+          }
+        >
+          {reject.isPending ? "Rejecting..." : "Reject"}
+        </PaperButton>
+      </div>
+      {approve.isError || reject.isError || revise.isError ? (
+        <p className="mt-2 text-[13px] text-paper-flame-deep" role="alert">
+          {(approve.error ?? reject.error ?? revise.error)?.message ?? "That action did not complete."}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * A failed job's retry, right on the card. After a usage limit the other
  * workers lead, because rerunning on the one that ran out would fail the same
  * way; otherwise it is one Retry, with the others a click away.
@@ -253,6 +327,7 @@ function AttentionCard({
           <ArrowRight className="size-3.5" aria-hidden="true" />
         </Link>
 
+        <WorkerJobActions item={item} onActioned={onRetried} />
         <RetryActions item={item} workers={workers} onRetried={onRetried} />
       </div>
 
