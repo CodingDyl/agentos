@@ -26,7 +26,7 @@ import { findOnPath } from "../ai-stack/detect";
 import { listConnectors } from "../connectors/registry";
 import { listSkills, skillSources, type SkillDeps } from "../skills/registry";
 import { activeRunCount } from "../website-rebuild/store";
-import { createJobId, saveJob as saveWorkerJob, readJob as readWorkerJob } from "../workers/job-store";
+import { saveJob as saveWorkerJob, readJob as readWorkerJob, appendEvent } from "../workers/job-store";
 import { createAsset } from "./library";
 import { mediaRoot, probeVideo, storeVideo } from "./media";
 import {
@@ -344,14 +344,15 @@ function revisionPrompt(note: string): string {
 
 /**
  * Creates or updates a worker job for this animate run, so it appears in
- * Workers / Today. The worker job tracks the overall creative run, not
- * individual stages.
+ * Workers / Today. Uses the creative session ID as the worker job ID for
+ * direct linking, or creates a stable ID if no session exists yet.
  */
 async function syncWorkerJob(job: StoredJob): Promise<void> {
-  // Ensure we have a worker job ID
-  let workerJobId = job.workerJobId;
-  if (!workerJobId) {
-    workerJobId = createJobId();
+  // Use session ID as worker job ID for direct drill-in, or use stored workerJobId
+  const workerJobId = job.sessionId ?? job.workerJobId ?? job.id;
+  
+  // Store the worker job ID if it's new
+  if (!job.workerJobId || job.workerJobId !== workerJobId) {
     job.workerJobId = workerJobId;
     await save(job);
   }
@@ -379,9 +380,9 @@ async function syncWorkerJob(job: StoredJob): Promise<void> {
   const existing = await readWorkerJob(workerJobId);
   
   const workerJob: WorkerJob = {
-    id: workerJobId as string,
-    worker: "claude-code" as any, // Claude Code as the worker
-    resolvedWorker: "claude-code" as any,
+    id: workerJobId,
+    worker: "claude-code",
+    resolvedWorker: "claude-code",
     status: workerStatus,
     project: job.request.project ?? "unassigned",
     objective: `Claude Motion · ${job.title} · ${job.stage === "story" ? "Story check" : job.stage === "look" ? "Look" : job.stage === "storyboard" ? "Storyboard" : "Build and delivery"}`,
@@ -397,10 +398,39 @@ async function syncWorkerJob(job: StoredJob): Promise<void> {
         type: "video",
       })),
     } : undefined,
-    lastEventAt: existing?.lastEventAt ?? new Date().toISOString(),
+    // Always update lastEventAt on sync so Workers shows current activity
+    lastEventAt: new Date().toISOString(),
   };
   
   await saveWorkerJob(workerJob);
+  
+  // On failed stop, record error + recent log as events for Today/Workers visibility
+  if (workerStatus === "failed" && error && !existing) {
+    // This is the first failed state - record the error as an event
+    await appendEvent({
+      id: crypto.randomUUID(),
+      jobId: workerJobId,
+      timestamp: new Date().toISOString(),
+      type: "job.failed",
+      message: error,
+      metadata: {
+        stage: job.stage,
+        animateJobId: job.id,
+      },
+    });
+    
+    // Include recent log lines as context
+    const recentLogs = job.log.slice(-5).filter(entry => entry.kind !== "system");
+    for (const logEntry of recentLogs) {
+      await appendEvent({
+        id: crypto.randomUUID(),
+        jobId: workerJobId,
+        timestamp: logEntry.at,
+        type: "job.progress",
+        message: logEntry.kind === "tool" ? `Tool: ${logEntry.message}` : logEntry.message,
+      });
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -619,9 +649,24 @@ async function readNewLines(job: StoredJob): Promise<number> {
     const lastNewline = text.lastIndexOf("\n");
     if (lastNewline < 0) return 0;
     const lines = text.slice(0, lastNewline).split("\n");
+    
+    // Track context for error extraction
+    const context = { lastToolError: undefined as string | undefined, stderr: undefined as string | undefined };
+    
+    // Read stderr to include in context
+    const stderrTailContent = await stderrTail(job);
+    if (stderrTailContent) {
+      context.stderr = stderrTailContent;
+    }
+    
     // The motion studio's event reader: same stream, same record shape.
     const view = job as unknown as Parameters<typeof applyEvent>[0];
-    for (const line of lines) if (line.trim()) applyEvent(view, line);
+    for (const line of lines) {
+      if (line.trim()) {
+        applyEvent(view, line, context);
+      }
+    }
+    
     job.run.offset += Buffer.byteLength(text.slice(0, lastNewline + 1), "utf8");
     return lines.length;
   } catch {
