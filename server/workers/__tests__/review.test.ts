@@ -505,6 +505,13 @@ describe("blockers that carry their own cure", () => {
     await run("git", ["checkout", "--", "README.md"], { cwd: repo });
   });
 
+  it("does not block when tree is clean (no false positive)", async () => {
+    const blockers = await integrationBlockerDetails(reviewed());
+    const dirty = blockers.find((entry) => /uncommitted changes/.test(entry.message));
+
+    assert.strictEqual(dirty, undefined, "Should not report uncommitted changes when tree is clean");
+  });
+
   /**
    * The one blocker with no cure, and the reason the rest of this exists.
    * Rebasing the reviewed tree onto a moved base integrates code nobody
