@@ -306,6 +306,31 @@ export function finishAttempt(
   };
 }
 
+/**
+ * The attempt record for a file-bridge job (Grok Bot), which is started by
+ * hand rather than routed, so it never had an attempt begun for it. Without
+ * one, a person approving the imported answer was told there was no validated
+ * result. The bridge's own check is the validation: the result file was read
+ * and matched the schema before it was imported.
+ */
+export function bridgeAttempt(job: WorkerJob, outcome: "succeeded" | "failed", failureReason?: string): ExecutionAttempt {
+  return {
+    attempt: 1,
+    optionId: `${job.resolvedWorker ?? job.worker}:manual`,
+    workerId: (job.resolvedWorker ?? job.worker) as ExecutionAttempt["workerId"],
+    location: "cloud",
+    startedAt: job.startedAt ?? job.createdAt,
+    endedAt: new Date().toISOString(),
+    outcome,
+    trigger: "initial",
+    ...(failureReason ? { failureReason } : {}),
+    validation:
+      outcome === "succeeded"
+        ? { passed: true, detail: "Result file imported from the shared workspace after matching the result schema." }
+        : { passed: false, detail: failureReason ?? "The run did not produce a usable result." },
+  };
+}
+
 /** The option a job's first attempt should run. */
 export function initialOption(job: WorkerJob): OptionRef | undefined {
   return job.routing?.policy?.selected;

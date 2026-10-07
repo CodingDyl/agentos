@@ -504,16 +504,30 @@ function isTextResult(job: WorkerJob): boolean {
   return !job.worktreePath && (Boolean(job.routing?.policy) || Boolean(job.bridge)) && Boolean(job.result);
 }
 
-async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
-  const last = job.attempts?.at(-1);
-
-  if (last?.outcome !== "succeeded" || last.validation?.passed === false) {
-    return { ok: false, error: "The last attempt did not produce a validated result, so there is nothing to approve." };
-  }
-
+/**
+ * Whether a text result may be approved. A routed job must show a last
+ * attempt that succeeded and was not failed by validation. A file-bridge job
+ * (Grok Bot) finished before bridge attempts were recorded has none at all:
+ * its result was checked against the schema when it was imported, so an
+ * imported, non-empty answer is enough. A failed Grok answer never gets here,
+ * because it fails the job instead of putting it up for review.
+ */
+export function textResultApprovable(job: WorkerJob): { ok: true } | { ok: false; error: string } {
   if (!job.result?.summary?.trim()) {
     return { ok: false, error: "The result is empty, so there is nothing to approve." };
   }
+  const last = job.attempts?.at(-1);
+  const importedBridgeAnswer = !last && Boolean(job.bridge?.importedAt);
+
+  if (!importedBridgeAnswer && (last?.outcome !== "succeeded" || last.validation?.passed === false)) {
+    return { ok: false, error: "The last attempt did not produce a validated result, so there is nothing to approve." };
+  }
+  return { ok: true };
+}
+
+async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
+  const approvable = textResultApprovable(job);
+  if (!approvable.ok) return approvable;
 
   const now = new Date().toISOString();
   const completed = await update(job, { status: "completed", approvedAt: now, completedAt: now });

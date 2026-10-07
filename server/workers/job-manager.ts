@@ -25,6 +25,7 @@ import { retrieveMemoryContext } from "../memory/retrieval";
 import { memoryService } from "../memory/service";
 import {
   beginAttempt,
+  bridgeAttempt,
   failureInfo,
   finishAttempt,
   initialOption,
@@ -924,7 +925,11 @@ async function run(
           ? "changes_required"
           : "awaiting_review",
       visualVerification: visual,
-      attempts: finishAttempt(job, {
+      // A file-bridge job (Grok Bot) is started by hand, not routed, so it has no attempt to
+      // finish: it gets one now, so its review knows the imported result was validated.
+      attempts: !job.attempts?.length && job.bridge
+        ? [bridgeAttempt(job, failed ? "failed" : "succeeded", failed ? "AgentOS's own validation failed after the result was imported." : undefined)]
+        : finishAttempt(job, {
         outcome: failed ? "failed" : "succeeded",
         modelDigest: result.providerMetrics?.modelDigest,
         inputTokens: result.providerMetrics?.inputTokens,
