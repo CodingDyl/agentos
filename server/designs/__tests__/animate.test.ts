@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { after, describe, it } from "node:test";
 import { AnimateDecisionSchema, AnimateRequestSchema } from "../../../shared/animate-types";
 import { animateClaudeArgs, checkpointImagePath, isAnimateId } from "../animate";
+
+const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-animate-test-"));
+process.env.AGENTOS_UI_DIR = testRoot;
+
+after(() => {
+  fs.rmSync(testRoot, { recursive: true, force: true });
+});
 
 const base = { prompt: "FIRST", model: "opus", attempts: 0, stage: "story" as const };
 
@@ -151,7 +161,7 @@ describe("worker job integration", () => {
     const { readJob: readWorkerJob } = await import("../../workers/job-store");
     
     const job: any = {
-      id: "anm_testjob123456",
+      id: "anm_0123456789abcdef",
       title: "Test video",
       status: "running",
       stage: "story",
@@ -162,11 +172,13 @@ describe("worker job integration", () => {
       assetIds: [],
     };
     
-    // First sync - should use job.id as stable ID
+    // First sync - should create a new workerJobId
     await syncWorkerJob(job);
-    assert.equal(job.workerJobId, "anm_testjob123456", "Should set workerJobId to job.id");
+    assert.ok(job.workerJobId, "Should set workerJobId");
+    assert.ok(job.workerJobId.startsWith("job_"), "Worker job ID should start with job_");
+    const stableId = job.workerJobId;
     
-    const workerJob1 = await readWorkerJob("anm_testjob123456");
+    const workerJob1 = await readWorkerJob(stableId);
     assert.ok(workerJob1, "Should create worker job");
     assert.equal(workerJob1.worker, "claude-code", "Should use claude-code as worker");
     assert.equal(workerJob1.status, "running", "Should map status to running");
@@ -174,9 +186,9 @@ describe("worker job integration", () => {
     // Later sync with session ID - should keep same stable ID, not create duplicate
     job.sessionId = "s_different_id_456";
     await syncWorkerJob(job);
-    assert.equal(job.workerJobId, "anm_testjob123456", "Should keep same workerJobId");
+    assert.equal(job.workerJobId, stableId, "Should keep same workerJobId");
     
-    const workerJob2 = await readWorkerJob("anm_testjob123456");
+    const workerJob2 = await readWorkerJob(stableId);
     assert.ok(workerJob2, "Should update existing worker job");
     
     // Verify no duplicate job was created with session ID
@@ -189,7 +201,7 @@ describe("worker job integration", () => {
     const { readEvents } = await import("../../workers/job-store");
     
     const job: any = {
-      id: "anm_testfail456789",
+      id: "anm_1111222233334444",
       title: "Test failure",
       status: "running",
       stage: "build",
@@ -205,7 +217,10 @@ describe("worker job integration", () => {
     
     // First sync - running status
     await syncWorkerJob(job);
-    const initialEvents = await readEvents(job.id);
+    const workerJobId = job.workerJobId;
+    assert.ok(workerJobId, "Should have workerJobId after first sync");
+    
+    const initialEvents = await readEvents(workerJobId);
     const initialEventCount = initialEvents.length;
     
     // Transition to failed
@@ -214,7 +229,7 @@ describe("worker job integration", () => {
     job.completedAt = "2026-10-07T19:05:00Z";
     await syncWorkerJob(job);
     
-    const events = await readEvents(job.id);
+    const events = await readEvents(workerJobId);
     assert.ok(events.length > initialEventCount, "Should record new events on failure");
     
     const failedEvent = events.find(e => e.type === "job.failed");
@@ -223,7 +238,7 @@ describe("worker job integration", () => {
     
     // Sync again while still failed - should not duplicate events
     await syncWorkerJob(job);
-    const eventsAfterSecondSync = await readEvents(job.id);
+    const eventsAfterSecondSync = await readEvents(workerJobId);
     assert.equal(eventsAfterSecondSync.length, events.length, "Should not duplicate failure events");
   });
   
@@ -232,7 +247,7 @@ describe("worker job integration", () => {
     const { readJob: readWorkerJob } = await import("../../workers/job-store");
     
     const job: any = {
-      id: "anm_testupdate789",
+      id: "anm_5555666677778888",
       title: "Test update",
       status: "running",
       stage: "look",
@@ -243,14 +258,19 @@ describe("worker job integration", () => {
     };
     
     await syncWorkerJob(job);
-    const workerJob1 = await readWorkerJob(job.id);
-    const firstEventAt = workerJob1?.lastEventAt;
+    const workerJobId = job.workerJobId;
+    assert.ok(workerJobId, "Should have workerJobId after first sync");
+    
+    const workerJob1 = await readWorkerJob(workerJobId);
+    assert.ok(workerJob1, "Should have worker job");
+    const firstEventAt = workerJob1.lastEventAt;
     
     // Wait a bit and sync again
     await new Promise(resolve => setTimeout(resolve, 10));
     await syncWorkerJob(job);
-    const workerJob2 = await readWorkerJob(job.id);
-    const secondEventAt = workerJob2?.lastEventAt;
+    const workerJob2 = await readWorkerJob(workerJobId);
+    assert.ok(workerJob2, "Should still have worker job");
+    const secondEventAt = workerJob2.lastEventAt;
     
     assert.ok(secondEventAt, "Should have lastEventAt");
     assert.notEqual(secondEventAt, firstEventAt, "Should update lastEventAt on every sync");
