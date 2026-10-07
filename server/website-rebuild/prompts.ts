@@ -1,4 +1,4 @@
-import { REBUILD_FUNCTION_LABEL, type RebuildRun } from "../../shared/website-rebuild-types";
+import { REBUILD_FUNCTION_LABEL, type RebuildFunction, type RebuildRun } from "../../shared/website-rebuild-types";
 
 /**
  * What each worker is told. Plain functions of the run, so they are tested,
@@ -187,6 +187,14 @@ function buildBrand(run: RebuildRun): string[] {
 
 export function functionsBrief(run: RebuildRun, note?: string): string {
   const needed = run.requiredFunctions.map((value) => `- ${REBUILD_FUNCTION_LABEL[value]}`);
+  const featureInstructions: Record<RebuildFunction, string> = {
+    contact_form: "- Contact form: a Server Action or route handler with schema validation (zod), a honeypot field, clear success and error states, and sending through a provider configured by environment variables (document them in .env.example). Without the variables it must fail visibly, never pretend to send.",
+    blog: "- Blog: Markdown or MDX posts in content/blog, an index page and a post page with metadata. Any example post is marked draft and not listed in production.",
+    booking: "- Bookings: link to or embed an external scheduler whose URL comes from an environment variable. Do not build a booking engine.",
+    newsletter: "- Newsletter sign-up: a form posting to a provider configured by environment variables, with consent wording.",
+    ecommerce: "- Online shop: do not build. Write in the report that it needs a platform decision (for example Shopify or Snipcart) and mark it Blocked.",
+  };
+  const selectedInstructions = run.requiredFunctions.map((fn) => featureInstructions[fn]);
   return [
     `Add the working features ${run.company}'s new website needs, and test each one end to end.`,
     "",
@@ -196,11 +204,7 @@ export function functionsBrief(run: RebuildRun, note?: string): string {
     ...needed,
     "",
     "How:",
-    "- Contact form: a Server Action or route handler with schema validation (zod), a honeypot field, clear success and error states, and sending through a provider configured by environment variables (document them in .env.example). Without the variables it must fail visibly, never pretend to send.",
-    "- Blog: Markdown or MDX posts in content/blog, an index page and a post page with metadata. Any example post is marked draft and not listed in production.",
-    "- Bookings: link to or embed an external scheduler whose URL comes from an environment variable. Do not build a booking engine.",
-    "- Newsletter sign-up: a form posting to a provider configured by environment variables, with consent wording.",
-    "- Online shop: do not build. Write in the report that it needs a platform decision (for example Shopify or Snipcart) and mark it Blocked.",
+    ...selectedInstructions,
     "- Add an `npm test` script (Vitest is fine) with tests for each feature's server-side logic: validation, honeypot, missing configuration and success paths.",
     `- Write ${functionalityFile(run)}: a table with one row per feature (Feature, Status: Pass, Fail or Blocked, Journey tested, Evidence), then the steps to configure each provider. Be honest: anything you could not test is Blocked, with the reason.`,
     "- Update sitemap.json if you add routes.",
