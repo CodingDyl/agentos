@@ -48,9 +48,6 @@ describe("running a stage", () => {
 
 describe("exit status mapping", () => {
   it("never marks a job completed when resultError exists, even if videos were filed", async () => {
-    // Import the internal settle logic by testing through the public interface
-    // This test verifies that resultError prevents completion
-    
     const { applyEvent } = await import("../motion");
     
     const job: any = {
@@ -60,103 +57,203 @@ describe("exit status mapping", () => {
       summary: undefined,
       usage: undefined,
       resultError: undefined,
+      lastToolError: "Tool execution failed",
     };
     
     // Simulate a result event with is_error but subtype "success" (the bug case)
-    const context = { lastToolError: "Tool execution failed", stderr: undefined };
     applyEvent(job, JSON.stringify({
       type: "result",
       is_error: true,
       subtype: "success",
       result: "Done"
-    }), context);
+    }));
     
     // Should have resultError set (never success when is_error is true)
     assert.ok(job.resultError, "resultError should be set when is_error is true");
     assert.ok(!job.resultError.includes("success"), "Error message should never contain 'success' when is_error is true");
-    assert.ok(job.resultError.includes("Tool error"), "Should extract tool error from context");
+    assert.ok(job.resultError.includes("Tool error"), "Should extract tool error from lastToolError");
   });
   
   it("provides concrete error messages based on tool errors, not generic success", async () => {
     const { applyEvent } = await import("../motion");
     
     // Test tool error extraction
-    const job1: any = { log: [], resultError: undefined };
-    const context1 = { lastToolError: "ffmpeg exited with code 1", stderr: undefined };
-    applyEvent(job1, JSON.stringify({ type: "result", is_error: true, subtype: "tool_error" }), context1);
-    assert.match(job1.resultError ?? "", /ffmpeg exited with code 1/, "Should extract specific tool error");
+    const job1: any = { log: [], resultError: undefined, lastToolError: "ffmpeg exited with code 1" };
+    applyEvent(job1, JSON.stringify({ type: "result", is_error: true, subtype: "tool_error" }));
+    assert.match(job1.resultError ?? "", /ffmpeg exited with code 1/, "Should extract specific tool error from lastToolError");
     assert.ok(!job1.resultError?.includes("success"), "Tool error should not mention success");
     
-    // Test stderr fallback
-    const job2: any = { log: [], resultError: undefined };
-    const context2 = { stderr: "ModuleNotFoundError: No module named 'playwright'" };
-    applyEvent(job2, JSON.stringify({ type: "result", is_error: true }), context2);
-    assert.match(job2.resultError ?? "", /ModuleNotFoundError/, "Should use stderr when no tool error");
-    
     // Test subtype when not "success"
-    const job3: any = { log: [], resultError: undefined };
-    applyEvent(job3, JSON.stringify({ type: "result", is_error: true, subtype: "timeout" }), {});
-    assert.match(job3.resultError ?? "", /did not finish within the time limit/, "Should use timeout message");
+    const job2: any = { log: [], resultError: undefined, lastToolError: undefined };
+    applyEvent(job2, JSON.stringify({ type: "result", is_error: true, subtype: "timeout" }));
+    assert.match(job2.resultError ?? "", /did not finish within the time limit/, "Should use timeout message");
     
     // Test is_error with subtype "success" - should never say success
-    const job4: any = { log: [], resultError: undefined };
-    applyEvent(job4, JSON.stringify({ type: "result", is_error: true, subtype: "success" }), {});
-    assert.ok(job4.resultError, "Should set error even when subtype is success");
-    assert.ok(!job4.resultError.includes("success"), "Should not use word success when is_error is true");
+    const job3: any = { log: [], resultError: undefined, lastToolError: undefined };
+    applyEvent(job3, JSON.stringify({ type: "result", is_error: true, subtype: "success" }));
+    assert.ok(job3.resultError, "Should set error even when subtype is success");
+    assert.ok(!job3.resultError.includes("success"), "Should not use word success when is_error is true");
   });
   
   it("tracks tool errors from tool_result events in the stream", async () => {
     const { applyEvent } = await import("../motion");
     
-    const job: any = { log: [], resultError: undefined };
-    const context = { lastToolError: undefined };
+    const job: any = { log: [], resultError: undefined, lastToolError: undefined };
     
-    // Simulate a tool_result with is_error
+    // Simulate a top-level tool_result with is_error
     applyEvent(job, JSON.stringify({
       type: "tool_result",
       is_error: true,
       content: "Command failed: node tools/export.mjs --format mp4\nError: Missing required frames"
-    }), context);
+    }));
     
-    // Context should now have the error
-    assert.ok(context.lastToolError, "Should extract tool error to context");
-    assert.match(context.lastToolError ?? "", /Command failed/, "Should capture tool error content");
+    // Job should now have the error
+    assert.ok(job.lastToolError, "Should extract tool error to job.lastToolError");
+    assert.match(job.lastToolError ?? "", /Command failed/, "Should capture tool error content");
     
     // Then when result comes with is_error, it should use this error
-    applyEvent(job, JSON.stringify({ type: "result", is_error: true, subtype: "success" }), context);
+    applyEvent(job, JSON.stringify({ type: "result", is_error: true, subtype: "success" }));
     assert.match(job.resultError ?? "", /Command failed/, "Should use captured tool error in result");
+  });
+  
+  it("tracks tool errors from nested user/tool_result events", async () => {
+    const { applyEvent } = await import("../motion");
+    
+    const job: any = { log: [], resultError: undefined, lastToolError: undefined };
+    
+    // Simulate nested tool_result in user message (Claude Code stream-json format)
+    applyEvent(job, JSON.stringify({
+      type: "user",
+      message: {
+        content: [
+          {
+            type: "tool_result",
+            is_error: true,
+            content: "ffmpeg: error while loading shared libraries"
+          }
+        ]
+      }
+    }));
+    
+    // Job should now have the error
+    assert.ok(job.lastToolError, "Should extract nested tool error to job.lastToolError");
+    assert.match(job.lastToolError ?? "", /ffmpeg: error/, "Should capture nested tool error content");
+    
+    // Then when result comes with is_error, it should use this error
+    applyEvent(job, JSON.stringify({ type: "result", is_error: true, subtype: "success" }));
+    assert.match(job.resultError ?? "", /ffmpeg: error/, "Should use captured nested tool error in result");
   });
 });
 
 describe("worker job integration", () => {
-  it("creates a worker job using session ID for each animate run", () => {
-    // The syncWorkerJob() function:
-    // 1. Uses session ID as worker job ID when available (for direct drill-in)
-    // 2. Falls back to stored workerJobId or job.id
-    // 3. Sets appropriate worker job status (running, awaiting_review, completed, failed)
-    // 4. Always uses "claude-code" as worker (no 'as any' casts)
+  it("creates a worker job using stable ID (workerJobId or job.id, never changes)", async () => {
+    const { syncWorkerJob } = await import("../animate");
+    const { readJob: readWorkerJob } = await import("../../workers/job-store");
     
-    // Verified by TypeScript compilation and worker job record structure
-    assert.ok(true, "Worker job creation uses session ID and proper types");
+    const job: any = {
+      id: "anm_testjob123456",
+      title: "Test video",
+      status: "running",
+      stage: "story",
+      request: { project: "test-project" },
+      createdAt: "2026-10-07T19:00:00Z",
+      startedAt: "2026-10-07T19:01:00Z",
+      log: [],
+      assetIds: [],
+    };
+    
+    // First sync - should use job.id as stable ID
+    await syncWorkerJob(job);
+    assert.equal(job.workerJobId, "anm_testjob123456", "Should set workerJobId to job.id");
+    
+    const workerJob1 = await readWorkerJob("anm_testjob123456");
+    assert.ok(workerJob1, "Should create worker job");
+    assert.equal(workerJob1.worker, "claude-code", "Should use claude-code as worker");
+    assert.equal(workerJob1.status, "running", "Should map status to running");
+    
+    // Later sync with session ID - should keep same stable ID, not create duplicate
+    job.sessionId = "s_different_id_456";
+    await syncWorkerJob(job);
+    assert.equal(job.workerJobId, "anm_testjob123456", "Should keep same workerJobId");
+    
+    const workerJob2 = await readWorkerJob("anm_testjob123456");
+    assert.ok(workerJob2, "Should update existing worker job");
+    
+    // Verify no duplicate job was created with session ID
+    const duplicateJob = await readWorkerJob("s_different_id_456");
+    assert.ok(!duplicateJob, "Should not create duplicate job with session ID");
   });
   
-  it("updates lastEventAt on every sync to show current activity", () => {
-    // Each call to syncWorkerJob() sets lastEventAt to now
-    // This ensures Workers page shows the run as recently active
-    // Even when status hasn't changed, lastEventAt updates
-    assert.ok(true, "lastEventAt updated on every sync");
+  it("records failure events only once when transitioning to failed status", async () => {
+    const { syncWorkerJob } = await import("../animate");
+    const { readEvents } = await import("../../workers/job-store");
+    
+    const job: any = {
+      id: "anm_testfail456789",
+      title: "Test failure",
+      status: "running",
+      stage: "build",
+      request: { project: "test-project" },
+      createdAt: "2026-10-07T19:00:00Z",
+      startedAt: "2026-10-07T19:01:00Z",
+      log: [
+        { at: "2026-10-07T19:02:00Z", kind: "tool", message: "Bash · node render.mjs" },
+        { at: "2026-10-07T19:03:00Z", kind: "text", message: "Rendering frames..." },
+      ],
+      assetIds: [],
+    };
+    
+    // First sync - running status
+    await syncWorkerJob(job);
+    const initialEvents = await readEvents(job.id);
+    const initialEventCount = initialEvents.length;
+    
+    // Transition to failed
+    job.status = "failed";
+    job.error = "Tool error: ffmpeg exited with code 1";
+    job.completedAt = "2026-10-07T19:05:00Z";
+    await syncWorkerJob(job);
+    
+    const events = await readEvents(job.id);
+    assert.ok(events.length > initialEventCount, "Should record new events on failure");
+    
+    const failedEvent = events.find(e => e.type === "job.failed");
+    assert.ok(failedEvent, "Should record job.failed event");
+    assert.match(failedEvent?.message ?? "", /ffmpeg exited with code 1/, "Should include error message");
+    
+    // Sync again while still failed - should not duplicate events
+    await syncWorkerJob(job);
+    const eventsAfterSecondSync = await readEvents(job.id);
+    assert.equal(eventsAfterSecondSync.length, events.length, "Should not duplicate failure events");
   });
   
-  it("records error and recent log lines as events on failed stop", () => {
-    // When a run fails (first time entering failed status):
-    // 1. Creates job.failed event with the error message
-    // 2. Includes stage and animateJobId in metadata
-    // 3. Records last 5 non-system log entries as job.progress events
-    // 
-    // This makes the failure visible in:
-    // - Today attention items (with drill-in context)
-    // - Workers page (recent activity)
-    assert.ok(true, "Failed runs record error and context as worker events");
+  it("updates lastEventAt on every sync to show current activity", async () => {
+    const { syncWorkerJob } = await import("../animate");
+    const { readJob: readWorkerJob } = await import("../../workers/job-store");
+    
+    const job: any = {
+      id: "anm_testupdate789",
+      title: "Test update",
+      status: "running",
+      stage: "look",
+      request: {},
+      createdAt: "2026-10-07T19:00:00Z",
+      log: [],
+      assetIds: [],
+    };
+    
+    await syncWorkerJob(job);
+    const workerJob1 = await readWorkerJob(job.id);
+    const firstEventAt = workerJob1?.lastEventAt;
+    
+    // Wait a bit and sync again
+    await new Promise(resolve => setTimeout(resolve, 10));
+    await syncWorkerJob(job);
+    const workerJob2 = await readWorkerJob(job.id);
+    const secondEventAt = workerJob2?.lastEventAt;
+    
+    assert.ok(secondEventAt, "Should have lastEventAt");
+    assert.notEqual(secondEventAt, firstEventAt, "Should update lastEventAt on every sync");
   });
   
   it("preserves resume functionality with same Claude session", () => {
@@ -168,7 +265,6 @@ describe("worker job integration", () => {
     const args = animateClaudeArgs(base);
     
     assert.equal(args[args.indexOf("--resume") + 1], "s1", "Resume should use same session");
-    assert.ok(true, "Resume continues same Claude Code session");
   });
 });
 

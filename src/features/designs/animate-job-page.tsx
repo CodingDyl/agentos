@@ -105,15 +105,16 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
   const extractFailingStep = (error: string | undefined): { step?: string; reason: string } | undefined => {
     if (!error) return undefined;
     
-    // Look for common failing steps: tool names, script names, or stage-specific failures
-    const toolMatch = error.match(/Tool error: (.+?)(?:\n|$)/);
-    if (toolMatch) {
-      return { step: "Tool execution", reason: toolMatch[1] };
-    }
-    
+    // Check script name first (before stripping in tool error match)
     const scriptMatch = error.match(/(review\.mjs|export\.mjs|render\.mjs|storyboard\.mjs|tools\/\w+\.mjs)/);
     if (scriptMatch) {
       return { step: scriptMatch[1], reason: error };
+    }
+    
+    // Look for tool errors (after script check, since we don't want to lose the script name)
+    const toolMatch = error.match(/Tool error: (.+?)(?:\n|$)/);
+    if (toolMatch) {
+      return { step: "Tool execution", reason: toolMatch[1] };
     }
     
     const stageMatch = error.match(/Claude stopped before drawing the (\w+) frames/);
@@ -125,7 +126,7 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
     return { reason: error };
   };
   
-  const failingInfo = stopped ? extractFailingStep(job.error) : undefined;
+  const failingInfo = job.error ? extractFailingStep(job.error) : undefined;
 
   return (
     <>
@@ -158,7 +159,7 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
 
       {failingInfo ? (
         <div role="alert" className="mt-6 max-w-[80ch] space-y-2 border border-paper-flame-deep bg-paper-linen px-4 py-3">
-          {failingInfo.step ? (
+          {stopped && failingInfo.step ? (
             <p className="text-[14px] font-semibold text-paper-flame-deep">
               Failed at {failingInfo.step}
             </p>
