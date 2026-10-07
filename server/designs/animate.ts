@@ -26,7 +26,7 @@ import { findOnPath } from "../ai-stack/detect";
 import { listConnectors } from "../connectors/registry";
 import { listSkills, skillSources, type SkillDeps } from "../skills/registry";
 import { activeRunCount } from "../website-rebuild/store";
-import { saveJob as saveWorkerJob, readJob as readWorkerJob, appendEvent } from "../workers/job-store";
+import { saveJob as saveWorkerJob, readJob as readWorkerJob, appendEvent, createJobId } from "../workers/job-store";
 import { createAsset } from "./library";
 import { mediaRoot, probeVideo, storeVideo } from "./media";
 import {
@@ -349,9 +349,9 @@ function revisionPrompt(note: string): string {
  * Workers / Today. Uses a stable ID that never changes once set.
  */
 export async function syncWorkerJob(job: StoredJob): Promise<void> {
-  // Use stable ID: workerJobId if it exists, otherwise job.id
+  // Use stable ID: workerJobId if it exists, otherwise create a new one
   // Never change once set to avoid duplicate jobs
-  const workerJobId = job.workerJobId ?? job.id;
+  const workerJobId = job.workerJobId ?? createJobId();
   
   // Store the worker job ID if it's new
   if (!job.workerJobId) {
