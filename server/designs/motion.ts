@@ -105,6 +105,8 @@ const StoredMotionJobSchema = MotionJobSchema.extend({
   resultError: z.string().optional(),
   /** The operator's changes, waiting for the next run to pick them up. */
   pendingNote: z.string().optional(),
+  /** The last tool error captured from the stream, persisted for result event processing. */
+  lastToolError: z.string().optional(),
 });
 type StoredMotionJob = z.infer<typeof StoredMotionJobSchema>;
 
@@ -489,9 +491,8 @@ export function describeTool(name: string, input: Record<string, unknown> | unde
 
 /** Applies one line of Claude Code's stream to the record. */
 export function applyEvent(
-  job: Pick<StoredMotionJob, "log" | "sessionId" | "model" | "summary" | "usage" | "resultError">, 
-  line: string,
-  context?: { lastToolError?: string; stderr?: string }
+  job: Pick<StoredMotionJob, "log" | "sessionId" | "model" | "summary" | "usage" | "resultError" | "lastToolError">, 
+  line: string
 ): void {
   let event: Record<string, unknown>;
   try {
@@ -520,14 +521,31 @@ export function applyEvent(
     return;
   }
 
-  // Track tool errors from tool_result events
+  // Track tool errors from tool_result events - both top-level and nested in user messages
+  // Top-level: {type:"tool_result", is_error:true, content:...}
   if (event.type === "tool_result") {
     const isError = event.is_error === true;
-    if (isError && context) {
+    if (isError) {
       const errorContent = typeof event.content === "string" ? event.content : 
         Array.isArray(event.content) && typeof event.content[0]?.text === "string" ? event.content[0].text :
         "Tool execution failed";
-      context.lastToolError = errorContent.trim().slice(0, 200);
+      job.lastToolError = errorContent.trim().slice(0, 200);
+    }
+    return;
+  }
+  
+  // Nested in user message: {type:"user", message:{content:[{type:"tool_result", is_error:true, content:...}]}}
+  if (event.type === "user") {
+    const content = record(event.message)?.content;
+    if (!Array.isArray(content)) return;
+    for (const part of content) {
+      const block = record(part);
+      if (block?.type === "tool_result" && block.is_error === true) {
+        const errorContent = typeof block.content === "string" ? block.content : 
+          Array.isArray(block.content) && typeof block.content[0]?.text === "string" ? block.content[0].text :
+          "Tool execution failed";
+        job.lastToolError = errorContent.trim().slice(0, 200);
+      }
     }
     return;
   }
@@ -550,16 +568,14 @@ export function applyEvent(
     
     if (failed) {
       // Extract concrete error in priority order:
-      // 1. Last tool error from the stream
-      // 2. Stderr tail (provided via context)
-      // 3. Exit code/subtype (but never say "success" if is_error is true)
-      // 4. Generic fallback
+      // 1. Last tool error from the stream (persisted on job)
+      // 2. Exit code/subtype (but never say "success" if is_error is true)
+      // 3. Generic fallback
+      // Note: stderr is added by readNewLines after all events are processed
       let errorMessage: string;
       
-      if (context?.lastToolError) {
-        errorMessage = `Tool error: ${context.lastToolError}`;
-      } else if (context?.stderr) {
-        errorMessage = `Error: ${context.stderr}`;
+      if (job.lastToolError) {
+        errorMessage = `Tool error: ${job.lastToolError}`;
       } else if (subtype && subtype !== "success") {
         // Only use subtype if it's not "success"
         errorMessage = subtype === "timeout" ? "Claude Code did not finish within the time limit."
@@ -595,18 +611,17 @@ async function readNewLines(job: StoredMotionJob): Promise<number> {
     if (lastNewline < 0) return 0;
     const lines = text.slice(0, lastNewline).split("\n");
     
-    // Track context for error extraction
-    const context = { lastToolError: undefined as string | undefined, stderr: undefined as string | undefined };
-    
-    // Read stderr to include in context
-    const stderrTailContent = await stderrTail(job);
-    if (stderrTailContent) {
-      context.stderr = stderrTailContent;
-    }
-    
     for (const line of lines) {
       if (line.trim()) {
-        applyEvent(job, line, context);
+        applyEvent(job, line);
+      }
+    }
+    
+    // Add stderr as fallback if resultError was set but no tool error was captured
+    if (job.resultError && !job.lastToolError) {
+      const stderr = await stderrTail(job);
+      if (stderr) {
+        job.resultError = `Error: ${stderr}`;
       }
     }
     

@@ -169,8 +169,10 @@ const StoredAnimateJobSchema = AnimateJobSchema.extend({
   resultError: z.string().optional(),
   /** What the next run is told, after a decision. */
   pendingPrompt: z.string().optional(),
-  /** The worker job ID for this animate run, so it appears in Workers / Today. */
+  /** The worker job ID for this animate run, so it appears in Workers / Today. Stable across syncs. */
   workerJobId: z.string().optional(),
+  /** The last tool error captured from the stream, persisted for result event processing. */
+  lastToolError: z.string().optional(),
 });
 type StoredJob = z.infer<typeof StoredAnimateJobSchema>;
 
@@ -344,15 +346,15 @@ function revisionPrompt(note: string): string {
 
 /**
  * Creates or updates a worker job for this animate run, so it appears in
- * Workers / Today. Uses the creative session ID as the worker job ID for
- * direct linking, or creates a stable ID if no session exists yet.
+ * Workers / Today. Uses a stable ID that never changes once set.
  */
-async function syncWorkerJob(job: StoredJob): Promise<void> {
-  // Use session ID as worker job ID for direct drill-in, or use stored workerJobId
-  const workerJobId = job.sessionId ?? job.workerJobId ?? job.id;
+export async function syncWorkerJob(job: StoredJob): Promise<void> {
+  // Use stable ID: workerJobId if it exists, otherwise job.id
+  // Never change once set to avoid duplicate jobs
+  const workerJobId = job.workerJobId ?? job.id;
   
   // Store the worker job ID if it's new
-  if (!job.workerJobId || job.workerJobId !== workerJobId) {
+  if (!job.workerJobId) {
     job.workerJobId = workerJobId;
     await save(job);
   }
@@ -404,8 +406,11 @@ async function syncWorkerJob(job: StoredJob): Promise<void> {
   
   await saveWorkerJob(workerJob);
   
-  // On failed stop, record error + recent log as events for Today/Workers visibility
-  if (workerStatus === "failed" && error && !existing) {
+  // Record failure events only once when transitioning into failed status
+  // Check if this is the first time entering failed (compare against existing status)
+  const justFailed = workerStatus === "failed" && existing && existing.status !== "failed";
+  
+  if (justFailed && error) {
     // This is the first failed state - record the error as an event
     await appendEvent({
       id: crypto.randomUUID(),
@@ -416,6 +421,7 @@ async function syncWorkerJob(job: StoredJob): Promise<void> {
       metadata: {
         stage: job.stage,
         animateJobId: job.id,
+        sessionId: job.sessionId,
       },
     });
     
@@ -650,20 +656,19 @@ async function readNewLines(job: StoredJob): Promise<number> {
     if (lastNewline < 0) return 0;
     const lines = text.slice(0, lastNewline).split("\n");
     
-    // Track context for error extraction
-    const context = { lastToolError: undefined as string | undefined, stderr: undefined as string | undefined };
-    
-    // Read stderr to include in context
-    const stderrTailContent = await stderrTail(job);
-    if (stderrTailContent) {
-      context.stderr = stderrTailContent;
-    }
-    
     // The motion studio's event reader: same stream, same record shape.
     const view = job as unknown as Parameters<typeof applyEvent>[0];
     for (const line of lines) {
       if (line.trim()) {
-        applyEvent(view, line, context);
+        applyEvent(view, line);
+      }
+    }
+    
+    // Add stderr as fallback if resultError was set but no tool error was captured
+    if (job.resultError && !job.lastToolError) {
+      const stderr = await stderrTail(job);
+      if (stderr) {
+        job.resultError = `Error: ${stderr}`;
       }
     }
     
