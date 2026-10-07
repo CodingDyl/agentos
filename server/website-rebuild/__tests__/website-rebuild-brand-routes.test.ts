@@ -92,6 +92,26 @@ describe("editing the brand kit", () => {
     assert.equal(color.status, 422);
     assert.deepEqual(store.readRun(run.id).brandKit, kit);
   });
+
+  it("removes an image for good when it is named as removed", async () => {
+    const run = newRun();
+    const response = await post(`/${run.id}/brand`, { assets: [{ id: "logo", include: true }], removed: ["photo-01"], colors: [], fonts: [] });
+    assert.equal(response.status, 200);
+    const after = store.readRun(run.id).brandKit;
+    assert.deepEqual(after?.assets.map((asset) => asset.id), ["logo"]);
+    assert.ok(store.readRun(run.id).events.some((event) => /1 image removed/.test(event.message)));
+  });
+
+  it("still refuses a list that misses an image, names one twice, or removes one it does not have", async () => {
+    const run = newRun();
+    const both = await post(`/${run.id}/brand`, { assets: [{ id: "logo", include: true }, { id: "photo-01", include: true }], removed: ["photo-01"], colors: [], fonts: [] });
+    assert.equal(both.status, 409);
+    const unknown = await post(`/${run.id}/brand`, { assets: [{ id: "logo", include: true }, { id: "photo-01", include: true }], removed: ["photo-99"], colors: [], fonts: [] });
+    assert.equal(unknown.status, 409);
+    const missing = await post(`/${run.id}/brand`, { assets: [], removed: ["logo"], colors: [], fonts: [] });
+    assert.equal(missing.status, 409);
+    assert.deepEqual(store.readRun(run.id).brandKit, kit);
+  });
 });
 
 describe("uploading to the brand kit", () => {

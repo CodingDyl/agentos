@@ -203,8 +203,10 @@ export const BrandKitSchema = z.object({
 /** What a person may change on the kit: which images are used, in what order, and the colours and fonts. */
 export const BrandKitEditSchema = z
   .object({
-    /** Every asset's id in the order wanted; the first included logo is the primary one. */
+    /** Every kept asset's id in the order wanted; the first included logo is the primary one. */
     assets: z.array(z.object({ id: z.string().min(1).max(80), include: z.boolean() }).strict()).max(60),
+    /** Assets to take out of the kit for good. Kept and removed together must name every asset. */
+    removed: z.array(z.string().min(1).max(80)).max(60).default([]),
     colors: z.array(BrandColorSchema.omit({ weight: true }).strict()).max(12),
     fonts: z.array(BrandFontSchema.strict()).max(6),
   })
