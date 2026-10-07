@@ -207,3 +207,13 @@ describe("whether a visual contract is ready to send", () => {
     assert.match(problem ?? "", /^2 routes/);
   });
 });
+
+describe("jobTitle", () => {
+  it("uses the first line of a long brief, cut to a readable length", async () => {
+    const { jobTitle } = await import("../workers-model");
+    assert.equal(jobTitle("Research how Watergate compares.\n\nClient: Watergate\n- Do not run git commit."), "Research how Watergate compares.");
+    assert.equal(jobTitle("x".repeat(200)).length, 140);
+    assert.ok(jobTitle("x".repeat(200)).endsWith("…"));
+    assert.equal(jobTitle("\n\n  Short objective  "), "Short objective");
+  });
+});

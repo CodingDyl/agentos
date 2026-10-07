@@ -181,6 +181,7 @@ async function work(
   const workers = context.record.workerOverride ? [context.record.workerOverride] : candidates;
   try {
     return await deps.runJob(buildRequest, workers, context.record.jobId, {
+      chosen: Boolean(context.record.workerOverride),
       onProgress: context.activity,
       onStarted: (jobId) => {
         context.rememberJob(jobId);

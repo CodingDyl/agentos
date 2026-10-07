@@ -387,7 +387,7 @@ describe("stages 3 to 6", () => {
     stages.stageDeps.current = fakeStageDeps({ jobs: [], available: new Set(), files: filesFor });
     const run = newRun();
     await advance(run.id, STAGE_HANDLERS, runnerDeps);
-    assert.match(status(run.id, "research")?.blocker ?? "", /Switch one on in Operations → AI Stack\. grok-bot: switched off; hermes-worker: switched off/);
+    assert.match(status(run.id, "research")?.blocker ?? "", /Switch one on in Operations → AI Stack\. hermes-worker: switched off; gemini: switched off/);
   });
 
   it("blocks with 'Connect DylanSSD' when the client drive is not plugged in", async () => {

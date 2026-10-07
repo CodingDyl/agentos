@@ -59,19 +59,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { DocumentList } from "@/features/projects/detail/document-list";
 import { cn } from "@/lib/utils";
 import { useJobEvents } from "./use-job-events";
-import {
-  bySeverity,
-  formatDuration,
-  hasReviewableWork,
-  isCancellable,
-  isFinished,
-  statusLabel,
-  statusPill,
-  toSteps,
-  verdictLabel,
-  verdictPill,
-  type StepState,
-} from "./workers-model";
+import { bySeverity, formatDuration, hasReviewableWork, isCancellable, isFinished, jobTitle, statusLabel, statusPill, toSteps, type StepState, verdictLabel, verdictPill } from "./workers-model";
 
 const PAGE_PADDING =
   "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
@@ -203,9 +191,17 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
 
         <div className="mt-5 flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <h1 className="max-w-[24ch] text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.1] font-normal tracking-[-0.03em] text-balance">
-              {job.objective}
+            <h1 className="max-w-[40ch] text-[clamp(1.5rem,2.6vw,2.25rem)] leading-[1.15] font-normal tracking-[-0.03em] text-balance">
+              {jobTitle(job.objective)}
             </h1>
+            {jobTitle(job.objective) !== job.objective.trim() ? (
+              <details className="mt-3 max-w-[90ch]">
+                <summary className="os-meta cursor-pointer text-os-subtle hover:text-foreground">Full brief</summary>
+                <pre className="mt-2 max-h-[420px] overflow-auto rounded-md border border-os-border p-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-os-subtle">
+                  {job.objective}
+                </pre>
+              </details>
+            ) : null}
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
               <StatusPill
                 status={statusPill(job.status)}
