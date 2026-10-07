@@ -19,7 +19,7 @@ const { runMailSync } = await import("../sync");
 const { markThreadsRead } = await import("../actions");
 const { cleanExpiredLowPriority } = await import("../auto-clean");
 const credentials = await import("../titan-credentials");
-const { summaryFromMessage, plainTextOf, describeTitanError, TitanError } = await import("../titan-client");
+const { summaryFromMessage, plainTextOf, describeTitanError, titanServerSaid, TitanError } = await import("../titan-client");
 const { mailAccountOf, parseTitanThreadId, titanThreadId, TitanConnectRequestSchema, TitanUpdateRequestSchema } = await import("../../../shared/mail-account-types");
 
 before(() => {
@@ -153,6 +153,16 @@ describe("Titan message parsing", () => {
     assert.ok(error instanceof TitanError);
     assert.equal(error.reason, "unauthorized");
     assert.equal(describeTitanError(Object.assign(new Error("x"), { code: "ENOTFOUND" })).reason, "offline");
+  });
+
+  it("names the third-party switch and quotes Titan's reply on one capped line", () => {
+    const error = describeTitanError(
+      Object.assign(new Error("Command failed"), { authenticationFailed: true, serverResponseCode: "AUTHENTICATIONFAILED", response: "Invalid credentials\r\n(Failure)" }),
+    );
+    assert.match(error.message, /Enable Titan on other apps/);
+    assert.match(error.message, /Titan said: AUTHENTICATIONFAILED: Invalid credentials \(Failure\)$/);
+    assert.equal(titanServerSaid({ response: "x".repeat(500) })?.length, 200);
+    assert.equal(titanServerSaid(new Error("no reply")), undefined);
   });
 });
 

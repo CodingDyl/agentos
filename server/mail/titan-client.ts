@@ -49,11 +49,33 @@ function clientFor(credentials: TitanCredentials): ImapFlow {
 }
 
 /** Turns IMAPFlow's errors into one the Inbox can explain. Never includes the password. */
+/**
+ * What Titan's server said, for the person to read: its status code and reply
+ * text, on one line and capped. An IMAP server's reply never echoes the
+ * password, and nothing else from the request is included.
+ */
+export function titanServerSaid(error: unknown): string | undefined {
+  const value = error as { serverResponseCode?: unknown; responseText?: unknown; response?: unknown } | undefined;
+  const code = typeof value?.serverResponseCode === "string" ? value.serverResponseCode : undefined;
+  const text = typeof value?.responseText === "string" ? value.responseText : typeof value?.response === "string" ? value.response : undefined;
+  // eslint-disable-next-line no-control-regex
+  const said = [code, text].filter(Boolean).join(": ").replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+  return said || undefined;
+}
+
 export function describeTitanError(error: unknown): TitanError {
   if (error instanceof TitanError) return error;
   const value = error as { authenticationFailed?: boolean; code?: string; responseText?: string; message?: string } | undefined;
   if (value?.authenticationFailed || /AUTHENTICATIONFAILED|invalid credentials|authentication failed/i.test(`${value?.responseText ?? ""} ${value?.message ?? ""}`)) {
-    return new TitanError("Titan refused the login. Check the address and password (the one you use in the Titan app).", "unauthorized");
+    const said = titanServerSaid(error);
+    // Titan's own apps sign in without it, so "it works in the Titan app" does
+    // not rule this switch out: it is the usual reason a correct password fails.
+    return new TitanError(
+      "Titan refused the login. If the password is right, turn on \"Enable Titan on other apps\" in Titan webmail (Settings, the gear icon), " +
+        "then try again: Titan's own app works without it, other apps don't. Also check two-factor authentication is off for this mailbox." +
+        (said ? ` Titan said: ${said}` : ""),
+      "unauthorized",
+    );
   }
   if (value?.code && /^(ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH)$/.test(value.code)) {
     return new TitanError("Could not reach the Titan mail server. Check the internet connection and the server name.", "offline");

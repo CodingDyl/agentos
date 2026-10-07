@@ -7,6 +7,7 @@ import { getProjects } from "../agentos/projects";
 import { readCompass } from "../compass/compass";
 import { computeOutreachStats } from "../outreach/stats";
 import { readState } from "../traction/store";
+import { readDoneLedger } from "./done-ledger";
 
 /**
  * The shortlist: up to eight things worth doing today, ranked by plain rules.
@@ -18,6 +19,9 @@ import { readState } from "../traction/store";
  * - Outreach follow-ups that are due
  * - Personal and life-area tasks (areas/<area>/TASKS.md)
  * - Workspace tasks in Now, from active projects
+ *
+ * Anything already ticked off on Today is left out (see done-ledger.ts), so
+ * a finished item never comes back the next morning.
  *
  * Lifted by: serving a goal whose area is slipping or neglected, a
  * high-priority workspace. Projects the Compass marks paused or done are left
@@ -36,7 +40,7 @@ const SMALL = /^(email|e-mail|call|phone|book|renew|pay|send|reply|message|ask|b
 const hash = (text: string) => createHash("sha1").update(text).digest("hex").slice(0, 10);
 const lower = (text: string) => text.trim().toLowerCase();
 
-export function buildShortlist(inputs: ShortlistInputs): Candidate[] {
+export function buildShortlist(inputs: ShortlistInputs, done: ReadonlySet<string> = new Set()): Candidate[] {
   const compass = inputs.compass;
   const struggling = new Set(
     (compass?.areas ?? []).filter((area) => area.status === "slipping" || area.status === "neglected").map((area) => lower(area.name)),
@@ -60,7 +64,8 @@ export function buildShortlist(inputs: ShortlistInputs): Candidate[] {
 
   for (const due of inputs.followUps) {
     candidates.push({
-      id: `follow_up:${due.prospectId}`,
+      // Which email it is, so ticking the first follow-up leaves the last one to come.
+      id: `follow_up:${due.prospectId}:${due.touch}`,
       title: `Follow up with ${due.company}`,
       kind: "follow_up",
       source: "Outreach",
@@ -112,7 +117,10 @@ export function buildShortlist(inputs: ShortlistInputs): Candidate[] {
     });
   }
 
-  return candidates.sort((a, b) => b.score - a.score).slice(0, SHORTLIST_SIZE);
+  return candidates
+    .filter((candidate) => !done.has(candidate.id))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, SHORTLIST_SIZE);
 }
 
 /** Open tasks in areas/<area>/TASKS.md: every unchecked box. */
@@ -166,5 +174,6 @@ export async function gatherInputs(): Promise<ShortlistInputs> {
 }
 
 export async function shortlist(): Promise<Candidate[]> {
-  return buildShortlist(await gatherInputs());
+  const [inputs, ledger] = await Promise.all([gatherInputs(), readDoneLedger()]);
+  return buildShortlist(inputs, new Set(Object.keys(ledger)));
 }

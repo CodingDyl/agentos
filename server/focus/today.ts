@@ -11,6 +11,7 @@ import { readCompass } from "../compass/compass";
 import { STRUCTURED_REPLY_SYSTEM } from "../compass/interview";
 import { HermesError, sendToHermes } from "../hermes/client";
 import { extractJson } from "../hermes/worker-review";
+import { recordDone } from "./done-ledger";
 import { shortlist } from "./shortlist";
 
 /**
@@ -235,6 +236,8 @@ export async function markDone(candidateId: string, done: boolean): Promise<Focu
     ...state,
     done: done ? [...new Set([...state.done, candidateId])] : state.done.filter((id) => id !== candidateId),
   }));
+  // Remembered past today, so it is not offered again tomorrow.
+  await recordDone(candidateId, done, date);
   if (done) await journal(date, [`Done: ${entry.candidate.title}`]);
   return day;
 }
@@ -243,14 +246,16 @@ async function tickAreaTask(area: string, title: string, done: boolean): Promise
   if (!/^[a-z0-9-]{1,40}$/.test(area)) return;
   const relativePath = `areas/${area}/TASKS.md`;
   if ((await readOptionalFile(relativePath)) === undefined) return;
-  const [from, to] = done ? ["[ ]", "[x]"] : ["[x]", "[ ]"];
+  const to = done ? "[x]" : "[ ]";
   await editFile({
     relativePath,
     label: "area-task.tick",
     apply: (current) => {
+      // Any list marker (-, *, +), any indent and spacing: the same lines readAreaTasks reads.
+      const box = done ? /^(\s*[-*+]\s+)\[ \](\s+)(.+?)\s*$/ : /^(\s*[-*+]\s+)\[[xX]\](\s+)(.+?)\s*$/;
       const lines = (current ?? "").split("\n");
-      const index = lines.findIndex((line) => line.includes(`- ${from} ${title}`));
-      if (index !== -1) lines[index] = lines[index].replace(`- ${from} `, `- ${to} `);
+      const index = lines.findIndex((line) => box.exec(line)?.[3] === title.trim());
+      if (index !== -1) lines[index] = lines[index].replace(box, `$1${to}$2$3`);
       return lines.join("\n");
     },
   });
