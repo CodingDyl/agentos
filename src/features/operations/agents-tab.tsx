@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { AgentUsage, LiveAgent, OperationsData } from "@shared/usage-types";
 import { cn } from "@/lib/utils";
+import { AgentNetworkBeam } from "./agent-network-beam";
 import { Figure } from "./figures";
 import { formatCost, measuredCost, measuredTokens } from "./operations-model";
 import { PAPER_FOCUS, PaperCard, PaperSection, RadialMeter, Tag } from "@/components/paper";
@@ -17,6 +18,7 @@ import { PAPER_FOCUS, PaperCard, PaperSection, RadialMeter, Tag } from "@/compon
 export function AgentsTab({ data }: { data: OperationsData }) {
   return (
     <div className="space-y-12">
+      <AgentNetworkBeam live={data.live} />
       <LiveStrip live={data.live} />
 
       <PaperSection label={data.window.label} count={data.agents.length}>

@@ -38,6 +38,7 @@
     "cn": "^0.2.5",
     "express": "^5.2.1",
     "force-graph": "^1.52.0",
+    "framer-motion": "^14.0.0",
     "gray-matter": "^4.0.3",
     "imapflow": "^2.2.5",
     "lucide-react": "^1.41.0",
