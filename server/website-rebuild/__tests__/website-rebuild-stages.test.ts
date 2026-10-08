@@ -15,7 +15,7 @@ const { integrateJob, pickWorker, WorkerStageBlocked } = await import("../worker
 const { ensureClientRepo, mountPointOf, ClientRepoUnavailable } = await import("../client-repo");
 const { createWorktree } = await import("../../workers/worktree");
 const { createJobId } = await import("../../workers/job-store");
-const { routesFrom, routeName } = await import("../screens");
+const { routesFrom, routeName, routeList } = await import("../screens");
 const { HermesError } = await import("../../hermes/client");
 const { PublishError } = await import("../publish");
 type RunnerDeps = import("../runner").RunnerDeps;
@@ -460,6 +460,130 @@ describe("client repo and helpers", () => {
     assert.deepEqual(routesFrom("not json"), ["/"]);
     assert.equal(routeName("/services/electrical"), "services-electrical");
     assert.equal(routeName("/"), "home");
+  });
+});
+
+describe("baseline storyboard review", () => {
+  type ShotCall = { names: string[]; fullPage: boolean | undefined };
+
+  /** Runs the rebuild to the baseline checkpoint with a screenshotter that records how it was called. */
+  async function atBaseline(options: { screenshotFor?: (name: string, viewport: string, call: number) => string; sitemap?: string } = {}) {
+    const worker: FakeWorker = {
+      jobs: [],
+      available: new Set(["claude-code", "codex", "hermes-worker"]),
+      files: (objective) =>
+        objective.startsWith("Build")
+          ? { ...filesFor(objective), "sitemap.json": options.sitemap ?? '["/", "/contact"]', "app/page.tsx": `export default function Page() { return "${objective.includes("<<<FEEDBACK") ? "revised" : "first"}"; }` }
+          : filesFor(objective),
+    };
+    const calls: ShotCall[] = [];
+    let call = 0;
+    stages.stageDeps.current = fakeStageDeps(worker, {
+      screenshot: async (targets, outputDir, shotOptions) => {
+        fs.mkdirSync(outputDir, { recursive: true });
+        calls.push({ names: targets.map((target) => target.name), fullPage: shotOptions?.fullPage });
+        call += 1;
+        return targets.flatMap(({ name }) =>
+          (["desktop", "mobile"] as const).map((viewport) => {
+            const file = path.join(outputDir, `${name}-${viewport}.png`);
+            fs.writeFileSync(file, options.screenshotFor?.(name, viewport, call) ?? "png");
+            return { name, viewport, file };
+          }),
+        );
+      },
+    });
+    const run = newRun();
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    store.decide(run.id, "hero", 1, "approved", undefined, "concept-b");
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    return { run, worker, calls };
+  }
+
+  const pin = (id: string, text: string, extra: object = {}) => ({ id, text, viewport: "desktop" as const, ...extra });
+
+  it("photographs every baseline page top to bottom, and titles each snapshot with its route", async () => {
+    const { run, calls } = await atBaseline();
+    assert.equal(status(run.id, "build")?.status, "awaiting_approval");
+    const buildCall = calls.find((entry) => entry.names.includes("contact"));
+    assert.equal(buildCall?.fullPage, true);
+    const titles = store.readRun(run.id).artifacts.filter((artifact) => artifact.stage === "build" && artifact.media === "image").map((artifact) => artifact.title).sort();
+    assert.deepEqual(titles, ["/ (desktop)", "/ (mobile)", "/contact (desktop)", "/contact (mobile)"]);
+    assert.ok(store.readRun(run.id).artifacts.filter((artifact) => artifact.media === "image" && artifact.stage === "build").every((artifact) => artifact.digest));
+  });
+
+  it("keeps up to twenty pages and says how many were left out", () => {
+    const routes = JSON.stringify(Array.from({ length: 25 }, (_, index) => `/p${index}`));
+    const kept = routeList(routes, 20);
+    assert.equal(kept.routes.length, 20);
+    assert.equal(kept.dropped, 6, "twenty-five listed plus the home page, twenty kept");
+    assert.equal(routesFrom(routes).length, 6, "other stages keep their limit of six");
+  });
+
+  it("sends each page's notes to the worker word for word, grouped by page, and only those pages", async () => {
+    const { run, worker } = await atBaseline();
+    store.savePageNotes(run.id, "build", 1, "/contact", [pin("n1", "Make the phone number bigger,\n  and keep my \"quotes\" & spacing.", { x: 42.4, y: 10, section: "Call us" }), pin("n2", "Move the form above the map.")]);
+    store.savePageNotes(run.id, "build", 1, "/", []);
+    assert.deepEqual(Object.keys(store.savedPageNotes(run.id, "build", 1)), ["/contact"], "a page cleared of notes is not kept");
+
+    // No pageNotes sent: the notes saved while reviewing are what goes.
+    store.decide(run.id, "build", 1, "changes_requested");
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    assert.equal(status(run.id, "build")?.revision, 2, status(run.id, "build")?.blocker ?? "");
+
+    const second = worker.jobs.filter((job) => job.objective.startsWith("Build"))[1].objective;
+    assert.ok(second.includes("Make the phone number bigger,\n  and keep my \"quotes\" & spacing."), "the note is not reworded or trimmed inside");
+    assert.ok(second.includes("Move the form above the map."));
+    assert.match(second, /\/contact\n- \(pinned on the desktop snapshot at 42% across, 10% down; section: Call us\) Make the phone number bigger/);
+    assert.match(second, /leave every other page's content and layout unchanged/);
+    assert.doesNotMatch(second, /\n\/\n/, "the home page had no notes, so it is not listed");
+    assert.deepEqual(Object.keys(store.readRun(run.id).decisions.at(-1)?.pageNotes ?? {}), ["/contact"], "the history keeps exactly what was sent");
+  });
+
+  it("refuses to request changes with nothing written, and ignores notes on other stages", async () => {
+    const { run } = await atBaseline();
+    assert.throws(() => store.decide(run.id, "build", 1, "changes_requested"), /Say what should change/);
+    assert.throws(() => store.decide(run.id, "build", 1, "changes_requested", undefined, undefined, undefined, { "/": [pin("n1", "   ")] }), /Say what should change/, "a blank note is nothing");
+    assert.throws(() => store.savePageNotes(run.id, "hero", 1, "/", [pin("n1", "x")]), /Only the baseline/);
+  });
+
+  it("will not approve a baseline that has no snapshots of every page", async () => {
+    const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "codex", "hermes-worker"]), files: filesFor };
+    stages.stageDeps.current = fakeStageDeps(worker, {
+      screenshot: async (targets, outputDir) => {
+        fs.mkdirSync(outputDir, { recursive: true });
+        if (targets.some((target) => target.name === "home")) throw new Error("Chromium crashed");
+        return [];
+      },
+    });
+    const run = newRun();
+    // The hero stage needs real shots, so reach the baseline with a working screenshotter first.
+    stages.stageDeps.current = fakeStageDeps(worker);
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    store.decide(run.id, "hero", 1, "approved", undefined, "concept-b");
+    stages.stageDeps.current = fakeStageDeps(worker, {
+      screenshot: async (targets, outputDir) => {
+        if (targets.length === 2 && targets[0].name === "home") throw new Error("Chromium crashed");
+        fs.mkdirSync(outputDir, { recursive: true });
+        return [];
+      },
+    });
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    assert.equal(status(run.id, "build")?.status, "awaiting_approval");
+    assert.throws(() => store.decide(run.id, "build", 1, "approved"), /no complete snapshots/);
+  });
+
+  it("shows which pages changed in a revision, and tells you about pages that changed without a note", async () => {
+    const { run } = await atBaseline({ screenshotFor: (name, _viewport, call) => (name === "home" ? "home" : `contact-${call}`) });
+    store.savePageNotes(run.id, "build", 1, "/", [pin("n1", "Warmer headline.")]);
+    store.decide(run.id, "build", 1, "changes_requested");
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+
+    const images = store.readRun(run.id).artifacts.filter((artifact) => artifact.stage === "build" && artifact.media === "image");
+    const digest = (revision: number, title: string) => images.find((artifact) => artifact.revision === revision && artifact.title === title)?.digest;
+    assert.equal(digest(1, "/ (desktop)"), digest(2, "/ (desktop)"), "the home page is pixel-identical");
+    assert.notEqual(digest(1, "/contact (desktop)"), digest(2, "/contact (desktop)"), "the contact page changed");
+    const summary = store.readRun(run.id).revisions.filter((revision) => revision.stage === "build").at(-1)?.summary ?? "";
+    assert.match(summary, /Also changed, without notes: \/contact/);
   });
 });
 

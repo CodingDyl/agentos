@@ -3,6 +3,7 @@ import type {
   RepositoryStatus,
 } from "../../shared/repository-types";
 import { isRunning } from "../workers/job-manager";
+import { findMetadataFiles, removeMetadataFiles } from "./metadata-files";
 import { listJobs } from "../workers/job-store";
 import {
   currentBranch,
@@ -121,7 +122,7 @@ export async function readRepositoryStatus(
     return { ...empty, unavailable: await repositoryProblem(repositoryPath) };
   }
 
-  const [branch, head, clean, branches, uncommitted, recentCommits, jobs] =
+  const [branch, head, clean, branches, uncommitted, recentCommits, jobs, metadata] =
     await Promise.all([
       currentBranch(repositoryPath),
       headCommit(repositoryPath),
@@ -130,6 +131,7 @@ export async function readRepositoryStatus(
       uncommittedFiles(repositoryPath),
       readRecentCommits(repositoryPath, 15),
       listJobs(200),
+      findMetadataFiles(repositoryPath),
     ]);
 
   // Which job is waiting on which branch. Only jobs that still have something
@@ -165,6 +167,7 @@ export async function readRepositoryStatus(
     uncommitted,
     recentCommits,
     pins,
+    metadataFiles: metadata.length,
     writeBlocker: await writeBlocker(slug, repositoryPath),
   };
 }
@@ -209,6 +212,7 @@ const GIT_CAPABILITY: Record<RepositoryAction["kind"], string> = {
   stash: "git.stash",
   commit: "git.commit",
   branch: "git.create_branch",
+  clean_metadata: "git.clean_metadata",
 };
 
 /**
@@ -328,6 +332,15 @@ export async function runRepositoryAction(
 
         await git(repoPath, ["checkout", "-b", name]);
         return withStatus(`Created ${name} and switched to it.`);
+      }
+
+      case "clean_metadata": {
+        const count = (await findMetadataFiles(repoPath)).length;
+        if (count === 0) return refuse("There are no ._ files to remove.");
+        const removed = await removeMetadataFiles(repoPath);
+        return withStatus(
+          `Removed ${removed} macOS ._ ${removed === 1 ? "file" : "files"} and told git to ignore them. Nothing tracked was touched.`,
+        );
       }
 
       default: {

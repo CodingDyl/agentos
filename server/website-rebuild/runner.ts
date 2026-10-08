@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -246,7 +246,9 @@ async function runStage(runId: string, stage: RebuildStageId, owner: string, han
       // One file per revision, so an earlier revision's screenshots stay as they were reviewed.
       const relativePath = `${PROJECTS_DIR}/${latest.workspaceSlug}/${REPORT_DIR}/${options.folder ?? "screens"}/${stage}-r${revision}-${name}.${extension}`;
       await deps.writeBinary(relativePath, file);
-      const id = recordArtifact(runId, stage, { title, path: relativePath, href: "", revision, media: "image" });
+      // A digest of the bytes lets a later revision say which pages really changed.
+      const digest = createHash("sha256").update(await fs.readFile(file).catch(() => relativePath)).digest("hex");
+      const id = recordArtifact(runId, stage, { title, path: relativePath, href: "", revision, media: "image", digest });
       return id;
     },
     rememberJob: (jobId) => setStageJob(runId, stage, owner, jobId),

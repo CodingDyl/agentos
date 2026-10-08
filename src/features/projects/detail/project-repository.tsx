@@ -3,6 +3,8 @@ import { type ChangeEvent, useState } from "react";
 import type { BranchSummary, RepositoryStatus } from "@shared/repository-types";
 import { CommandButton, EmptyState, SectionLabel } from "@/components/os";
 import { useRepositoryAction, useRepositoryStatus } from "@/lib/agentos/queries";
+import { GitGraph } from "./git-graph";
+import { GitGuide } from "./git-guide";
 import { cn } from "@/lib/utils";
 
 /** Matches the vault forms elsewhere, minus their stacked top margin. */
@@ -69,7 +71,15 @@ function Divergence({ branch }: { branch: BranchSummary }) {
   );
 }
 
+type View = "tree" | "status" | "guide";
+const VIEWS: readonly { id: View; label: string }[] = [
+  { id: "tree", label: "Tree" },
+  { id: "status", label: "Status and branches" },
+  { id: "guide", label: "Git guide" },
+];
+
 export function ProjectRepository({ slug }: { slug: string }) {
+  const [view, setView] = useState<View>("tree");
   const { data, isLoading, error } = useRepositoryStatus(slug);
   const action = useRepositoryAction(slug);
 
@@ -114,7 +124,81 @@ export function ProjectRepository({ slug }: { slug: string }) {
     action.mutate(input);
   };
 
+  const tabs = (
+    <div role="tablist" aria-label="Repository views" className="mt-6 flex gap-1 border-b border-os-border">
+      {VIEWS.map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          role="tab"
+          aria-selected={view === entry.id}
+          onClick={() => setView(entry.id)}
+          className={cn(
+            "os-focus-ring os-meta -mb-px cursor-pointer border-b-2 px-3 py-2 transition-colors duration-150",
+            view === entry.id ? "border-os-amber text-foreground" : "border-transparent text-os-subtle hover:text-foreground",
+          )}
+        >
+          {entry.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const junk = status.metadataFiles ?? 0;
+  const junkNotice =
+    junk > 0 ? (
+      <div role="alert" className="mt-4 rounded-sm border border-os-amber/40 bg-os-amber/10 px-4 py-3">
+        <p className="flex items-start gap-2 text-[13px] text-os-amber">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+          <span>
+            {junk} macOS <span className="font-mono">._</span> {junk === 1 ? "file is" : "files are"} in this repository. On an exFAT drive macOS makes one beside every file, and lint and tests read them as source and fail.
+          </span>
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <CommandButton onClick={() => run({ kind: "clean_metadata" })} disabled={frozen || busy} loading={busy && action.variables?.kind === "clean_metadata"}>
+            Remove {junk} ._ {junk === 1 ? "file" : "files"}
+          </CommandButton>
+          <span className="os-meta normal-case text-os-subtle">Only untracked ._ files go. Git is told to ignore them afterwards. Nothing you wrote is touched.</span>
+        </div>
+      </div>
+    ) : null;
+
+  const outcomeNotice = outcome ? (
+    <p
+      role="status"
+      className={cn(
+        "os-meta mt-4 rounded-sm border px-3 py-2 normal-case",
+        outcome.ok ? "border-os-success/40 bg-os-success/10 text-os-success" : "border-os-warning/40 bg-os-warning/10 text-os-warning",
+      )}
+    >
+      {outcome.detail}
+    </p>
+  ) : null;
+
+  if (view === "tree") {
+    return (
+      <div>
+        {tabs}
+        {junkNotice}
+        {outcomeNotice}
+        <GitGraph slug={slug} status={status} />
+      </div>
+    );
+  }
+
+  if (view === "guide") {
+    return (
+      <div>
+        {tabs}
+        <GitGuide status={status} />
+      </div>
+    );
+  }
+
   return (
+    <div>
+      {tabs}
+      {junkNotice}
     <div className="mt-6 space-y-8">
       {/* Where the repository is, and whether anything may be done to it. */}
       <section>
@@ -349,6 +433,7 @@ export function ProjectRepository({ slug }: { slug: string }) {
           ))}
         </ul>
       </section>
+    </div>
     </div>
   );
 }

@@ -221,7 +221,9 @@ function upToFunctions(): Record<RebuildStageId, StageHandler> {
     fs.writeFileSync(path.join(repo, `${context.stage}.txt`), String(context.revision));
     git(repo, "add", "-A");
     git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", context.stage);
-    return { summary: `${context.stage} done`, artifactIds: [], ref: git(repo, "rev-parse", "HEAD") };
+    // The baseline cannot be approved without a snapshot of its pages at both widths.
+    const shots = context.stage === "build" ? await Promise.all((["desktop", "mobile"] as const).map((viewport) => context.writeImage(`home-${viewport}`, `/ (${viewport})`, path.join(repo, "sitemap.json")))) : [];
+    return { summary: `${context.stage} done`, artifactIds: shots, ref: git(repo, "rev-parse", "HEAD") };
   };
   return { workspace, capture: plain, research: plain, hero: plain, build: code, functions: code, preview: stages.previewStage };
 }

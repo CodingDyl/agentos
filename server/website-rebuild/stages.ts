@@ -38,7 +38,7 @@ import {
   reviewFile,
 } from "./prompts";
 import { REPORT_DIR, reportFile, wrapReport } from "./reports";
-import { routeName, routesFrom, screenshot, serveBuiltNextApp } from "./screens";
+import { routeList, routeName, routesFrom, screenshot, serveBuiltNextApp } from "./screens";
 import { StageBlocked, type StageContext, type StageHandler, type StageOutcome } from "./stage-kit";
 import { readRun, setRunField } from "./store";
 import { integrateJob, pickWorker, runJob, WorkerStageBlocked, type PickedWorker } from "./workers";
@@ -267,17 +267,22 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
 }
 
 /** Photographs a built Next.js app from the job's checkout, before its code moves into the repo. */
-async function photographSite(context: StageContext, deps: StageDeps, job: WorkerJob): Promise<string[]> {
+async function photographSite(context: StageContext, deps: StageDeps, job: WorkerJob, options: { fullPage?: boolean; limit?: number } = {}): Promise<string[]> {
   if (!job.worktreePath) return [];
   const sitemap = await deps.readRepoFile(job.worktreePath, "sitemap.json");
-  const routes = routesFrom(sitemap);
+  const { routes, dropped } = routeList(sitemap, options.limit);
+  if (dropped > 0) context.log(`The sitemap lists ${routes.length + dropped} pages; the first ${routes.length} were photographed and ${dropped} were left out.`, "warning");
   context.activity(`Photographing ${routes.length} page${routes.length === 1 ? "" : "s"} at desktop and phone widths`);
   let server: { url: string; stop: () => void } | undefined;
   try {
     server = await deps.serveNext(job.worktreePath);
-    const shots = await deps.screenshot(routes.map((route) => ({ name: routeName(route), target: `${server?.url}${route}` })), await deps.scratchDir(context.stage));
+    const shots = await deps.screenshot(routes.map((route) => ({ name: routeName(route), target: `${server?.url}${route}` })), await deps.scratchDir(context.stage), { fullPage: options.fullPage });
+    const cropped = [...new Set(shots.filter((shot) => shot.cropped).map((shot) => shot.name))];
+    if (cropped.length > 0) context.log(`${cropped.join(", ")} ${cropped.length === 1 ? "is" : "are"} taller than one image can hold, so the bottom of ${cropped.length === 1 ? "that page is" : "those pages are"} cut off in the snapshot.`, "warning");
     const ids: string[] = [];
-    for (const shot of shots) ids.push(await context.writeImage(`${shot.name}-${shot.viewport}`, `${shot.name} (${shot.viewport})`, shot.file));
+    // The title names the route itself ("/services (desktop)"), so notes written on a snapshot belong to a real page.
+    const routeOf = new Map(routes.map((route) => [routeName(route), route]));
+    for (const shot of shots) ids.push(await context.writeImage(`${shot.name}-${shot.viewport}`, `${routeOf.get(shot.name) ?? shot.name} (${shot.viewport})`, shot.file));
     return ids;
   } catch (error) {
     // The build passed; a failed photo is worth saying, not worth blocking the review over.
@@ -410,6 +415,34 @@ export const heroStage: StageHandler = async (context) => {
 
 // ------------------------------------------------------------------ stage 5
 
+/** Every page of the baseline is photographed, up to this many. */
+export const BASELINE_PAGE_LIMIT = 20;
+
+/** The route a baseline snapshot's title names: `/services (desktop)` is `/services`. */
+const snapshotName = (title: string) => title.replace(/ \((desktop|mobile)\)$/, "");
+
+/**
+ * Pages whose snapshot differs from the last revision although the person left
+ * no note on them. A shared header edit can move every page, so this is told to
+ * the person, not refused.
+ */
+export function strayedPages(run: RebuildRun, revision: number, shotIds: readonly string[], changeRequest: string | undefined): string[] {
+  if (!changeRequest || revision < 2) return [];
+  const noted = new Set(
+    Object.keys(run.decisions.filter((decision) => decision.stage === "build" && decision.decision === "changes_requested").at(-1)?.pageNotes ?? {}),
+  );
+  if (noted.size === 0) return [];
+  const images = run.artifacts.filter((artifact) => artifact.stage === "build" && artifact.media === "image");
+  const changed = new Set<string>();
+  for (const id of shotIds) {
+    const now = readRun(run.id).artifacts.find((artifact) => artifact.id === id);
+    if (!now?.digest) continue;
+    const before = images.find((artifact) => artifact.revision === revision - 1 && artifact.title === now.title);
+    if (before?.digest && before.digest !== now.digest) changed.add(snapshotName(now.title));
+  }
+  return [...changed].filter((name) => !noted.has(name));
+}
+
 export const buildStage: StageHandler = async (context) => {
   const deps = stageDeps.current;
   const { run } = context;
@@ -423,12 +456,15 @@ export const buildStage: StageHandler = async (context) => {
     repoPath: repo,
     validationCommands: NEXT_VALIDATION,
   }));
-  const shots = await photographSite(context, deps, job);
+  // The baseline is reviewed page by page, so every page is photographed top to bottom.
+  const shots = await photographSite(context, deps, job, { fullPage: true, limit: BASELINE_PAGE_LIMIT });
   const commit = await integrate(context, deps, job, repo, "copy and structure");
   context.rememberJob(null);
   const review = await secondOpinion(context, deps, repo);
+  const strayed = strayedPages(context.run, context.revision, shots, context.changeRequest);
+  if (strayed.length > 0) context.log(`Pages without notes also changed in this revision: ${strayed.join(", ")}.`, "warning");
   return {
-    summary: `${worker.name} built the site on ${run.heroChoice}; it builds and lints. ${shots.length > 0 ? `${shots.length / 2} page${shots.length === 2 ? "" : "s"} photographed.` : "No screenshots."}${review ? " A second opinion is attached." : ""}`,
+    summary: `${worker.name} built the site on ${run.heroChoice}; it builds and lints. ${shots.length > 0 ? `${shots.length / 2} page${shots.length === 2 ? "" : "s"} photographed.` : "No screenshots."}${strayed.length > 0 ? ` Also changed, without notes: ${strayed.join(", ")}.` : ""}${review ? " A second opinion is attached." : ""}`,
     artifactIds: [...shots, ...(review ? [review] : [])],
     ref: commit,
     worker: worker.name,

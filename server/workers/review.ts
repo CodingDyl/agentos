@@ -15,6 +15,7 @@ import {
   buildRevisionRequest,
   buildVisualRevisionRequest,
 } from "./review-builder";
+import { removeMetadataFiles } from "../agentos/metadata-files";
 import { runValidation } from "./validation";
 import { createWorkerEvent } from "./worker";
 import {
@@ -653,6 +654,14 @@ async function integrate(job: WorkerJob): Promise<ActionResult> {
   let sourcePassed = true;
 
   if (commands.length > 0) {
+    // An exFAT or network drive gets a `._name` sidecar beside every file macOS
+    // writes, and linters and test runners read those as source. They hold
+    // nothing the project needs, and they are not part of what was reviewed.
+    const sidecars = await removeMetadataFiles(source);
+    if (sidecars > 0) {
+      await record(job.id, "validation.started", `Removed ${sidecars} macOS ._ sidecar file${sidecars === 1 ? "" : "s"} before validating`);
+    }
+
     const controller = new AbortController();
 
     const outcome = await runValidation(

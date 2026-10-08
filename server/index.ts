@@ -43,9 +43,11 @@ import { search } from "./agentos/search";
 import { getMilestoneDetail, getRoadmap } from "./agentos/roadmap";
 import {
   readRepositoryStatus,
+  repositoryPathFor,
   runRepositoryAction,
 } from "./agentos/repository";
 import { RepositoryActionSchema } from "../shared/repository-types";
+import { readGitGraph } from "./agentos/git-graph";
 import {
   getProjectDocuments,
   listRecentDocuments,
@@ -88,6 +90,7 @@ import { completeOutreachConnection, OutreachAuthError, parseOutreachState } fro
 import { startOutreachSyncTimer } from "./outreach/sync";
 import { outreachRouter } from "./outreach/routes";
 import { rebuildRouter, recoverRebuildsAtStartup } from "./website-rebuild/routes";
+import { siteRequestRouter } from "./site-requests/routes";
 import { skillsRouter } from "./skills/routes";
 import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
@@ -389,6 +392,7 @@ app.use("/api/career", careerRouter);
 app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
 app.use("/api/rebuilds", rebuildRouter);
+app.use("/api/site-requests", siteRequestRouter);
 app.use("/api/skills", skillsRouter);
 recoverRebuildsAtStartup();
 app.use("/api/compass", compassRouter);
@@ -3478,6 +3482,26 @@ app.get("/api/projects/:slug/repository", async (request, response) => {
   } catch (error) {
     console.error("[agentos] could not read repository:", error);
     response.status(500).json({ error: "Unable to read that repository" });
+  }
+});
+
+/** The commit graph: lanes, edges and refs, newest first. */
+app.get("/api/projects/:slug/repository/graph", async (request, response) => {
+  try {
+    const repositoryPath = await repositoryPathFor(request.params.slug);
+    if (!repositoryPath) {
+      response.json({ commits: [], lanes: 1, truncated: false, workersHidden: true, unavailable: "No local repository is linked to this project." });
+      return;
+    }
+    response.json(
+      await readGitGraph(repositoryPath, {
+        limit: Number(request.query.limit) || undefined,
+        includeWorkers: request.query.workers === "1",
+      }),
+    );
+  } catch (error) {
+    console.error("[agentos] could not read the commit graph:", error);
+    response.status(500).json({ error: "Unable to read that repository's history" });
   }
 });
 

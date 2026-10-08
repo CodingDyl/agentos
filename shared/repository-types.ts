@@ -66,6 +66,12 @@ export const RepositoryStatusSchema = z.object({
   uncommitted: z.array(UncommittedFileSchema),
   recentCommits: z.array(RepositoryCommitSchema),
   pins: z.array(BranchPinSchema),
+  /**
+   * macOS `._*` sidecar files sitting untracked in the repository, which an
+   * exFAT or network drive creates beside every file. Linters and test runners
+   * read them as source and fail on them.
+   */
+  metadataFiles: z.number().optional(),
   /** Why no write may happen right now — usually a job is running. */
   writeBlocker: z.string().optional(),
   /** Why there is nothing to show at all. */
@@ -78,6 +84,8 @@ export const RepositoryActionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("stash"), message: z.string().optional() }),
   z.object({ kind: z.literal("commit"), message: z.string().min(1) }),
   z.object({ kind: z.literal("branch"), name: z.string().min(1) }),
+  /** Deletes untracked `._*` sidecar files only, and keeps git ignoring them. */
+  z.object({ kind: z.literal("clean_metadata") }),
 ]);
 
 export const RepositoryActionResultSchema = z.object({
@@ -86,6 +94,50 @@ export const RepositoryActionResultSchema = z.object({
   status: RepositoryStatusSchema.optional(),
 });
 
+/** A name pointing at a commit: a branch, a remote branch, a tag, or a worker's scratch branch. */
+export const GraphRefSchema = z.object({
+  name: z.string(),
+  kind: z.enum(["branch", "remote", "tag", "worker"]),
+  /** The branch HEAD is on. */
+  current: z.boolean(),
+});
+
+/** One line segment between two lanes, from this row's top, through the commit, to its bottom. */
+export const GraphEdgeSchema = z.object({
+  kind: z.enum(["through", "in", "out"]),
+  from: z.number(),
+  to: z.number(),
+  color: z.number(),
+});
+
+export const GraphCommitSchema = z.object({
+  hash: z.string(),
+  subject: z.string(),
+  author: z.string(),
+  date: z.string(),
+  parents: z.array(z.string()),
+  refs: z.array(GraphRefSchema),
+  /** The lane the commit's dot sits in. */
+  lane: z.number(),
+  color: z.number(),
+  edges: z.array(GraphEdgeSchema),
+});
+
+export const RepositoryGraphSchema = z.object({
+  commits: z.array(GraphCommitSchema),
+  /** Lanes the widest row needs. */
+  lanes: z.number(),
+  /** More history exists than was read. */
+  truncated: z.boolean(),
+  /** Worker scratch branches were left out of the drawing. */
+  workersHidden: z.boolean(),
+  unavailable: z.string().optional(),
+});
+
+export type GraphRef = z.infer<typeof GraphRefSchema>;
+export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
+export type GraphCommit = z.infer<typeof GraphCommitSchema>;
+export type RepositoryGraph = z.infer<typeof RepositoryGraphSchema>;
 export type BranchSummary = z.infer<typeof BranchSummarySchema>;
 export type UncommittedFile = z.infer<typeof UncommittedFileSchema>;
 export type RepositoryCommit = z.infer<typeof RepositoryCommitSchema>;

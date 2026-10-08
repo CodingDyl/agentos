@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { routeName } from "../../shared/website-rebuild-types";
 
 /**
  * Screenshots for the review checkpoints: every concept or page at a desktop
@@ -21,7 +22,17 @@ export interface Shot {
   viewport: ViewportName;
   /** Absolute path of the PNG written. */
   file: string;
+  /** The page was taller than the browser can capture in one image, so the bottom is missing. */
+  cropped?: boolean;
 }
+
+export interface ScreenshotOptions {
+  /** The whole page, top to bottom, instead of the first screen. */
+  fullPage?: boolean;
+}
+
+/** Chromium cannot make an image taller than this. */
+export const MAX_SHOT_HEIGHT = 16_384;
 
 async function chromium(): Promise<typeof import("@playwright/test")["chromium"]> {
   try {
@@ -32,7 +43,7 @@ async function chromium(): Promise<typeof import("@playwright/test")["chromium"]
 }
 
 /** Photographs each target at both widths. Targets are `http(s)://` or absolute file paths. */
-export async function screenshot(targets: readonly { name: string; target: string }[], outputDir: string): Promise<Shot[]> {
+export async function screenshot(targets: readonly { name: string; target: string }[], outputDir: string, options: ScreenshotOptions = {}): Promise<Shot[]> {
   await fs.mkdir(outputDir, { recursive: true });
   const browser = await (await chromium()).launch();
   const shots: Shot[] = [];
@@ -46,8 +57,9 @@ export async function screenshot(targets: readonly { name: string; target: strin
         // Let web fonts and entrance animations settle; a half-faded hero is not what will be shipped.
         await page.waitForTimeout(800);
         const file = path.join(outputDir, `${name}-${viewport}.png`);
-        await page.screenshot({ path: file, fullPage: false });
-        shots.push({ name, viewport, file });
+        const height = options.fullPage ? Number(await page.evaluate("document.documentElement.scrollHeight")) : 0;
+        await page.screenshot({ path: file, fullPage: options.fullPage === true });
+        shots.push({ name, viewport, file, ...(height > MAX_SHOT_HEIGHT ? { cropped: true } : {}) });
         await page.close();
       }
       await context.close();
@@ -101,9 +113,14 @@ export async function serveBuiltNextApp(directory: string): Promise<{ url: strin
   throw new Error("The site did not answer within a minute of starting.");
 }
 
-/** The routes to photograph: the worker's `sitemap.json` if it wrote one, else the home page. At most six. */
-export function routesFrom(sitemapJson: string | undefined): string[] {
-  if (!sitemapJson) return ["/"];
+/** The routes to photograph: the worker's `sitemap.json` if it wrote one, else the home page. At most `limit`. */
+export function routesFrom(sitemapJson: string | undefined, limit = 6): string[] {
+  return routeList(sitemapJson, limit).routes;
+}
+
+/** The routes to photograph, and how many the sitemap listed beyond `limit`. */
+export function routeList(sitemapJson: string | undefined, limit = 6): { routes: string[]; dropped: number } {
+  if (!sitemapJson) return { routes: ["/"], dropped: 0 };
   try {
     const parsed: unknown = JSON.parse(sitemapJson);
     const list = Array.isArray(parsed) ? parsed : typeof parsed === "object" && parsed && "routes" in parsed ? (parsed as { routes: unknown }).routes : [];
@@ -111,13 +128,10 @@ export function routesFrom(sitemapJson: string | undefined): string[] {
       .map((entry) => (typeof entry === "string" ? entry : typeof entry === "object" && entry && "path" in entry ? String((entry as { path: unknown }).path) : ""))
       .filter((route) => /^\/[A-Za-z0-9\-._~/]*$/.test(route) && !route.includes(".."));
     const unique = [...new Set(["/", ...routes])];
-    return unique.slice(0, 6);
+    return { routes: unique.slice(0, limit), dropped: Math.max(0, unique.length - limit) };
   } catch {
-    return ["/"];
+    return { routes: ["/"], dropped: 0 };
   }
 }
 
-/** A route as a filename: `/` → `home`, `/services/electrical` → `services-electrical`. */
-export function routeName(route: string): string {
-  return route === "/" ? "home" : route.replace(/^\/+|\/+$/g, "").replace(/[^a-z0-9]+/gi, "-").toLowerCase().slice(0, 60) || "page";
-}
+export { routeName };

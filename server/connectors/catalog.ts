@@ -81,6 +81,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
       { action: "switch_branch", name: "Switch branches", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
       { action: "commit", name: "Commit", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
       { action: "stash", name: "Stash changes", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
+      { action: "clean_metadata", name: "Remove macOS ._ sidecar files", risk: "write-local", implementedBy: "server/agentos/repository.ts" },
       { action: "push", name: "Push to a remote", risk: "write-external" },
       { action: "reset_hard", name: "Discard work (reset --hard)", risk: "destructive" },
     ],

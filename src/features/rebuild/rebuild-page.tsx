@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Loader2, MessageSquareText, RotateCcw } from "lucide-react";
 import {
+  BASELINE_STAGE,
   GATED_STAGES,
   HERO_CONCEPTS,
   REBUILD_FUNCTION_LABEL,
@@ -17,6 +18,7 @@ import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import { useDecideStage, useRebuild, useRetryStage, useSaveConceptNote, useSkipCapture, useStageWorkers } from "@/lib/agentos/rebuilds";
 import { cn } from "@/lib/utils";
+import { BaselineReview } from "./baseline-review";
 import { BrandKitPanel } from "./brand-kit-panel";
 import { conceptLabel } from "./concept-label";
 import { ConceptViewer, type NoteState } from "./concept-viewer";
@@ -198,7 +200,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
         ) : null}
 
         {/* The capture stage's images are the brand kit, shown in its own panel. */}
-        {images.length > 0 && stage.id !== "hero" && stage.id !== "capture" ? <ScreenshotGallery images={images} revision={shownRevision} /> : null}
+        {images.length > 0 && stage.id !== "hero" && stage.id !== "capture" && !(stage.id === BASELINE_STAGE && stage.status === "awaiting_approval") ? <ScreenshotGallery images={images} revision={shownRevision} /> : null}
         {stage.id === "capture" && run.brandKit ? <BrandKitPanel run={run} /> : null}
 
         {artifacts.length > 0 ? (
@@ -214,7 +216,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
           </ul>
         ) : null}
 
-        {stage.status === "awaiting_approval" ? <ReviewPanel run={run} stage={stage} images={images} /> : stage.id === "hero" && images.length > 0 ? <ConceptGallery images={images} chosen={run.heroChoice} branded={Boolean(run.brandKit)} /> : null}
+        {stage.status === "awaiting_approval" ? stage.id === BASELINE_STAGE ? <BaselineReview run={run} stage={stage} /> : <ReviewPanel run={run} stage={stage} images={images} /> : stage.id === "hero" && images.length > 0 ? <ConceptGallery images={images} chosen={run.heroChoice} branded={Boolean(run.brandKit)} /> : null}
 
         {stage.id === "preview" && run.previewUrl ? (
           <a href={run.previewUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue hover:underline">

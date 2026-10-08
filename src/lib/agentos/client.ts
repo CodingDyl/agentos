@@ -7,9 +7,11 @@ import {
 import { z } from "zod";
 import {
   RepositoryActionResultSchema,
+  RepositoryGraphSchema,
   RepositoryStatusSchema,
   type RepositoryAction,
   type RepositoryActionResult,
+  type RepositoryGraph,
   type RepositoryStatus,
 } from "@shared/repository-types";
 import {
@@ -2363,6 +2365,15 @@ export function getRepositoryStatus(slug: string): Promise<RepositoryStatus> {
     `/api/projects/${encodeURIComponent(slug)}/repository`,
     { method: "GET" },
     (value) => RepositoryStatusSchema.safeParse(value),
+  );
+}
+
+/** A project's commit graph. Worker scratch branches are left out unless asked for. */
+export function getRepositoryGraph(slug: string, includeWorkers: boolean): Promise<RepositoryGraph> {
+  return workerRequest(
+    `/api/projects/${encodeURIComponent(slug)}/repository/graph${includeWorkers ? "?workers=1" : ""}`,
+    { method: "GET" },
+    (value) => RepositoryGraphSchema.safeParse(value),
   );
 }
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type BrandKitEdit, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
+import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type BrandKitEdit, type PageNote, type PageNotesByRoute, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
 import { AgentOSRequestError } from "./client";
 
 const base = "/api/rebuilds";
@@ -122,12 +122,13 @@ export function useStageWorkers(runId: string, stage: RebuildStageId, enabled: b
 }
 
 export function useDecideStage(runId: string) {
-  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string; conceptNotes?: Record<string, string> }) =>
+  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string; conceptNotes?: Record<string, string>; pageNotes?: PageNotesByRoute }) =>
     call(`${base}/${encodeURIComponent(runId)}/stages/${input.stage}/${input.decision}`, RebuildRunSchema, {
       revision: input.revision,
       ...(input.note ? { note: input.note } : {}),
       ...(input.choice ? { choice: input.choice } : {}),
       ...(input.conceptNotes && Object.keys(input.conceptNotes).length > 0 ? { conceptNotes: input.conceptNotes } : {}),
+      ...(input.pageNotes && Object.keys(input.pageNotes).length > 0 ? { pageNotes: input.pageNotes } : {}),
     }),
   );
 }
@@ -135,6 +136,11 @@ export function useDecideStage(runId: string) {
 /** Saves one hero concept's note on the revision under review; an empty note clears it. */
 export function useSaveConceptNote(runId: string) {
   return useRunMutation((input: { revision: number; concept: string; note: string }) => call(`${base}/${encodeURIComponent(runId)}/stages/hero/concept-notes`, RebuildRunSchema, input));
+}
+
+/** Saves the notes on one page of the baseline revision under review; no notes clears the page. */
+export function useSavePageNotes(runId: string) {
+  return useRunMutation((input: { revision: number; route: string; notes: PageNote[] }) => call(`${base}/${encodeURIComponent(runId)}/stages/build/page-notes`, RebuildRunSchema, input));
 }
 
 /** Saves which brand images are used, their order, and the colours and fonts. */

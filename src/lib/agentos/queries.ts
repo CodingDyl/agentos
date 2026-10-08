@@ -63,6 +63,7 @@ import {
   createProjectDocument,
   getProjectDocument,
   getProjectDocuments,
+  getRepositoryGraph,
   getRepositoryStatus,
   runRepositoryAction,
   validateWorkerJob,
@@ -2684,6 +2685,19 @@ export function useRepositoryStatus(slug: string, enabled = true) {
   });
 }
 
+/** The commit graph, refreshed on the same rhythm as the status beside it. */
+export function useRepositoryGraph(slug: string, includeWorkers: boolean, enabled = true) {
+  return useQuery({
+    queryKey: [...agentosKeys.repository(slug), "graph", includeWorkers] as const,
+    queryFn: () => getRepositoryGraph(slug, includeWorkers),
+    enabled: enabled && slug.length > 0,
+    staleTime: 5_000,
+    refetchInterval: enabled ? 15_000 : false,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
 /**
  * One repository action.
  *
@@ -2701,6 +2715,8 @@ export function useRepositoryAction(slug: string) {
       if (result.status) {
         client.setQueryData(agentosKeys.repository(slug), result.status);
       }
+
+      void client.invalidateQueries({ queryKey: [...agentosKeys.repository(slug), "graph"] });
 
       // A branch switch or a commit changes what the rest of the project page
       // is describing, so the project itself is refetched too.

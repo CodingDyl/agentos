@@ -101,6 +101,8 @@ export const RebuildArtifactSchema = z.object({
   path: z.string(),
   href: z.string(),
   revision: z.number().int().positive(),
+  /** SHA-256 of an image's bytes, so two revisions' screenshots can be told apart without downloading them. */
+  digest: z.string().optional(),
   createdAt: z.string(),
 });
 
@@ -117,6 +119,31 @@ export const RebuildRevisionSchema = z.object({
   createdAt: z.string(),
 });
 
+/** The baseline (the build stage) is reviewed page by page. */
+export const BASELINE_STAGE: RebuildStageId = "build";
+export const MAX_PAGE_NOTES_PER_ROUTE = 20;
+/** A sitemap route: the same shape `routesFrom` accepts. */
+export const RebuildRouteSchema = z.string().max(200).regex(/^\/[A-Za-z0-9\-._~/]*$/, "That is not a page route.").refine((route) => !route.includes(".."), "That is not a page route.");
+
+/** One note on one page; pinned to a spot on the full-page snapshot when `x` and `y` are set. */
+export const PageNoteSchema = z
+  .object({
+    id: z.string().min(1).max(60),
+    text: z.string().trim().min(1).max(2000),
+    /** Which snapshot the pin was placed on. */
+    viewport: z.enum(["desktop", "mobile"]),
+    /** Percent of the snapshot's width and height, 0 to 100. */
+    x: z.number().min(0).max(100).optional(),
+    y: z.number().min(0).max(100).optional(),
+    /** The section the reviewer says it is about, e.g. "Our services". */
+    section: z.string().trim().max(120).optional(),
+  })
+  .strict()
+  .refine((note) => (note.x === undefined) === (note.y === undefined), "A pin needs both x and y.");
+export type PageNote = z.infer<typeof PageNoteSchema>;
+export const PageNotesByRouteSchema = z.record(RebuildRouteSchema, z.array(PageNoteSchema).max(MAX_PAGE_NOTES_PER_ROUTE));
+export type PageNotesByRoute = z.infer<typeof PageNotesByRouteSchema>;
+
 export const RebuildDecisionSchema = z.object({
   id: z.string(),
   stage: RebuildStageIdSchema,
@@ -127,6 +154,8 @@ export const RebuildDecisionSchema = z.object({
   choice: z.string().optional(),
   /** For the hero checkpoint: what the person wrote on each concept, keyed by concept id. */
   conceptNotes: z.record(z.string(), z.string()).optional(),
+  /** For the baseline checkpoint: what the person wrote on each page, keyed by route. */
+  pageNotes: PageNotesByRouteSchema.optional(),
   at: z.string(),
 });
 
@@ -136,6 +165,14 @@ export const RebuildConceptNoteSchema = z.object({
   revision: z.number().int().positive(),
   concept: z.string(),
   note: z.string(),
+});
+
+/** The notes a person has written on one page of a revision, saved before they decide. */
+export const RebuildPageNotesSchema = z.object({
+  stage: RebuildStageIdSchema,
+  revision: z.number().int().positive(),
+  route: z.string(),
+  notes: z.array(PageNoteSchema),
 });
 
 export const RebuildEventSchema = z.object({
@@ -273,6 +310,8 @@ export const RebuildRunSchema = z.object({
   decisions: z.array(RebuildDecisionSchema),
   /** Per-concept notes on revisions, drafts included. */
   conceptNotes: z.array(RebuildConceptNoteSchema).default([]),
+  /** Per-page notes on the baseline's revisions, drafts included. */
+  pageNotes: z.array(RebuildPageNotesSchema).default([]),
   events: z.array(RebuildEventSchema),
 });
 
@@ -293,6 +332,17 @@ export const RebuildDecisionInputSchema = z
     choice: z.string().trim().max(40).optional(),
     /** Notes keyed by concept id. */
     conceptNotes: z.partialRecord(z.enum(HERO_CONCEPT_IDS), z.string().trim().max(2000)).optional(),
+    /** Notes keyed by page route. When left out, the notes already saved on this revision are used. */
+    pageNotes: PageNotesByRouteSchema.optional(),
+  })
+  .strict();
+
+/** Replaces (or, when empty, clears) the notes on one page of the revision under review. */
+export const RebuildPageNotesInputSchema = z
+  .object({
+    revision: z.number().int().positive(),
+    route: RebuildRouteSchema,
+    notes: z.array(PageNoteSchema).max(MAX_PAGE_NOTES_PER_ROUTE),
   })
   .strict();
 
@@ -305,17 +355,41 @@ export const RebuildConceptNoteInputSchema = z
   })
   .strict();
 
-/** What a worker is told to change: the general note, then each concept's notes. */
-export function changeRequestText(decision: Pick<z.infer<typeof RebuildDecisionSchema>, "note" | "conceptNotes">): string {
+/** A route as a filename: `/` → `home`, `/services/electrical` → `services-electrical`. */
+export function routeName(route: string): string {
+  return route === "/" ? "home" : route.replace(/^\/+|\/+$/g, "").replace(/[^a-z0-9]+/gi, "-").toLowerCase().slice(0, 60) || "page";
+}
+
+/** The page notes that say something, in the order the pages were given. */
+function writtenPageNotes(pageNotes: PageNotesByRoute | undefined): [string, PageNote[]][] {
+  return Object.entries(pageNotes ?? {}).filter(([, notes]) => notes.some((note) => note.text.trim()));
+}
+
+/** A note as the worker reads it: where it was pinned, then the reviewer's words exactly as written. */
+function pageNoteLine(note: PageNote): string {
+  const where = [note.x !== undefined && note.y !== undefined ? `pinned on the ${note.viewport} snapshot at ${Math.round(note.x)}% across, ${Math.round(note.y)}% down` : "", note.section ? `section: ${note.section}` : ""].filter(Boolean);
+  return `- ${where.length > 0 ? `(${where.join("; ")}) ` : ""}${note.text.trim()}`;
+}
+
+/** What a worker is told to change: the general note, then each concept's notes, then each page's notes verbatim. */
+export function changeRequestText(decision: Pick<z.infer<typeof RebuildDecisionSchema>, "note" | "conceptNotes" | "pageNotes">): string {
   const parts: string[] = [];
   if (decision.note?.trim()) parts.push(decision.note.trim());
   const perConcept = Object.entries(decision.conceptNotes ?? {}).filter(([, note]) => note.trim());
   if (perConcept.length > 0) {
     parts.push(["Notes on individual concepts (apply each only to the concept named):", ...perConcept.map(([concept, note]) => `- ${concept}: ${note.trim()}`)].join("\n"));
   }
+  const perPage = writtenPageNotes(decision.pageNotes);
+  if (perPage.length > 0) {
+    parts.push(
+      [
+        "Notes on individual pages. Apply each note only to the page named and leave every other page's content and layout unchanged. A shared component may be edited only where a noted page cannot be changed without it.",
+        ...perPage.flatMap(([route, notes]) => ["", route, ...notes.filter((note) => note.text.trim()).map(pageNoteLine)]),
+      ].join("\n"),
+    );
+  }
   return parts.join("\n\n");
 }
-
 
 export type RebuildArtifact = z.infer<typeof RebuildArtifactSchema>;
 export type RebuildRevision = z.infer<typeof RebuildRevisionSchema>;

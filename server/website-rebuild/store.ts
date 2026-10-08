@@ -4,6 +4,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   DEFAULT_WORKER_PLAN,
+  BASELINE_STAGE,
   GATED_STAGES,
   HERO_CONCEPTS,
   REBUILD_SKILL_ID,
@@ -15,6 +16,8 @@ import {
   type BrandAsset,
   type BrandKit,
   type BrandKitEdit,
+  type PageNote,
+  type PageNotesByRoute,
   type RebuildArtifact,
   type RebuildDecision,
   type RebuildEvent,
@@ -173,6 +176,19 @@ const MIGRATIONS: readonly string[] = [
   );
   ALTER TABLE decisions ADD COLUMN concept_notes TEXT;
   `,
+  `
+  CREATE TABLE IF NOT EXISTS page_notes (
+    run_id     TEXT NOT NULL,
+    stage      TEXT NOT NULL,
+    revision   INTEGER NOT NULL,
+    route      TEXT NOT NULL,
+    notes      TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (run_id, stage, revision, route)
+  );
+  ALTER TABLE decisions ADD COLUMN page_notes TEXT;
+  ALTER TABLE artifacts ADD COLUMN digest TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -294,8 +310,8 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     updatedAt: row.updated_at,
     stages: stagesOf(row.id),
     artifacts: withDetail
-      ? (db.prepare("SELECT * FROM artifacts WHERE run_id = ? ORDER BY created_at, title").all(row.id) as unknown as { id: string; stage: RebuildStageId; media: "document" | "image"; title: string; path: string; href: string; revision: number; created_at: string }[]).map(
-          (artifact): RebuildArtifact => ({ id: artifact.id, stage: artifact.stage, media: artifact.media, title: artifact.title, path: artifact.path, href: artifact.media === "image" ? `/api/rebuilds/${encodeURIComponent(row.id)}/artifacts/${encodeURIComponent(artifact.id)}` : artifact.href, revision: artifact.revision, createdAt: artifact.created_at }),
+      ? (db.prepare("SELECT * FROM artifacts WHERE run_id = ? ORDER BY created_at, title").all(row.id) as unknown as { id: string; stage: RebuildStageId; media: "document" | "image"; title: string; path: string; href: string; revision: number; created_at: string; digest: string | null }[]).map(
+          (artifact): RebuildArtifact => ({ id: artifact.id, stage: artifact.stage, media: artifact.media, title: artifact.title, path: artifact.path, href: artifact.media === "image" ? `/api/rebuilds/${encodeURIComponent(row.id)}/artifacts/${encodeURIComponent(artifact.id)}` : artifact.href, revision: artifact.revision, digest: artifact.digest ?? undefined, createdAt: artifact.created_at }),
         )
       : [],
     revisions: withDetail
@@ -304,12 +320,15 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
         )
       : [],
     decisions: withDetail
-      ? (db.prepare("SELECT * FROM decisions WHERE run_id = ? ORDER BY at").all(row.id) as unknown as { id: string; stage: RebuildStageId; revision: number; decision: "approved" | "changes_requested"; note: string | null; choice: string | null; concept_notes: string | null; at: string }[]).map(
-          (decision): RebuildDecision => ({ id: decision.id, stage: decision.stage, revision: decision.revision, decision: decision.decision, note: decision.note ?? undefined, choice: decision.choice ?? undefined, conceptNotes: decision.concept_notes ? parseJson<Record<string, string>>(decision.concept_notes, {}) : undefined, at: decision.at }),
+      ? (db.prepare("SELECT * FROM decisions WHERE run_id = ? ORDER BY at").all(row.id) as unknown as { id: string; stage: RebuildStageId; revision: number; decision: "approved" | "changes_requested"; note: string | null; choice: string | null; concept_notes: string | null; page_notes: string | null; at: string }[]).map(
+          (decision): RebuildDecision => ({ id: decision.id, stage: decision.stage, revision: decision.revision, decision: decision.decision, note: decision.note ?? undefined, choice: decision.choice ?? undefined, conceptNotes: decision.concept_notes ? parseJson<Record<string, string>>(decision.concept_notes, {}) : undefined, pageNotes: decision.page_notes ? parseJson<PageNotesByRoute>(decision.page_notes, {}) : undefined, at: decision.at }),
         )
       : [],
     conceptNotes: withDetail
       ? (db.prepare("SELECT stage, revision, concept, note FROM concept_notes WHERE run_id = ? ORDER BY revision, concept").all(row.id) as unknown as { stage: RebuildStageId; revision: number; concept: string; note: string }[])
+      : [],
+    pageNotes: withDetail
+      ? (db.prepare("SELECT stage, revision, route, notes FROM page_notes WHERE run_id = ? ORDER BY revision, route").all(row.id) as unknown as { stage: RebuildStageId; revision: number; route: string; notes: string }[]).map((entry) => ({ stage: entry.stage, revision: entry.revision, route: entry.route, notes: parseJson<PageNote[]>(entry.notes, []) }))
       : [],
     events: withDetail
       ? (db.prepare("SELECT * FROM events WHERE run_id = ? ORDER BY id DESC LIMIT 200").all(row.id) as unknown as { id: number; stage: RebuildStageId | null; at: string; level: RebuildEvent["level"]; message: string }[]).map(
@@ -539,14 +558,14 @@ export function setActivity(runId: string, stage: RebuildStageId, owner: string,
 }
 
 /** Records a report file the stage wrote. Retrying replaces the row for the same file instead of adding another. */
-export function recordArtifact(runId: string, stage: RebuildStageId, input: { title: string; path: string; href: string; revision: number; media?: "document" | "image" }): string {
+export function recordArtifact(runId: string, stage: RebuildStageId, input: { title: string; path: string; href: string; revision: number; media?: "document" | "image"; digest?: string }): string {
   const db = rebuildDatabase();
   const existing = db.prepare("SELECT id FROM artifacts WHERE run_id = ? AND path = ?").get(runId, input.path) as { id: string } | undefined;
   const id = existing?.id ?? randomUUID();
   db.prepare(
-    `INSERT INTO artifacts (id, run_id, stage, title, path, href, revision, created_at, media) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(run_id, path) DO UPDATE SET title = excluded.title, href = excluded.href, revision = excluded.revision, created_at = excluded.created_at, media = excluded.media`,
-  ).run(id, runId, stage, input.title, input.path, input.href, input.revision, iso(), input.media ?? "document");
+    `INSERT INTO artifacts (id, run_id, stage, title, path, href, revision, created_at, media, digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(run_id, path) DO UPDATE SET title = excluded.title, href = excluded.href, revision = excluded.revision, created_at = excluded.created_at, media = excluded.media, digest = excluded.digest`,
+  ).run(id, runId, stage, input.title, input.path, input.href, input.revision, iso(), input.media ?? "document", input.digest ?? null);
   return id;
 }
 
@@ -631,24 +650,33 @@ export function resetForRetry(runId: string, stage: RebuildStageId, worker?: str
  * revision is the latest and is waiting for review, so an approval can never
  * land on a deliverable nobody looked at.
  */
-export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string, choice?: string, conceptNotes?: Record<string, string | undefined>): void {
+export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string, choice?: string, conceptNotes?: Record<string, string | undefined>, pageNotes?: PageNotesByRoute): void {
   if (!GATED_STAGES.has(stage)) throw new RebuildError(`${stage} has no approval checkpoint.`, 422);
   const perConcept = Object.fromEntries(Object.entries(conceptNotes ?? {}).flatMap(([concept, text]) => (text?.trim() ? [[concept, text.trim()]] : [])));
   if (Object.keys(perConcept).length > 0 && stage !== "hero") throw new RebuildError("Only the hero concepts take per-concept notes.", 422);
-  if (decision === "changes_requested" && !note?.trim() && Object.keys(perConcept).length === 0) throw new RebuildError("Say what should change.", 422);
+  if (pageNotes && Object.keys(pageNotes).length > 0 && stage !== BASELINE_STAGE) throw new RebuildError("Only the baseline takes per-page notes.", 422);
   const db = rebuildDatabase();
+  // What the person sent, or else what they saved while reviewing. Only a request for changes carries page notes.
+  const perPage = decision === "changes_requested" && stage === BASELINE_STAGE ? writtenPageNotes(pageNotes ?? savedPageNotes(runId, stage, revision)) : {};
   db.exec("BEGIN IMMEDIATE");
   try {
     const row = db.prepare("SELECT status, revision FROM stages WHERE run_id = ? AND stage = ?").get(runId, stage) as { status: RebuildStageStatus; revision: number } | undefined;
     if (!row) throw new RebuildError("That rebuild does not exist.", 404);
     if (row.revision !== revision) throw new RebuildError(`Revision ${revision} is not the latest. Review revision ${row.revision} instead.`);
     if (row.status !== "awaiting_approval") throw new RebuildError("This revision is not waiting for review.");
+    if (decision === "changes_requested" && !note?.trim() && Object.keys(perConcept).length === 0 && Object.keys(perPage).length === 0) throw new RebuildError("Say what should change.", 422);
+    if (decision === "approved" && stage === BASELINE_STAGE) {
+      const shots = db.prepare("SELECT title FROM artifacts WHERE run_id = ? AND stage = ? AND revision = ? AND media = 'image'").all(runId, stage, revision) as unknown as { title: string }[];
+      const desktop = shots.filter((shot) => shot.title.endsWith("(desktop)")).length;
+      const mobile = shots.filter((shot) => shot.title.endsWith("(mobile)")).length;
+      if (desktop === 0 || desktop !== mobile) throw new RebuildError("The baseline has no complete snapshots of every page yet. Retry to photograph it again.");
+    }
     // The build follows one concept, so approving the concepts means choosing one of them.
     if (stage === "hero" && decision === "approved" && !(HERO_CONCEPTS as readonly string[]).includes(choice ?? "")) {
       throw new RebuildError("Choose which concept to build before approving.", 422);
     }
 
-    db.prepare("INSERT INTO decisions (id, run_id, stage, revision, decision, note, at, choice, concept_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+    db.prepare("INSERT INTO decisions (id, run_id, stage, revision, decision, note, at, choice, concept_notes, page_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
       randomUUID(),
       runId,
       stage,
@@ -658,6 +686,7 @@ export function decide(runId: string, stage: RebuildStageId, revision: number, d
       iso(),
       choice ?? null,
       Object.keys(perConcept).length > 0 ? JSON.stringify(perConcept) : null,
+      Object.keys(perPage).length > 0 ? JSON.stringify(perPage) : null,
     );
     if (decision === "approved") {
       db.prepare("UPDATE stages SET status = 'complete', approved_revision = ? WHERE run_id = ? AND stage = ?").run(revision, runId, stage);
@@ -671,7 +700,38 @@ export function decide(runId: string, stage: RebuildStageId, revision: number, d
     db.exec("ROLLBACK");
     throw error;
   }
-  logEvent(runId, stage, "info", decision === "approved" ? `Revision ${revision} approved${choice ? ` with ${choice}` : ""}.` : `Changes requested on revision ${revision}: ${[note?.trim(), ...Object.entries(perConcept).map(([concept, text]) => `${concept}: ${text}`)].filter(Boolean).join(" | ")}`);
+  logEvent(runId, stage, "info", decision === "approved" ? `Revision ${revision} approved${choice ? ` with ${choice}` : ""}.` : `Changes requested on revision ${revision}: ${[note?.trim(), ...Object.entries(perConcept).map(([concept, text]) => `${concept}: ${text}`), ...Object.entries(perPage).map(([route, notes]) => `${route}: ${notes.map((entry) => entry.text).join(" / ")}`)].filter(Boolean).join(" | ")}`);
+  touch(runId);
+}
+
+/** Drops pages with no words in them, so an empty note never reaches a worker or the history. */
+function writtenPageNotes(pageNotes: PageNotesByRoute): PageNotesByRoute {
+  return Object.fromEntries(Object.entries(pageNotes).flatMap(([route, notes]) => {
+    const written = notes.filter((note) => note.text.trim()).map((note) => ({ ...note, text: note.text.trim() }));
+    return written.length > 0 ? [[route, written]] : [];
+  }));
+}
+
+/** The page notes saved while reviewing one revision, by route. */
+export function savedPageNotes(runId: string, stage: RebuildStageId, revision: number): PageNotesByRoute {
+  const rows = rebuildDatabase().prepare("SELECT route, notes FROM page_notes WHERE run_id = ? AND stage = ? AND revision = ? ORDER BY route").all(runId, stage, revision) as unknown as { route: string; notes: string }[];
+  return Object.fromEntries(rows.map((entry) => [entry.route, parseJson<PageNote[]>(entry.notes, [])]));
+}
+
+/** Replaces the notes on one page of the baseline revision waiting for review; no notes clears the page. Survives refresh and is sent with the decision. */
+export function savePageNotes(runId: string, stage: RebuildStageId, revision: number, route: string, notes: readonly PageNote[]): void {
+  if (stage !== BASELINE_STAGE) throw new RebuildError("Only the baseline takes per-page notes.", 422);
+  const db = rebuildDatabase();
+  const row = db.prepare("SELECT status, revision FROM stages WHERE run_id = ? AND stage = ?").get(runId, stage) as { status: RebuildStageStatus; revision: number } | undefined;
+  if (!row) throw new RebuildError("That rebuild does not exist.", 404);
+  if (row.revision !== revision) throw new RebuildError(`Revision ${revision} is not the latest. Review revision ${row.revision} instead.`);
+  if (row.status !== "awaiting_approval") throw new RebuildError("This revision is not waiting for review.");
+  const written = notes.filter((note) => note.text.trim()).map((note) => ({ ...note, text: note.text.trim() }));
+  if (written.length > 0) {
+    db.prepare("INSERT INTO page_notes (run_id, stage, revision, route, notes, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(run_id, stage, revision, route) DO UPDATE SET notes = excluded.notes, updated_at = excluded.updated_at").run(runId, stage, revision, route, JSON.stringify(written), iso());
+  } else {
+    db.prepare("DELETE FROM page_notes WHERE run_id = ? AND stage = ? AND revision = ? AND route = ?").run(runId, stage, revision, route);
+  }
   touch(runId);
 }
 
