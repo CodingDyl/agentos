@@ -258,7 +258,7 @@ coderRouter.post("/terminal/create", requireOrigin, (_req, res) => {
   }
 });
 
-coderRouter.delete("/terminal/:id", requireOrigin, (_req, res) => {
+coderRouter.delete("/terminal/:id", requireOrigin, (req, res) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     killTerminal(id);
@@ -271,7 +271,7 @@ coderRouter.delete("/terminal/:id", requireOrigin, (_req, res) => {
   }
 });
 
-export function handleTerminalWebSocket(ws: WebSocket, _request: IncomingMessage, token: string | null): void {
+export function handleTerminalWebSocket(ws: WebSocket, request: IncomingMessage, token: string | null): void {
   const origin = request.headers.origin;
   
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
@@ -373,7 +373,7 @@ coderRouter.post("/workspace/pull", requireOrigin, async (_req, res) => {
   }
 });
 
-coderRouter.post("/workspace/detect-package-manager", requireOrigin, async (req, res) => {
+coderRouter.post("/workspace/detect-package-manager", requireOrigin, async (_req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {

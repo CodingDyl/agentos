@@ -14,7 +14,7 @@ import {
   listBranches,
   switchBranch,
   pullChanges,
-  pushChanges,
+  _pushChanges,
 } from "../git-operations";
 
 async function runGit(args: string[], cwd: string): Promise<void> {
