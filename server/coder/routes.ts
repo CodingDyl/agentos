@@ -130,7 +130,7 @@ coderRouter.post("/close-project", requireOrigin, (_req, res) => {
   }
 });
 
-coderRouter.get("/project-state", async (req, res) => {
+coderRouter.get("/project-state", async (_req, res) => {
   try {
     const rootPath = getProjectRoot();
     if (!rootPath) {

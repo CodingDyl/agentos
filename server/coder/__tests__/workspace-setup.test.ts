@@ -14,13 +14,12 @@ import {
 
 describe("Workspace Setup", () => {
   let testDir: string;
-  let originalCoderRoot: string;
+  let _originalCoderRoot: string;
 
   before(async () => {
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), "coder-test-"));
     
     const setupModule = await import("../workspace-setup");
-    _originalCoderRoot = path.join(os.homedir(), "AgentOS", "coder");
     
     Object.defineProperty(setupModule, "CODER_ROOT", {
       value: testDir,
