@@ -173,6 +173,7 @@ export function WorkspaceSetupWizard({
     } catch (error) {
       updateStepStatus("env", "error", error instanceof Error ? error.message : "Environment setup failed");
     }
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
   }, [cancelled, workspaceSlug, updateStepStatus, onComplete]);
 
   useEffect(() => {
