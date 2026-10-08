@@ -82,8 +82,12 @@ function chatId(request: Request, response: Response): string | undefined {
   return undefined;
 }
 
-chatRouter.get("/agents", (_request, response) => {
-  response.json({ agents: listAgents() });
+chatRouter.get("/agents", async (_request, response) => {
+  try {
+    response.json({ agents: await listAgents() });
+  } catch (error) {
+    fail(response, error, "list the agents");
+  }
 });
 
 chatRouter.get("/chats", async (_request, response) => {

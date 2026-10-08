@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { classifyBashCommand, decideToolUse, isSecretPath, summariseToolInput } from "../chat-permission-policy";
+import { classifyBashCommand, decideAcpToolCall, decideFileChanges, decideToolUse, isSecretPath, summariseToolInput } from "../chat-permission-policy";
 
 /**
  * "Full access, approve risky." The contract is in two halves, and both
@@ -125,5 +125,27 @@ describe("summaries", () => {
   it("shows the command or file in one line", () => {
     assert.equal(summariseToolInput("Bash", { command: "npm test\nnpm run lint" }), "npm test");
     assert.equal(summariseToolInput("Edit", { file_path: "src/App.tsx" }), "src/App.tsx");
+  });
+});
+
+describe("agents that describe tools differently", () => {
+  it("Codex file changes: each file must be inside the project", () => {
+    assert.equal(decideFileChanges(["/home/me/agentos/src/a.ts", "src/b.ts"], context).decision, "allow");
+    assert.equal(decideFileChanges(["/home/me/agentos/src/a.ts", "/home/me/.zshrc"], context).decision, "ask");
+    assert.equal(decideFileChanges([], context).decision, "ask");
+  });
+
+  it("ACP tool kinds follow the same rules", () => {
+    const acp = (call: Parameters<typeof decideAcpToolCall>[0]) => decideAcpToolCall(call, context).decision;
+    assert.equal(acp({ kind: "read", locations: [{ path: "/home/me/notes.md" }] }), "allow");
+    assert.equal(acp({ kind: "read", locations: [{ path: "/home/me/agentos/.env" }] }), "ask");
+    assert.equal(acp({ kind: "edit", locations: [{ path: "/home/me/agentos/src/x.ts" }] }), "allow");
+    assert.equal(acp({ kind: "edit", locations: [{ path: "/etc/hosts" }] }), "ask");
+    assert.equal(acp({ kind: "delete", locations: [{ path: "/home/me/agentos/tmp.txt" }] }), "ask");
+    assert.equal(acp({ kind: "move" }), "ask");
+    assert.equal(acp({ kind: "execute", rawInput: { command: "git status" } }), "allow");
+    assert.equal(acp({ kind: "execute", rawInput: { command: ["git", "push"] } }), "ask");
+    assert.equal(acp({ kind: "execute", rawInput: {} }), "ask");
+    assert.equal(acp({ kind: "other", title: "Send email" }), "ask");
   });
 });

@@ -14,7 +14,7 @@ export const CHAT_ID = /^chat_[a-f0-9]{32}$/;
 export const MAX_CHAT_INPUT = 32_000;
 
 /** Which harness runs the chat. Each agent brings its own tools. */
-export const ChatAgentIdSchema = z.enum(["claude"]);
+export const ChatAgentIdSchema = z.enum(["claude", "codex", "gemini", "hermes"]);
 
 export const ChatModelSchema = z.object({
   id: z.string(),

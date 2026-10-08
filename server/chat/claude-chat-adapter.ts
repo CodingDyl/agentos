@@ -3,7 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { query, type CanUseTool, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ChatAgent, ChatMessage, ChatToolPart } from "../../shared/chat-types";
-import { decideToolUse, summariseToolInput, type PolicyContext } from "./chat-permission-policy";
+import { decideToolUse, summariseToolInput } from "./chat-permission-policy";
+import type { ChatAgentAdapter, RunTurnInput } from "./chat-turn";
 
 /**
  * Claude, through the Claude Agent SDK: Claude Code as a library.
@@ -207,30 +208,15 @@ const RESULT_ERRORS: Record<string, string> = {
 // Running one turn.
 // ---------------------------------------------------------------------------
 
-export interface ApprovalRequest {
-  tool: string;
-  summary: string;
-  reason: string;
-  signal: AbortSignal;
-}
+/** Kept for callers that predate the shared contract. */
+export type RunClaudeTurnInput = RunTurnInput;
 
-export interface RunClaudeTurnInput {
-  prompt: string;
-  model: string;
-  /** The session to continue; absent for a chat's first turn. */
-  resume?: string;
-  policy: PolicyContext;
-  state: ClaudeTurnState;
-  controller: AbortController;
-  /** Called whenever the transcript changed. */
-  onChange: () => void;
-  /** Resolves true to allow. Rejects or resolves false to deny. */
-  requestApproval: (request: ApprovalRequest) => Promise<boolean>;
-}
-
-export async function runClaudeTurn(input: RunClaudeTurnInput): Promise<void> {
+export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
   const how = billing();
   if ("error" in how) throw new Error(how.error);
+
+  // The stream bookkeeping is Claude's own; the reply and session id are shared.
+  const state = startTurn(input.state.message);
 
   const canUseTool: CanUseTool = async (toolName, toolInput, options) => {
     const verdict = decideToolUse(toolName, toolInput, input.policy);
@@ -243,7 +229,7 @@ export async function runClaudeTurn(input: RunClaudeTurnInput): Promise<void> {
     if (allowed) return { behavior: "allow", updatedInput: toolInput };
 
     // Mark the call itself, so the transcript says "you said no" rather than "it failed".
-    const part = input.state.message.parts.findLast((entry): entry is ChatToolPart => entry.type === "tool" && entry.name === toolName && entry.status === "running");
+    const part = state.message.parts.findLast((entry): entry is ChatToolPart => entry.type === "tool" && entry.name === toolName && entry.status === "running");
     if (part) part.status = "denied";
     input.onChange();
     return { behavior: "deny", message: "The operator declined this action. Carry on without it, and say what you would have done." };
@@ -269,6 +255,15 @@ export async function runClaudeTurn(input: RunClaudeTurnInput): Promise<void> {
   });
 
   for await (const message of messages) {
-    if (applyClaudeMessage(input.state, message)) input.onChange();
+    const changed = applyClaudeMessage(state, message);
+    if (state.sessionId) input.state.sessionId = state.sessionId;
+    if (changed) input.onChange();
   }
 }
+
+export const claudeAgent: ChatAgentAdapter = {
+  id: "claude",
+  name: "Claude",
+  describe: async () => describeClaudeAgent(),
+  runTurn: runClaudeTurn,
+};

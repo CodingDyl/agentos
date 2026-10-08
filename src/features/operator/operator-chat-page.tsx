@@ -235,6 +235,7 @@ function ChatWorkspace({
             stopping={stop.isPending}
             error={error}
             autoFocusKey={chatId ?? "new"}
+            lockedAgent={current?.agent}
           />
         </div>
       </div>
@@ -247,7 +248,7 @@ function EmptyChat({ onPick }: { onPick: (text: string) => void }) {
     <div className="pt-[8vh]">
       <h2 className="font-paper-display text-[26px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[32px]">What can I help with?</h2>
       <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
-        Ask anything. It works in the AgentOS project and can read anything on this machine; it asks before deleting, pushing, installing, touching credentials or changing files outside the project.
+        Pick an agent and model below: Claude, Codex, Gemini or Hermes, each with its own tools. It works in the AgentOS project and can read anything on this machine; it asks before deleting, pushing, installing, touching credentials or changing files outside the project.
       </p>
       <ul className="mt-6 grid gap-2 sm:grid-cols-2" aria-label="Suggestions">
         {SUGGESTIONS.map((suggestion) => (

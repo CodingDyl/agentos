@@ -195,3 +195,63 @@ export function summariseToolInput(toolName: string, input: Record<string, unkno
   const line = (detail ?? "").split("\n")[0] ?? "";
   return line.length > 160 ? `${line.slice(0, 157)}…` : line;
 }
+
+/**
+ * A file change, from an agent that names files rather than tools (Codex).
+ * Every file has to pass on its own; one outside the project is enough to ask.
+ */
+export function decideFileChanges(paths: readonly string[], context: PolicyContext): PolicyDecision {
+  if (paths.length === 0) return ask("Changes files it didn't name.");
+  for (const file of paths) {
+    const verdict = decideToolUse("Edit", { file_path: file }, context);
+    if (verdict.decision === "ask") return verdict;
+  }
+  return ALLOW;
+}
+
+/** What an ACP agent (Gemini CLI, Hermes) says it is about to do. */
+export interface AcpToolCall {
+  kind?: string | null;
+  title?: string | null;
+  locations?: ReadonlyArray<{ path: string }> | null;
+  rawInput?: unknown;
+}
+
+function commandOf(rawInput: unknown): string | undefined {
+  if (!rawInput || typeof rawInput !== "object") return undefined;
+  const input = rawInput as Record<string, unknown>;
+  const value = input.command ?? input.cmd ?? input.script;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && value.every((part) => typeof part === "string")) return value.join(" ");
+  return undefined;
+}
+
+/**
+ * The same rules, read from ACP's tool kinds. Deleting and moving always ask:
+ * the operator listed deleting as risky in itself, and a move is a delete of
+ * the old path.
+ */
+export function decideAcpToolCall(call: AcpToolCall, context: PolicyContext): PolicyDecision {
+  const paths = (call.locations ?? []).map((location) => location.path).filter(Boolean);
+
+  switch (call.kind) {
+    case "read":
+    case "search":
+    case "fetch":
+    case "think":
+      if (paths.some(isSecretPath)) return ask("Reads a file that holds credentials.");
+      return ALLOW;
+    case "edit":
+      return decideFileChanges(paths, context);
+    case "delete":
+      return ask("Deletes files.");
+    case "move":
+      return ask("Moves or renames files.");
+    case "execute": {
+      const command = commandOf(call.rawInput);
+      return command === undefined ? ask("Runs a command it didn't show.") : classifyBashCommand(command);
+    }
+    default:
+      return ask(`Uses ${call.title ?? call.kind ?? "a tool"}, which AgentOS doesn't recognise as safe.`);
+  }
+}
