@@ -14,7 +14,6 @@ import {
 
 describe("Workspace Setup", () => {
   let testDir: string;
-  let _originalCoderRoot: string;
 
   before(async () => {
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), "coder-test-"));
