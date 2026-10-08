@@ -87,7 +87,7 @@ async function validatePath(requestedPath: string): Promise<string> {
 
   const rel = path.relative(currentProjectRootReal, realPath);
   
-  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
     throw new Error("Path traversal detected: access outside project root is not allowed");
   }
 
