@@ -11,7 +11,7 @@ import {
 import { ConnectorDetailPage, ConnectorsPage } from "@/features/connectors";
 import { MailPage } from "@/features/mail";
 import { BusinessPage } from "@/features/business";
-import { OperatorPage } from "@/features/operator";
+import { OperatorChatPage, OperatorPage } from "@/features/operator";
 import { TractionPage } from "@/features/traction";
 import { RebuildPage } from "@/features/rebuild";
 import { CompassPage } from "@/features/compass";
@@ -78,7 +78,10 @@ function App() {
               `projects/`; the old URLs redirect with their query strings, so
               every saved `?tab=tasks&task=PP-031` link keeps working. */}
           {/* One request in, one auditable run out. A run keeps its own URL. */}
-          <Route path="/operator" element={<OperatorPage />} />
+          <Route path="/operator" element={<OperatorChatPage />} />
+          <Route path="/operator/chats/:chatId" element={<OperatorChatPage />} />
+          {/* Planned runs (plan, approve, execute, audit) keep their own view. */}
+          <Route path="/operator/runs" element={<OperatorPage />} />
           <Route path="/operator/runs/:id" element={<OperatorPage />} />
           <Route path="/workspaces" element={<WorkspacesPage />} />
           <Route path="/workspaces/:slug" element={<WorkspacePage />} />

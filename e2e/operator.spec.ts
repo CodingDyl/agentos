@@ -30,13 +30,19 @@ async function send(page: Page, text: string, mode: "Ask" | "Plan" | "Run" = "Ru
 const lastReply = (page: Page) => page.getByRole("region", { name: "Conversation" }).getByRole("listitem", { name: /^Request:/ }).last();
 
 test.describe("Operator", () => {
-  test("is first under Work, with Jarvis at the top", async ({ page }) => {
+  test("is first under Work, opens on a new chat, and keeps planned runs with Jarvis", async ({ page }) => {
     await page.goto("/");
     const nav = page.getByRole("complementary", { name: "Primary navigation" });
     const hrefs = await nav.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
     expect(hrefs[hrefs.indexOf("/operator") + 1]).toBe("/workspaces");
 
     await nav.getByRole("link", { name: /^Operator/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "New chat" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Chat history" }).getByRole("button", { name: "New chat" })).toBeVisible();
+    await expect(page.getByRole("form", { name: "Message" }).getByLabel("Agent and model")).toBeVisible();
+
+    await page.getByRole("link", { name: "Planned runs and their audit trail" }).click();
+    await expect(page).toHaveURL(/\/operator\/runs$/);
     await expect(page.getByRole("heading", { level: 1, name: "What do you want to get done?" })).toBeVisible();
     const jarvis = page.getByRole("region", { name: "Jarvis" });
     await expect(jarvis.getByRole("button", { name: "Talk to Jarvis" })).toBeVisible();
@@ -45,7 +51,7 @@ test.describe("Operator", () => {
   });
 
   test("a run is a message: approve in the thread, breakdown at the end, everything in the details", async ({ page }) => {
-    await page.goto("/operator");
+    await page.goto("/operator/runs");
     await send(page, RANKPULSE);
 
     const reply = lastReply(page);
@@ -84,14 +90,14 @@ test.describe("Operator", () => {
     expect(fs.readFileSync(path.join(E2E_VAULT, "projects", "rank-pulse", "DECISIONS.md"), "utf8")).toMatch(/Next\.js, Supabase/);
 
     await page.keyboard.press("Escape");
-    await expect(page).toHaveURL(/\/operator$/);
+    await expect(page).toHaveURL(/\/operator\/runs$/);
   });
 
   test("a folder that already exists is refused, not reused", async ({ page }) => {
     fs.mkdirSync(path.join(PROJECTS, "taken-name"), { recursive: true });
     fs.writeFileSync(path.join(PROJECTS, "taken-name", "keep.txt"), "mine");
 
-    await page.goto("/operator");
+    await page.goto("/operator/runs");
     await send(page, "Build me a new app called Taken Name with Next.js", "Plan");
     const reply = lastReply(page);
     await expect(reply.getByText(/Plan ready/)).toBeVisible({ timeout: 15_000 });
@@ -102,7 +108,7 @@ test.describe("Operator", () => {
   });
 
   test("Plan mode executes nothing and offers to run it", async ({ page }) => {
-    await page.goto("/operator");
+    await page.goto("/operator/runs");
     await send(page, "Build me a new app called Plan Only with Next.js and deploy it to Vercel", "Plan");
     const reply = lastReply(page);
     await expect(reply.getByText(/Plan ready/)).toBeVisible({ timeout: 15_000 });
@@ -113,7 +119,7 @@ test.describe("Operator", () => {
   });
 
   test("Stop halts a run waiting for approval and says nothing changed", async ({ page }) => {
-    await page.goto("/operator");
+    await page.goto("/operator/runs");
     await send(page, "Add a pricing page to Pantry Pilot.");
     const reply = lastReply(page);
     await expect(reply.getByText("File the task in Pantry Pilot")).toBeVisible();
@@ -124,7 +130,7 @@ test.describe("Operator", () => {
   });
 
   test("Jarvis takes requests and commands for Operator", async ({ page }) => {
-    await page.goto("/operator");
+    await page.goto("/operator/runs");
     const jarvis = page.getByRole("region", { name: "Jarvis" });
     await jarvis.getByRole("button", { name: "Show Jarvis transcript" }).click();
 
@@ -149,7 +155,7 @@ test.describe("Operator", () => {
   });
 
   test("small talk is answered by Jarvis at once, not turned into a run", async ({ page }) => {
-    await page.goto("/operator");
+    await page.goto("/operator/runs");
     const messages = page.getByRole("region", { name: "Conversation" }).getByRole("listitem", { name: /^Request:/ });
     // Earlier tests left runs; wait for the thread before counting it.
     await expect(messages.first()).toBeVisible();
@@ -168,7 +174,7 @@ test.describe("Operator", () => {
   });
 
   test("Ask is read-only, and says so when Hermes can't answer", async ({ page }) => {
-    await page.goto("/operator");
+    await page.goto("/operator/runs");
     await send(page, "What are the biggest problems with Virtara?", "Ask");
     const reply = lastReply(page);
     await expect(reply.getByText(/I couldn't get an answer/)).toBeVisible({ timeout: 15_000 });
