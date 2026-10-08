@@ -127,6 +127,21 @@ export async function killTerminal(id: string): Promise<{ success: boolean }> {
   return await response.json();
 }
 
+export async function persistWorkspaceLocalPath(
+  workspaceSlug: string,
+  localPath: string,
+): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`http://localhost:3500/api/projects/${encodeURIComponent(workspaceSlug)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ configuration: { localPath } }),
+  });
+  if (!response.ok) {
+    return { success: false, error: `Failed to save local path (${response.status})` };
+  }
+  return { success: true };
+}
+
 // Workspace setup
 export async function cloneWorkspace(workspaceSlug: string, repoUrl: string) {
   const response = await fetch(`${API_BASE}/workspace/clone`, {

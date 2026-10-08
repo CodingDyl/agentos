@@ -1,15 +1,17 @@
-import { useReducer, useEffect, useRef } from "react";
-import { CheckCircle2, XCircle, Loader2, AlertCircle, Terminal as TerminalIcon } from "lucide-react";
+import { useReducer, useEffect, useRef, useState } from "react";
+import { CheckCircle2, XCircle, Loader2, AlertCircle, FolderOpen, Terminal as TerminalIcon } from "lucide-react";
 import type { SetupStep } from "../../../shared/coder-types";
 import { Terminal } from "./terminal";
 import * as coderApi from "../../lib/agentos/coder-api";
+import { isGitCloneUrl } from "./workspace-repo-url";
 
 interface WorkspaceSetupWizardProps {
   workspaceSlug: string;
   workspaceName: string;
-  repoUrl: string;
+  repoUrl?: string;
   onComplete: (localPath: string) => void;
   onCancel: () => void;
+  onLinkFolder: () => void;
 }
 
 interface SetupState {
@@ -79,12 +81,21 @@ export function WorkspaceSetupWizard({
   repoUrl,
   onComplete,
   onCancel,
+  onLinkFolder,
 }: WorkspaceSetupWizardProps) {
   const [state, dispatch] = useReducer(setupReducer, initialState);
   const abortControllerRef = useRef<AbortController | null>(null);
   const installWsRef = useRef<WebSocket | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  const [cloneUrl, setCloneUrl] = useState(() => (isGitCloneUrl(repoUrl) ? repoUrl!.trim() : ""));
+  const [urlDraft, setUrlDraft] = useState(repoUrl ?? "");
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isGitCloneUrl(cloneUrl)) return;
+
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
 
@@ -98,7 +109,7 @@ export function WorkspaceSetupWizard({
         dispatch({ type: "SET_CURRENT_STEP", step: "clone" });
         dispatch({ type: "UPDATE_STEP", stepId: "clone", status: "running", message: "Cloning repository..." });
 
-        const cloneResult = await coderApi.cloneWorkspace(workspaceSlug, repoUrl);
+        const cloneResult = await coderApi.cloneWorkspace(workspaceSlug, cloneUrl);
 
         if (signal.aborted) return;
 
@@ -243,17 +254,11 @@ export function WorkspaceSetupWizard({
           dispatch({ type: "SET_CURRENT_STEP", step: null });
 
           if (localPath) {
-            await fetch(`http://localhost:3500/api/projects/${workspaceSlug}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                configuration: { localPath },
-              }),
-            });
+            await coderApi.persistWorkspaceLocalPath(workspaceSlug, localPath);
 
             setTimeout(() => {
               if (!signal.aborted) {
-                onComplete(localPath);
+                onCompleteRef.current(localPath);
               }
             }, 1000);
           }
@@ -276,7 +281,7 @@ export function WorkspaceSetupWizard({
         installWsRef.current = null;
       }
     };
-  }, [workspaceSlug, repoUrl, onComplete]);
+  }, [workspaceSlug, cloneUrl]);
 
   const handleCancel = () => {
     if (abortControllerRef.current) {
@@ -302,6 +307,16 @@ export function WorkspaceSetupWizard({
     }
   };
 
+  const handleConfirmUrl = () => {
+    const trimmed = urlDraft.trim();
+    if (!isGitCloneUrl(trimmed)) {
+      setUrlError("Enter an https:// or ssh git URL, for example https://github.com/owner/repo.git or git@github.com:owner/repo.git.");
+      return;
+    }
+    setUrlError(null);
+    setCloneUrl(trimmed);
+  };
+
   const getStepIcon = (status: SetupStep["status"]) => {
     switch (status) {
       case "pending":
@@ -314,6 +329,81 @@ export function WorkspaceSetupWizard({
         return <XCircle className="h-5 w-5 text-[#ff0066]" />;
     }
   };
+
+  if (!isGitCloneUrl(cloneUrl)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono p-8">
+        <div className="w-full max-w-3xl space-y-6">
+          <div className="space-y-2 border-l-4 border-[#00ffcc] pl-4">
+            <h1 className="font-mono text-2xl font-bold text-[#00ffcc] tracking-wider">
+              WORKSPACE_SETUP_
+            </h1>
+            <p className="text-sm text-[#6a9fb5]">{workspaceName}</p>
+          </div>
+
+          <div className="rounded border border-[#00ffcc33] bg-[#141414] p-6 space-y-4">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[#00ccff]">
+                GitHub repository
+              </h2>
+              <p className="mt-2 text-sm text-[#6a9fb5]">
+                This workspace has no local checkout yet. Paste an https or ssh git URL to clone it, or link a folder you already have.
+              </p>
+            </div>
+
+            <label className="block space-y-2">
+              <span className="text-xs uppercase tracking-wider text-[#6a9fb5]">Repository URL</span>
+              <input
+                type="text"
+                value={urlDraft}
+                onChange={(event) => {
+                  setUrlDraft(event.target.value);
+                  if (urlError) setUrlError(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleConfirmUrl();
+                  }
+                }}
+                placeholder="https://github.com/owner/repo.git"
+                autoFocus
+                className="w-full rounded border border-[#00ffcc33] bg-[#0a0a0a] px-4 py-2 text-sm text-[#e0e0e0] placeholder-[#6a9fb5] outline-none focus:border-[#00ffcc]"
+              />
+            </label>
+            {urlError ? <p className="text-sm text-[#ff0066]">{urlError}</p> : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#00ffcc1a] pt-4">
+              <button
+                type="button"
+                onClick={onLinkFolder}
+                className="flex items-center gap-2 rounded border border-[#00ffcc33] px-4 py-2 text-sm text-[#00ccff] hover:bg-[#00ccff1a]"
+              >
+                <FolderOpen className="h-4 w-4" />
+                Link existing local folder instead
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded border border-[#ff0066] px-4 py-2 text-sm text-[#ff0066] hover:bg-[#ff00661a]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmUrl}
+                  className="rounded border border-[#00ffcc] bg-[#00ffcc0d] px-4 py-2 text-sm text-[#00ffcc] hover:bg-[#00ffcc1a]"
+                >
+                  Clone repository
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono p-8">

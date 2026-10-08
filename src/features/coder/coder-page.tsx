@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   X,
@@ -29,12 +30,14 @@ import {
   createTerminal,
   killTerminal,
   searchFiles,
+  persistWorkspaceLocalPath,
 } from "@/lib/agentos/coder-api";
+import { resolveWorkspaceRepoUrl } from "./workspace-repo-url";
 
 export function CoderPage() {
   const navigationItems = useNavigationItems();
   const { data: projectsData } = useProjects();
-  const searchParams = useMemo<URLSearchParams>(() => new URLSearchParams(window.location.search), []);
+  const [searchParams, setSearchParams] = useSearchParams();
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   
   const {
@@ -62,7 +65,9 @@ export function CoderPage() {
     saveAllFiles,
   } = useCoderStore();
 
-  const [showProjectPicker, setShowProjectPicker] = useState(!projectRoot);
+  const [showProjectPicker, setShowProjectPicker] = useState(
+    () => !projectRoot && !new URLSearchParams(window.location.search).get("workspace"),
+  );
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Array<{
@@ -79,36 +84,12 @@ export function CoderPage() {
   const dirtyCount = openFiles.filter((f) => f.isDirty).length;
   const hasHandledWorkspaceParam = useRef(false);
 
-  const handleOpenWorkspace = useCallback(async (slug: string) => {
-    const project = projectsData?.projects.find((p) => p.slug === slug);
-    if (!project) return;
-
-    const detailResponse = await fetch(`http://localhost:3500/api/projects/${slug}`);
-    if (!detailResponse.ok) {
-      alert(`Failed to fetch workspace details for "${project.name}"`);
-      return;
-    }
-    
-    const detail = await detailResponse.json();
-    const localPath = detail.configuration?.localPath;
-    const repoUrl = detail.configuration?.repositoryUrl;
-
-    if (!localPath) {
-      if (repoUrl) {
-        setSetupWorkspace({ slug, name: project.name, repoUrl });
-        setShowSetupWizard(true);
-        setShowProjectPicker(false);
-      } else {
-        setShowProjectPicker(false);
-      }
-      return;
-    }
-
+  const openAtPath = useCallback(async (localPath: string, slug: string | null) => {
     if (projectRoot && dirtyCount > 0) {
       const confirm = window.confirm(
         `You have ${dirtyCount} unsaved file(s). Close current project?`
       );
-      if (!confirm) return;
+      if (!confirm) return false;
     }
 
     if (projectRoot) {
@@ -116,7 +97,7 @@ export function CoderPage() {
       clearProject();
     }
 
-    const result = await openProject(localPath, slug);
+    const result = await openProject(localPath, slug ?? undefined);
     if (result.success && result.rootPath) {
       setProject(
         result.rootPath,
@@ -126,10 +107,45 @@ export function CoderPage() {
         result.gitBranch ?? null
       );
       setShowProjectPicker(false);
-    } else {
-      alert(`Failed to open project: ${result.error}`);
+      setShowSetupWizard(false);
+      setSetupWorkspace(null);
+      return true;
     }
-  }, [projectRoot, dirtyCount, projectsData, clearProject, setProject]);
+
+    alert(`Failed to open project: ${result.error}`);
+    return false;
+  }, [projectRoot, dirtyCount, clearProject, setProject]);
+
+  const handleOpenWorkspace = useCallback(async (slug: string) => {
+    const project = projectsData?.projects.find((p) => p.slug === slug);
+    if (!project) {
+      setShowProjectPicker(true);
+      return;
+    }
+
+    const detailResponse = await fetch(`http://localhost:3500/api/projects/${encodeURIComponent(slug)}`);
+    if (!detailResponse.ok) {
+      alert(`Failed to fetch workspace details for "${project.name}"`);
+      setShowProjectPicker(true);
+      return;
+    }
+
+    const detail = await detailResponse.json();
+    const localPath = detail.configuration?.localPath as string | undefined;
+
+    if (!localPath) {
+      setSetupWorkspace({
+        slug,
+        name: project.name,
+        repoUrl: resolveWorkspaceRepoUrl(detail) ?? "",
+      });
+      setShowSetupWizard(true);
+      setShowProjectPicker(false);
+      return;
+    }
+
+    await openAtPath(localPath, slug);
+  }, [projectsData, openAtPath]);
 
   useEffect(() => {
     const workspaceParam = searchParams.get("workspace");
@@ -149,36 +165,35 @@ export function CoderPage() {
 
       if (!selected || typeof selected !== "string") return;
 
-      if (projectRoot && dirtyCount > 0) {
-        const confirm = window.confirm(
-          `You have ${dirtyCount} unsaved file(s). Close current project?`
-        );
-        if (!confirm) return;
-      }
-
-      if (projectRoot) {
-        await closeProject();
-        clearProject();
-      }
-
-      const result = await openProject(selected);
-      if (result.success && result.rootPath) {
-        setProject(
-          result.rootPath,
-          null,
-          result.fileTree ?? [],
-          result.scripts ?? [],
-          result.gitBranch ?? null
-        );
-        setShowProjectPicker(false);
-      } else {
-        alert(`Failed to open folder: ${result.error}`);
-      }
+      await openAtPath(selected, null);
     } catch (error) {
       console.error("Failed to open folder:", error);
       alert("Failed to open folder picker");
     }
-  }, [projectRoot, dirtyCount, clearProject, setProject]);
+  }, [openAtPath]);
+
+  const handleLinkExistingFolder = useCallback(async (slug: string) => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Select Project Folder",
+      });
+
+      if (!selected || typeof selected !== "string") return;
+
+      const saved = await persistWorkspaceLocalPath(slug, selected);
+      if (!saved.success) {
+        alert(`Failed to save local path: ${saved.error}`);
+        return;
+      }
+
+      await openAtPath(selected, slug);
+    } catch (error) {
+      console.error("Failed to open folder:", error);
+      alert("Failed to open folder picker");
+    }
+  }, [openAtPath]);
 
   const handleFileOpen = useCallback(
     (path: string, content: string) => {
@@ -328,31 +343,47 @@ export function CoderPage() {
         workspaceSlug={setupWorkspace.slug}
         workspaceName={setupWorkspace.name}
         repoUrl={setupWorkspace.repoUrl}
-        onComplete={() => {
-          void handleOpenWorkspace(setupWorkspace.slug);
-          setShowSetupWizard(false);
-          setSetupWorkspace(null);
+        onComplete={(localPath) => {
+          void openAtPath(localPath, setupWorkspace.slug);
         }}
         onCancel={() => {
+          hasHandledWorkspaceParam.current = true;
           setShowSetupWizard(false);
           setSetupWorkspace(null);
           setShowProjectPicker(true);
+          if (searchParams.get("workspace")) {
+            setSearchParams({}, { replace: true });
+          }
+        }}
+        onLinkFolder={() => {
+          void handleLinkExistingFolder(setupWorkspace.slug);
         }}
       />
     );
   }
 
-  if (showProjectPicker || (!projectRoot && searchParams.get("workspace"))) {
-    const workspaceParam = searchParams.get("workspace");
-    const targetProject = workspaceParam ? projectsData?.projects.find(p => p.slug === workspaceParam) : null;
-    const needsLocalPath = targetProject && !projectRoot;
-
+  if (!projectRoot && !showProjectPicker && searchParams.get("workspace")) {
     return (
       <AppShell
         navigationItems={navigationItems}
         pageId="coder"
         activeHref="/coder"
-        modelLabel="Coder / Part 1"
+        modelLabel="Coder"
+      >
+        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono text-sm text-[#6a9fb5]">
+          Opening workspace…
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (showProjectPicker) {
+    return (
+      <AppShell
+        navigationItems={navigationItems}
+        pageId="coder"
+        activeHref="/coder"
+        modelLabel="Coder"
       >
         <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono">
           <div className="w-full max-w-2xl space-y-6 p-8">
@@ -361,20 +392,9 @@ export function CoderPage() {
                 CODER_
               </h1>
               <p className="text-sm text-[#6a9fb5]">
-                {needsLocalPath ? `Link "${targetProject.name}" to open it` : "Select a workspace or open a folder"}
+                Select a workspace or open a folder
               </p>
             </div>
-
-            {needsLocalPath && (
-              <div className="rounded border border-[#ffff0033] bg-[#ffff000d] p-4">
-                <p className="text-sm text-[#ffff00]">
-                  This workspace has no local path set.
-                </p>
-                <p className="mt-2 text-xs text-[#6a9fb5]">
-                  Automated cloning/setup will be available in Part 2. For now, use the folder picker below to link an existing local folder.
-                </p>
-              </div>
-            )}
 
             <div className="space-y-4 rounded border border-[#00ffcc33] bg-[#141414] p-6">
               <div>
@@ -406,7 +426,7 @@ export function CoderPage() {
                   className="flex w-full items-center justify-center gap-2 rounded border border-[#00ffcc] bg-[#00ffcc0d] p-3 font-medium text-[#00ffcc] transition-colors hover:bg-[#00ffcc1a]"
                 >
                   <FolderOpen className="size-5" />
-                  {needsLocalPath ? "Link Local Folder..." : "Open Folder..."}
+                  Open Folder...
                 </button>
               </div>
             </div>
@@ -421,7 +441,7 @@ export function CoderPage() {
       navigationItems={navigationItems}
       pageId="coder"
       activeHref="/coder"
-      modelLabel="Coder / Part 1"
+        modelLabel="Coder"
     >
       <div className="relative flex h-screen flex-col bg-[#0a0a0a] font-mono">
         {scanlineOverlay && (
