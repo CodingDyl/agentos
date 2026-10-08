@@ -94,6 +94,7 @@ import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
 import { databasesRouter } from "./supabase/routes";
 import { operatorRouter } from "./operator/routes";
+import { jarvisRouter } from "./jarvis/jarvis-routes";
 import { reconcileOperatorRuns } from "./operator/service";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
@@ -398,6 +399,9 @@ app.use("/api/calendar", calendarRouter);
 /** Finance: Investec (read-only), the ledger, subscriptions, goals. No route here can move money. */
 app.use("/api/finance", financeRouter);
 app.use("/api/route-policy", routePolicyRouter);
+
+/** Jarvis: Jev profiles each request with a quick local model and routes it to an answer, a model or a worker. */
+app.use("/api/jarvis", jarvisRouter);
 
 /** Connectors: every service AgentOS can reach, its switch, and each capability's policy. */
 app.use("/api/connectors", connectorsRouter);

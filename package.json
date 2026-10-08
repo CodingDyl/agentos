@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "smoke:ollama": "tsx server/route-policy/smoke/ollama-smoke.ts",
+    "smoke:jarvis": "tsx server/jarvis/smoke/jarvis-routing-smoke.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },

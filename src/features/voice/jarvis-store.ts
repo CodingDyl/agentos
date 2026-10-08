@@ -62,8 +62,11 @@ export interface JarvisApi {
   /** The page Jarvis is working for right now, when one has taken over. */
   target?: string;
   setIntercept: (intercept: JarvisIntercept | undefined) => void;
-  /** Says a line on the page's behalf: shown as the reply, spoken when voice is on. */
-  announce: (text: string) => void;
+  /**
+   * Says a line on the page's behalf: shown as the reply, spoken when voice is
+   * on. `display` is shown under it and never spoken (a draft, a list).
+   */
+  announce: (text: string, display?: string) => void;
   /** Voice is on, configured, and not silenced for this exchange. */
   canSpeak: boolean;
   /** Hold Control to talk, let go to send. On by default; a per-browser choice. */

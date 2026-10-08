@@ -51,6 +51,8 @@ happens only when you send a message or run a command.
 | `server/supabase/client.ts` | PostgREST only: listed tables, known columns, one row at a time by primary key |
 | `server/connectors/recommendations.ts` | Which connectors a workspace's actual tasks would benefit from |
 | `server/operator/intent-router.ts` | `IntentRouter`: `RuleBasedRouter` (default), `HermesRouter` (opt-in); Jev slots in later |
+| `server/jarvis/jev-request-router.ts` | Jev: profiles each Jarvis request with a quick Ollama model, then answers, clarifies, or routes to the strong model or a worker. See `docs/jarvis-routing.md` |
+| `server/jarvis/default-jarvis-workers.ts` | The Jarvis worker registry: overdue invoices, draft and revise, send a draft (confirm-gated), Hermes handoff |
 | `server/operator/runbooks.ts` | The normal flow per request kind: New SaaS, SEO Audit, Business Venture, Workspace task, Ask |
 | `server/operator/engine.ts` | Plan → approve → execute → record; Stop halts, cancels jobs, rolls nothing back |
 | `server/operator/operations.ts` | What Operator can do today, each an existing AgentOS operation |

@@ -7,6 +7,7 @@ import { useAgentRun } from "@/features/agent/hooks/use-agent-run";
 import { getAgentSessionMessages, reportActivity } from "@/lib/agentos/client";
 import { useAgentCapabilities, useAttentionCount, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
 import { fetchRunOutput, getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
+import { converseWithJarvis, JarvisRoutingUnavailable, newJarvisConversationId, waitForJarvisJob } from "@/lib/agentos/jarvis-routing";
 import { JarvisContext, type JarvisApi, type JarvisIntercept } from "./jarvis-store";
 import { SpeechStream } from "./speech-stream";
 import { PushToTalk } from "./push-to-talk";
@@ -22,14 +23,17 @@ import { toSpeechWav } from "./wav";
 import { AUTO_SEND_MS, isSendable, resolveProject, type VoicePhase } from "./voice-model";
 
 /**
- * Jarvis: a voice in front of the existing Hermes command flow.
+ * Jarvis: a voice in front of Jev's routing and the existing Hermes flow.
  *
- * Nothing here decides anything. Speech becomes text, the text goes through
- * the same run flow the Agent screen uses (`useAgentRun`, so the same skills,
- * project sessions, task handling and approvals), and Hermes' answer is shown
- * as text and, when voice is on, spoken. There is no store of its own: what is
- * held here is what is on screen, and a reload forgets it. Hermes keeps the
- * conversation.
+ * Nothing here decides anything. Speech becomes text and goes to Jev
+ * (`/api/jarvis/converse`), which answers simple things itself and routes the
+ * rest: to a worker, to a stronger model, or back here as a handoff to the
+ * same run flow the Agent screen uses (`useAgentRun`, so the same skills,
+ * project sessions, task handling and approvals). With Jev routing off (no
+ * quick model configured) or the adapter unreachable, it behaves as before:
+ * small talk locally, everything else to Hermes. A page that takes Jarvis over
+ * (Operator) still hears everything first, as before. What is held here is
+ * what is on screen, and a reload forgets it.
  */
 
 const PUSH_TO_TALK_KEY = "agentos.jarvis.pushToTalk";
@@ -76,6 +80,10 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const [announcement, setAnnouncement] = useState<string>();
   // Whether the words in the box were spoken (so Hermes should answer in speech).
   const spoken = useRef(false);
+  // Jev's conversation: one per Jarvis session, like what is on screen.
+  const [conversationId] = useState(newJarvisConversationId);
+  // The routed request in flight, so a newer one (or Stop) can drop it.
+  const jevRequest = useRef<AbortController | undefined>(undefined);
   const waiting = useAttentionCount();
   const [pushToTalk, setPushToTalkState] = useState(readPushToTalk);
   // True while a hold-Control recording is live, so its end sends at once.
@@ -229,11 +237,12 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     };
   });
 
+  /** Says `text`; shows it, followed by `display` when there is longer text that should not be read aloud. */
   const announce = useCallback(
-    (text: string) => {
+    (text: string, display?: string) => {
       const line = text.trim();
       if (!line) return;
-      setAnnouncement(line);
+      setAnnouncement(display?.trim() ? `${line}\n\n${display.trim()}` : line);
       if (!voiceReady || session.isMuted()) {
         setPhase((current) => (current === "thinking" ? "idle" : current));
         return;
@@ -245,55 +254,14 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     [queue, session, voiceReady],
   );
 
-  const send = useCallback(
-    (override?: string) => {
-      const text = (override ?? transcript).trim();
-      if (!isSendable(text)) return;
-
-      // Small talk is answered at once, in Jarvis's voice, with no model call.
-      const small = smallTalkReply(text, { now: new Date(), waiting });
-      if (small) {
-        queue.reset();
-        session.begin(text);
-        session.end();
-        run.reset();
-        setRecoveredReply("");
-        setFallbackReply("");
-        setAutoSendAt(undefined);
-        setError(undefined);
-        setAudioNote(undefined);
-        setTranscriptState(text);
-        setPhase("thinking");
-        spoken.current = false;
-        announce(small);
-        return;
-      }
-
-      // A page that has taken over hears it first. It answers with `announce`.
-      const handler = intercept.current;
-      if (handler) {
-        spoken.current = false;
-        queue.reset();
-        session.begin(text);
-        session.end();
-        run.reset();
-        setRecoveredReply("");
-        setFallbackReply("");
-        setAnnouncement(undefined);
-        setAutoSendAt(undefined);
-        setError(undefined);
-        setAudioNote(undefined);
-        setTranscriptState(text);
-        setPhase("thinking");
-        if (handler.handle(text)) return;
-      }
+  /** The original path: a Hermes run where Hermes supports them, plain messaging where it does not. */
+  const startHermes = useCallback(
+    (text: string, saidAloud: boolean) => {
       setAnnouncement(undefined);
 
       queue.reset();
       session.begin(text);
       setRecoveredReply("");
-      // A spoken question carries its earlier marks; a typed one starts fresh.
-      if (phase !== "confirming") timings.reset();
       timings.mark("sent");
       setAutoSendAt(undefined);
       setError(undefined);
@@ -307,8 +275,6 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       // The same choice the Agent screen makes: a run where Hermes supports
       // them, plain messaging where it does not.
       if (capabilities?.runs === true) {
-        const saidAloud = spoken.current;
-        spoken.current = false;
         run.start({ message: text, project: target, spoken: saidAloud }).catch((failure: unknown) => {
           session.end();
           setError(failure instanceof Error ? failure.message : "Hermes could not start the run.");
@@ -339,7 +305,125 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         },
       );
     },
-    [announce, capabilities?.runs, pageProject, phase, projects, queue, refreshVault, run, say, sendMessage, session, timings, transcript, voiceReady, waiting],
+    [capabilities?.runs, pageProject, projects, queue, refreshVault, run, say, sendMessage, session, timings, voiceReady],
+  );
+
+  /** Clears the last exchange off the panel and shows `text` as the new question. */
+  const beginLocalTurn = useCallback(
+    (text: string) => {
+      queue.reset();
+      session.begin(text);
+      run.reset();
+      setRecoveredReply("");
+      setFallbackReply("");
+      setAnnouncement(undefined);
+      setAutoSendAt(undefined);
+      setError(undefined);
+      setAudioNote(undefined);
+      setTranscriptState(text);
+      setPhase("thinking");
+    },
+    [queue, run, session],
+  );
+
+  /** Small talk locally, the rest to Hermes: how Jarvis worked before Jev routing. */
+  const sendWithoutRouting = useCallback(
+    (text: string, saidAloud: boolean) => {
+      const small = smallTalkReply(text, { now: new Date(), waiting });
+      if (small) {
+        session.end();
+        announce(small);
+        return;
+      }
+      startHermes(text, saidAloud);
+    },
+    [announce, session, startHermes, waiting],
+  );
+
+  /**
+   * Jev decides: an answer, a question back, a worker's real result, or a
+   * handoff to Hermes. Whatever comes back is what Jarvis says; nothing here
+   * second-guesses it.
+   */
+  const routeThroughJev = useCallback(
+    (text: string, saidAloud: boolean) => {
+      if (phase !== "confirming") timings.reset();
+      beginLocalTurn(text);
+      timings.mark("sent");
+      const controller = new AbortController();
+      jevRequest.current = controller;
+      const turn = session.turn();
+      const stale = () => controller.signal.aborted || session.turn() !== turn;
+
+      void (async () => {
+        try {
+          const result = await converseWithJarvis(conversationId, text, controller.signal);
+          if (stale()) return;
+          timings.mark("firstText");
+          console.info("[jarvis] routed", { requestId: result.requestId, outcome: result.outcome, worker: result.route.workerId, model: result.route.model });
+
+          if (result.outcome === "not_configured") return sendWithoutRouting(text, saidAloud);
+          if (result.outcome === "handoff") return startHermes(text, saidAloud);
+
+          if (result.outcome === "delegated" && result.job) {
+            // Say it has started, then say how it actually ended.
+            announce(result.reply);
+            if (!voiceReady) setPhase("thinking");
+            const job = await waitForJarvisJob(conversationId, result.job.id, controller.signal);
+            if (stale()) return;
+            session.end();
+            announce(job.reply ?? (job.status === "completed" ? "Done." : "That didn't finish, and I don't know why."), job.display);
+            return;
+          }
+
+          session.end();
+          announce(result.reply, result.display);
+        } catch (failure) {
+          if (stale()) return;
+          if (failure instanceof JarvisRoutingUnavailable) return sendWithoutRouting(text, saidAloud);
+          session.end();
+          setError(failure instanceof Error ? failure.message : "Jarvis couldn't route that.");
+          setPhase("error");
+        }
+      })();
+    },
+    [announce, beginLocalTurn, conversationId, phase, sendWithoutRouting, session, startHermes, timings, voiceReady],
+  );
+
+  const send = useCallback(
+    (override?: string) => {
+      const text = (override ?? transcript).trim();
+      if (!isSendable(text)) return;
+
+      jevRequest.current?.abort();
+      const saidAloud = spoken.current;
+      spoken.current = false;
+      const handler = intercept.current;
+
+      // No page has taken Jarvis over: Jev routes it.
+      if (!handler) {
+        routeThroughJev(text, saidAloud);
+        return;
+      }
+
+      // A page has (Operator). As before: small talk at once, then the page.
+      const small = smallTalkReply(text, { now: new Date(), waiting });
+      if (small) {
+        beginLocalTurn(text);
+        session.end();
+        announce(small);
+        return;
+      }
+
+      // The page hears it first. It answers with `announce`.
+      beginLocalTurn(text);
+      session.end();
+      if (handler.handle(text)) return;
+
+      if (phase !== "confirming") timings.reset();
+      startHermes(text, saidAloud);
+    },
+    [announce, beginLocalTurn, phase, routeThroughJev, session, startHermes, timings, transcript, waiting],
   );
 
   // A transcript sends itself unless you touch it. Send goes immediately.
@@ -558,6 +642,10 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       return;
     }
     silence();
+    // A routed request still waiting is dropped. Work a worker already started
+    // carries on (it may be mid-send); only Jarvis stops waiting for it.
+    jevRequest.current?.abort();
+    jevRequest.current = undefined;
     if (run.isRunning) void run.stop();
     else setPhase("idle");
   }, [phase, run, session, silence]);
