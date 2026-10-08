@@ -9,8 +9,6 @@ import {
   SearchFilesRequestSchema,
   CreateTerminalRequestSchema,
   CloneWorkspaceRequestSchema,
-  InstallDependenciesRequestSchema,
-  SetupEnvRequestSchema,
   GitStageRequestSchema,
   GitUnstageRequestSchema,
   GitCommitRequestSchema,
@@ -88,7 +86,7 @@ function requireOrigin(req: express.Request, res: express.Response, next: expres
   next();
 }
 
-coderRouter.post("/open-project", requireOrigin, async (req, res) => {
+coderRouter.post("/open-project", _requireOrigin, async (req, res) => {
   try {
     const { path: projectPath, workspaceSlug } = OpenProjectRequestSchema.parse(req.body);
     
@@ -119,7 +117,7 @@ coderRouter.post("/open-project", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/close-project", requireOrigin, (_req, res) => {
+coderRouter.post("/close-project", _requireOrigin, (_req, res) => {
   try {
     killAllTerminals();
     clearProjectRoot();
@@ -168,7 +166,7 @@ coderRouter.get("/project-state", async (_req, res) => {
   }
 });
 
-coderRouter.post("/read-file", requireOrigin, async (req, res) => {
+coderRouter.post("/read-file", _requireOrigin, async (req, res) => {
   try {
     const { path } = ReadFileRequestSchema.parse(req.body);
     const content = await readFile(path);
@@ -182,7 +180,7 @@ coderRouter.post("/read-file", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/write-file", requireOrigin, async (req, res) => {
+coderRouter.post("/write-file", _requireOrigin, async (req, res) => {
   try {
     const { path, content } = WriteFileRequestSchema.parse(req.body);
     await writeFile(path, content);
@@ -196,7 +194,7 @@ coderRouter.post("/write-file", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/list-directory", requireOrigin, async (req, res) => {
+coderRouter.post("/list-directory", _requireOrigin, async (req, res) => {
   try {
     const { path } = ListDirectoryRequestSchema.parse(req.body);
     const nodes = await listDirectory(path);
@@ -210,7 +208,7 @@ coderRouter.post("/list-directory", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/search-files", requireOrigin, async (req, res) => {
+coderRouter.post("/search-files", _requireOrigin, async (req, res) => {
   try {
     const { query, path } = SearchFilesRequestSchema.parse(req.body);
     const results = await searchFiles(query, path);
@@ -224,7 +222,7 @@ coderRouter.post("/search-files", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/terminal/create", requireOrigin, (req, res) => {
+coderRouter.post("/terminal/create", _requireOrigin, (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -260,7 +258,7 @@ coderRouter.post("/terminal/create", requireOrigin, (req, res) => {
   }
 });
 
-coderRouter.delete("/terminal/:id", requireOrigin, (req, res) => {
+coderRouter.delete("/terminal/:id", _requireOrigin, (req, res) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     killTerminal(id);
@@ -273,7 +271,7 @@ coderRouter.delete("/terminal/:id", requireOrigin, (req, res) => {
   }
 });
 
-export function handleTerminalWebSocket(ws: WebSocket, request: IncomingMessage, token: string | null): void {
+export function handleTerminalWebSocket(ws: WebSocket, _request: IncomingMessage, token: string | null): void {
   const origin = request.headers.origin;
   
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
@@ -338,7 +336,7 @@ export function handleTerminalWebSocket(ws: WebSocket, request: IncomingMessage,
 }
 
 // Workspace setup routes
-coderRouter.post("/workspace/clone", requireOrigin, async (req, res) => {
+coderRouter.post("/workspace/clone", _requireOrigin, async (req, res) => {
   try {
     const { workspaceSlug, repoUrl } = CloneWorkspaceRequestSchema.parse(req.body);
     
@@ -356,7 +354,7 @@ coderRouter.post("/workspace/clone", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/workspace/pull", requireOrigin, async (req, res) => {
+coderRouter.post("/workspace/pull", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -375,7 +373,7 @@ coderRouter.post("/workspace/pull", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/workspace/detect-package-manager", requireOrigin, async (req, res) => {
+coderRouter.post("/workspace/detect-package-manager", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -394,7 +392,7 @@ coderRouter.post("/workspace/detect-package-manager", requireOrigin, async (req,
   }
 });
 
-coderRouter.post("/workspace/detect-dev-command", requireOrigin, async (req, res) => {
+coderRouter.post("/workspace/detect-dev-command", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -413,7 +411,7 @@ coderRouter.post("/workspace/detect-dev-command", requireOrigin, async (req, res
   }
 });
 
-coderRouter.post("/workspace/setup-env", requireOrigin, async (req, res) => {
+coderRouter.post("/workspace/setup-env", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -448,7 +446,7 @@ coderRouter.post("/workspace/setup-env", requireOrigin, async (req, res) => {
 });
 
 // Git operations routes
-coderRouter.get("/git/status", requireOrigin, async (req, res) => {
+coderRouter.get("/git/status", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -467,7 +465,7 @@ coderRouter.get("/git/status", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/diff", requireOrigin, async (req, res) => {
+coderRouter.post("/git/diff", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -487,7 +485,7 @@ coderRouter.post("/git/diff", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/stage", requireOrigin, async (req, res) => {
+coderRouter.post("/git/stage", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -507,7 +505,7 @@ coderRouter.post("/git/stage", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/unstage", requireOrigin, async (req, res) => {
+coderRouter.post("/git/unstage", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -527,7 +525,7 @@ coderRouter.post("/git/unstage", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/commit", requireOrigin, async (req, res) => {
+coderRouter.post("/git/commit", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -547,7 +545,7 @@ coderRouter.post("/git/commit", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/discard", requireOrigin, async (req, res) => {
+coderRouter.post("/git/discard", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -567,7 +565,7 @@ coderRouter.post("/git/discard", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.get("/git/branches", requireOrigin, async (req, res) => {
+coderRouter.get("/git/branches", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -586,7 +584,7 @@ coderRouter.get("/git/branches", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/switch-branch", requireOrigin, async (req, res) => {
+coderRouter.post("/git/switch-branch", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -606,7 +604,7 @@ coderRouter.post("/git/switch-branch", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/pull", requireOrigin, async (req, res) => {
+coderRouter.post("/git/pull", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
@@ -625,7 +623,7 @@ coderRouter.post("/git/pull", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/git/push", requireOrigin, async (req, res) => {
+coderRouter.post("/git/push", _requireOrigin, async (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {

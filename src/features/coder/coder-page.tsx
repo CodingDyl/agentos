@@ -18,6 +18,8 @@ import { useCoderStore } from "./coder-store";
 import { FileTree } from "./file-tree";
 import { CodeEditor } from "./code-editor";
 import { Terminal } from "./terminal";
+import { WorkspaceSetupWizard } from "./workspace-setup-wizard";
+import { GitPanel } from "./git-panel";
 import { cn } from "@/lib/utils";
 import {
   openProject,
