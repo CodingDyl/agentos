@@ -23,9 +23,23 @@ const IGNORED_FILES = new Set([
 ]);
 
 let currentProjectRoot: string | null = null;
+let currentProjectRootReal: string | null = null;
 
-export function setProjectRoot(rootPath: string): void {
-  currentProjectRoot = path.resolve(rootPath);
+export async function setProjectRoot(rootPath: string): Promise<void> {
+  const resolved = path.resolve(rootPath);
+  
+  try {
+    const stats = await fs.stat(resolved);
+    if (!stats.isDirectory()) {
+      throw new Error("Path is not a directory");
+    }
+    
+    const realPath = await fs.realpath(resolved);
+    currentProjectRoot = resolved;
+    currentProjectRootReal = realPath;
+  } catch (error) {
+    throw new Error(`Invalid project root: ${(error as Error).message}`, { cause: error });
+  }
 }
 
 export function getProjectRoot(): string | null {
@@ -34,17 +48,46 @@ export function getProjectRoot(): string | null {
 
 export function clearProjectRoot(): void {
   currentProjectRoot = null;
+  currentProjectRootReal = null;
 }
 
-function validatePath(requestedPath: string): string {
-  if (!currentProjectRoot) {
+async function validatePath(requestedPath: string): Promise<string> {
+  if (!currentProjectRoot || !currentProjectRootReal) {
     throw new Error("No project is currently open");
   }
 
   const resolved = path.resolve(currentProjectRoot, requestedPath);
-  const realPath = path.resolve(resolved);
+  
+  let realPath: string;
+  try {
+    realPath = await fs.realpath(resolved);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      let ancestor = resolved;
+      let realAncestor = resolved;
+      
+      while (ancestor !== currentProjectRoot) {
+        try {
+          realAncestor = await fs.realpath(ancestor);
+          break;
+        } catch {
+          ancestor = path.dirname(ancestor);
+        }
+      }
+      
+      if (ancestor === currentProjectRoot) {
+        realAncestor = currentProjectRootReal;
+      }
+      
+      realPath = path.join(realAncestor, path.relative(ancestor, resolved));
+    } else {
+      throw error;
+    }
+  }
 
-  if (!realPath.startsWith(currentProjectRoot)) {
+  const rel = path.relative(currentProjectRootReal, realPath);
+  
+  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
     throw new Error("Path traversal detected: access outside project root is not allowed");
   }
 
@@ -52,18 +95,18 @@ function validatePath(requestedPath: string): string {
 }
 
 export async function readFile(requestedPath: string): Promise<string> {
-  const safePath = validatePath(requestedPath);
+  const safePath = await validatePath(requestedPath);
   return await fs.readFile(safePath, "utf-8");
 }
 
 export async function writeFile(requestedPath: string, content: string): Promise<void> {
-  const safePath = validatePath(requestedPath);
+  const safePath = await validatePath(requestedPath);
   await fs.mkdir(path.dirname(safePath), { recursive: true });
   await fs.writeFile(safePath, content, "utf-8");
 }
 
 export async function listDirectory(requestedPath: string = ""): Promise<FileTreeNode[]> {
-  const safePath = validatePath(requestedPath);
+  const safePath = await validatePath(requestedPath);
   const entries = await fs.readdir(safePath, { withFileTypes: true });
 
   const nodes: FileTreeNode[] = [];
@@ -101,7 +144,7 @@ export async function listDirectory(requestedPath: string = ""): Promise<FileTre
 }
 
 export async function searchFiles(query: string, searchPath: string = ""): Promise<SearchResult[]> {
-  const safePath = validatePath(searchPath);
+  const safePath = await validatePath(searchPath);
   const results: SearchResult[] = [];
 
   try {
@@ -112,7 +155,9 @@ export async function searchFiles(query: string, searchPath: string = ""): Promi
       "--column",
       "--no-heading",
       "--color=never",
+      "--fixed-strings",
       "--max-count=100",
+      "--",
       query,
       safePath,
     ];
@@ -159,15 +204,73 @@ export async function searchFiles(query: string, searchPath: string = ""): Promi
         }
       });
 
-      rg.on("error", (error) => {
-        reject(error);
+      rg.on("error", (rgError) => {
+        reject(rgError);
       });
     });
-  } catch (error) {
-    throw new Error(`Search failed: ripgrep is not available or failed to execute`);
+  } catch {
+    return await nodeFallbackSearch(query, safePath);
   }
 
   return results.slice(0, 1000);
+}
+
+async function nodeFallbackSearch(query: string, searchPath: string): Promise<SearchResult[]> {
+  const results: SearchResult[] = [];
+  const lowerQuery = query.toLowerCase();
+
+  async function searchDir(dirPath: string): Promise<void> {
+    if (results.length >= 1000) return;
+
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (results.length >= 1000) break;
+
+        if (IGNORED_DIRS.has(entry.name) || IGNORED_FILES.has(entry.name)) {
+          continue;
+        }
+
+        const fullPath = path.join(dirPath, entry.name);
+
+        if (entry.isDirectory()) {
+          await searchDir(fullPath);
+        } else if (entry.isFile()) {
+          try {
+            const content = await fs.readFile(fullPath, "utf-8");
+            const lines = content.split("\n");
+
+            for (let i = 0; i < lines.length && results.length < 1000; i++) {
+              const line = lines[i];
+              const lowerLine = line.toLowerCase();
+              const matchStart = lowerLine.indexOf(lowerQuery);
+
+              if (matchStart >= 0) {
+                const relativePath = path.relative(currentProjectRoot!, fullPath);
+                results.push({
+                  path: relativePath,
+                  lineNumber: i + 1,
+                  line: line,
+                  matchStart,
+                  matchEnd: matchStart + query.length,
+                });
+              }
+            }
+          } catch (readError) {
+            // Skip files that can't be read as text
+            void readError;
+          }
+        }
+      }
+    } catch (dirError) {
+      // Skip directories we can't read
+      void dirError;
+    }
+  }
+
+  await searchDir(searchPath);
+  return results;
 }
 
 export async function getPackageJsonScripts(): Promise<PackageJsonScript[]> {

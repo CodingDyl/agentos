@@ -1,6 +1,9 @@
 import { useRef } from "react";
-import Editor, { type Monaco } from "@monaco-editor/react";
+import Editor, { loader, type Monaco } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
+import * as monaco from "monaco-editor";
+
+loader.config({ monaco });
 
 interface CodeEditorProps {
   value: string;

@@ -43,6 +43,7 @@ interface CreateTerminalResponse {
   success: boolean;
   id?: string;
   shell?: string;
+  token?: string;
   error?: string;
 }
 
@@ -110,7 +111,7 @@ export async function searchFiles(query: string, path?: string): Promise<SearchF
   return await response.json();
 }
 
-export async function createTerminal(cwd: string): Promise<CreateTerminalResponse> {
+export async function createTerminal(cwd?: string): Promise<CreateTerminalResponse> {
   const response = await fetch(`${API_BASE}/terminal/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

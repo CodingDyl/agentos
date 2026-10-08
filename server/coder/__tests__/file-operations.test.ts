@@ -32,32 +32,47 @@ describe("Coder File Operations", () => {
     }
   });
 
-  it("should set and get project root", () => {
-    setProjectRoot(testDir);
+  it("should set and get project root", async () => {
+    await setProjectRoot(testDir);
     assert.equal(getProjectRoot(), testDir);
   });
 
-  it("should clear project root", () => {
-    setProjectRoot(testDir);
+  it("should clear project root", async () => {
+    await setProjectRoot(testDir);
     clearProjectRoot();
     assert.equal(getProjectRoot(), null);
   });
 
+  it("should reject non-directory as project root", async () => {
+    const filePath = path.join(testDir, "test.txt");
+    await assert.rejects(
+      async () => await setProjectRoot(filePath),
+      /not a directory/i
+    );
+  });
+
+  it("should reject non-existent path as project root", async () => {
+    await assert.rejects(
+      async () => await setProjectRoot("/nonexistent/path"),
+      /Invalid project root/
+    );
+  });
+
   it("should read a file", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     const content = await readFile("test.txt");
     assert.equal(content, "Hello, World!");
   });
 
   it("should write a file", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     await writeFile("newfile.txt", "New content");
     const content = await fs.readFile(path.join(testDir, "newfile.txt"), "utf-8");
     assert.equal(content, "New content");
   });
 
   it("should list directory contents", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     const nodes = await listDirectory("");
     
     const names = nodes.map((n) => n.name);
@@ -67,7 +82,7 @@ describe("Coder File Operations", () => {
   });
 
   it("should reject path traversal with ..", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     
     await assert.rejects(
       async () => await readFile("../etc/passwd"),
@@ -76,7 +91,7 @@ describe("Coder File Operations", () => {
   });
 
   it("should reject absolute path outside project", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     
     await assert.rejects(
       async () => await readFile("/etc/passwd"),
@@ -85,7 +100,7 @@ describe("Coder File Operations", () => {
   });
 
   it("should reject symlink escape", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     
     const symlinkPath = path.join(testDir, "evil-link");
     try {
@@ -95,11 +110,36 @@ describe("Coder File Operations", () => {
         async () => await readFile("evil-link/passwd"),
         /Path traversal detected/
       );
+      
+      await fs.unlink(symlinkPath);
     } catch (error) {
-      // Skip test if symlink creation fails (Windows without admin)
-      if ((error as NodeJS.ErrnoException).code !== "EPERM") {
-        throw error;
+      if ((error as NodeJS.ErrnoException).code === "EPERM") {
+        console.log("Skipping symlink test on Windows without admin");
+        return;
       }
+      throw error;
+    }
+  });
+
+  it("should reject sibling directory with matching prefix", async () => {
+    await setProjectRoot(testDir);
+    
+    const parentDir = path.dirname(testDir);
+    const baseName = path.basename(testDir);
+    const siblingDir = path.join(parentDir, `${baseName}-evil`);
+    
+    await fs.mkdir(siblingDir, { recursive: true });
+    await fs.writeFile(path.join(siblingDir, "secret.txt"), "secret data");
+    
+    try {
+      const relativeSibling = path.relative(testDir, siblingDir);
+      
+      await assert.rejects(
+        async () => await readFile(`${relativeSibling}/secret.txt`),
+        /Path traversal detected/
+      );
+    } finally {
+      await fs.rm(siblingDir, { recursive: true, force: true });
     }
   });
 
@@ -113,7 +153,7 @@ describe("Coder File Operations", () => {
   });
 
   it("should handle nested directory creation", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     await writeFile("deep/nested/file.txt", "Deep content");
     
     const content = await fs.readFile(path.join(testDir, "deep", "nested", "file.txt"), "utf-8");
@@ -121,7 +161,7 @@ describe("Coder File Operations", () => {
   });
 
   it("should return null for git branch in non-git directory", async () => {
-    setProjectRoot(testDir);
+    await setProjectRoot(testDir);
     const branch = await getGitBranch();
     assert.equal(branch, null);
   });

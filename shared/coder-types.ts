@@ -70,7 +70,7 @@ export const SearchFilesRequestSchema = z.object({
 export type SearchFilesRequest = z.infer<typeof SearchFilesRequestSchema>;
 
 export const CreateTerminalRequestSchema = z.object({
-  cwd: z.string(),
+  cwd: z.string().optional(),
 });
 
 export type CreateTerminalRequest = z.infer<typeof CreateTerminalRequestSchema>;

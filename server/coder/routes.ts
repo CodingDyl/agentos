@@ -1,5 +1,6 @@
 import express from "express";
 import type { WebSocket } from "ws";
+import type { IncomingMessage } from "node:http";
 import {
   OpenProjectRequestSchema,
   ReadFileRequestSchema,
@@ -28,16 +29,42 @@ import {
   killAllTerminals,
   getTerminalIds,
 } from "./pty-manager";
+import { generateTerminalToken, validateTerminalToken } from "./terminal-tokens";
 
 export const coderRouter = express.Router();
 
-coderRouter.post("/open-project", async (req, res) => {
+const ALLOWED_ORIGINS = new Set([
+  "tauri://localhost",
+  "http://tauri.localhost",
+  "http://localhost:1420",
+  "https://tauri.localhost",
+]);
+
+function checkOrigin(req: express.Request): boolean {
+  const origin = req.get("origin");
+  
+  if (!origin) {
+    return req.get("host")?.includes("localhost") ?? false;
+  }
+  
+  return ALLOWED_ORIGINS.has(origin) || origin.startsWith("http://localhost:");
+}
+
+function requireOrigin(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  if (!checkOrigin(req)) {
+    res.status(403).json({ error: "Forbidden: Invalid origin" });
+    return;
+  }
+  next();
+}
+
+coderRouter.post("/open-project", requireOrigin, async (req, res) => {
   try {
     const { path: projectPath, workspaceSlug } = OpenProjectRequestSchema.parse(req.body);
     
     killAllTerminals();
     
-    setProjectRoot(projectPath);
+    await setProjectRoot(projectPath);
     
     const [fileTree, scripts, gitBranch] = await Promise.all([
       listDirectory(""),
@@ -62,7 +89,7 @@ coderRouter.post("/open-project", async (req, res) => {
   }
 });
 
-coderRouter.post("/close-project", (_req, res) => {
+coderRouter.post("/close-project", requireOrigin, (_req, res) => {
   try {
     killAllTerminals();
     clearProjectRoot();
@@ -111,7 +138,7 @@ coderRouter.get("/project-state", async (_req, res) => {
   }
 });
 
-coderRouter.post("/read-file", async (req, res) => {
+coderRouter.post("/read-file", requireOrigin, async (req, res) => {
   try {
     const { path } = ReadFileRequestSchema.parse(req.body);
     const content = await readFile(path);
@@ -125,7 +152,7 @@ coderRouter.post("/read-file", async (req, res) => {
   }
 });
 
-coderRouter.post("/write-file", async (req, res) => {
+coderRouter.post("/write-file", requireOrigin, async (req, res) => {
   try {
     const { path, content } = WriteFileRequestSchema.parse(req.body);
     await writeFile(path, content);
@@ -139,7 +166,7 @@ coderRouter.post("/write-file", async (req, res) => {
   }
 });
 
-coderRouter.post("/list-directory", async (req, res) => {
+coderRouter.post("/list-directory", requireOrigin, async (req, res) => {
   try {
     const { path } = ListDirectoryRequestSchema.parse(req.body);
     const nodes = await listDirectory(path);
@@ -153,7 +180,7 @@ coderRouter.post("/list-directory", async (req, res) => {
   }
 });
 
-coderRouter.post("/search-files", async (req, res) => {
+coderRouter.post("/search-files", requireOrigin, async (req, res) => {
   try {
     const { query, path } = SearchFilesRequestSchema.parse(req.body);
     const results = await searchFiles(query, path);
@@ -167,11 +194,33 @@ coderRouter.post("/search-files", async (req, res) => {
   }
 });
 
-coderRouter.post("/terminal/create", (req, res) => {
+coderRouter.post("/terminal/create", requireOrigin, (req, res) => {
   try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({
+        success: false,
+        error: "No project is currently open",
+      });
+      return;
+    }
+
     const { cwd } = CreateTerminalRequestSchema.parse(req.body);
-    const { id, shell } = createTerminal(cwd);
-    res.json({ success: true, id, shell });
+    
+    const resolvedCwd = cwd && cwd !== projectRoot ? cwd : projectRoot;
+    
+    if (!resolvedCwd.startsWith(projectRoot)) {
+      res.status(400).json({
+        success: false,
+        error: "Terminal cwd must be within project root",
+      });
+      return;
+    }
+
+    const { id, shell } = createTerminal(resolvedCwd);
+    const token = generateTerminalToken(id);
+    
+    res.json({ success: true, id, shell, token });
   } catch (error) {
     console.error("Failed to create terminal:", error);
     res.status(400).json({
@@ -181,9 +230,9 @@ coderRouter.post("/terminal/create", (req, res) => {
   }
 });
 
-coderRouter.delete("/terminal/:id", (req, res) => {
+coderRouter.delete("/terminal/:id", requireOrigin, (req, res) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     killTerminal(id);
     res.json({ success: true });
   } catch (error) {
@@ -194,7 +243,26 @@ coderRouter.delete("/terminal/:id", (req, res) => {
   }
 });
 
-export function handleTerminalWebSocket(ws: WebSocket, terminalId: string): void {
+export function handleTerminalWebSocket(ws: WebSocket, request: IncomingMessage, token: string | null): void {
+  const origin = request.headers.origin;
+  
+  if (origin && !ALLOWED_ORIGINS.has(origin) && !origin.startsWith("http://localhost:")) {
+    ws.close(1008, "Forbidden: Invalid origin");
+    return;
+  }
+
+  if (!token) {
+    ws.close(1008, "Missing token");
+    return;
+  }
+
+  const terminalId = validateTerminalToken(token);
+  
+  if (!terminalId) {
+    ws.close(1008, "Invalid or expired token");
+    return;
+  }
+
   const terminal = getTerminal(terminalId);
   
   if (!terminal) {

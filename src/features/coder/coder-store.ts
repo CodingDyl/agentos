@@ -12,6 +12,7 @@ export interface OpenFile {
 export interface Terminal {
   id: string;
   title: string;
+  token: string;
 }
 
 interface CoderState {
@@ -36,7 +37,7 @@ interface CoderState {
   markFileSaved: (path: string, content: string) => void;
   setGitBranch: (branch: string | null) => void;
   setScripts: (scripts: PackageJsonScript[]) => void;
-  addTerminal: (id: string, title: string) => void;
+  addTerminal: (id: string, title: string, token: string) => void;
   removeTerminal: (id: string) => void;
   setActiveTerminal: (id: string | null) => void;
   toggleScanlineOverlay: () => void;
@@ -138,9 +139,9 @@ export const useCoderStore = create<CoderState>()(
 
       setScripts: (scripts) => set({ scripts }),
 
-      addTerminal: (id, title) => {
+      addTerminal: (id, title, token) => {
         set((state) => ({
-          terminals: [...state.terminals, { id, title }],
+          terminals: [...state.terminals, { id, title, token }],
           activeTerminalId: id,
         }));
       },

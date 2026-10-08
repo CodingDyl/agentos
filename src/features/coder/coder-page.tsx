@@ -87,7 +87,7 @@ export function CoderPage() {
     const localPath = detail.configuration?.localPath;
 
     if (!localPath) {
-      alert(`Workspace "${project.name}" has no local path set.\n\nCloning/setup will be available in Part 2.`);
+      setShowProjectPicker(false);
       return;
     }
 
@@ -201,9 +201,9 @@ export function CoderPage() {
     if (!projectRoot) return;
 
     try {
-      const result = await createTerminal(projectRoot);
-      if (result.success && result.id) {
-        addTerminal(result.id, `Terminal ${terminals.length + 1}`);
+      const result = await createTerminal();
+      if (result.success && result.id && result.token) {
+        addTerminal(result.id, `Terminal ${terminals.length + 1}`, result.token);
       } else {
         alert(`Failed to create terminal: ${result.error}`);
       }
@@ -228,12 +228,12 @@ export function CoderPage() {
     if (!projectRoot) return;
 
     try {
-      const result = await createTerminal(projectRoot);
-      if (result.success && result.id) {
-        addTerminal(result.id, `Terminal ${terminals.length + 1}`);
+      const result = await createTerminal();
+      if (result.success && result.id && result.token) {
+        addTerminal(result.id, `Terminal ${terminals.length + 1}`, result.token);
         
         setTimeout(() => {
-          const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${result.id}`);
+          const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${result.token}`);
           ws.onopen = () => {
             ws.send(JSON.stringify({ type: "input", data: `${command}\r` }));
           };
@@ -309,7 +309,11 @@ export function CoderPage() {
 
   const activeTerminal = terminals.find((t) => t.id === activeTerminalId);
 
-  if (showProjectPicker) {
+  if (showProjectPicker || (!projectRoot && searchParams.get("workspace"))) {
+    const workspaceParam = searchParams.get("workspace");
+    const targetProject = workspaceParam ? projectsData?.projects.find(p => p.slug === workspaceParam) : null;
+    const needsLocalPath = targetProject && !projectRoot;
+
     return (
       <AppShell
         navigationItems={navigationItems}
@@ -323,8 +327,21 @@ export function CoderPage() {
               <h1 className="font-mono text-3xl font-bold text-[#00ffcc] tracking-wider glitch-text">
                 CODER_
               </h1>
-              <p className="text-sm text-[#6a9fb5]">Select a workspace or open a folder</p>
+              <p className="text-sm text-[#6a9fb5]">
+                {needsLocalPath ? `Link "${targetProject.name}" to open it` : "Select a workspace or open a folder"}
+              </p>
             </div>
+
+            {needsLocalPath && (
+              <div className="rounded border border-[#ffff0033] bg-[#ffff000d] p-4">
+                <p className="text-sm text-[#ffff00]">
+                  This workspace has no local path set.
+                </p>
+                <p className="mt-2 text-xs text-[#6a9fb5]">
+                  Automated cloning/setup will be available in Part 2. For now, use the folder picker below to link an existing local folder.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-4 rounded border border-[#00ffcc33] bg-[#141414] p-6">
               <div>
@@ -356,7 +373,7 @@ export function CoderPage() {
                   className="flex w-full items-center justify-center gap-2 rounded border border-[#00ffcc] bg-[#00ffcc0d] p-3 font-medium text-[#00ffcc] transition-colors hover:bg-[#00ffcc1a]"
                 >
                   <FolderOpen className="size-5" />
-                  Open Folder...
+                  {needsLocalPath ? "Link Local Folder..." : "Open Folder..."}
                 </button>
               </div>
             </div>
@@ -568,6 +585,7 @@ export function CoderPage() {
                 <Terminal
                   key={activeTerminal.id}
                   terminalId={activeTerminal.id}
+                  token={activeTerminal.token}
                   onExit={() => void handleKillTerminal(activeTerminal.id)}
                 />
               )}

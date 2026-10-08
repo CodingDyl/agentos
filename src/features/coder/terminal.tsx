@@ -6,10 +6,11 @@ import "@xterm/xterm/css/xterm.css";
 
 interface TerminalProps {
   terminalId: string;
+  token: string;
   onExit?: () => void;
 }
 
-export function Terminal({ terminalId, onExit }: TerminalProps) {
+export function Terminal({ terminalId, token, onExit }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -62,7 +63,7 @@ export function Terminal({ terminalId, onExit }: TerminalProps) {
     fitAddonRef.current = fitAddon;
     terminalRef.current = terminal;
 
-    const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${terminalId}`);
+    const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${token}`);
 
     ws.onopen = () => {
       terminal.write("\x1b[32m● Connected to terminal\x1b[0m\r\n");
@@ -128,7 +129,7 @@ export function Terminal({ terminalId, onExit }: TerminalProps) {
       ws.close();
       terminal.dispose();
     };
-  }, [terminalId, onExit]);
+  }, [terminalId, token, onExit]);
 
   return (
     <div

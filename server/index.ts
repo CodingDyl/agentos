@@ -101,6 +101,7 @@ import { databasesRouter } from "./supabase/routes";
 import { operatorRouter } from "./operator/routes";
 import { reconcileOperatorRuns } from "./operator/service";
 import { coderRouter, handleTerminalWebSocket } from "./coder/routes";
+import { killAllTerminals } from "./coder/pty-manager";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -4512,10 +4513,11 @@ server.on("upgrade", (request, socket, head) => {
   const url = new URL(request.url!, `http://${request.headers.host}`);
   
   if (url.pathname.startsWith("/api/coder/terminal/ws/")) {
-    const terminalId = url.pathname.replace("/api/coder/terminal/ws/", "");
+    const pathToken = url.pathname.replace("/api/coder/terminal/ws/", "");
+    const token = pathToken || null;
     
     wss.handleUpgrade(request, socket, head, (ws) => {
-      handleTerminalWebSocket(ws, terminalId);
+      handleTerminalWebSocket(ws, request, token);
     });
   } else {
     socket.destroy();
@@ -4552,6 +4554,21 @@ server.listen(PORT, HOST, () => {
   startOutreachSyncTimer();
   // Finance's monthly review writes itself once a month is over. See server/finance/monthly-review.ts.
   startMonthlyReviewSchedule();
+});
+
+function cleanupCoder() {
+  console.log("[coder] Cleaning up terminals...");
+  killAllTerminals();
+}
+
+process.on("SIGINT", () => {
+  cleanupCoder();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  cleanupCoder();
+  process.exit(0);
 });
 
 /**
