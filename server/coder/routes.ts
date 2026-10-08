@@ -1,7 +1,7 @@
 import express from "express";
 import type { WebSocket } from "ws";
 import type { IncomingMessage } from "node:http";
-import {
+import { startInstall, getInstaller, cancelInstall } from "./package-install";
 import { startInstall, getInstaller, cancelInstall } from "./package-install";
   OpenProjectRequestSchema,
   ReadFileRequestSchema,
