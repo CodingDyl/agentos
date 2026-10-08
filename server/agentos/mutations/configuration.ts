@@ -53,6 +53,7 @@ const KEYS = {
   workspaceType: "Workspace type",
   modules: "Modules",
   validationCommands: "Validation",
+  localPath: "Local path",
 } as const;
 
 function normaliseKey(key: string): string {
@@ -143,6 +144,7 @@ export function parseConfiguration(markdown: string | undefined): ProjectConfigu
       ? (workspaceType as WorkspaceType)
       : undefined,
     modules: modules.length > 0 ? modules : undefined,
+    localPath: raw.localPath?.trim() || undefined,
   });
 
   return parsed.success ? parsed.data : { ...DEFAULT_PROJECT_CONFIGURATION };
@@ -158,6 +160,7 @@ export function isDefaultConfiguration(config: ProjectConfiguration): boolean {
     config.vercelProjectName === undefined &&
     config.workspaceType === undefined &&
     (config.modules === undefined || config.modules.length === 0) &&
+    config.localPath === undefined &&
     config.workerPreference === DEFAULT_PROJECT_CONFIGURATION.workerPreference &&
     config.visualVerification === DEFAULT_PROJECT_CONFIGURATION.visualVerification &&
     config.validationCommands.length === 0
@@ -177,6 +180,7 @@ export function renderConfiguration(config: ProjectConfiguration): string {
   if (config.designBoard) lines.push(`${KEYS.designBoard}: ${config.designBoard}`);
   if (config.vercelProjectId) lines.push(`${KEYS.vercelProjectId}: ${config.vercelProjectId}`);
   if (config.vercelProjectName) lines.push(`${KEYS.vercelProjectName}: ${config.vercelProjectName}`);
+  if (config.localPath) lines.push(`${KEYS.localPath}: ${config.localPath}`);
 
   if (config.validationCommands.length > 0) {
     lines.push(`${KEYS.validationCommands}:`);

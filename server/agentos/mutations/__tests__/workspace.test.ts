@@ -229,6 +229,28 @@ describe("project configuration", () => {
     assert.equal(merged.taskPrefix, undefined, "taskPrefix should remain undefined");
     assert.equal(merged.defaultBranch, undefined, "defaultBranch should remain undefined");
   });
+
+  it("round-trips localPath through render and parse", () => {
+    const merged = mergeConfiguration(parseConfiguration(PROJECT), {
+      localPath: "~/AgentOS/coder/pantry-pilot",
+    });
+    const next = applyConfiguration(PROJECT, merged);
+
+    assert.match(next, /Local path: ~\/AgentOS\/coder\/pantry-pilot/);
+    assert.equal(parseConfiguration(next).localPath, "~/AgentOS/coder/pantry-pilot");
+    assert.equal(parseConfiguration(next).taskPrefix, "PP");
+  });
+
+  it("writes a configuration section when the only setting is localPath", () => {
+    const plain = "# Thing\n\n## Purpose\n\nStuff.\n";
+    const merged = mergeConfiguration(parseConfiguration(plain), {
+      localPath: "~/AgentOS/coder/thing",
+    });
+    const next = applyConfiguration(plain, merged);
+
+    assert.match(next, /## Configuration/);
+    assert.match(next, /Local path: ~\/AgentOS\/coder\/thing/);
+  });
 });
 
 describe("repository path", () => {
