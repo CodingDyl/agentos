@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import path from "node:path";
 import type { GitStatus, GitFileStatus, GitDiff, GitBranch } from "../../shared/coder-types";
 
 function validateBranchName(branchName: string): boolean {
   if (!branchName || branchName.length === 0) return false;
   
-  const invalidChars = /[~^:\\\s\*\?\[]/;
+  const invalidChars = /[~^:\\\s*?[]/;
   if (invalidChars.test(branchName)) return false;
   
   if (branchName.startsWith("-") || branchName.endsWith(".") || branchName.includes("..")) {
@@ -260,13 +261,52 @@ export async function discardChanges(
     throw new Error("Must specify files to discard");
   }
 
-  const result = await runGitCommand(
-    ["checkout", "HEAD", "--", ...files],
-    repoPath,
-  );
+  for (const file of files) {
+    const filePath = path.join(repoPath, file);
+    const realPath = await fs.realpath(path.dirname(filePath));
+    const realRepo = await fs.realpath(repoPath);
+    const relPath = path.relative(realRepo, realPath);
 
-  if (result.exitCode !== 0) {
-    throw new Error(`Failed to discard changes: ${result.stderr}`);
+    if (relPath.startsWith("..") || path.isAbsolute(relPath)) {
+      throw new Error(`Path ${file} is outside the repository`);
+    }
+
+    if (file.includes("..") || path.isAbsolute(file)) {
+      throw new Error(`Invalid file path: ${file}`);
+    }
+  }
+
+  const status = await getGitStatus(repoPath);
+  const untrackedFiles: string[] = [];
+  const trackedFiles: string[] = [];
+
+  for (const file of files) {
+    const fileStatus = status.files.find((f) => f.path === file);
+    if (fileStatus && fileStatus.status === "untracked") {
+      untrackedFiles.push(file);
+    } else {
+      trackedFiles.push(file);
+    }
+  }
+
+  if (trackedFiles.length > 0) {
+    const result = await runGitCommand(
+      ["checkout", "HEAD", "--", ...trackedFiles],
+      repoPath,
+    );
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to discard changes: ${result.stderr}`);
+    }
+  }
+
+  for (const file of untrackedFiles) {
+    const filePath = path.join(repoPath, file);
+    try {
+      await fs.unlink(filePath);
+    } catch (error) {
+      throw new Error(`Failed to delete untracked file ${file}: ${(error as Error).message}`, { cause: error });
+    }
   }
 }
 

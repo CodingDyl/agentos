@@ -60,9 +60,35 @@ export function GitPanel() {
   }, []);
 
   useEffect(() => {
-    void loadStatus();
-    void loadBranches();
-  }, [loadStatus, loadBranches]);
+    let mounted = true;
+
+    async function initialLoad() {
+      setLoading(true);
+      try {
+        const statusResult = await coderApi.getGitStatus();
+        if (mounted && statusResult.success) {
+          setStatus(statusResult.status);
+        }
+
+        const branchesResult = await coderApi.getBranches();
+        if (mounted && branchesResult.success) {
+          setBranches(branchesResult.branches.filter((b: GitBranchType) => !b.remote));
+        }
+      } catch (error) {
+        console.error("Failed to load git data:", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void initialLoad();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleFileClick = useCallback(async (file: GitFileStatus) => {
     setSelectedFile(file);

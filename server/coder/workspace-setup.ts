@@ -227,7 +227,7 @@ export async function setupEnvFile(repoPath: string): Promise<{ created: boolean
     // .env.local doesn't exist, continue
   }
 
-  let examplePath: string | null = null;
+  let examplePath: string;
 
   try {
     await fs.access(envExamplePath);
@@ -239,10 +239,6 @@ export async function setupEnvFile(repoPath: string): Promise<{ created: boolean
     } catch {
       return { created: false, missingKeys: [] };
     }
-  }
-
-  if (!examplePath) {
-    return { created: false, missingKeys: [] };
   }
 
   const exampleContent = await fs.readFile(examplePath, "utf-8");

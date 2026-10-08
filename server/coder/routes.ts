@@ -708,7 +708,7 @@ export function handleInstallWebSocket(ws: WebSocket, request: IncomingMessage, 
     return;
   }
 
-  const progressHandler = (progress: any) => {
+  const progressHandler = (progress: { type: string; data?: string; exitCode?: number }) => {
     try {
       ws.send(JSON.stringify(progress));
     } catch (error) {

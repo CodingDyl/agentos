@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useReducer, useEffect, useRef } from "react";
 import { CheckCircle2, XCircle, Loader2, AlertCircle, Terminal as TerminalIcon } from "lucide-react";
 import type { SetupStep } from "../../../shared/coder-types";
 import { Terminal } from "./terminal";
@@ -12,6 +12,67 @@ interface WorkspaceSetupWizardProps {
   onCancel: () => void;
 }
 
+interface SetupState {
+  steps: SetupStep[];
+  currentStep: string | null;
+  terminalId: string | null;
+  terminalToken: string | null;
+  localPath: string | null;
+}
+
+type SetupAction =
+  | { type: "UPDATE_STEP"; stepId: string; status: SetupStep["status"]; message?: string }
+  | { type: "SET_CURRENT_STEP"; step: string | null }
+  | { type: "SET_TERMINAL"; terminalId: string; terminalToken: string }
+  | { type: "SET_LOCAL_PATH"; path: string }
+  | { type: "RESET" };
+
+function setupReducer(state: SetupState, action: SetupAction): SetupState {
+  switch (action.type) {
+    case "UPDATE_STEP":
+      return {
+        ...state,
+        steps: state.steps.map((step) =>
+          step.id === action.stepId ? { ...step, status: action.status, message: action.message } : step
+        ),
+      };
+    case "SET_CURRENT_STEP":
+      return { ...state, currentStep: action.step };
+    case "SET_TERMINAL":
+      return { ...state, terminalId: action.terminalId, terminalToken: action.terminalToken };
+    case "SET_LOCAL_PATH":
+      return { ...state, localPath: action.path };
+    case "RESET":
+      return {
+        steps: [
+          { id: "clone", name: "Clone repository", status: "pending" },
+          { id: "install", name: "Install dependencies", status: "pending" },
+          { id: "env", name: "Setup environment", status: "pending" },
+          { id: "ready", name: "Ready to code", status: "pending" },
+        ],
+        currentStep: null,
+        terminalId: null,
+        terminalToken: null,
+        localPath: null,
+      };
+    default:
+      return state;
+  }
+}
+
+const initialState: SetupState = {
+  steps: [
+    { id: "clone", name: "Clone repository", status: "pending" },
+    { id: "install", name: "Install dependencies", status: "pending" },
+    { id: "env", name: "Setup environment", status: "pending" },
+    { id: "ready", name: "Ready to code", status: "pending" },
+  ],
+  currentStep: null,
+  terminalId: null,
+  terminalToken: null,
+  localPath: null,
+};
+
 export function WorkspaceSetupWizard({
   workspaceSlug,
   workspaceName,
@@ -19,200 +80,225 @@ export function WorkspaceSetupWizard({
   onComplete,
   onCancel,
 }: WorkspaceSetupWizardProps) {
-  const [steps, setSteps] = useState<SetupStep[]>([
-    { id: "clone", name: "Clone repository", status: "pending" },
-    { id: "install", name: "Install dependencies", status: "pending" },
-    { id: "env", name: "Setup environment", status: "pending" },
-    { id: "ready", name: "Ready to code", status: "pending" },
-  ]);
-  const [currentStep, setCurrentStep] = useState<string | null>(null);
-  const [terminalId, setTerminalId] = useState<string | null>(null);
-  const [terminalToken, setTerminalToken] = useState<string | null>(null);
-  const [cancelled, setCancelled] = useState(false);
-  const localPathRef = useRef<string | null>(null);
+  const [state, dispatch] = useReducer(setupReducer, initialState);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const installWsRef = useRef<WebSocket | null>(null);
 
-  const updateStepStatus = useCallback((stepId: string, status: SetupStep["status"], message?: string) => {
-    setSteps((prev) =>
-      prev.map((step) => (step.id === stepId ? { ...step, status, message } : step)),
-    );
-  }, []);
+  useEffect(() => {
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
-  const runSetup = useCallback(async () => {
-    if (cancelled) return;
+    async function runSetup() {
+      let currentStepId = "clone";
 
-    try {
-      setCurrentStep("clone");
-      updateStepStatus("clone", "running", "Cloning repository...");
+      try {
+        if (signal.aborted) return;
 
-      const cloneResult = await coderApi.cloneWorkspace(workspaceSlug, repoUrl);
+        currentStepId = "clone";
+        dispatch({ type: "SET_CURRENT_STEP", step: "clone" });
+        dispatch({ type: "UPDATE_STEP", stepId: "clone", status: "running", message: "Cloning repository..." });
 
-      if (!cloneResult.success) {
-        updateStepStatus("clone", "error", cloneResult.error);
-        return;
-      }
+        const cloneResult = await coderApi.cloneWorkspace(workspaceSlug, repoUrl);
 
-      localPathRef.current = cloneResult.path;
-      updateStepStatus("clone", "success", "Repository cloned");
+        if (signal.aborted) return;
 
-      if (cancelled) return;
-
-      setCurrentStep("install");
-      updateStepStatus("install", "running", "Opening project...");
-
-      const openResult = await coderApi.openProject(cloneResult.path, workspaceSlug);
-
-      if (!openResult.success) {
-        updateStepStatus("install", "error", openResult.error);
-        return;
-      }
-
-      updateStepStatus("install", "running", "Detecting package manager...");
-
-      const pmResult = await coderApi.detectPackageManager();
-
-      if (!pmResult.success || !pmResult.packageManager) {
-        updateStepStatus("install", "success", "No package manager detected, skipping");
-        setCurrentStep("env");
-      } else {
-        const packageManager = pmResult.packageManager;
-        updateStepStatus("install", "running", `Installing with ${packageManager}...`);
-
-        const termResult = await coderApi.createTerminal();
-
-        if (!termResult.success || !termResult.id || !termResult.token) {
-          updateStepStatus("install", "error", "Failed to create terminal");
+        if (!cloneResult.success) {
+          dispatch({ type: "UPDATE_STEP", stepId: "clone", status: "error", message: cloneResult.error });
           return;
         }
 
-        setTerminalId(termResult.id);
-        setTerminalToken(termResult.token);
+        dispatch({ type: "SET_LOCAL_PATH", path: cloneResult.path });
+        dispatch({ type: "UPDATE_STEP", stepId: "clone", status: "success", message: "Repository cloned" });
 
-        setTimeout(() => {
-          const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${termResult.token}`);
+        if (signal.aborted) return;
 
-          ws.onopen = () => {
-            const installCmd =
-              packageManager === "npm"
-                ? "npm install\r"
-                : packageManager === "pnpm"
-                  ? "pnpm install\r"
-                  : packageManager === "yarn"
-                    ? "yarn install\r"
-                    : "bun install\r";
+        currentStepId = "install";
+        dispatch({ type: "SET_CURRENT_STEP", step: "install" });
+        dispatch({ type: "UPDATE_STEP", stepId: "install", status: "running", message: "Opening project..." });
 
-            ws.send(JSON.stringify({ type: "input", data: installCmd }));
+        const openResult = await coderApi.openProject(cloneResult.path, workspaceSlug);
 
-            setTimeout(() => {
+        if (signal.aborted) return;
+
+        if (!openResult.success) {
+          dispatch({ type: "UPDATE_STEP", stepId: "install", status: "error", message: openResult.error });
+          return;
+        }
+
+        dispatch({ type: "UPDATE_STEP", stepId: "install", status: "running", message: "Detecting package manager..." });
+
+        const pmResult = await coderApi.detectPackageManager();
+
+        if (signal.aborted) return;
+
+        if (!pmResult.success || !pmResult.packageManager) {
+          dispatch({ type: "UPDATE_STEP", stepId: "install", status: "success", message: "No package manager detected, skipping" });
+          currentStepId = "env";
+          await runEnvSetup(cloneResult.path);
+          return;
+        }
+
+        const packageManager = pmResult.packageManager;
+        dispatch({ type: "UPDATE_STEP", stepId: "install", status: "running", message: `Installing with ${packageManager}...` });
+
+        const termResult = await coderApi.createTerminal();
+
+        if (signal.aborted) return;
+
+        if (!termResult.success || !termResult.id || !termResult.token) {
+          dispatch({ type: "UPDATE_STEP", stepId: "install", status: "error", message: "Failed to create terminal" });
+          return;
+        }
+
+        dispatch({ type: "SET_TERMINAL", terminalId: termResult.id, terminalToken: termResult.token });
+
+        await new Promise<void>((resolve) => {
+          if (signal.aborted) {
+            resolve();
+            return;
+          }
+
+          setTimeout(() => {
+            if (signal.aborted) {
+              resolve();
+              return;
+            }
+
+            const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${termResult.token}`);
+            installWsRef.current = ws;
+
+            ws.onopen = () => {
+              const installCmd =
+                packageManager === "npm"
+                  ? "npm install\r"
+                  : packageManager === "pnpm"
+                    ? "pnpm install\r"
+                    : packageManager === "yarn"
+                      ? "yarn install\r"
+                      : "bun install\r";
+
+              ws.send(JSON.stringify({ type: "input", data: installCmd }));
+
+              setTimeout(() => {
+                ws.close();
+                installWsRef.current = null;
+                if (!signal.aborted) {
+                  dispatch({ type: "UPDATE_STEP", stepId: "install", status: "success", message: "Dependencies installed" });
+                  resolve();
+                }
+              }, 10000);
+            };
+
+            ws.onerror = () => {
               ws.close();
-              if (!cancelled) {
-                updateStepStatus("install", "success", "Dependencies installed");
-                setCurrentStep("env");
-                void runEnvSetup();
-              }
-            }, 10000);
-          };
-        }, 500);
-
-        return;
-      }
-
-      if (cancelled) return;
-      await runEnvSetup();
-    } catch (error) {
-      const errorStep = currentStep || "clone";
-      updateStepStatus(errorStep, "error", error instanceof Error ? error.message : "Setup failed");
-    }
-  }, [cancelled, workspaceSlug, repoUrl, currentStep, updateStepStatus]);
-
-  const runEnvSetup = useCallback(async () => {
-    if (cancelled) return;
-
-    try {
-      setCurrentStep("env");
-      updateStepStatus("env", "running", "Setting up environment...");
-
-      const envResult = await coderApi.setupEnvFile();
-
-      if (!envResult.success) {
-        updateStepStatus("env", "error", envResult.error);
-        return;
-      }
-
-      updateStepStatus("env", "success", envResult.message);
-
-      if (cancelled) return;
-
-      setCurrentStep("ready");
-      updateStepStatus("ready", "running", "Finalizing setup...");
-
-      const devResult = await coderApi.detectDevCommand();
-
-      let message = "Project ready!";
-      if (devResult.success && devResult.devCommand) {
-        message = `Project ready! Run '${devResult.devCommand}' to start development.`;
-      }
-
-      updateStepStatus("ready", "success", message);
-      setCurrentStep(null);
-
-      if (localPathRef.current) {
-        await fetch(`http://localhost:3500/api/projects/${workspaceSlug}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            configuration: { localPath: localPathRef.current },
-          }),
+              installWsRef.current = null;
+              resolve();
+            };
+          }, 500);
         });
 
-        setTimeout(() => {
-          if (localPathRef.current) {
-            onComplete(localPathRef.current);
-          }
-        }, 1000);
-      }
-    } catch (error) {
-      updateStepStatus("env", "error", error instanceof Error ? error.message : "Environment setup failed");
-    }
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  }, [cancelled, workspaceSlug, updateStepStatus, onComplete]);
+        if (signal.aborted) return;
 
-  useEffect(() => {
+        currentStepId = "env";
+        await runEnvSetup(cloneResult.path);
+      } catch (error) {
+        if (signal.aborted) return;
+        const errorMessage = error instanceof Error ? error.message : "Setup failed";
+        dispatch({ type: "UPDATE_STEP", stepId: currentStepId, status: "error", message: errorMessage });
+      }
+
+      async function runEnvSetup(localPath: string) {
+        if (signal.aborted) return;
+
+        try {
+          dispatch({ type: "SET_CURRENT_STEP", step: "env" });
+          dispatch({ type: "UPDATE_STEP", stepId: "env", status: "running", message: "Setting up environment..." });
+
+          const envResult = await coderApi.setupEnvFile();
+
+          if (signal.aborted) return;
+
+          if (!envResult.success) {
+            dispatch({ type: "UPDATE_STEP", stepId: "env", status: "error", message: envResult.error });
+            return;
+          }
+
+          dispatch({ type: "UPDATE_STEP", stepId: "env", status: "success", message: envResult.message });
+
+          if (signal.aborted) return;
+
+          dispatch({ type: "SET_CURRENT_STEP", step: "ready" });
+          dispatch({ type: "UPDATE_STEP", stepId: "ready", status: "running", message: "Finalizing setup..." });
+
+          const devResult = await coderApi.detectDevCommand();
+
+          if (signal.aborted) return;
+
+          let message = "Project ready!";
+          if (devResult.success && devResult.devCommand) {
+            message = `Project ready! Run '${devResult.devCommand}' to start development.`;
+          }
+
+          dispatch({ type: "UPDATE_STEP", stepId: "ready", status: "success", message });
+          dispatch({ type: "SET_CURRENT_STEP", step: null });
+
+          if (localPath) {
+            await fetch(`http://localhost:3500/api/projects/${workspaceSlug}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                configuration: { localPath },
+              }),
+            });
+
+            setTimeout(() => {
+              if (!signal.aborted) {
+                onComplete(localPath);
+              }
+            }, 1000);
+          }
+        } catch (error) {
+          if (signal.aborted) return;
+          const errorMessage = error instanceof Error ? error.message : "Environment setup failed";
+          dispatch({ type: "UPDATE_STEP", stepId: "env", status: "error", message: errorMessage });
+        }
+      }
+    }
+
     void runSetup();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (installWsRef.current) {
+        installWsRef.current.close();
+        installWsRef.current = null;
+      }
+    };
+  }, [workspaceSlug, repoUrl, onComplete]);
 
   const handleCancel = () => {
-    setCancelled(true);
-    if (terminalId) {
-      void coderApi.killTerminal(terminalId);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    if (installWsRef.current) {
+      installWsRef.current.close();
+      installWsRef.current = null;
+    }
+    if (state.terminalId) {
+      void coderApi.killTerminal(state.terminalId);
     }
     onCancel();
   };
 
   const handleRetry = (stepId: string) => {
     if (stepId === "clone") {
-      setSteps([
-        { id: "clone", name: "Clone repository", status: "pending" },
-        { id: "install", name: "Install dependencies", status: "pending" },
-        { id: "env", name: "Setup environment", status: "pending" },
-        { id: "ready", name: "Ready to code", status: "pending" },
-      ]);
-      setCurrentStep(null);
-      setTerminalId(null);
-      setTerminalToken(null);
-      setCancelled(false);
-      localPathRef.current = null;
-      void runSetup();
-    } else if (stepId === "install") {
-      updateStepStatus("install", "pending");
-      updateStepStatus("env", "pending");
-      updateStepStatus("ready", "pending");
-      setTerminalId(null);
-      setTerminalToken(null);
-    } else if (stepId === "env") {
-      updateStepStatus("env", "pending");
-      updateStepStatus("ready", "pending");
-      void runEnvSetup();
+      dispatch({ type: "RESET" });
+      window.location.reload();
+    } else if (stepId === "install" || stepId === "env") {
+      dispatch({ type: "UPDATE_STEP", stepId, status: "pending" });
+      window.location.reload();
     }
   };
 
@@ -241,7 +327,7 @@ export function WorkspaceSetupWizard({
 
         <div className="rounded border border-[#00ffcc33] bg-[#141414] p-6">
           <div className="space-y-4">
-            {steps.map((step, index) => (
+            {state.steps.map((step, index) => (
               <div key={step.id} className="space-y-2">
                 <div className="flex items-center gap-3">
                   {getStepIcon(step.status)}
@@ -272,14 +358,14 @@ export function WorkspaceSetupWizard({
                   </div>
                 </div>
 
-                {step.id === "install" && terminalId && terminalToken && step.status === "running" && (
+                {step.id === "install" && state.terminalId && state.terminalToken && step.status === "running" && (
                   <div className="ml-8 mt-2 rounded border border-[#00ffcc33] bg-[#0a0a0a] p-4">
                     <div className="mb-2 flex items-center gap-2 text-xs text-[#00ccff]">
                       <TerminalIcon className="h-4 w-4" />
                       <span>Installation Output</span>
                     </div>
                     <div className="h-64 overflow-hidden">
-                      <Terminal terminalId={terminalId} token={terminalToken} />
+                      <Terminal terminalId={state.terminalId} token={state.terminalToken} />
                     </div>
                   </div>
                 )}
@@ -295,7 +381,7 @@ export function WorkspaceSetupWizard({
             <button
               type="button"
               onClick={handleCancel}
-              disabled={steps.every((s) => s.status === "success")}
+              disabled={state.steps.every((s) => s.status === "success")}
               className="rounded border border-[#ff0066] px-4 py-2 text-sm text-[#ff0066] hover:bg-[#ff00661a] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel

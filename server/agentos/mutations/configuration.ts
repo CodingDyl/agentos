@@ -199,6 +199,7 @@ export function mergeConfiguration(
   if ("vercelProjectId" in patch) next.vercelProjectId = patch.vercelProjectId?.trim() || undefined;
   if ("vercelProjectName" in patch) next.vercelProjectName = patch.vercelProjectName?.trim() || undefined;
   if ("workspaceType" in patch) next.workspaceType = patch.workspaceType || undefined;
+  if ("localPath" in patch) next.localPath = patch.localPath?.trim() || undefined;
   if (patch.modules) next.modules = patch.modules.length > 0 ? [...new Set(patch.modules)] : undefined;
   if (patch.workerPreference) next.workerPreference = patch.workerPreference;
   if (patch.visualVerification) next.visualVerification = patch.visualVerification;

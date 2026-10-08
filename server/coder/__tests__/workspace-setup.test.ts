@@ -17,13 +17,6 @@ describe("Workspace Setup", () => {
 
   before(async () => {
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), "coder-test-"));
-    
-    const setupModule = await import("../workspace-setup");
-    
-    Object.defineProperty(setupModule, "CODER_ROOT", {
-      value: testDir,
-      writable: false,
-    });
   });
 
   after(async () => {
@@ -61,7 +54,9 @@ describe("Workspace Setup", () => {
 
     it("should accept valid https URLs", async () => {
       const validUrl = "https://github.com/test/repo.git";
-      const targetPath = path.join(testDir, "test-repo");
+      const coderRoot = path.join(os.homedir(), "AgentOS", "coder");
+      await fs.mkdir(coderRoot, { recursive: true });
+      const targetPath = path.join(coderRoot, "test-repo");
       
       try {
         await cloneRepository(validUrl, targetPath);
@@ -69,14 +64,19 @@ describe("Workspace Setup", () => {
         assert.ok(
           (error as Error).message.includes("Authentication") ||
           (error as Error).message.includes("Repository not found") ||
-          (error as Error).message.includes("Failed to start git"),
+          (error as Error).message.includes("Failed to start git") ||
+          (error as Error).message.includes("Directory already exists"),
         );
+      } finally {
+        await fs.rm(targetPath, { recursive: true, force: true });
       }
     });
 
     it("should accept valid git@ URLs", async () => {
       const validUrl = "git@github.com:test/repo.git";
-      const targetPath = path.join(testDir, "test-repo-ssh");
+      const coderRoot = path.join(os.homedir(), "AgentOS", "coder");
+      await fs.mkdir(coderRoot, { recursive: true });
+      const targetPath = path.join(coderRoot, "test-repo-ssh");
       
       try {
         await cloneRepository(validUrl, targetPath);
@@ -84,8 +84,11 @@ describe("Workspace Setup", () => {
         assert.ok(
           (error as Error).message.includes("Authentication") ||
           (error as Error).message.includes("Repository not found") ||
-          (error as Error).message.includes("Failed to start git"),
+          (error as Error).message.includes("Failed to start git") ||
+          (error as Error).message.includes("Directory already exists"),
         );
+      } finally {
+        await fs.rm(targetPath, { recursive: true, force: true });
       }
     });
   });

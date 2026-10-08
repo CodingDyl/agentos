@@ -200,6 +200,35 @@ describe("project configuration", () => {
     assert.match(next, /Vercel project name: Pantry Pilot/);
     assert.deepEqual(parseConfiguration(next), merged);
   });
+
+  it("merges localPath without wiping other configuration fields", () => {
+    const baseConfig = parseConfiguration(PROJECT);
+    assert.equal(baseConfig.taskPrefix, "PP");
+    assert.equal(baseConfig.defaultBranch, "main");
+    assert.equal(baseConfig.workerPreference, "claude");
+    
+    const merged = mergeConfiguration(baseConfig, {
+      localPath: "~/AgentOS/coder/pantry-pilot",
+    });
+    
+    assert.equal(merged.localPath, "~/AgentOS/coder/pantry-pilot");
+    assert.equal(merged.taskPrefix, "PP", "taskPrefix should be preserved");
+    assert.equal(merged.defaultBranch, "main", "defaultBranch should be preserved");
+    assert.equal(merged.workerPreference, "claude", "workerPreference should be preserved");
+    assert.equal(merged.visualVerification, "ui-tasks", "visualVerification should be preserved");
+    assert.deepEqual(merged.validationCommands, ["npm test", "npm run lint"], "validationCommands should be preserved");
+  });
+
+  it("updates localPath without creating other fields", () => {
+    const minimal = parseConfiguration("# Project\n");
+    const merged = mergeConfiguration(minimal, {
+      localPath: "~/code/project",
+    });
+    
+    assert.equal(merged.localPath, "~/code/project");
+    assert.equal(merged.taskPrefix, undefined, "taskPrefix should remain undefined");
+    assert.equal(merged.defaultBranch, undefined, "defaultBranch should remain undefined");
+  });
 });
 
 describe("repository path", () => {

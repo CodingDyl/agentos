@@ -83,11 +83,14 @@ describe("Git Operations", () => {
     });
 
     it("should accept valid branch names", async () => {
+      const initialStatus = await getGitStatus(testDir);
+      const initialBranch = initialStatus.branch;
+      
       await switchBranch(testDir, "feature/test-branch", true);
       const status = await getGitStatus(testDir);
       assert.equal(status.branch, "feature/test-branch");
       
-      await switchBranch(testDir, "main", false);
+      await switchBranch(testDir, initialBranch, false);
     });
   });
 
@@ -239,21 +242,50 @@ describe("Git Operations", () => {
         /Must specify files to discard/,
       );
     });
+
+    it("should reject paths with ..", async () => {
+      await assert.rejects(
+        async () => await discardChanges(testDir, ["../outside.txt"]),
+        /outside the repository|Invalid file path/,
+      );
+    });
+
+    it("should reject absolute paths", async () => {
+      await assert.rejects(
+        async () => await discardChanges(testDir, ["/etc/passwd"]),
+        /outside the repository|Invalid file path/,
+      );
+    });
+
+    it("should delete untracked files", async () => {
+      const untrackedPath = path.join(testDir, "untracked.txt");
+      await fs.writeFile(untrackedPath, "untracked content");
+      
+      await discardChanges(testDir, ["untracked.txt"]);
+      
+      await assert.rejects(
+        async () => await fs.access(untrackedPath),
+        { code: "ENOENT" },
+      );
+    });
   });
 
   describe("listBranches", () => {
     it("should list local branches", async () => {
+      const initialStatus = await getGitStatus(testDir);
+      const initialBranch = initialStatus.branch;
+      
       await runGit(["checkout", "-b", "test-branch"], testDir);
-      await runGit(["checkout", "main"], testDir);
+      await runGit(["checkout", initialBranch], testDir);
       
       const branches = await listBranches(testDir);
       
-      const mainBranch = branches.find(b => b.name === "main" && !b.remote);
+      const defaultBranch = branches.find(b => b.name === initialBranch && !b.remote);
       const testBranch = branches.find(b => b.name === "test-branch" && !b.remote);
       
-      assert.ok(mainBranch);
+      assert.ok(defaultBranch);
       assert.ok(testBranch);
-      assert.equal(mainBranch.current, true);
+      assert.equal(defaultBranch.current, true);
       
       await runGit(["branch", "-d", "test-branch"], testDir);
     });
