@@ -99,6 +99,8 @@ import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
 import { databasesRouter } from "./supabase/routes";
 import { operatorRouter } from "./operator/routes";
+import { chatRouter } from "./chat/chat-routes";
+import { reconcileChats } from "./chat/chat-service";
 import { reconcileOperatorRuns } from "./operator/service";
 import { coderRouter, handleTerminalWebSocket } from "./coder/routes";
 import { killAllTerminals } from "./coder/pty-manager";
@@ -412,6 +414,9 @@ app.use("/api/connectors", connectorsRouter);
 
 /** Operator: one request in, planned against Connectors, approved, executed, and recorded as a run. */
 app.use("/api/operator", operatorRouter);
+
+/** Chat: a multi-turn conversation with an agent of your choosing, acting on this machine with approval for anything risky. */
+app.use("/api/chat", chatRouter);
 
 /** Databases: named Supabase setups, their workspace links, and the Database tab's rows. */
 app.use("/api/databases", databasesRouter);
@@ -4548,6 +4553,11 @@ server.listen(PORT, HOST, () => {
   // stopped with what it had finished, never resumed.
   void reconcileOperatorRuns().catch((error: unknown) => {
     console.error("[agentos] could not settle interrupted operator runs:", error);
+  });
+
+  // Chat turns run in this process as well; a reply cut off by the restart says so.
+  void reconcileChats().catch((error: unknown) => {
+    console.error("[agentos] could not settle interrupted chats:", error);
   });
 
   startStallWatch();

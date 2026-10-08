@@ -20,6 +20,7 @@ import { listRuns as listOperatorRuns } from "../operator/store";
 import { isRunning } from "../workers/job-manager";
 import { listJobs } from "../workers/job-store";
 import { describeWorkers } from "../workers/registry";
+import { activeChatWork } from "../chat/chat-service";
 import { buildActiveWork } from "./active-work";
 import { buildAttention } from "./attention";
 import { applyDismissals } from "./dismissals";
@@ -260,14 +261,17 @@ export async function getMissionControlData(): Promise<MissionControlData> {
         degraded,
       }),
     )),
-    activeWork: buildActiveWork(
-      openJobs,
-      // Both: the timeline's slice may hold an ending the log tail has not,
-      // and the tail holds starts the slice has scrolled past.
-      [...events, ...(runEvents.value ?? [])],
-      new Date(),
-      operatorRuns.value ?? [],
-    ),
+    activeWork: [
+      ...buildActiveWork(
+        openJobs,
+        // Both: the timeline's slice may hold an ending the log tail has not,
+        // and the tail holds starts the slice has scrolled past.
+        [...events, ...(runEvents.value ?? [])],
+        new Date(),
+        operatorRuns.value ?? [],
+      ),
+      ...activeChatWork(),
+    ].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)),
     workers: toMissionWorkers(workers.value ?? [], jobsByWorker),
     automations: toMissionAutomations(automationList),
     recentActivity: events,

@@ -131,7 +131,7 @@ export function OperatorPage() {
         </div>
       </PaperStage>
 
-      {id ? <RunDetails runId={id} onClose={() => navigate("/operator")} onRunAgain={(text) => start(text, "run")} /> : null}
+      {id ? <RunDetails runId={id} onClose={() => navigate("/operator/runs")} onRunAgain={(text) => start(text, "run")} /> : null}
     </AppShell>
   );
 }
