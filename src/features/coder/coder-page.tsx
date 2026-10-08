@@ -10,6 +10,7 @@ import {
   Layers,
   Box,
   ScanEye,
+  GitBranch,
 } from "lucide-react";
 import { AppShell } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
@@ -18,6 +19,8 @@ import { useCoderStore } from "./coder-store";
 import { FileTree } from "./file-tree";
 import { CodeEditor } from "./code-editor";
 import { Terminal } from "./terminal";
+import { WorkspaceSetupWizard } from "./workspace-setup-wizard";
+import { GitPanel } from "./git-panel";
 import { cn } from "@/lib/utils";
 import {
   openProject,
@@ -68,6 +71,9 @@ export function CoderPage() {
     line: string;
   }>>([]);
   const [searching, setSearching] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [setupWorkspace, setSetupWorkspace] = useState<{ slug: string; name: string; repoUrl: string } | null>(null);
+  const [showGitPanel, setShowGitPanel] = useState(false);
 
   const activeFile = openFiles.find((f) => f.path === activeFilePath);
   const dirtyCount = openFiles.filter((f) => f.isDirty).length;
@@ -85,9 +91,16 @@ export function CoderPage() {
     
     const detail = await detailResponse.json();
     const localPath = detail.configuration?.localPath;
+    const repoUrl = detail.configuration?.repositoryUrl;
 
     if (!localPath) {
-      setShowProjectPicker(false);
+      if (repoUrl) {
+        setSetupWorkspace({ slug, name: project.name, repoUrl });
+        setShowSetupWizard(true);
+        setShowProjectPicker(false);
+      } else {
+        setShowProjectPicker(false);
+      }
       return;
     }
 
@@ -309,6 +322,26 @@ export function CoderPage() {
 
   const activeTerminal = terminals.find((t) => t.id === activeTerminalId);
 
+  if (showSetupWizard && setupWorkspace) {
+    return (
+      <WorkspaceSetupWizard
+        workspaceSlug={setupWorkspace.slug}
+        workspaceName={setupWorkspace.name}
+        repoUrl={setupWorkspace.repoUrl}
+        onComplete={() => {
+          void handleOpenWorkspace(setupWorkspace.slug);
+          setShowSetupWizard(false);
+          setSetupWorkspace(null);
+        }}
+        onCancel={() => {
+          setShowSetupWizard(false);
+          setSetupWorkspace(null);
+          setShowProjectPicker(true);
+        }}
+      />
+    );
+  }
+
   if (showProjectPicker || (!projectRoot && searchParams.get("workspace"))) {
     const workspaceParam = searchParams.get("workspace");
     const targetProject = workspaceParam ? projectsData?.projects.find(p => p.slug === workspaceParam) : null;
@@ -431,6 +464,17 @@ export function CoderPage() {
                 Save All ({dirtyCount})
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setShowGitPanel(!showGitPanel)}
+              className={cn(
+                "rounded p-2 hover:bg-[#00ffcc1a]",
+                showGitPanel ? "bg-[#00ffcc1a] text-[#00ccff]" : "text-[#6a9fb5]"
+              )}
+              title="Git Panel"
+            >
+              <GitBranch className="h-4 w-4" />
+            </button>
 
             <button
               type="button"
@@ -474,6 +518,11 @@ export function CoderPage() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
+          {showGitPanel && (
+            <div className="h-full w-96 flex-shrink-0 border-r border-[#00ffcc33]">
+              <GitPanel />
+            </div>
+          )}
           <div className="w-64 border-r border-[#00ffcc33]">
             <FileTree
               nodes={fileTree}

@@ -126,3 +126,126 @@ export async function killTerminal(id: string): Promise<{ success: boolean }> {
   });
   return await response.json();
 }
+
+// Workspace setup
+export async function cloneWorkspace(workspaceSlug: string, repoUrl: string) {
+  const response = await fetch(`${API_BASE}/workspace/clone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ workspaceSlug, repoUrl }),
+  });
+  return await response.json();
+}
+
+export async function pullWorkspace() {
+  const response = await fetch(`${API_BASE}/workspace/pull`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return await response.json();
+}
+
+export async function detectPackageManager() {
+  const response = await fetch(`${API_BASE}/workspace/detect-package-manager`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return await response.json();
+}
+
+export async function detectDevCommand() {
+  const response = await fetch(`${API_BASE}/workspace/detect-dev-command`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return await response.json();
+}
+
+export async function setupEnvFile() {
+  const response = await fetch(`${API_BASE}/workspace/setup-env`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return await response.json();
+}
+
+// Git operations
+export async function getGitStatus() {
+  const response = await fetch(`${API_BASE}/git/status`);
+  return await response.json();
+}
+
+export async function getGitDiff(path: string, staged = false) {
+  const response = await fetch(`${API_BASE}/git/diff`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, staged }),
+  });
+  return await response.json();
+}
+
+export async function stageFiles(files?: string[], all = false) {
+  const response = await fetch(`${API_BASE}/git/stage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ files, all }),
+  });
+  return await response.json();
+}
+
+export async function unstageFiles(files?: string[], all = false) {
+  const response = await fetch(`${API_BASE}/git/unstage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ files, all }),
+  });
+  return await response.json();
+}
+
+export async function commitChanges(message: string) {
+  const response = await fetch(`${API_BASE}/git/commit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  return await response.json();
+}
+
+export async function discardChanges(files: string[]) {
+  const response = await fetch(`${API_BASE}/git/discard`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ files }),
+  });
+  return await response.json();
+}
+
+export async function getBranches() {
+  const response = await fetch(`${API_BASE}/git/branches`);
+  return await response.json();
+}
+
+export async function switchBranch(branch: string, create = false) {
+  const response = await fetch(`${API_BASE}/git/switch-branch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ branch, create }),
+  });
+  return await response.json();
+}
+
+export async function pullGit() {
+  const response = await fetch(`${API_BASE}/git/pull`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return await response.json();
+}
+
+export async function pushGit() {
+  const response = await fetch(`${API_BASE}/git/push`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return await response.json();
+}
