@@ -66,5 +66,9 @@ jobs:
           git config --global user.email "ci@agentos.invalid"
           git config --global init.defaultBranch main
 
+      # The spec reporter ends with a list of every failing test, so a red run
+      # can be read from the tail of the log instead of searched for.
       - name: Test
         run: npm test
+        env:
+          NODE_OPTIONS: --test-reporter=spec
