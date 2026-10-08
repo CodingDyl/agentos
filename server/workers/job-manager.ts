@@ -570,11 +570,21 @@ export async function interruptRunningJobs(reason: string): Promise<void> {
   const live = [...running.entries()];
 
   for (const [jobId, entry] of live) {
+    // Take the job away from its run loop *before* aborting it. The loop's
+    // failure path only writes if the entry still holds its controller, and
+    // it runs during the awaits below; left in place, it wrote `cancelled`
+    // over a job parked on the bridge, and over a job about to be marked
+    // interrupted. Swapping the controller (rather than deleting the entry)
+    // keeps the listeners, so the interruption still reaches open streams.
+    running.set(jobId, { ...entry, controller: new AbortController() });
     entry.controller.abort();
     await entry.worker.cancel?.(jobId).catch(() => undefined);
 
     const job = await readJob(jobId).catch(() => undefined);
-    if (!job || isTerminal(job.status)) continue;
+    if (!job || isTerminal(job.status)) {
+      running.delete(jobId);
+      continue;
+    }
 
     // Parked on the SSD: the task is safe there and the next process resumes
     // the wait. Only the in-memory runner goes.
