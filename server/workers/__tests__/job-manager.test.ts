@@ -68,10 +68,25 @@ describe("running jobs", () => {
 
   describe("what is refused before anything starts", () => {
     it("answers automatic selection with a worker and the reasoning for it", async () => {
-      const { id, routing, error } = await manager.resolveWorkerId("auto", {
-        objective: "Implement the design library filters",
-        project: "agentos",
-      });
+      // Routing only ever picks a real worker that reports itself available,
+      // and the simulated one is ruled out by design. Which real workers are
+      // installed is a fact about the machine, not the code under test, so
+      // one is made available here rather than assumed — and put back after.
+      const original = registry.getWorker("claude");
+      assert.ok(original, "the Claude worker is registered");
+      registry.registerWorker({ ...original, healthCheck: async () => ({ available: true }) });
+
+      let resolved: Awaited<ReturnType<typeof manager.resolveWorkerId>>;
+      try {
+        resolved = await manager.resolveWorkerId("auto", {
+          objective: "Implement the design library filters",
+          project: "agentos",
+        });
+      } finally {
+        registry.registerWorker(original);
+      }
+
+      const { id, routing, error } = resolved;
 
       assert.equal(error, undefined);
       assert.ok(id, "auto must resolve to a worker");

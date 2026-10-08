@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { AppShellActionsContext } from "./app-shell-actions-context";
 import { AppShellMediaContext } from "./app-shell-media-context";
 import { AppShellVoiceContext } from "./app-shell-voice-context";
+import { ActiveWorkIndicator } from "./active-work-indicator";
 import { SystemIndicator, type SystemState } from "./system-indicator";
 
 export interface AppShellNavigationItem {
@@ -89,6 +90,12 @@ export function AppShell({
     hermes.status === "unknown" ? "idle" : hermes.status === "attention" ? "degraded" : "online";
   const connectionLabel = connection.isError ? "Hermes unavailable" : !hermes ? "Hermes checking" :
     hermes.status === "unknown" ? "Hermes unknown" : `Hermes ${connectionState}`;
+  const activeWork = connection.data?.activeWork ?? [];
+  const liveCount = activeWork.filter((item) => !item.uncertain).length;
+  // Most screens pass a fixed "idle"; that must not outvote work that is
+  // demonstrably running. A screen with a more specific state keeps it.
+  const footerAgentState: SystemState = agentState === "idle" && liveCount > 0 ? "running" : agentState;
+  const footerAgentLabel = agentState === "idle" && liveCount > 0 ? `Agents / ${liveCount} running` : agentLabel;
   const navigationRef = useRef<HTMLElement>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
@@ -169,6 +176,7 @@ export function AppShell({
         </div>
         <div className="flex items-center gap-3 sm:gap-4">
           {shellActions}
+          <ActiveWorkIndicator items={activeWork} />
           <SystemIndicator state={systemState ?? connectionState} label={systemLabel ?? connectionLabel} title={hermes?.detail} />
         </div>
       </header>
@@ -253,7 +261,7 @@ export function AppShell({
       </div>
 
       <footer className="os-stage z-30 flex items-center justify-between gap-4 border-t border-os-border bg-os-background px-4 sm:px-6">
-        <SystemIndicator state={agentState} label={agentLabel} />
+        <SystemIndicator state={footerAgentState} label={footerAgentLabel} />
         <div className="flex min-w-0 items-center gap-3">
           {contextLabel ? (
             <>

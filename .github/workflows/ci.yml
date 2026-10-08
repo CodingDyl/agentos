@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+# Read-only: CI checks code, it never writes to the repository.
+permissions:
+  contents: read
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Lint, types and the production bundle: fast, and deterministic on any machine.
+  checks:
+    name: Lint, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # `npm run build` would typecheck a second time; the step above already has.
+      - name: Build
+        run: npx vite build
+
+  # Unit and integration tests. A separate job so a failing test never hides
+  # a lint or type error, and the reverse.
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Several tests create throwaway git repositories and commit to them.
+      - name: Git identity for test repositories
+        run: |
+          git config --global user.name "AgentOS CI"
+          git config --global user.email "ci@agentos.invalid"
+          git config --global init.defaultBranch main
+
+      # The spec reporter ends with a list of every failing test, so a red run
+      # can be read from the tail of the log instead of searched for.
+      - name: Test
+        run: npm test
+        env:
+          NODE_OPTIONS: --test-reporter=spec

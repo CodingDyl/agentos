@@ -407,8 +407,13 @@ describe("ollama worker: cancellation and concurrency", () => {
     state.chat = async () => { await sleep(150); return ok("done"); };
     const [a, b] = await Promise.all([run(makeJob()).promise, run(makeJob()).promise]);
     assert.equal(state.maxInFlight, 1);
-    assert.ok((a.providerMetrics?.queueMs ?? 0) < 50);
-    assert.ok((b.providerMetrics?.queueMs ?? 0) >= 100, "the waiter's queue time is recorded");
+    // Both jobs do some async preparation before queueing, so which one
+    // reaches the gate first is not fixed: assert on whichever went first and
+    // whichever waited, not on `a` and `b`. Bounded by the 150ms generation
+    // rather than a tight wall-clock budget, so a busy machine cannot fail it.
+    const [first, second] = [a, b].map((result) => result.providerMetrics?.queueMs ?? 0).sort((x, y) => x - y);
+    assert.ok(first < 100, `one job went straight in (${first}ms)`);
+    assert.ok(second >= 100, `the other waited out a generation, and that is recorded (${second}ms)`);
   });
 
   it("allows more when configured", async () => {
