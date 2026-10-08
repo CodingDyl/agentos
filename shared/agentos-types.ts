@@ -195,6 +195,8 @@ export const ProjectConfigurationSchema = z.object({
   workspaceType: WorkspaceTypeSchema.optional(),
   /** The workspace's tabs, in order. Absent or empty means the type's defaults. */
   modules: z.array(WorkspaceModuleSchema).optional(),
+  /** Local filesystem path to the project for the Coder IDE. */
+  localPath: z.string().optional(),
 });
 
 export const DEFAULT_PROJECT_CONFIGURATION: ProjectConfiguration = {

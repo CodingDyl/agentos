@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
+import http from "node:http";
 import express from "express";
+import { WebSocketServer } from "ws";
 import { AutomationControlSchema, CuratorControlSchema } from "../shared/agentos-types";
 import { WorkerIdSchema } from "../shared/worker-ids";
 import { MailBulkRequestSchema, MailCorrectionSchema } from "../shared/mail-types";
@@ -98,6 +100,7 @@ import { connectorsRouter } from "./connectors/routes";
 import { databasesRouter } from "./supabase/routes";
 import { operatorRouter } from "./operator/routes";
 import { reconcileOperatorRuns } from "./operator/service";
+import { coderRouter, handleTerminalWebSocket } from "./coder/routes";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -417,6 +420,9 @@ app.use("/api/voice", voiceRouter);
 
 /** Memory: the Obsidian vault, indexed — notes, links, graph, and task context. Read-only. */
 app.use("/api/memory", memoryRouter);
+
+/** Coder: in-app IDE with Monaco editor, file tree, and PTY terminals. */
+app.use("/api/coder", coderRouter);
 app.use("/api/friction", frictionRouter);
 app.use("/api/learning", learningRouter);
 app.use("/api/spotify", spotifyRouter);
@@ -4498,7 +4504,25 @@ app.get("/api/agent/sessions", async (_request, response) => {
   }
 });
 
-app.listen(PORT, HOST, () => {
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (request, socket, head) => {
+  const url = new URL(request.url!, `http://${request.headers.host}`);
+  
+  if (url.pathname.startsWith("/api/coder/terminal/ws/")) {
+    const terminalId = url.pathname.replace("/api/coder/terminal/ws/", "");
+    
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      handleTerminalWebSocket(ws, terminalId);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+server.listen(PORT, HOST, () => {
   console.log(`AgentOS data adapter: http://${HOST}:${PORT}`);
   console.log(`Vault: ${agentOSRoot()}`);
   startTrendingTracker();

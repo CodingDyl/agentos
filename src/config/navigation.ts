@@ -6,6 +6,7 @@ import {
   GraduationCap,
   Bot,
   CalendarClock,
+  Code,
   Compass,
   Gauge,
   Images,
@@ -58,6 +59,7 @@ export const navigationItems: AppShellNavigationItem[] = [
   // because it is where work starts.
   { label: "Operator", href: "/operator", icon: SquareTerminal, section: "work" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
+  { label: "Coder", href: "/coder", icon: Code, section: "work" },
   // The day job: employment admin, the work log, growth and LinkedIn. Beside
   // Workspaces rather than inside them — it is not one of the businesses.
   { label: "Career", href: "/career", icon: BriefcaseBusiness, section: "work" },
