@@ -233,7 +233,8 @@ coderRouter.post("/terminal/create", requireOrigin, (_req, res) => {
       return;
     }
 
-    const { cwd } = CreateTerminalRequestSchema.parse(req.body);
+    const body = CreateTerminalRequestSchema.parse(req.body);
+    const cwd = body.cwd;
     
     const resolvedCwd = cwd && cwd !== projectRoot ? cwd : projectRoot;
     
