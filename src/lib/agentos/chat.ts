@@ -112,6 +112,18 @@ export function useSendChatMessage() {
   });
 }
 
+/** `/run`, `/plan`, `/ask`: a planned Operator run, recorded in the chat. */
+export function useStartChatRun() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string; input: string; mode: "ask" | "plan" | "run" }) => parseChat(await request(chatPath(id, "/runs"), json(input))),
+    onSuccess: (chat) => {
+      client.setQueryData(chatKey(chat.id), chat);
+      void client.invalidateQueries({ queryKey: chatsKey() });
+    },
+  });
+}
+
 export function useStopChat(id: string | undefined) {
   return useMutation({ mutationFn: () => request(chatPath(id ?? "", "/stop"), json()) });
 }

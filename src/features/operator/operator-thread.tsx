@@ -44,6 +44,24 @@ export function RunMessage({ runId, onOpen, onRunAgain }: { runId: string; onOpe
   );
 }
 
+/**
+ * Just the reply half of a run: the live card a chat shows for `/run`, `/plan`
+ * or `/ask`, with the same approve, stop and breakdown as on the runs page.
+ */
+export function RunReply({ runId, onOpen, onRunAgain }: { runId: string; onOpen: (id: string) => void; onRunAgain: (input: string) => void }) {
+  const { data: run, error } = useOperatorRun(runId);
+  if (!run) {
+    return error ? (
+      <p role="alert" className="text-[13px] text-paper-flame-deep">
+        {error.message}
+      </p>
+    ) : (
+      <div aria-busy="true" className="h-16 w-2/3 bg-paper-cream motion-safe:animate-pulse" />
+    );
+  }
+  return <JarvisBubble run={run} onOpen={() => onOpen(run.id)} onRunAgain={onRunAgain} />;
+}
+
 function UserBubble({ run }: { run: OperatorRun }) {
   return (
     <div className="flex justify-end">

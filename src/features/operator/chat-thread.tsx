@@ -4,6 +4,7 @@ import type { ChatApprovalPart, ChatMessage, ChatToolPart } from "@shared/chat-t
 import { Markdown } from "@/components/os/markdown";
 import { PAPER_FOCUS, PaperButton } from "@/components/paper";
 import { cn } from "@/lib/utils";
+import { RunReply } from "./operator-thread";
 
 /**
  * One chat, as a conversation: you on the right, the agent on the left.
@@ -19,11 +20,16 @@ export function ChatThread({
   running,
   onDecide,
   deciding,
+  onOpenRun,
+  onRunAgain,
 }: {
   messages: readonly ChatMessage[];
   running: boolean;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
   deciding: boolean;
+  /** A planned run started from the chat: open its full record. */
+  onOpenRun: (runId: string) => void;
+  onRunAgain: (input: string) => void;
 }) {
   return (
     <ol className="space-y-8" aria-label="Messages">
@@ -38,6 +44,8 @@ export function ChatThread({
             live={running && index === messages.length - 1}
             onDecide={onDecide}
             deciding={deciding}
+            onOpenRun={onOpenRun}
+            onRunAgain={onRunAgain}
           />
         ),
       )}
@@ -69,13 +77,19 @@ function AssistantMessage({
   live,
   onDecide,
   deciding,
+  onOpenRun,
+  onRunAgain,
 }: {
   message: ChatMessage;
   live: boolean;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
   deciding: boolean;
+  onOpenRun: (runId: string) => void;
+  onRunAgain: (input: string) => void;
 }) {
   const waiting = live && message.parts.every((part) => part.type !== "text" || !part.text.trim());
+  // A run reply is Operator's card, which shows its own model and progress.
+  const isRun = message.parts.some((part) => part.type === "run");
 
   return (
     <li className="max-w-[min(100%,720px)]" aria-label="Reply" aria-busy={live}>
@@ -83,6 +97,7 @@ function AssistantMessage({
         {message.parts.map((part, index) => {
           if (part.type === "text") return part.text.trim() ? <Markdown key={index} content={part.text} tone="paper" /> : null;
           if (part.type === "tool") return <ToolRow key={part.id} part={part} />;
+          if (part.type === "run") return <RunReply key={part.runId} runId={part.runId} onOpen={onOpenRun} onRunAgain={onRunAgain} />;
           return <ApprovalCard key={part.id} part={part} onDecide={onDecide} deciding={deciding} />;
         })}
         {waiting ? <Typing /> : null}
@@ -95,7 +110,7 @@ function AssistantMessage({
         </p>
       ) : null}
 
-      {!live && (message.model || message.costUsd !== undefined) ? (
+      {!live && !isRun && (message.model || message.costUsd !== undefined) ? (
         <p className="mt-2 font-paper-utility text-[11.5px] tracking-[0.08em] text-paper-sage uppercase tabular-nums">
           {message.model}
           {message.costUsd !== undefined ? ` · $${message.costUsd.toFixed(message.costUsd < 0.01 ? 4 : 2)}` : ""}

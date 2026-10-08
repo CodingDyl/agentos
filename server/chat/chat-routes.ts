@@ -1,5 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from "express";
-import { ApprovalDecisionSchema, CreateChatSchema, RenameChatSchema, SendChatMessageSchema, type ChatStreamEvent } from "../../shared/chat-types";
+import { ApprovalDecisionSchema, CreateChatSchema, RenameChatSchema, SendChatMessageSchema, StartChatRunSchema, type ChatStreamEvent } from "../../shared/chat-types";
 import { isChatId } from "./chat-store";
 import {
   ChatNotFoundError,
@@ -12,6 +12,7 @@ import {
   removeChat,
   renameChat,
   sendMessage,
+  startChatRun,
   stopChat,
   subscribe,
 } from "./chat-service";
@@ -159,6 +160,22 @@ chatRouter.post("/chats/:id/messages", async (request, response) => {
     response.status(202).json(await sendMessage(id, parsed.data));
   } catch (error) {
     fail(response, error, "send the message");
+  }
+});
+
+/** `/run`, `/plan` or `/ask` from the composer: a planned Operator run, recorded in the chat. */
+chatRouter.post("/chats/:id/runs", async (request, response) => {
+  const id = chatId(request, response);
+  if (!id) return;
+  const parsed = StartChatRunSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? "Send { input, mode }." });
+    return;
+  }
+  try {
+    response.status(202).json(await startChatRun(id, parsed.data));
+  } catch (error) {
+    fail(response, error, "start the run");
   }
 });
 

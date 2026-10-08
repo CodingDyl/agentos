@@ -187,6 +187,35 @@ describe("approving a risky action", () => {
   });
 });
 
+describe("planned runs from a chat", () => {
+  it("hands the request to Operator and records the run in the conversation", async () => {
+    const started: Array<[string, string]> = [];
+    service.setRunStarterForTests(async (input, mode) => {
+      started.push([input, mode]);
+      return { id: "run_00000000-0000-0000-0000-000000000001" };
+    });
+    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    await service.startChatRun(chat.id, { input: "Set up a landing page for Pantry Pilot", mode: "plan" });
+    service.setRunStarterForTests(undefined);
+
+    assert.deepEqual(started, [["Set up a landing page for Pantry Pilot", "plan"]]);
+    const stored = await store.readChat(chat.id);
+    assert.equal(stored?.title, "Set up a landing page for Pantry Pilot");
+    assert.equal(stored?.status, "idle");
+    assert.deepEqual(stored?.messages[0].parts, [{ type: "text", text: "/plan Set up a landing page for Pantry Pilot" }]);
+    assert.deepEqual(stored?.messages[1].parts, [{ type: "run", runId: "run_00000000-0000-0000-0000-000000000001", mode: "plan" }]);
+  });
+
+  it("waits for a reply in progress rather than interleaving", async () => {
+    service.setTurnRunnerForTests(agent({ hang: true }));
+    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    await service.sendMessage(chat.id, { text: "Long job" });
+    await assert.rejects(service.startChatRun(chat.id, { input: "Plan it", mode: "plan" }), service.ChatStateError);
+    service.stopChat(chat.id);
+    await service.turnSettled(chat.id);
+  });
+});
+
 describe("the working indicator", () => {
   it("shows a chat while it answers, says when it waits on you, and drops it when done", async () => {
     service.setTurnRunnerForTests(agent({ asks: true }));

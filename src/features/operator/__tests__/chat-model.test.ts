@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ChatAgent, ChatSummary } from "@shared/chat-types";
-import { groupChats, initialModelChoice, modelLabel } from "../chat-model";
+import { groupChats, initialModelChoice, modelLabel, parseSlashRun } from "../chat-model";
 
 const NOW = new Date(2026, 9, 8, 15, 0, 0);
 
@@ -66,5 +66,20 @@ describe("which model a new chat starts on", () => {
   it("labels a model with its agent", () => {
     assert.equal(modelLabel([claude], "claude", "claude-opus-5-5"), "Claude Opus 5.5");
     assert.equal(modelLabel([claude], "claude", "unknown"), "unknown");
+  });
+});
+
+describe("slash commands that start a planned run", () => {
+  it("reads the mode and the request", () => {
+    assert.deepEqual(parseSlashRun("/plan Set up a landing page"), { mode: "plan", input: "Set up a landing page" });
+    assert.deepEqual(parseSlashRun("  /RUN  deploy the site\nto staging "), { mode: "run", input: "deploy the site\nto staging" });
+    assert.deepEqual(parseSlashRun("/ask what changed?"), { mode: "ask", input: "what changed?" });
+  });
+
+  it("leaves everything else to the agent", () => {
+    assert.equal(parseSlashRun("/plan"), undefined);
+    assert.equal(parseSlashRun("/runbook please"), undefined);
+    assert.equal(parseSlashRun("please /run this"), undefined);
+    assert.equal(parseSlashRun("/deploy now"), undefined);
   });
 });

@@ -83,7 +83,7 @@ export function ChatComposer({
           maxLength={MAX_CHAT_INPUT}
           onChange={(event) => onValueChange(event.currentTarget.value)}
           onKeyDown={keys}
-          placeholder={agent ? `Message ${agent.name}` : "Message"}
+          placeholder={agent ? `Message ${agent.name}, or /plan, /run or /ask for a planned run` : "Message"}
           className="block max-h-56 min-h-14 w-full resize-y bg-transparent px-4 py-3 text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash"
         />
         <div className="flex flex-wrap items-center gap-2 border-t border-paper-stone px-3 py-2">

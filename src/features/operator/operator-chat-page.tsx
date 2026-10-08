@@ -1,4 +1,4 @@
-import { History, X } from "lucide-react";
+import { History, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Chat, ChatAgent } from "@shared/chat-types";
@@ -14,13 +14,15 @@ import {
   useDecideApproval,
   useDeleteChat,
   useSendChatMessage,
+  useStartChatRun,
   useStopChat,
 } from "@/lib/agentos/chat";
 import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 import { ChatHistorySidebar } from "./chat-history-sidebar";
-import { initialModelChoice, modelLabel, type ModelChoice } from "./chat-model";
+import { initialModelChoice, modelLabel, parseSlashRun, type ModelChoice } from "./chat-model";
 import { ChatThread } from "./chat-thread";
+import { useChatJarvis } from "./use-chat-jarvis";
 
 /**
  * Operator, as a chat: pick an agent and a model, and talk to it.
@@ -138,6 +140,7 @@ function ChatWorkspace({
   const connection = useChatStream(chatId);
   const create = useCreateChat();
   const send = useSendChatMessage();
+  const startRun = useStartChatRun();
   const stop = useStopChat(chatId);
   const decide = useDecideApproval(chatId);
 
@@ -152,7 +155,7 @@ function ChatWorkspace({
   // Follow the conversation as it grows, the way any chat does.
   const bottom = useRef<HTMLDivElement>(null);
   const last = messages.at(-1);
-  const growth = `${messages.length}:${last?.parts.length ?? 0}:${last?.parts.map((part) => (part.type === "text" ? part.text.length : part.status)).join(",")}`;
+  const growth = `${messages.length}:${last?.parts.length ?? 0}:${last?.parts.map((part) => (part.type === "text" ? part.text.length : part.type === "run" ? part.runId : part.status)).join(",")}`;
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
   }, [growth]);
@@ -165,7 +168,10 @@ function ChatWorkspace({
       if (!id) {
         id = (await create.mutateAsync(choice)).id;
       }
-      await send.mutateAsync({ id, text, model: current && choice.model !== current.model ? choice.model : undefined });
+      // `/run`, `/plan`, `/ask`: a planned Operator run, not a message to the agent.
+      const slash = parseSlashRun(text);
+      if (slash) await startRun.mutateAsync({ id, ...slash });
+      else await send.mutateAsync({ id, text, model: current && choice.model !== current.model ? choice.model : undefined });
       setInput("");
       if (!chatId) navigate(`/operator/chats/${encodeURIComponent(id)}`);
     } catch {
@@ -173,7 +179,18 @@ function ChatWorkspace({
     }
   };
 
-  const error = create.error?.message ?? send.error?.message ?? stop.error?.message ?? decide.error?.message ?? agentsError;
+  const agentName = agents.find((agent) => agent.id === choice?.agent)?.name ?? "The agent";
+  const voice = useChatJarvis({
+    chat: current,
+    agentName,
+    send: (text) => void submit(text),
+    stop: () => stop.mutate(),
+    decide: (approvalId, decision) => decide.mutate({ approvalId, decision }),
+    newChat: () => navigate("/operator"),
+  });
+  const voiceUsable = voice.jarvis.voice?.enabled === true && voice.jarvis.voice.configured === true;
+
+  const error = create.error?.message ?? send.error?.message ?? startRun.error?.message ?? stop.error?.message ?? decide.error?.message ?? agentsError;
 
   return (
     <section aria-label="Chat" className="flex min-w-0 flex-1 flex-col">
@@ -191,6 +208,20 @@ function ChatWorkspace({
           <h1 data-heading="compact" className="truncate text-paper-moss">{current?.title ?? "New chat"}</h1>
         </div>
         {choice ? <span className="hidden shrink-0 text-[12.5px] text-paper-sage sm:inline">{modelLabel(agents, choice.agent, choice.model)}</span> : null}
+        <button
+          type="button"
+          onClick={() => voice.setNarrating(!voice.narrating)}
+          aria-pressed={voice.narrating}
+          title={voiceUsable ? "Hold Ctrl to talk. Say allow, don't allow, stop or new chat." : "Jarvis reads replies here; add a voice to hear them."}
+          className={cn(
+            "inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 text-[12.5px] transition-colors hover:bg-paper-stone",
+            PAPER_FOCUS,
+            voice.narrating ? "text-paper-moss" : "text-paper-sage",
+          )}
+        >
+          {voice.narrating ? <Volume2 className="size-4" aria-hidden="true" /> : <VolumeX className="size-4" aria-hidden="true" />}
+          <span className="hidden lg:inline">{voice.narrating ? "Jarvis reads replies" : "Jarvis quiet"}</span>
+        </button>
         {chatId && connection === "reconnecting" ? (
           <span role="status" className="shrink-0 text-[12px] text-paper-marigold">
             Reconnecting…
@@ -214,6 +245,8 @@ function ChatWorkspace({
               running={running}
               deciding={decide.isPending}
               onDecide={(approvalId, decision) => decide.mutate({ approvalId, decision })}
+              onOpenRun={(runId) => navigate(`/operator/runs/${encodeURIComponent(runId)}`)}
+              onRunAgain={(text) => void submit(`/run ${text}`)}
             />
           )}
           <div ref={bottom} />
