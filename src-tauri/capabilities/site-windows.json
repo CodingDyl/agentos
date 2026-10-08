@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "site-windows",
+  "description": "Capability for dynamically created site windows",
+  "windows": ["site-*"],
+  "permissions": [
+    "core:window:allow-center",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-title",
+    "core:webview:allow-webview-close",
+    "core:webview:allow-webview-position",
+    "core:webview:allow-webview-size"
+  ]
+}
