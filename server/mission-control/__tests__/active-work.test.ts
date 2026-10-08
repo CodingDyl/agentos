@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ActivityEvent } from "../../../shared/agentos-types";
+import type { OperatorRun } from "../../../shared/operator-types";
 import type { WorkerJob } from "../../../shared/worker-types";
-import { activeJobs, activeRuns, buildActiveWork } from "../active-work";
+import { activeJobs, activeOperatorRuns, activeRuns, buildActiveWork } from "../active-work";
 
 /**
  * "Active now" is only worth having if it is true now.
@@ -27,6 +28,28 @@ function job(overrides: Partial<WorkerJob> = {}): WorkerJob {
     startedAt: "2026-09-10T09:53:00.000Z",
     ...overrides,
   } as WorkerJob;
+}
+
+function operatorRun(overrides: Partial<OperatorRun> = {}): OperatorRun {
+  return {
+    id: "run_00000000-0000-0000-0000-000000000000",
+    input: "Set up a landing page for Pantry Pilot",
+    mode: "run",
+    objective: "Landing page for Pantry Pilot",
+    plan: [],
+    risks: [],
+    agents: [],
+    connectors: [],
+    status: "running",
+    changes: [],
+    memoryProposals: [],
+    taskProposals: [],
+    jobIds: [],
+    errors: [],
+    usage: { modelCalls: 0, estimate: "" },
+    startedAt: "2026-09-10T09:56:00.000Z",
+    ...overrides,
+  } as OperatorRun;
 }
 
 function event(overrides: Partial<ActivityEvent> = {}): ActivityEvent {
@@ -70,6 +93,17 @@ describe("worker jobs that are executing", () => {
     assert.equal(item.actor, "GROK");
   });
 
+  it("names the worker by id, so a screen can light the right agent", () => {
+    assert.equal(activeJobs([job()])[0].agent, "grok");
+    assert.equal(activeJobs([job({ worker: "claude-code", resolvedWorker: undefined })])[0].agent, "claude-code");
+  });
+
+  it("points at no agent while the job is still on automatic selection", () => {
+    // `auto` is a request for a worker, not one; lighting a node for it would be a guess.
+    const [item] = activeJobs([job({ worker: "auto", resolvedWorker: undefined, status: "queued" })]);
+    assert.equal(item.agent, undefined);
+  });
+
   it("marks a job nothing is executing as uncertain", () => {
     // Recorded as running with no live process: the usual cause is a restart,
     // and claiming it is live would be the one lie this section cannot afford.
@@ -88,6 +122,7 @@ describe("Hermes runs, inferred from the log", () => {
 
     assert.equal(items.length, 1);
     assert.equal(items[0].actor, "HERMES");
+    assert.equal(items[0].agent, "hermes");
     assert.equal(items[0].title, "Plan the chef flow");
   });
 
@@ -151,6 +186,28 @@ describe("Hermes runs, inferred from the log", () => {
   });
 });
 
+describe("Operator runs", () => {
+  it("shows a run that is planning or running, linked to its own page", () => {
+    for (const status of ["planning", "running"] as const) {
+      const [item] = activeOperatorRuns([operatorRun({ status })]);
+      assert.equal(item.agent, "operator", status);
+      assert.equal(item.href, "/operator/runs/run_00000000-0000-0000-0000-000000000000");
+      assert.equal(item.title, "Landing page for Pantry Pilot");
+    }
+  });
+
+  it("leaves out a run that is waiting on a person or finished", () => {
+    for (const status of ["awaiting_approval", "blocked", "completed", "failed", "stopped"] as const) {
+      assert.deepEqual(activeOperatorRuns([operatorRun({ status })]), [], status);
+    }
+  });
+
+  it("marks a run this process is not working on as uncertain", () => {
+    // Saved as running, but no live copy: the usual cause is a restart.
+    assert.equal(activeOperatorRuns([operatorRun()])[0].uncertain, true);
+  });
+});
+
 describe("everything running together", () => {
   it("reads newest first — the thing that just started is the news", () => {
     const items = buildActiveWork(
@@ -163,6 +220,25 @@ describe("everything running together", () => {
       items.map((item) => item.actor),
       ["HERMES", "GROK"],
     );
+  });
+
+  it("includes Operator runs alongside jobs and Hermes runs", () => {
+    const items = buildActiveWork(
+      [job({ startedAt: "2026-09-10T09:30:00.000Z" })],
+      [event({ runId: "run_1", timestamp: "2026-09-10T09:55:00.000Z" })],
+      NOW,
+      [operatorRun({ startedAt: "2026-09-10T09:59:00.000Z" })],
+    );
+
+    assert.deepEqual(
+      items.map((item) => item.agent),
+      ["operator", "hermes", "grok"],
+    );
+  });
+
+  it("does not double-count a run whose start appears in two sources", () => {
+    const start = event({ runId: "run_1" });
+    assert.equal(buildActiveWork([], [start, { ...start, id: "e9" }], NOW).length, 1);
   });
 
   it("is empty when nothing is happening, which is a real answer", () => {

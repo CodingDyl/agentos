@@ -12,9 +12,11 @@ import type {
 } from "../../shared/mission-control-types";
 import type { WorkerJob } from "../../shared/worker-types";
 import { getActivity } from "../activity";
+import { readUiEvents } from "../activity/ui-events";
 import { getDashboardData } from "../agentos/dashboard";
 import { getMilestoneSummary } from "../agentos/roadmap";
 import { getAutomations } from "../hermes/automations";
+import { listRuns as listOperatorRuns } from "../operator/store";
 import { isRunning } from "../workers/job-manager";
 import { listJobs } from "../workers/job-store";
 import { describeWorkers } from "../workers/registry";
@@ -43,6 +45,18 @@ import { buildSystemHealth } from "./health";
 
 /** Enough history to see the shape of the morning, not enough to be a feed. */
 const ACTIVITY_LIMIT = 8;
+
+/**
+ * How far back "is a Hermes run still open?" looks, separately from the eight
+ * events the timeline shows. A busy run writes more than eight events after
+ * its own start, and pairing a start with its end from the visible slice alone
+ * dropped exactly the runs that were doing the most. A tail read of the local
+ * log, so this costs a file read, not a Hermes call.
+ */
+const RUN_EVENT_LIMIT = 300;
+
+/** Operator runs are newest first; anything still working is near the top. */
+const OPERATOR_RUN_LIMIT = 20;
 
 /** Enough jobs to cover everything unfinished, without reading the archive. */
 const JOB_LIMIT = 60;
@@ -152,12 +166,14 @@ function toMissionAutomations(
  * correctly rather than refusing to rank anything.
  */
 export async function getMissionControlData(): Promise<MissionControlData> {
-  const [dashboard, jobs, workers, automations, activity] = await Promise.all([
+  const [dashboard, jobs, workers, automations, activity, runEvents, operatorRuns] = await Promise.all([
     settle(() => getDashboardData()),
     settle(() => listJobs(JOB_LIMIT)),
     settle(() => describeWorkers()),
     settle(() => getAutomations()),
     settle(() => getActivity({ limit: ACTIVITY_LIMIT })),
+    settle(() => readUiEvents(RUN_EVENT_LIMIT)),
+    settle(() => listOperatorRuns(OPERATOR_RUN_LIMIT)),
   ]);
 
   const allJobs: WorkerJob[] = jobs.value ?? [];
@@ -244,7 +260,14 @@ export async function getMissionControlData(): Promise<MissionControlData> {
         degraded,
       }),
     )),
-    activeWork: buildActiveWork(openJobs, events),
+    activeWork: buildActiveWork(
+      openJobs,
+      // Both: the timeline's slice may hold an ending the log tail has not,
+      // and the tail holds starts the slice has scrolled past.
+      [...events, ...(runEvents.value ?? [])],
+      new Date(),
+      operatorRuns.value ?? [],
+    ),
     workers: toMissionWorkers(workers.value ?? [], jobsByWorker),
     automations: toMissionAutomations(automationList),
     recentActivity: events,

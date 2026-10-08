@@ -11,9 +11,19 @@ import { elapsed } from "./mission-control-model";
  * genuinely running, and the elapsed time ticks: a counter that froze would be
  * a screen claiming to be live while demonstrably not being.
  */
-export function ActiveWorkList({ items, className }: { items: ActiveWorkItem[]; className?: string }) {
+export function ActiveWorkList({
+  items,
+  className,
+  id = "active-work",
+  label = "Active now",
+}: {
+  items: readonly ActiveWorkItem[];
+  className?: string;
+  id?: string;
+  label?: string;
+}) {
   return (
-    <PaperSection id="active-work" label="Active now" count={items.length > 0 ? items.length : undefined} className={className}>
+    <PaperSection id={id} label={label} count={items.length > 0 ? items.length : undefined} className={className}>
       {items.length === 0 ? (
         <p className="text-[14px] text-paper-char">No agents are running.</p>
       ) : (

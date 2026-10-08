@@ -1,6 +1,8 @@
 import type { ActivityEvent } from "../../shared/agentos-types";
 import type { ActiveWorkItem } from "../../shared/mission-control-types";
+import type { OperatorRun, OperatorRunStatus } from "../../shared/operator-types";
 import type { WorkerJob, WorkerJobStatus } from "../../shared/worker-types";
+import { isLive } from "../operator/engine";
 import { isRunning } from "../workers/job-manager";
 
 /**
@@ -74,6 +76,8 @@ export function activeJobs(jobs: readonly WorkerJob[]): ActiveWorkItem[] {
     .map((job) => ({
       id: job.id,
       actor: (job.resolvedWorker ?? job.worker).toUpperCase(),
+      // `auto` is a request for a worker, not a worker; nothing to point at yet.
+      agent: (job.resolvedWorker ?? job.worker) === "auto" ? undefined : (job.resolvedWorker ?? job.worker),
       title: shortTitle(job.objective),
       project: job.project,
       detail: STAGE[job.status],
@@ -125,6 +129,7 @@ export function activeRuns(
     items.push({
       id: runId,
       actor: "HERMES",
+      agent: "hermes",
       title: shortTitle(event.description ?? "Hermes run"),
       project: event.project,
       startedAt: event.timestamp,
@@ -136,13 +141,45 @@ export function activeRuns(
   return items;
 }
 
+/** Operator states where the run is working, rather than waiting on a person or done. */
+const OPERATOR_WORKING: readonly OperatorRunStatus[] = ["planning", "running"];
+
+const OPERATOR_STAGE: Partial<Record<OperatorRunStatus, string>> = {
+  planning: "Planning",
+  running: "Running its plan",
+};
+
+/**
+ * Operator runs that are planning or executing.
+ *
+ * The run file is what was last saved; `isLive` is whether this process is
+ * actually working on it. A run saved mid-flight before a restart is reported
+ * at its recorded stage and marked uncertain, the same rule as worker jobs.
+ */
+export function activeOperatorRuns(runs: readonly OperatorRun[]): ActiveWorkItem[] {
+  return runs
+    .filter((run) => OPERATOR_WORKING.includes(run.status))
+    .map((run) => ({
+      id: run.id,
+      actor: "OPERATOR",
+      agent: "operator",
+      title: shortTitle(run.objective ?? run.input),
+      project: run.workspaceId,
+      detail: OPERATOR_STAGE[run.status],
+      startedAt: run.approvedAt ?? run.startedAt,
+      href: `/operator/runs/${run.id}`,
+      uncertain: !isLive(run.id),
+    }));
+}
+
 /** Everything running, newest first — the thing that just started is the news. */
 export function buildActiveWork(
   jobs: readonly WorkerJob[],
   events: readonly ActivityEvent[],
   now: Date = new Date(),
+  operatorRuns: readonly OperatorRun[] = [],
 ): ActiveWorkItem[] {
-  return [...activeJobs(jobs), ...activeRuns(events, now)].sort(
+  return [...activeJobs(jobs), ...activeRuns(events, now), ...activeOperatorRuns(operatorRuns)].sort(
     (a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt),
   );
 }

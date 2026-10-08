@@ -128,6 +128,12 @@ export const ActiveWorkItemSchema = z.object({
   id: z.string(),
   /** Who is doing it, in the operator's words — `GROK`, `HERMES`, `CLAUDE`. */
   actor: z.string(),
+  /**
+   * The same actor as an id the rest of the app keys on: a worker id
+   * (`claude-code`), `hermes`, or `operator`. Absent for a job still on
+   * `auto` that has not been given a worker yet.
+   */
+  agent: z.string().optional(),
   title: z.string(),
   project: z.string().optional(),
   /** What stage it is at, when there is one worth naming. */

@@ -2,6 +2,8 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { AgentUsage, LiveAgent, OperationsData } from "@shared/usage-types";
 import { cn } from "@/lib/utils";
+import { useMissionControl } from "@/lib/agentos/queries";
+import { ActiveWorkList } from "@/features/mission-control/active-work-list";
 import { AgentNetworkBeam } from "./agent-network-beam";
 import { Figure } from "./figures";
 import { formatCost, measuredCost, measuredTokens } from "./operations-model";
@@ -16,9 +18,15 @@ import { PAPER_FOCUS, PaperCard, PaperSection, RadialMeter, Tag } from "@/compon
  * review first time 88% of the time, against Grok at $0.39 and 69%" is.
  */
 export function AgentsTab({ data }: { data: OperationsData }) {
+  // The same ten-second read the header's "working" indicator uses — one
+  // cache entry, so this costs no extra request — and the only source that
+  // knows about Hermes and Operator runs as well as worker jobs.
+  const activeWork = useMissionControl().data?.activeWork ?? [];
+
   return (
     <div className="space-y-12">
-      <AgentNetworkBeam live={data.live} />
+      <AgentNetworkBeam live={data.live} activeWork={activeWork} />
+      <ActiveWorkList id="agents-working-on" label="Working on" items={activeWork} />
       <LiveStrip live={data.live} />
 
       <PaperSection label={data.window.label} count={data.agents.length}>
@@ -39,7 +47,11 @@ export function AgentsTab({ data }: { data: OperationsData }) {
 }
 
 /**
- * What is running, right now.
+ * What the running worker jobs have spent so far.
+ *
+ * Worker jobs only, and on the Operations clock: "Working on" above is the
+ * list of everything running. This section is the money beside it, so it is
+ * named for that rather than claiming to be the answer to "is anything running".
  *
  * A worker that does not stream usage shows no number at all, and the line
  * underneath says why. Animating a rising estimate would make the panel feel
@@ -50,10 +62,10 @@ function LiveStrip({ live }: { live: readonly LiveAgent[] }) {
   const ready = live.filter((agent) => agent.state === "ready").length;
 
   return (
-    <PaperSection label="Running now" count={running.length}>
+    <PaperSection label="Live spend" count={running.length}>
       {running.length === 0 ? (
         <p className="text-[14px] leading-6 text-paper-char">
-          Nothing is running. <span className="text-paper-sage">{ready} {ready === 1 ? "agent" : "agents"} ready.</span>
+          No worker job is spending right now. <span className="text-paper-sage">{ready} {ready === 1 ? "agent" : "agents"} ready.</span>
         </p>
       ) : (
         <ul className="space-y-2">
