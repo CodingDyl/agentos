@@ -34,6 +34,7 @@ import { MemoryPage } from "@/features/memory";
 import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
+import { CoderPage } from "@/features/coder";
 import { DesignSystemPage } from "@/pages/design-system-page";
 
 function App() {
@@ -87,6 +88,7 @@ function App() {
           <Route path="/workspaces/:slug" element={<WorkspacePage />} />
           <Route path="/projects" element={<Redirect to="/workspaces" />} />
           <Route path="/projects/:slug" element={<ProjectRedirect />} />
+          <Route path="/coder" element={<CoderPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/memory" element={<MemoryPage />} />
           <Route path="/learning" element={<LearningPage />} />

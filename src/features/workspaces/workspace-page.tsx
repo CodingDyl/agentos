@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowLeft,
   ChevronDown,
+  Code,
   FileText,
   Images,
   MessageSquare,
@@ -437,6 +438,10 @@ function WorkspaceHeader({
               Delegate
             </PaperButton>
           ) : null}
+          <PaperButton variant="ghost" onClick={() => navigate(`/coder?workspace=${project.slug}`)} title="Open this workspace in Coder">
+            <Code className="size-3.5" strokeWidth={2} aria-hidden="true" />
+            Open in Coder
+          </PaperButton>
 
           <Menu
             label="More actions"
@@ -455,6 +460,7 @@ function WorkspaceHeader({
                 label: "Open in Creative",
                 onSelect: () => void navigate(`/designs?project=${encodeURIComponent(project.slug)}`),
               },
+              { icon: Code, label: "Open in Coder", onSelect: () => navigate(`/coder?workspace=${project.slug}`) },
               // The vault, visible. AgentOS is a better way to operate these
               // files, not a replacement for them.
               { icon: FileText, label: "View source", onSelect: () => setViewingSource(true) },
