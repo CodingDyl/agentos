@@ -4556,21 +4556,6 @@ server.listen(PORT, HOST, () => {
   startMonthlyReviewSchedule();
 });
 
-function cleanupCoder() {
-  console.log("[coder] Cleaning up terminals...");
-  killAllTerminals();
-}
-
-process.on("SIGINT", () => {
-  cleanupCoder();
-  process.exit(0);
-});
-
-process.on("SIGTERM", () => {
-  cleanupCoder();
-  process.exit(0);
-});
-
 /**
  * Going down cleanly.
  *
@@ -4584,6 +4569,12 @@ let shuttingDown = false;
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
+
+  try {
+    killAllTerminals();
+  } catch (error) {
+    console.error("[coder] Failed to kill terminals:", error);
+  }
 
   try {
     await interruptRunningJobs(`AgentOS stopped (${signal}) while this job was running`);

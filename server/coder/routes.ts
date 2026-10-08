@@ -36,8 +36,9 @@ export const coderRouter = express.Router();
 const ALLOWED_ORIGINS = new Set([
   "tauri://localhost",
   "http://tauri.localhost",
-  "http://localhost:1420",
   "https://tauri.localhost",
+  "http://localhost:1420",
+  "http://127.0.0.1:1420",
 ]);
 
 function checkOrigin(req: express.Request): boolean {
@@ -47,7 +48,7 @@ function checkOrigin(req: express.Request): boolean {
     return req.get("host")?.includes("localhost") ?? false;
   }
   
-  return ALLOWED_ORIGINS.has(origin) || origin.startsWith("http://localhost:");
+  return ALLOWED_ORIGINS.has(origin);
 }
 
 function requireOrigin(req: express.Request, res: express.Response, next: express.NextFunction): void {
@@ -246,7 +247,7 @@ coderRouter.delete("/terminal/:id", requireOrigin, (req, res) => {
 export function handleTerminalWebSocket(ws: WebSocket, request: IncomingMessage, token: string | null): void {
   const origin = request.headers.origin;
   
-  if (origin && !ALLOWED_ORIGINS.has(origin) && !origin.startsWith("http://localhost:")) {
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
     ws.close(1008, "Forbidden: Invalid origin");
     return;
   }
