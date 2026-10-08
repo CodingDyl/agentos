@@ -1,10 +1,11 @@
-import { Check, Copy, Link2, RotateCw } from "lucide-react";
+import { Check, Copy, ExternalLink, Link2, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { LinkedProjectSite } from "@shared/vercel-types";
 import { PAPER_FOCUS, PaperButton, PaperEmpty, PaperError, PaperIndicator, PaperNotice, SegmentedControl } from "@/components/paper";
 import { useProjectSite } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
+import { openSiteInWindow } from "@/lib/tauri-utils";
 import { cn } from "@/lib/utils";
 import { deploymentHealth, displayHost, servingNote } from "./site-model";
 
@@ -156,16 +157,7 @@ function LinkedSite({
           }
         />
       ) : site.embed?.allowed === false ? (
-        <PaperEmpty
-          title={`${displayHost(site.url)} won't show inside AgentOS.`}
-          description={
-            <>
-              {site.embed.reason} To allow it, add{" "}
-              <code className="bg-paper-stone px-1 font-mono text-[12.5px]">frame-ancestors &apos;self&apos; {window.location.origin}</code> to the
-              site&apos;s Content-Security-Policy and drop any <code className="bg-paper-stone px-1 font-mono text-[12.5px]">X-Frame-Options</code> header.
-            </>
-          }
-        />
+        <BlockedSitePanel url={site.url} projectId={site.projectId} projectName={site.projectName} reason={site.embed.reason} />
       ) : (
         <SiteFrame key={frameKey} url={site.url} viewport={viewport} />
       )}
@@ -249,5 +241,48 @@ function ConnectorsLink() {
     >
       Open Connectors → Vercel
     </Link>
+  );
+}
+
+/**
+ * When a site blocks framing, show a panel with an "Open site" button that
+ * opens the site in its own native window (Tauri) or new tab (browser).
+ */
+function BlockedSitePanel({ url, projectId, projectName, reason }: { url: string; projectId: string; projectName: string; reason?: string }) {
+  const [opening, setOpening] = useState(false);
+
+  const openSite = async () => {
+    setOpening(true);
+    try {
+      await openSiteInWindow(url, projectName, projectId);
+    } finally {
+      // Reset after a moment so the button state clears
+      setTimeout(() => setOpening(false), 500);
+    }
+  };
+
+  return (
+    <div className="space-y-4 border border-paper-mist bg-paper-linen p-6">
+      <div className="space-y-2">
+        <p className="text-[14px] text-paper-char">
+          <strong>{displayHost(url)}</strong> blocks embedding, so it opens in its own window.
+        </p>
+        {reason ? <p className="text-[13px] text-paper-sage">{reason}</p> : null}
+      </div>
+      
+      <PaperButton variant="amber" onClick={openSite} disabled={opening}>
+        <ExternalLink className="size-3.5" strokeWidth={2} aria-hidden="true" />
+        Open site
+      </PaperButton>
+
+      <details className="text-[13px] text-paper-sage">
+        <summary className="cursor-pointer hover:text-paper-char">Advanced</summary>
+        <p className="mt-2">
+          To embed the site directly, add{" "}
+          <code className="bg-paper-stone px-1 font-mono text-[12.5px]">frame-ancestors &apos;self&apos; {window.location.origin}</code> to the
+          site&apos;s Content-Security-Policy and drop any <code className="bg-paper-stone px-1 font-mono text-[12.5px]">X-Frame-Options</code> header.
+        </p>
+      </details>
+    </div>
   );
 }
