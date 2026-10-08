@@ -262,6 +262,10 @@ export async function discardChanges(
   }
 
   for (const file of files) {
+    if (!file || path.isAbsolute(file) || file.split(/[/\\]/).includes("..")) {
+      throw new Error(`Invalid file path: ${file}`);
+    }
+
     const filePath = path.join(repoPath, file);
     const realPath = await fs.realpath(path.dirname(filePath));
     const realRepo = await fs.realpath(repoPath);
@@ -269,10 +273,6 @@ export async function discardChanges(
 
     if (relPath.startsWith("..") || path.isAbsolute(relPath)) {
       throw new Error(`Path ${file} is outside the repository`);
-    }
-
-    if (file.includes("..") || path.isAbsolute(file)) {
-      throw new Error(`Invalid file path: ${file}`);
     }
   }
 
