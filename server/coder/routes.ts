@@ -393,6 +393,51 @@ coderRouter.post("/workspace/detect-package-manager", requireOrigin, async (_req
   }
 });
 
+
+coderRouter.post("/workspace/install-start", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project open" });
+      return;
+    }
+
+    const { packageManager } = req.body;
+    if (!packageManager) {
+      res.status(400).json({ success: false, error: "Package manager required" });
+      return;
+    }
+
+    const installId = `install-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    startInstall(installId, packageManager, projectRoot);
+
+    res.json({ success: true, installId });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to start install",
+    });
+  }
+});
+
+coderRouter.post("/workspace/install-cancel", requireOrigin, async (req, res) => {
+  try {
+    const { installId } = req.body;
+    if (!installId) {
+      res.status(400).json({ success: false, error: "Install ID required" });
+      return;
+    }
+
+    cancelInstall(installId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to cancel install",
+    });
+  }
+});
+
 coderRouter.post("/workspace/detect-dev-command", requireOrigin, async (_req, res) => {
   try {
     const projectRoot = getProjectRoot();
@@ -642,3 +687,42 @@ coderRouter.post("/git/push", requireOrigin, async (_req, res) => {
     });
   }
 });
+
+export function handleInstallWebSocket(ws: WebSocket, request: IncomingMessage, installId: string | null): void {
+  const origin = request.headers.origin;
+  
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    ws.close(1008, "Forbidden: Invalid origin");
+    return;
+  }
+
+  if (!installId) {
+    ws.close(1008, "Missing install ID");
+    return;
+  }
+
+  const installer = getInstaller(installId);
+  if (!installer) {
+    ws.close(1008, "Install not found");
+    return;
+  }
+
+  const progressHandler = (progress: any) => {
+    try {
+      ws.send(JSON.stringify(progress));
+    } catch (error) {
+      console.error("Failed to send install progress:", error);
+    }
+  };
+
+  installer.on("progress", progressHandler);
+
+  ws.on("close", () => {
+    installer.off("progress", progressHandler);
+  });
+
+  ws.on("error", (error) => {
+    console.error("Install WebSocket error:", error);
+    installer.off("progress", progressHandler);
+  });
+}

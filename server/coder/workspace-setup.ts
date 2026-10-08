@@ -3,9 +3,14 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 
+const WORKSPACE_SLUG_REGEX = /^[a-z0-9][a-z0-9-_]*$/;
+
 const CODER_ROOT = path.join(os.homedir(), "AgentOS", "coder");
 
 export function getWorkspaceClonePath(workspaceSlug: string): string {
+  if (!WORKSPACE_SLUG_REGEX.test(workspaceSlug)) {
+    throw new Error(`Invalid workspace slug: ${workspaceSlug}`);
+  }
   return path.join(CODER_ROOT, workspaceSlug);
 }
 
@@ -19,12 +24,13 @@ export async function cloneRepository(repoUrl: string, targetPath: string): Prom
     throw new Error("Invalid repository URL");
   }
 
-  const realTarget = await fs.realpath(path.dirname(targetPath)).catch(() => {
-    throw new Error("Invalid target path");
-  });
+  await fs.mkdir(CODER_ROOT, { recursive: true });
 
+  const realTarget = await fs.realpath(path.dirname(targetPath));
   const expectedParent = await fs.realpath(CODER_ROOT);
-  if (!realTarget.startsWith(expectedParent)) {
+  const relPath = path.relative(expectedParent, realTarget);
+
+  if (relPath.startsWith("..") || path.isAbsolute(relPath)) {
     throw new Error("Clone target must be within managed coder directory");
   }
 
@@ -37,25 +43,39 @@ export async function cloneRepository(repoUrl: string, targetPath: string): Prom
     }
   }
 
-  await fs.mkdir(CODER_ROOT, { recursive: true });
-
   return new Promise((resolve, reject) => {
-    const git = spawn("git", ["clone", repoUrl, targetPath], {
+    const existingGitSsh = process.env.GIT_SSH_COMMAND || "ssh";
+    const gitSshWithBatch = existingGitSsh.includes("-o BatchMode")
+      ? existingGitSsh
+      : `${existingGitSsh} -o BatchMode=yes`;
+
+    const git = spawn("git", ["clone", "--", repoUrl, targetPath], {
       stdio: "pipe",
+      env: {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_SSH_COMMAND: gitSshWithBatch,
+      },
     });
 
     let stderr = "";
+
+    const timeout = setTimeout(() => {
+      git.kill("SIGTERM");
+      reject(new Error("Clone timed out after 5 minutes"));
+    }, 300000);
 
     git.stderr?.on("data", (data) => {
       stderr += data.toString();
     });
 
     git.on("close", (code) => {
+      clearTimeout(timeout);
       if (code === 0) {
         resolve();
       } else {
-        if (stderr.includes("Authentication failed") || stderr.includes("Permission denied")) {
-          reject(new Error("Authentication failed. Please ensure your SSH keys or credentials are configured."));
+        if (stderr.includes("Authentication failed") || stderr.includes("Permission denied") || stderr.includes("could not read")) {
+          reject(new Error("Authentication failed. Please configure SSH keys or use a personal access token. Details: " + stderr));
         } else if (stderr.includes("Repository not found")) {
           reject(new Error("Repository not found. Check the URL and access permissions."));
         } else {
@@ -65,6 +85,7 @@ export async function cloneRepository(repoUrl: string, targetPath: string): Prom
     });
 
     git.on("error", (error) => {
+      clearTimeout(timeout);
       reject(new Error(`Failed to start git: ${error.message}`));
     });
   });
@@ -99,18 +120,34 @@ export async function pullRepository(repoPath: string): Promise<{ success: boole
         return;
       }
 
+      const existingGitSsh = process.env.GIT_SSH_COMMAND || "ssh";
+      const gitSshWithBatch = existingGitSsh.includes("-o BatchMode")
+        ? existingGitSsh
+        : `${existingGitSsh} -o BatchMode=yes`;
+
       const gitPull = spawn("git", ["pull", "--ff-only"], {
         cwd: realPath,
         stdio: "pipe",
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: "0",
+          GIT_SSH_COMMAND: gitSshWithBatch,
+        },
       });
 
       let pullStderr = "";
+
+      const timeout = setTimeout(() => {
+        gitPull.kill("SIGTERM");
+        resolve({ success: false, message: "Pull timed out after 2 minutes" });
+      }, 120000);
 
       gitPull.stderr?.on("data", (data) => {
         pullStderr += data.toString();
       });
 
       gitPull.on("close", (pullCode) => {
+        clearTimeout(timeout);
         if (pullCode === 0) {
           resolve({ success: true, message: "Successfully pulled latest changes" });
         } else {
@@ -118,6 +155,11 @@ export async function pullRepository(repoPath: string): Promise<{ success: boole
             resolve({
               success: false,
               message: "Branch has diverged from remote. Fast-forward is not possible.",
+            });
+          } else if (pullStderr.includes("Authentication failed") || pullStderr.includes("Permission denied") || pullStderr.includes("could not read")) {
+            resolve({
+              success: false,
+              message: "Authentication failed. Please configure SSH keys or use a personal access token.",
             });
           } else {
             resolve({ success: false, message: `Pull failed: ${pullStderr}` });
@@ -132,7 +174,7 @@ export async function detectPackageManager(repoPath: string): Promise<"npm" | "p
   try {
     const files = await fs.readdir(repoPath);
 
-    if (files.includes("bun.lockb")) return "bun";
+    if (files.includes("bun.lockb") || files.includes("bun.lock")) return "bun";
     if (files.includes("pnpm-lock.yaml")) return "pnpm";
     if (files.includes("yarn.lock")) return "yarn";
     if (files.includes("package-lock.json")) return "npm";
