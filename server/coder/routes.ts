@@ -8,6 +8,15 @@ import {
   ListDirectoryRequestSchema,
   SearchFilesRequestSchema,
   CreateTerminalRequestSchema,
+  CloneWorkspaceRequestSchema,
+  InstallDependenciesRequestSchema,
+  SetupEnvRequestSchema,
+  GitStageRequestSchema,
+  GitUnstageRequestSchema,
+  GitCommitRequestSchema,
+  GitDiscardRequestSchema,
+  GitSwitchBranchRequestSchema,
+  GitDiffRequestSchema,
 } from "../../shared/coder-types";
 import {
   setProjectRoot,
@@ -30,6 +39,26 @@ import {
   getTerminalIds,
 } from "./pty-manager";
 import { generateTerminalToken, validateTerminalToken } from "./terminal-tokens";
+import {
+  getWorkspaceClonePath,
+  cloneRepository,
+  pullRepository,
+  detectPackageManager,
+  detectDevCommand,
+  setupEnvFile,
+} from "./workspace-setup";
+import {
+  getGitStatus,
+  getGitDiff,
+  stageFiles,
+  unstageFiles,
+  commitChanges,
+  discardChanges,
+  listBranches,
+  switchBranch,
+  pullChanges,
+  pushChanges,
+} from "./git-operations";
 
 export const coderRouter = express.Router();
 
@@ -307,3 +336,310 @@ export function handleTerminalWebSocket(ws: WebSocket, request: IncomingMessage,
     exitDisposable.dispose();
   });
 }
+
+// Workspace setup routes
+coderRouter.post("/workspace/clone", requireOrigin, async (req, res) => {
+  try {
+    const { workspaceSlug, repoUrl } = CloneWorkspaceRequestSchema.parse(req.body);
+    
+    const targetPath = getWorkspaceClonePath(workspaceSlug);
+    
+    await cloneRepository(repoUrl, targetPath);
+    
+    res.json({ success: true, path: targetPath });
+  } catch (error) {
+    console.error("Failed to clone repository:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to clone repository",
+    });
+  }
+});
+
+coderRouter.post("/workspace/pull", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const result = await pullRepository(projectRoot);
+    res.json(result);
+  } catch (error) {
+    console.error("Failed to pull repository:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to pull repository",
+    });
+  }
+});
+
+coderRouter.post("/workspace/detect-package-manager", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const packageManager = await detectPackageManager(projectRoot);
+    res.json({ success: true, packageManager });
+  } catch (error) {
+    console.error("Failed to detect package manager:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to detect package manager",
+    });
+  }
+});
+
+coderRouter.post("/workspace/detect-dev-command", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const devCommand = await detectDevCommand(projectRoot);
+    res.json({ success: true, devCommand });
+  } catch (error) {
+    console.error("Failed to detect dev command:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to detect dev command",
+    });
+  }
+});
+
+coderRouter.post("/workspace/setup-env", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const result = await setupEnvFile(projectRoot);
+    
+    let message = "";
+    if (!result.created) {
+      message = "Environment file already exists";
+    } else if (result.missingKeys.length === 0) {
+      message = "Created .env.local with all values";
+    } else {
+      message = `Created .env.local. Keys needing values: ${result.missingKeys.join(", ")}`;
+    }
+
+    res.json({
+      success: true,
+      created: result.created,
+      missingKeys: result.missingKeys,
+      message,
+    });
+  } catch (error) {
+    console.error("Failed to setup env file:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to setup env file",
+    });
+  }
+});
+
+// Git operations routes
+coderRouter.get("/git/status", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const status = await getGitStatus(projectRoot);
+    res.json({ success: true, status });
+  } catch (error) {
+    console.error("Failed to get git status:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get git status",
+    });
+  }
+});
+
+coderRouter.post("/git/diff", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const { path, staged } = GitDiffRequestSchema.parse(req.body);
+    const diff = await getGitDiff(projectRoot, path, staged);
+    res.json({ success: true, diff });
+  } catch (error) {
+    console.error("Failed to get git diff:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get git diff",
+    });
+  }
+});
+
+coderRouter.post("/git/stage", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const { files, all } = GitStageRequestSchema.parse(req.body);
+    await stageFiles(projectRoot, files, all);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to stage files:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to stage files",
+    });
+  }
+});
+
+coderRouter.post("/git/unstage", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const { files, all } = GitUnstageRequestSchema.parse(req.body);
+    await unstageFiles(projectRoot, files, all);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to unstage files:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to unstage files",
+    });
+  }
+});
+
+coderRouter.post("/git/commit", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const { message } = GitCommitRequestSchema.parse(req.body);
+    await commitChanges(projectRoot, message);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to commit changes:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to commit changes",
+    });
+  }
+});
+
+coderRouter.post("/git/discard", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const { files } = GitDiscardRequestSchema.parse(req.body);
+    await discardChanges(projectRoot, files);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to discard changes:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to discard changes",
+    });
+  }
+});
+
+coderRouter.get("/git/branches", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const branches = await listBranches(projectRoot);
+    res.json({ success: true, branches });
+  } catch (error) {
+    console.error("Failed to list branches:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to list branches",
+    });
+  }
+});
+
+coderRouter.post("/git/switch-branch", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const { branch, create } = GitSwitchBranchRequestSchema.parse(req.body);
+    await switchBranch(projectRoot, branch, create);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to switch branch:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to switch branch",
+    });
+  }
+});
+
+coderRouter.post("/git/pull", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const result = await pullChanges(projectRoot);
+    res.json(result);
+  } catch (error) {
+    console.error("Failed to pull changes:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to pull changes",
+    });
+  }
+});
+
+coderRouter.post("/git/push", requireOrigin, async (req, res) => {
+  try {
+    const projectRoot = getProjectRoot();
+    if (!projectRoot) {
+      res.status(400).json({ success: false, error: "No project is currently open" });
+      return;
+    }
+
+    const result = await pushChanges(projectRoot);
+    res.json(result);
+  } catch (error) {
+    console.error("Failed to push changes:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to push changes",
+    });
+  }
+});
