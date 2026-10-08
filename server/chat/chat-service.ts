@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import type { Chat, ChatAgent, ChatApprovalPart, ChatMessage, ChatStreamEvent, CreateChat, SendChatMessage } from "../../shared/chat-types";
 import type { ActiveWorkItem } from "../../shared/mission-control-types";
 import { createChatId, deleteChat, listChats, readChat, saveChat, titleFrom } from "./chat-store";
-import { describeClaudeAgent, runClaudeTurn, startTurn, type ApprovalRequest } from "./claude-chat-adapter";
+import { geminiAgent, hermesAgent } from "./acp-chat-adapter";
+import type { ApprovalRequest, ChatAgentAdapter, RunTurnInput, TurnState } from "./chat-turn";
+import { claudeAgent } from "./claude-chat-adapter";
+import { codexAgent } from "./codex-chat-adapter";
 
 /**
  * Chats: one conversation each, one turn running at a time per chat.
@@ -38,11 +41,22 @@ interface ActiveTurn {
 
 const active = new Map<string, ActiveTurn>();
 
-/** The agent behind every turn. Swapped only by tests, which can't call a real model. */
-let runTurn: typeof runClaudeTurn = runClaudeTurn;
+/** Every agent a chat can talk to, in picker order. */
+const ADAPTERS: readonly ChatAgentAdapter[] = [claudeAgent, codexAgent, geminiAgent, hermesAgent];
 
-export function setTurnRunnerForTests(runner: typeof runClaudeTurn | undefined): void {
-  runTurn = runner ?? runClaudeTurn;
+type TurnRunner = (input: RunTurnInput) => Promise<void>;
+
+/** Replaces every agent's turn. Only tests do this: they can't call a real model. */
+let turnOverride: TurnRunner | undefined;
+
+export function setTurnRunnerForTests(runner: TurnRunner | undefined): void {
+  turnOverride = runner;
+}
+
+function adapterFor(id: Chat["agent"]): ChatAgentAdapter {
+  const adapter = ADAPTERS.find((entry) => entry.id === id);
+  if (!adapter) throw new ChatStateError(`There is no ${id} agent.`);
+  return adapter;
 }
 
 /** Resolves when a chat's turn has fully settled and been saved. For tests and shutdown. */
@@ -67,14 +81,12 @@ export function subscribe(chatId: string, listener: Listener): () => void {
   };
 }
 
-export function listAgents(): ChatAgent[] {
-  return [describeClaudeAgent()];
+export async function listAgents(): Promise<ChatAgent[]> {
+  return Promise.all(ADAPTERS.map((adapter) => adapter.describe()));
 }
 
-function agentFor(id: Chat["agent"]): ChatAgent {
-  const agent = listAgents().find((entry) => entry.id === id);
-  if (!agent) throw new ChatStateError(`There is no ${id} agent.`);
-  return agent;
+function agentFor(id: Chat["agent"]): Promise<ChatAgent> {
+  return adapterFor(id).describe();
 }
 
 function checkModel(agent: ChatAgent, model: string): void {
@@ -82,7 +94,7 @@ function checkModel(agent: ChatAgent, model: string): void {
 }
 
 export async function createChat(input: CreateChat): Promise<Chat> {
-  checkModel(agentFor(input.agent), input.model);
+  checkModel(await agentFor(input.agent), input.model);
   const at = now();
   return saveChat({ id: createChatId(), title: "New chat", agent: input.agent, model: input.model, messages: [], status: "idle", createdAt: at, updatedAt: at });
 }
@@ -143,7 +155,7 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
   const chat = await readChat(id);
   if (!chat) throw new ChatNotFoundError("That chat doesn't exist.");
 
-  const agent = agentFor(chat.agent);
+  const agent = await agentFor(chat.agent);
   if (!agent.available) throw new ChatStateError(agent.unavailableReason ?? `${agent.name} isn't available.`);
   if (input.model) {
     checkModel(agent, input.model);
@@ -163,7 +175,8 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
   await saveChat(chat);
   emit(id, { type: "status", chatId: id, status: "running" });
 
-  const state = startTurn(reply);
+  const state: TurnState = { message: reply };
+  const runTurn = turnOverride ?? adapterFor(chat.agent).runTurn;
 
   turn.settled = runTurn({
     prompt: input.text,
@@ -207,11 +220,11 @@ export function activeChatWork(): ActiveWorkItem[] {
   return [...active.values()].map(({ chat }) => {
     const asked = chat.messages.findLast((message) => message.role === "user");
     const waiting = chat.messages.at(-1)?.parts.some((part) => part.type === "approval" && part.status === "pending");
-    const agent = listAgents().find((entry) => entry.id === chat.agent);
-    const model = agent?.models.find((entry) => entry.id === chat.model)?.label ?? chat.model;
+    const name = ADAPTERS.find((entry) => entry.id === chat.agent)?.name ?? chat.agent;
+    const model = chat.messages.at(-1)?.model ?? chat.model;
     return {
       id: chat.id,
-      actor: `CHAT · ${(agent?.name ?? chat.agent).toUpperCase()}`,
+      actor: `CHAT · ${name.toUpperCase()}`,
       // Chat lives in Operator, so it lights the hub on the agent network.
       agent: "operator",
       title: chat.title,

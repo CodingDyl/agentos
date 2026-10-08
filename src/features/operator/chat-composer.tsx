@@ -24,6 +24,7 @@ export function ChatComposer({
   stopping,
   error,
   autoFocusKey,
+  lockedAgent,
 }: {
   agents: readonly ChatAgent[];
   choice?: ModelChoice;
@@ -38,6 +39,11 @@ export function ChatComposer({
   error?: string;
   /** Changes when the chat changes, to put the cursor back in the box. */
   autoFocusKey?: string;
+  /**
+   * The agent an existing chat belongs to. Its models can still change, but
+   * the conversation lives in that agent's session: another agent means a new chat.
+   */
+  lockedAgent?: ChatAgent["id"];
 }) {
   const inputId = useId();
   const modelId = useId();
@@ -96,9 +102,23 @@ export function ChatComposer({
           >
             {agents.length === 0 ? <option value="">Loading models…</option> : null}
             {agents.map((entry) => (
-              <optgroup key={entry.id} label={entry.available ? `${entry.name}${entry.billing ? ` · ${entry.billing}` : ""}` : `${entry.name} (unavailable)`}>
+              <optgroup
+                key={entry.id}
+                label={
+                  lockedAgent && entry.id !== lockedAgent
+                    ? `${entry.name} (start a new chat)`
+                    : entry.available
+                      ? `${entry.name}${entry.billing ? ` · ${entry.billing}` : ""}`
+                      : `${entry.name} (unavailable)`
+                }
+              >
                 {entry.models.map((model) => (
-                  <option key={model.id} value={`${entry.id}:${model.id}`} disabled={!entry.available} title={model.hint}>
+                  <option
+                    key={model.id}
+                    value={`${entry.id}:${model.id}`}
+                    disabled={!entry.available || (lockedAgent !== undefined && entry.id !== lockedAgent)}
+                    title={model.hint}
+                  >
                     {entry.name} {model.label}
                   </option>
                 ))}
