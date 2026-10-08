@@ -222,7 +222,7 @@ coderRouter.post("/search-files", requireOrigin, async (req, res) => {
   }
 });
 
-coderRouter.post("/terminal/create", requireOrigin, (_req, res) => {
+coderRouter.post("/terminal/create", requireOrigin, (req, res) => {
   try {
     const projectRoot = getProjectRoot();
     if (!projectRoot) {
