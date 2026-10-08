@@ -177,6 +177,7 @@ export function WorkspaceSetupWizard({
 
   useEffect(() => {
     void runSetup();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCancel = () => {

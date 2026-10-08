@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import {
   GitBranch,
   GitCommit,
-  GitPull,
-  GitPush,
+  GitMerge,
+  Upload,
   RefreshCw,
   Plus,
   Minus,
@@ -252,7 +252,7 @@ export function GitPanel() {
             className="rounded p-2 text-[#00ccff] hover:bg-[#00ccff1a] disabled:opacity-50"
             title="Pull"
           >
-            <GitPull className="h-4 w-4" />
+            <GitMerge className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -261,7 +261,7 @@ export function GitPanel() {
             className="rounded p-2 text-[#00ccff] hover:bg-[#00ccff1a] disabled:opacity-50"
             title="Push"
           >
-            <GitPush className="h-4 w-4" />
+            <Upload className="h-4 w-4" />
           </button>
           <button
             type="button"
