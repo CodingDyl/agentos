@@ -118,6 +118,24 @@ test.describe("Operator", () => {
     expect(fs.existsSync(path.join(E2E_VAULT, "projects", "plan-only"))).toBe(false);
   });
 
+  test("a chat starts a planned run with /plan, and keeps it in the conversation", async ({ page }) => {
+    await page.goto("/operator");
+    const composer = page.getByRole("form", { name: "Message" });
+    await composer.getByRole("textbox", { name: "Message" }).fill("/plan Build me a new app called Chat Plan with Next.js and deploy it to Vercel");
+    await composer.getByRole("button", { name: "Send" }).click();
+
+    await expect(page).toHaveURL(/\/operator\/chats\/chat_/);
+    const thread = page.getByRole("list", { name: "Messages" });
+    await expect(thread.getByText("/plan Build me a new app called Chat Plan")).toBeVisible();
+    await expect(thread.getByText(/Plan ready/)).toBeVisible({ timeout: 15_000 });
+    await expect(thread.getByRole("button", { name: "Run this plan" })).toBeVisible();
+    expect(fs.existsSync(path.join(PROJECTS, "chat-plan"))).toBe(false);
+
+    // The chat is in the history, titled from the request, and reopens with its run.
+    await page.getByRole("link", { name: "Build me a new app called Chat Plan" }).first().click();
+    await expect(thread.getByText(/Plan ready/)).toBeVisible();
+  });
+
   test("Stop halts a run waiting for approval and says nothing changed", async ({ page }) => {
     await page.goto("/operator/runs");
     await send(page, "Add a pricing page to Pantry Pilot.");

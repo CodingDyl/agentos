@@ -63,7 +63,17 @@ export const ChatApprovalPartSchema = z.object({
   status: z.enum(["pending", "allowed", "denied", "expired"]),
 });
 
-export const ChatPartSchema = z.discriminatedUnion("type", [ChatTextPartSchema, ChatToolPartSchema, ChatApprovalPartSchema]);
+/**
+ * A planned Operator run started from the chat (`/run`, `/plan`, `/ask`).
+ * The run keeps its own record and approval flow; the chat only points at it.
+ */
+export const ChatRunPartSchema = z.object({
+  type: z.literal("run"),
+  runId: z.string(),
+  mode: z.enum(["ask", "plan", "run"]),
+});
+
+export const ChatPartSchema = z.discriminatedUnion("type", [ChatTextPartSchema, ChatToolPartSchema, ChatApprovalPartSchema, ChatRunPartSchema]);
 
 export const ChatMessageSchema = z.object({
   id: z.string(),
@@ -120,6 +130,13 @@ export const SendChatMessageSchema = z
   })
   .strict();
 
+export const StartChatRunSchema = z
+  .object({
+    input: z.string().trim().min(1, "Say what you want done.").max(4_000),
+    mode: z.enum(["ask", "plan", "run"]),
+  })
+  .strict();
+
 export const ApprovalDecisionSchema = z.object({ decision: z.enum(["allow", "deny"]) }).strict();
 
 export const RenameChatSchema = z.object({ title: z.string().trim().min(1).max(120) }).strict();
@@ -140,6 +157,8 @@ export type ChatAgent = z.infer<typeof ChatAgentSchema>;
 export type ChatTextPart = z.infer<typeof ChatTextPartSchema>;
 export type ChatToolPart = z.infer<typeof ChatToolPartSchema>;
 export type ChatApprovalPart = z.infer<typeof ChatApprovalPartSchema>;
+export type ChatRunPart = z.infer<typeof ChatRunPartSchema>;
+export type StartChatRun = z.infer<typeof StartChatRunSchema>;
 export type ChatPart = z.infer<typeof ChatPartSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatStatus = z.infer<typeof ChatStatusSchema>;

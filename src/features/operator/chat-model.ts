@@ -58,3 +58,17 @@ export function modelLabel(agents: readonly ChatAgent[], agentId: string, modelI
   const model = agent?.models.find((entry) => entry.id === modelId);
   return model ? `${agent?.name} ${model.label}` : modelId;
 }
+
+export type SlashRun = { mode: "ask" | "plan" | "run"; input: string };
+
+/**
+ * `/run …`, `/plan …` or `/ask …` hands the request to a planned Operator
+ * run instead of the chat's agent. Anything else, including an unknown
+ * slash word, is an ordinary message.
+ */
+export function parseSlashRun(text: string): SlashRun | undefined {
+  const match = /^\/(run|plan|ask)\b\s*([\s\S]*)$/i.exec(text.trim());
+  if (!match) return undefined;
+  const input = match[2].trim();
+  return input ? { mode: match[1].toLowerCase() as SlashRun["mode"], input } : undefined;
+}

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Chat, ChatAgent, ChatApprovalPart, ChatMessage, ChatStreamEvent, CreateChat, SendChatMessage } from "../../shared/chat-types";
+import type { Chat, ChatAgent, ChatApprovalPart, ChatMessage, ChatStreamEvent, CreateChat, SendChatMessage, StartChatRun } from "../../shared/chat-types";
 import type { ActiveWorkItem } from "../../shared/mission-control-types";
 import { createChatId, deleteChat, listChats, readChat, saveChat, titleFrom } from "./chat-store";
 import { geminiAgent, hermesAgent } from "./acp-chat-adapter";
@@ -234,6 +234,49 @@ export function activeChatWork(): ActiveWorkItem[] {
       uncertain: false,
     };
   });
+}
+
+/** Starts a run. Swapped only by tests, which can't plan a real one. */
+type RunStarter = (input: string, mode: StartChatRun["mode"]) => Promise<{ id: string }>;
+
+const startOperatorRun: RunStarter = async (input, mode) => {
+  // Loaded on first use: the Operator engine is only needed when a chat asks for a run.
+  const [{ createRun }, { operatorDeps }] = await Promise.all([import("../operator/engine"), import("../operator/service")]);
+  return (await createRun(input, mode, operatorDeps())).run;
+};
+
+let startRun: RunStarter = startOperatorRun;
+
+export function setRunStarterForTests(starter: RunStarter | undefined): void {
+  startRun = starter ?? startOperatorRun;
+}
+
+const RUN_LABEL: Record<StartChatRun["mode"], string> = { ask: "Ask", plan: "Plan", run: "Run" };
+
+/**
+ * Hands a request to Operator's planned-run flow from inside a chat.
+ *
+ * The run is Operator's, with its own plan, approval and audit trail; the chat
+ * records the request and a pointer to the run, so the conversation shows it
+ * where it happened. The agent isn't involved, so this works whatever agent
+ * the chat is with, and never while that agent is answering.
+ */
+export async function startChatRun(id: string, input: StartChatRun): Promise<Chat> {
+  if (active.has(id)) throw new ChatStateError("This chat is still answering. Wait for it, or stop it first.");
+  const chat = await readChat(id);
+  if (!chat) throw new ChatNotFoundError("That chat doesn't exist.");
+
+  const run = await startRun(input.input, input.mode);
+  const at = now();
+  if (chat.messages.length === 0) chat.title = titleFrom(input.input);
+  chat.messages.push(
+    { id: `msg_${randomUUID()}`, role: "user", parts: [{ type: "text", text: `/${input.mode} ${input.input}` }], createdAt: at },
+    { id: `msg_${randomUUID()}`, role: "assistant", parts: [{ type: "run", runId: run.id, mode: input.mode }], createdAt: at, model: `Operator · ${RUN_LABEL[input.mode]}` },
+  );
+  chat.updatedAt = at;
+  await saveChat(chat);
+  for (const message of chat.messages.slice(-2)) emit(id, { type: "message", chatId: id, message });
+  return chat;
 }
 
 export function decideApproval(chatId: string, approvalId: string, allowed: boolean): void {
