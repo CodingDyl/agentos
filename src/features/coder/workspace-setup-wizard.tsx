@@ -87,7 +87,9 @@ export function WorkspaceSetupWizard({
   const abortControllerRef = useRef<AbortController | null>(null);
   const installWsRef = useRef<WebSocket | null>(null);
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   const [cloneUrl, setCloneUrl] = useState(() => (isGitCloneUrl(repoUrl) ? repoUrl!.trim() : ""));
   const [urlDraft, setUrlDraft] = useState(repoUrl ?? "");
