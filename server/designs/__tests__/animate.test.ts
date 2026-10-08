@@ -5,6 +5,14 @@ import path from "node:path";
 import { after, describe, it } from "node:test";
 import { AnimateDecisionSchema, AnimateRequestSchema } from "../../../shared/animate-types";
 import { animateClaudeArgs, checkpointImagePath, isAnimateId } from "../animate";
+import type { syncWorkerJob as SyncWorkerJob } from "../animate";
+import type { applyEvent as ApplyEvent } from "../motion";
+
+/** The slice of a stored motion job that `applyEvent` reads and writes. */
+type MotionRecord = Parameters<typeof ApplyEvent>[0];
+
+/** An animate job. Fixtures below are partial on purpose: only what the sync reads. */
+type AnimateRecord = Parameters<typeof SyncWorkerJob>[0];
 
 const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-animate-test-"));
 process.env.AGENTOS_UI_DIR = testRoot;
@@ -60,7 +68,7 @@ describe("exit status mapping", () => {
   it("never marks a job completed when resultError exists, even if videos were filed", async () => {
     const { applyEvent } = await import("../motion");
     
-    const job: any = {
+    const job: MotionRecord = {
       log: [],
       sessionId: undefined,
       model: undefined,
@@ -88,18 +96,18 @@ describe("exit status mapping", () => {
     const { applyEvent } = await import("../motion");
     
     // Test tool error extraction
-    const job1: any = { log: [], resultError: undefined, lastToolError: "ffmpeg exited with code 1" };
+    const job1: MotionRecord = { log: [], resultError: undefined, lastToolError: "ffmpeg exited with code 1" };
     applyEvent(job1, JSON.stringify({ type: "result", is_error: true, subtype: "tool_error" }));
     assert.match(job1.resultError ?? "", /ffmpeg exited with code 1/, "Should extract specific tool error from lastToolError");
     assert.ok(!job1.resultError?.includes("success"), "Tool error should not mention success");
     
     // Test subtype when not "success"
-    const job2: any = { log: [], resultError: undefined, lastToolError: undefined };
+    const job2: MotionRecord = { log: [], resultError: undefined, lastToolError: undefined };
     applyEvent(job2, JSON.stringify({ type: "result", is_error: true, subtype: "timeout" }));
     assert.match(job2.resultError ?? "", /did not finish within the time limit/, "Should use timeout message");
     
     // Test is_error with subtype "success" - should never say success
-    const job3: any = { log: [], resultError: undefined, lastToolError: undefined };
+    const job3: MotionRecord = { log: [], resultError: undefined, lastToolError: undefined };
     applyEvent(job3, JSON.stringify({ type: "result", is_error: true, subtype: "success" }));
     assert.ok(job3.resultError, "Should set error even when subtype is success");
     assert.ok(!job3.resultError.includes("success"), "Should not use word success when is_error is true");
@@ -108,7 +116,7 @@ describe("exit status mapping", () => {
   it("tracks tool errors from tool_result events in the stream", async () => {
     const { applyEvent } = await import("../motion");
     
-    const job: any = { log: [], resultError: undefined, lastToolError: undefined };
+    const job: MotionRecord = { log: [], resultError: undefined, lastToolError: undefined };
     
     // Simulate a top-level tool_result with is_error
     applyEvent(job, JSON.stringify({
@@ -129,7 +137,7 @@ describe("exit status mapping", () => {
   it("tracks tool errors from nested user/tool_result events", async () => {
     const { applyEvent } = await import("../motion");
     
-    const job: any = { log: [], resultError: undefined, lastToolError: undefined };
+    const job: MotionRecord = { log: [], resultError: undefined, lastToolError: undefined };
     
     // Simulate nested tool_result in user message (Claude Code stream-json format)
     applyEvent(job, JSON.stringify({
@@ -160,7 +168,7 @@ describe("worker job integration", () => {
     const { syncWorkerJob } = await import("../animate");
     const { readJob: readWorkerJob } = await import("../../workers/job-store");
     
-    const job: any = {
+    const job = {
       id: "anm_0123456789abcdef",
       title: "Test video",
       status: "running",
@@ -170,7 +178,7 @@ describe("worker job integration", () => {
       startedAt: "2026-10-07T19:01:00Z",
       log: [],
       assetIds: [],
-    };
+    } as unknown as AnimateRecord;
     
     // First sync - should create a new workerJobId
     await syncWorkerJob(job);
@@ -200,7 +208,7 @@ describe("worker job integration", () => {
     const { syncWorkerJob } = await import("../animate");
     const { readEvents } = await import("../../workers/job-store");
     
-    const job: any = {
+    const job = {
       id: "anm_1111222233334444",
       title: "Test failure",
       status: "running",
@@ -213,7 +221,7 @@ describe("worker job integration", () => {
         { at: "2026-10-07T19:03:00Z", kind: "text", message: "Rendering frames..." },
       ],
       assetIds: [],
-    };
+    } as unknown as AnimateRecord;
     
     // First sync - running status
     await syncWorkerJob(job);
@@ -246,7 +254,7 @@ describe("worker job integration", () => {
     const { syncWorkerJob } = await import("../animate");
     const { readJob: readWorkerJob } = await import("../../workers/job-store");
     
-    const job: any = {
+    const job = {
       id: "anm_5555666677778888",
       title: "Test update",
       status: "running",
@@ -255,7 +263,7 @@ describe("worker job integration", () => {
       createdAt: "2026-10-07T19:00:00Z",
       log: [],
       assetIds: [],
-    };
+    } as unknown as AnimateRecord;
     
     await syncWorkerJob(job);
     const workerJobId = job.workerJobId;
