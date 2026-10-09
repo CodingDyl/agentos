@@ -11,7 +11,7 @@ import {
   type SessionNotification,
 } from "@agentclientprotocol/sdk";
 import type { ChatAgent, ChatAgentId, ChatModel, ChatToolPart } from "../../shared/chat-types";
-import { findOnPath } from "../ai-stack/detect";
+import { agentEnv, findAgentBinary, searchedFolders } from "./agent-environment";
 import { decideAcpToolCall } from "./chat-permission-policy";
 import { cachedModels, rememberModels } from "./chat-model-cache";
 import { appendText, clip, DEFAULT_MODEL, findTool, oneLine, settleRunningTools, startTool, type ChatAgentAdapter, type RunTurnInput, type TurnState } from "./chat-turn";
@@ -29,6 +29,8 @@ export interface AcpAgentSpec {
   id: ChatAgentId;
   name: string;
   binary: string;
+  /** An environment variable that points at a specific binary, e.g. `AGENTOS_GROK_BIN`. */
+  binaryEnv?: string;
   args: readonly string[];
   installHint: string;
   billing?: string;
@@ -128,24 +130,27 @@ const STOP_ERRORS: Record<string, string> = {
 };
 
 export function createAcpAgent(spec: AcpAgentSpec): ChatAgentAdapter {
+  const locate = () => findAgentBinary((spec.binaryEnv && process.env[spec.binaryEnv]?.trim()) || spec.binary);
+
   async function describe(): Promise<ChatAgent> {
-    const binary = await findOnPath(spec.binary);
+    const binary = await locate();
+    const override = spec.binaryEnv ? ` Or set ${spec.binaryEnv} to its full path.` : "";
     return {
       id: spec.id,
       name: spec.name,
       models: [DEFAULT_MODEL, ...cachedModels(spec.id)],
       defaultModel: DEFAULT_MODEL.id,
       available: Boolean(binary),
-      unavailableReason: binary ? undefined : `${spec.name} isn't installed. ${spec.installHint}`,
+      unavailableReason: binary ? undefined : `${spec.name} wasn't found. ${spec.installHint} AgentOS looked in: ${await searchedFolders()}.${override}`,
       billing: spec.billing,
     };
   }
 
   async function runTurn(input: RunTurnInput): Promise<void> {
-    const binary = await findOnPath(spec.binary);
-    if (!binary) throw new Error(`${spec.name} isn't installed. ${spec.installHint}`);
+    const binary = await locate();
+    if (!binary) throw new Error(`${spec.name} wasn't found. ${spec.installHint}`);
 
-    const child = spawn(binary, [...spec.args], { cwd: input.policy.projectRoot, env: process.env, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(binary, [...spec.args], { cwd: input.policy.projectRoot, env: await agentEnv(), stdio: ["pipe", "pipe", "pipe"] });
     let stderr = "";
     child.stderr.on("data", (chunk: Buffer) => {
       stderr = (stderr + chunk.toString("utf8")).slice(-4_000);
@@ -262,6 +267,7 @@ export const geminiAgent = createAcpAgent({
   id: "gemini",
   name: "Gemini",
   binary: "gemini",
+  binaryEnv: "AGENTOS_GEMINI_BIN",
   args: ["--acp"],
   installHint: "Install it with `npm install -g @google/gemini-cli`, then run `gemini` once to sign in.",
   billing: "Your Google account",
@@ -271,7 +277,19 @@ export const hermesAgent = createAcpAgent({
   id: "hermes",
   name: "Hermes",
   binary: "hermes",
+  binaryEnv: "AGENTOS_HERMES_BIN",
   args: ["acp"],
   installHint: "Install Hermes Agent with its ACP extra and make sure `hermes` is on your PATH.",
   billing: "Hermes' configured provider",
+});
+
+/** xAI's Grok Build, through its ACP server (`grok agent stdio`, as Zed and VS Code run it). */
+export const grokAgent = createAcpAgent({
+  id: "grok",
+  name: "Grok",
+  binary: "grok",
+  binaryEnv: "AGENTOS_GROK_BIN",
+  args: ["agent", "stdio"],
+  installHint: "Install Grok Build and sign in by running `grok` once.",
+  billing: "Your xAI plan",
 });

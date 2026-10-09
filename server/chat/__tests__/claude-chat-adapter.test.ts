@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ChatMessage } from "../../../shared/chat-types";
-import { applyClaudeMessage, startTurn } from "../claude-chat-adapter";
+import { applyClaudeMessage, CLAUDE_ALIASES, modelsFromClaude, startTurn } from "../claude-chat-adapter";
 
 /**
  * The transcript is what the operator reads, so the fold from Claude Code's
@@ -96,5 +96,26 @@ describe("folding Claude's stream into a reply", () => {
     const state = startTurn(reply());
     applyClaudeMessage(state, result({ subtype: "error_max_turns", is_error: true }));
     assert.match(state.message.error ?? "", /turn limit/);
+  });
+});
+
+describe("Claude's models", () => {
+  it("are what Claude Code itself reports for this account", () => {
+    assert.deepEqual(
+      modelsFromClaude([
+        { value: "default", displayName: "Default (recommended)", description: "", resolvedModel: "claude-sonnet-5" },
+        { value: "opus", displayName: "Opus", description: "Most capable for complex work" },
+      ]),
+      [
+        { id: "default", label: "Default", hint: "Uses claude-sonnet-5." },
+        { id: "opus", label: "Opus", hint: "Most capable for complex work" },
+      ],
+    );
+  });
+
+  it("start as Claude Code's own aliases, never full model ids", () => {
+    assert.deepEqual(CLAUDE_ALIASES.map((model) => model.id), ["default", "opus", "sonnet", "haiku"]);
+    // A full id is "a model that may not exist" to a Claude Code version or plan that lacks it.
+    assert.ok(CLAUDE_ALIASES.every((model) => !model.id.startsWith("claude-")));
   });
 });

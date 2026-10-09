@@ -18,6 +18,7 @@ let store: typeof import("../chat-store");
 const saved: Record<string, string | undefined> = {};
 
 before(async () => {
+  process.env.AGENTOS_SKIP_MODEL_DISCOVERY = "1";
   directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-chat-"));
   for (const key of ["AGENTOS_UI_DIR", "HOME", "ANTHROPIC_API_KEY"]) saved[key] = process.env[key];
   process.env.AGENTOS_UI_DIR = path.join(directory, "ui");
@@ -77,7 +78,7 @@ const pendingApproval = (id: string) => async () => {
 describe("a chat", () => {
   it("starts empty, takes its title from the first message, and saves the reply", async () => {
     service.setTurnRunnerForTests(agent());
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     assert.equal(chat.title, "New chat");
 
     await service.sendMessage(chat.id, { text: "What changed this week?\nDetails below" });
@@ -93,21 +94,40 @@ describe("a chat", () => {
 
   it("resumes the agent's session on the next turn, and can switch model", async () => {
     service.setTurnRunnerForTests(agent({ sessionId: "sess_b" }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "First" });
     await service.turnSettled(chat.id);
-    await service.sendMessage(chat.id, { text: "Second", model: "claude-sonnet-5-5" });
+    await service.sendMessage(chat.id, { text: "Second", model: "sonnet" });
     await service.turnSettled(chat.id);
 
     assert.equal(calls[0].resume, undefined);
     assert.equal(calls[1].resume, "sess_b");
-    assert.equal(calls[1].model, "claude-sonnet-5-5");
-    assert.equal((await store.readChat(chat.id))?.model, "claude-sonnet-5-5");
+    assert.equal(calls[1].model, "sonnet");
+    assert.equal((await store.readChat(chat.id))?.model, "sonnet");
+  });
+
+  it("carries on with the default when a chat's saved model is no longer offered", async () => {
+    service.setTurnRunnerForTests(agent());
+    const chat = await service.createChat({ agent: "claude", model: "default" });
+    // As saved before Claude's models came from Claude Code itself.
+    await store.saveChat({ ...chat, model: "claude-fable-5-1" });
+    await service.sendMessage(chat.id, { text: "Hi" });
+    await service.turnSettled(chat.id);
+
+    assert.equal(calls[0].model, "default");
+    assert.equal((await store.readChat(chat.id))?.model, "default");
+  });
+
+  it("offers Grok alongside the others", async () => {
+    const agents = await service.listAgents();
+    assert.deepEqual(agents.map((entry) => entry.id), ["claude", "codex", "grok", "gemini", "hermes"]);
+    const grok = agents.find((entry) => entry.id === "grok");
+    if (!grok?.available) assert.match(grok?.unavailableReason ?? "", /AGENTOS_GROK_BIN/);
   });
 
   it("runs in the AgentOS project", async () => {
     service.setTurnRunnerForTests(agent());
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Hi" });
     await service.turnSettled(chat.id);
     assert.equal(calls[0].policy.projectRoot, service.PROJECT_ROOT);
@@ -116,7 +136,7 @@ describe("a chat", () => {
 
   it("refuses a second message while one is being answered", async () => {
     service.setTurnRunnerForTests(agent({ hang: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Long job" });
     await assert.rejects(service.sendMessage(chat.id, { text: "Another" }), service.ChatStateError);
     service.stopChat(chat.id);
@@ -131,7 +151,7 @@ describe("a chat", () => {
 describe("approving a risky action", () => {
   it("pauses on the operator's decision, and carries on when allowed", async () => {
     service.setTurnRunnerForTests(agent({ asks: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     const events: ChatStreamEvent[] = [];
     const stop = service.subscribe(chat.id, (event) => events.push(event));
 
@@ -152,7 +172,7 @@ describe("approving a risky action", () => {
 
   it("tells the agent no when denied", async () => {
     service.setTurnRunnerForTests(agent({ asks: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Push it" });
     const approval = await waitFor(pendingApproval(chat.id));
     service.decideApproval(chat.id, approval.id, false);
@@ -165,7 +185,7 @@ describe("approving a risky action", () => {
 
   it("can only be answered once", async () => {
     service.setTurnRunnerForTests(agent({ asks: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Push it" });
     const approval = await waitFor(pendingApproval(chat.id));
     service.decideApproval(chat.id, approval.id, true);
@@ -175,7 +195,7 @@ describe("approving a risky action", () => {
 
   it("expires when the operator stops the reply instead of answering", async () => {
     service.setTurnRunnerForTests(agent({ asks: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Push it" });
     await waitFor(pendingApproval(chat.id));
     service.stopChat(chat.id);
@@ -194,7 +214,7 @@ describe("planned runs from a chat", () => {
       started.push([input, mode]);
       return { id: "run_00000000-0000-0000-0000-000000000001" };
     });
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.startChatRun(chat.id, { input: "Set up a landing page for Pantry Pilot", mode: "plan" });
     service.setRunStarterForTests(undefined);
 
@@ -208,7 +228,7 @@ describe("planned runs from a chat", () => {
 
   it("waits for a reply in progress rather than interleaving", async () => {
     service.setTurnRunnerForTests(agent({ hang: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Long job" });
     await assert.rejects(service.startChatRun(chat.id, { input: "Plan it", mode: "plan" }), service.ChatStateError);
     service.stopChat(chat.id);
@@ -219,7 +239,7 @@ describe("planned runs from a chat", () => {
 describe("the working indicator", () => {
   it("shows a chat while it answers, says when it waits on you, and drops it when done", async () => {
     service.setTurnRunnerForTests(agent({ asks: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Push it" });
 
     const approval = await waitFor(pendingApproval(chat.id));
@@ -238,7 +258,7 @@ describe("the working indicator", () => {
 describe("stopping and restarting", () => {
   it("stop ends the turn and says so", async () => {
     service.setTurnRunnerForTests(agent({ hang: true }));
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.sendMessage(chat.id, { text: "Long job" });
     service.stopChat(chat.id);
     await service.turnSettled(chat.id);
@@ -249,7 +269,7 @@ describe("stopping and restarting", () => {
   });
 
   it("settles a chat a previous process left mid-reply", async () => {
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await store.saveChat({
       ...chat,
       status: "running",
@@ -269,7 +289,7 @@ describe("stopping and restarting", () => {
   });
 
   it("deletes a chat, and history no longer lists it", async () => {
-    const chat = await service.createChat({ agent: "claude", model: "claude-opus-5-5" });
+    const chat = await service.createChat({ agent: "claude", model: "default" });
     await service.removeChat(chat.id);
     assert.ok(!(await service.listChats()).some((entry) => entry.id === chat.id));
     await assert.rejects(service.getChat(chat.id), service.ChatNotFoundError);

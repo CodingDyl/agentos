@@ -2,9 +2,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { query, type CanUseTool, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { ChatAgent, ChatMessage, ChatToolPart } from "../../shared/chat-types";
+import type { ChatAgent, ChatMessage, ChatModel, ChatToolPart } from "../../shared/chat-types";
+import { agentEnv } from "./agent-environment";
+import { cachedModels, rememberModels } from "./chat-model-cache";
 import { decideToolUse, summariseToolInput } from "./chat-permission-policy";
-import type { ChatAgentAdapter, RunTurnInput } from "./chat-turn";
+import { DEFAULT_MODEL, oneLine, type ChatAgentAdapter, type RunTurnInput } from "./chat-turn";
 
 /**
  * Claude, through the Claude Agent SDK: Claude Code as a library.
@@ -15,14 +17,29 @@ import type { ChatAgentAdapter, RunTurnInput } from "./chat-turn";
  * chat permission policy, and fold what comes back into the chat transcript.
  */
 
-export const CLAUDE_MODELS = [
-  { id: "claude-opus-5-5", label: "Opus 5.5", hint: "The default. Strong at everything, including long agentic work." },
-  { id: "claude-fable-5-1", label: "Fable 5.1", hint: "Most capable. Slower and pricier; for the hardest problems." },
-  { id: "claude-sonnet-5-5", label: "Sonnet 5.5", hint: "Fast and capable for everyday coding and questions." },
-  { id: "claude-haiku-5-5", label: "Haiku 5.5", hint: "Quickest and cheapest, for simple asks." },
-] as const;
+/**
+ * What the picker offers before Claude Code has been asked: its own aliases,
+ * which it resolves to the newest model this account and this version of
+ * Claude Code can use. Never full model ids: an id one Claude Code version
+ * knows is "a model that may not exist" to another, or to another plan.
+ */
+export const CLAUDE_ALIASES: readonly ChatModel[] = [
+  { id: DEFAULT_MODEL.id, label: "Default", hint: "Whatever your Claude Code is set to use." },
+  { id: "opus", label: "Opus", hint: "The most capable model your plan has." },
+  { id: "sonnet", label: "Sonnet", hint: "Fast and capable for everyday work." },
+  { id: "haiku", label: "Haiku", hint: "Quickest, for simple asks." },
+];
 
-export const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
+/** Claude Code's own model list, as `supportedModels()` reports it. */
+export function modelsFromClaude(models: ReadonlyArray<{ value: string; displayName: string; description?: string; resolvedModel?: string }>): ChatModel[] {
+  return models
+    .filter((model) => model.value)
+    .map((model) => ({
+      id: model.value,
+      label: model.displayName.replace(/\s*\(recommended\)\s*$/i, "") || model.value,
+      hint: oneLine(model.description || (model.resolvedModel ? `Uses ${model.resolvedModel}.` : ""), 120) || undefined,
+    }));
+}
 
 /** Told once per session, on top of Claude Code's own system prompt. */
 const CHAT_SYSTEM_PROMPT = `You are chatting with the operator inside AgentOS, their personal AI operating system. Your working directory is the AgentOS repository; you can read anything on this machine and change the project. Actions the operator has to approve (deleting, pushing, installing, touching credentials, writing outside the project) pause for their decision: if one is denied, say what you would have done and continue without it. Answer conversationally; this is a chat, not a report.`;
@@ -48,13 +65,50 @@ function billing(): { env: NodeJS.ProcessEnv; label: string } | { error: string 
   return { error: "Claude isn't signed in on this machine. Run `claude` once and log in, or set ANTHROPIC_API_KEY." };
 }
 
+let refreshing: Promise<void> | undefined;
+let refreshedAt = 0;
+const REFRESH_MS = 10 * 60 * 1000;
+
+/**
+ * Asks Claude Code which models this account can use. No message is sent:
+ * the session is opened with a prompt that never arrives, asked, and closed.
+ */
+function refreshModels(env: NodeJS.ProcessEnv): void {
+  // Tests describe agents constantly and must not start real ones to do it.
+  if (process.env.AGENTOS_SKIP_MODEL_DISCOVERY === "1") return;
+  if (refreshing || Date.now() - refreshedAt < REFRESH_MS) return;
+  refreshedAt = Date.now();
+  refreshing = (async () => {
+    const controller = new AbortController();
+    // A prompt with no messages: it ends when the controller aborts, having sent nothing.
+    const idle: AsyncIterable<never> = {
+      [Symbol.asyncIterator]: () => ({
+        next: () => new Promise<IteratorResult<never>>((resolve) => controller.signal.addEventListener("abort", () => resolve({ done: true, value: undefined }), { once: true })),
+      }),
+    };
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const session = query({ prompt: idle, options: { abortController: controller, settingSources: [], env: await agentEnv(env), cwd: os.homedir() } });
+      rememberModels("claude", modelsFromClaude(await session.supportedModels()));
+    } catch (error) {
+      console.error("[agentos] chat: Claude Code didn't list its models:", error instanceof Error ? error.message : error);
+    } finally {
+      clearTimeout(timeout);
+      controller.abort();
+      refreshing = undefined;
+    }
+  })();
+}
+
 export function describeClaudeAgent(): ChatAgent {
   const how = billing();
+  if ("env" in how) refreshModels(how.env);
+  const learned = cachedModels("claude");
   return {
     id: "claude",
     name: "Claude",
-    models: CLAUDE_MODELS.map((model) => ({ ...model })),
-    defaultModel: DEFAULT_CLAUDE_MODEL,
+    models: learned.length > 0 ? learned : [...CLAUDE_ALIASES],
+    defaultModel: DEFAULT_MODEL.id,
     available: !("error" in how),
     unavailableReason: "error" in how ? how.error : undefined,
     billing: "label" in how ? how.label : undefined,
@@ -239,7 +293,8 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
     prompt: input.prompt,
     options: {
       cwd: input.policy.projectRoot,
-      model: input.model,
+      // "default" means Claude Code's own choice: no --model at all.
+      model: input.model === DEFAULT_MODEL.id ? undefined : input.model,
       resume: input.resume,
       abortController: input.controller,
       includePartialMessages: true,
@@ -250,7 +305,7 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
       // and the project's: this is their assistant, not a sandboxed worker.
       settingSources: ["user", "project"],
       systemPrompt: { type: "preset", preset: "claude_code", append: CHAT_SYSTEM_PROMPT },
-      env: { ...how.env, CLAUDE_AGENT_SDK_CLIENT_APP: "agentos-chat/1.0" },
+      env: { ...(await agentEnv(how.env)), CLAUDE_AGENT_SDK_CLIENT_APP: "agentos-chat/1.0" },
     },
   });
 

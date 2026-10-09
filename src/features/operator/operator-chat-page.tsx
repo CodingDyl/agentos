@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 import { ChatHistorySidebar } from "./chat-history-sidebar";
-import { initialModelChoice, modelLabel, parseSlashRun, type ModelChoice } from "./chat-model";
+import { chatModelChoice, initialModelChoice, modelLabel, parseSlashRun, type ModelChoice } from "./chat-model";
 import { ChatThread } from "./chat-thread";
 import { useChatJarvis } from "./use-chat-jarvis";
 
@@ -148,7 +148,7 @@ function ChatWorkspace({
   const [override, setOverride] = useState<ModelChoice>();
 
   const current: Chat | undefined = chat.data;
-  const choice: ModelChoice | undefined = override ?? (current ? { agent: current.agent, model: current.model } : initialModelChoice(agents, remembered()));
+  const choice: ModelChoice | undefined = override ?? (current ? chatModelChoice(agents, current) : initialModelChoice(agents, remembered()));
   const running = current?.status === "running";
   const messages = current?.messages ?? [];
 
