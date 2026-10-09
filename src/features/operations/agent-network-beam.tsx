@@ -309,9 +309,8 @@ function NodeTrigger({
   label: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => setOpen(false), []);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const close = useCallback(() => setAnchor(null), []);
 
   if (tasks.length === 1) {
     const task = tasks[0];
@@ -330,24 +329,23 @@ function NodeTrigger({
   return (
     <>
       <button
-        ref={triggerRef}
         type="button"
         aria-label={label}
-        aria-expanded={open}
+        aria-expanded={anchor !== null}
         aria-haspopup="menu"
         title={label}
-        onClick={() => setOpen((value) => !value)}
+        onClick={(event) => setAnchor((current) => (current ? null : event.currentTarget))}
         className={cn("group flex w-full cursor-pointer flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}
       >
         {children}
       </button>
-      {open && triggerRef.current
+      {anchor
         ? createPortal(
             <JobMenu
               tasks={tasks}
               fallbackHref={fallbackHref}
               fallbackLabel={fallbackLabel}
-              anchor={triggerRef.current}
+              anchor={anchor}
               onClose={close}
             />,
             document.body,

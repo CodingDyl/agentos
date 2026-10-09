@@ -357,7 +357,7 @@ export function alive(pid: number): boolean {
 
 /** True when a process command line is Claude Code, not a pid that got reused. */
 export function commandIsClaude(command: string): boolean {
-  const text = command.replace(/\u0000/g, " ");
+  const text = command.split("\0").join(" ");
   return /(?:^|[\\/\s])claude(?:\s|$)/i.test(text) || /@anthropic-ai\/claude/i.test(text);
 }
 
