@@ -83,6 +83,7 @@ export function activeJobs(jobs: readonly WorkerJob[]): ActiveWorkItem[] {
       detail: STAGE[job.status],
       startedAt: job.startedAt ?? job.createdAt,
       href: `/workers/jobs/${job.id}`,
+      lastSeenAt: job.lastEventAt ?? job.startedAt ?? job.createdAt,
       // Recorded as running, but nothing is executing it — the usual cause is
       // a restart, and claiming otherwise would be the one lie this section
       // cannot afford.
@@ -134,6 +135,7 @@ export function activeRuns(
       project: event.project,
       startedAt: event.timestamp,
       href: "/agent",
+      lastSeenAt: event.timestamp,
       uncertain: age > RUN_CONFIDENCE_MS,
     });
   }
@@ -168,6 +170,7 @@ export function activeOperatorRuns(runs: readonly OperatorRun[]): ActiveWorkItem
       detail: OPERATOR_STAGE[run.status],
       startedAt: run.approvedAt ?? run.startedAt,
       href: `/operator/runs/${run.id}`,
+      lastSeenAt: run.approvedAt ?? run.startedAt,
       uncertain: !isLive(run.id),
     }));
 }

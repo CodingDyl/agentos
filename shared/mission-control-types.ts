@@ -141,6 +141,13 @@ export const ActiveWorkItemSchema = z.object({
   startedAt: z.string(),
   href: z.string(),
   /**
+   * When the worker was last heard from. Absent, the start is the best we have.
+   *
+   * Unconfirmed work shows this rather than a ticking "running" clock: a job
+   * that has not spoken for hours must not look freshly live.
+   */
+  lastSeenAt: z.string().optional(),
+  /**
    * True when this is inferred rather than observed.
    *
    * A Hermes run's start is recorded by the adapter; its end is reported by

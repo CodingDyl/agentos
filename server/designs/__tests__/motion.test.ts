@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { MotionJobRequestSchema, type MotionJobRequest } from "../../../shared/motion-types";
-import { applyEvent, claudeArgs, describeTool, MOTION_DENIED_TOOLS, revisionPrompt } from "../motion";
+import {
+  applyEvent,
+  claudeArgs,
+  commandIsClaude,
+  describeTool,
+  detachedRunShouldSettle,
+  MOTION_DENIED_TOOLS,
+  revisionPrompt,
+} from "../motion";
 import {
   BUILT_IN_BRAND,
   BUILT_IN_SHOWREEL,
@@ -112,7 +120,7 @@ describe("running Claude Code", () => {
 });
 
 describe("reading Claude Code's stream", () => {
-  const blank = () => ({ log: [] as { at: string; kind: "system" | "text" | "tool"; message: string }[], sessionId: undefined as string | undefined, model: undefined as string | undefined, summary: undefined as string | undefined, usage: undefined, resultError: undefined as string | undefined });
+  const blank = () => ({ log: [] as { at: string; kind: "system" | "text" | "tool"; message: string }[], sessionId: undefined as string | undefined, model: undefined as string | undefined, summary: undefined as string | undefined, usage: undefined, resultError: undefined as string | undefined, stopReason: undefined as string | undefined });
 
   it("records the session, what Claude says and does, and how it ended", () => {
     const job = blank();
@@ -132,6 +140,14 @@ describe("reading Claude Code's stream", () => {
     const job = blank();
     applyEvent(job, JSON.stringify({ type: "result", subtype: "error_max_turns", is_error: true }));
     assert.match(job.resultError ?? "", /error_max_turns/);
+    assert.equal(job.stopReason, "error_max_turns");
+  });
+
+  it("records the honest stop reason when Claude ends successfully", () => {
+    const job = blank();
+    applyEvent(job, JSON.stringify({ type: "result", subtype: "success", result: "Done." }));
+    assert.equal(job.stopReason, "success");
+    assert.equal(job.resultError, undefined);
   });
 
   it("names files, not paths", () => {
@@ -148,6 +164,39 @@ describe("Higgsfield video results", () => {
   it("waits longer for a video model", () => {
     const args = buildRenderArgs({ prompt: "a pan", kind: "video", model: "seedance_2_0" });
     assert.equal(args[args.indexOf("--wait-timeout") + 1], "20m");
+  });
+});
+
+describe("when a detached Claude run is actually over", () => {
+  it("settles when Claude reported a stop reason, even if a pid still looks alive", () => {
+    assert.equal(detachedRunShouldSettle({ hasRun: true, pidAlive: true, overdue: false, stopReason: "success" }), true);
+    assert.equal(detachedRunShouldSettle({ hasRun: true, pidAlive: true, overdue: false, stopReason: "error_max_turns" }), true);
+  });
+
+  it("settles an overdue run instead of watching a recycled pid forever", () => {
+    assert.equal(detachedRunShouldSettle({ hasRun: true, pidAlive: true, overdue: true }), true);
+  });
+
+  it("settles a running record with no process to watch", () => {
+    assert.equal(detachedRunShouldSettle({ hasRun: false, pidAlive: false, overdue: false }), true);
+  });
+
+  it("keeps watching a live, on-time run with no stop reason", () => {
+    assert.equal(detachedRunShouldSettle({ hasRun: true, pidAlive: true, overdue: false }), false);
+  });
+
+  it("settles when the pid is gone", () => {
+    assert.equal(detachedRunShouldSettle({ hasRun: true, pidAlive: false, overdue: false }), true);
+  });
+});
+
+describe("whether a pid is still Claude", () => {
+  it("accepts the claude binary and refuses a recycled unrelated pid", () => {
+    assert.equal(commandIsClaude("/usr/local/bin/claude\0-p\0hello"), true);
+    assert.equal(commandIsClaude("claude"), true);
+    assert.equal(commandIsClaude("/usr/bin/node /opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js"), true);
+    assert.equal(commandIsClaude("/sbin/launchd"), false);
+    assert.equal(commandIsClaude("nginx: master process"), false);
   });
 });
 

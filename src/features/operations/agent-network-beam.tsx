@@ -1,27 +1,34 @@
-import { useRef, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import type { ActiveWorkItem } from "@shared/mission-control-types";
 import type { LiveAgent } from "@shared/usage-types";
 import { AnimatedBeam, BeamNode } from "@/components/ui/animated-beam-integration";
+import { elapsed } from "@/features/mission-control/mission-control-model";
 import { cn } from "@/lib/utils";
 import { PAPER_FOCUS, PaperSection } from "@/components/paper";
-import { pickTask, toNode, type NodeState, type WorkerNodeModel } from "./agent-network-model";
+import {
+  lastSeenAt,
+  networkCounts,
+  pickTask,
+  toNode,
+  type NodeState,
+  type WorkerNodeModel,
+} from "./agent-network-model";
 
 /**
  * The workforce as a wiring diagram.
  *
  * Hermes sits in the middle because it is the one that scopes work and hands
- * it out; every worker hangs off it. A beam only travels along a line while
- * that worker has a job in flight, so movement on this panel always means
- * something is running. Ready workers keep a still hairline; offline ones a
- * dashed one. Every state is also written under the node, never colour alone.
+ * it out; every worker hangs off it. Activity is derived once from jobs, so
+ * the header counts and the Working On list cannot disagree. A beam only
+ * travels along a line while that worker has a job in flight. Unconfirmed
+ * work — recorded as running, nothing executing — is amber and still.
  *
- * Two inputs, because they answer on different clocks. `live` comes with the
- * Operations read (every minute) and knows which workers exist and whether
- * they are reachable. `activeWork` is the shared Mission Control read (every
- * ten seconds), which is what the header uses too, and knows every kind of
- * task: worker jobs at any stage, Hermes runs and Operator runs. A node is
- * working if either says so, and a working node links to its task.
+ * Two inputs, on different clocks. `live` comes with the Operations read
+ * (every minute) and knows which workers exist and whether they are
+ * reachable. `activeWork` is the shared Mission Control read (every ten
+ * seconds) and is the only source of activity.
  */
 export function AgentNetworkBeam({
   live,
@@ -34,14 +41,13 @@ export function AgentNetworkBeam({
   const hubRef = useRef<HTMLDivElement>(null);
 
   const nodes = live.map((agent) => toNode(agent, activeWork));
-  const running = nodes.filter((node) => node.state === "running").length;
-  const ready = nodes.filter((node) => node.state === "ready" || node.state === "uncertain").length;
-  const offline = nodes.length - running - ready;
+  const counts = networkCounts(nodes);
 
   const hubTask = pickTask(activeWork.filter((item) => item.agent === "hermes" || item.agent === "operator"));
+  const hubTasks = activeWork.filter((item) => item.agent === "hermes" || item.agent === "operator");
   const hubWorking = hubTask !== undefined && !hubTask.uncertain;
+  const hubUnconfirmed = hubTask?.uncertain === true;
 
-  // Alternate sides so the two columns stay balanced as workers are added.
   const left = nodes.filter((_, index) => index % 2 === 0);
   const right = nodes.filter((_, index) => index % 2 === 1);
 
@@ -51,7 +57,14 @@ export function AgentNetworkBeam({
       count={live.length}
       action={
         <p className="text-[13px] text-paper-sage tabular-nums">
-          <span className="font-medium text-paper-moss">{running} running</span> · {ready} ready · {offline} offline
+          <span className="font-medium text-paper-moss">{counts.running} running</span>
+          {counts.unconfirmed > 0 ? (
+            <>
+              {" · "}
+              <span className="text-paper-amber-deep">{counts.unconfirmed} unconfirmed</span>
+            </>
+          ) : null}
+          {` · ${counts.ready} ready · ${counts.offline} offline`}
         </p>
       }
     >
@@ -65,23 +78,13 @@ export function AgentNetworkBeam({
           <WorkerColumn agents={left} side="left" containerRef={containerRef} hubRef={hubRef} />
 
           <BeamNode className="flex-col">
-            <HubLink task={hubTask}>
-              <div
-                ref={hubRef}
-                className={cn(
-                  "relative flex size-16 items-center justify-center border-[1.5px] border-paper-blue bg-paper-white sm:size-20",
-                  // A steady ring; the dot carries the pulse, so the mark never fades.
-                  hubWorking && "ring-4 ring-paper-blue/20",
-                )}
-              >
-                <img src="/agentos-mark.svg" alt="" className="size-9 sm:size-11" />
-                {hubWorking ? <WorkingDot /> : null}
-              </div>
-              <span className="font-paper-utility text-[11px] font-medium tracking-[0.12em] text-paper-moss uppercase">Hermes</span>
-              <span className={cn("max-w-[10rem] truncate text-[11.5px]", hubWorking ? "text-paper-green" : "text-paper-sage")}>
-                {hubTask ? (hubWorking ? (hubTask.agent === "operator" ? "Operator running" : "Run in progress") : "May have finished") : "Orchestrator"}
-              </span>
-            </HubLink>
+            <HubNode
+              task={hubTask}
+              tasks={hubTasks}
+              hubRef={hubRef}
+              working={hubWorking}
+              unconfirmed={hubUnconfirmed}
+            />
           </BeamNode>
 
           <WorkerColumn agents={right} side="right" containerRef={containerRef} hubRef={hubRef} />
@@ -91,32 +94,75 @@ export function AgentNetworkBeam({
   );
 }
 
-/** The hub is a link only while it has a task to open; otherwise it is a picture. */
-function HubLink({ task, children }: { task: ActiveWorkItem | undefined; children: ReactNode }) {
-  const className = "group flex flex-col items-center gap-2 rounded-none";
+function HubNode({
+  task,
+  tasks,
+  hubRef,
+  working,
+  unconfirmed,
+}: {
+  task: ActiveWorkItem | undefined;
+  tasks: readonly ActiveWorkItem[];
+  hubRef: RefObject<HTMLDivElement | null>;
+  working: boolean;
+  unconfirmed: boolean;
+}) {
+  const now = useTicker(unconfirmed);
+  const mark = (
+    <>
+      <div
+        ref={hubRef}
+        className={cn(
+          "relative flex size-16 items-center justify-center border-[1.5px] bg-paper-white sm:size-20",
+          working && "border-paper-blue ring-4 ring-paper-blue/20",
+          unconfirmed && "border-paper-amber ring-4 ring-paper-amber/20",
+          !working && !unconfirmed && "border-paper-blue",
+        )}
+      >
+        <img src="/agentos-mark.svg" alt="" className="size-9 sm:size-11" />
+        {working ? <WorkingDot /> : null}
+        {tasks.length > 0 ? <JobCountBadge count={tasks.length} tone={working ? "running" : "uncertain"} /> : null}
+      </div>
+      <span className="font-paper-utility text-[11px] font-medium tracking-[0.12em] text-paper-moss uppercase">Hermes</span>
+      <span
+        className={cn(
+          "max-w-[10rem] truncate text-[11.5px]",
+          working ? "text-paper-green" : unconfirmed ? "text-paper-amber-deep" : "text-paper-sage",
+        )}
+      >
+        {task
+          ? working
+            ? task.agent === "operator"
+              ? "Operator running"
+              : "Run in progress"
+            : "Unconfirmed"
+          : "Orchestrator"}
+      </span>
+      {unconfirmed && task ? (
+        <span className="max-w-[10rem] truncate text-[10.5px] text-paper-sage tabular-nums">
+          Last seen {elapsed(lastSeenAt(task), now) || "unknown"} ago
+        </span>
+      ) : null}
+    </>
+  );
 
-  if (!task) {
+  if (tasks.length === 0) {
     return (
-      <div role="img" aria-label="Hermes, the orchestrator every worker reports to. Nothing running." className={className}>
-        {children}
+      <div role="img" aria-label="Hermes, the orchestrator every worker reports to. Nothing running." className="group flex flex-col items-center gap-2 rounded-none">
+        {mark}
       </div>
     );
   }
 
-  const label = `Hermes — ${task.uncertain ? "may have finished" : "working"}: ${task.title}. Open the task`;
   return (
-    <Link to={task.href} aria-label={label} title={task.title} className={cn(className, PAPER_FOCUS)}>
-      {children}
-    </Link>
-  );
-}
-
-function WorkingDot() {
-  return (
-    <span className="absolute -top-1 -right-1 flex size-2.5" aria-hidden="true">
-      <span className="absolute inline-flex size-full rounded-full bg-paper-green opacity-60 motion-safe:animate-ping" />
-      <span className="relative inline-flex size-2.5 rounded-full bg-paper-green" />
-    </span>
+    <NodeTrigger
+      tasks={tasks}
+      fallbackHref="/agent"
+      fallbackLabel="Open Hermes"
+      label={`Hermes — ${task?.uncertain ? "unconfirmed" : "working"}: ${task?.title ?? "open jobs"}`}
+    >
+      {mark}
+    </NodeTrigger>
   );
 }
 
@@ -131,15 +177,12 @@ function WorkerColumn({
   containerRef: RefObject<HTMLDivElement | null>;
   hubRef: RefObject<HTMLDivElement | null>;
 }) {
-  // Deliberately not `position: relative`: each beam's SVG must resolve
-  // `absolute inset-0` against the whole diagram, not this column.
   return (
     <ul className={cn("flex min-w-0 flex-col justify-center gap-6", side === "left" ? "items-start" : "items-end")}>
       {agents.map((node, index) => (
         <li key={node.agent.agent} className="w-24 max-w-full sm:w-32">
           <WorkerNode
             node={node}
-            // Bow the outer lines away from the middle, as a fan.
             curvature={(index - (agents.length - 1) / 2) * 40}
             reverse={side === "right"}
             containerRef={containerRef}
@@ -153,7 +196,7 @@ function WorkerColumn({
 
 const STATE_WORD: Record<NodeState, string> = {
   running: "Running",
-  uncertain: "May have finished",
+  uncertain: "Unconfirmed",
   ready: "Ready",
   offline: "Offline",
 };
@@ -171,42 +214,65 @@ function WorkerNode({
   containerRef: RefObject<HTMLDivElement | null>;
   hubRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { agent, state, task } = node;
+  const { agent, state, task, tasks } = node;
   const tileRef = useRef<HTMLSpanElement>(null);
   const isRunning = state === "running";
+  const isUnconfirmed = state === "uncertain";
   const isOffline = state === "offline";
-  // A working node opens the task it is on; an idle one opens the agent.
-  const href = task ? task.href : `/operations/agents/${encodeURIComponent(agent.agent)}`;
+  const agentHref = `/operations/agents/${encodeURIComponent(agent.agent)}`;
+  const now = useTicker(isUnconfirmed);
+  const seen = task ? elapsed(lastSeenAt(task), now) : "";
   const doing = task?.title ?? agent.detail;
-  const description = [agent.label, STATE_WORD[state], doing, task ? "Open the task" : undefined].filter(Boolean).join(" — ");
+  const description = [agent.label, STATE_WORD[state], doing, isUnconfirmed && seen ? `Last seen ${seen} ago` : undefined, task ? "Open jobs" : undefined]
+    .filter(Boolean)
+    .join(" — ");
+
+  const tile = (
+    <>
+      <span
+        ref={tileRef}
+        className={cn(
+          "relative flex size-12 items-center justify-center border bg-paper-white font-paper-utility text-[13px] font-semibold tracking-[0.08em] uppercase transition-colors duration-150",
+          isRunning && "border-[1.5px] border-paper-blue text-paper-blue ring-2 ring-paper-blue/25",
+          isUnconfirmed && "border-[1.5px] border-paper-amber text-paper-amber-deep",
+          state === "ready" && "border-paper-ash text-paper-moss group-hover:border-paper-blue",
+          isOffline && "border-dashed border-paper-ash text-paper-sage",
+        )}
+        aria-hidden="true"
+      >
+        {monogram(agent)}
+        {isRunning ? <WorkingDot /> : null}
+        {tasks.length > 0 ? <JobCountBadge count={tasks.length} tone={isRunning ? "running" : "uncertain"} /> : null}
+      </span>
+      <span className="flex w-full flex-col items-center text-center" aria-hidden="true">
+        <span className="w-full truncate text-[12.5px] font-medium text-paper-moss group-hover:text-paper-blue">{agent.label}</span>
+        <span
+          className={cn(
+            "w-full truncate text-[11.5px]",
+            isRunning ? "text-paper-green" : isUnconfirmed ? "text-paper-amber-deep" : "text-paper-sage",
+          )}
+        >
+          {STATE_WORD[state]}
+        </span>
+        {isUnconfirmed && seen ? (
+          <span className="w-full truncate text-[10.5px] text-paper-sage tabular-nums">Last seen {seen} ago</span>
+        ) : null}
+      </span>
+    </>
+  );
 
   return (
     <>
       <BeamNode className="w-full">
-        <Link
-          to={href}
-          aria-label={description}
-          title={description}
-          className={cn("group flex w-full flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}
-        >
-          <span
-            ref={tileRef}
-            className={cn(
-              "relative flex size-12 items-center justify-center border bg-paper-white font-paper-utility text-[13px] font-semibold tracking-[0.08em] uppercase transition-colors duration-150",
-              isRunning && "border-[1.5px] border-paper-blue text-paper-blue",
-              (state === "ready" || state === "uncertain") && "border-paper-ash text-paper-moss group-hover:border-paper-blue",
-              isOffline && "border-dashed border-paper-ash text-paper-sage",
-            )}
-            aria-hidden="true"
-          >
-            {monogram(agent)}
-            {isRunning ? <WorkingDot /> : null}
-          </span>
-          <span className="flex w-full flex-col items-center text-center" aria-hidden="true">
-            <span className="w-full truncate text-[12.5px] font-medium text-paper-moss group-hover:text-paper-blue">{agent.label}</span>
-            <span className={cn("w-full truncate text-[11.5px]", isRunning ? "text-paper-green" : "text-paper-sage")}>{STATE_WORD[state]}</span>
-          </span>
-        </Link>
+        {tasks.length === 0 ? (
+          <Link to={agentHref} aria-label={description} title={description} className={cn("group flex w-full flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}>
+            {tile}
+          </Link>
+        ) : (
+          <NodeTrigger tasks={tasks} fallbackHref={agentHref} fallbackLabel={`Open ${agent.label}`} label={description}>
+            {tile}
+          </NodeTrigger>
+        )}
       </BeamNode>
 
       <AnimatedBeam
@@ -216,9 +282,9 @@ function WorkerNode({
         curvature={curvature}
         reverse={reverse}
         animated={isRunning}
-        pathColor="var(--paper-moss)"
-        pathOpacity={isOffline ? 0.18 : isRunning ? 0.25 : 0.14}
-        pathDasharray={isOffline ? "4 5" : undefined}
+        pathColor={isUnconfirmed ? "var(--paper-amber-deep)" : "var(--paper-moss)"}
+        pathOpacity={isOffline ? 0.18 : isRunning ? 0.25 : isUnconfirmed ? 0.35 : 0.14}
+        pathDasharray={isOffline ? "4 5" : isUnconfirmed ? "5 4" : undefined}
         gradientStartColor="var(--paper-blue)"
         gradientStopColor="var(--paper-blue)"
       />
@@ -226,7 +292,173 @@ function WorkerNode({
   );
 }
 
-/** Known workers get a fixed two-letter mark; anything new falls back to its label. */
+/**
+ * One job: a link. Several: a list. The diagram clips overflow, so the list
+ * is portalled — otherwise a node at the edge would hide its own jobs.
+ */
+function NodeTrigger({
+  tasks,
+  fallbackHref,
+  fallbackLabel,
+  label,
+  children,
+}: {
+  tasks: readonly ActiveWorkItem[];
+  fallbackHref: string;
+  fallbackLabel: string;
+  label: string;
+  children: ReactNode;
+}) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const close = useCallback(() => setAnchor(null), []);
+
+  if (tasks.length === 1) {
+    const task = tasks[0];
+    return (
+      <Link
+        to={task.href}
+        aria-label={label}
+        title={task.title}
+        className={cn("group flex w-full flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}
+      >
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={anchor !== null}
+        aria-haspopup="menu"
+        title={label}
+        onClick={(event) => setAnchor((current) => (current ? null : event.currentTarget))}
+        className={cn("group flex w-full cursor-pointer flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}
+      >
+        {children}
+      </button>
+      {anchor
+        ? createPortal(
+            <JobMenu
+              tasks={tasks}
+              fallbackHref={fallbackHref}
+              fallbackLabel={fallbackLabel}
+              anchor={anchor}
+              onClose={close}
+            />,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+function JobMenu({
+  tasks,
+  fallbackHref,
+  fallbackLabel,
+  anchor,
+  onClose,
+}: {
+  tasks: readonly ActiveWorkItem[];
+  fallbackHref: string;
+  fallbackLabel: string;
+  anchor: HTMLElement;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const rect = anchor.getBoundingClientRect();
+  const style = {
+    top: Math.min(rect.bottom + 8, window.innerHeight - 16),
+    left: Math.min(Math.max(8, rect.left + rect.width / 2 - 140), window.innerWidth - 288),
+  };
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (menuRef.current?.contains(event.target as Node) || anchor.contains(event.target as Node)) return;
+      onClose();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [anchor, onClose]);
+
+  return (
+    <div
+      ref={menuRef}
+      role="menu"
+      style={{ position: "fixed", top: style.top, left: style.left, width: 280 }}
+      className="z-50 border border-paper-mist bg-paper-white py-1"
+    >
+      {tasks.map((item) => (
+        <Link
+          key={item.id}
+          role="menuitem"
+          to={item.href}
+          onClick={onClose}
+          className={cn("block px-3 py-2 text-left hover:bg-paper-cream", PAPER_FOCUS)}
+        >
+          <span className="block truncate text-[11.5px] font-medium tracking-[0.06em] text-paper-sage uppercase">
+            {item.actor}
+            {item.uncertain ? " · unconfirmed" : ""}
+          </span>
+          <span className="mt-0.5 block truncate text-[13px] text-paper-moss">{item.title}</span>
+        </Link>
+      ))}
+      <Link
+        role="menuitem"
+        to={fallbackHref}
+        onClick={onClose}
+        className={cn("block border-t border-paper-stone px-3 py-2 text-[12.5px] text-paper-sage hover:bg-paper-cream hover:text-paper-moss", PAPER_FOCUS)}
+      >
+        {fallbackLabel}
+      </Link>
+    </div>
+  );
+}
+
+function JobCountBadge({ count, tone }: { count: number; tone: "running" | "uncertain" }) {
+  return (
+    <span
+      className={cn(
+        "absolute -right-1 -bottom-1 flex min-w-4 items-center justify-center border bg-paper-white px-1 font-paper-utility text-[9px] font-semibold tabular-nums",
+        tone === "running" ? "border-paper-blue text-paper-blue" : "border-paper-amber text-paper-amber-deep",
+      )}
+    >
+      {count}
+    </span>
+  );
+}
+
+function WorkingDot() {
+  return (
+    <span className="absolute -top-1 -right-1 flex size-2.5" aria-hidden="true">
+      <span className="absolute inline-flex size-full rounded-full bg-paper-green opacity-60 motion-safe:animate-ping" />
+      <span className="relative inline-flex size-2.5 rounded-full bg-paper-green" />
+    </span>
+  );
+}
+
+function useTicker(enabled: boolean): Date {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setInterval(() => setNow(new Date()), 1_000);
+    return () => clearInterval(timer);
+  }, [enabled]);
+
+  return now;
+}
+
 const MONOGRAMS: Record<string, string> = {
   claude: "CL",
   "claude-code": "CC",

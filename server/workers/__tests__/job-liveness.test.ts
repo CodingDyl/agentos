@@ -147,6 +147,16 @@ describe("job liveness", () => {
     }
   });
 
+  it("treats a claimed external run as live until it is released", () => {
+    // Claude Motion runs outside this process. Without a claim, isRunning is
+    // always false and the console hedges as "may have finished" while Claude
+    // is still going — or worse, forever after it has stopped.
+    manager.claimExternalRun("job_external000000");
+    assert.equal(manager.isRunning("job_external000000"), true);
+    manager.releaseExternalRun("job_external000000");
+    assert.equal(manager.isRunning("job_external000000"), false);
+  });
+
   it("refuses to retry a job that is still live", async () => {
     await store.saveJob(job({ id: "job_live00000000000", status: "running" }));
 

@@ -76,7 +76,10 @@ function ActiveWorkRow({ item }: { item: ActiveWorkItem }) {
         <p className="mt-0.5 text-[14px] leading-6 text-paper-moss">{item.title}</p>
         <p className="mt-0.5 text-[12.5px] text-paper-sage tabular-nums">
           {item.uncertain ? (
-            <>Started {elapsed(item.startedAt, now)} ago · may have finished</>
+            <>
+              Started {elapsed(item.startedAt, now)} ago · unconfirmed
+              {item.lastSeenAt ? ` · last heard ${elapsed(item.lastSeenAt, now)} ago` : ""}
+            </>
           ) : (
             <>
               {item.detail ? `${item.detail} · ` : ""}Running {elapsed(item.startedAt, now)}
