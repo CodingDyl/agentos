@@ -139,7 +139,7 @@ function ActiveWorkLink({ item, onNavigate }: { item: ActiveWorkItem; onNavigate
         <span className="mt-0.5 block text-[13.5px] leading-5 text-foreground group-hover:underline">{item.title}</span>
         <span className="mt-0.5 block text-[12px] text-os-subtle tabular-nums">
           {item.uncertain
-            ? `Started ${elapsed(item.startedAt, now)} ago · may have finished`
+            ? `Started ${elapsed(item.startedAt, now)} ago · unconfirmed${item.lastSeenAt ? ` · last heard ${elapsed(item.lastSeenAt, now)} ago` : ""}`
             : `${item.detail ? `${item.detail} · ` : ""}Running ${elapsed(item.startedAt, now)}`}
         </span>
       </span>

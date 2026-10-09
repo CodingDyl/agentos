@@ -250,10 +250,10 @@ describe("worker job integration", () => {
     assert.equal(eventsAfterSecondSync.length, events.length, "Should not duplicate failure events");
   });
   
-  it("updates lastEventAt on every sync to show current activity", async () => {
+  it("records lastEventAt from the studio log, not from the sync itself", async () => {
     const { syncWorkerJob } = await import("../animate");
     const { readJob: readWorkerJob } = await import("../../workers/job-store");
-    
+
     const job = {
       id: "anm_5555666677778888",
       title: "Test update",
@@ -261,27 +261,29 @@ describe("worker job integration", () => {
       stage: "look",
       request: {},
       createdAt: "2026-10-07T19:00:00Z",
-      log: [],
+      startedAt: "2026-10-07T19:01:00Z",
+      log: [{ at: "2026-10-07T19:02:00Z", kind: "system", message: "Claude Code started" }],
       assetIds: [],
     } as unknown as AnimateRecord;
-    
+
     await syncWorkerJob(job);
     const workerJobId = job.workerJobId;
     assert.ok(workerJobId, "Should have workerJobId after first sync");
-    
+
     const workerJob1 = await readWorkerJob(workerJobId);
-    assert.ok(workerJob1, "Should have worker job");
-    const firstEventAt = workerJob1.lastEventAt;
-    
-    // Wait a bit and sync again
-    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(workerJob1?.lastEventAt, "2026-10-07T19:02:00Z");
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
     await syncWorkerJob(job);
     const workerJob2 = await readWorkerJob(workerJobId);
-    assert.ok(workerJob2, "Should still have worker job");
-    const secondEventAt = workerJob2.lastEventAt;
-    
-    assert.ok(secondEventAt, "Should have lastEventAt");
-    assert.notEqual(secondEventAt, firstEventAt, "Should update lastEventAt on every sync");
+    // A heartbeat that fires on every poll, with no new log, is how a dead
+    // run sits as "may have finished" while looking recently heard from.
+    assert.equal(workerJob2?.lastEventAt, "2026-10-07T19:02:00Z");
+
+    job.log.push({ at: "2026-10-07T19:10:00Z", kind: "text", message: "Rendering" });
+    await syncWorkerJob(job);
+    const workerJob3 = await readWorkerJob(workerJobId);
+    assert.equal(workerJob3?.lastEventAt, "2026-10-07T19:10:00Z");
   });
   
   it("preserves resume functionality with same Claude session", () => {

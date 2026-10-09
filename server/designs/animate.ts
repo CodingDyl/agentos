@@ -29,9 +29,11 @@ import { activeRunCount } from "../website-rebuild/store";
 import { saveJob as saveWorkerJob, readJob as readWorkerJob, appendEvent, createJobId } from "../workers/job-store";
 import { createAsset } from "./library";
 import { mediaRoot, probeVideo, storeVideo } from "./media";
+import { claimExternalRun, releaseExternalRun } from "../workers/job-manager";
 import {
   alive,
   applyEvent,
+  detachedRunShouldSettle,
   MOTION_ALLOWED_TOOLS,
   MOTION_DENIED_TOOLS,
   motionModel,
@@ -173,6 +175,8 @@ const StoredAnimateJobSchema = AnimateJobSchema.extend({
   workerJobId: z.string().optional(),
   /** The last tool error captured from the stream, persisted for result event processing. */
   lastToolError: z.string().optional(),
+  /** Claude's own stop reason from a `result` event. Presence means the run has ended. */
+  stopReason: z.string().optional(),
 });
 type StoredJob = z.infer<typeof StoredAnimateJobSchema>;
 
@@ -400,8 +404,9 @@ export async function syncWorkerJob(job: StoredJob): Promise<void> {
         type: "video",
       })),
     } : undefined,
-    // Always update lastEventAt on sync so Workers shows current activity
-    lastEventAt: new Date().toISOString(),
+    // The studio log is the heartbeat. Stamping "now" on every sync made a
+    // dead run look recently heard from while it sat as "may have finished".
+    lastEventAt: job.log.at(-1)?.at ?? existing?.lastEventAt ?? job.startedAt ?? job.createdAt,
   };
   
   await saveWorkerJob(workerJob);
@@ -623,12 +628,20 @@ async function start(job: StoredJob): Promise<void> {
   
   // Create/update worker job so it appears in Workers / Today
   await syncWorkerJob(job);
-  
+  claim(job);
   watch(job.id);
 }
 
 const watchers = new Map<string, NodeJS.Timeout>();
 const ticking = new Set<string>();
+/** animate job id → worker job id, so unwatch can drop the live claim. */
+const claimed = new Map<string, string>();
+
+function claim(job: StoredJob): void {
+  if (!job.workerJobId) return;
+  claimExternalRun(job.workerJobId);
+  claimed.set(job.id, job.workerJobId);
+}
 
 function watch(id: string): void {
   if (watchers.has(id)) return;
@@ -638,6 +651,11 @@ function watch(id: string): void {
 function unwatch(id: string): void {
   clearInterval(watchers.get(id));
   watchers.delete(id);
+  const workerJobId = claimed.get(id);
+  if (workerJobId) {
+    releaseExternalRun(workerJobId);
+    claimed.delete(id);
+  }
 }
 
 async function readNewLines(job: StoredJob): Promise<number> {
@@ -686,26 +704,42 @@ async function tick(id: string): Promise<void> {
   ticking.add(id);
   try {
     const job = await read(id);
-    if (!job || job.status !== "running" || !job.run) {
+    if (!job || job.status !== "running") {
       unwatch(id);
+      return;
+    }
+    if (!job.run) {
+      unwatch(id);
+      await finishWith(job, "failed", "Claude Code is no longer running (the process was not recorded).");
       return;
     }
 
     const lines = await readNewLines(job);
+    const pidAlive = alive(job.run.pid);
+    const overdue = Date.parse(job.run.deadline) < Date.now();
 
-    if (alive(job.run.pid)) {
-      const overdue = Date.parse(job.run.deadline) < Date.now();
-      if (overdue) {
-        stopGroup(job.run.pid);
+    if (
+      detachedRunShouldSettle({
+        hasRun: true,
+        pidAlive,
+        overdue,
+        stopReason: job.stopReason,
+      })
+    ) {
+      if (pidAlive) stopGroup(job.run.pid);
+      if (overdue && !job.resultError && !job.stopReason) {
         job.resultError = `Claude Code did not finish the ${job.stage} within ${Math.round(timeoutMs(job.stage) / 60_000)} minutes and was stopped.`;
       }
-      if (lines > 0 || overdue) await save(job);
+      if (!pidAlive) await readNewLines(job);
+      unwatch(id);
+      await settle(job);
       return;
     }
 
-    await readNewLines(job);
-    unwatch(id);
-    await settle(job);
+    if (lines > 0) {
+      await save(job);
+      await syncWorkerJob(job);
+    }
   } finally {
     ticking.delete(id);
   }
@@ -956,8 +990,22 @@ export async function resumeAnimateJob(id: string, note?: string): Promise<Anima
 export async function reconcileAnimateJobs(): Promise<void> {
   for (const job of await readAll()) {
     if (job.status !== "running") continue;
-    if (job.run && alive(job.run.pid)) watch(job.id);
-    else await tick(job.id);
+    const pidAlive = Boolean(job.run && alive(job.run.pid));
+    const overdue = job.run ? Date.parse(job.run.deadline) < Date.now() : true;
+    if (
+      !detachedRunShouldSettle({
+        hasRun: Boolean(job.run),
+        pidAlive,
+        overdue,
+        stopReason: job.stopReason,
+      })
+    ) {
+      if (!job.workerJobId) await syncWorkerJob(job);
+      claim(job);
+      watch(job.id);
+    } else {
+      await tick(job.id);
+    }
   }
   await pump();
 }

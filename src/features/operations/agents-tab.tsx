@@ -19,8 +19,9 @@ import { PAPER_FOCUS, PaperCard, PaperSection, RadialMeter, Tag } from "@/compon
  */
 export function AgentsTab({ data }: { data: OperationsData }) {
   // The same ten-second read the header's "working" indicator uses — one
-  // cache entry, so this costs no extra request — and the only source that
-  // knows about Hermes and Operator runs as well as worker jobs.
+  // cache entry, so this costs no extra request. The graph derives activity
+  // from this list, never from Operations' slower `live[].state`, so the two
+  // panels cannot disagree.
   const activeWork = useMissionControl().data?.activeWork ?? [];
 
   return (

@@ -208,7 +208,6 @@ import {
   cancelJob,
   interruptRunningJobs,
   isRunning,
-  reconcileInterruptedJobs,
   retryJob,
   startJob,
   startStallWatch,
@@ -224,6 +223,7 @@ import {
   saveJob,
 } from "./workers/job-store";
 import { createWorkerEvent } from "./workers/worker";
+import { reconcileDetachedRuns, startLiveReconcile } from "./workers/live-reconcile";
 import {
   delegateTask,
   previewTaskRoute,
@@ -4539,15 +4539,9 @@ server.listen(PORT, HOST, () => {
     console.log(`[memory] ${status.state}: ${status.notes} notes, ${status.links} links${status.reason ? ` (${status.reason})` : ""}`);
   });
 
-  // Jobs run inside this process, so a restart kills them. Settle whatever the
-  // last process left claiming to be live, then start watching for silence.
-  void reconcileInterruptedJobs().then((interrupted) => {
-    if (interrupted.length > 0) {
-      console.log(
-        `[agentos] ${interrupted.length} worker job${interrupted.length === 1 ? "" : "s"} marked interrupted from the previous run: ${interrupted.map((job) => job.id).join(", ")}`,
-      );
-    }
-  });
+  // Detached Claude runs first (so a live Motion pid is claimed), then any
+  // worker job still recorded as live with nobody executing it.
+  void reconcileDetachedRuns();
 
   // Operator runs are held in this process too: one caught mid-run is marked
   // stopped with what it had finished, never resumed.
@@ -4561,6 +4555,7 @@ server.listen(PORT, HOST, () => {
   });
 
   startStallWatch();
+  startLiveReconcile();
   startOutreachSyncTimer();
   // Finance's monthly review writes itself once a month is over. See server/finance/monthly-review.ts.
   startMonthlyReviewSchedule();

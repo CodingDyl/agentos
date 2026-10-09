@@ -111,6 +111,11 @@ describe("worker jobs that are executing", () => {
 
     assert.equal(item.uncertain, true);
   });
+
+  it("carries when the worker was last heard from, so Unconfirmed can be honest", () => {
+    const [item] = activeJobs([job({ lastEventAt: "2026-10-08T11:04:00.000Z" })]);
+    assert.equal(item.lastSeenAt, "2026-10-08T11:04:00.000Z");
+  });
 });
 
 describe("Hermes runs, inferred from the log", () => {

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { closeSync, existsSync, openSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync } from "node:fs";
 import fs, { type FileHandle } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -107,6 +107,11 @@ const StoredMotionJobSchema = MotionJobSchema.extend({
   pendingNote: z.string().optional(),
   /** The last tool error captured from the stream, persisted for result event processing. */
   lastToolError: z.string().optional(),
+  /**
+   * Claude's own stop reason from a `result` event (`success`, `error_max_turns`, …).
+   * Presence means the run has ended, even if a pid still looks alive.
+   */
+  stopReason: z.string().optional(),
 });
 type StoredMotionJob = z.infer<typeof StoredMotionJobSchema>;
 
@@ -340,10 +345,48 @@ export function planEnvironment(): NodeJS.ProcessEnv {
 export function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "EPERM";
   }
+  const command = readCommandLine(pid);
+  // A recycled pid of launchd or nginx would otherwise keep a film "running"
+  // until the operator notices. If we cannot read the command, kill(0) is the
+  // best we have.
+  return command === undefined || commandIsClaude(command);
+}
+
+/** True when a process command line is Claude Code, not a pid that got reused. */
+export function commandIsClaude(command: string): boolean {
+  const text = command.replace(/\u0000/g, " ");
+  return /(?:^|[\\/\s])claude(?:\s|$)/i.test(text) || /@anthropic-ai\/claude/i.test(text);
+}
+
+function readCommandLine(pid: number): string | undefined {
+  try {
+    return readFileSync(`/proc/${pid}/cmdline`, "utf8");
+  } catch {
+    // macOS and anything without procfs: leave identity unknown.
+    return undefined;
+  }
+}
+
+/**
+ * Whether a detached Claude run should be settled rather than kept watching.
+ *
+ * Claude's `result` event is the honest stop: the process may linger, a pid
+ * may be reused, and a deadline may have passed. Any of those means the
+ * record must not sit as "running" / "may have finished" forever.
+ */
+export function detachedRunShouldSettle(input: {
+  hasRun: boolean;
+  pidAlive: boolean;
+  overdue: boolean;
+  stopReason?: string;
+}): boolean {
+  if (!input.hasRun) return true;
+  if (input.stopReason) return true;
+  if (input.overdue) return true;
+  return !input.pidAlive;
 }
 
 /** Stops the whole process group: Claude, and any render it started. */
@@ -491,7 +534,7 @@ export function describeTool(name: string, input: Record<string, unknown> | unde
 
 /** Applies one line of Claude Code's stream to the record. */
 export function applyEvent(
-  job: Pick<StoredMotionJob, "log" | "sessionId" | "model" | "summary" | "usage" | "resultError" | "lastToolError">, 
+  job: Pick<StoredMotionJob, "log" | "sessionId" | "model" | "summary" | "usage" | "resultError" | "lastToolError" | "stopReason">,
   line: string
 ): void {
   let event: Record<string, unknown>;
@@ -566,6 +609,8 @@ export function applyEvent(
     const isError = event.is_error === true;
     const failed = isError || (subtype !== undefined && subtype !== "success");
     
+    job.stopReason = subtype ?? (failed ? "error" : "success");
+
     if (failed) {
       // Extract concrete error in priority order:
       // 1. Last tool error from the stream (persisted on job)
@@ -639,27 +684,39 @@ async function tick(id: string): Promise<void> {
   ticking.add(id);
   try {
     const job = await read(id);
-    if (!job || job.status !== "running" || !job.run) {
+    if (!job || job.status !== "running") {
       unwatch(id);
+      return;
+    }
+    if (!job.run) {
+      unwatch(id);
+      await finishWith(job, "failed", "Claude Code is no longer running (the process was not recorded).");
       return;
     }
 
     const lines = await readNewLines(job);
+    const pidAlive = alive(job.run.pid);
+    const overdue = Date.parse(job.run.deadline) < Date.now();
 
-    if (alive(job.run.pid)) {
-      const overdue = Date.parse(job.run.deadline) < Date.now();
-      if (overdue) {
-        stopGroup(job.run.pid);
+    if (
+      detachedRunShouldSettle({
+        hasRun: true,
+        pidAlive,
+        overdue,
+        stopReason: job.stopReason,
+      })
+    ) {
+      if (pidAlive) stopGroup(job.run.pid);
+      if (overdue && !job.resultError && !job.stopReason) {
         job.resultError = `Claude Code did not finish within ${Math.round(timeoutMs() / 60_000)} minutes and was stopped.`;
       }
-      if (lines > 0 || overdue) await save(job);
+      if (!pidAlive) await readNewLines(job);
+      unwatch(id);
+      await settle(job);
       return;
     }
 
-    // The process has ended. Read anything it wrote on the way out, then decide.
-    await readNewLines(job);
-    unwatch(id);
-    await settle(job);
+    if (lines > 0) await save(job);
   } finally {
     ticking.delete(id);
   }
@@ -885,8 +942,20 @@ export async function resumeMotionJob(id: string, note?: string): Promise<Motion
 export async function reconcileMotionJobs(): Promise<void> {
   for (const job of await readAll()) {
     if (job.status !== "running") continue;
-    if (job.run && alive(job.run.pid)) watch(job.id);
-    else await tick(job.id);
+    const pidAlive = Boolean(job.run && alive(job.run.pid));
+    const overdue = job.run ? Date.parse(job.run.deadline) < Date.now() : true;
+    if (
+      !detachedRunShouldSettle({
+        hasRun: Boolean(job.run),
+        pidAlive,
+        overdue,
+        stopReason: job.stopReason,
+      })
+    ) {
+      watch(job.id);
+    } else {
+      await tick(job.id);
+    }
   }
   await pump();
 }

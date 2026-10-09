@@ -92,6 +92,23 @@ interface RunningJob {
 const running = new Map<string, RunningJob>();
 
 /**
+ * Jobs this process is not executing itself but can still observe — Claude
+ * Motion, started detached, watched by pid. Without this, `isRunning` is
+ * always false for them and every screen hedges "may have finished".
+ */
+const external = new Set<string>();
+
+/** Marks a detached run as observed and live. Idempotent. */
+export function claimExternalRun(jobId: string): void {
+  external.add(jobId);
+}
+
+/** Drops a detached run once it has settled or its pid is gone. */
+export function releaseExternalRun(jobId: string): void {
+  external.delete(jobId);
+}
+
+/**
  * Statuses a job never moves out of on its own.
  *
  * `awaiting_review` is settled rather than finished: the run is over, nothing
@@ -128,7 +145,7 @@ export function subscribe(
 }
 
 export function isRunning(jobId: string): boolean {
-  return running.has(jobId);
+  return running.has(jobId) || external.has(jobId);
 }
 
 /**
