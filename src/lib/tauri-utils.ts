@@ -1,10 +1,11 @@
+import { isTauri as tauriRuntime } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 /**
  * Whether AgentOS is running in Tauri (desktop app) vs. the browser.
  */
 export function isTauri(): boolean {
-  return "__TAURI_INTERNALS__" in window;
+  return tauriRuntime();
 }
 
 /**

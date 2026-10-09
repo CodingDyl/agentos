@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
-import { open } from "@tauri-apps/plugin-dialog";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   X,
   Save,
@@ -16,12 +15,14 @@ import {
 import { AppShell } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useProjects } from "@/lib/agentos/queries";
+import { getProject } from "@/lib/agentos/client";
 import { useCoderStore } from "./coder-store";
 import { FileTree } from "./file-tree";
 import { CodeEditor } from "./code-editor";
 import { Terminal } from "./terminal";
 import { WorkspaceSetupWizard } from "./workspace-setup-wizard";
 import { GitPanel } from "./git-panel";
+import { FolderOpenControl } from "./folder-open-control";
 import { cn } from "@/lib/utils";
 import {
   openProject,
@@ -31,12 +32,20 @@ import {
   killTerminal,
   searchFiles,
   persistWorkspaceLocalPath,
+  coderWebSocketUrl,
+  withTimeout,
 } from "@/lib/agentos/coder-api";
-import { resolveWorkspaceRepoUrl } from "./workspace-repo-url";
+import {
+  WORKSPACE_OPEN_TIMEOUT_MS,
+  formatWorkspaceOpenError,
+  planWorkspaceOpen,
+  shouldAttemptOpenWorkspace,
+} from "./open-workspace";
 
 export function CoderPage() {
   const navigationItems = useNavigationItems();
   const { data: projectsData } = useProjects();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   
@@ -79,10 +88,13 @@ export function CoderPage() {
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [setupWorkspace, setSetupWorkspace] = useState<{ slug: string; name: string; repoUrl: string } | null>(null);
   const [showGitPanel, setShowGitPanel] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [openingSlug, setOpeningSlug] = useState<string | null>(null);
 
   const activeFile = openFiles.find((f) => f.path === activeFilePath);
   const dirtyCount = openFiles.filter((f) => f.isDirty).length;
-  const hasHandledWorkspaceParam = useRef(false);
+  const handledWorkspaceParam = useRef<string | null>(null);
+  const lastAttemptedSlug = useRef<string | null>(null);
 
   const openAtPath = useCallback(async (localPath: string, slug: string | null) => {
     if (projectRoot && dirtyCount > 0) {
@@ -97,7 +109,11 @@ export function CoderPage() {
       clearProject();
     }
 
-    const result = await openProject(localPath, slug ?? undefined);
+    const result = await withTimeout(
+      openProject(localPath, slug ?? undefined),
+      WORKSPACE_OPEN_TIMEOUT_MS,
+      "Timed out opening the project folder. Is AgentOS running?",
+    );
     if (result.success && result.rootPath) {
       setProject(
         result.rootPath,
@@ -109,91 +125,97 @@ export function CoderPage() {
       setShowProjectPicker(false);
       setShowSetupWizard(false);
       setSetupWorkspace(null);
+      setWorkspaceError(null);
       return true;
     }
 
-    alert(`Failed to open project: ${result.error}`);
-    return false;
+    throw new Error(result.error || "Failed to open that folder");
   }, [projectRoot, dirtyCount, clearProject, setProject]);
 
   const handleOpenWorkspace = useCallback(async (slug: string) => {
-    const project = projectsData?.projects.find((p) => p.slug === slug);
-    if (!project) {
-      setShowProjectPicker(true);
-      return;
-    }
-
-    const detailResponse = await fetch(`http://localhost:3500/api/projects/${encodeURIComponent(slug)}`);
-    if (!detailResponse.ok) {
-      alert(`Failed to fetch workspace details for "${project.name}"`);
-      setShowProjectPicker(true);
-      return;
-    }
-
-    const detail = await detailResponse.json();
-    const localPath = detail.configuration?.localPath as string | undefined;
-
-    if (!localPath) {
-      setSetupWorkspace({
-        slug,
-        name: project.name,
-        repoUrl: resolveWorkspaceRepoUrl(detail) ?? "",
-      });
-      setShowSetupWizard(true);
-      setShowProjectPicker(false);
-      return;
-    }
-
-    await openAtPath(localPath, slug);
-  }, [projectsData, openAtPath]);
-
-  useEffect(() => {
-    const workspaceParam = searchParams.get("workspace");
-    if (workspaceParam && !projectRoot && projectsData && !hasHandledWorkspaceParam.current) {
-      hasHandledWorkspaceParam.current = true;
-      void handleOpenWorkspace(workspaceParam);
-    }
-  }, [searchParams, projectRoot, projectsData, handleOpenWorkspace]);
-
-  const handleOpenFolder = useCallback(async () => {
+    lastAttemptedSlug.current = slug;
+    setWorkspaceError(null);
+    setOpeningSlug(slug);
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select Project Folder",
-      });
-
-      if (!selected || typeof selected !== "string") return;
-
-      await openAtPath(selected, null);
-    } catch (error) {
-      console.error("Failed to open folder:", error);
-      alert("Failed to open folder picker");
-    }
-  }, [openAtPath]);
-
-  const handleLinkExistingFolder = useCallback(async (slug: string) => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select Project Folder",
-      });
-
-      if (!selected || typeof selected !== "string") return;
-
-      const saved = await persistWorkspaceLocalPath(slug, selected);
-      if (!saved.success) {
-        alert(`Failed to save local path: ${saved.error}`);
+      const detail = await withTimeout(
+        getProject(slug),
+        WORKSPACE_OPEN_TIMEOUT_MS,
+        `Timed out loading workspace details for "${slug}". Is AgentOS running?`,
+      );
+      const plan = planWorkspaceOpen({ slug, name: detail.name, detail });
+      if (plan.kind === "setup") {
+        setSetupWorkspace({
+          slug: plan.slug,
+          name: plan.name,
+          repoUrl: plan.repoUrl,
+        });
+        setShowSetupWizard(true);
+        setShowProjectPicker(false);
         return;
       }
 
-      await openAtPath(selected, slug);
+      await openAtPath(plan.localPath, slug);
     } catch (error) {
-      console.error("Failed to open folder:", error);
-      alert("Failed to open folder picker");
+      setWorkspaceError(
+        formatWorkspaceOpenError(error, `Failed to open workspace "${slug}"`),
+      );
+    } finally {
+      setOpeningSlug(null);
     }
   }, [openAtPath]);
+
+  useEffect(() => {
+    const workspaceParam = searchParams.get("workspace");
+    if (
+      !shouldAttemptOpenWorkspace({
+        workspaceParam,
+        projectRoot,
+        handledWorkspaceParam: handledWorkspaceParam.current,
+      })
+    ) {
+      return;
+    }
+    handledWorkspaceParam.current = workspaceParam;
+    void handleOpenWorkspace(workspaceParam!);
+  }, [searchParams, projectRoot, handleOpenWorkspace]);
+
+  const retryOpenWorkspace = useCallback(() => {
+    const slug = searchParams.get("workspace") ?? lastAttemptedSlug.current ?? openingSlug;
+    if (!slug) return;
+    handledWorkspaceParam.current = null;
+    setWorkspaceError(null);
+    handledWorkspaceParam.current = slug;
+    void handleOpenWorkspace(slug);
+  }, [searchParams, openingSlug, handleOpenWorkspace]);
+
+  const backToWorkspaces = useCallback(() => {
+    handledWorkspaceParam.current = null;
+    setWorkspaceError(null);
+    setShowProjectPicker(true);
+    const slug = searchParams.get("workspace");
+    if (slug) {
+      setSearchParams({}, { replace: true });
+    }
+    void navigate("/workspaces");
+  }, [navigate, searchParams, setSearchParams]);
+
+  const handleOpenFolderPath = useCallback(async (selected: string) => {
+    await openAtPath(selected, null);
+  }, [openAtPath]);
+
+  const handleLinkExistingFolder = useCallback(async (path: string) => {
+    const slug = setupWorkspace?.slug;
+    if (!slug) {
+      throw new Error("No workspace is selected to link a folder to.");
+    }
+
+    const saved = await persistWorkspaceLocalPath(slug, path);
+    if (!saved.success) {
+      throw new Error(saved.error || "Failed to save local path");
+    }
+
+    await openAtPath(path, slug);
+  }, [openAtPath, setupWorkspace?.slug]);
 
   const handleFileOpen = useCallback(
     (path: string, content: string) => {
@@ -258,10 +280,11 @@ export function CoderPage() {
     try {
       const result = await createTerminal();
       if (result.success && result.id && result.token) {
-        addTerminal(result.id, `Terminal ${terminals.length + 1}`, result.token);
+        const token = result.token;
+        addTerminal(result.id, `Terminal ${terminals.length + 1}`, token);
         
         setTimeout(() => {
-          const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${result.token}`);
+          const ws = new WebSocket(coderWebSocketUrl(token));
           ws.onopen = () => {
             ws.send(JSON.stringify({ type: "input", data: `${command}\r` }));
           };
@@ -347,7 +370,7 @@ export function CoderPage() {
           void openAtPath(localPath, setupWorkspace.slug);
         }}
         onCancel={() => {
-          hasHandledWorkspaceParam.current = true;
+          handledWorkspaceParam.current = searchParams.get("workspace");
           setShowSetupWizard(false);
           setSetupWorkspace(null);
           setShowProjectPicker(true);
@@ -355,10 +378,46 @@ export function CoderPage() {
             setSearchParams({}, { replace: true });
           }
         }}
-        onLinkFolder={() => {
-          void handleLinkExistingFolder(setupWorkspace.slug);
-        }}
+        onLinkFolder={(path) => handleLinkExistingFolder(path)}
       />
+    );
+  }
+
+  if (!projectRoot && !showProjectPicker && !showSetupWizard && workspaceError && searchParams.get("workspace")) {
+    return (
+      <AppShell
+        navigationItems={navigationItems}
+        pageId="coder"
+        activeHref="/coder"
+        modelLabel="Coder"
+      >
+        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono">
+          <div className="w-full max-w-lg space-y-6 p-8">
+            <div className="space-y-2 border-l-4 border-[#ff0066] pl-4">
+              <h1 className="font-mono text-2xl font-bold text-[#ff0066] tracking-wider">
+                COULD_NOT_OPEN_
+              </h1>
+              <p className="text-sm text-[#e0e0e0]">{workspaceError}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={retryOpenWorkspace}
+                className="rounded border border-[#00ffcc] bg-[#00ffcc0d] px-4 py-2 text-sm text-[#00ffcc] hover:bg-[#00ffcc1a]"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={backToWorkspaces}
+                className="rounded border border-[#6a9fb5] px-4 py-2 text-sm text-[#6a9fb5] hover:bg-[#6a9fb51a]"
+              >
+                Back to workspaces
+              </button>
+            </div>
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
@@ -406,28 +465,50 @@ export function CoderPage() {
                     <button
                       key={project.slug}
                       type="button"
+                      disabled={openingSlug !== null}
                       onClick={() => void handleOpenWorkspace(project.slug)}
-                      className="flex w-full items-center gap-3 rounded border border-[#00ffcc1a] bg-[#0a0a0a] p-3 text-left transition-colors hover:border-[#00ffcc] hover:bg-[#00ffcc0d]"
+                      className="flex w-full items-center gap-3 rounded border border-[#00ffcc1a] bg-[#0a0a0a] p-3 text-left transition-colors hover:border-[#00ffcc] hover:bg-[#00ffcc0d] disabled:opacity-50"
                     >
                       <Box className="size-5 shrink-0 text-[#00ccff]" />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-[#e0e0e0]">{project.name}</div>
-                        <div className="truncate text-xs text-[#6a9fb5]">{project.slug}</div>
+                        <div className="truncate text-xs text-[#6a9fb5]">
+                          {openingSlug === project.slug ? "Opening…" : project.slug}
+                        </div>
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
 
+              {workspaceError ? (
+                <div className="space-y-3 rounded border border-[#ff006633] bg-[#ff00660d] p-3">
+                  <p className="text-sm text-[#ff0066]">{workspaceError}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={retryOpenWorkspace}
+                      className="rounded border border-[#00ffcc] px-3 py-1 text-xs text-[#00ffcc] hover:bg-[#00ffcc1a]"
+                    >
+                      Retry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={backToWorkspaces}
+                      className="rounded border border-[#6a9fb5] px-3 py-1 text-xs text-[#6a9fb5] hover:bg-[#6a9fb51a]"
+                    >
+                      Back to workspaces
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="border-t border-[#00ffcc1a] pt-4">
-                <button
-                  type="button"
-                  onClick={handleOpenFolder}
-                  className="flex w-full items-center justify-center gap-2 rounded border border-[#00ffcc] bg-[#00ffcc0d] p-3 font-medium text-[#00ffcc] transition-colors hover:bg-[#00ffcc1a]"
-                >
-                  <FolderOpen className="size-5" />
-                  Open Folder...
-                </button>
+                <FolderOpenControl
+                  label="Open Folder..."
+                  onPickPath={handleOpenFolderPath}
+                  disabled={openingSlug !== null}
+                />
               </div>
             </div>
           </div>

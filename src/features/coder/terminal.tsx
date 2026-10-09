@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { coderWebSocketUrl } from "@/lib/agentos/coder-api";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalProps {
@@ -63,7 +64,7 @@ export function Terminal({ terminalId, token, onExit }: TerminalProps) {
     fitAddonRef.current = fitAddon;
     terminalRef.current = terminal;
 
-    const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${token}`);
+    const ws = new WebSocket(coderWebSocketUrl(token));
 
     ws.onopen = () => {
       terminal.write("\x1b[32m● Connected to terminal\x1b[0m\r\n");

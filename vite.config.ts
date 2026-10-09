@@ -28,6 +28,7 @@ export default defineConfig(() => ({
       "/api": {
         target: `http://127.0.0.1:${process.env.AGENTOS_PORT ?? 8787}`,
         changeOrigin: true,
+        ws: true,
       },
     },
     host: host || false,

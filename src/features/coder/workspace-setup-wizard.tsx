@@ -1,9 +1,10 @@
 import { useReducer, useEffect, useRef, useState } from "react";
-import { CheckCircle2, XCircle, Loader2, AlertCircle, FolderOpen, Terminal as TerminalIcon } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, AlertCircle, Terminal as TerminalIcon } from "lucide-react";
 import type { SetupStep } from "../../../shared/coder-types";
 import { Terminal } from "./terminal";
 import * as coderApi from "../../lib/agentos/coder-api";
 import { isGitCloneUrl } from "./workspace-repo-url";
+import { FolderOpenControl } from "./folder-open-control";
 
 interface WorkspaceSetupWizardProps {
   workspaceSlug: string;
@@ -11,7 +12,7 @@ interface WorkspaceSetupWizardProps {
   repoUrl?: string;
   onComplete: (localPath: string) => void;
   onCancel: () => void;
-  onLinkFolder: () => void;
+  onLinkFolder: (path: string) => void;
 }
 
 interface SetupState {
@@ -115,12 +116,13 @@ export function WorkspaceSetupWizard({
 
         if (signal.aborted) return;
 
-        if (!cloneResult.success) {
-          dispatch({ type: "UPDATE_STEP", stepId: "clone", status: "error", message: cloneResult.error });
+        if (!cloneResult.success || !cloneResult.path) {
+          dispatch({ type: "UPDATE_STEP", stepId: "clone", status: "error", message: cloneResult.error ?? "Clone did not return a path" });
           return;
         }
 
-        dispatch({ type: "SET_LOCAL_PATH", path: cloneResult.path });
+        const clonedPath = cloneResult.path;
+        dispatch({ type: "SET_LOCAL_PATH", path: clonedPath });
         dispatch({ type: "UPDATE_STEP", stepId: "clone", status: "success", message: "Repository cloned" });
 
         if (signal.aborted) return;
@@ -129,7 +131,7 @@ export function WorkspaceSetupWizard({
         dispatch({ type: "SET_CURRENT_STEP", step: "install" });
         dispatch({ type: "UPDATE_STEP", stepId: "install", status: "running", message: "Opening project..." });
 
-        const openResult = await coderApi.openProject(cloneResult.path, workspaceSlug);
+        const openResult = await coderApi.openProject(clonedPath, workspaceSlug);
 
         if (signal.aborted) return;
 
@@ -147,7 +149,7 @@ export function WorkspaceSetupWizard({
         if (!pmResult.success || !pmResult.packageManager) {
           dispatch({ type: "UPDATE_STEP", stepId: "install", status: "success", message: "No package manager detected, skipping" });
           currentStepId = "env";
-          await runEnvSetup(cloneResult.path);
+          await runEnvSetup(clonedPath);
           return;
         }
 
@@ -163,7 +165,8 @@ export function WorkspaceSetupWizard({
           return;
         }
 
-        dispatch({ type: "SET_TERMINAL", terminalId: termResult.id, terminalToken: termResult.token });
+        const installToken = termResult.token;
+        dispatch({ type: "SET_TERMINAL", terminalId: termResult.id, terminalToken: installToken });
 
         await new Promise<void>((resolve) => {
           if (signal.aborted) {
@@ -177,7 +180,7 @@ export function WorkspaceSetupWizard({
               return;
             }
 
-            const ws = new WebSocket(`ws://localhost:3500/api/coder/terminal/ws/${termResult.token}`);
+            const ws = new WebSocket(coderApi.coderWebSocketUrl(installToken));
             installWsRef.current = ws;
 
             ws.onopen = () => {
@@ -213,7 +216,7 @@ export function WorkspaceSetupWizard({
         if (signal.aborted) return;
 
         currentStepId = "env";
-        await runEnvSetup(cloneResult.path);
+        await runEnvSetup(clonedPath);
       } catch (error) {
         if (signal.aborted) return;
         const errorMessage = error instanceof Error ? error.message : "Setup failed";
@@ -375,15 +378,11 @@ export function WorkspaceSetupWizard({
             </label>
             {urlError ? <p className="text-sm text-[#ff0066]">{urlError}</p> : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#00ffcc1a] pt-4">
-              <button
-                type="button"
-                onClick={onLinkFolder}
-                className="flex items-center gap-2 rounded border border-[#00ffcc33] px-4 py-2 text-sm text-[#00ccff] hover:bg-[#00ccff1a]"
-              >
-                <FolderOpen className="h-4 w-4" />
-                Link existing local folder instead
-              </button>
+            <div className="space-y-3 border-t border-[#00ffcc1a] pt-4">
+              <FolderOpenControl
+                label="Link existing local folder instead"
+                onPickPath={(path) => onLinkFolder(path)}
+              />
               <div className="flex items-center gap-2">
                 <button
                   type="button"

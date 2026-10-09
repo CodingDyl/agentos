@@ -37,33 +37,46 @@ function FileTreeNode({ node, level, onFileOpen, selectedPath }: FileTreeNodePro
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState<FileTreeNode[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const isSelected = selectedPath === node.path;
 
   async function handleClick() {
     if (node.type === "directory") {
-      if (!expanded && children.length === 0) {
+      if (expanded) {
+        setExpanded(false);
+        return;
+      }
+      if (children.length === 0) {
         setLoading(true);
+        setLoadError(null);
         try {
           const result = await listDirectory(node.path);
           if (result.success && result.nodes) {
             setChildren(result.nodes);
+            setExpanded(true);
+          } else {
+            setLoadError(result.error ?? "Failed to load folder");
           }
         } catch (error) {
-          console.error("Failed to load directory:", error);
+          setLoadError(error instanceof Error ? error.message : "Failed to load folder");
         } finally {
           setLoading(false);
         }
+        return;
       }
-      setExpanded(!expanded);
+      setExpanded(true);
     } else {
+      setLoadError(null);
       try {
         const result = await readFile(node.path);
         if (result.success && result.content !== undefined) {
           onFileOpen(node.path, result.content);
+        } else {
+          setLoadError(result.error ?? "Failed to open file");
         }
       } catch (error) {
-        console.error("Failed to read file:", error);
+        setLoadError(error instanceof Error ? error.message : "Failed to open file");
       }
     }
   }
@@ -101,6 +114,11 @@ function FileTreeNode({ node, level, onFileOpen, selectedPath }: FileTreeNodePro
         <span className="truncate">{node.name}</span>
         {loading && <span className="ml-auto text-xs text-[#6a9fb5]">...</span>}
       </button>
+      {loadError ? (
+        <div className="px-2 py-1 text-xs text-[#ff0066]" style={{ paddingLeft: `${level * 12 + 28}px` }}>
+          {loadError}
+        </div>
+      ) : null}
 
       {expanded && children.length > 0 && (
         <div>
