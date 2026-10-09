@@ -38,7 +38,7 @@ export function GitPanel() {
     setLoading(true);
     try {
       const result = await coderApi.getGitStatus();
-      if (result.success) {
+      if (result.success && result.status) {
         setStatus(result.status);
       }
     } catch (error) {
@@ -51,7 +51,7 @@ export function GitPanel() {
   const loadBranches = useCallback(async () => {
     try {
       const result = await coderApi.getBranches();
-      if (result.success) {
+      if (result.success && result.branches) {
         setBranches(result.branches.filter((b: GitBranchType) => !b.remote));
       }
     } catch (error) {
@@ -66,12 +66,12 @@ export function GitPanel() {
       setLoading(true);
       try {
         const statusResult = await coderApi.getGitStatus();
-        if (mounted && statusResult.success) {
+        if (mounted && statusResult.success && statusResult.status) {
           setStatus(statusResult.status);
         }
 
         const branchesResult = await coderApi.getBranches();
-        if (mounted && branchesResult.success) {
+        if (mounted && branchesResult.success && branchesResult.branches) {
           setBranches(branchesResult.branches.filter((b: GitBranchType) => !b.remote));
         }
       } catch (error) {
@@ -94,7 +94,7 @@ export function GitPanel() {
     setSelectedFile(file);
     try {
       const result = await coderApi.getGitDiff(file.path, file.staged);
-      if (result.success) {
+      if (result.success && result.diff) {
         setDiffContent({
           oldContent: result.diff.oldContent,
           newContent: result.diff.newContent,
