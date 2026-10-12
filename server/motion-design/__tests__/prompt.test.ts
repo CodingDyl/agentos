@@ -97,9 +97,9 @@ describe("motion design prompt assembly", () => {
   it("suggests three reference starting points when the person has none", () => {
     const suggestions = suggestedReferences();
     assert.equal(suggestions.length, 3);
-    assert.ok(suggestions.some((entry) => entry.url.includes("refero.design")));
-    assert.ok(suggestions.some((entry) => entry.url.includes("mobbin.com")));
-    assert.ok(suggestions.some((entry) => entry.url.includes("savee.it")));
+    assert.ok(suggestions.some((entry) => entry.url?.includes("refero.design")));
+    assert.ok(suggestions.some((entry) => entry.url?.includes("mobbin.com")));
+    assert.ok(suggestions.some((entry) => entry.url?.includes("savee.it")));
     assert.ok(suggestions.every((entry) => entry.likes.length > 0 && entry.note));
   });
 });

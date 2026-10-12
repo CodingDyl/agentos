@@ -11,7 +11,6 @@ import {
   type MotionLaunchInput,
   type MotionReference,
   type MotionRunView,
-  type MotionSetup,
 } from "@shared/motion-design-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
@@ -123,7 +122,7 @@ export function useSaveMotionDraft() {
 export function useInstallMotionSkill() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (confirmOverwrite = false) => call(`${base}/skill/install`, SkillInstallResultSchema, json({ confirmOverwrite })),
+    mutationFn: (confirmOverwrite: boolean) => call(`${base}/skill/install`, SkillInstallResultSchema, json({ confirmOverwrite })),
     onSuccess: () => void client.invalidateQueries({ queryKey: motionDesignKeys.setup() }),
     networkMode: "always",
     retry: 0,

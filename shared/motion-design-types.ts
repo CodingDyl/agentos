@@ -108,7 +108,6 @@ export const REFERENCE_LIBRARY_LINKS = [
 ] as const;
 
 const Text = (max: number) => z.string().trim().max(max);
-const OptionalLine = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
 export const MotionReferenceSchema = z.object({
   id: z.string().min(1).max(80),
@@ -301,7 +300,7 @@ export type MotionLaunchInput = z.input<typeof MotionLaunchInputSchema>;
 
 export const MotionDraftSchema = z.object({
   step: MotionWizardStepSchema.default("setup"),
-  brief: MotionBriefSchema.default({}),
+  brief: MotionBriefSchema.default(() => MotionBriefSchema.parse({})),
   references: z.array(MotionReferenceSchema).max(10).default([]),
   budgetPlan: BudgetPlanIdSchema.default("standard"),
   budgetCeiling: z.number().positive().max(100_000).optional(),
@@ -358,7 +357,8 @@ export function budgetBreakdown(ceiling: number, planned: number): { planned: nu
   return { planned, reserve, ceiling };
 }
 
-export function youDecideAuthorizesSpend(_youDecide: boolean): false {
+export function youDecideAuthorizesSpend(youDecide: boolean): false {
+  if (youDecide) return false;
   return false;
 }
 

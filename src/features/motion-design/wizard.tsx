@@ -5,7 +5,6 @@ import {
   BUDGET_PLANS,
   CREDIT_COST_TABLE,
   MOTION_WIZARD_STEP_LABEL,
-  MOTION_WIZARD_STEPS,
   REFERENCE_LIBRARY_LINKS,
   REFERENCE_LIKE_LABEL,
   REFERENCE_LIKES,
@@ -66,25 +65,27 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
   const save = useSaveMotionDraft();
   const install = useInstallMotionSkill();
   const launch = useLaunchMotionDesign();
-  const [draft, setDraft] = useState<MotionDraft>(emptyDraft);
-  const [hydrated, setHydrated] = useState(false);
+  const storedDraft = stored.data?.draft;
+  const [edited, setEdited] = useState<MotionDraft | undefined>();
+  const draft = edited ?? storedDraft ?? emptyDraft();
   const [link, setLink] = useState("");
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [uploadError, setUploadError] = useState<string>();
   const [zipMessage, setZipMessage] = useState<string>();
 
-  useEffect(() => {
-    if (hydrated || stored.isPending) return;
-    if (stored.data?.draft) setDraft(stored.data.draft);
-    setHydrated(true);
-  }, [hydrated, stored.data, stored.isPending]);
-
   const persist = save.mutate;
   useEffect(() => {
-    if (!hydrated) return;
-    const timer = window.setTimeout(() => persist(draft), 600);
+    if (!edited) return;
+    const timer = window.setTimeout(() => persist(edited), 600);
     return () => window.clearTimeout(timer);
-  }, [draft, hydrated, persist]);
+  }, [edited, persist]);
+
+  const setDraft = (next: MotionDraft | ((current: MotionDraft) => MotionDraft)) => {
+    setEdited((current) => {
+      const base = current ?? storedDraft ?? emptyDraft();
+      return typeof next === "function" ? next(base) : next;
+    });
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

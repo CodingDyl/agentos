@@ -20,7 +20,7 @@ import { MotionDesignError, clearDraft, createMotionRunId, saveRun } from "./sto
 export const MOTION_SITE_TOOLS = [...MOTION_SITE_ALLOWED_TOOLS];
 
 function workspaceName(input: MotionLaunchInput): string {
-  const named = input.workspaceName?.trim() || input.brief.brandName.trim();
+  const named = input.workspaceName?.trim() || input.brief.brandName?.trim();
   return named || "Motion site";
 }
 
