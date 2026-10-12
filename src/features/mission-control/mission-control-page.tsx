@@ -29,6 +29,7 @@ import { TodayStrip, TodayWorkspaces } from "./today";
 import { TodayCaptured } from "./today-captured";
 import { CompassRail } from "./compass-rail";
 import { MorningMode } from "./morning-mode";
+import { TodayTodos } from "./today-todos";
 import { YourThree } from "./your-three";
 import { useFocusToday } from "@/lib/agentos/focus";
 import { useCaptureTriage } from "@/lib/agentos/capture-triage";
@@ -164,6 +165,7 @@ function MissionControl({ data }: { data: MissionControlData }) {
       <div className="collective-columns">
         <div className="min-w-0">
           {focus.data ? <YourThree today={focus.data} onCheckIn={() => setMorning("open")} /> : null}
+          {focus.data ? <TodayTodos today={focus.data} /> : null}
           <TodayScheduledTasks />
           {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
           <AttentionList items={data.attention} dismissed={data.dismissed} workers={data.workers} />

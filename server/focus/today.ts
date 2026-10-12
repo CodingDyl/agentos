@@ -1,7 +1,8 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Compass } from "../../shared/compass-types";
-import { ENERGY_LABEL, FocusDaySchema, TIME_LABEL, type Candidate, type CheckIn, type FocusDay, type Pick } from "../../shared/focus-types";
+import { ENERGY_LABEL, FocusDaySchema, mindToTodos, TIME_LABEL, type Candidate, type CheckIn, type FocusDay, type Pick, type Todo } from "../../shared/focus-types";
 import { appendUnder } from "../agentos/capture-triage";
 import { readOptionalFile } from "../agentos/filesystem";
 import { updateTask } from "../agentos/mutations/tasks";
@@ -52,13 +53,27 @@ async function readDays(): Promise<Record<string, FocusDay>> {
   }
 }
 
+/**
+ * A day not yet written: empty, except for the to-dos left unfinished on the
+ * most recent earlier day, which carry over until they are done or removed.
+ * That day already carried its own, so one removed there stays removed.
+ */
+function freshDay(date: string, days: Record<string, FocusDay>): FocusDay {
+  const previous = Object.keys(days)
+    .filter((entry) => entry < date)
+    .sort()
+    .at(-1);
+  const todos = previous ? days[previous].todos.filter((todo) => !todo.done).map((todo) => ({ ...todo, carriedFrom: todo.carriedFrom ?? previous })) : [];
+  return FocusDaySchema.parse({ date, todos });
+}
+
 let queue: Promise<unknown> = Promise.resolve();
 
 /** One change to one day, serialised so two clicks cannot lose each other's write. */
 function changeDay(date: string, change: (day: FocusDay) => FocusDay | Promise<FocusDay>): Promise<FocusDay> {
   const run = queue.then(async () => {
     const days = await readDays();
-    const next = await change(days[date] ?? FocusDaySchema.parse({ date }));
+    const next = await change(days[date] ?? freshDay(date, days));
     days[date] = next;
     const kept = Object.fromEntries(Object.entries(days).sort(([a], [b]) => b.localeCompare(a)).slice(0, KEEP_DAYS));
     await fs.mkdir(uiStateDir(), { recursive: true });
@@ -72,7 +87,8 @@ function changeDay(date: string, change: (day: FocusDay) => FocusDay | Promise<F
 }
 
 export async function readDay(date = localDate()): Promise<FocusDay> {
-  return (await readDays())[date] ?? FocusDaySchema.parse({ date });
+  const days = await readDays();
+  return days[date] ?? freshDay(date, days);
 }
 
 // ─── Journal ────────────────────────────────────────────────────────────────
@@ -180,9 +196,12 @@ export async function checkIn(input: CheckIn, hermes: typeof sendToHermes = send
   const compass = compassRead?.exists ? compassRead.compass : undefined;
   const result = await pick(candidates, input, compass, hermes);
 
+  const at = new Date().toISOString();
   const day = await changeDay(date, (current) => ({
     ...current,
-    checkIn: { ...input, at: new Date().toISOString() },
+    checkIn: { ...input, at },
+    // What was on your mind becomes today's to-dos, so it is on the page and not only in Hermes' prompt.
+    todos: addTodos(current.todos, mindToTodos(input.mind), "mind", at),
     skipped: false,
     picks: result.picks,
     pickedBy: result.pickedBy,
@@ -193,6 +212,40 @@ export async function checkIn(input: CheckIn, hermes: typeof sendToHermes = send
     `Your 3 (${result.pickedBy === "hermes" ? "Hermes" : "rules"}): ${result.picks.map((entry, index) => `${index + 1}. ${entry.candidate.title}`).join("; ")}`,
   ]);
   return day;
+}
+
+/** Adds to-dos, skipping any already on the list that is not done (a second check-in must not double them). */
+function addTodos(todos: Todo[], texts: string[], from: Todo["from"], at: string): Todo[] {
+  const open = new Set(todos.filter((todo) => !todo.done).map((todo) => todo.text.toLowerCase()));
+  const added = texts.filter((text) => !open.has(text.toLowerCase())).map((text) => ({ id: randomUUID(), text, done: false, from, at }));
+  return [...todos, ...added];
+}
+
+export async function addTodo(text: string): Promise<FocusDay> {
+  const date = localDate();
+  return changeDay(date, (current) => {
+    const todos = addTodos(current.todos, [text], "you", new Date().toISOString());
+    if (todos.length === current.todos.length) throw new FocusError("That is already on today's list.");
+    return { ...current, todos };
+  });
+}
+
+export async function updateTodo(id: string, patch: { done?: boolean; text?: string }): Promise<FocusDay> {
+  const date = localDate();
+  let finished: string | undefined;
+  const day = await changeDay(date, (current) => {
+    const todo = current.todos.find((entry) => entry.id === id);
+    if (!todo) throw new FocusError("That is not on today's list. Reload and try again.");
+    if (patch.done && !todo.done) finished = patch.text ?? todo.text;
+    return { ...current, todos: current.todos.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)) };
+  });
+  if (finished) await journal(date, [`Done: ${finished}`]);
+  return day;
+}
+
+export async function removeTodo(id: string): Promise<FocusDay> {
+  const date = localDate();
+  return changeDay(date, (current) => ({ ...current, todos: current.todos.filter((entry) => entry.id !== id) }));
 }
 
 export async function skip(): Promise<FocusDay> {

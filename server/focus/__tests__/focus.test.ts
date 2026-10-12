@@ -195,3 +195,69 @@ describe("ticks from before the ledger", () => {
     assert.deepEqual(Object.keys(await readDoneLedger()).sort(), ["area_task:personal:abc", "task:x:1", "week:old"]);
   });
 });
+
+describe("today's to-do list", () => {
+  it("turns what was on your mind into to-dos, one per line, without doubling them on a second check-in", async () => {
+    const { mindToTodos } = await import("../../../shared/focus-types");
+    assert.deepEqual(mindToTodos("- Call the bank\n2. Send invoice; call the bank\n\n  "), ["Call the bank", "Send invoice"]);
+
+    write("projects/PORTFOLIO.md", "# Project Portfolio\n\n## Projects\n");
+    const failing = (async () => {
+      throw new Error("down");
+    }) as never;
+    const first = await focus.checkIn({ energy: "ok", time: "1_3h", mind: "Call the bank\nSend invoice" }, failing);
+    assert.deepEqual(first.todos.map((todo) => [todo.text, todo.from, todo.done]), [["Call the bank", "mind", false], ["Send invoice", "mind", false]]);
+    const again = await focus.checkIn({ energy: "ok", time: "1_3h", mind: "Send invoice\nBuy milk" }, failing);
+    assert.deepEqual(again.todos.map((todo) => todo.text), ["Call the bank", "Send invoice", "Buy milk"]);
+  });
+
+  it("adds, ticks and removes to-dos, and journals what was finished", async () => {
+    write("projects/PORTFOLIO.md", "# Project Portfolio\n\n## Projects\n");
+    const added = await focus.addTodo("Pay the plumber");
+    const todo = added.todos.find((entry) => entry.text === "Pay the plumber");
+    assert.ok(todo);
+    assert.equal(todo.from, "you");
+    await assert.rejects(focus.addTodo("pay the plumber"), /already on today's list/);
+
+    const ticked = await focus.updateTodo(todo.id, { done: true });
+    assert.equal(ticked.todos.find((entry) => entry.id === todo.id)?.done, true);
+    assert.match(read(focus.journalPath(ticked.date)), /- Done: Pay the plumber/);
+
+    const removed = await focus.removeTodo(todo.id);
+    assert.equal(removed.todos.length, 0);
+    await assert.rejects(focus.updateTodo(todo.id, { done: true }), /not on today's list/);
+  });
+
+  it("carries unfinished to-dos over from the last day that had any", async () => {
+    const today = focus.localDate();
+    const earlier = "2000-01-01";
+    const day = (date: string, todos: unknown[]) => ({ date, skipped: false, picks: [], done: [], todos });
+    fs.mkdirSync(state, { recursive: true });
+    fs.writeFileSync(
+      path.join(state, "focus-days.json"),
+      JSON.stringify({
+        [earlier]: day(earlier, [
+          { id: "a", text: "Still open", done: false, from: "you", at: "2000-01-01T08:00:00Z" },
+          { id: "b", text: "Finished", done: true, from: "you", at: "2000-01-01T08:00:00Z" },
+        ]),
+      }),
+    );
+    const read1 = await focus.readDay(today);
+    assert.deepEqual(read1.todos.map((todo) => [todo.text, todo.carriedFrom]), [["Still open", earlier]]);
+    const added = await focus.addTodo("New today");
+    assert.deepEqual(added.todos.map((todo) => todo.text), ["Still open", "New today"]);
+  });
+
+  it("does not bring back a to-do removed on a later day", async () => {
+    const day = (date: string, todos: unknown[]) => ({ date, skipped: false, picks: [], done: [], todos });
+    fs.mkdirSync(state, { recursive: true });
+    fs.writeFileSync(
+      path.join(state, "focus-days.json"),
+      JSON.stringify({
+        "2000-01-01": day("2000-01-01", [{ id: "a", text: "Removed later", done: false, from: "you", at: "2000-01-01T08:00:00Z" }]),
+        "2000-01-02": day("2000-01-02", []),
+      }),
+    );
+    assert.deepEqual((await focus.readDay(focus.localDate())).todos, []);
+  });
+});

@@ -690,10 +690,10 @@ app.post("/api/mail/accounts/titan", async (request, response) => {
     return;
   }
   try {
-    await verifyTitanLogin(parsed.data);
-    console.log(`[agentos] Virtara mailbox linked for ${parsed.data.address} at ${parsed.data.imapHost}:${parsed.data.imapPort}.`);
+    const { imapLoginMethod } = await verifyTitanLogin(parsed.data);
+    console.log(`[agentos] Virtara mailbox linked for ${parsed.data.address} at ${parsed.data.imapHost}:${parsed.data.imapPort}${imapLoginMethod ? " (IMAP LOGIN)" : ""}.`);
     closeTitanConnection();
-    await saveTitanCredentials(parsed.data);
+    await saveTitanCredentials(parsed.data, imapLoginMethod);
     response.json({ ok: true, address: parsed.data.address });
   } catch (error) {
     if (error instanceof TitanError) {

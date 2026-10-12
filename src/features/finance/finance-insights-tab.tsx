@@ -5,7 +5,7 @@ import { useMarkReviewSeen, useWritePreviousReview, useWriteReview } from "@/lib
 import { cn } from "@/lib/utils";
 import { AlertUndoBar, AttentionSection, DismissAlertButton } from "./finance-alerts";
 import { CategorySuggest, Figure, MutationError } from "./finance-kit";
-import { formatChange, money, splitNarrative } from "./finance-model";
+import { formatChange, money, needsClassifying, splitNarrative } from "./finance-model";
 
 /** What looks off, and the month in review. Figures are the engine's; Hermes only explains. */
 export function FinanceInsightsTab({ data }: { data: FinanceData }) {
@@ -34,7 +34,7 @@ export function FinanceInsightsTab({ data }: { data: FinanceData }) {
                     </div>
                     <p className="mt-1 text-[13.5px] leading-6 text-paper-char">{anomaly.detail}</p>
                     {anomaly.kind === "transaction" && anomaly.transactionId && anomaly.merchant && data.jev.configured && !sample ? (
-                      <CategorySuggest transactionId={anomaly.transactionId} merchant={anomaly.merchant} />
+                      <AnomalyClassify data={data} transactionId={anomaly.transactionId} merchant={anomaly.merchant} />
                     ) : null}
                   </PaperCard>
                 </li>
@@ -53,6 +53,13 @@ export function FinanceInsightsTab({ data }: { data: FinanceData }) {
       </div>
     </div>
   );
+}
+
+/** Classify, until the payment has a category you gave it. Then it is classified, and stays unusual only in the text above. */
+function AnomalyClassify({ data, transactionId, merchant }: { data: FinanceData; transactionId: string; merchant: string }) {
+  const row = data.transactions.find((entry) => entry.id === transactionId);
+  if (row && !needsClassifying(row)) return null;
+  return <CategorySuggest transactionId={transactionId} merchant={merchant} current={row?.category} />;
 }
 
 const monthLong = (month: string) => new Date(`${month}-15T12:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });

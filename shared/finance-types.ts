@@ -329,6 +329,29 @@ export const DismissedAlertSchema = z.object({
 });
 export type DismissedAlert = z.infer<typeof DismissedAlertSchema>;
 
+/** Flagging a payment to double-check: where it came from, or why you were charged. */
+export const EnquiryInputSchema = z.object({
+  transactionId: z.string().min(1).max(200),
+  note: z.string().trim().max(500).optional(),
+});
+export type EnquiryInput = z.infer<typeof EnquiryInputSchema>;
+
+/**
+ * A payment you want to look into. The payment's details are copied when you
+ * flag it, so the enquiry stays readable after it drops out of the recent list.
+ */
+export const EnquirySchema = z.object({
+  transactionId: z.string(),
+  date: z.string(),
+  description: z.string(),
+  merchant: z.string().optional(),
+  amount: z.number(),
+  accountName: z.string(),
+  note: z.string().optional(),
+  createdAt: z.string(),
+});
+export type Enquiry = z.infer<typeof EnquirySchema>;
+
 export const HealthSignalSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -598,6 +621,8 @@ export const FinanceDataSchema = z.object({
   attention: z.array(AttentionSchema),
   /** Alerts that would be showing but you dismissed, so you can bring them back. */
   dismissedAlerts: z.array(DismissedAlertSchema).default([]),
+  /** Payments you flagged to double-check, newest first. */
+  enquiries: z.array(EnquirySchema).default([]),
   health: z.array(HealthSignalSchema),
   review: MonthlyReviewSchema,
   investments: z.object({

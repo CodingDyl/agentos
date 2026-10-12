@@ -39,7 +39,7 @@ function clientFor(credentials: TitanCredentials): ImapFlow {
     host: credentials.imapHost,
     port: credentials.imapPort,
     secure: true,
-    auth: { user: credentials.address, pass: credentials.password },
+    auth: { user: credentials.address, pass: credentials.password, ...(credentials.imapLoginMethod ? { loginMethod: credentials.imapLoginMethod } : {}) },
     // IMAPFlow's logger would print protocol lines; nothing about this mailbox is logged.
     logger: false,
     connectionTimeout: 20_000,
@@ -86,8 +86,8 @@ export function describeTitanError(error: unknown): TitanError {
   return new TitanError("The Titan mail server did not accept that request.", "failed");
 }
 
-/** Logs in and out once: the check before a login is saved. */
-export async function verifyTitanLogin(credentials: TitanCredentials): Promise<void> {
+/** Logs in and out once. */
+async function tryLogin(credentials: TitanCredentials): Promise<void> {
   const client = clientFor(credentials);
   client.on("error", () => undefined);
   try {
@@ -97,6 +97,33 @@ export async function verifyTitanLogin(credentials: TitanCredentials): Promise<v
     client.close();
     throw describeTitanError(error);
   }
+}
+
+/**
+ * The check before a login is saved. IMAPFlow signs in with AUTHENTICATE PLAIN
+ * when the server offers it; some Titan mailboxes refuse that yet accept the
+ * plain IMAP LOGIN command with the same password, so a refused login is tried
+ * once more that way. Returns the method that worked, to keep with the login.
+ */
+export async function verifyTitanLogin(credentials: TitanCredentials): Promise<{ imapLoginMethod?: "LOGIN" }> {
+  try {
+    await tryLogin(credentials);
+    return {};
+  } catch (error) {
+    if (!(error instanceof TitanError) || error.reason !== "unauthorized" || credentials.imapLoginMethod) throw withPasswordHint(error, credentials.password);
+  }
+  try {
+    await tryLogin({ ...credentials, imapLoginMethod: "LOGIN" });
+    return { imapLoginMethod: "LOGIN" };
+  } catch (error) {
+    throw withPasswordHint(error, credentials.password);
+  }
+}
+
+/** A pasted password often brings a space or line break with it, which Titan counts as part of it. */
+function withPasswordHint(error: unknown, password: string): unknown {
+  if (!(error instanceof TitanError) || error.reason !== "unauthorized" || password === password.trim()) return error;
+  return new TitanError(`${error.message} The password you entered starts or ends with a space or line break; if it was pasted, try typing it instead.`, "unauthorized");
 }
 
 interface SharedConnection {

@@ -105,6 +105,16 @@ describe("Titan credentials", () => {
     await assert.rejects(credentials.updateTitanSenderName("x"), /not linked/);
   });
 
+  it("keeps the IMAP login method that worked, so later connections sign in the same way", async () => {
+    await credentials.saveTitanCredentials(TitanConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "pw" }), "LOGIN");
+    assert.equal((await credentials.readTitanCredentials())?.imapLoginMethod, "LOGIN");
+    await credentials.updateTitanSenderName("Dylan");
+    assert.equal((await credentials.readTitanCredentials())?.imapLoginMethod, "LOGIN", "renaming keeps it");
+    await credentials.saveTitanCredentials(TitanConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "pw" }));
+    assert.equal((await credentials.readTitanCredentials())?.imapLoginMethod, undefined);
+    await credentials.forgetTitanCredentials();
+  });
+
   it("refuses a sender name that could break the From header", () => {
     assert.equal(TitanUpdateRequestSchema.safeParse({ senderName: "Dylan Petzer" }).success, true);
     assert.equal(TitanUpdateRequestSchema.safeParse({ senderName: "" }).success, true);

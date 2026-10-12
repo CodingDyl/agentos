@@ -174,6 +174,20 @@ const MIGRATIONS: readonly string[] = [
     dismissed_at  TEXT NOT NULL
   );
   `,
+  `
+  -- Payments you flagged to double-check. The details are copied in, so an
+  -- enquiry outlives the payment dropping out of the recent list.
+  CREATE TABLE IF NOT EXISTS enquiries (
+    transaction_id  TEXT PRIMARY KEY,
+    date            TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    merchant        TEXT,
+    amount          REAL NOT NULL,
+    account_name    TEXT NOT NULL,
+    note            TEXT,
+    created_at      TEXT NOT NULL
+  );
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */

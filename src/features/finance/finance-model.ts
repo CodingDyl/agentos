@@ -1,4 +1,4 @@
-import { CATEGORIES, formatRandAmount, type Category, type FinanceData, type FinanceTab, type Subscription } from "@shared/finance-types";
+import { CATEGORIES, formatRandAmount, type Category, type FinanceData, type FinanceTab, type FinanceTransactionRow, type Subscription } from "@shared/finance-types";
 
 /** Finance's presentation rules, as plain functions. */
 
@@ -47,6 +47,14 @@ export const TIER_LABEL: Record<Subscription["tier"], string> = {
  * spending altogether.
  */
 export const CATEGORY_CHOICES: readonly Category[] = [...CATEGORIES.filter((category) => category !== "Income" && category !== "Transfer" && category !== "Reimbursement"), "Reimbursement", "Transfer", "Income"];
+
+/**
+ * Does this payment still want a category from you? Unmatched payments do, and
+ * unusual ones whose category came from a rule. Once you have said what a
+ * merchant is (even to confirm what Finance already had), it is classified and
+ * stops asking, though an unusual payment still says it is unusual.
+ */
+export const needsClassifying = (row: Pick<FinanceTransactionRow, "categorySource" | "flagged">) => row.categorySource !== "you" && (row.flagged || row.categorySource === "none");
 
 export interface UpcomingPayment {
   merchant: string;

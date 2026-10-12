@@ -1,6 +1,6 @@
 import express from "express";
-import { CheckInSchema, DoneSchema, SwapSchema } from "../../shared/focus-types";
-import { checkIn, FocusError, markDone, readDay, skip, swap } from "./today";
+import { CheckInSchema, DoneSchema, SwapSchema, TodoAddSchema, TodoPatchSchema } from "../../shared/focus-types";
+import { addTodo, checkIn, FocusError, markDone, readDay, removeTodo, skip, swap, updateTodo } from "./today";
 import { shortlist } from "./shortlist";
 
 /** `/api/focus`: the morning check-in and today's three. */
@@ -77,5 +77,44 @@ focusRouter.post("/done", async (request, response) => {
     response.json(await today());
   } catch (error) {
     focusFail(response, error, "mark it done");
+  }
+});
+
+// ─── Today's to-do list ──────────────────────────────────────────────────────
+
+focusRouter.post("/todos", async (request, response) => {
+  const input = TodoAddSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(400).json({ error: "Write what needs doing first." });
+    return;
+  }
+  try {
+    await addTodo(input.data.text);
+    response.json(await today());
+  } catch (error) {
+    focusFail(response, error, "add it to today's list");
+  }
+});
+
+focusRouter.patch("/todos/:id", async (request, response) => {
+  const input = TodoPatchSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(400).json({ error: "Nothing to change." });
+    return;
+  }
+  try {
+    await updateTodo(request.params.id, input.data);
+    response.json(await today());
+  } catch (error) {
+    focusFail(response, error, "change it");
+  }
+});
+
+focusRouter.delete("/todos/:id", async (request, response) => {
+  try {
+    await removeTodo(request.params.id);
+    response.json(await today());
+  } catch (error) {
+    focusFail(response, error, "remove it");
   }
 });
