@@ -48,7 +48,9 @@ interface FakeApi {
   calls: { method: string; url: string; body?: unknown; auth?: string }[];
   repoExists: false | "private" | "public";
   projectLinkedTo?: string;
-  deployments: { uid: string; url: string; readyState: string; target: string | null; meta: { githubCommitSha: string } }[];
+  /** Git-push auto-deploy target. Defaults to a preview, matching Vercel when production is `main`. */
+  pushDeploysAs?: "preview" | "production";
+  deployments: { uid: string; url: string; readyState: string; target: string | null; meta: { githubCommitSha: string }; errorMessage?: string }[];
 }
 
 function fakeFetch(api: FakeApi): typeof fetch {
@@ -93,8 +95,24 @@ function publishDeps(api: FakeApi, pushes: { args: readonly string[]; env: Recor
   return {
     fetch: fakeFetch(api),
     env: () => ({ GITHUB_TOKEN: "ghp_secret123", VERCEL_API_TOKEN: "vercel_secret456" }),
+    sleep: async () => undefined,
     git: async (_repo, args, env) => {
       pushes.push({ args, env });
+      const dest = args[args.length - 1];
+      if (typeof dest === "string" && dest.endsWith(":refs/heads/preview")) {
+        const sha = dest.split(":")[0] ?? "";
+        const asProduction = api.pushDeploysAs === "production";
+        if (sha && !api.deployments.some((deployment) => deployment.meta.githubCommitSha === sha && (asProduction ? deployment.target === "production" : deployment.target !== "production"))) {
+          api.deployments.push({
+            uid: `dpl_${sha.slice(0, 7)}`,
+            url: "total-electric-git-preview-dylan.vercel.app",
+            readyState: asProduction ? "ERROR" : "QUEUED",
+            target: asProduction ? "production" : null,
+            meta: { githubCommitSha: sha },
+            errorMessage: asProduction ? "You have exceeded a secondary rate limit" : undefined,
+          });
+        }
+      }
       return "";
     },
   };
@@ -148,6 +166,80 @@ describe("publishing to GitHub and Vercel", () => {
   it("refuses to write when the connector is switched off", async () => {
     setConnectorEnabled("github", false);
     await assert.rejects(publish.ensurePrivateRepo("total-electric", "x", publishDeps({ calls: [], repoExists: false, deployments: [] }, [])), /switched off/);
+  });
+
+  it("stops on a GitHub secondary rate limit and names the wait, without retrying", async () => {
+    let calls = 0;
+    const deps: PublishDeps = {
+      fetch: (async () => {
+        calls += 1;
+        return new Response(JSON.stringify({ message: "You have exceeded a secondary rate limit. Please wait a few minutes before you try again." }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "retry-after": "60" },
+        });
+      }) as typeof fetch,
+      env: () => ({ GITHUB_TOKEN: "ghp_secret123", VERCEL_API_TOKEN: "vercel_secret456" }),
+      git: async () => "",
+      sleep: async () => {
+        throw new Error("must not retry a secondary rate limit");
+      },
+    };
+    await assert.rejects(publish.ensurePrivateRepo("total-electric", "x", deps), /GitHub rate-limited, retry after 1 minute/);
+    assert.equal(calls, 1);
+  });
+
+  it("retries a 5xx with exponential backoff, then succeeds", async () => {
+    const sleeps: number[] = [];
+    let userCalls = 0;
+    const api: FakeApi = { calls: [], repoExists: "private", deployments: [] };
+    const inner = fakeFetch(api);
+    const deps: PublishDeps = {
+      fetch: (async (input, init) => {
+        if (String(input).endsWith("/user")) {
+          userCalls += 1;
+          if (userCalls < 3) return new Response(JSON.stringify({ message: "bad gateway" }), { status: 502, headers: { "Content-Type": "application/json" } });
+        }
+        return inner(input, init);
+      }) as typeof fetch,
+      env: () => ({ GITHUB_TOKEN: "ghp_secret123", VERCEL_API_TOKEN: "vercel_secret456" }),
+      git: async () => "",
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      },
+      random: () => 1,
+    };
+    const { repo } = await publish.ensurePrivateRepo("total-electric", "x", deps);
+    assert.equal(repo.fullName, "dylan/total-electric");
+    assert.deepEqual(sleeps, [1_000, 2_000]);
+  });
+
+  it("dedupes concurrent identical GitHub reads", async () => {
+    let inflightUser = 0;
+    let userCalls = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const api: FakeApi = { calls: [], repoExists: "private", deployments: [] };
+    const inner = fakeFetch(api);
+    const deps: PublishDeps = {
+      fetch: (async (input, init) => {
+        if (String(input).endsWith("/user")) {
+          userCalls += 1;
+          inflightUser += 1;
+          assert.equal(inflightUser, 1, "the second caller must share the in-flight /user request");
+          await gate;
+          inflightUser -= 1;
+        }
+        return inner(input, init);
+      }) as typeof fetch,
+      env: () => ({ GITHUB_TOKEN: "ghp_secret123", VERCEL_API_TOKEN: "vercel_secret456" }),
+      git: async () => "",
+    };
+    const pending = Promise.all([publish.ensurePrivateRepo("total-electric", "x", deps), publish.ensurePrivateRepo("total-electric", "x", deps)]);
+    release();
+    await pending;
+    assert.equal(userCalls, 1);
   });
 });
 
@@ -234,10 +326,11 @@ async function runToPreview(api: FakeApi, pushes: { args: readonly string[]; env
     ...stages.defaultStageDeps,
     publish: {
       ensurePrivateRepo: (name, description) => publish.ensurePrivateRepo(name, description, deps),
+      pinGithubDefaultBranch: (repo, branch) => publish.pinGithubDefaultBranch(repo, branch, deps),
       pushRef: (local, repo, commit, branch, force) => publish.pushRef(local, repo, commit, branch, force, deps),
       ensureVercelProject: (name, repo) => publish.ensureVercelProject(name, repo, deps),
       openPreviewsToLinkHolders: (project) => publish.openPreviewsToLinkHolders(project, deps),
-      findPreviewDeployment: (project, commit) => publish.findPreviewDeployment(project, commit, deps),
+      listCommitDeployments: (project, commit) => publish.listCommitDeployments(project, commit, deps),
       requestPreviewDeployment: (project, repo, branch, commit) => publish.requestPreviewDeployment(project, repo, branch, commit, deps),
       readDeployment: (id) => publish.readDeployment(id, deps),
     },
@@ -280,6 +373,7 @@ describe("stage 7: Vercel preview", () => {
     assert.equal(run.previewUrl, "https://total-electric-git-preview-dylan.vercel.app");
     assert.equal(vault.get(`case:${run.prospectId}`), run.previewUrl, "the lead's preview link is filled in");
     assert.ok(api.calls.some((call) => call.method === "PATCH" && call.url.includes("prj_1")), "previews opened to link holders");
+    assert.ok(!api.calls.some((call) => call.method === "POST" && call.url.includes("/v13/deployments")), "git-push is the only deploy trigger");
     assert.ok(!api.calls.some((call) => JSON.stringify(call.body ?? {}).includes("production")), "nothing asked for production");
 
     const handoff = vault.get("projects/total-electric/docs/website-rebuild/total_electric_preview_handoff.md") ?? "";
@@ -310,6 +404,16 @@ describe("stage 7: Vercel preview", () => {
     const noToken: PublishDeps = { ...publishDeps(api, pushes), env: () => ({}) };
     await assert.rejects(publish.ensurePrivateRepo("x", "y", noToken), /GITHUB_TOKEN is not set/);
     await assert.rejects(publish.ensureVercelProject("x", { owner: "a", name: "b", fullName: "a/b", private: true, defaultBranch: "main", htmlUrl: "" }, noToken), /VERCEL_API_TOKEN is not set/);
+  });
+
+  it("does not request a second API deploy when git-push already started production of the same commit", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const { run } = await runToPreview(api, []);
+    const preview = run.stages.find((stage) => stage.id === "preview");
+    assert.equal(preview?.status, "blocked");
+    assert.match(preview?.blocker ?? "", /GitHub rate-limited, retry after/);
+    assert.doesNotMatch(preview?.blocker ?? "", /change request/);
+    assert.ok(!api.calls.some((call) => call.method === "POST" && call.url.includes("/v13/deployments")), "a second deploy would hammer GitHub again");
   });
 
   it("pauses before the next stage when the skill is disabled, keeping everything", async () => {

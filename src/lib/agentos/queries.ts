@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { GITHUB_STATUS_POLL_MS, sitePollInterval } from "./poll-policy";
 import {
   getValidationSprint,
   reportFriction,
@@ -598,9 +599,9 @@ export function useProjectVercelInfo(slug: string, enabled: boolean) {
 }
 
 /**
- * A workspace's Site tab and its header's View site button. While a production
- * deployment is building it re-reads every 15s, so the strip turns Ready on
- * its own; otherwise once a minute is plenty.
+ * A workspace's Site tab and its header's View site button. Once a minute,
+ * and not in a hidden tab: Vercel clones GitHub on deploys, and polling the
+ * health endpoint faster is how a secondary rate limit never recovers.
  */
 export function useProjectSite(slug: string) {
   return useQuery({
@@ -609,10 +610,11 @@ export function useProjectSite(slug: string) {
     staleTime: 30_000,
     retry: 0,
     networkMode: "always",
+    refetchIntervalInBackground: false,
     refetchInterval: (query) => {
       const data = query.state.data;
       const state = data?.status === "linked" ? data.production?.state : undefined;
-      return state === "BUILDING" || state === "QUEUED" || state === "INITIALIZING" ? 15_000 : 60_000;
+      return sitePollInterval(state);
     },
   });
 }
@@ -2668,10 +2670,9 @@ export function useGenerationCost(input: { model: string; prompt: string; count:
 /**
  * A project's repository.
  *
- * Polled while the tab is open: branches and the working tree change from
- * outside AgentOS — an operator committing in their own terminal is the normal
- * case, not the exception — and a stale branch name here is how somebody
- * switches to the wrong thing.
+ * Polled while the tab is open, at most once a minute, and not in a hidden
+ * tab. Faster status polls, especially against a GitHub remote, are how a
+ * secondary rate limit never recovers.
  */
 export function useRepositoryStatus(slug: string, enabled = true) {
   return useQuery({
@@ -2679,7 +2680,8 @@ export function useRepositoryStatus(slug: string, enabled = true) {
     queryFn: () => getRepositoryStatus(slug),
     enabled: enabled && slug.length > 0,
     staleTime: 5_000,
-    refetchInterval: enabled ? 15_000 : false,
+    refetchInterval: enabled ? GITHUB_STATUS_POLL_MS : false,
+    refetchIntervalInBackground: false,
     networkMode: "always",
     retry: 0,
   });
@@ -2692,7 +2694,8 @@ export function useRepositoryGraph(slug: string, includeWorkers: boolean, enable
     queryFn: () => getRepositoryGraph(slug, includeWorkers),
     enabled: enabled && slug.length > 0,
     staleTime: 5_000,
-    refetchInterval: enabled ? 15_000 : false,
+    refetchInterval: enabled ? GITHUB_STATUS_POLL_MS : false,
+    refetchIntervalInBackground: false,
     networkMode: "always",
     retry: 0,
   });

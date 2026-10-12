@@ -1,11 +1,16 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { authorize } from "../connectors/policy";
+import { PRODUCTION_BRANCH, previewDeploymentBody } from "./deploy-policy";
+import { backoffDelayMs, decideGithubCall } from "./github-rate-limit";
 
 /**
  * The only outward-facing writes in the website rebuild: create a private
- * GitHub repo, push to it, create a Vercel project for it, and ask Vercel for
- * a preview deployment. Nothing here touches production, domains or DNS.
+ * GitHub repo, push to it, and create a Vercel project linked to it. Vercel
+ * then builds a preview from the git push. An extra create-deployment call
+ * is a second clone of the same commit and is how GitHub's secondary rate
+ * limit gets hit, so this file does not request production, and does not
+ * request a preview that the push already triggered.
  *
  * `server/vercel/client.ts` stays read-only; this file is where the rebuild's
  * Vercel writes live, each one behind its own connector capability.
@@ -26,13 +31,18 @@ export interface PublishDeps {
   fetch: typeof fetch;
   env: () => NodeJS.ProcessEnv;
   git: (repo: string, args: readonly string[], env: Record<string, string>) => Promise<string>;
+  sleep?: (ms: number) => Promise<void>;
+  random?: () => number;
 }
 
 export const defaultPublishDeps: PublishDeps = {
   fetch: (input, init) => fetch(input, init),
   env: () => process.env,
   git: async (repo, args, env) => (await run("git", [...args], { cwd: repo, env: { ...process.env, ...env, GIT_TERMINAL_PROMPT: "0" }, maxBuffer: 16 * 1024 * 1024 })).stdout.trim(),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };
+
+const inflight = new Map<string, Promise<{ status: number; data: unknown }>>();
 
 function token(deps: PublishDeps, name: "GITHUB_TOKEN" | "VERCEL_API_TOKEN"): string {
   const value = deps.env()[name]?.trim();
@@ -58,27 +68,64 @@ function allow(capability: string, detail: string): void {
 async function api<T>(deps: PublishDeps, base: "github" | "vercel", path: string, init: { method?: string; body?: unknown } = {}): Promise<{ status: number; data: T }> {
   const secret = token(deps, base === "github" ? "GITHUB_TOKEN" : "VERCEL_API_TOKEN");
   const team = base === "vercel" ? deps.env().VERCEL_TEAM_ID?.trim() : undefined;
+  const method = init.method ?? "GET";
   const url = `${base === "github" ? GITHUB : VERCEL}${path}${team ? `${path.includes("?") ? "&" : "?"}teamId=${encodeURIComponent(team)}` : ""}`;
-  let response: Response;
+  const key = `${method}:${url}:${init.body !== undefined ? JSON.stringify(init.body) : ""}`;
+  const existing = inflight.get(key);
+  if (existing) return existing as Promise<{ status: number; data: T }>;
+
+  const run = (async () => {
+    const service = base === "github" ? "GitHub" : "Vercel";
+    const maxAttempts = 4;
+    const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+    for (let attempt = 0; ; attempt += 1) {
+      let response: Response;
+      try {
+        response = await deps.fetch(url, {
+          method,
+          headers: {
+            Authorization: `Bearer ${secret}`,
+            "User-Agent": "AgentOS",
+            ...(base === "github" ? { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } : {}),
+            ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
+          },
+          ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+          signal: AbortSignal.timeout(30_000),
+        });
+      } catch {
+        if (attempt < maxAttempts) {
+          await sleep(backoffDelayMs(attempt, { random: deps.random }));
+          continue;
+        }
+        throw new PublishError(`Could not reach ${service}.`);
+      }
+      const data = (await response.json().catch(() => ({}))) as T;
+      const decision = decideGithubCall({
+        status: response.status,
+        body: data,
+        headers: response.headers,
+        attempt,
+        maxAttempts,
+        random: deps.random,
+      });
+      if (decision.action === "rate-limited") throw new PublishError(decision.message);
+      if (decision.action === "auth") {
+        throw new PublishError(`${service} refused the token (${response.status}). Check its permissions, then retry.`);
+      }
+      if (decision.action === "retry") {
+        await sleep(decision.waitMs);
+        continue;
+      }
+      return { status: response.status, data };
+    }
+  })();
+
+  inflight.set(key, run);
   try {
-    response = await deps.fetch(url, {
-      method: init.method ?? "GET",
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        ...(base === "github" ? { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } : {}),
-        ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
-      signal: AbortSignal.timeout(30_000),
-    });
-  } catch {
-    throw new PublishError(`Could not reach ${base === "github" ? "GitHub" : "Vercel"}.`);
+    return (await run) as { status: number; data: T };
+  } finally {
+    inflight.delete(key);
   }
-  const data = (await response.json().catch(() => ({}))) as T;
-  if (response.status === 401 || response.status === 403) {
-    throw new PublishError(`${base === "github" ? "GitHub" : "Vercel"} refused the token (${response.status}). Check its permissions, then retry.`);
-  }
-  return { status: response.status, data };
 }
 
 function apiError(service: string, status: number, data: unknown): PublishError {
@@ -123,6 +170,15 @@ export async function ensurePrivateRepo(name: string, description: string, deps:
   return { repo: toRepo(created.data), created: true };
 }
 
+/** `main` stays the production branch. A repo whose default is `preview` is how Vercel deploys previews as production. */
+export async function pinGithubDefaultBranch(repo: GithubRepo, branch = PRODUCTION_BRANCH, deps: PublishDeps = defaultPublishDeps): Promise<GithubRepo> {
+  if (repo.defaultBranch === branch) return repo;
+  allow("github.push", `Set ${repo.fullName} default branch to ${branch}`);
+  const result = await api<Parameters<typeof toRepo>[0]>(deps, "github", `/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}`, { method: "PATCH", body: { default_branch: branch } });
+  if (result.status !== 200) throw apiError("GitHub", result.status, result.data);
+  return toRepo(result.data);
+}
+
 /** Pushes a commit to a branch of the GitHub repo. `force` only for AgentOS' own `preview` branch. */
 export async function pushRef(localRepo: string, repo: GithubRepo, commit: string, branch: string, force: boolean, deps: PublishDeps = defaultPublishDeps): Promise<void> {
   if (!/^[0-9a-f]{7,40}$/.test(commit)) throw new PublishError(`Not a commit: ${commit}`);
@@ -149,12 +205,13 @@ export interface VercelProject {
   name: string;
   linkedRepo?: string;
   protected: boolean;
+  productionBranch?: string;
 }
 
 interface VercelProjectData {
   id: string;
   name: string;
-  link?: { type?: string; org?: string; repo?: string };
+  link?: { type?: string; org?: string; repo?: string; productionBranch?: string };
   ssoProtection?: unknown;
   passwordProtection?: unknown;
 }
@@ -164,6 +221,7 @@ const toProject = (data: VercelProjectData): VercelProject => ({
   name: data.name,
   linkedRepo: data.link?.org && data.link.repo ? `${data.link.org}/${data.link.repo}` : undefined,
   protected: Boolean(data.ssoProtection) || Boolean(data.passwordProtection),
+  productionBranch: data.link?.productionBranch,
 });
 
 /**
@@ -231,19 +289,24 @@ const toDeployment = (data: DeploymentData): VercelDeploymentState => ({
   errorMessage: data.errorMessage,
 });
 
-/** A preview deployment of exactly this commit, if Vercel has one (or is building one). Production deployments never count. */
-export async function findPreviewDeployment(project: VercelProject, commit: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState | undefined> {
+/** Every unfinished-or-live deployment of this commit. Production is included so the caller can refuse a second trigger. */
+export async function listCommitDeployments(project: VercelProject, commit: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState[]> {
   const list = await api<{ deployments?: DeploymentData[] }>(deps, "vercel", `/v6/deployments?projectId=${encodeURIComponent(project.id)}&limit=20`);
   if (list.status !== 200) throw apiError("Vercel", list.status, list.data);
-  return (list.data.deployments ?? []).map(toDeployment).find((deployment) => deployment.sha === commit && deployment.target !== "production" && deployment.state !== "CANCELED");
+  return (list.data.deployments ?? []).map(toDeployment).filter((deployment) => deployment.sha === commit && deployment.state !== "CANCELED");
 }
 
-/** Asks Vercel to build a preview of `branch` at `commit` from the linked repo. Used when the push did not trigger one. */
+/** A preview deployment of exactly this commit, if Vercel has one (or is building one). Production deployments never count. */
+export async function findPreviewDeployment(project: VercelProject, commit: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState | undefined> {
+  return (await listCommitDeployments(project, commit, deps)).find((deployment) => deployment.target !== "production");
+}
+
+/** Asks Vercel to build a preview of `branch` at `commit`. Only for projects with no Git integration: a git-push already triggers one. */
 export async function requestPreviewDeployment(project: VercelProject, repo: GithubRepo, branch: string, commit: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState> {
   allow("vercel.create_preview", `Requested a preview of ${repo.fullName}@${commit.slice(0, 7)}`);
   const result = await api<DeploymentData>(deps, "vercel", "/v13/deployments", {
     method: "POST",
-    body: { name: project.name, project: project.id, gitSource: { type: "github", org: repo.owner, repo: repo.name, ref: branch, sha: commit } },
+    body: previewDeploymentBody(project, repo, branch, commit),
   });
   if (result.status !== 200 && result.status !== 201) throw apiError("Vercel", result.status, result.data);
   const deployment = toDeployment(result.data);
