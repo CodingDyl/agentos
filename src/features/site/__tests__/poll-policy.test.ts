@@ -13,9 +13,6 @@ describe("GitHub and site poll policy", () => {
   });
 
   it("does not poll the Site tab faster than once a minute, even while a deploy is building", () => {
-    assert.equal(sitePollInterval("BUILDING"), 60_000);
-    assert.equal(sitePollInterval("QUEUED"), 60_000);
-    assert.equal(sitePollInterval("READY"), 60_000);
-    assert.equal(sitePollInterval(undefined), 60_000);
+    assert.equal(sitePollInterval(), 60_000);
   });
 });

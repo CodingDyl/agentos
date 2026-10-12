@@ -14,6 +14,6 @@ export function githubStatusPollInterval(hidden: boolean): number | false {
 }
 
 /** Site tab / Vercel health: never faster than the GitHub cap, even while a deploy is building. */
-export function sitePollInterval(_state?: string): number {
+export function sitePollInterval(): number {
   return GITHUB_STATUS_POLL_MS;
 }

@@ -611,11 +611,7 @@ export function useProjectSite(slug: string) {
     retry: 0,
     networkMode: "always",
     refetchIntervalInBackground: false,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      const state = data?.status === "linked" ? data.production?.state : undefined;
-      return sitePollInterval(state);
-    },
+    refetchInterval: sitePollInterval,
   });
 }
 
