@@ -1,0 +1,60 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { agentOSRoot } from "../agentos/filesystem";
+import { git, isRepository } from "../agentos/git";
+
+const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"];
+const GITIGNORE = ["node_modules/", ".next/", "out/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", ".DS_Store", ""].join("\n");
+
+export function siteRepoPath(slug: string): string {
+  return path.join(agentOSRoot(), "projects", slug, "site");
+}
+
+export async function ensureMotionSiteRepo(slug: string, name: string): Promise<string> {
+  const repo = siteRepoPath(slug);
+  await fs.mkdir(repo, { recursive: true });
+
+  if (await isRepository(repo)) {
+    const head = await git(repo, ["rev-parse", "--verify", "HEAD"]).catch(() => undefined);
+    if (head) return repo;
+  } else {
+    try {
+      await git(repo, ["init", "-b", "main"]);
+    } catch {
+      await git(repo, ["init"]);
+    }
+  }
+
+  await fs.writeFile(path.join(repo, ".gitignore"), GITIGNORE, { flag: "wx" }).catch(() => undefined);
+  await fs.writeFile(
+    path.join(repo, "README.md"),
+    `# ${name}\n\nMotion Design site, built by Claude Code with the motion-site-studio skill.\n`,
+    { flag: "wx" },
+  ).catch(() => undefined);
+  await git(repo, ["add", "-A"]);
+  await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", "Start the motion site"]);
+  return repo;
+}
+
+export async function commitSiteFiles(repo: string, files: Record<string, string | Buffer>, message: string): Promise<void> {
+  for (const [relative, contents] of Object.entries(files)) {
+    const target = path.resolve(repo, relative);
+    if (!target.startsWith(`${path.resolve(repo)}${path.sep}`)) throw new Error(`Refusing to write outside the site: ${relative}`);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, contents);
+  }
+  await git(repo, ["add", "-A"]);
+  const staged = await git(repo, ["diff", "--cached", "--name-only"]);
+  if (!staged.stdout.trim()) return;
+  await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", message]);
+}
+
+export async function writeApprovalFile(repo: string, approval: { conceptId: string; ceiling: number; plannedCredits: number; approvedAt: string }): Promise<void> {
+  await commitSiteFiles(
+    repo,
+    {
+      "motion-studio/credits.approved.json": `${JSON.stringify({ ...approval, authorized: true }, null, 2)}\n`,
+    },
+    `Approve concept ${approval.conceptId} with a ${approval.ceiling} credit ceiling`,
+  );
+}

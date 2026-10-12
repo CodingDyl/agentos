@@ -36,6 +36,7 @@ export const WorkspaceModuleSchema = z.enum([
   "database",
   "rebuild",
   "site",
+  "motion",
 ]);
 
 export type WorkspaceType = z.infer<typeof WorkspaceTypeSchema>;
@@ -94,6 +95,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   database: "Database",
   rebuild: "Website rebuild",
   site: "Site",
+  motion: "Motion Design",
 };
 
 /** The label a module's tab carries in a workspace of this type. */
@@ -158,6 +160,8 @@ export function resolveWorkspaceTabs(input: {
   hasSite?: boolean;
   /** A client website rebuild earns the first tab: while one is running, it is the work. */
   hasRebuild?: boolean;
+  /** A Motion Design run earns its tab the same way a rebuild does. */
+  hasMotion?: boolean;
 }): WorkspaceTabs {
   const configured = input.configured && input.configured.length > 0 ? input.configured : undefined;
   const primary = [...(configured ?? DEFAULT_WORKSPACE_MODULES[input.type])];
@@ -178,11 +182,17 @@ export function resolveWorkspaceTabs(input: {
   }
 
   if (input.hasRebuild && !primary.includes("rebuild")) primary.unshift("rebuild");
-  // Without a rebuild there is nothing to show, so the tab is not offered under More either.
-  const withoutEmptyRebuild = input.hasRebuild ? primary : primary.filter((module) => module !== "rebuild");
+  if (input.hasMotion && !primary.includes("motion")) primary.unshift("motion");
+  // Without a rebuild or Motion Design run there is nothing to show, so those
+  // tabs are not offered under More either.
+  const withoutEmpty = primary.filter(
+    (module) => (module !== "rebuild" || input.hasRebuild) && (module !== "motion" || input.hasMotion),
+  );
 
-  const unique = withoutEmptyRebuild.filter((module, index) => withoutEmptyRebuild.indexOf(module) === index);
-  const more = WORKSPACE_MODULES.filter((module) => !unique.includes(module) && (module !== "rebuild" || input.hasRebuild));
+  const unique = withoutEmpty.filter((module, index) => withoutEmpty.indexOf(module) === index);
+  const more = WORKSPACE_MODULES.filter(
+    (module) => !unique.includes(module) && (module !== "rebuild" || input.hasRebuild) && (module !== "motion" || input.hasMotion),
+  );
 
   return { primary: unique, more };
 }
@@ -191,7 +201,7 @@ export function resolveWorkspaceTabs(input: {
 export function parseModuleList(value: string | undefined): WorkspaceModule[] {
   if (!value) return [];
 
-  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site" };
+  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site", "motion-design": "motion" };
   const modules = value
     .split(/[,;]/)
     .map((word) => word.trim().toLowerCase())

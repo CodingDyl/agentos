@@ -178,6 +178,19 @@ export const WorkerJobRequestSchema = z.object({
       schema: z.record(z.string(), z.unknown()).optional(),
     })
     .optional(),
+  /**
+   * Claude Code only: a model id or alias (`claude-opus-5-5`, `opus`) that
+   * overrides the AI Stack default for this job.
+   */
+  modelOverride: z.string().trim().max(80).optional(),
+  /** Claude Code `--effort`, when the CLI supports it. */
+  effort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
+  /** Extra `--allowedTools` entries for this job, on top of the worker default. */
+  extraAllowedTools: z.array(z.string().min(1).max(80)).max(50).optional(),
+  /** Claude Code `--setting-sources`. Default remains `project`. */
+  claudeSettingSources: z.string().trim().max(40).optional(),
+  /** How long this job may run before AgentOS stops it. */
+  timeoutMs: z.number().int().positive().max(28_800_000).optional(),
 });
 
 export const WorkerValidationSchema = z.object({
