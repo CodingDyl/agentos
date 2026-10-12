@@ -53,6 +53,17 @@ export function initialModelChoice(agents: readonly ChatAgent[], remembered?: Pa
   return first ? { agent: first.id, model: first.defaultModel } : undefined;
 }
 
+/**
+ * The choice an existing chat shows: its own agent and model, or that agent's
+ * default when the saved model is no longer offered (the server does the same
+ * on the next message, so the picker never shows a model that won't be used).
+ */
+export function chatModelChoice(agents: readonly ChatAgent[], chat: { agent: ChatAgent["id"]; model: string }): ModelChoice {
+  const agent = agents.find((entry) => entry.id === chat.agent);
+  if (!agent || agent.models.some((model) => model.id === chat.model)) return { agent: chat.agent, model: chat.model };
+  return { agent: chat.agent, model: agent.defaultModel };
+}
+
 export function modelLabel(agents: readonly ChatAgent[], agentId: string, modelId: string): string {
   const agent = agents.find((entry) => entry.id === agentId);
   const model = agent?.models.find((entry) => entry.id === modelId);

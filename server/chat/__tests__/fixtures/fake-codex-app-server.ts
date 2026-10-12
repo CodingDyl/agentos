@@ -43,6 +43,19 @@ async function runTurn(): Promise<void> {
   send({ method: "turn/completed", params: { threadId: thread, turn: { id: turn, status: "completed", error: null, items: [] } } });
 }
 
+/** No network: Codex reconnects forever and never completes the turn. */
+function offline(): void {
+  const say = (message: string) =>
+    send({ method: "error", params: { threadId: thread, turnId: turn, willRetry: true, error: { message, additionalDetails: "Proxy connection failed: 403" } } });
+  say("Reconnecting... 1/5");
+  setInterval(() => say("Reconnecting... waiting for network"), 50).unref();
+}
+
+/** A failure Codex won't retry; it reports the error and stops. */
+function unauthorized(): void {
+  send({ method: "error", params: { threadId: thread, turnId: turn, willRetry: false, error: { message: "401 Unauthorized", additionalDetails: "Run codex login" } } });
+}
+
 readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const message = JSON.parse(line) as { id?: number; method?: string; params?: Record<string, unknown>; result?: { decision: string } };
   if (message.method === undefined && message.id !== undefined) {
@@ -60,10 +73,14 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     case "thread/resume":
       if (message.params?.threadId !== thread) return send({ id: message.id, error: { code: -32600, message: "thread not found" } });
       return send({ id: message.id, result: { thread: { id: thread } } });
-    case "turn/start":
+    case "turn/start": {
       send({ id: message.id, result: { turn: { id: turn, status: "inProgress", items: [], error: null } } });
+      const prompt = JSON.stringify(message.params?.input ?? "");
+      if (prompt.includes("offline")) return offline();
+      if (prompt.includes("unauthorized")) return unauthorized();
       void runTurn();
       return;
+    }
     case "turn/interrupt":
       return send({ id: message.id, result: {} });
     default:

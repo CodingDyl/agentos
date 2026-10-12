@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { Chat, ChatAgent, ChatApprovalPart, ChatMessage, ChatStreamEvent, CreateChat, SendChatMessage, StartChatRun } from "../../shared/chat-types";
 import type { ActiveWorkItem } from "../../shared/mission-control-types";
 import { createChatId, deleteChat, listChats, readChat, saveChat, titleFrom } from "./chat-store";
-import { geminiAgent, hermesAgent } from "./acp-chat-adapter";
+import { geminiAgent, grokAgent, hermesAgent } from "./acp-chat-adapter";
 import type { ApprovalRequest, ChatAgentAdapter, RunTurnInput, TurnState } from "./chat-turn";
 import { claudeAgent } from "./claude-chat-adapter";
 import { codexAgent } from "./codex-chat-adapter";
@@ -42,7 +42,7 @@ interface ActiveTurn {
 const active = new Map<string, ActiveTurn>();
 
 /** Every agent a chat can talk to, in picker order. */
-const ADAPTERS: readonly ChatAgentAdapter[] = [claudeAgent, codexAgent, geminiAgent, hermesAgent];
+const ADAPTERS: readonly ChatAgentAdapter[] = [claudeAgent, codexAgent, grokAgent, geminiAgent, hermesAgent];
 
 type TurnRunner = (input: RunTurnInput) => Promise<void>;
 
@@ -160,6 +160,11 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
   if (input.model) {
     checkModel(agent, input.model);
     chat.model = input.model;
+  } else if (!agent.models.some((entry) => entry.id === chat.model)) {
+    // Saved with a model this agent no longer offers (an id an update renamed,
+    // or one this plan can't use): carry on with the agent's default rather
+    // than fail every message in the chat.
+    chat.model = agent.defaultModel;
   }
 
   const at = now();

@@ -1,9 +1,7 @@
 import { spawn } from "node:child_process";
-import fs from "node:fs";
 import os from "node:os";
-import path from "node:path";
 import type { ChatAgent, ChatModel } from "../../shared/chat-types";
-import { findOnPath } from "../ai-stack/detect";
+import { agentEnv, findAgentBinary, searchedFolders } from "./agent-environment";
 import { classifyBashCommand, decideFileChanges } from "./chat-permission-policy";
 import { cachedModels, rememberModels } from "./chat-model-cache";
 import { JsonLineRpc, RpcError } from "./json-line-rpc";
@@ -36,12 +34,13 @@ import {
 
 const INSTALL = "Install Codex with `npm install -g @openai/codex`, then run `codex login`.";
 
-function signedIn(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY || process.env.CODEX_API_KEY) || fs.existsSync(path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "auth.json"));
+/** `AGENTOS_CODEX_BIN` points at a specific Codex; otherwise it is looked for on the PATH. */
+function codexBinary(): Promise<string | undefined> {
+  return findAgentBinary(process.env.AGENTOS_CODEX_BIN?.trim() || "codex");
 }
 
-function connect(binary: string, cwd: string): JsonLineRpc {
-  const child = spawn(binary, ["app-server"], { cwd, env: process.env, stdio: ["pipe", "pipe", "pipe"] });
+async function connect(binary: string, cwd: string): Promise<JsonLineRpc> {
+  const child = spawn(binary, ["app-server"], { cwd, env: await agentEnv(), stdio: ["pipe", "pipe", "pipe"] });
   return new JsonLineRpc(child);
 }
 
@@ -76,10 +75,12 @@ const REFRESH_MS = 10 * 60 * 1000;
 
 /** Asks Codex which models it offers. Never more than every ten minutes; never blocks a screen. */
 function refreshModels(binary: string): void {
+  // Tests describe agents constantly and must not start real ones to do it.
+  if (process.env.AGENTOS_SKIP_MODEL_DISCOVERY === "1") return;
   if (refreshing || Date.now() - refreshedAt < REFRESH_MS) return;
   refreshedAt = Date.now();
-  const rpc = connect(binary, os.homedir());
   refreshing = (async () => {
+    const rpc = await connect(binary, os.homedir());
     try {
       await initialize(rpc);
       const result = await rpc.request<{ data: CodexModel[] }>("model/list", {});
@@ -93,17 +94,21 @@ function refreshModels(binary: string): void {
   })();
 }
 
+/**
+ * Available when the binary is found. Sign-in isn't checked here: newer Codex
+ * keeps its login in the system keychain rather than a file AgentOS can see,
+ * and a missing login is reported by Codex itself on the first message.
+ */
 async function describeCodex(): Promise<ChatAgent> {
-  const binary = await findOnPath("codex");
+  const binary = await codexBinary();
   if (binary) refreshModels(binary);
-  const available = Boolean(binary) && signedIn();
   return {
     id: "codex",
     name: "Codex",
     models: [DEFAULT_MODEL, ...cachedModels("codex")],
     defaultModel: DEFAULT_MODEL.id,
-    available,
-    unavailableReason: !binary ? `Codex isn't installed. ${INSTALL}` : !signedIn() ? "Codex isn't signed in. Run `codex login`." : undefined,
+    available: Boolean(binary),
+    unavailableReason: binary ? undefined : `Codex wasn't found. ${INSTALL} AgentOS looked in: ${await searchedFolders()}. Or set AGENTOS_CODEX_BIN to its full path.`,
     billing: "Your ChatGPT plan",
   };
 }
@@ -202,11 +207,35 @@ interface TurnResult {
   error?: { message?: string } | null;
 }
 
-async function runCodexTurn(input: RunTurnInput): Promise<void> {
-  const binary = await findOnPath("codex");
-  if (!binary) throw new Error(`Codex isn't installed. ${INSTALL}`);
+interface CodexErrorNotice {
+  error?: { message?: string; additionalDetails?: string | null } | null;
+  willRetry?: boolean;
+}
 
-  const rpc = connect(binary, input.policy.projectRoot);
+/**
+ * How long Codex may keep reconnecting without making progress before the
+ * turn is called off. Offline or signed out, Codex retries forever ("waiting
+ * for network") and never ends the turn, which left the chat spinning.
+ */
+function retryLimitMs(): number {
+  const configured = Number(process.env.AGENTOS_CODEX_RETRY_LIMIT_MS);
+  return Number.isFinite(configured) && configured > 0 ? configured : 60_000;
+}
+
+export function codexErrorMessage(notice: CodexErrorNotice, gaveUp: boolean): string {
+  const message = notice.error?.message?.trim() || "Codex stopped with an error.";
+  const details = notice.error?.additionalDetails?.trim();
+  const said = details && details !== message ? `${message} (${details})` : message;
+  return gaveUp
+    ? `Codex couldn't reach OpenAI and kept retrying, so AgentOS stopped the turn. Last word from Codex: ${said}. Check you're online and signed in (run \`codex login\`).`
+    : said;
+}
+
+async function runCodexTurn(input: RunTurnInput): Promise<void> {
+  const binary = await codexBinary();
+  if (!binary) throw new Error(`Codex wasn't found. ${INSTALL}`);
+
+  const rpc = await connect(binary, input.policy.projectRoot);
   const context = startCodexContext();
   const state = input.state;
   let threadId: string | undefined;
@@ -214,14 +243,43 @@ async function runCodexTurn(input: RunTurnInput): Promise<void> {
   let finished: (result: TurnResult) => void = () => undefined;
   const completion = new Promise<TurnResult>((resolve) => (finished = resolve));
 
+  // Codex reports trouble as `error` notifications. One it won't retry ends
+  // the turn; ones it will are given a while to come right, then the turn is
+  // stopped with Codex's own explanation.
+  let retryTimer: NodeJS.Timeout | undefined;
+  let lastRetry: CodexErrorNotice | undefined;
+  const clearRetry = () => {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = undefined;
+  };
+  const giveUp = (message: string) => {
+    clearRetry();
+    if (threadId && turnId) void rpc.request("turn/interrupt", { threadId, turnId }).catch(() => undefined);
+    finished({ status: "failed", error: { message } });
+  };
+
   rpc.onNotification((method, params) => {
     const scoped = params as { threadId?: string; turn?: TurnResult } | undefined;
     if (threadId && scoped?.threadId && scoped.threadId !== threadId) return; // A sub-agent's thread.
     if (method === "turn/completed" && scoped?.turn) {
+      clearRetry();
       finished(scoped.turn);
       return;
     }
-    if (applyCodexEvent(state, context, method, params)) input.onChange();
+    if (method === "error") {
+      const notice = (params ?? {}) as CodexErrorNotice;
+      if (notice.willRetry !== true) {
+        giveUp(codexErrorMessage(notice, false));
+        return;
+      }
+      lastRetry = notice;
+      retryTimer ??= setTimeout(() => giveUp(codexErrorMessage(lastRetry ?? notice, true)), retryLimitMs());
+      return;
+    }
+    if (applyCodexEvent(state, context, method, params)) {
+      clearRetry(); // Progress: whatever was failing has recovered.
+      input.onChange();
+    }
   });
 
   const deny = (itemId: string) => {
@@ -302,6 +360,7 @@ async function runCodexTurn(input: RunTurnInput): Promise<void> {
     if (input.controller.signal.aborted) throw error;
     throw new Error(error instanceof Error ? error.message : "Codex failed.", { cause: error });
   } finally {
+    clearRetry();
     input.controller.signal.removeEventListener("abort", stop);
     rpc.close();
   }

@@ -148,6 +148,31 @@ export function ChatComposer({
           {error ?? unavailable}
         </p>
       ) : null}
+      <AgentAvailability agents={agents} />
     </form>
+  );
+}
+
+/**
+ * Every agent that can't be used right now, and exactly why: where AgentOS
+ * looked, and what would fix it. Collapsed, so it costs one line when all is
+ * well and answers "why can't I pick Codex?" without a trip to the logs.
+ */
+function AgentAvailability({ agents }: { agents: readonly ChatAgent[] }) {
+  const missing = agents.filter((agent) => !agent.available);
+  if (missing.length === 0) return null;
+  return (
+    <details className="mt-2 text-[12.5px] text-paper-sage">
+      <summary className="cursor-pointer select-none hover:text-paper-moss">
+        {missing.length === 1 ? `${missing[0].name} is unavailable` : `${missing.length} agents are unavailable`}: why?
+      </summary>
+      <ul className="mt-1.5 space-y-1.5 border-l-2 border-paper-mist pl-3">
+        {missing.map((agent) => (
+          <li key={agent.id}>
+            <span className="font-medium text-paper-moss">{agent.name}:</span> {agent.unavailableReason ?? "Not available."}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

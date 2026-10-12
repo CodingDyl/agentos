@@ -17,13 +17,19 @@ const SERVER_TIMEOUT_MS = 1_500;
  * Common install locations that a server process started from a GUI or an
  * editor often does not have on its PATH, even though the operator's shell does.
  */
-function extraBinDirs(): string[] {
+export function extraBinDirs(): string[] {
   const home = os.homedir();
   return [
     path.join(home, ".local", "bin"),
     path.join(home, ".grok", "bin"),
     path.join(home, ".bun", "bin"),
     path.join(home, ".cargo", "bin"),
+    // Node version managers and npm's per-user prefix, where npm-installed CLIs
+    // (Codex, Gemini CLI) land when the global prefix isn't writable.
+    path.join(home, ".volta", "bin"),
+    path.join(home, ".npm-global", "bin"),
+    path.join(home, ".local", "share", "pnpm"),
+    path.join(home, "Library", "pnpm"),
     "/opt/homebrew/bin",
     "/usr/local/bin",
   ];
