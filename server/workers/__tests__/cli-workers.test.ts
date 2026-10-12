@@ -28,8 +28,27 @@ describe("Claude Code", () => {
     assert.ok(!args.includes("--dangerously-skip-permissions"));
     assert.equal(args[args.indexOf("--permission-mode") + 1], "acceptEdits");
     assert.equal(args[args.indexOf("--model") + 1], "sonnet");
+    assert.equal(args[args.indexOf("--setting-sources") + 1], "project");
+    assert.ok(!args.includes("--effort"));
     assert.ok(args.includes("Bash(git push:*)"));
     assert.ok(args.indexOf("Bash(git push:*)") > args.indexOf("--disallowedTools"));
+  });
+
+  it("can raise effort, allow extra tools, and load user skills for a Motion Design job", () => {
+    const args = claudeCodeArgs({
+      prompt: "/motion-site-studio",
+      model: "claude-opus-5-5",
+      effort: "max",
+      extraAllowedTools: ["Write", "Bash(higgsfield:*)"],
+      settingSources: "user,project",
+    });
+    assert.equal(args[args.indexOf("--model") + 1], "claude-opus-5-5");
+    assert.equal(args[args.indexOf("--effort") + 1], "max");
+    assert.equal(args[args.indexOf("--setting-sources") + 1], "user,project");
+    assert.ok(args.includes("Write"));
+    assert.ok(args.includes("Bash(higgsfield:*)"));
+    assert.ok(args.indexOf("Write") > args.indexOf("--allowedTools"));
+    assert.ok(args.indexOf("Write") < args.indexOf("--disallowedTools"));
   });
 
   it("reads tokens from the result event and records no cost", async () => {

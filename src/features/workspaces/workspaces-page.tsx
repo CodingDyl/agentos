@@ -1,4 +1,4 @@
-import { Pin, Plus, Search } from "lucide-react";
+import { Film, Pin, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ProjectState, ProjectSummary } from "@shared/agentos-types";
@@ -7,6 +7,7 @@ import { AppShell } from "@/components/os";
 import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { sortProjects, stateLabel } from "@/features/projects/projects-model";
+import { MotionDesignWizard } from "@/features/motion-design";
 import { CreateProject } from "@/features/workspace";
 import { formatRelativeTime } from "@/lib/format";
 import { useProjects } from "@/lib/agentos/queries";
@@ -51,6 +52,7 @@ export function WorkspacesPage() {
   const [type, setType] = useState<WorkspaceType | "all">("all");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const [motion, setMotion] = useState(false);
 
   const projects = useMemo(() => data?.projects ?? [], [data]);
   const presentTypes = useMemo(
@@ -81,10 +83,16 @@ export function WorkspacesPage() {
               {data ? `${live} in play · ${parked} parked · ${projects.length} in all` : "Reading the portfolio…"}
             </p>
           </div>
-          <PaperButton variant="amber" onClick={() => setCreating(true)}>
-            <Plus className="size-3.5" strokeWidth={2} aria-hidden="true" />
-            New workspace
-          </PaperButton>
+          <div className="flex flex-wrap gap-2">
+            <PaperButton variant="ghost" onClick={() => setMotion(true)}>
+              <Film className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              Motion Design
+            </PaperButton>
+            <PaperButton variant="amber" onClick={() => setCreating(true)}>
+              <Plus className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              New workspace
+            </PaperButton>
+          </div>
         </header>
 
         {isPending ? null : !data ? (
@@ -147,6 +155,7 @@ export function WorkspacesPage() {
       </PaperStage>
 
       {creating ? <CreateProject onClose={() => setCreating(false)} /> : null}
+      {motion ? <MotionDesignWizard onClose={() => setMotion(false)} /> : null}
     </AppShell>
   );
 }

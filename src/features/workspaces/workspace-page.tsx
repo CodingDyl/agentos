@@ -43,6 +43,8 @@ import { DatabaseTab } from "@/features/databases";
 import { useProjectDatabases } from "@/lib/agentos/databases";
 import { useRebuildForWorkspace } from "@/lib/agentos/rebuilds";
 import { WorkspaceRebuildTab } from "@/features/rebuild";
+import { WorkspaceMotionTab } from "@/features/motion-design";
+import { useMotionForWorkspace } from "@/lib/agentos/motion-design";
 import { SiteTab } from "@/features/site";
 import { stateLabel } from "@/features/projects/projects-model";
 import { HEALTH_LABELS } from "@/features/projects/roadmap-model";
@@ -73,7 +75,7 @@ type WorkspaceTab = "overview" | WorkspaceModule;
 const TAB_ALIASES: Record<string, WorkspaceTab> = { designs: "creative", milestones: "roadmap" };
 
 /** Tabs drawn on paper. Everything else is still Editorial Terminal. */
-const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site"]);
+const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion"]);
 
 function readTab(value: string | null): WorkspaceTab {
   if (!value) return "overview";
@@ -91,6 +93,7 @@ export function WorkspacePage() {
   const databases = useProjectDatabases(slug);
   // A client website rebuild earns the Website rebuild tab.
   const rebuild = useRebuildForWorkspace(slug);
+  const motion = useMotionForWorkspace(slug);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = readTab(searchParams.get("tab"));
@@ -175,6 +178,7 @@ export function WorkspacePage() {
         hasRepository: !!project.git.repositoryPath,
         hasDatabase: (databases.data?.length ?? 0) > 0,
         hasRebuild: Boolean(rebuild.data),
+        hasMotion: Boolean(motion.data),
         hasSite: Boolean(project.configuration.vercelProjectId),
       })
     : { primary: [], more: [] };
@@ -325,6 +329,8 @@ function WorkspacePanel({
       return <DatabaseTab slug={project.slug} />;
     case "rebuild":
       return <WorkspaceRebuildTab slug={project.slug} />;
+    case "motion":
+      return <WorkspaceMotionTab slug={project.slug} />;
     case "site":
       return <SiteTab slug={project.slug} onOpenSettings={onOpenSettings} />;
     case "decisions":

@@ -200,6 +200,7 @@ import {
   THUMBNAILS,
 } from "./designs/media";
 import { animateRouter } from "./designs/animate-routes";
+import { motionDesignRouter } from "./motion-design/routes";
 import { motionRouter } from "./designs/motion-routes";
 import { readDecision, respondToApproval } from "./hermes/approvals";
 import { accountStatus, estimateCost, listModels } from "./designs/higgsfield";
@@ -439,6 +440,7 @@ app.use("/api/workers/grok-bot", grokBotRouter);
 /** Motion studio: briefs in, Claude Code renders films, finished MP4s land in Creative. */
 app.use("/api/designs/animate", animateRouter);
 app.use("/api/designs/motion", motionRouter);
+app.use("/api/motion-design", express.json({ limit: "4mb" }), motionDesignRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });

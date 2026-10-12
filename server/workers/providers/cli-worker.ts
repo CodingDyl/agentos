@@ -69,7 +69,7 @@ export interface CliWorkerSpec {
   installHint: string;
   /** Extra health requirement beyond the binary, e.g. a sign-in file. */
   ready?: () => Promise<{ ok: boolean; reason?: string }>;
-  args(input: { cwd: string; prompt: string; model?: string; files: CliRunFiles }): string[];
+  args(input: { cwd: string; prompt: string; model?: string; files: CliRunFiles; job: WorkerJob }): string[];
   /** The child's environment. Defaults to the server's own. */
   env?(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv;
   reader(input: { model?: string }): CliOutputReader;
@@ -113,7 +113,8 @@ function terminate(child: ChildProcess): void {
   child.once("exit", () => clearTimeout(timer));
 }
 
-function jobTimeoutMs(): number {
+function jobTimeoutMs(job?: WorkerJob): number {
+  if (job?.timeoutMs && Number.isFinite(job.timeoutMs) && job.timeoutMs > 0) return job.timeoutMs;
   const configured = Number(process.env.AGENTOS_CLI_WORKER_TIMEOUT_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_JOB_TIMEOUT_MS;
 }
@@ -155,9 +156,9 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
         usage: path.join(scratch, `usage-${randomUUID()}.json`),
       };
 
-      const model = aiModel(spec.id);
+      const model = job.modelOverride?.trim() || aiModel(spec.id);
       const prompt = buildCliPrompt(contextPacket);
-      const args = spec.args({ cwd: worktreePath, prompt, model, files });
+      const args = spec.args({ cwd: worktreePath, prompt, model, files, job });
 
       emit("job.progress", `Starting ${spec.name}`, { model: model ?? "tool default", promptBytes: prompt.length });
 
@@ -179,7 +180,7 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
 
       const onAbort = () => terminate(child);
       signal.addEventListener("abort", onAbort, { once: true });
-      const timeout = setTimeout(() => terminate(child), jobTimeoutMs());
+      const timeout = setTimeout(() => terminate(child), jobTimeoutMs(job));
 
       try {
         const lines = readline.createInterface({ input: child.stdout! });

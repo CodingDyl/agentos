@@ -53,7 +53,13 @@ const CLAUDE_DENIED = [
   "WebSearch",
 ];
 
-export function claudeCodeArgs(input: { prompt: string; model?: string }): string[] {
+export function claudeCodeArgs(input: {
+  prompt: string;
+  model?: string;
+  effort?: string;
+  extraAllowedTools?: string[];
+  settingSources?: string;
+}): string[] {
   return [
     "-p",
     input.prompt,
@@ -62,15 +68,17 @@ export function claudeCodeArgs(input: { prompt: string; model?: string }): strin
     "--verbose",
     "--permission-mode",
     "acceptEdits",
-    // Project settings only: the operator's own user settings, hooks and MCP
-    // servers are theirs, not the job's. (Not `--bare`: that would force API-key
-    // billing and bypass the plan this worker exists to use.)
+    // Project settings only by default: the operator's own user settings, hooks
+    // and MCP servers are theirs, not the job's. Motion Design passes
+    // `user,project` so ~/.claude/skills and a Higgsfield MCP are available.
     "--setting-sources",
-    "project",
+    input.settingSources?.trim() || "project",
     "--strict-mcp-config",
     ...(input.model ? ["--model", input.model] : []),
+    ...(input.effort ? ["--effort", input.effort] : []),
     "--allowedTools",
     ...CLAUDE_ALLOWED,
+    ...(input.extraAllowedTools ?? []),
     "--disallowedTools",
     ...CLAUDE_DENIED,
   ];
@@ -149,7 +157,14 @@ export const claudeCodeWorker = createCliWorker({
     (await exists(path.join(os.homedir(), ".claude")))
       ? { ok: true }
       : { ok: false, reason: "Claude Code has never been signed in on this machine. Run `claude` once and log in." },
-  args: ({ prompt, model }) => claudeCodeArgs({ prompt, model }),
+  args: ({ prompt, model, job }) =>
+    claudeCodeArgs({
+      prompt,
+      model,
+      effort: job.effort,
+      extraAllowedTools: job.extraAllowedTools,
+      settingSources: job.claudeSettingSources,
+    }),
   env: (base) => {
     // Without these removed, Claude Code would bill the API key AgentOS holds
     // instead of the operator's plan — the one thing this worker is for.
