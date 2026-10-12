@@ -154,6 +154,15 @@ async function githubUser(): Promise<TestResult> {
   }
 
   if (response.status === 401) return { ok: false, detail: "GitHub rejected GITHUB_TOKEN." };
+  if (response.status === 403 || response.status === 429) {
+    const body = (await response.json().catch(() => ({}))) as { message?: unknown };
+    const limited = typeof body.message === "string" && /rate limit|too many requests/i.test(body.message);
+    if (limited || response.status === 429) {
+      const retryAfter = response.headers.get("retry-after");
+      return { ok: false, detail: retryAfter ? `GitHub rate-limited, retry after ${retryAfter} seconds.` : "GitHub rate-limited, retry after a few minutes." };
+    }
+    return { ok: false, detail: "GitHub refused GITHUB_TOKEN. Check its permissions." };
+  }
   if (!response.ok) return { ok: false, detail: `GitHub responded with ${response.status}.` };
 
   const body = (await response.json().catch(() => ({}))) as { login?: unknown };

@@ -10,11 +10,13 @@ import { HermesError, sendToHermes } from "../hermes/client";
 import { writeCase } from "../outreach/cases";
 import { buildBrandBrief, repoBrandFiles } from "./brand";
 import { ClientRepoUnavailable, commitFiles, ensureClientRepo, git, readRepoFile, repoFolderName } from "./client-repo";
+import { DEPLOY_POLL_MS, PREVIEW_BRANCH, PRODUCTION_BRANCH, nextPreviewDeployStep, vercelBuildFailureMessage } from "./deploy-policy";
 import {
   ensurePrivateRepo,
   ensureVercelProject,
-  findPreviewDeployment,
+  listCommitDeployments,
   openPreviewsToLinkHolders,
+  pinGithubDefaultBranch,
   PublishError,
   pushRef,
   readDeployment,
@@ -81,10 +83,11 @@ export interface StageDeps {
 
 const publishCalls = {
   ensurePrivateRepo,
+  pinGithubDefaultBranch,
   pushRef,
   ensureVercelProject,
   openPreviewsToLinkHolders,
-  findPreviewDeployment,
+  listCommitDeployments,
   requestPreviewDeployment,
   readDeployment,
 };
@@ -587,15 +590,17 @@ export const previewStage: StageHandler = async (context) => {
   const name = repoFolderName(run.workspaceSlug ?? run.companySlug);
 
   context.activity("Finding or creating the private GitHub repo");
-  const { repo, created } = await publishStep(() => deps.publish.ensurePrivateRepo(name, `${run.company} website rebuild (AgentOS preview)`));
+  const { repo: createdRepo, created } = await publishStep(() => deps.publish.ensurePrivateRepo(name, `${run.company} website rebuild (AgentOS preview)`));
+  let repo = createdRepo;
   setRunField(run.id, "github_repo", repo.fullName);
   context.log(created ? `Created the private repo ${repo.fullName}.` : `Using the existing private repo ${repo.fullName}.`);
 
   if (created) {
     // `main` gets only the first commit, so it becomes the default branch and Vercel's production branch never carries the preview.
     const root = (await git(repoPath, ["rev-list", "--max-parents=0", commit])).split("\n")[0];
-    await publishStep(() => deps.publish.pushRef(repoPath, repo, root, "main", false));
+    await publishStep(() => deps.publish.pushRef(repoPath, repo, root, PRODUCTION_BRANCH, false));
   }
+  repo = await publishStep(() => deps.publish.pinGithubDefaultBranch(repo, PRODUCTION_BRANCH));
 
   context.activity("Finding or creating the Vercel project");
   const { project } = await publishStep(() => deps.publish.ensureVercelProject(name, repo));
@@ -603,32 +608,41 @@ export const previewStage: StageHandler = async (context) => {
   await publishStep(() => deps.publish.openPreviewsToLinkHolders(project));
 
   context.activity(`Pushing the approved commit ${commit.slice(0, 7)} to the preview branch`);
-  await publishStep(() => deps.publish.pushRef(repoPath, repo, commit, "preview", true));
+  await publishStep(() => deps.publish.pushRef(repoPath, repo, commit, PREVIEW_BRANCH, true));
+  const gitPushTriggered = Boolean(project.linkedRepo);
 
-  // Vercel builds on push; if no deployment of this commit shows up, ask for one.
-  // Counted in polls rather than clock time, so the waits are exact whatever `sleep` does.
-  const POLL_MS = 10_000;
+  // One trigger: the git push. Polling faster than a minute, or requesting a
+  // second API deploy of the same commit, is how GitHub's secondary rate limit gets hit.
+  const pickupMs = 3 * 60 * 1000;
   let deployment: VercelDeploymentState | undefined;
-  for (let poll = 0; !deployment && poll < (3 * 60 * 1000) / POLL_MS; poll += 1) {
-    deployment = await publishStep(() => deps.publish.findPreviewDeployment(project, commit));
-    if (!deployment) {
-      context.activity("Waiting for Vercel to pick up the push");
-      await deps.sleep(POLL_MS);
+  for (let waited = 0; !deployment && waited <= pickupMs; waited += DEPLOY_POLL_MS) {
+    const listed = await publishStep(() => deps.publish.listCommitDeployments(project, commit));
+    const next = nextPreviewDeployStep({ gitPushTriggered, deployments: listed, commit });
+    if (next.step === "use-existing" && next.deployment) {
+      deployment = next.deployment;
+      break;
     }
+    if (next.step === "blocked") throw new StageBlocked(next.message ?? "Vercel started a production deployment of the preview branch.");
+    if (next.step === "request-preview") {
+      deployment = await publishStep(() => deps.publish.requestPreviewDeployment(project, repo, PREVIEW_BRANCH, commit));
+      break;
+    }
+    if (waited >= pickupMs) break;
+    context.activity("Waiting for Vercel to pick up the push");
+    await deps.sleep(DEPLOY_POLL_MS);
   }
   if (!deployment) {
-    context.log("Vercel did not start a build from the push, so AgentOS asked for one.", "warning");
-    deployment = await publishStep(() => deps.publish.requestPreviewDeployment(project, repo, "preview", commit));
+    throw new StageBlocked("Vercel did not start a preview from the push. AgentOS did not request a second deploy, to avoid GitHub rate limits. Check the GitHub integration in Vercel, then retry.");
   }
   setRunField(run.id, "deployment_id", deployment.id);
 
   for (let poll = 0; !["READY", "ERROR", "CANCELED"].includes(deployment.state); poll += 1) {
-    if (poll * POLL_MS > deps.deployTimeoutMs) throw new StageBlocked(`Vercel has not finished building ${deployment.url} after ${Math.round(deps.deployTimeoutMs / 60000)} minutes. Check it in Vercel, then retry.`);
+    if (poll * DEPLOY_POLL_MS > deps.deployTimeoutMs) throw new StageBlocked(`Vercel has not finished building ${deployment.url} after ${Math.round(deps.deployTimeoutMs / 60000)} minutes. Check it in Vercel, then retry.`);
     context.activity(`Vercel is building the preview (${deployment.state.toLowerCase()})`);
-    await deps.sleep(POLL_MS);
+    await deps.sleep(DEPLOY_POLL_MS);
     deployment = await publishStep(() => deps.publish.readDeployment(deployment?.id ?? ""));
   }
-  if (deployment.state !== "READY") throw new StageBlocked(`Vercel's build ${deployment.state === "ERROR" ? "failed" : "was cancelled"}${deployment.errorMessage ? `: ${deployment.errorMessage}` : ""}. Open the deployment in Vercel for the log, fix it with a change request on the features, then retry.`);
+  if (deployment.state !== "READY") throw new StageBlocked(vercelBuildFailureMessage(deployment));
 
   context.activity("Checking the preview as a visitor with no login");
   const routes = routesFrom(await git(repoPath, ["show", `${commit}:sitemap.json`]).catch(() => undefined));
