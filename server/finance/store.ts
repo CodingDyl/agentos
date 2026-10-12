@@ -9,7 +9,7 @@ import type {
   SubscriptionDecision,
   Transaction,
 } from "../../shared/finance-types";
-import { CategorySchema, JevSubscriptionAssessmentSchema, type AccountInput, type AccountPatch, type BillInput, type BillPatch, type BudgetInput, type PartnerInput, type SettlementInput, type SplitRuleInput } from "../../shared/finance-types";
+import { CategorySchema, JevSubscriptionAssessmentSchema, type AccountInput, type AccountPatch, type BillInput, type BillPatch, type BudgetInput, type Enquiry, type PartnerInput, type SettlementInput, type SplitRuleInput } from "../../shared/finance-types";
 import { isRiskProfile, type RiskProfile } from "../../shared/finance-profiler";
 import { merchantKey } from "./categorise";
 import { financeDatabase } from "./db";
@@ -564,3 +564,42 @@ export function deleteDismissal(id: string): void {
 /** Is this alert hidden right now? A month-long dismissal only counts in the month it was made. */
 export const isDismissed = (dismissals: readonly StoredDismissal[], id: string, month: string) =>
   dismissals.some((entry) => entry.id === id && (entry.scope === "always" || entry.month === month));
+
+// ---------------------------------------------------------------- enquiries
+
+export function readEnquiries(): Enquiry[] {
+  const rows = financeDatabase()
+    .prepare("SELECT transaction_id, date, description, merchant, amount, account_name, note, created_at FROM enquiries ORDER BY created_at DESC")
+    .all() as unknown as { transaction_id: string; date: string; description: string; merchant: string | null; amount: number; account_name: string; note: string | null; created_at: string }[];
+  return rows.map((row) => ({
+    transactionId: row.transaction_id,
+    date: row.date,
+    description: row.description,
+    merchant: row.merchant ?? undefined,
+    amount: row.amount,
+    accountName: row.account_name,
+    note: row.note ?? undefined,
+    createdAt: row.created_at,
+  }));
+}
+
+/** Flags a payment to look into. Flagging it again only updates the note. */
+export function saveEnquiry(enquiry: Omit<Enquiry, "createdAt">): void {
+  financeDatabase()
+    .prepare(
+      `INSERT INTO enquiries (transaction_id, date, description, merchant, amount, account_name, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(transaction_id) DO UPDATE SET note = excluded.note`,
+    )
+    .run(enquiry.transactionId, enquiry.date, enquiry.description, enquiry.merchant ?? null, enquiry.amount, enquiry.accountName, enquiry.note || null, new Date().toISOString());
+}
+
+/** Changes the note on an enquiry already saved. False when there is none for that payment. */
+export function updateEnquiryNote(transactionId: string, note: string | undefined): boolean {
+  const result = financeDatabase().prepare("UPDATE enquiries SET note = ? WHERE transaction_id = ?").run(note || null, transactionId);
+  return Number(result.changes) > 0;
+}
+
+/** Resolved, or flagged by mistake. */
+export function deleteEnquiry(transactionId: string): void {
+  financeDatabase().prepare("DELETE FROM enquiries WHERE transaction_id = ?").run(transactionId);
+}

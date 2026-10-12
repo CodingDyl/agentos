@@ -1,6 +1,6 @@
 import express, { type Response } from "express";
 import type { ZodType } from "zod";
-import { PartnerInputSchema, SettlementInputSchema, SplitRuleInputSchema, AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, DismissAlertInputSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
+import { PartnerInputSchema, SettlementInputSchema, SplitRuleInputSchema, AccountInputSchema, AccountPatchSchema, BillInputSchema, BillMarkSchema, BillPatchSchema, BudgetInputSchema, CategoryCorrectionSchema, DismissAlertInputSchema, EnquiryInputSchema, GoalInputSchema, GoalPatchSchema, SubscriptionDecisionSchema } from "../../shared/finance-types";
 import { merchantKey } from "./categorise";
 import { getFinance, localToday, refreshBalances, syncFinance } from "./finance";
 import { InvestecError, isInvestecConfigured } from "./investec";
@@ -10,7 +10,7 @@ import { AnalyserError, askAnalyser, writeAnalysis } from "./analyser";
 import { CsvImportError, readStatement, type SignRule } from "./csv-import";
 import { ensureMonthlyReview, ensureMonthlyReviewInBackground, markReviewSeen, previousMonth, reviewError } from "./monthly-review";
 import { ReviewError, writeNarrative } from "./review";
-import { createSettlement, createSplitRule, deleteSettlement, deleteSplitRule, removePartner, savePartner, createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteDismissal, saveDismissal, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
+import { createSettlement, createSplitRule, deleteSettlement, deleteSplitRule, removePartner, savePartner, createBill, createGoal, createManualAccount, deleteBill, markBillPaid, readBill, unmarkBillPaid, updateBill, deleteCorrection, deleteDismissal, deleteEnquiry, saveEnquiry, updateEnquiryNote, saveDismissal, deleteGoal, deleteManualAccount, FinanceConflictError, FinanceNotFoundError, insertTransactions, readAccount, updateAccount, saveBudget, saveCorrection, saveDecision, updateGoal } from "./store";
 
 /**
  * `/api/finance`.
@@ -457,5 +457,37 @@ financeRouter.delete("/alerts/dismiss/:id", (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     fail(response, error, "bring the alert back");
+  }
+});
+
+// -------------------------------------------------- payments you want to look into
+
+/** Flags a payment from the recent list to double-check. Its details are copied in. */
+financeRouter.put("/enquiries", (request, response) => {
+  const input = parse(EnquiryInputSchema, request.body, response, "enquiry");
+  if (!input) return;
+  try {
+    const finance = getFinance();
+    if (finance.source.kind === "sample") throw new FinanceConflictError("Enquiries are saved once you have your own payments, not on sample data.");
+    const row = finance.transactions.find((entry) => entry.id === input.transactionId);
+    if (!row) {
+      // A payment already being looked into can have its note changed after it leaves the recent list.
+      if (!updateEnquiryNote(input.transactionId, input.note)) throw new FinanceNotFoundError("That payment is not in the recent list.");
+      response.json({ ok: true });
+      return;
+    }
+    saveEnquiry({ transactionId: row.id, date: row.date, description: row.description, merchant: row.merchant, amount: row.amount, accountName: row.accountName, note: input.note });
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "save the enquiry");
+  }
+});
+
+financeRouter.delete("/enquiries/:transactionId", (request, response) => {
+  try {
+    deleteEnquiry(request.params.transactionId);
+    response.json({ ok: true });
+  } catch (error) {
+    fail(response, error, "remove the enquiry");
   }
 });

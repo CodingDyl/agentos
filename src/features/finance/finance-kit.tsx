@@ -73,31 +73,40 @@ export function SampleNotice({ onSettings }: { onSettings: () => void }) {
 /**
  * Asks Jev for a category on one payment, and offers it. It never applies it:
  * "Use Groceries" is a correction, made by a click, and it is your correction
- * (not Jev's guess) that Finance remembers.
+ * (not Jev's guess) that Finance remembers. When Jev agrees with the category
+ * the payment already has, the button confirms it instead, and confirming is
+ * what stops the payment asking to be classified.
  */
-export function CategorySuggest({ transactionId, merchant, disabled }: { transactionId: string; merchant: string; disabled?: boolean }) {
+export function CategorySuggest({ transactionId, merchant, current: currentCategory, disabled }: { transactionId: string; merchant: string; current?: string; disabled?: boolean }) {
   const suggest = useSuggestCategory();
   const save = useSaveCorrection();
   const result = suggest.data?.suggestion;
+  const suggested = result ? CATEGORY_CHOICES.find((entry) => entry === result.category) : undefined;
+  const current = CATEGORY_CHOICES.find((entry) => entry === currentCategory);
+  const agrees = suggested !== undefined && suggested === current;
 
   return (
     <div className="mt-2">
       {result ? (
         <div className="rounded-none bg-paper-cream p-3 text-[13px] leading-5 text-paper-char">
           <p>
-            Jev leans <span className="font-semibold text-paper-moss">{result.category}</span> ({Math.round(result.confidence * 100)}% confident).
+            Jev leans <span className="font-semibold text-paper-moss">{result.category}</span> ({Math.round(result.confidence * 100)}% confident)
+            {agrees ? ", which is what it already is." : "."}
           </p>
           {result.alternatives.length > 1 ? (
             <p className="text-paper-sage">Also considered: {result.alternatives.slice(1).map((entry) => `${entry.category} ${Math.round(entry.confidence * 100)}%`).join(", ")}</p>
           ) : null}
           <div className="mt-2 flex flex-wrap gap-2">
-            <PaperButton
-              variant="ghost"
-              disabled={save.isPending || !CATEGORY_CHOICES.some((entry) => entry === result.category)}
-              onClick={() => save.mutate({ merchant, category: result.category as (typeof CATEGORY_CHOICES)[number] })}
-            >
-              Use {result.category}
-            </PaperButton>
+            {suggested ? (
+              <PaperButton variant="ghost" disabled={save.isPending} onClick={() => save.mutate({ merchant, category: suggested })}>
+                {agrees ? `Keep ${suggested}` : `Use ${suggested}`}
+              </PaperButton>
+            ) : null}
+            {current && !agrees ? (
+              <PaperButton variant="quiet" disabled={save.isPending} onClick={() => save.mutate({ merchant, category: current })}>
+                Keep {current}
+              </PaperButton>
+            ) : null}
           </div>
           <MutationError error={save.error} />
         </div>

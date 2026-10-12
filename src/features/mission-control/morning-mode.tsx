@@ -64,6 +64,18 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
               ))}
             </ol>
             {planned.picks.length === 0 ? <p className="mt-6 text-[15px] text-paper-char">Nothing on the list today. Capture what is on your mind, or add tasks to a workspace.</p> : null}
+            {planned.todos.some((todo) => !todo.done) ? (
+              <div className="mt-8">
+                <h2 className="text-[15px] font-semibold text-paper-moss">Also on today's list</h2>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-[15px] leading-6 text-paper-char">
+                  {planned.todos
+                    .filter((todo) => !todo.done)
+                    .map((todo) => (
+                      <li key={todo.id}>{todo.text}</li>
+                    ))}
+                </ul>
+              </div>
+            ) : null}
             <PaperButton variant="amber" className="mt-8 self-start" onClick={onClose}>
               Start the day
             </PaperButton>
@@ -93,12 +105,14 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
 
             <label className="mt-7 block">
               <span className="block text-[15px] font-semibold text-paper-moss">3. Anything on your mind? <span className="font-normal text-paper-sage">Optional</span></span>
-              <input
+              <span className="mt-0.5 block text-[13px] text-paper-sage">One per line. Each goes on today's to-do list, and Hermes weighs them when it picks your three.</span>
+              <textarea
                 value={mind}
-                maxLength={300}
+                maxLength={600}
+                rows={3}
                 onChange={(event) => setMind(event.target.value)}
-                placeholder="e.g. Client call at 2, want to finish the outreach flow"
-                className={cn(PAPER_INPUT, "mt-2 w-full text-[15px]")}
+                placeholder={"e.g. Client call at 2\nFinish the outreach flow"}
+                className={cn(PAPER_INPUT, "mt-2 w-full py-2 text-[15px] leading-6")}
               />
             </label>
 

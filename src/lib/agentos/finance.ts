@@ -10,6 +10,7 @@ import {
   type BillPatch,
   type BudgetInput,
   type CategoryCorrection,
+  type EnquiryInput,
   type FinanceData,
   type GoalInput,
   type GoalPatch,
@@ -89,6 +90,12 @@ function useFinanceMutation<V, R = unknown>(fn: (variables: V) => Promise<R>) {
 export const useSyncInvestec = () => useFinanceMutation(() => request("/api/finance/sync", { method: "POST" }));
 
 export const useSaveCorrection = () => useFinanceMutation((correction: CategoryCorrection) => request("/api/finance/corrections", json("PUT", correction)));
+
+/** Flags a payment to double-check later, with an optional note. */
+export const useSaveEnquiry = () => useFinanceMutation((input: EnquiryInput) => request("/api/finance/enquiries", json("PUT", input)));
+
+/** Resolves (or unflags) a payment you were looking into. */
+export const useRemoveEnquiry = () => useFinanceMutation((transactionId: string) => request(`/api/finance/enquiries/${id(transactionId)}`, { method: "DELETE" }));
 
 export const useRemoveCorrection = () => useFinanceMutation((merchant: string) => request(`/api/finance/corrections/${id(merchant)}`, { method: "DELETE" }));
 

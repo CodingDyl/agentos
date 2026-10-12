@@ -51,3 +51,10 @@ export const useCheckIn = () => useFocusChange((input: CheckIn) => call("/api/fo
 export const useSkipCheckIn = () => useFocusChange(() => call("/api/focus/skip", post()));
 export const useSwapPick = () => useFocusChange(({ slot, candidateId }: { slot: number; candidateId: string }) => call("/api/focus/swap", post({ slot, candidateId })));
 export const useMarkDone = () => useFocusChange(({ candidateId, done }: { candidateId: string; done: boolean }) => call("/api/focus/done", post({ candidateId, done })));
+
+const send = (method: "PATCH" | "DELETE", body?: unknown): RequestInit => ({ method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+
+/** Today's to-do list: what was on your mind at check-in, and what you add. */
+export const useAddTodo = () => useFocusChange((text: string) => call("/api/focus/todos", post({ text })));
+export const useUpdateTodo = () => useFocusChange(({ id, ...patch }: { id: string; done?: boolean; text?: string }) => call(`/api/focus/todos/${encodeURIComponent(id)}`, send("PATCH", patch)));
+export const useRemoveTodo = () => useFocusChange((id: string) => call(`/api/focus/todos/${encodeURIComponent(id)}`, send("DELETE")));

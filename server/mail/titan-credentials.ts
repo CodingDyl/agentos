@@ -27,6 +27,12 @@ export interface TitanCredentials {
   imapPort: number;
   smtpHost: string;
   smtpPort: number;
+  /**
+   * `LOGIN` when Titan refused SASL (AUTHENTICATE PLAIN) for this mailbox but
+   * took the plain IMAP LOGIN command, found when the mailbox was linked.
+   * Absent: IMAPFlow picks from what the server advertises.
+   */
+  imapLoginMethod?: "LOGIN";
 }
 
 interface SealedSecret {
@@ -103,6 +109,7 @@ export async function titanAccount(): Promise<Omit<TitanCredentials, "password">
     imapPort: stored.imapPort,
     smtpHost: stored.smtpHost,
     smtpPort: stored.smtpPort,
+    ...(stored.imapLoginMethod ? { imapLoginMethod: stored.imapLoginMethod } : {}),
   };
 }
 
@@ -121,7 +128,7 @@ export async function readTitanCredentials(): Promise<TitanCredentials | undefin
   }
 }
 
-export async function saveTitanCredentials(input: TitanConnectRequest): Promise<void> {
+export async function saveTitanCredentials(input: TitanConnectRequest, imapLoginMethod?: "LOGIN"): Promise<void> {
   const key = await secretKey(true);
   if (!key) throw new TitanCredentialsError("Could not create the mailbox key.");
   const stored: StoredTitanAccount = {
@@ -131,6 +138,7 @@ export async function saveTitanCredentials(input: TitanConnectRequest): Promise<
     imapPort: input.imapPort,
     smtpHost: input.smtpHost,
     smtpPort: input.smtpPort,
+    ...(imapLoginMethod ? { imapLoginMethod } : {}),
     password: sealSecret(input.password, key),
     linkedAt: new Date().toISOString(),
   };
