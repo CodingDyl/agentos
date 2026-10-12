@@ -158,7 +158,9 @@ test.describe("Operator", () => {
     // A spoken request becomes a run, in the mode the words imply.
     await panel.getByLabel("Your message").fill("Plan a new app called Voice Plan with Next.js");
     await panel.getByRole("button", { name: "Send" }).click();
-    await expect(jarvis.getByText("Planning it. Nothing will run.")).toBeVisible();
+    // Jarvis shows only its latest line, and a fast plan can replace the
+    // acknowledgement with "Plan ready" before the check sees it: accept either.
+    await expect(jarvis.getByText(/^(Planning it\. Nothing will run\.|Plan ready for Voice Plan\.)/)).toBeVisible();
     const reply = lastReply(page);
     await expect(reply.getByText(/Plan ready/)).toBeVisible({ timeout: 15_000 });
 

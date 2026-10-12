@@ -30,11 +30,13 @@ async function wrapper(name: string, fixture: string): Promise<void> {
 }
 
 before(async () => {
+  process.env.AGENTOS_SKIP_MODEL_DISCOVERY = "1";
   directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-adapters-"));
   await fs.mkdir(path.join(directory, "bin"));
   await wrapper("gemini", "fake-acp-agent.ts");
   await wrapper("codex", "fake-codex-app-server.ts");
-  for (const key of ["PATH", "AGENTOS_UI_DIR", "OPENAI_API_KEY"]) saved[key] = process.env[key];
+  for (const key of ["PATH", "AGENTOS_UI_DIR", "OPENAI_API_KEY", "AGENTOS_CODEX_RETRY_LIMIT_MS"]) saved[key] = process.env[key];
+  process.env.AGENTOS_CODEX_RETRY_LIMIT_MS = "400";
   process.env.PATH = `${path.join(directory, "bin")}${path.delimiter}${process.env.PATH ?? ""}`;
   process.env.AGENTOS_UI_DIR = path.join(directory, "ui");
   process.env.OPENAI_API_KEY = "sk-test-unused";
@@ -55,11 +57,11 @@ function reply(): ChatMessage {
   return { id: "msg_1", role: "assistant", parts: [], createdAt: new Date().toISOString() };
 }
 
-async function turn(agent: ChatAgentAdapter, options: { allow: boolean; resume?: string; model?: string }) {
+async function turn(agent: ChatAgentAdapter, options: { allow: boolean; resume?: string; model?: string; prompt?: string }) {
   const state: TurnState = { message: reply() };
   const asked: ApprovalRequest[] = [];
   await agent.runTurn({
-    prompt: "Go",
+    prompt: options.prompt ?? "Go",
     model: options.model ?? "default",
     resume: options.resume,
     policy: { projectRoot },
@@ -117,7 +119,7 @@ describe("an ACP agent (Gemini CLI, Hermes)", () => {
   it("reports an agent that isn't installed, with the fix", async () => {
     const described = await acp.hermesAgent.describe();
     assert.equal(described.available, false);
-    assert.match(described.unavailableReason ?? "", /isn't installed/);
+    assert.match(described.unavailableReason ?? "", /wasn't found/);
   });
 });
 
@@ -154,6 +156,18 @@ describe("Codex, through its app-server", () => {
     const fresh = await turn(codex.codexAgent, { allow: true, resume: "th-gone" });
     assert.match(fresh.text, /couldn't reopen the earlier part of this chat/);
     assert.equal(fresh.state.sessionId, "th-1");
+  });
+
+  it("stops a turn Codex keeps retrying offline, instead of spinning forever", async () => {
+    const { state } = await turn(codex.codexAgent, { allow: true, prompt: "offline" });
+    assert.match(state.message.error ?? "", /kept retrying/);
+    assert.match(state.message.error ?? "", /waiting for network \(Proxy connection failed: 403\)/);
+    assert.match(state.message.error ?? "", /codex login/);
+  });
+
+  it("ends the turn on an error Codex won't retry, with Codex's reason", async () => {
+    const { state } = await turn(codex.codexAgent, { allow: true, prompt: "unauthorized" });
+    assert.equal(state.message.error, "401 Unauthorized (Run codex login)");
   });
 
   it("names its models from Codex's own catalogue, hiding hidden ones", () => {

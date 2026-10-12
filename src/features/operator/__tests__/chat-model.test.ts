@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ChatAgent, ChatSummary } from "@shared/chat-types";
-import { groupChats, initialModelChoice, modelLabel, parseSlashRun } from "../chat-model";
+import { chatModelChoice, groupChats, initialModelChoice, modelLabel, parseSlashRun } from "../chat-model";
 
 const NOW = new Date(2026, 9, 8, 15, 0, 0);
 
@@ -81,5 +81,12 @@ describe("slash commands that start a planned run", () => {
     assert.equal(parseSlashRun("/runbook please"), undefined);
     assert.equal(parseSlashRun("please /run this"), undefined);
     assert.equal(parseSlashRun("/deploy now"), undefined);
+  });
+});
+
+describe("the model an existing chat shows", () => {
+  it("is its own, or the agent's default once that model is no longer offered", () => {
+    assert.deepEqual(chatModelChoice([claude], { agent: "claude", model: "claude-sonnet-5-5" }), { agent: "claude", model: "claude-sonnet-5-5" });
+    assert.deepEqual(chatModelChoice([claude], { agent: "claude", model: "claude-fable-5-1" }), { agent: "claude", model: "claude-opus-5-5" });
   });
 });
