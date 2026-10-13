@@ -40,13 +40,13 @@ import {
  * the good day, and a permanent block of dashes would spend attention on
  * something nobody is doing this week.
  */
-export function SprintScorecard({ sprint }: { sprint: ValidationSprint }) {
+export function SprintScorecard({ sprint, className }: { sprint: ValidationSprint; className?: string }) {
   const { scorecard, tasks } = sprint;
 
   if (scorecard.tasksAttempted === 0) return null;
 
   return (
-    <PaperSection label="Validation sprint">
+    <PaperSection label="Validation sprint" className={className}>
       <Figures scorecard={scorecard} />
 
       <div className="mt-8 border-t border-paper-stone pt-6">

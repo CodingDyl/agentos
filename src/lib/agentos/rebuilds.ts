@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type BrandKitEdit, type PageNote, type PageNotesByRoute, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
 import { AgentOSRequestError } from "./client";
+import { agentosKeys } from "./queries";
 
 const base = "/api/rebuilds";
 const key = (id: string) => ["rebuild", id] as const;
@@ -87,6 +88,7 @@ function useRunMutation<TInput>(request: (input: TInput) => Promise<RebuildRun>)
       client.setQueryData(key(run.id), run);
       client.setQueryData(prospectKey(run.prospectId), run);
       if (run.workspaceSlug) client.setQueryData(["rebuild", "workspace", run.workspaceSlug], run);
+      void client.invalidateQueries({ queryKey: agentosKeys.missionControl() });
     },
     networkMode: "always",
     retry: 0,

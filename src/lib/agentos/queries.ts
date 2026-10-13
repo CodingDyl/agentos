@@ -1159,6 +1159,7 @@ function useJobRefresh() {
     void queryClient.invalidateQueries({
       predicate: (query) => query.queryKey[1] === "worker-job",
     });
+    void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
   };
 }
 

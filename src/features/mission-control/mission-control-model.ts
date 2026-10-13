@@ -1,6 +1,7 @@
 import type {
   AttentionItem,
   AttentionSeverity,
+  AttentionSource,
   MissionSources,
   SystemStatus,
 } from "@shared/mission-control-types";
@@ -97,6 +98,36 @@ const ATTENTION_LABEL: Record<string, string> = {
 
 export function attentionLabel(type: string): string {
   return ATTENTION_LABEL[type] ?? type.replace(/_/g, " ");
+}
+
+const SOURCE_LABEL: Record<AttentionSource, string> = {
+  workers: "Workers",
+  rebuild: "Website rebuild",
+  motion: "Motion Design",
+  operator: "Operator",
+  workspace: "Workspace",
+  automation: "Automations",
+  system: "System",
+  apply: "Apply",
+};
+
+const SOURCE_FROM_ID: Record<string, AttentionSource> = {
+  job: "workers",
+  automation: "automation",
+  project: "workspace",
+  system: "system",
+  rebuild: "rebuild",
+  motion: "motion",
+  operator: "operator",
+};
+
+export function inboxSource(item: Pick<AttentionItem, "id" | "source">): AttentionSource {
+  if (item.source) return item.source;
+  return SOURCE_FROM_ID[item.id.split("-")[0] ?? ""] ?? "system";
+}
+
+export function inboxSourceLabel(item: Pick<AttentionItem, "id" | "source">): string {
+  return SOURCE_LABEL[inboxSource(item)];
 }
 
 /**
