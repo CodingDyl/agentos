@@ -35,7 +35,7 @@ test.describe("Today", () => {
     await page.goto("/");
     const nav = page.getByRole("complementary", { name: "Primary navigation" });
 
-    for (const label of ["Today", "Inbox", "Workspaces", "Knowledge", "Creative", "Automations", "Operations", "Activity"]) {
+    for (const label of ["Dashboard", "Inbox", "Workspaces", "Knowledge", "Creative", "Automations", "Operations", "Activity"]) {
       await expect(nav.getByRole("link", { name: new RegExp(`^${label}`) })).toBeVisible();
     }
     await expect(nav.getByRole("link", { name: /^Workers$/ })).toHaveCount(0);

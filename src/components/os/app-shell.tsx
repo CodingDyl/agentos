@@ -1,13 +1,23 @@
 import { useMissionControl } from "@/lib/agentos/queries";
-import { CollectiveArtwork, DecorativeTape } from "@/components/collective/collective-identity";
-import { Menu, X, type LucideIcon } from "lucide-react";
-import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, Menu, X, type LucideIcon } from "lucide-react";
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppShellActionsContext } from "./app-shell-actions-context";
 import { AppShellMediaContext } from "./app-shell-media-context";
 import { AppShellVoiceContext } from "./app-shell-voice-context";
 import { ActiveWorkIndicator } from "./active-work-indicator";
+import { SidebarCodePanel } from "./sidebar-code-panel";
+import {
+  COLLAPSIBLE_SECTIONS,
+  SECTION_LABELS,
+  expandActiveSection,
+  isCollapsibleSection,
+  readCollapsedSections,
+  toggleCollapsedSection,
+  writeCollapsedSections,
+  type CollapsibleSection,
+} from "./sidebar-sections";
 import { SystemIndicator, type SystemState } from "./system-indicator";
 
 export interface AppShellNavigationItem {
@@ -23,23 +33,18 @@ export interface AppShellNavigationItem {
    */
   badge?: number;
   /**
-   * Where the item sits. `primary` is ungrouped at the top; `work` and
-   * `system` carry a label; `footer` is the quiet row of power-user links.
-   * Absent reads as `primary`, so an old item list still renders.
+   * Where the item sits. `primary` is ungrouped at the top; `business`,
+   * `work`, `memory` and `operations` are collapsible labelled groups;
+   * `footer` is the quiet row of power-user links. Absent reads as `primary`.
    */
   section?: AppShellNavigationSection;
   /** Nested links shown under the item — pinned workspaces under Workspaces. */
   children?: readonly { label: string; href: string }[];
 }
 
-export type AppShellNavigationSection = "primary" | "work" | "system" | "footer";
+export type AppShellNavigationSection = "primary" | "business" | "work" | "memory" | "operations" | "footer";
 
-const SECTION_LABELS: Partial<Record<AppShellNavigationSection, string>> = {
-  work: "Work",
-  system: "System",
-};
-
-const SECTION_ORDER: readonly AppShellNavigationSection[] = ["primary", "work", "system"];
+const SECTION_ORDER: readonly AppShellNavigationSection[] = ["primary", ...COLLAPSIBLE_SECTIONS];
 
 export interface AppShellProps {
   children: ReactNode;
@@ -133,6 +138,27 @@ export function AppShell({
   const shellActions = useContext(AppShellActionsContext);
   const voiceLauncher = useContext(AppShellVoiceContext);
   const media = useContext(AppShellMediaContext);
+  const activePath = activeHref ?? location.pathname;
+  const [collapsedSections, setCollapsedSections] = useState<Set<CollapsibleSection>>(() =>
+    typeof window === "undefined" ? new Set() : readCollapsedSections(),
+  );
+  const [expandedForPath, setExpandedForPath] = useState<string | undefined>(undefined);
+  if (expandedForPath !== activePath) {
+    setExpandedForPath(activePath);
+    const next = expandActiveSection(collapsedSections, activePath, navigationItems);
+    if (next !== collapsedSections) {
+      setCollapsedSections(next);
+      writeCollapsedSections(next);
+    }
+  }
+
+  const toggleSection = (section: CollapsibleSection) => {
+    setCollapsedSections((current) => {
+      const next = toggleCollapsedSection(current, section);
+      writeCollapsedSections(next);
+      return next;
+    });
+  };
 
   return (
     <div
@@ -208,26 +234,23 @@ export function AppShell({
             {SECTION_ORDER.map((section) => {
               const items = navigationItems.filter((item) => (item.section ?? "primary") === section);
               if (items.length === 0) return null;
+              const collapsible = isCollapsibleSection(section);
 
               return (
-                <div key={section} className={cn("flex flex-col gap-0.5", section !== "primary" && "mt-6")}>
-                  {SECTION_LABELS[section] ? (
-                    <span className="os-meta mb-2 px-3 text-os-subtle">{SECTION_LABELS[section]}</span>
-                  ) : null}
-                  {items.map((item) => (
-                    <NavigationLink
-                      key={item.href}
-                      item={item}
-                      isActive={item.href === activeHref}
-                      pathname={location.pathname}
-                      onNavigate={() => setIsNavigationOpen(false)}
-                    />
-                  ))}
-                </div>
+                <NavSection
+                  key={section}
+                  label={collapsible ? SECTION_LABELS[section] : undefined}
+                  collapsed={collapsible ? collapsedSections.has(section) : false}
+                  onToggle={collapsible ? () => toggleSection(section) : undefined}
+                  items={items}
+                  activeHref={activeHref}
+                  pathname={location.pathname}
+                  onNavigate={() => setIsNavigationOpen(false)}
+                />
               );
             })}
-            <div className="collective-sidebar-art" aria-hidden="true"><CollectiveArtwork /><DecorativeTape /></div>
           </nav>
+          <SidebarCodePanel />
           {media}
           {voiceLauncher ? <div className="border-t border-os-border p-3">{voiceLauncher}</div> : null}
           <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-os-border px-6 py-3">
@@ -279,6 +302,73 @@ export function AppShell({
           </span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function NavSection({
+  label,
+  collapsed,
+  onToggle,
+  items,
+  activeHref,
+  pathname,
+  onNavigate,
+}: {
+  label?: string;
+  collapsed: boolean;
+  onToggle?: () => void;
+  items: AppShellNavigationItem[];
+  activeHref?: string;
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const panelId = useId();
+  const headerId = useId();
+  const open = !collapsed;
+  const links = items.map((item) => (
+    <NavigationLink
+      key={item.href}
+      item={item}
+      isActive={item.href === activeHref}
+      pathname={pathname}
+      onNavigate={onNavigate}
+    />
+  ));
+
+  if (!label || !onToggle) {
+    return <div className="flex flex-col gap-0.5">{links}</div>;
+  }
+
+  return (
+    <div className="mt-6 flex flex-col">
+      <button
+        type="button"
+        id={headerId}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={onToggle}
+        className="os-focus-ring os-meta mb-1 flex min-h-8 w-full cursor-pointer items-center justify-between rounded-none px-3 text-os-subtle transition-colors hover:text-foreground"
+      >
+        <span>{label}</span>
+        <ChevronDown
+          className={cn("size-3.5 shrink-0 transition-transform duration-200", open ? "rotate-0" : "-rotate-90")}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+      </button>
+      <div
+        id={panelId}
+        role="region"
+        aria-labelledby={headerId}
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+        inert={!open}
+      >
+        <div className="flex min-h-0 flex-col gap-0.5 overflow-hidden">{links}</div>
+      </div>
     </div>
   );
 }

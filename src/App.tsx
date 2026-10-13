@@ -59,11 +59,11 @@ function App() {
         <AppShellVoiceContext.Provider value={<VoiceLauncher />}>
         <AppShellMediaContext.Provider value={<MediaDock />}>
         <Routes>
-          {/* Today. Still Mission Control underneath — it replaced the old
-              Dashboard rather than sitting beside it, because two screens both
-              answering "what should I do now?" is two screens nobody trusts. */}
+          {/* Dashboard (nav label). Still Mission Control / Today underneath.
+              `/today` keeps working for anything that bookmarked the old path. */}
           <Route path="/" element={<MissionControlPage />} />
           <Route path="/today" element={<Navigate to="/" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
           <Route path="/compass" element={<CompassPage />} />
           <Route path="/inbox" element={<MailPage />} />
           <Route path="/mail" element={<Redirect to="/inbox" />} />
@@ -92,6 +92,7 @@ function App() {
           <Route path="/knowledge" element={<KnowledgePage />} />
           <Route path="/memory" element={<MemoryPage />} />
           <Route path="/learning" element={<LearningPage />} />
+          <Route path="/hub" element={<Navigate to="/learning" replace />} />
           <Route path="/agent" element={<AgentPage />} />
           <Route path="/automations" element={<AutomationsPage />} />
           <Route
