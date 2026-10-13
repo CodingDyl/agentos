@@ -47,7 +47,7 @@ export interface ActionContext {
 }
 
 const SCREENS: readonly { label: string; href: string; hint: string; keywords: string[] }[] = [
-  { label: "Today", href: "/", hint: "What matters today", keywords: ["home", "mission control", "dashboard", "attention"] },
+  { label: "Dashboard", href: "/", hint: "What matters today", keywords: ["home", "mission control", "today", "attention"] },
   { label: "Inbox", href: "/inbox", hint: "Mail", keywords: ["email", "gmail", "mail"] },
   { label: "Workspaces", href: "/workspaces", hint: "All areas of work", keywords: ["projects", "portfolio"] },
   { label: "Knowledge", href: "/knowledge", hint: "Documents and decisions", keywords: ["docs", "notes", "research", "specs"] },

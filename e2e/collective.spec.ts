@@ -52,7 +52,7 @@ test("mobile drawer traps keyboard focus, closes with Escape, and keeps routes r
   const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
   await trigger.click();
   const drawer = page.getByRole("dialog", { name: "Primary navigation" });
-  const today = drawer.getByRole("link", { name: /^Today/ });
+  const today = drawer.getByRole("link", { name: /^Dashboard/ });
   await expect(today).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(drawer.getByRole("link", { name: "Compass", exact: true })).toBeFocused();
