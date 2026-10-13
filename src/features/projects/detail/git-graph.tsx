@@ -1,6 +1,7 @@
 import { Copy, GitBranch, GitMerge, Tag } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GraphCommit, GraphRef, RepositoryStatus } from "@shared/repository-types";
+import { DedsecLoader } from "@/components/os";
 import { useRepositoryGraph } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -78,7 +79,7 @@ export function GitGraph({ slug, status }: { slug: string; status: RepositorySta
   const width = useMemo(() => Math.max(1, data?.lanes ?? 1) * LANE_W + 8, [data?.lanes]);
   const dirty = status.uncommitted.length;
 
-  if (isLoading) return <p className="os-meta mt-6 text-os-subtle">Reading the history…</p>;
+  if (isLoading) return <DedsecLoader variant="compact" className="mt-6" />;
   if (error || !data) return <p className="os-meta mt-6 text-os-warning">{error instanceof Error ? error.message : "The history could not be read."}</p>;
   if (data.unavailable) return <p className="os-meta mt-6 text-os-subtle">{data.unavailable}</p>;
 

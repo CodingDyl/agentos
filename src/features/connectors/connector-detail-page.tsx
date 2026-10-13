@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ConnectorCapability, ConnectorDetail } from "@shared/connector-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage, PaperSwitch, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import {
@@ -53,10 +53,7 @@ export function ConnectorDetailPage() {
         </Link>
 
         {isPending ? (
-          <div aria-busy="true" aria-label="Reading the connector" className="mt-6">
-            <div className="h-8 w-48 rounded-none bg-paper-linen motion-safe:animate-pulse" />
-            <div className="mt-6 h-40 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
-          </div>
+          <DedsecLoader variant="page" className="mt-6" />
         ) : !data ? (
           <div className="mt-6">
             <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">That connector couldn't be read.</h1>

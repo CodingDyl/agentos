@@ -2,7 +2,7 @@ import { ArrowLeft, Pause, Play, SquareTerminal } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Automation, AutomationControl } from "@shared/agentos-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { reportActivity } from "@/lib/agentos/client";
@@ -54,7 +54,7 @@ export function AutomationDetailPage() {
         </Link>
 
         {isPending ? (
-          <p className="mt-6 text-[14px] text-paper-sage">Reading this job and its run history…</p>
+          <DedsecLoader variant="page" className="mt-6" />
         ) : !data ? (
           <div className="mt-6">
             <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.015em]">This job couldn't be read.</h1>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Prospect } from "@shared/traction-types";
 import { MAX_EMAIL_BODY, type EmailCandidate } from "@shared/outreach-types";
+import { DedsecLoader } from "@/components/os";
 import {
   FieldLabel,
   PAPER_FOCUS,
@@ -83,9 +84,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
       ) : null}
 
       {status.isPending ? (
-        <p className="mt-2 text-[13px] text-paper-sage">
-          Checking the outreach mailbox…
-        </p>
+        <DedsecLoader variant="compact" className="mt-2" />
       ) : null}
       {status.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">

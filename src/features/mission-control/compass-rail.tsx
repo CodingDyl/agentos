@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { AreaStatus } from "@shared/compass-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperSection, Tag } from "@/components/paper";
 import { useCompass } from "@/lib/agentos/compass";
 import { cn } from "@/lib/utils";
@@ -24,14 +25,18 @@ export function CompassRail({ className }: { className?: string }) {
   if (!data?.exists) {
     return (
       <PaperSection label="Compass" className={className}>
-        <p className="text-[14px] leading-6 text-paper-char">
-          {compass.isPending ? "Reading your Compass…" : "No Compass yet. Ten minutes with Hermes sets out your direction, goals and life areas, and your three get picked against it."}
-        </p>
-        {!compass.isPending ? (
-          <Link to="/compass" className={cn("mt-2 inline-block text-[13.5px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
-            Set up your Compass
-          </Link>
-        ) : null}
+        {compass.isPending ? (
+          <DedsecLoader variant="compact" />
+        ) : (
+          <>
+            <p className="text-[14px] leading-6 text-paper-char">
+              No Compass yet. Ten minutes with Hermes sets out your direction, goals and life areas, and your three get picked against it.
+            </p>
+            <Link to="/compass" className={cn("mt-2 inline-block text-[13.5px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+              Set up your Compass
+            </Link>
+          </>
+        )}
       </PaperSection>
     );
   }

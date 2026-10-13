@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Check, EyeOff, RotateCcw } from "lucide-react";
 import { pageNameForRoute, type FrictionTier, type RankedFrictionItem } from "@shared/friction-types";
+import { DedsecLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
 import { useFriction, useUpdateFriction } from "@/lib/agentos/friction";
 import { formatRelativeTime } from "@/lib/format";
@@ -26,7 +27,7 @@ export function FrictionTab() {
   const friction = useFriction();
   const update = useUpdateFriction();
 
-  if (friction.isPending) return <p className="text-[14px] text-paper-sage">Reading the friction inbox…</p>;
+  if (friction.isPending) return <DedsecLoader variant="compact" />;
   if (friction.error || !friction.data) {
     return <p className="text-[14px] text-paper-flame-deep">{friction.error?.message ?? "Friction could not be read."}</p>;
   }

@@ -15,6 +15,7 @@ import {
   type ReferenceLike,
   type YouDecideFields,
 } from "@shared/motion-design-types";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperError, PaperSwitch } from "@/components/paper";
 import {
   suggestedReferences,
@@ -307,7 +308,7 @@ function SetupStep({
   codeOnly: boolean;
   onCodeOnly: (value: boolean) => void;
 }) {
-  if (loading) return <p role="status">Checking this machine…</p>;
+  if (loading) return <DedsecLoader variant="compact" />;
   if (error || !setup) {
     return <PaperError title="Setup could not be read." detail={error} onRetry={onRetry} isRetrying={retrying} headingLevel="h2" />;
   }

@@ -12,7 +12,7 @@ import {
   ScanEye,
   GitBranch,
 } from "lucide-react";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useProjects } from "@/lib/agentos/queries";
 import { getProject } from "@/lib/agentos/client";
@@ -429,9 +429,7 @@ export function CoderPage() {
         activeHref="/coder"
         modelLabel="Coder"
       >
-        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono text-sm text-[#6a9fb5]">
-          Opening workspace…
-        </div>
+        <DedsecLoader variant="page" className="min-h-screen" />
       </AppShell>
     );
   }

@@ -7,6 +7,7 @@ import {
   type CareerTaskCategory,
   type CareerTaskMeta,
 } from "@shared/career-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_INPUT, PaperButton, PaperSection, Tag } from "@/components/paper";
 import { useSaveTaskMeta } from "@/lib/agentos/career";
 import type { TaskRecord } from "@/lib/agentos/client";
@@ -51,7 +52,7 @@ export function CareerTasksTab({ data }: { data: CareerData }) {
         }
       >
         {tasks.isPending ? (
-          <p className="text-[14px] text-paper-sage">Reading tasks…</p>
+          <DedsecLoader variant="compact" />
         ) : tasks.isError ? (
           <ErrorLine error={tasks.error} />
         ) : open.length === 0 ? (

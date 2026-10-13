@@ -3,7 +3,7 @@ import { CircleAlert, FilePlus2, FolderTree, Maximize, Minus, Plus, RefreshCw, R
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { VaultStatus } from "@shared/memory-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperIndicator } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
@@ -643,7 +643,11 @@ function GraphMessage({
   } else if (error) {
     message = `The graph could not be built: ${error}`;
   } else if (loading) {
-    message = "Drawing the graph…";
+    return (
+      <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/70" style={style}>
+        <DedsecLoader variant="compact" className="bg-transparent" />
+      </div>
+    );
   } else if (nodes === 0) {
     message = filtered ? "No notes match these filters." : "The vault has no notes to draw.";
   } else if (edges === 0 && scope === "global" && !filtered) {

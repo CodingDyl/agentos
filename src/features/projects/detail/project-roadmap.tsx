@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RoadmapMilestone, RoadmapTask } from "@shared/agentos-types";
 import {
   CommandButton,
+  DedsecLoader,
   EmptyState,
   HairlineCard,
   ProgressBar,
@@ -86,7 +87,7 @@ export function ProjectRoadmap({ slug, onAsk }: { slug: string; onAsk: () => voi
       { replace: true },
     );
 
-  if (isPending) return <p className="text-[15px] leading-6 text-os-muted">Reading MILESTONES.md…</p>;
+  if (isPending) return <DedsecLoader variant="compact" />;
   if (error || !data) return <EmptyState label="Roadmap unavailable" description={error?.message ?? "Could not read the roadmap."} />;
 
   const groups = groupMilestones(data.milestones);
@@ -410,7 +411,7 @@ function MilestoneDetail({
             <div>
               <SectionLabel>Agent work</SectionLabel>
               {detail.isPending ? (
-                <p className="mt-3 text-[14px] text-os-subtle">Reading…</p>
+                <DedsecLoader variant="compact" className="mt-3" />
               ) : detail.data && detail.data.agentWork.length > 0 ? (
                 <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-[14px] leading-5">
                   {detail.data.agentWork.map((entry) => (

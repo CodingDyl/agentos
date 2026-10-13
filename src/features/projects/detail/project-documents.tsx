@@ -2,7 +2,7 @@ import { PenLine, Plus, Search, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ArtifactType, DocumentProposal, ProjectDetail } from "@shared/agentos-types";
-import { CommandButton, EmptyState, FilterBar, Markdown, Section, SectionLabel } from "@/components/os";
+import { CommandButton, DedsecLoader, EmptyState, FilterBar, Markdown, Section, SectionLabel } from "@/components/os";
 import { useWorkspaceFeedback } from "@/features/workspace";
 import { useCreateDocument, useProjectDocuments, useProposeDocument } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -52,7 +52,7 @@ export function ProjectDocuments({ project }: { project: ProjectDetail }) {
     return <DocumentViewer slug={slug} path={openPath} origin={openOrigin} onBack={close} />;
   }
 
-  if (isPending) return <p className="text-[15px] leading-6 text-os-muted">Reading documents…</p>;
+  if (isPending) return <DedsecLoader variant="compact" />;
   if (error || !data) return <EmptyState label="Documents unavailable" description={error?.message ?? "Could not read documents."} />;
 
   const total = data.agentos.length + data.repo.length;

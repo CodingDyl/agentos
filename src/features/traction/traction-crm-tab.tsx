@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { daysBetween, isoDate } from "@shared/traction-dates";
 import type { CrmView, TractionData } from "@shared/traction-types";
 import { formatRand, inboundOrigin, type VirtecSource } from "@shared/virtec-types";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useImportCrm, useLeadNotAFit, useProfileLeads, useRefreshCrm, useScanCandidates, useScanInfo, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
@@ -35,11 +36,7 @@ export function TractionCrmTab({ data }: { data: TractionData }) {
   if (!crm.configured) return <SetupNote problem={crm.problem} />;
 
   if (crm.pending) {
-    return (
-      <p className="text-[14px] leading-6 text-paper-char" aria-live="polite">
-        Reading Virtec… The first read can take a few seconds; this screen fills in on its own.
-      </p>
-    );
+    return <DedsecLoader variant="compact" />;
   }
 
   return (
@@ -455,7 +452,7 @@ function FindCandidates({ track, writable }: { track: Track; writable: boolean }
             Scans one area of Google Places for {site === "jurivo" ? "law firms" : "businesses"} and adds what it finds to this list. It costs money: each Places
             type searched is one request, and Virtec stops at your monthly limit.
           </p>
-          {info.isPending ? <p className="mt-3 text-[13px] text-paper-sage">Reading Virtec…</p> : null}
+          {info.isPending ? <DedsecLoader variant="compact" className="mt-3" /> : null}
           {info.error ? (
             <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
               {info.error.message}

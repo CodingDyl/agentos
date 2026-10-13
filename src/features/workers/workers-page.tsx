@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { WorkerJob, WorkerSummary } from "@shared/worker-types";
 import {
   AppShell,
+  DedsecLoader,
   EmptyState,
   ErrorState,
   HairlineCard,
@@ -142,7 +143,7 @@ export function WorkersPage() {
               ) : null}
 
               {jobs.isPending ? (
-                <EmptyState variant="inline" description="Reading job history…" />
+                <DedsecLoader variant="compact" />
               ) : (jobs.data?.jobs ?? []).length === 0 ? (
                 <EmptyState
                   label="No jobs yet"

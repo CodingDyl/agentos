@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { EVIDENCE_LABELS, monthlyPrice, STATUS_LABELS, subscriptionsFor, summarise } from "./ai-stack-model";
 import { Figure } from "./figures";
 import { formatCost, formatTokens } from "./operations-model";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_INPUT, PaperCard, PaperSection, PaperSwitch, Tag } from "@/components/paper";
 
 /**
@@ -57,7 +58,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
   const setModel = useSetAiModel();
 
   if (stack.isPending) {
-    return <p className="text-[14px] leading-6 text-paper-sage">Looking for AIs on this machine…</p>;
+    return <DedsecLoader variant="compact" />;
   }
 
   if (!stack.data) {

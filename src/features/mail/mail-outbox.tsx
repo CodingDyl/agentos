@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ExternalLink, Paperclip, Send, Trash2 } from "lucide-react";
 import { MailSendTagSchema, type MailOutboxItem, type MailSendTag } from "@shared/mail-compose-types";
+import { DedsecLoader } from "@/components/os";
 import { formatRelativeTime } from "@/lib/format";
 import { useDiscardMailDraft, useMailOutbox, useRetagMailOutboxItem, useSendMailDraft } from "@/lib/agentos/queries";
 import { TAG_LABEL } from "./mail-compose-model";
@@ -160,7 +161,7 @@ export function MailOutbox({ onNotice }: { onNotice: (message: string) => void }
       </div>
 
       {outbox.isPending ? (
-        <p className="mail-meta">Reading sent mail…</p>
+        <DedsecLoader variant="compact" />
       ) : outbox.isError ? (
         <p className="mail-action-error" role="alert">
           {outbox.error instanceof Error ? outbox.error.message : "Could not read sent mail."}

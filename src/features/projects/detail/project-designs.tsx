@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { EmptyState, HairlineCard, Section } from "@/components/os";
+import { DedsecLoader, EmptyState, HairlineCard, Section } from "@/components/os";
 import { useDesignLibrary } from "@/lib/agentos/queries";
 
 /**
@@ -25,7 +25,7 @@ export function ProjectDesigns({ slug, designBoard }: { slug: string; designBoar
   const workspace = `/designs?project=${encodeURIComponent(slug)}`;
 
   if (isPending) {
-    return <p className="text-[15px] leading-6 text-os-muted">Reading the design library…</p>;
+    return <DedsecLoader variant="compact" />;
   }
 
   if (isError) {

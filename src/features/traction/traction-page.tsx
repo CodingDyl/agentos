@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import { vettingOf, type TractionData } from "@shared/traction-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PaperButton, PaperStage } from "@/components/paper";
 import { useFollowUps } from "@/lib/agentos/outreach";
 import { useNavigationItems } from "@/config/use-navigation";
@@ -70,10 +70,7 @@ export function TractionPage() {
     >
       <PaperStage>
         {isPending ? (
-          <div aria-busy="true" aria-label="Reading Traction">
-            <div className="h-9 w-48 rounded-none bg-paper-linen motion-safe:animate-pulse" />
-            <div className="mt-8 h-40 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
-          </div>
+          <DedsecLoader variant="page" />
         ) : !data ? (
           <div className="py-4">
             <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Traction could not be read.</h1>

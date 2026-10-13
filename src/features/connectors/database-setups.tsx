@@ -2,6 +2,7 @@ import { Check, Plus, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import type { DatabaseSetup } from "@shared/database-types";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, Tag } from "@/components/paper";
 import {
   useAddDatabaseSetup,
@@ -29,7 +30,7 @@ export function DatabaseSetups() {
   return (
     <div className="space-y-4">
       {setups.isPending ? (
-        <p className="text-[14px] text-paper-sage">Reading database setups…</p>
+        <DedsecLoader variant="compact" />
       ) : setups.isError ? (
         <p role="alert" className="text-[14px] text-paper-flame-deep">{setups.error.message}</p>
       ) : setups.data.length === 0 && !adding ? (

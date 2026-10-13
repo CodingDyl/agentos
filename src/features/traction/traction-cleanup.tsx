@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatBytes, REMOTE_ITEMS, type CleanupCandidate, type CleanupItem, type CleanupItemId, type CleanupPreview, type CleanupResult } from "@shared/client-cleanup";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperEmpty, PaperSection, Tag } from "@/components/paper";
 import { useCleanupCandidates, useCleanupPreview, useRunCleanup } from "@/lib/agentos/cleanup";
 import { cn } from "@/lib/utils";
@@ -82,7 +83,7 @@ function CleanupPanel({ candidate, onCleaned }: { candidate: CleanupCandidate; o
   const [typed, setTyped] = useState("");
   const [armed, setArmed] = useState(false);
 
-  if (preview.isPending) return <p className="mt-4 text-[13px] text-paper-sage">Checking what is there and measuring it… this can take a moment for a large site.</p>;
+  if (preview.isPending) return <DedsecLoader variant="compact" className="mt-4" />;
   if (preview.error) {
     return (
       <p role="alert" className="mt-4 text-[13px] text-paper-flame-deep">

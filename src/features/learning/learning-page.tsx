@@ -2,7 +2,7 @@ import { Archive, ArchiveRestore, BookmarkPlus, Check, Clock, ExternalLink, Link
 import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { formatTimestamp, LEARNING_SOURCE_LABELS, type LearningSource } from "@shared/learning-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
@@ -122,7 +122,7 @@ export function LearningPage() {
         </div>
 
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="pt-7">
-          {library.isPending ? <p className="text-[14px] text-paper-sage">Reading the library…</p> : null}
+          {library.isPending ? <DedsecLoader variant="compact" /> : null}
           {library.data && tab === "discover" ? (
             <Discover sources={sources} onOpen={openVideo} onTab={(next) => update({ tab: next })} onNote={(id) => update({ tab: "saved", note: id })} />
           ) : null}

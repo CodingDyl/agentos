@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { BusinessClient, BusinessData, BusinessEntitySummary } from "@shared/business-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, PaperStage, PaperTabs, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useBusiness, useLinkClientWorkspace, useRefreshBusiness, useSetEntityWorkspaces } from "@/lib/agentos/business";
@@ -49,10 +49,7 @@ export function BusinessPage() {
     <AppShell navigationItems={navigationItems} pageId="business" activeHref="/business" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
       <PaperStage>
         {isPending ? (
-          <div aria-busy="true" aria-label="Reading Business">
-            <div className="h-9 w-48 bg-paper-linen motion-safe:animate-pulse" />
-            <div className="mt-8 h-40 border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
-          </div>
+          <DedsecLoader variant="page" />
         ) : !data ? (
           <div className="py-4">
             <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Business could not be read.</h1>

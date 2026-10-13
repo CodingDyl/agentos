@@ -2,7 +2,7 @@ import { History, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Chat, ChatAgent } from "@shared/chat-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import {
@@ -232,7 +232,7 @@ function ChatWorkspace({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-8">
         <div className="mx-auto w-full max-w-[820px] py-8">
           {chatId && chat.isPending ? (
-            <div aria-busy="true" className="h-24 bg-paper-cream motion-safe:animate-pulse" />
+            <DedsecLoader variant="compact" />
           ) : chatId && chat.error ? (
             <p role="alert" className="text-[14px] text-paper-flame-deep">
               {chat.error.message}

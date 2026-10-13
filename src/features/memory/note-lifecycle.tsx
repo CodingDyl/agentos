@@ -1,6 +1,7 @@
 import { Archive, ArchiveRestore, History, Pencil, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { MEMORY_TYPE_LABELS, type MemoryHistoryEntry, type MemoryNoteDetail, type MemoryProvenance } from "@shared/memory-types";
+import { DedsecLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
 import { useArchiveMemoryNote, useMemoryHistory, useRestoreMemoryNote, useUndoMemoryChange } from "@/lib/agentos/memory";
@@ -157,7 +158,7 @@ export function NoteHistory({ noteId }: { noteId: string }) {
       </button>
       {open ? (
         history.isPending ? (
-          <p className="px-5 py-1 text-[13.5px] text-paper-sage">Reading history…</p>
+          <DedsecLoader variant="compact" className="px-5 py-1 min-h-24" />
         ) : entries.length === 0 ? (
           <p className="px-5 py-1 text-[13.5px] text-paper-sage">No changes made through AgentOS yet. Edits made in Obsidian are not listed here.</p>
         ) : (

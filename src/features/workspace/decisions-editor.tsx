@@ -2,6 +2,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
   CommandButton,
+  DedsecLoader,
   EmptyState,
   HairlineCard,
   SectionLabel,
@@ -42,7 +43,7 @@ export function DecisionsEditor({ project }: { project: string }) {
   const revision = data?.revision;
 
   if (isPending) {
-    return <p className="text-[15px] leading-6 text-os-muted">Reading DECISIONS.md…</p>;
+    return <DedsecLoader variant="compact" />;
   }
 
   return (

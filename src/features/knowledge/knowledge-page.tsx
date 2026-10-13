@@ -2,7 +2,7 @@ import { FileText, GraduationCap, Scale, Search } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ArtifactSource, KnowledgeItem } from "@shared/agentos-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { SOURCE_LABELS } from "@/features/projects/documents-model";
@@ -138,7 +138,7 @@ export function KnowledgePage() {
 
         <div className="mt-8">
           {isPending ? (
-            <p className="text-[14px] text-paper-sage">Reading documents…</p>
+            <DedsecLoader variant="page" />
           ) : !data ? (
             <div>
               <h2 className="font-paper-display text-[21px] font-bold">Knowledge could not be read.</h2>

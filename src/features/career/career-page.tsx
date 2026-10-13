@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import type { CareerData } from "@shared/career-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PaperButton, PaperStage, PaperTabs } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useCareer } from "@/lib/agentos/career";
@@ -43,10 +43,7 @@ export function CareerPage() {
     <AppShell navigationItems={navigationItems} pageId="career" activeHref="/career" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
       <PaperStage>
         {isPending ? (
-          <div aria-busy="true" aria-label="Reading Career">
-            <div className="h-9 w-48 rounded-none bg-paper-linen motion-safe:animate-pulse" />
-            <div className="mt-8 h-40 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
-          </div>
+          <DedsecLoader variant="page" />
         ) : !data ? (
           <div className="py-4">
             <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Career could not be read.</h1>

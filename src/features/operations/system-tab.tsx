@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { SystemStatus } from "@shared/mission-control-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { formatRunTime } from "@/features/automations";
 import { useMissionControl } from "@/lib/agentos/queries";
@@ -57,7 +58,7 @@ interface Row {
 export function SystemTab() {
   const { data, isPending, error } = useMissionControl();
 
-  if (isPending) return <p className="text-[14px] text-paper-sage">Reading the system…</p>;
+  if (isPending) return <DedsecLoader variant="compact" />;
   if (!data) return <p className="text-[14px] text-paper-flame-deep">{error?.message ?? "The system could not be read."}</p>;
 
   const workers: Row[] = data.workers.map((worker) => ({ ...worker }));

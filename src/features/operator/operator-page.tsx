@@ -2,7 +2,7 @@ import { ArrowUp, Square, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { isRunSettled, type OperatorMode, type RunbookSummary } from "@shared/operator-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useCreateOperatorRun, useOperatorRun, useOperatorRuns, useRunbooks, useStopOperatorRun } from "@/lib/agentos/operator";
@@ -80,7 +80,7 @@ export function OperatorPage() {
 
           <section aria-label="Conversation" className="mt-8 flex-1">
             {isPending ? (
-              <div aria-busy="true" className="h-24 bg-paper-cream motion-safe:animate-pulse" />
+              <DedsecLoader variant="compact" />
             ) : error ? (
               <p role="alert" className="text-[13.5px] text-paper-flame-deep">
                 {error.message}
