@@ -1,8 +1,20 @@
 # Traction: how to use it, start to finish
 
-Three ways in, one place to work. Website forms, lead magnets and your own
-outreach all end up as items in **Traction > Overview > Today**. Work that
+Traction is four steps in a row: **Next up**, **Find**, **Outreach**,
+**Follow-ups**. Everything else is under **More**. Website forms, lead magnets
+and your own outreach all end up as items in **Next up > Today**. Work that
 list top to bottom.
+
+## The short version
+
+1. **Find**: import a candidate (or add one), open it, read their website,
+   write the one thing you noticed. **I can help them**, or **Not a fit**.
+2. **Outreach**: businesses you can help. Draft the email, edit, copy it, send
+   it from your own mailbox, press **I sent it**.
+3. **Follow-ups**: 3 days later (then 4 more) a follow-up is **Due now**.
+   **Draft follow-up**, copy, send, **I sent it**. If they answer, **They
+   replied**. After the third email with no answer they are **Gone quiet**.
+4. **Next up** shows what needs doing today across all of it.
 
 ## 0. Once, before anything
 

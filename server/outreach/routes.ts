@@ -26,6 +26,7 @@ import {
 } from "../traction/store";
 import { LibrarySaveRequestSchema } from "../../shared/outreach-library";
 import { caseRouter } from "./case-routes";
+import { computeFollowUps } from "./follow-ups";
 import { LibraryError, libraryService, listLibrary, saveToLibrary } from "./library";
 import { allow, ApolloError, revealEmail, searchPeopleAtDomain } from "./apollo";
 import type { Sender } from "../../shared/outreach-case";
@@ -479,6 +480,15 @@ outreachRouter.post("/prospects/:id/manual-send", async (request, response) => {
     response.status(201).json({ recorded: true, id: entry.id, at: entry.at });
   } catch (error) {
     fail(response, error, "record the email");
+  }
+});
+
+/** Everyone contacted and not yet answered, with what is due. The one schedule: see `followUpWait`. */
+outreachRouter.get("/follow-ups", async (_request, response) => {
+  try {
+    response.json({ rows: computeFollowUps(await readState()) });
+  } catch (error) {
+    fail(response, error, "read the follow-ups");
   }
 });
 

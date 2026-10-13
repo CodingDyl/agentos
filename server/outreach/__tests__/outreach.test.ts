@@ -434,6 +434,16 @@ describe("the routes", () => {
     );
   });
 
+  it("lists who is in the follow-up sequence, from one schedule", async () => {
+    const made = await seed({ stage: "contacted" });
+    await api(`/prospects/${made.id}/manual-send`, { method: "POST", body: JSON.stringify({ subject: "Hello", body: "Body" }) });
+    const { status, body } = await api("/follow-ups");
+    assert.equal(status, 200);
+    const rows = body.rows as Array<{ prospectId: string; touches: number; state: string; nextTouch: number; lastBody: string }>;
+    assert.equal(rows.length, 1);
+    assert.deepEqual([rows[0].prospectId, rows[0].touches, rows[0].state, rows[0].nextTouch, rows[0].lastBody], [made.id, 1, "waiting", 2, "Body"]);
+  });
+
   it("records an email sent by hand without a mailbox, calls nothing, and takes no recipient", async () => {
     const made = await seed();
     const { status, body } = await api(`/prospects/${made.id}/manual-send`, {
@@ -869,6 +879,23 @@ describe("outreach cases", () => {
     assert.deepEqual((cleared.body.case as Record<string, unknown>).findings, []);
     assert.equal((await write({ previewUrl: "javascript:alert(1)" })).status, 400);
     assert.equal((await write({ nonsense: "x" })).status, 400);
+  });
+
+  it("records when a draft was saved beside the draft, and never trusts a writer's own value", async () => {
+    const made = await seed();
+    const write = (patch: unknown) => api(`/cases/${made.id}`, { method: "PATCH", body: JSON.stringify({ patch, by: "you" }) });
+
+    assert.equal((await write({ draftAt: "2001-01-01T00:00:00Z" })).status, 400, "not a field a writer can set");
+    const first = (await write({ draft: { subject: "s", body: "b" } })).body.case as { draft: Record<string, unknown>; draftAt: string };
+    assert.deepEqual(Object.keys(first.draft).sort(), ["body", "subject"], "the draft stays exactly an email");
+    assert.ok(Date.parse(first.draftAt) > Date.parse("2020-01-01"));
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const second = (await write({ draft: { subject: "s", body: "b2" } })).body.case as { draftAt: string };
+    assert.ok(second.draftAt > first.draftAt, "a new save is newer");
+
+    const cleared = (await write({ draft: null })).body.case as { draftAt: string };
+    assert.equal(cleared.draftAt, "");
   });
 
   it("lets Hermes fill only the empty fields, unless asked to replace them", async () => {

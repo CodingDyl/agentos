@@ -82,6 +82,8 @@ export function writeCase(
         next[key] = value;
         filledBy[key] = by;
       }
+      // A draft remembers when it was saved (and forgets when it is cleared), whatever the writer sent.
+      if (key === "draft") next.draftAt = value === null ? "" : new Date().toISOString();
     }
     next.updatedAt = new Date().toISOString();
     const saved = OutreachCaseSchema.parse(next);

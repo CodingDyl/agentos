@@ -68,6 +68,12 @@ export const OutreachCaseSchema = z.object({
   /** Which of your companies the email is from. */
   senderId: z.string().default(""),
   draft: CaseDraftSchema.optional(),
+  /**
+   * When the draft was last saved. Set by the server, never by a writer. A
+   * follow-up screen uses it to tell a new draft from the email already sent.
+   * Kept beside the draft, not in it, so the draft stays exactly an email.
+   */
+  draftAt: z.string().default(""),
   /** Research notes: anything Hermes, an agent or you found that is not a field above. */
   notes: z.string().max(6000).default(""),
   /** Who last filled each field. */

@@ -115,6 +115,11 @@ const StateSchema = z.object({
   outreachCases: z.record(z.string(), OutreachCaseSchema).default({}),
   /** The companies you send outreach as. */
   senders: z.array(SenderSchema).default([]),
+  /**
+   * Set once, when records from before "can help / not a fit" existed were
+   * carried over (see `readState`). Anything created after must be decided.
+   */
+  vettingMigrated: z.boolean().default(false),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -154,6 +159,7 @@ function emptyState(): TractionState {
     outreachSync: {},
     outreachCases: {},
     senders: [],
+    vettingMigrated: true,
   };
 }
 
@@ -176,7 +182,26 @@ export async function readState(): Promise<TractionState> {
     throw error;
   }
 
-  return StateSchema.parse(JSON.parse(raw));
+  return carryOverVetting(StateSchema.parse(JSON.parse(raw)));
+}
+
+/**
+ * Before "can help / not a fit" existed, a business with the one specific
+ * thing noticed was already on its way to outreach. Those keep that: marked
+ * "can help" once, here. Only existing records are touched; the flag is saved
+ * with the next write, and from then on a business is "can help" only when you
+ * say so.
+ */
+function carryOverVetting(state: TractionState): TractionState {
+  if (state.vettingMigrated) return state;
+  for (const prospect of state.prospects) {
+    if (prospect.stage === "target" && !prospect.vetting && prospect.observation?.trim()) {
+      prospect.vetting = "can_help";
+      prospect.vettedAt = prospect.updatedAt;
+    }
+  }
+  state.vettingMigrated = true;
+  return state;
 }
 
 async function writeState(state: TractionState): Promise<void> {
@@ -336,15 +361,27 @@ export function updateProspect(
     const existing = findProspect(state, id);
     const now = new Date().toISOString();
 
+    // "Not a fit" closes a business that has not been contacted; "can help" needs the one specific thing noticed.
+    let effective: ProspectPatch = patch;
+    if (patch.vetting === "not_a_fit" && existing.stage === "target" && patch.stage === undefined) effective = { ...patch, stage: "lost" };
+    if (patch.vetting === "can_help") {
+      const observation = patch.observation !== undefined ? patch.observation : existing.observation;
+      if (!observation?.trim()) throw new TractionConflictError("Add the one specific thing you noticed about them first.");
+    }
+
     const merged: Record<string, unknown> = { ...existing };
-    for (const [key, value] of Object.entries(patch)) {
+    for (const [key, value] of Object.entries(effective)) {
       if (value === undefined) continue;
       if (value === null) delete merged[key];
       else merged[key] = value;
     }
+    if (patch.vetting !== undefined) {
+      if (patch.vetting === null) delete merged.vettedAt;
+      else merged.vettedAt = now;
+    }
 
     const stageMoved =
-      patch.stage !== undefined && patch.stage !== existing.stage;
+      effective.stage !== undefined && effective.stage !== existing.stage;
     if (stageMoved) {
       merged.stageChangedAt = now;
       if (existing.stage === "target") merged.lastTouchAt = now;

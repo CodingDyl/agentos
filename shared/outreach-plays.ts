@@ -294,6 +294,9 @@ export type OutreachStats = z.infer<typeof OutreachStatsSchema>;
 export const FOLLOW_UP_DAYS = [3, 4] as const;
 export const MAX_TOUCHES = FOLLOW_UP_DAYS.length + 1;
 
+/** Days after the last email of the sequence with still no reply, before a business counts as gone quiet. */
+export const GONE_QUIET_AFTER_DAYS = 4;
+
 /**
  * The one follow-up schedule: days to wait after the `touches`th email before
  * the next is due, or undefined once the sequence is over (the prospect has

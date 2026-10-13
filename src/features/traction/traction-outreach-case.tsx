@@ -39,7 +39,7 @@ export function OutreachCaseView({ prospect, entry }: { prospect: Prospect; entr
 
   return (
     <div className="space-y-6">
-      <Overview prospect={prospect} />
+      <ProspectOverview prospect={prospect} />
       <KnowThem prospect={prospect} entry={entry} />
       <Decide prospect={prospect} entry={entry} sender={sender} />
       <WriteEmail prospect={prospect} entry={entry} senders={senders.data ?? []} sender={sender} />
@@ -49,7 +49,8 @@ export function OutreachCaseView({ prospect, entry }: { prospect: Prospect; entr
 
 // ─── Who they are ───────────────────────────────────────────────────────────
 
-function Overview({ prospect }: { prospect: Prospect }) {
+/** Who they are: contact, email, website, and why they are on the list. Used by Outreach and by Find. */
+export function ProspectOverview({ prospect }: { prospect: Prospect }) {
   const update = useUpdateProspect();
   const save = (field: "contact" | "email" | "website", value: string) => {
     const current = prospect[field] ?? "";
@@ -127,7 +128,8 @@ function ProspectInput({ label, value, onSave, type = "text", placeholder }: { l
 
 // ─── 1. Get to know them ────────────────────────────────────────────────────
 
-function KnowThem({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
+/** Hermes reads their website and fills the brief: what they do, what was noticed, the opening line. */
+export function KnowThem({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
   const brief = useBriefCase();
   const [notesOpen, setNotesOpen] = useState(Boolean(entry.notes));
   const briefed = Boolean(entry.about || entry.findings.length > 0);
@@ -405,7 +407,7 @@ function rememberedAgent(): string | undefined {
  * is not in the email or the notes is refused by the server. The result
  * replaces the draft, and Undo puts the old one back.
  */
-function ReviseDraftPanel({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
+export function ReviseDraftPanel({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
   const agents = useChatAgents();
   const revise = useReviseDraft();
   const write = useWriteCase();
