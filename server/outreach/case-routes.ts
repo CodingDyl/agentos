@@ -60,10 +60,11 @@ caseRouter.post("/cases/:prospectId/brief", async (request, response) => {
   }
 });
 
-/** Hermes drafts the email from the case. The draft is saved on the case; nothing is sent. */
+/** Hermes drafts the email from the case. The draft is saved on the case; nothing is sent. `{ "exampleId": "<library note id>" }` models it on one saved email. */
 caseRouter.post("/cases/:prospectId/draft", async (request, response) => {
   try {
-    response.json({ case: await draftCase(request.params.prospectId) });
+    const exampleId = (request.body as { exampleId?: unknown } | undefined)?.exampleId;
+    response.json({ case: await draftCase(request.params.prospectId, undefined, { exampleId: typeof exampleId === "string" ? exampleId.slice(0, 300) : undefined }) });
   } catch (error) {
     caseFail(response, error, "draft the email");
   }

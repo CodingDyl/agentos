@@ -922,6 +922,8 @@ describe("outreach cases", () => {
     assert.ok(draft.body.endsWith(`--\n${SENDER.signature}`));
     assert.match(seen, /Dylan at Virtara/);
     assert.match(seen, /Do not include any links/);
+    assert.match(seen, /STYLE GUIDE>>>/, "the client-outreach skill is part of the draft");
+    assert.ok(seen.indexOf("STYLE GUIDE>>>") < seen.indexOf("Rules:"), "the hard rules come after the style guide");
 
     const sent = await api(`/prospects/${made.id}/send`, {
       method: "POST",
@@ -932,6 +934,20 @@ describe("outreach cases", () => {
     assert.match(raw, /^From: "Dylan at Virtara" <[^>]+@[^>]+>\r\n/);
     assert.equal((await store.readState()).outreachLog[0].play, "cold_pitch");
 
+    // Their next draft is a follow-up that knows what was already sent.
+    seen = "";
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("/chat/completions")) seen = String(init?.body);
+      return before(url as string, init);
+    }) as typeof fetch;
+    hermesReply = '{ "subject": "Re: Your listing pages", "body": "Hi Jane,\\n\\nOne more thing." }';
+    const followUp = await api(`/cases/${made.id}/draft`, { method: "POST" });
+    globalThis.fetch = before;
+    assert.equal(followUp.status, 200);
+    assert.match(seen, /DRAFT A FOLLOW-UP EMAIL/);
+    assert.match(seen, /Subject: Your listing pages/);
+    assert.match(seen, /Under 80 words/);
+
     // The mailbox's own signature is not the rule when a company is chosen: the company's is.
     const missing = await api(`/prospects/${made.id}/gmail-draft`, {
       method: "POST",
@@ -940,3 +956,118 @@ describe("outreach cases", () => {
     assert.equal(missing.status, 422);
   });
 });
+
+describe("the email library", () => {
+  let vault: string;
+  let service: { start(): Promise<void>; stop(): void };
+  let libraryApi: typeof import("../library");
+
+  const post = (body: unknown) => api("/library", { method: "POST", body: JSON.stringify(body) });
+
+  it("starts with a vault of its own, so the real one is never touched", async () => {
+    const { MemoryService } = await import("../../memory/service");
+    libraryApi = await import("../library");
+    vault = fs.mkdtempSync(path.join(directory, "library-vault-"));
+    fs.writeFileSync(path.join(vault, "Home.md"), "# Home\n");
+    const memory = new MemoryService({ root: vault, cacheFile: path.join(directory, "library-cache.json"), probeMs: 60_000, reconcileMs: 60_000 });
+    await memory.start();
+    service = memory;
+    libraryApi.setLibraryServiceForTests(memory);
+  });
+
+  it("saves a draft for a business without its details, and lists it", async () => {
+    const made = await seed();
+    const saved = await post({
+      prospectId: made.id,
+      subject: "Parkview Realty listing pages",
+      body: `Hi Jane,\n\nParkview Realty has no viewing button at parkview.example.\n\n--\n${SIGNATURE}`,
+      touch: 1,
+      gotReply: true,
+    });
+    assert.equal(saved.status, 201);
+
+    const listed = (await api("/library")).body.emails as Array<{ subject: string; body: string; gotReply: boolean; touch: number }>;
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].subject, "[Company] listing pages");
+    assert.equal(listed[0].body, "Hi [Name],\n\n[Company] has no viewing button at [their site].");
+    assert.equal(listed[0].gotReply, true);
+    assert.equal(listed[0].touch, 1);
+  });
+
+  it("refuses an unknown business, a fourth step, and fields it was not given", async () => {
+    const made = await seed();
+    assert.equal((await post({ prospectId: "pr_missing", subject: "s", body: "b", touch: 1 })).status, 404);
+    assert.equal((await post({ prospectId: made.id, subject: "s", body: "b", touch: 4 })).status, 400);
+    assert.equal((await post({ prospectId: made.id, subject: "s", body: "b", touch: 1, folder: "../outside" })).status, 400);
+    assert.equal((await post({ prospectId: made.id, subject: "", body: "b", touch: 1 })).status, 400);
+  });
+
+  it("shows a saved email to the drafter as an example, or the chosen one alone", async () => {
+    const made = await seed();
+    await completeOutreachConnection("code");
+    const sender = (await api("/senders", { method: "POST", body: JSON.stringify(SENDER_FOR_LIBRARY) })).body.sender as { id: string };
+    await api(`/cases/${made.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ patch: { hook: "No viewing button on mobile.", path: "cold_pitch", offer: "A new property site", senderId: sender.id } }),
+    });
+    const [email] = (await api("/library")).body.emails as Array<{ id: string }>;
+
+    const draftAndRead = async (body?: unknown) => {
+      let seen = "";
+      const before = globalThis.fetch;
+      globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+        if (String(url).includes("/chat/completions")) seen = String(init?.body);
+        return before(url as string, init);
+      }) as typeof fetch;
+      try {
+        const drafted = await api(`/cases/${made.id}/draft`, { method: "POST", body: JSON.stringify(body ?? {}) });
+        assert.equal(drafted.status, 200);
+      } finally {
+        globalThis.fetch = before;
+      }
+      return seen;
+    };
+
+    const automatic = await draftAndRead();
+    assert.match(automatic, /SAVED EXAMPLES/);
+    assert.match(automatic, /\[Company\] listing pages/);
+    assert.doesNotMatch(automatic, /Parkview Realty listing pages/);
+
+    const chosen = await draftAndRead({ exampleId: email.id });
+    assert.match(chosen, /Example 1/);
+    assert.doesNotMatch(chosen, /Example 2/);
+
+    // An id that is not in the library cannot name a file: it is simply ignored.
+    assert.match(await draftAndRead({ exampleId: "../../etc/passwd" }), /SAVED EXAMPLES/);
+  });
+
+  it("refuses to save, and creates nothing, while the vault is missing", async () => {
+    const { MemoryService } = await import("../../memory/service");
+    const missing = path.join(directory, "unplugged-drive", "vault");
+    const away = new MemoryService({ root: missing, cacheFile: path.join(directory, "away-cache.json"), probeMs: 60_000, reconcileMs: 60_000 });
+    await away.start();
+    libraryApi.setLibraryServiceForTests(away);
+
+    const made = await seed();
+    const refused = await post({ prospectId: made.id, subject: "s", body: "b", touch: 1 });
+    assert.equal(refused.status, 503);
+    assert.equal(fs.existsSync(path.join(directory, "unplugged-drive")), false);
+    assert.equal(((await api("/library")).body.emails as unknown[]).length, 0);
+
+    away.stop();
+    service.stop();
+    libraryApi.setLibraryServiceForTests(undefined);
+  });
+});
+
+const SENDER_FOR_LIBRARY = {
+  company: "Virtara",
+  fromName: "Dylan at Virtara",
+  about: "Websites for small businesses",
+  website: "virtara.co.za",
+  signature: 'Dylan, Virtara\nNot for you? Reply "no thanks" and I will not email you again.',
+  defaultMonthly: "R450 a month",
+  defaultSetup: "",
+  defaultProject: "from R25,000",
+};
+

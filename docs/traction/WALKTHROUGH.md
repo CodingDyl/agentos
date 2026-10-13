@@ -158,6 +158,23 @@ AgentOS does not need your business mailbox connected.
 AgentOS cannot see replies to a mailbox it is not connected to, so replies
 are recorded by you.
 
+## 8c. Writing in your voice, and the email library
+
+- **How emails are written:** `skills/client-outreach/SKILL.md` in the
+  AgentOS repo. Edit it and the next draft uses it (no restart). It is shown
+  on the Connectors page but only editable in the file. Switch it off on
+  Connectors to draft without it. The honesty rules are not in that file and
+  cannot be edited out of it.
+- **Save one you like:** under a draft, choose which step it was, tick *This
+  one got a reply* if it did, and press **Save to library**. It becomes a
+  note in your vault, `Outreach/Email library/`, with the business's name,
+  contact, links and your signature taken out. You can read and edit it in
+  Obsidian. Saving needs the drive plugged in.
+- **Reuse:** drafting automatically shows the best saved examples for the
+  same step. Or pick one under **Model it on**; Hermes rewrites it around
+  this business using only this business's notes.
+- Examples guide tone and shape only. Nothing is pasted in as it was.
+
 ## 9. Weekly
 
 - **Experiments**: each magnet's experiment counts contacted and conversations

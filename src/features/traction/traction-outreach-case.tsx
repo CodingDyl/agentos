@@ -1,4 +1,4 @@
-import { Check, Copy, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
+import { BookmarkPlus, Check, Copy, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -15,8 +15,9 @@ import {
 import { MAX_EMAIL_BODY } from "@shared/outreach-types";
 import type { Prospect } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, Tag } from "@/components/paper";
-import { useCreateGmailDraft, useOutreachStatus, useRecordManualSend, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
-import { useBriefCase, useDraftCase, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
+import { useCreateGmailDraft, useOutreachStats, useOutreachStatus, useRecordManualSend, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
+import { TOUCH_LABELS, type Touch } from "@shared/outreach-library";
+import { useBriefCase, useDraftCase, useEmailLibrary, useSaveToLibrary, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { EmailFinder } from "./traction-outreach-email";
@@ -279,12 +280,23 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
 
 // ─── 3. The email ───────────────────────────────────────────────────────────
 
+/** Which email in the sequence this one would be: emails already sent to them, plus one, at most 3. */
+function useNextTouch(prospectId: string): Touch {
+  const stats = useOutreachStats();
+  const sent = stats.data?.sentEmails.filter((email) => email.prospectId === prospectId && email.status !== "draft").length ?? 0;
+  return Math.min(sent + 1, 3) as Touch;
+}
+
 function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; entry: OutreachCase; senders: Sender[]; sender: Sender | undefined }) {
   const write = useWriteCase();
   const draft = useDraftCase();
   const status = useOutreachStatus();
   const useInbox = useUseInboxForOutreach();
   const [managing, setManaging] = useState(false);
+  const [modelId, setModelId] = useState("");
+  const library = useEmailLibrary();
+  const touch = useNextTouch(prospect.id);
+  const models = (library.data ?? []).filter((email) => email.touch === touch);
   const gaps = draftGaps(entry, sender);
   const mailbox = status.data;
 
@@ -340,7 +352,21 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <PaperButton variant="amber" disabled={draft.isPending || gaps.length > 0} onClick={() => draft.mutate(prospect.id)}>
+        {models.length > 0 ? (
+          <label className="block min-w-[200px] max-w-[320px]">
+            <FieldLabel>Model it on (optional)</FieldLabel>
+            <select value={modelId} onChange={(event) => setModelId(event.target.value)} className={cn(PAPER_INPUT, "w-full")}>
+              <option value="">Best matches from my library</option>
+              {models.map((email) => (
+                <option key={email.id} value={email.id}>
+                  {email.gotReply ? "★ " : ""}
+                  {email.subject}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <PaperButton variant="amber" disabled={draft.isPending || gaps.length > 0} onClick={() => draft.mutate({ prospectId: prospect.id, exampleId: modelId || undefined })}>
           <Sparkles className="size-3.5" aria-hidden="true" />
           {draft.isPending ? "Hermes is writing… (up to a minute)" : entry.draft ? "Draft again with Hermes" : "Draft with Hermes"}
         </PaperButton>
@@ -363,6 +389,13 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
   const send = useSendOutreachEmail();
   const create = useCreateGmailDraft();
   const manual = useRecordManualSend();
+  const saveToLibrary = useSaveToLibrary();
+  const nextTouch = useNextTouch(prospect.id);
+  const [libraryTouch, setLibraryTouch] = useState<Touch>();
+  // Once this draft is recorded as sent, the "next" email moves on; the draft itself stays the step it was sent as.
+  const [sentAsTouch, setSentAsTouch] = useState<Touch>();
+  const defaultTouch = sentAsTouch ?? nextTouch;
+  const [gotReply, setGotReply] = useState(false);
   const [copied, setCopied] = useState(false);
   const [subject, setSubject] = useState(entry.draft?.subject ?? "");
   const [body, setBody] = useState(entry.draft?.body ?? "");
@@ -460,6 +493,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
                       { prospectId: prospect.id, content: { subject, body }, play, senderId: sender?.id },
                       {
                         onSuccess: (result) => {
+                          setSentAsTouch((current) => current ?? nextTouch);
                           setSentTo(result.to);
                           setReviewing(false);
                         },
@@ -502,6 +536,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
               disabled={closed || manual.isPending || manual.isSuccess}
               onClick={() => {
                 saveDraft();
+                setSentAsTouch((current) => current ?? nextTouch);
                 manual.mutate({ prospectId: prospect.id, content: { subject, body }, play });
               }}
             >
@@ -520,6 +555,46 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
           {manual.isSuccess ? (
             <p role="status" className="text-[13px] font-semibold text-paper-moss">
               Recorded. A follow-up is due in 3 days if they do not reply.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-3 border-t border-paper-mist pt-3" aria-label="Save this email to your library">
+            <label className="block">
+              <FieldLabel>Save to library as</FieldLabel>
+              <select
+                value={libraryTouch ?? defaultTouch}
+                onChange={(event) => setLibraryTouch(Number(event.target.value) as Touch)}
+                className={cn(PAPER_INPUT)}
+              >
+                {([1, 2, 3] as const).map((value) => (
+                  <option key={value} value={value}>
+                    {TOUCH_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-h-9 items-center gap-2 text-[13px] text-paper-char">
+              <input type="checkbox" checked={gotReply} onChange={(event) => setGotReply(event.target.checked)} />
+              This one got a reply
+            </label>
+            <PaperButton
+              variant="ghost"
+              disabled={saveToLibrary.isPending}
+              onClick={() => {
+                saveToLibrary.mutate({ prospectId: prospect.id, subject, body, touch: libraryTouch ?? defaultTouch, gotReply, note: "" });
+              }}
+            >
+              <BookmarkPlus className="size-3.5" aria-hidden="true" />
+              {saveToLibrary.isPending ? "Saving…" : "Save to library"}
+            </PaperButton>
+          </div>
+          {saveToLibrary.error ? (
+            <p role="alert" className="text-[13px] text-paper-flame-deep">
+              {saveToLibrary.error.message}
+            </p>
+          ) : null}
+          {saveToLibrary.isSuccess ? (
+            <p role="status" className="text-[13px] text-paper-char">
+              Saved to Outreach/Email library in your vault, with their name, links and signature taken out. It will be offered as an example for similar emails.
             </p>
           ) : null}
           {send.error ?? create.error ? (

@@ -18,8 +18,12 @@ import { extractJson } from "../hermes/worker-review";
 import { mutate, newId, readState, TractionNotFoundError } from "../traction/store";
 import { extractPageFacts } from "../web/page-facts";
 import { fetchPage, SafeFetchError } from "../web/safe-fetch";
+import { MAX_TOUCHES } from "../../shared/outreach-plays";
+import type { LibraryEmail } from "../../shared/outreach-library";
 import { readEmailDraft, OutreachDraftError } from "./draft";
+import { exampleLines, libraryService, listLibrary, pickExamples } from "./library";
 import { markupObservations, signalsFrom } from "./research";
+import { loadOutreachSkill } from "./style";
 
 /**
  * Outreach cases and the companies you send as: storage, the Hermes brief,
@@ -268,17 +272,36 @@ export function saysTheSame(check: string, findings: readonly string[]): boolean
 
 // ─── The Hermes draft ───────────────────────────────────────────────────────
 
-export function buildCaseDraftPacket(context: { prospect: Prospect; entry: OutreachCase; sender: Sender; followUp: boolean }): string {
+/** The most words each email in the sequence may have. The style guide asks for fewer; this is the ceiling. */
+const MAX_WORDS = { 1: 120, 2: 80, 3: 60 } as const;
+
+export function buildCaseDraftPacket(context: {
+  prospect: Prospect;
+  entry: OutreachCase;
+  sender: Sender;
+  followUp: boolean;
+  /** Which email in the sequence: 1 first, 2 first follow-up, 3 last. Defaults from `followUp`. */
+  touch?: number;
+  /** The `client-outreach` skill: tone and structure. The rules below always win over it. */
+  skill?: string;
+  /** Saved emails shown as examples of tone and shape. */
+  examples?: readonly LibraryEmail[];
+  /** The email already sent to them, so a follow-up builds on it. */
+  previous?: { subject: string; body?: string };
+}): string {
   const { prospect, entry, sender, followUp } = context;
+  const touch = Math.min(context.touch ?? (followUp ? 2 : 1), MAX_TOUCHES) as 1 | 2 | 3;
   const path = entry.path ? PATHS[entry.path] : undefined;
   return [
-    followUp ? "DRAFT A FOLLOW-UP EMAIL" : "DRAFT A FIRST OUTREACH EMAIL",
+    touch === 3 ? "DRAFT THE LAST FOLLOW-UP EMAIL" : touch === 2 ? "DRAFT A FOLLOW-UP EMAIL" : "DRAFT A FIRST OUTREACH EMAIL",
     "",
     `Write one short email from ${sender.fromName} (${sender.company}) to ${prospect.contact ?? `the owner of ${prospect.company}`}.`,
     "",
+    context.skill ? ["MY STYLE GUIDE (tone and structure only; the rules after it always win):", "<<<STYLE GUIDE", context.skill, "STYLE GUIDE>>>", ""].join("\n") : undefined,
+    ...(context.examples && context.examples.length > 0 ? [...exampleLines(context.examples), ""] : []),
     "Rules:",
     "- Open with the opening line (or the first thing noticed), then the offer in one or two sentences, then one easy question.",
-    "- Under 120 words. Plain text. Three short paragraphs at most. Greet by first name if one is given, otherwise 'Hi'.",
+    `- Under ${MAX_WORDS[touch]} words. Plain text. Three short paragraphs at most. Greet by first name if one is given, otherwise 'Hi'.`,
     "- Every claim must come from the facts below. Never invent numbers, clients, results or compliments.",
     "- Quote prices exactly as written below, or not at all if none are given.",
     entry.path === "build_first"
@@ -286,8 +309,20 @@ export function buildCaseDraftPacket(context: { prospect: Prospect; entry: Outre
       : "- Do not include any links.",
     '- No "I hope this finds you well", no "I came across your amazing business", no "just checking in".',
     "- Do not sign off with a name and do not add an opt-out line: both are added for me.",
-    followUp ? "- This is a follow-up: refer to the earlier email in one line and add one new reason to reply." : "- This is the first email they will get from me.",
+    touch === 3
+      ? "- This is the last email. Say it is the last, keep the offer open, add no new pitch and put no pressure on them."
+      : touch === 2
+        ? "- This is a follow-up: refer to the earlier email in half a sentence and add one new reason to reply. Never write 'just checking in'."
+        : "- This is the first email they will get from me.",
     "",
+    context.previous
+      ? [
+          "THE EMAIL I ALREADY SENT THEM (for reference only; do not repeat it):",
+          `Subject: ${context.previous.subject}`,
+          ...(context.previous.body ? ["<<<EARLIER EMAIL", context.previous.body.slice(0, 1500), "EARLIER EMAIL>>>"] : []),
+          "",
+        ].join("\n")
+      : undefined,
     `THEIR BUSINESS: ${prospect.company}${prospect.segment ? ` (${prospect.segment})` : ""}`,
     prospect.contact ? `THE PERSON: ${prospect.contact}` : undefined,
     entry.about ? `WHAT THEY DO: ${entry.about}` : undefined,
@@ -314,8 +349,16 @@ export function signed(body: string, sender: Sender): string {
   return `${body.trim()}\n\n--\n${sender.signature.trim()}`;
 }
 
+export interface DraftOptions {
+  /** A library email to model this one on, instead of the automatic picks. */
+  exampleId?: string;
+  /** For tests: the library and the skill, instead of the vault and the skills folder. */
+  library?: readonly LibraryEmail[];
+  skill?: string | null;
+}
+
 /** Hermes drafts from the case. The draft is saved on the case, where you edit it. */
-export async function draftCase(prospectId: string, hermes: typeof sendToHermes = sendToHermes): Promise<OutreachCase> {
+export async function draftCase(prospectId: string, hermes: typeof sendToHermes = sendToHermes, options: DraftOptions = {}): Promise<OutreachCase> {
   const state = await readState();
   const prospect = state.prospects.find((entry) => entry.id === prospectId);
   if (!prospect) throw new TractionNotFoundError(`No prospect ${prospectId}`);
@@ -324,10 +367,17 @@ export async function draftCase(prospectId: string, hermes: typeof sendToHermes 
   const gaps = draftGaps(entry, sender);
   if (gaps.length > 0 || !sender) throw new CaseError(`Add ${gaps.join(", ")} first.`);
 
-  const followUp = state.outreachLog.some((log) => log.prospectId === prospectId && (log.kind === "sent" || log.kind === "unconfirmed" || log.kind === "manual"));
+  const sent = state.outreachLog.filter((log) => log.prospectId === prospectId && (log.kind === "sent" || log.kind === "unconfirmed" || log.kind === "manual"));
+  const touch = sent.length + 1;
+  const last = sent.sort((a, b) => a.at.localeCompare(b.at)).at(-1);
+  const skill = options.skill === null ? undefined : (options.skill ?? (await loadOutreachSkill()));
+  const examples = pickExamples(options.library ?? listLibrary(libraryService()), { touch, path: entry.path, chosenId: options.exampleId });
   let reply: string;
   try {
-    reply = await hermes(buildCaseDraftPacket({ prospect, entry, sender, followUp }), { operation: "other", timeoutMs: 120_000 });
+    reply = await hermes(
+      buildCaseDraftPacket({ prospect, entry, sender, followUp: touch > 1, touch, skill, examples, previous: last ? { subject: last.subject, body: last.body } : undefined }),
+      { operation: "other", timeoutMs: 120_000 },
+    );
   } catch (error) {
     throw new CaseError(error instanceof HermesError ? error.message : "Hermes could not be reached.");
   }

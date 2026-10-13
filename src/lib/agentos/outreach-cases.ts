@@ -8,6 +8,7 @@ import {
   type Sender,
   type SenderInput,
 } from "@shared/outreach-case";
+import { LibraryEmailSchema, type LibraryEmail, type LibrarySaveRequest } from "@shared/outreach-library";
 import { AgentOSRequestError } from "./client";
 import { json, outreachKey, request } from "./outreach";
 import { tractionKey } from "./traction";
@@ -65,8 +66,38 @@ export const useBriefCase = () =>
     request(`/api/outreach/cases/${id(prospectId)}/brief`, json("POST", { replace })),
   );
 
+/** `exampleId` models the draft on one saved email, instead of the automatic picks. */
 export const useDraftCase = () =>
-  useCaseMutation((prospectId: string) => request(`/api/outreach/cases/${id(prospectId)}/draft`, { method: "POST" }));
+  useCaseMutation(({ prospectId, exampleId }: { prospectId: string; exampleId?: string }) =>
+    request(`/api/outreach/cases/${id(prospectId)}/draft`, json("POST", exampleId ? { exampleId } : {})),
+  );
+
+const libraryKey = () => [...outreachKey(), "library"] as const;
+
+/** Saved emails, newest first. Read from the vault's cached index, so it works with the drive unplugged. */
+export function useEmailLibrary() {
+  return useQuery({
+    queryKey: libraryKey(),
+    queryFn: async (): Promise<LibraryEmail[]> => {
+      const parsed = z.object({ emails: z.array(LibraryEmailSchema) }).safeParse(await request("/api/outreach/library"));
+      if (!parsed.success) throw new AgentOSRequestError("The email library came back in an unexpected shape.");
+      return parsed.data.emails;
+    },
+    staleTime: 30_000,
+    networkMode: "always",
+  });
+}
+
+/** Saves a draft to the library (a note in your Obsidian vault). Needs the drive plugged in. */
+export function useSaveToLibrary() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: LibrarySaveRequest) => request<{ id: string }>("/api/outreach/library", json("POST", input)),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: libraryKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
 
 export function useSenders() {
   return useQuery({
