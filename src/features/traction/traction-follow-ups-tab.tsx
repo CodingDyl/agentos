@@ -10,6 +10,7 @@ import { useFollowUps, useRecordManualSend } from "@/lib/agentos/outreach";
 import { useDraftCase, useOutreachCases, useSaveToLibrary, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
+import { CleanUpSection } from "./traction-cleanup";
 import { formatShortDate } from "./traction-model";
 import { ReviseDraftPanel } from "./traction-outreach-case";
 
@@ -87,6 +88,8 @@ export function TractionFollowUpsTab({ data, selectedId, onCompose }: { data: Tr
           <ul className="space-y-3">{stopped.map(renderRow)}</ul>
         </PaperSection>
       ) : null}
+
+      <CleanUpSection />
     </div>
   );
 }

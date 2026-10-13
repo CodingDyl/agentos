@@ -338,6 +338,36 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
   };
 }
 
+/**
+ * Whether a run logged a message matching a pattern (an SQL LIKE pattern).
+ * The log says whether the workspace and the GitHub repo were made by the run
+ * or already existed, which is what a cleanup must know before deleting.
+ */
+export function runLogged(runId: string, likePattern: string): boolean {
+  return Boolean(rebuildDatabase().prepare("SELECT 1 FROM events WHERE run_id = ? AND message LIKE ? LIMIT 1").get(runId, likePattern));
+}
+
+/** Whether any stage of a run is working right now. */
+export function runIsActive(runId: string): boolean {
+  return Boolean(rebuildDatabase().prepare("SELECT 1 FROM stages WHERE run_id = ? AND status = 'in_progress' LIMIT 1").get(runId));
+}
+
+/** Removes a run and everything recorded about it. The run's files and remote projects are not touched. */
+export function deleteRunRecords(runId: string): void {
+  const db = rebuildDatabase();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    for (const table of ["events", "page_notes", "concept_notes", "decisions", "revisions", "artifacts", "stages"]) {
+      db.prepare(`DELETE FROM ${table} WHERE run_id = ?`).run(runId);
+    }
+    db.prepare("DELETE FROM runs WHERE id = ?").run(runId);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function readRun(id: string): RebuildRun {
   const row = rebuildDatabase().prepare("SELECT * FROM runs WHERE id = ?").get(id) as RunRow | undefined;
   if (!row) throw new RebuildError("That rebuild does not exist.", 404);

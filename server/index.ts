@@ -90,6 +90,7 @@ import { grokBotRouter } from "./workers/grok-bot-routes";
 import { memoryService } from "./memory/service";
 import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
 import { startOutreachSyncTimer } from "./outreach/sync";
+import { cleanupRouter } from "./cleanup/routes";
 import { outreachRouter } from "./outreach/routes";
 import { rebuildRouter, recoverRebuildsAtStartup } from "./website-rebuild/routes";
 import { siteRequestRouter } from "./site-requests/routes";
@@ -398,6 +399,7 @@ app.use("/api/career", careerRouter);
 /** Business: the companies being run and their clients, read from Virtec. */
 app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
+app.use("/api/cleanup", cleanupRouter);
 app.use("/api/rebuilds", rebuildRouter);
 app.use("/api/site-requests", siteRequestRouter);
 app.use("/api/skills", skillsRouter);

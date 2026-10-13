@@ -202,6 +202,27 @@ are recorded by you.
 
 Revising is for small edits. For a new angle, use **Draft again**.
 
+## 8e. Clean up a business that went nowhere
+
+Follow-ups > **Clean up** appears when a business never showed interest and
+has work built for it. It qualifies when all three emails went unanswered
+and the last was 14 days ago, or you closed it without them ever answering.
+A business that replied, or was ever in conversation, never qualifies.
+
+1. **Review clean-up**. You see each thing that exists, where it is, and how
+   big it is.
+2. What is on your machine (the site folder, the workspace, the rebuild
+   history) is ticked. GitHub and Vercel never are.
+3. Anything AgentOS cannot show it made for this rebuild says **Will not be
+   deleted** and why. A folder, repo or workspace that existed before the
+   rebuild is never touched.
+4. **Delete**, then confirm once more. To delete from GitHub or Vercel you
+   also type the company's name, and the connector's Delete capability must
+   be switched on in Connectors (it is off by default).
+
+Their record, every email you sent and your library are always kept, and a
+line is added to their notes. Deleting cannot be undone.
+
 ## 9. Weekly
 
 - **Experiments**: each magnet's experiment counts contacted and conversations
