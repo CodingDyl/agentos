@@ -774,7 +774,10 @@ export const previewStage: StageHandler = async (context) => {
     context.activity("Looking for a Vercel deployment of the approved commit");
     const listed = await publishStep(() => deps.publish.listCommitDeployments(stored.project, stored.commit));
     const already = pickCommitDeployment(listed, stored.commit);
-    if (already?.state === "READY" || (already && already.state !== "ERROR")) {
+    if (already) {
+      // Repo and project already exist. Do not git-push the same SHA again: that
+      // is how a rate-limited clone gets hit twice. A READY (any target) is
+      // success; an ERROR re-lists once, then blocks so the operator can force.
       context.log(`Using existing Vercel deployment ${already.id} (${already.state}) of this commit.`);
       const publish = { ...stored, repoPath: await localRepoPath(context) };
       const deployment = await waitForReadyDeployment(context, stored.project, stored.commit, already);

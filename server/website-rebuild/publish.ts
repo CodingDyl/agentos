@@ -325,7 +325,11 @@ export async function requestPreviewDeployment(
   });
   if (result.status !== 200 && result.status !== 201) throw apiError("Vercel", result.status, result.data);
   const deployment = toDeployment(result.data);
-  if (deployment.target === "production") throw new PublishError("Vercel started a production deployment instead of a preview. Stop it in Vercel and check the project's production branch.");
+  // A person-initiated force deploy of the preview SHA still counts if Vercel
+  // labelled it production (the preview branch is the project's production branch).
+  if (deployment.target === "production" && !options.forceNew) {
+    throw new PublishError("Vercel started a production deployment instead of a preview. Stop it in Vercel and check the project's production branch.");
+  }
   return deployment;
 }
 
