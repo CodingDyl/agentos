@@ -355,3 +355,44 @@ describe("case study website facts", () => {
     assert.equal((await store.readCaseStudy(local.id)).siteFacts, undefined);
   });
 });
+
+describe("recording an email sent by hand", () => {
+  it("logs it, starts the clock and moves a target to contacted", async () => {
+    const created = await store.createProspect(input("Hand Sent Co", { email: "owner@handsent.co.za" }));
+    const entry = await store.recordManualSend({ prospectId: created.id, subject: "Quick idea", body: "Hi\n\nBody" });
+
+    assert.equal(entry.kind, "manual");
+    assert.equal(entry.to, "owner@handsent.co.za");
+    assert.equal(entry.body, "Hi\n\nBody");
+
+    const state = await store.readState();
+    const prospect = state.prospects.find((candidate) => candidate.id === created.id);
+    assert.equal(prospect?.stage, "contacted");
+    assert.ok(prospect?.lastTouchAt);
+    assert.deepEqual(store.sendsByProspect(state.outreachLog), { [created.id]: 1 });
+  });
+
+  it("works without an email address on file", async () => {
+    const created = await store.createProspect(input("No Address Co"));
+    const entry = await store.recordManualSend({ prospectId: created.id, subject: "Hello", body: "Body" });
+    assert.equal(entry.to, "");
+  });
+
+  it("treats a double press as one email, but a later follow-up as another", async () => {
+    const created = await store.createProspect(input("Double Press Co"));
+    const first = await store.recordManualSend({ prospectId: created.id, subject: "Hello", body: "Body" });
+    const again = await store.recordManualSend({ prospectId: created.id, subject: "Hello", body: "Body" });
+    assert.equal(again.id, first.id);
+
+    await store.recordManualSend({ prospectId: created.id, subject: "Following up", body: "Second" });
+    assert.deepEqual(store.sendsByProspect((await store.readState()).outreachLog), { [created.id]: 2 });
+  });
+
+  it("refuses a closed prospect and an unknown one", async () => {
+    const created = await store.createProspect(input("Closed Co"));
+    await store.updateProspect(created.id, ProspectPatchSchema.parse({ stage: "lost" }));
+    await assert.rejects(store.recordManualSend({ prospectId: created.id, subject: "s", body: "b" }), store.TractionConflictError);
+    await assert.rejects(store.recordManualSend({ prospectId: "pr_missing", subject: "s", body: "b" }), store.TractionNotFoundError);
+  });
+});
+

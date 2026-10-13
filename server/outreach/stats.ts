@@ -1,5 +1,5 @@
 import {
-  FOLLOW_UP_DAYS,
+  followUpWait,
   MAX_TOUCHES,
   type OutreachStats,
   type Rate,
@@ -31,7 +31,7 @@ export function computeOutreachStats(state: State, now: Date = new Date()): Outr
   const suppressed = new Map(state.suppressions.map((entry) => [lower(entry.address), entry.reason]));
 
   const sends = state.outreachLog
-    .filter((entry) => entry.kind === "sent" || entry.kind === "unconfirmed")
+    .filter((entry) => entry.kind === "sent" || entry.kind === "unconfirmed" || entry.kind === "manual")
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
   /** First reply per address, after a given time. */
@@ -99,7 +99,7 @@ export function computeOutreachStats(state: State, now: Date = new Date()): Outr
     if (lastReply || suppressed.has(lower(last.to))) continue;
     if (stage.get(prospectId) !== "contacted") continue;
     if (list.length >= MAX_TOUCHES) continue;
-    const dueAt = Date.parse(last.at) + FOLLOW_UP_DAYS[list.length - 1] * DAY;
+    const dueAt = Date.parse(last.at) + (followUpWait(list.length) as number) * DAY;
     if (dueAt <= nowMs) {
       followUpsDue.push({
         prospectId,

@@ -2,6 +2,7 @@ import express, { type Response } from "express";
 import {
   DEFAULT_DAILY_CAP,
   GmailDraftRequestSchema,
+  ManualSendRequestSchema,
   MAX_DAILY_CAP,
   OutreachSettingsInputSchema,
   SendRequestSchema,
@@ -14,6 +15,7 @@ import {
   isSuppressed,
   logOutreach,
   readState,
+  recordManualSend,
   removeSuppression,
   reserveSend,
   saveOutreachSignature,
@@ -458,6 +460,23 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
       }
     }
     fail(response, error, "send the email");
+  }
+});
+
+/**
+ * "I sent it": the person copied the email out of AgentOS and sent it from
+ * their own mailbox (a domain mailbox AgentOS cannot connect to). Nothing is
+ * sent. This records the touch against the prospect, with what was sent, so
+ * the follow-up schedule starts and the prospect counts as contacted.
+ */
+outreachRouter.post("/prospects/:id/manual-send", async (request, response) => {
+  const content = parse(ManualSendRequestSchema, request.body, response, "email");
+  if (!content) return;
+  try {
+    const entry = await recordManualSend({ prospectId: request.params.id, subject: content.subject, body: content.body, play: content.play });
+    response.status(201).json({ recorded: true, id: entry.id, at: entry.at });
+  } catch (error) {
+    fail(response, error, "record the email");
   }
 });
 

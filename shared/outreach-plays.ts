@@ -293,3 +293,13 @@ export type OutreachStats = z.infer<typeof OutreachStatsSchema>;
 /** Days after the previous email that each follow-up is due. A third email is the last. */
 export const FOLLOW_UP_DAYS = [3, 4] as const;
 export const MAX_TOUCHES = FOLLOW_UP_DAYS.length + 1;
+
+/**
+ * The one follow-up schedule: days to wait after the `touches`th email before
+ * the next is due, or undefined once the sequence is over (the prospect has
+ * "gone quiet"). The Next up queue, the Follow-ups list and the send
+ * guardrail all read this, so they cannot disagree.
+ */
+export function followUpWait(touches: number): number | undefined {
+  return touches >= 1 ? FOLLOW_UP_DAYS[touches - 1] : undefined;
+}

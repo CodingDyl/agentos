@@ -1,6 +1,7 @@
 import type { Prospect } from "../../shared/traction-types";
-import { addDays, FOLLOW_UP_AFTER_DAYS, isoDate, PROPOSAL_FOLLOW_UP_AFTER_DAYS } from "./engine";
-import { readState } from "./store";
+import { followUpWait } from "../../shared/outreach-plays";
+import { addDays, isoDate, PROPOSAL_FOLLOW_UP_AFTER_DAYS } from "./engine";
+import { readState, sendsByProspect } from "./store";
 
 /**
  * Where Traction's prospects come from.
@@ -103,6 +104,7 @@ export class LocalCrmProvider implements CrmProvider {
   /** Every open prospect's promised next action, or the follow-up its silence implies. */
   async getFollowUps(): Promise<FollowUp[]> {
     const today = isoDate(new Date());
+    const touches = sendsByProspect((await readState()).outreachLog);
 
     return (await this.getProspects()).flatMap((prospect): FollowUp[] => {
       if (prospect.stage === "won" || prospect.stage === "lost") return [];
@@ -121,7 +123,9 @@ export class LocalCrmProvider implements CrmProvider {
 
       if (prospect.stage === "contacted" || prospect.stage === "proposal") {
         const since = isoDate(new Date(prospect.lastTouchAt ?? prospect.stageChangedAt));
-        const after = prospect.stage === "proposal" ? PROPOSAL_FOLLOW_UP_AFTER_DAYS : FOLLOW_UP_AFTER_DAYS;
+        // Contacted: the outreach schedule, which ends once the last email has gone unanswered.
+        const after = prospect.stage === "proposal" ? PROPOSAL_FOLLOW_UP_AFTER_DAYS : followUpWait(touches[prospect.id] ?? 1);
+        if (after === undefined) return [];
         const due = addDays(since, after);
         return [
           {

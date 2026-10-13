@@ -324,7 +324,7 @@ export async function draftCase(prospectId: string, hermes: typeof sendToHermes 
   const gaps = draftGaps(entry, sender);
   if (gaps.length > 0 || !sender) throw new CaseError(`Add ${gaps.join(", ")} first.`);
 
-  const followUp = state.outreachLog.some((log) => log.prospectId === prospectId && (log.kind === "sent" || log.kind === "unconfirmed"));
+  const followUp = state.outreachLog.some((log) => log.prospectId === prospectId && (log.kind === "sent" || log.kind === "unconfirmed" || log.kind === "manual"));
   let reply: string;
   try {
     reply = await hermes(buildCaseDraftPacket({ prospect, entry, sender, followUp }), { operation: "other", timeoutMs: 120_000 });

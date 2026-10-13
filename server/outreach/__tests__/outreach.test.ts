@@ -434,6 +434,30 @@ describe("the routes", () => {
     );
   });
 
+  it("records an email sent by hand without a mailbox, calls nothing, and takes no recipient", async () => {
+    const made = await seed();
+    const { status, body } = await api(`/prospects/${made.id}/manual-send`, {
+      method: "POST",
+      body: JSON.stringify({ subject: "Your listing pages", body: "Hi Jane,\n\nOne thing." }),
+    });
+    assert.equal(status, 201);
+    assert.equal(body.recorded, true);
+    assert.equal(googleCalls.length, 0, "nothing is sent or drafted");
+
+    const entry = (await store.readState()).outreachLog.find((log) => log.prospectId === made.id);
+    assert.equal(entry?.kind, "manual");
+    assert.equal(entry?.to, "jane@parkview.example");
+
+    const refused = await api(`/prospects/${made.id}/manual-send`, {
+      method: "POST",
+      body: JSON.stringify({ subject: "s", body: "b", to: "victim@example.com" }),
+    });
+    assert.equal(refused.status, 400, "the schema is strict");
+
+    const missing = await api(`/prospects/pr_missing/manual-send`, { method: "POST", body: JSON.stringify({ subject: "s", body: "b" }) });
+    assert.equal(missing.status, 404);
+  });
+
   it("cannot be told who to write to: a recipient in the request is refused", async () => {
     const made = await seed();
     await completeOutreachConnection("code");

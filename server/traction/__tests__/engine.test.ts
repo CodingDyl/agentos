@@ -79,6 +79,21 @@ describe("buildQueue", () => {
     assert.deepEqual(buildQueue([recent], [], TODAY), []);
   });
 
+  it("follows the outreach schedule: 3 days after the first email, 4 after the second, then they have gone quiet", () => {
+    const contacted = prospect({ stage: "contacted", lastTouchAt: daysAgo(3) });
+    const [first] = buildQueue([contacted], [], TODAY);
+    assert.equal(first.kind, "follow_up");
+
+    // Two emails sent: the wait is 4 days, so 3 is not enough.
+    assert.deepEqual(buildQueue([contacted], [], TODAY, [], [], [], [], { [contacted.id]: 2 }), []);
+    const later = prospect({ stage: "contacted", lastTouchAt: daysAgo(4) });
+    assert.equal(buildQueue([later], [], TODAY, [], [], [], [], { [later.id]: 2 })[0]?.kind, "follow_up");
+
+    // Three emails sent and no answer: the sequence is over, so nothing is queued.
+    const quiet = prospect({ stage: "contacted", lastTouchAt: daysAgo(30) });
+    assert.deepEqual(buildQueue([quiet], [], TODAY, [], [], [], [], { [quiet.id]: 3 }), []);
+  });
+
   it("respects a future next action over the silence rule", () => {
     const planned = prospect({ stage: "contacted", lastTouchAt: daysAgo(9), nextActionDate: addDays(TODAY, 2) });
     assert.deepEqual(buildQueue([planned], [], TODAY), []);

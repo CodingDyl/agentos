@@ -28,7 +28,7 @@ import {
   suggestMailLinks,
   unansweredReplies,
 } from "./engine";
-import { readEvents, readState } from "./store";
+import { readEvents, readState, sendsByProspect } from "./store";
 
 /**
  * The Inbox's cached threads, read locally — never a Gmail call.
@@ -136,7 +136,7 @@ export async function getTraction(now = new Date()): Promise<TractionData> {
     prospects,
     experiments: state.experiments,
     targets: state.targets,
-    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today, portalViews(virtec, today)), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets, threads), ...caseStudyQueueItems(opportunities)], replies),
+    queue: buildQueue(prospects, state.snoozes, today, open, crmQueueItems(crm.followUps, today, portalViews(virtec, today)), [...inboundQueueItems(crm.inbound, prospects, today, state.leadMagnets, threads), ...caseStudyQueueItems(opportunities)], replies, sendsByProspect(state.outreachLog)),
     doneToday: countDoneToday(events, today),
     attention: [...crmAttention(virtec), ...buildAttention(prospects, today)],
     pipeline: buildPipeline(prospects),

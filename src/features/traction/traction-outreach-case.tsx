@@ -1,4 +1,4 @@
-import { Check, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
+import { Check, Copy, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -15,7 +15,7 @@ import {
 import { MAX_EMAIL_BODY } from "@shared/outreach-types";
 import type { Prospect } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, Tag } from "@/components/paper";
-import { useCreateGmailDraft, useOutreachStatus, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
+import { useCreateGmailDraft, useOutreachStatus, useRecordManualSend, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
 import { useBriefCase, useDraftCase, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
@@ -362,6 +362,8 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
   const status = useOutreachStatus();
   const send = useSendOutreachEmail();
   const create = useCreateGmailDraft();
+  const manual = useRecordManualSend();
+  const [copied, setCopied] = useState(false);
   const [subject, setSubject] = useState(entry.draft?.subject ?? "");
   const [body, setBody] = useState(entry.draft?.body ?? "");
   const [reviewing, setReviewing] = useState(false);
@@ -382,6 +384,19 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
         ? "Add their email address at the top."
         : undefined;
   const play = entry.path ? PATH_PLAY[entry.path] : undefined;
+  const closed = prospect.stage === "won" || prospect.stage === "lost";
+
+  // Sending from a mailbox AgentOS is not connected to: copy it out, send it there, then say so.
+  const copyEmail = async () => {
+    saveDraft();
+    try {
+      await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
     <div className="mt-4">
@@ -477,6 +492,36 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
               {blocker ? <span className="text-[13px] text-paper-sage">{blocker}</span> : null}
             </div>
           )}
+          <div className="flex flex-wrap items-center gap-2 border-t border-paper-mist pt-3" aria-label="Sending from your own mailbox">
+            <PaperButton variant="ghost" onClick={() => void copyEmail()}>
+              <Copy className="size-3.5" aria-hidden="true" />
+              {copied ? "Copied" : "Copy email"}
+            </PaperButton>
+            <PaperButton
+              variant="ghost"
+              disabled={closed || manual.isPending || manual.isSuccess}
+              onClick={() => {
+                saveDraft();
+                manual.mutate({ prospectId: prospect.id, content: { subject, body }, play });
+              }}
+            >
+              <Check className="size-3.5" aria-hidden="true" />
+              {manual.isPending ? "Saving…" : manual.isSuccess ? "Recorded" : "I sent it"}
+            </PaperButton>
+            <span className="text-[12.5px] text-paper-sage">
+              {closed ? "This prospect is closed." : "Sent it from your own mailbox? Press I sent it so the follow-up is tracked."}
+            </span>
+          </div>
+          {manual.error ? (
+            <p role="alert" className="text-[13px] text-paper-flame-deep">
+              {manual.error.message}
+            </p>
+          ) : null}
+          {manual.isSuccess ? (
+            <p role="status" className="text-[13px] font-semibold text-paper-moss">
+              Recorded. A follow-up is due in 3 days if they do not reply.
+            </p>
+          ) : null}
           {send.error ?? create.error ? (
             <p role="alert" className="text-[13px] text-paper-flame-deep">
               {(send.error ?? create.error)?.message}

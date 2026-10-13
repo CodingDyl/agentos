@@ -143,6 +143,21 @@ it, and not that they will say yes. Only the latest view is kept, so it
 cannot show how many times. If you open a client's link yourself, use
 `?preview=1` on the end or it counts as their view.
 
+## 8b. You send from your own mailbox
+
+AgentOS does not need your business mailbox connected.
+
+1. Draft the email in **Outreach** and edit it.
+2. **Copy email**, send it from your own mailbox.
+3. Press **I sent it**. They become contacted, the email shows under
+   Emailed, and the follow-up clock starts: a follow-up is due 3 days after
+   the first email, 4 days after the second, and after the third the
+   prospect has gone quiet.
+4. If they reply, move them to Conversation. The follow-ups stop.
+
+AgentOS cannot see replies to a mailbox it is not connected to, so replies
+are recorded by you.
+
 ## 9. Weekly
 
 - **Experiments**: each magnet's experiment counts contacted and conversations
