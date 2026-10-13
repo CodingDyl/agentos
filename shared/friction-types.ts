@@ -65,7 +65,7 @@ export interface FrictionResponse {
 export function pageNameForRoute(route: string | undefined): string | undefined {
   if (!route) return undefined;
   const first = route.split(/[?#]/)[0].split("/").filter(Boolean)[0];
-  if (!first) return "Today";
+  if (!first) return "Dashboard";
   const names: Record<string, string> = {
     workspaces: "Workspaces",
     memory: "Memory",

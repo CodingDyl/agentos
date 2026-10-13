@@ -44,7 +44,7 @@ describe("friction ranking", () => {
 
   it("names the page a route belongs to", () => {
     assert.equal(pageNameForRoute("/memory?note=x"), "Memory");
-    assert.equal(pageNameForRoute("/"), "Today");
+    assert.equal(pageNameForRoute("/"), "Dashboard");
     assert.equal(pageNameForRoute(undefined), undefined);
   });
 });

@@ -4,12 +4,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 const screenshots = path.resolve("docs/collective/screenshots");
 
-async function openToday(page: Page) {
+async function openDashboard(page: Page) {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeAttached();
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeAttached();
   const skip = page.getByRole("button", { name: "Skip today", exact: true });
   if (await skip.isVisible()) await skip.click();
-  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
 }
 
 async function noHorizontalOverflow(page: Page) {
@@ -35,7 +35,7 @@ test("Collective preserves route surfaces, real empty states, and dark tokens", 
 test("Today responds to narrow, tablet, desktop, and 200% equivalent CSS viewport", async ({ page }) => {
   fs.mkdirSync(screenshots, { recursive: true });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await openToday(page);
+  await openDashboard(page);
   for (const [width, height, name] of [[1440, 1000, "desktop"], [834, 1112, "tablet"], [390, 844, "mobile"], [320, 700, "narrow"], [720, 500, "zoom-200-equivalent"]] as const) {
     await page.setViewportSize({ width, height });
     await noHorizontalOverflow(page);
@@ -48,11 +48,11 @@ test("Today responds to narrow, tablet, desktop, and 200% equivalent CSS viewpor
 
 test("mobile drawer traps keyboard focus, closes with Escape, and keeps routes reachable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await openToday(page);
+  await openDashboard(page);
   const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
   await trigger.click();
   const drawer = page.getByRole("dialog", { name: "Primary navigation" });
-  const today = drawer.getByRole("link", { name: /^Today/ });
+  const today = drawer.getByRole("link", { name: /^Dashboard/ });
   await expect(today).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(drawer.getByRole("link", { name: "Compass", exact: true })).toBeFocused();
@@ -67,7 +67,7 @@ test("mobile drawer traps keyboard focus, closes with Escape, and keeps routes r
 });
 
 test("search, capture, Today view keys and visible focus retain keyboard operation", async ({ page }) => {
-  await openToday(page);
+  await openDashboard(page);
   const wrap = page.getByRole("radio", { name: "Wrap up", exact: true });
   await wrap.click();
   await page.keyboard.press("ArrowLeft");

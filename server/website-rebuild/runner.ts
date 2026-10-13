@@ -295,8 +295,8 @@ export async function advance(runId: string, handlers = STAGE_HANDLERS, deps = d
 }
 
 /** Fire and forget, for request handlers: the page polls for progress. */
-export function advanceInBackground(runId: string): void {
-  void advance(runId).catch((error) => console.error(`[agentos] rebuild ${runId} could not advance:`, error));
+export function advanceInBackground(runId: string, handlers = STAGE_HANDLERS): void {
+  void advance(runId, handlers).catch((error) => console.error(`[agentos] rebuild ${runId} could not advance:`, error));
 }
 
 const SKILL_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../skills", REBUILD_SKILL_ID, "SKILL.md");

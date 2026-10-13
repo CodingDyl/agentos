@@ -50,7 +50,9 @@ interface FakeApi {
   projectLinkedTo?: string;
   /** Git-push auto-deploy target. Defaults to a preview, matching Vercel when production is `main`. */
   pushDeploysAs?: "preview" | "production";
-  deployments: { uid: string; url: string; readyState: string; target: string | null; meta: { githubCommitSha: string }; errorMessage?: string }[];
+  /** What a forceNew API deploy is labelled. Defaults to a preview. */
+  forceDeploysAs?: "preview" | "production";
+  deployments: { uid: string; url: string; readyState: string; target: string | null; projectId?: string; meta: { githubCommitSha: string }; errorMessage?: string }[];
 }
 
 function fakeFetch(api: FakeApi): typeof fetch {
@@ -77,15 +79,26 @@ function fakeFetch(api: FakeApi): typeof fetch {
     if (url.includes("/v9/projects/prj_1") && method === "PATCH") return json(200, { id: "prj_1", name: "total-electric" });
     if (url.includes("/v6/deployments")) return json(200, { deployments: api.deployments });
     if (url.includes("/v13/deployments") && method === "POST") {
-      const deployment = { uid: "dpl_req", url: "total-electric-git-preview-dylan.vercel.app", readyState: "QUEUED", target: null, meta: { githubCommitSha: body.gitSource.sha } };
+      const force = url.includes("forceNew");
+      const asProduction = force && api.forceDeploysAs === "production";
+      const deployment = {
+        uid: force ? "dpl_force" : "dpl_req",
+        url: force ? "total-electric-force-dylan.vercel.app" : "total-electric-git-preview-dylan.vercel.app",
+        readyState: "QUEUED",
+        target: asProduction ? ("production" as const) : null,
+        projectId: "prj_1",
+        meta: { githubCommitSha: body.gitSource.sha as string },
+      };
       api.deployments.push(deployment);
       return json(200, deployment);
     }
     if (url.includes("/v13/deployments/")) {
-      const id = url.split("/v13/deployments/")[1].split("?")[0];
-      const deployment = api.deployments.find((entry) => entry.uid === id);
-      if (deployment) deployment.readyState = "READY";
-      return deployment ? json(200, deployment) : json(404, {});
+      const idOrUrl = decodeURIComponent(url.split("/v13/deployments/")[1].split("?")[0]);
+      const deployment = api.deployments.find((entry) => entry.uid === idOrUrl || entry.url === idOrUrl || entry.url.replace(/^https:\/\//, "") === idOrUrl);
+      if (deployment && deployment.readyState !== "ERROR" && deployment.readyState !== "CANCELED" && deployment.readyState !== "READY") {
+        deployment.readyState = "READY";
+      }
+      return deployment ? json(200, { ...deployment, projectId: deployment.projectId ?? "prj_1", name: "total-electric" }) : json(404, {});
     }
     return json(500, { message: `unexpected ${method} ${url}` });
   }) as typeof fetch;
@@ -108,6 +121,7 @@ function publishDeps(api: FakeApi, pushes: { args: readonly string[]; env: Recor
             url: "total-electric-git-preview-dylan.vercel.app",
             readyState: asProduction ? "ERROR" : "QUEUED",
             target: asProduction ? "production" : null,
+            projectId: "prj_1",
             meta: { githubCommitSha: sha },
             errorMessage: asProduction ? "You have exceeded a secondary rate limit" : undefined,
           });
@@ -332,7 +346,9 @@ async function runToPreview(api: FakeApi, pushes: { args: readonly string[]; env
       openPreviewsToLinkHolders: (project) => publish.openPreviewsToLinkHolders(project, deps),
       listCommitDeployments: (project, commit) => publish.listCommitDeployments(project, commit, deps),
       requestPreviewDeployment: (project, repo, branch, commit) => publish.requestPreviewDeployment(project, repo, branch, commit, deps),
+      requestForcedPreviewDeployment: (project, repo, branch, commit) => publish.requestForcedPreviewDeployment(project, repo, branch, commit, deps),
       readDeployment: (id) => publish.readDeployment(id, deps),
+      readDeploymentByRef: (ref) => publish.readDeploymentByRef(ref, deps),
     },
     checkPreview: async () =>
       qaPasses
@@ -414,6 +430,139 @@ describe("stage 7: Vercel preview", () => {
     assert.match(preview?.blocker ?? "", /GitHub rate-limited, retry after/);
     assert.doesNotMatch(preview?.blocker ?? "", /change request/);
     assert.ok(!api.calls.some((call) => call.method === "POST" && call.url.includes("/v13/deployments")), "a second deploy would hammer GitHub again");
+  });
+
+  it("on retry, adopts a READY deploy of the same SHA instead of the stale ERROR, and does not push again", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const pushes: { args: readonly string[]; env: Record<string, string> }[] = [];
+    const { run, handlers } = await runToPreview(api, pushes);
+    assert.equal(run.stages.find((stage) => stage.id === "preview")?.status, "blocked");
+    const commit = run.revisions.find((revision) => revision.stage === "functions")?.ref ?? "";
+    api.deployments.unshift({
+      uid: "dpl_4Rt2WSrRSH12t3UviybLYSKG52TD",
+      url: "total-electric-trusted-electricians-git-preview-virtec-projects.vercel.app",
+      readyState: "READY",
+      target: null,
+      projectId: "prj_1",
+      meta: { githubCommitSha: commit },
+    });
+    const posts = api.calls.filter((call) => call.method === "POST").length;
+    const pushCount = pushes.length;
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, handlers, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(after.previewUrl, "https://total-electric-trusted-electricians-git-preview-virtec-projects.vercel.app");
+    assert.equal(after.deploymentId, "dpl_4Rt2WSrRSH12t3UviybLYSKG52TD");
+    assert.equal(api.calls.filter((call) => call.method === "POST").length, posts, "no second repo, project or API deploy");
+    assert.equal(pushes.length, pushCount, "a READY deploy of this SHA means the retry must not push again");
+  });
+
+  it("Re-check Vercel completes from a READY deploy of the SHA without pushing or creating a deploy", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const pushes: { args: readonly string[]; env: Record<string, string> }[] = [];
+    const { run, handlers } = await runToPreview(api, pushes);
+    const commit = run.revisions.find((revision) => revision.stage === "functions")?.ref ?? "";
+    api.deployments.unshift({
+      uid: "dpl_ready",
+      url: "total-electric-git-preview-dylan.vercel.app",
+      readyState: "READY",
+      target: "production",
+      projectId: "prj_1",
+      meta: { githubCommitSha: commit.slice(0, 7) },
+    });
+    const pushCount = pushes.length;
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.recheckPreviewStage }, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(after.previewUrl, "https://total-electric-git-preview-dylan.vercel.app");
+    assert.equal(pushes.length, pushCount);
+    assert.ok(!api.calls.some((call) => call.method === "POST" && call.url.includes("/v13/deployments")));
+  });
+
+  it("a retry after a rate-limit ERROR does not git-push again when the Vercel project is already stored", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const pushes: { args: readonly string[]; env: Record<string, string> }[] = [];
+    const { run, handlers } = await runToPreview(api, pushes);
+    assert.equal(run.stages.find((stage) => stage.id === "preview")?.status, "blocked");
+    const pushCount = pushes.length;
+    const posts = api.calls.filter((call) => call.method === "POST").length;
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, handlers, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "blocked");
+    assert.match(after.stages.find((stage) => stage.id === "preview")?.blocker ?? "", /GitHub rate-limited, retry after/);
+    assert.equal(pushes.length, pushCount, "Retry must not push the same SHA again");
+    assert.equal(api.calls.filter((call) => call.method === "POST").length, posts, "Retry must not create another repo, project or deploy");
+  });
+
+  it("Deploy now (force) records a READY production deploy instead of rejecting it", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production", forceDeploysAs: "production" };
+    const { run, handlers } = await runToPreview(api, []);
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.forcePreviewStage }, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(after.deploymentId, "dpl_force");
+    assert.equal(after.previewUrl, "https://total-electric-force-dylan.vercel.app");
+  });
+
+  it("Deploy now (force) requests exactly one forceNew API deploy and records it", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const pushes: { args: readonly string[]; env: Record<string, string> }[] = [];
+    const { run, handlers } = await runToPreview(api, pushes);
+    const pushCount = pushes.length;
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.forcePreviewStage }, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(after.previewUrl, "https://total-electric-force-dylan.vercel.app");
+    assert.equal(after.deploymentId, "dpl_force");
+    const created = api.calls.filter((call) => call.method === "POST" && call.url.includes("/v13/deployments"));
+    assert.equal(created.length, 1);
+    assert.match(created[0]?.url ?? "", /forceNew=1/);
+    assert.equal(pushes.length, pushCount, "force deploy does not git-push");
+  });
+
+  it("Mark as deployed verifies a READY deployment of this project and completes the stage", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const { run, handlers } = await runToPreview(api, []);
+    api.deployments.push({
+      uid: "dpl_4Rt2WSrRSH12t3UviybLYSKG52TD",
+      url: "total-electric-trusted-electricians-git-preview-virtec-projects.vercel.app",
+      readyState: "READY",
+      target: null,
+      projectId: "prj_1",
+      meta: { githubCommitSha: "other" },
+    });
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.markPreviewStage("https://vercel.com/team/total-electric/dpl_4Rt2WSrRSH12t3UviybLYSKG52TD") }, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(after.previewUrl, "https://total-electric-trusted-electricians-git-preview-virtec-projects.vercel.app");
+    assert.equal(vault.get(`case:${after.prospectId}`), after.previewUrl);
+  });
+
+  it("Mark as deployed refuses a deployment that is not READY or not this project", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const { run, handlers } = await runToPreview(api, []);
+    const errorId = api.deployments.find((deployment) => deployment.readyState === "ERROR")?.uid ?? "";
+    api.deployments.push({
+      uid: "dpl_other",
+      url: "someone-else.vercel.app",
+      readyState: "READY",
+      target: null,
+      projectId: "prj_someone_else",
+      meta: { githubCommitSha: "abc" },
+    });
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.markPreviewStage("dpl_other") }, vaultDeps);
+    assert.match(store.readRun(run.id).stages.find((stage) => stage.id === "preview")?.blocker ?? "", /not for this workspace's Vercel project/);
+
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.markPreviewStage(errorId) }, vaultDeps);
+    assert.match(store.readRun(run.id).stages.find((stage) => stage.id === "preview")?.blocker ?? "", /not READY/);
   });
 
   it("pauses before the next stage when the skill is disabled, keeping everything", async () => {

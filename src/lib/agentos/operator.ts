@@ -103,6 +103,7 @@ function useRunMutation<V>(fn: (variables: V) => Promise<OperatorRun>) {
     onSuccess: (run) => {
       queryClient.setQueryData(operatorRunKey(run.id), run);
       void queryClient.invalidateQueries({ queryKey: operatorRunsKey(), exact: true });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
     },
   });
 }

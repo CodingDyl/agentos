@@ -23,8 +23,10 @@ import {
 import { cn } from "@/lib/utils";
 import { ActiveWorkList } from "./active-work-list";
 import { AttentionList } from "./attention-list";
+import { dashboardCardClass } from "./dashboard-layout";
 import { FocusBlock } from "./focus-block";
 import { degradedSources, formatToday, greeting, isEvening } from "./mission-control-model";
+import { RevenueStrip } from "./revenue-strip";
 import { TodayStrip, TodayWorkspaces } from "./today";
 import { TodayCaptured } from "./today-captured";
 import { CompassRail } from "./compass-rail";
@@ -39,24 +41,18 @@ import { TodayLink } from "./today-kit";
 import { TodayNews, TodayTrending } from "./today-world";
 
 /**
- * Today (Mission Control).
+ * Dashboard (Mission Control).
  *
  * Where the day starts. One page that answers, in about ten seconds: what does
  * today look like, what needs me, what am I focused on, which work needs
  * movement, what is running, and what changed.
  *
- * Two columns on a wide screen, and the split is the argument: on the left,
- * the things that need a decision from you (Needs you, focus, workspaces,
- * acquisition); on the right, what is happening around you (agents, captured
- * notes, activity, spend, documents). On a narrow screen the left comes first.
+ * Full-width dense grid: columns arrive as the viewport grows, urgent cards
+ * sit top-left and span two columns, live work next, everything else packs
+ * with `grid-auto-flow: dense`. Designed for an ultrawide as much as a laptop.
  *
- * The day has two ends. Until 5pm the left column opens with Hermes' plan for
- * the day; from 5pm it opens with the wrap (done, carrying over, tomorrow,
- * loose ends). Either can be picked by hand from the header.
- *
- * Designed hardest for the good day. Nothing needing attention is the expected
- * state, so the loud parts genuinely disappear rather than becoming
- * placeholders, and flame is spent only where something is asking.
+ * The day has two ends. Until 5pm the plan leads; from 5pm the wrap does.
+ * Either can be picked by hand from the header.
  */
 
 /** Enough history to see the shape of the morning, not enough to be a feed. */
@@ -79,7 +75,7 @@ export function MissionControlPage() {
       contextLabel={data?.focus?.project ? `Context / ${data.focus.project}` : undefined}
       modelLabel="Model / AgentOS V1"
     >
-      <PaperStage>
+      <PaperStage full>
         {isPending ? (
           <p className="text-[14px] text-paper-sage">Reading your day…</p>
         ) : !data ? (
@@ -123,16 +119,16 @@ function MissionControl({ data }: { data: MissionControlData }) {
       <header className="collective-hero">
         <div className="collective-hero-copy">
         <div>
-          <h1><PaperLabel>Today</PaperLabel></h1>
+          <h1><PaperLabel>Dashboard</PaperLabel></h1>
           <DecorativeTape />
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <p className="text-[18px] font-medium text-paper-moss">{greeting("Dylan")}</p>
+            <p className="text-[16px] font-medium text-paper-moss">{greeting("Dylan")}</p>
             <p className="font-mono text-[12px] text-paper-sage">{formatToday()}</p>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <SegmentedControl
-            label="Today's view"
+            label="Dashboard view"
             value={mode}
             onChange={setMode}
             options={[
@@ -149,7 +145,7 @@ function MissionControl({ data }: { data: MissionControlData }) {
       </header>
 
       {degraded.length > 0 ? (
-        <p role="status" className="mt-4 max-w-[80ch] text-[13.5px] leading-5 text-paper-flame-deep">
+        <p role="status" className="mt-2 max-w-[80ch] text-[13.5px] leading-5 text-paper-flame-deep">
           {degraded.join(", ")} could not be read, so parts of this page are incomplete.
         </p>
       ) : null}
@@ -159,56 +155,45 @@ function MissionControl({ data }: { data: MissionControlData }) {
         attention={data.attention.length}
         running={data.activeWork.length}
         captures={captured}
-        className="mt-6"
+        className="mt-3"
       />
 
-      <div className="collective-columns">
-        <div className="min-w-0">
-          {focus.data ? <YourThree today={focus.data} onCheckIn={() => setMorning("open")} /> : null}
-          {focus.data ? <TodayTodos today={focus.data} /> : null}
-          <TodayScheduledTasks />
-          {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
-          <AttentionList items={data.attention} dismissed={data.dismissed} workers={data.workers} />
-          {data.focus ? <FocusBlock focus={data.focus} /> : null}
-        </div>
-
-        <div className="min-w-0">
-          <CompassRail />
-          <ActiveWorkList items={data.activeWork} />
-        </div>
+      <div className="dashboard-grid">
+        <RevenueStrip />
+        <AttentionList
+          items={data.attention}
+          dismissed={data.dismissed}
+          workers={data.workers}
+          className={dashboardCardClass("inbox")}
+        />
+        {focus.data ? (
+          <YourThree today={focus.data} onCheckIn={() => setMorning("open")} className={dashboardCardClass("yourThree")} />
+        ) : null}
+        {focus.data ? <TodayTodos today={focus.data} className={dashboardCardClass("todos")} /> : null}
+        <TodayScheduledTasks className={dashboardCardClass("scheduled")} />
+        {mode === "wrap" ? (
+          <DayWrapUp className={dashboardCardClass("dayPlan")} />
+        ) : (
+          <MorningPlan className={dashboardCardClass("dayPlan")} />
+        )}
+        {data.focus ? <FocusBlock focus={data.focus} className={dashboardCardClass("focus")} /> : null}
+        <ActiveWorkList items={data.activeWork} className={dashboardCardClass("activeWork")} />
+        <CompassRail className={dashboardCardClass("compass")} />
+        <OverviewCalendar className={dashboardCardClass("overviewCalendar")} />
+        <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} className={dashboardCardClass("workspaces")} />
+        <TractionToday className={dashboardCardClass("traction")} />
+        <CareerToday className={dashboardCardClass("career")} />
+        <FinanceToday className={dashboardCardClass("finance")} />
+        <TodayCaptured className={dashboardCardClass("captured")} />
+        <RecentActivity data={data} className={dashboardCardClass("activity")} />
+        <UsageSummary className={dashboardCardClass("usage")} />
+        <RecentDocuments className={dashboardCardClass("documents")} />
+        <TodayNews className={dashboardCardClass("news")} />
+        <TodayTrending className={dashboardCardClass("trending")} />
+        {sprint && sprint.scorecard.tasksAttempted > 0 ? (
+          <SprintScorecard sprint={sprint} className={dashboardCardClass("scorecard")} />
+        ) : null}
       </div>
-
-      <OverviewCalendar />
-
-      <div className="collective-columns">
-        <div className="min-w-0">
-          <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
-          <TractionToday />
-          <CareerToday />
-          <FinanceToday />
-        </div>
-        <div className="min-w-0">
-          <TodayCaptured />
-          <RecentActivity data={data} />
-          <UsageSummary />
-          <RecentDocuments />
-        </div>
-      </div>
-
-      {/* The outside world, below everything that is asking for something today. */}
-      <div className="collective-columns">
-        <TodayNews className="min-w-0" />
-        <TodayTrending className="min-w-0" />
-      </div>
-
-      {/* Reflective rather than operational, so it sits below everything that
-          is asking for something today, and removes itself with no sprint. */}
-      {sprint && sprint.scorecard.tasksAttempted > 0 ? (
-        <div className="mt-14 border-t border-paper-stone pt-10">
-          <SprintScorecard sprint={sprint} />
-        </div>
-      ) : null}
-
     </>
   );
 }
@@ -225,11 +210,11 @@ const TONE_DOT = {
  * of the page so the sections always agree. A glance, then a link to the
  * place that does auditing.
  */
-function RecentActivity({ data }: { data: MissionControlData }) {
+function RecentActivity({ data, className }: { data: MissionControlData; className?: string }) {
   const events = data.recentActivity.slice(0, ACTIVITY_LIMIT);
 
   return (
-    <PaperSection label="Recent activity" action={<TodayLink to="/activity">All activity</TodayLink>}>
+    <PaperSection label="Recent activity" className={className} action={<TodayLink to="/activity">All activity</TodayLink>}>
       {events.length === 0 ? (
         <p className="text-[14px] text-paper-char">
           {data.sources.activity === "ready" ? "Nothing has happened yet today." : "The activity timeline couldn't be read."}
@@ -260,14 +245,14 @@ function RecentActivity({ data }: { data: MissionControlData }) {
 }
 
 /** What was written lately. Absent when there is nothing: a document is worth a glance, not a headline. */
-function RecentDocuments() {
+function RecentDocuments({ className }: { className?: string }) {
   const { data } = useRecentDocuments(5);
   const documents = data?.documents ?? [];
 
   if (documents.length === 0) return null;
 
   return (
-    <PaperSection label="Recent documents" action={<TodayLink to="/knowledge">Knowledge</TodayLink>}>
+    <PaperSection label="Recent documents" className={className} action={<TodayLink to="/knowledge">Knowledge</TodayLink>}>
       <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
         {documents.map((document) => (
           <li key={`${document.origin}:${document.id}`}>

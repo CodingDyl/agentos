@@ -15,9 +15,9 @@ import { navigationItems } from "./navigation";
  * navigating anywhere first. Traction's is the acquisition work still queued
  * for today; Finance's is the number of warnings about real money.
  *
- * Today's count is **decisions requiring the operator** — never a notification
- * count. Inbox's is the mail sorted into Needs you. Neither goes up because a
- * machine did some work.
+ * Dashboard's count is **decisions requiring the operator** — never a
+ * notification count. Inbox's is the mail sorted into Needs you. Neither goes
+ * up because a machine did some work.
  *
  * Every screen shares the same query cache entries, so the whole app costs a
  * single poll between them.

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type BrandKitEdit, type PageNote, type PageNotesByRoute, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
 import { AgentOSRequestError } from "./client";
+import { agentosKeys } from "./queries";
 
 const base = "/api/rebuilds";
 const key = (id: string) => ["rebuild", id] as const;
@@ -87,6 +88,7 @@ function useRunMutation<TInput>(request: (input: TInput) => Promise<RebuildRun>)
       client.setQueryData(key(run.id), run);
       client.setQueryData(prospectKey(run.prospectId), run);
       if (run.workspaceSlug) client.setQueryData(["rebuild", "workspace", run.workspaceSlug], run);
+      void client.invalidateQueries({ queryKey: agentosKeys.missionControl() });
     },
     networkMode: "always",
     retry: 0,
@@ -107,6 +109,21 @@ export function useRetryStage(runId: string) {
 /** Skips a blocked website capture, so the rebuild carries on without the current site. */
 export function useSkipCapture(runId: string) {
   return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/capture/skip`, RebuildRunSchema, {}));
+}
+
+/** One Vercel API deploy with forceNew, ignoring the rate-limit cooldown. */
+export function useForcePreviewDeploy(runId: string) {
+  return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/preview/deploy-now`, RebuildRunSchema, {}));
+}
+
+/** Resync the preview stage from Vercel's latest deployments of the approved SHA. */
+export function useRecheckPreview(runId: string) {
+  return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/preview/recheck`, RebuildRunSchema, {}));
+}
+
+/** Record a READY Vercel deployment the operator pastes as the live preview. */
+export function useMarkPreviewDeployed(runId: string) {
+  return useRunMutation((input: { deployment: string }) => call(`${base}/${encodeURIComponent(runId)}/stages/preview/mark-deployed`, RebuildRunSchema, input));
 }
 
 /** Workers able to do a stage, with whether each is ready now. Read only while the choice is on screen. */
