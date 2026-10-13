@@ -1,6 +1,8 @@
 import express from "express";
 import { CaseWriteSchema, SenderInputSchema } from "../../shared/outreach-case";
+import { ReviseRequestSchema } from "../../shared/outreach-revise";
 import { fail, parse } from "../traction/route-helpers";
+import { ReviseError, reviseDraft } from "./revise";
 import { briefCase, CaseError, deleteSender, draftCase, readCase, readCases, readSenders, saveSender, writeCase } from "./cases";
 
 /**
@@ -60,12 +62,32 @@ caseRouter.post("/cases/:prospectId/brief", async (request, response) => {
   }
 });
 
-/** Hermes drafts the email from the case. The draft is saved on the case; nothing is sent. */
+/** Hermes drafts the email from the case. The draft is saved on the case; nothing is sent. `{ "exampleId": "<library note id>" }` models it on one saved email. */
 caseRouter.post("/cases/:prospectId/draft", async (request, response) => {
   try {
-    response.json({ case: await draftCase(request.params.prospectId) });
+    const exampleId = (request.body as { exampleId?: unknown } | undefined)?.exampleId;
+    response.json({ case: await draftCase(request.params.prospectId, undefined, { exampleId: typeof exampleId === "string" ? exampleId.slice(0, 300) : undefined }) });
   } catch (error) {
     caseFail(response, error, "draft the email");
+  }
+});
+
+/**
+ * Rewrites the email on screen with the agent you choose, changing only what
+ * your instruction asks. The agent may use no tools. Returns the revision and
+ * saves nothing: the screen decides whether to keep it.
+ */
+caseRouter.post("/cases/:prospectId/revise", async (request, response) => {
+  const input = parse(ReviseRequestSchema, request.body, response, "revision");
+  if (!input) return;
+  try {
+    response.json(await reviseDraft(request.params.prospectId, input));
+  } catch (error) {
+    if (error instanceof ReviseError) {
+      response.status(error.status).json({ error: error.message });
+      return;
+    }
+    caseFail(response, error, "revise the email");
   }
 });
 

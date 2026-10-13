@@ -2,13 +2,14 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CASE_STAGE_LABEL, caseStage, type CaseStage, type OutreachCase } from "@shared/outreach-case";
 import { playById, PLAYS, type OutreachStats, type Rate, type SentEmail } from "@shared/outreach-plays";
-import type { Prospect, TractionData } from "@shared/traction-types";
-import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperEmpty, PaperError, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
+import { vettingOf, type Prospect, type TractionData } from "@shared/traction-types";
+import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperCard, PaperEmpty, PaperError, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useOutreachStats } from "@/lib/agentos/outreach";
 import { useOutreachCases } from "@/lib/agentos/outreach-cases";
 import { cn } from "@/lib/utils";
-import { formatShortDate } from "./traction-model";
+import { followUpsHref, formatShortDate } from "./traction-model";
 import { OutreachCaseView } from "./traction-outreach-case";
+import { Link } from "react-router-dom";
 import { usePagination } from "@/lib/use-pagination";
 
 /**
@@ -50,9 +51,9 @@ export function TractionOutreachTab({
           ]}
         />
         {stats.data && stats.data.followUpsDue.length > 0 ? (
-          <button type="button" onClick={() => setView("results")} className={cn("cursor-pointer text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+          <Link to={followUpsHref()} className={cn("text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
             {stats.data.followUpsDue.length} follow-up{stats.data.followUpsDue.length === 1 ? "" : "s"} due
-          </button>
+          </Link>
         ) : null}
       </div>
 
@@ -65,13 +66,7 @@ export function TractionOutreachTab({
         <div className="grid gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-10">
             <Headline stats={stats.data} />
-            <FollowUps
-              stats={stats.data}
-              onWrite={(id) => {
-                onCompose(id);
-                setView("write");
-              }}
-            />
+            <FollowUpsPointer due={stats.data.followUpsDue.length} />
             <SentList emails={stats.data.sentEmails} onOpen={onOpenProspect} />
           </div>
           <div className="min-w-0 space-y-10">
@@ -110,6 +105,8 @@ function WriteView({
     const term = search.trim().toLowerCase();
     return data.prospects
       .filter((prospect) => OPEN.has(prospect.stage))
+      // Only businesses you checked and said you can help (or already contacted); the rest wait in Find.
+      .filter((prospect) => vettingOf(prospect) === "can_help")
       .filter((prospect) => {
         const stage = stageOf(prospect);
         if (filter === "to_email") return stage !== "sent" && stage !== "replied";
@@ -120,6 +117,7 @@ function WriteView({
       .sort((a, b) => FIT_ORDER[a.fit ?? "none"] - FIT_ORDER[b.fit ?? "none"] || a.company.localeCompare(b.company));
   }, [data.prospects, filter, search, stageOf]);
   const pager = usePagination(rows, `${filter}|${search}`, 10);
+  const awaitingCheck = data.prospects.filter((prospect) => prospect.stage === "target" && vettingOf(prospect) === undefined).length;
 
   const selected = data.prospects.find((prospect) => prospect.id === prospectId);
   const entry = selected ? (cases[selected.id] ?? blankCase(selected.id)) : undefined;
@@ -175,6 +173,14 @@ function WriteView({
           </ul>
         )}
         <PaperPagination pager={pager} label="Business pages" />
+        {awaitingCheck > 0 ? (
+          <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">
+            {awaitingCheck} more {awaitingCheck === 1 ? "business is" : "businesses are"} waiting to be checked.{" "}
+            <Link to="/traction?tab=find" className={cn("text-paper-blue hover:underline", PAPER_FOCUS)}>
+              Open Find
+            </Link>
+          </p>
+        ) : null}
       </nav>
 
       <div className="min-w-0">
@@ -212,6 +218,7 @@ function blankCase(prospectId: string): OutreachCase {
     setupPrice: "",
     projectPrice: "",
     senderId: "",
+    draftAt: "",
     notes: "",
     filledBy: {},
     updatedAt: "",
@@ -253,32 +260,16 @@ function Figure({ label, value, note }: { label: string; value: string; note: st
   );
 }
 
-function FollowUps({ stats, onWrite }: { stats: OutreachStats; onWrite: (prospectId: string) => void }) {
-  const pager = usePagination(stats.followUpsDue, "", 10);
+/** Follow-ups are written and tracked in their own tab; Results only says how many are waiting. */
+function FollowUpsPointer({ due }: { due: number }) {
   return (
-    <PaperSection label="Follow-ups due" count={stats.followUpsDue.length}>
-      {stats.followUpsDue.length === 0 ? (
-        <p className="text-[13.5px] leading-6 text-paper-sage">
-          Nothing due. Most replies come to the second or third email, so each unanswered email gets a follow-up after 3 days, then one more after 4.
-        </p>
-      ) : (
-        <ul className="divide-y divide-paper-mist border-y border-paper-mist">
-          {pager.pageItems.map((due) => (
-            <li key={due.prospectId} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <span className="min-w-0">
-                <span className="block font-semibold text-paper-moss">{due.company}</span>
-                <span className="block text-[12.5px] text-paper-sage">
-                  {due.touch === 2 ? "First follow-up" : "Last follow-up"} · last emailed {formatShortDate(due.lastAt)}
-                </span>
-              </span>
-              <PaperButton variant="ghost" onClick={() => onWrite(due.prospectId)}>
-                Write follow-up
-              </PaperButton>
-            </li>
-          ))}
-        </ul>
-      )}
-      <PaperPagination pager={pager} label="Follow-up pages" />
+    <PaperSection label="Follow-ups due" count={due}>
+      <p className="text-[13.5px] leading-6 text-paper-sage">
+        {due === 0 ? "Nothing is due. " : ""}Each unanswered email gets a follow-up after 3 days, then one more after 4.{" "}
+        <Link to={followUpsHref()} className={cn("font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+          Open Follow-ups
+        </Link>
+      </p>
     </PaperSection>
   );
 }

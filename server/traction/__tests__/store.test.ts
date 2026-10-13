@@ -355,3 +355,114 @@ describe("case study website facts", () => {
     assert.equal((await store.readCaseStudy(local.id)).siteFacts, undefined);
   });
 });
+
+describe("recording an email sent by hand", () => {
+  it("logs it, starts the clock and moves a target to contacted", async () => {
+    const created = await store.createProspect(input("Hand Sent Co", { email: "owner@handsent.co.za" }));
+    const entry = await store.recordManualSend({ prospectId: created.id, subject: "Quick idea", body: "Hi\n\nBody" });
+
+    assert.equal(entry.kind, "manual");
+    assert.equal(entry.to, "owner@handsent.co.za");
+    assert.equal(entry.body, "Hi\n\nBody");
+
+    const state = await store.readState();
+    const prospect = state.prospects.find((candidate) => candidate.id === created.id);
+    assert.equal(prospect?.stage, "contacted");
+    assert.ok(prospect?.lastTouchAt);
+    assert.deepEqual(store.sendsByProspect(state.outreachLog), { [created.id]: 1 });
+  });
+
+  it("works without an email address on file", async () => {
+    const created = await store.createProspect(input("No Address Co"));
+    const entry = await store.recordManualSend({ prospectId: created.id, subject: "Hello", body: "Body" });
+    assert.equal(entry.to, "");
+  });
+
+  it("treats a double press as one email, but a later follow-up as another", async () => {
+    const created = await store.createProspect(input("Double Press Co"));
+    const first = await store.recordManualSend({ prospectId: created.id, subject: "Hello", body: "Body" });
+    const again = await store.recordManualSend({ prospectId: created.id, subject: "Hello", body: "Body" });
+    assert.equal(again.id, first.id);
+
+    await store.recordManualSend({ prospectId: created.id, subject: "Following up", body: "Second" });
+    assert.deepEqual(store.sendsByProspect((await store.readState()).outreachLog), { [created.id]: 2 });
+  });
+
+  it("refuses a closed prospect and an unknown one", async () => {
+    const created = await store.createProspect(input("Closed Co"));
+    await store.updateProspect(created.id, ProspectPatchSchema.parse({ stage: "lost" }));
+    await assert.rejects(store.recordManualSend({ prospectId: created.id, subject: "s", body: "b" }), store.TractionConflictError);
+    await assert.rejects(store.recordManualSend({ prospectId: "pr_missing", subject: "s", body: "b" }), store.TractionNotFoundError);
+  });
+});
+
+describe("checking a business: can help or not a fit", () => {
+  it("needs the one specific thing noticed before it can be marked can help", async () => {
+    const created = await store.createProspect(input("Vet Me"));
+    await assert.rejects(store.updateProspect(created.id, ProspectPatchSchema.parse({ vetting: "can_help" })), store.TractionConflictError);
+
+    const ok = await store.updateProspect(created.id, ProspectPatchSchema.parse({ vetting: "can_help", observation: "No viewing button on mobile" }));
+    assert.equal(ok.vetting, "can_help");
+    assert.ok(ok.vettedAt);
+    assert.equal(ok.stage, "target");
+  });
+
+  it("closes an uncontacted business that is not a fit, without counting it as contact", async () => {
+    const created = await store.createProspect(input("Not For Me"));
+    const closed = await store.updateProspect(created.id, ProspectPatchSchema.parse({ vetting: "not_a_fit" }));
+    assert.equal(closed.stage, "lost");
+    assert.equal(closed.vetting, "not_a_fit");
+
+    const kinds = (await store.readEvents()).filter((event) => event.prospectId === created.id).map((event) => event.kind);
+    assert.ok(!kinds.includes("contacted"), "closing is not outreach");
+  });
+
+  it("can be undone, and clears the date", async () => {
+    const created = await store.createProspect(input("Changed Mind"));
+    await store.updateProspect(created.id, ProspectPatchSchema.parse({ vetting: "not_a_fit" }));
+    const back = await store.updateProspect(created.id, ProspectPatchSchema.parse({ vetting: null, stage: "target" }));
+    assert.equal(back.vetting, undefined);
+    assert.equal(back.vettedAt, undefined);
+    assert.equal(back.stage, "target");
+  });
+
+  it("can be sent back to check, and a new business with an observation is not decided for you", async () => {
+    const { vettingOf } = await import("../../../shared/traction-types");
+    const created = await store.createProspect(input("Look Again", { observation: "Something specific" }));
+    assert.equal(vettingOf(created), undefined, "noting something is not a decision");
+    const decided = await store.updateProspect(created.id, ProspectPatchSchema.parse({ vetting: "can_help" }));
+    assert.equal(vettingOf(decided), "can_help");
+    const back = await store.updateProspect(created.id, ProspectPatchSchema.parse({ vetting: "to_check" }));
+    assert.equal(vettingOf(back), undefined);
+  });
+
+  it("treats a business past first contact as dealt with", async () => {
+    const { vettingOf } = await import("../../../shared/traction-types");
+    assert.equal(vettingOf({ stage: "contacted", vetting: undefined }), "can_help");
+    assert.equal(vettingOf({ stage: "target", vetting: undefined }), undefined);
+    assert.equal(vettingOf({ stage: "target", vetting: "not_a_fit" }), "not_a_fit");
+  });
+
+  it("carries existing businesses over once: uncontacted ones with an observation become can help, later ones stay undecided", async () => {
+    const file = path.join(tractionDir, "state.json");
+    fs.mkdirSync(tractionDir, { recursive: true });
+    const old = (id: string, over: Record<string, unknown>) => ({ id, company: id, stage: "target", source: "outbound", reasons: [], stageChangedAt: "2026-09-01T00:00:00Z", createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-02T00:00:00Z", ...over });
+    // A record from before the verdict existed: no `vettingMigrated`.
+    fs.writeFileSync(file, JSON.stringify({ version: 1, prospects: [old("pr_noticed", { observation: "No booking button" }), old("pr_plain", {})]  }));
+
+    const first = await store.readState();
+    const by = Object.fromEntries(first.prospects.map((prospect) => [prospect.id, prospect]));
+    assert.equal(by.pr_noticed.vetting, "can_help");
+    assert.equal(by.pr_noticed.vettedAt, "2026-09-02T00:00:00Z");
+    assert.equal(by.pr_plain.vetting, undefined);
+
+    // The next write saves the flag; a business made after that is never decided for you.
+    const created = await store.createProspect(input("After", { observation: "Something specific" }));
+    const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+    assert.equal(saved.vettingMigrated, true);
+    assert.equal(saved.prospects.find((prospect: { id: string }) => prospect.id === created.id).vetting, undefined);
+
+    // Reading again changes nothing.
+    assert.equal((await store.readState()).prospects.find((prospect) => prospect.id === created.id)?.vetting, undefined);
+  });
+});

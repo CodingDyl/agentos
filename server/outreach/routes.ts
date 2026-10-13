@@ -2,6 +2,7 @@ import express, { type Response } from "express";
 import {
   DEFAULT_DAILY_CAP,
   GmailDraftRequestSchema,
+  ManualSendRequestSchema,
   MAX_DAILY_CAP,
   OutreachSettingsInputSchema,
   SendRequestSchema,
@@ -14,6 +15,7 @@ import {
   isSuppressed,
   logOutreach,
   readState,
+  recordManualSend,
   removeSuppression,
   reserveSend,
   saveOutreachSignature,
@@ -22,7 +24,10 @@ import {
   settleSend,
   TractionNotFoundError,
 } from "../traction/store";
+import { LibrarySaveRequestSchema } from "../../shared/outreach-library";
 import { caseRouter } from "./case-routes";
+import { computeFollowUps } from "./follow-ups";
+import { LibraryError, libraryService, listLibrary, saveToLibrary } from "./library";
 import { allow, ApolloError, revealEmail, searchPeopleAtDomain } from "./apollo";
 import type { Sender } from "../../shared/outreach-case";
 import { OutreachBriefSchema, type OutreachBrief } from "../../shared/outreach-plays";
@@ -458,6 +463,70 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
       }
     }
     fail(response, error, "send the email");
+  }
+});
+
+/**
+ * "I sent it": the person copied the email out of AgentOS and sent it from
+ * their own mailbox (a domain mailbox AgentOS cannot connect to). Nothing is
+ * sent. This records the touch against the prospect, with what was sent, so
+ * the follow-up schedule starts and the prospect counts as contacted.
+ */
+outreachRouter.post("/prospects/:id/manual-send", async (request, response) => {
+  const content = parse(ManualSendRequestSchema, request.body, response, "email");
+  if (!content) return;
+  try {
+    const entry = await recordManualSend({ prospectId: request.params.id, subject: content.subject, body: content.body, play: content.play });
+    response.status(201).json({ recorded: true, id: entry.id, at: entry.at });
+  } catch (error) {
+    fail(response, error, "record the email");
+  }
+});
+
+/** Everyone contacted and not yet answered, with what is due. The one schedule: see `followUpWait`. */
+outreachRouter.get("/follow-ups", async (_request, response) => {
+  try {
+    response.json({ rows: computeFollowUps(await readState()) });
+  } catch (error) {
+    fail(response, error, "read the follow-ups");
+  }
+});
+
+// ─── The email library ─────────────────────────────────────────────────────
+
+/** Saved emails, newest first. Read from the vault's index, so it works from cache with the drive unplugged. */
+outreachRouter.get("/library", (_request, response) => {
+  response.json({ emails: listLibrary(libraryService()) });
+});
+
+/**
+ * Saves a draft to the library (a note in the vault). The business is named
+ * by id; its name, contact, website, links and the signature are replaced with
+ * placeholders on the way in, so the example carries no one's details.
+ */
+outreachRouter.post("/library", async (request, response) => {
+  const input = parse(LibrarySaveRequestSchema, request.body, response, "library email");
+  if (!input) return;
+  try {
+    const state = await readState();
+    const prospect = state.prospects.find((entry) => entry.id === input.prospectId);
+    if (!prospect) throw new TractionNotFoundError(`No prospect ${input.prospectId}`);
+    const saved = await saveToLibrary(libraryService(), {
+      subject: input.subject,
+      body: input.body,
+      touch: input.touch as 1 | 2 | 3,
+      path: state.outreachCases[prospect.id]?.path,
+      gotReply: input.gotReply,
+      note: input.note,
+      facts: { company: prospect.company, contact: prospect.contact, website: prospect.website },
+    });
+    response.status(201).json(saved);
+  } catch (error) {
+    if (error instanceof LibraryError) {
+      response.status(error.status).json({ error: error.message });
+      return;
+    }
+    fail(response, error, "save the email to the library");
   }
 });
 

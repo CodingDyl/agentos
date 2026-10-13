@@ -1,7 +1,8 @@
 import { useSearchParams } from "react-router-dom";
-import type { TractionData } from "@shared/traction-types";
+import { vettingOf, type TractionData } from "@shared/traction-types";
 import { AppShell } from "@/components/os";
-import { PaperButton, PaperStage, PaperTabs } from "@/components/paper";
+import { PaperButton, PaperStage } from "@/components/paper";
+import { useFollowUps } from "@/lib/agentos/outreach";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useTraction } from "@/lib/agentos/traction";
 import { TractionCaseStudiesTab } from "./traction-case-studies-tab";
@@ -9,21 +10,27 @@ import { TractionLeadMagnetsTab } from "./traction-lead-magnets-tab";
 import { TractionClientsTab } from "./traction-clients-tab";
 import { TractionCrmTab } from "./traction-crm-tab";
 import { TractionExperimentsTab } from "./traction-experiments-tab";
-import { isTractionTab, TRACTION_TABS, type TractionTab } from "./traction-model";
+import { TractionFindTab } from "./traction-find-tab";
+import { TractionFollowUpsTab } from "./traction-follow-ups-tab";
+import { TractionNextTab } from "./traction-next-tab";
+import { isTractionTab, type TractionTab } from "./traction-model";
 import { TractionOffersTab } from "./traction-offers-tab";
 import { TractionOutreachTab } from "./traction-outreach-tab";
 import { TractionOverviewTab } from "./traction-overview-tab";
 import { TractionPipelineTab } from "./traction-pipeline-tab";
 import { TractionProspectsTab } from "./traction-prospects-tab";
 import { TractionReviewTab } from "./traction-review-tab";
+import { TractionTabs } from "./traction-tabs";
 import { TractionWaitingTab } from "./traction-waiting-tab";
 
 /**
  * Traction — the customer-acquisition operating system.
  *
- * Named for the purpose: get customers, not "do marketing". The page is
- * action-first. Its first screen says what to do today, and the one number it
- * optimises is qualified customer conversations per week.
+ * Named for the purpose: get customers, not "do marketing". Four steps in a
+ * row: Next up (what to do now), Find (check businesses, decide you can help),
+ * Outreach (write to them), Follow-ups (the ones who have not answered).
+ * Everything else is under More. The one number it optimises is qualified
+ * customer conversations per week.
  *
  * Nothing on it sends anything. Hermes can research a prospect or draft a
  * message, but only in the agent console, and a person sends every message
@@ -37,7 +44,7 @@ export function TractionPage() {
   // land on the right thing, and a reload keeps it.
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("tab");
-  const tab: TractionTab = isTractionTab(requested) ? requested : "overview";
+  const tab: TractionTab = isTractionTab(requested) ? requested : "next";
 
   const update = (changes: Record<string, string | undefined>) =>
     setSearchParams(
@@ -83,8 +90,9 @@ export function TractionPage() {
             tab={tab}
             prospectId={searchParams.get("prospect") ?? undefined}
             studyId={searchParams.get("study") ?? undefined}
-            onTab={(next) => update({ tab: next === "overview" ? undefined : next, prospect: undefined, study: undefined })}
+            onTab={(next) => update({ tab: next === "next" ? undefined : next, prospect: undefined, study: undefined })}
             onProspect={(prospectId) => update({ tab: "prospects", prospect: prospectId })}
+            onFind={(prospectId) => update({ tab: "find", prospect: prospectId })}
             onCompose={(prospectId) => update({ tab: "outreach", prospect: prospectId })}
           />
         )}
@@ -100,6 +108,7 @@ function Traction({
   studyId,
   onTab,
   onProspect,
+  onFind,
   onCompose,
 }: {
   data: TractionData;
@@ -108,8 +117,14 @@ function Traction({
   studyId: string | undefined;
   onTab: (tab: TractionTab) => void;
   onProspect: (prospectId: string | undefined) => void;
+  onFind: (prospectId: string | undefined) => void;
   onCompose: (prospectId: string | undefined) => void;
 }) {
+  const followUps = useFollowUps();
+  const badges: Partial<Record<TractionTab, number>> = {
+    find: data.prospects.filter((prospect) => prospect.stage === "target" && vettingOf(prospect) === undefined).length,
+    "follow-ups": followUps.data?.filter((row) => row.state === "due").length,
+  };
   const month = new Date(`${data.today}T12:00:00`).toLocaleDateString("en-GB", { month: "long" });
 
   return (
@@ -125,10 +140,13 @@ function Traction({
       </header>
 
       <div className="mt-8">
-        <PaperTabs<TractionTab> options={TRACTION_TABS} value={tab} onChange={onTab} label="Traction sections" />
+        <TractionTabs tab={tab} onTab={onTab} badges={badges} />
       </div>
 
       <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="pt-8">
+        {tab === "next" ? <TractionNextTab data={data} onTab={onTab} /> : null}
+        {tab === "find" ? <TractionFindTab data={data} selectedId={prospectId} onSelect={onFind} onCompose={onCompose} /> : null}
+        {tab === "follow-ups" ? <TractionFollowUpsTab data={data} selectedId={prospectId} onCompose={onCompose} /> : null}
         {tab === "overview" ? <TractionOverviewTab data={data} onTab={onTab} /> : null}
         {tab === "prospects" ? <TractionProspectsTab data={data} selectedId={prospectId} onSelect={onProspect} onCompose={onCompose} /> : null}
         {tab === "outreach" ? <TractionOutreachTab data={data} prospectId={prospectId} onCompose={onCompose} onOpenProspect={onProspect} /> : null}

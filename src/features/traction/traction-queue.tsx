@@ -8,9 +8,11 @@ import { cn } from "@/lib/utils";
 import { magnetForSource } from "@shared/lead-magnet-types";
 import {
   crmFollowUpPrompt,
+  followUpsHref,
   hermesHref,
   hermesPrompt,
   inboundReplyPrompt,
+  outreachHref,
   portalViewPrompt,
   prospectReplyPrompt,
   queueItemHref,
@@ -113,6 +115,13 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
               ? hermesPrompt({ prospect, item, icp: data.icp, offers: data.offers, gaps: data.outreachGaps[prospect.id] ?? [] })
               : undefined;
           const pending = action.isPending && action.variables?.itemId === item.id;
+          // Where the work can be done inside Traction, rather than handed to the agent console.
+          const inApp =
+            prospect && item.kind === "follow_up" && prospect.stage === "contacted"
+              ? { to: followUpsHref(prospect.id), text: "Draft follow-up" }
+              : prospect && item.kind === "contact"
+                ? { to: outreachHref(prospect.id), text: "Write email" }
+                : undefined;
 
           return (
             <li key={item.id} className="grid gap-3 py-4 sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-start">
@@ -195,11 +204,16 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
                   <Clock className="size-3.5" aria-hidden="true" />
                   Snooze
                 </PaperButton>
-                <QueueLink to={queueItemHref(item)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? viewedClient ?? "item"}`}>
+                <QueueLink to={queueItemHref(item, prospect)} label={`Open ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? viewedClient ?? "item"}`}>
                   <ExternalLink className="size-3.5" aria-hidden="true" />
                   Open
                 </QueueLink>
-                {ask ? (
+                {inApp ? (
+                  <QueueLink to={inApp.to} label={`${inApp.text}: ${prospect?.company ?? item.title}`} title="Opens the draft here in Traction">
+                    <PenLine className="size-3.5" aria-hidden="true" />
+                    {inApp.text}
+                  </QueueLink>
+                ) : ask ? (
                   <QueueLink
                     to={hermesHref(ask.prompt)}
                     label={`Ask Hermes to ${ask.kind === "research" ? "research" : "draft for"} ${prospect?.company ?? owed?.who ?? crmFollowUp?.companyName ?? inbound?.name ?? viewedClient ?? "this item"}`}

@@ -58,7 +58,7 @@ export function TractionCrmTab({ data }: { data: TractionData }) {
   );
 }
 
-function SetupNote({ problem }: { problem?: string }) {
+export function SetupNote({ problem }: { problem?: string }) {
   return (
     <PaperCard className="max-w-2xl bg-paper-cream p-5">
       <h2 className="font-paper-display text-[17px] font-bold text-paper-moss">Connect Virtec</h2>
@@ -534,7 +534,8 @@ function FindCandidates({ track, writable }: { track: Track; writable: boolean }
 
 const FIT_WORDS = ["not a fit", "weak fit", "possible fit", "good fit", "strong fit"];
 
-function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
+/** Virtec's candidates: score them against the ICP, scan for more, import the good ones. Also used by Find. */
+export function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
   const tracks = new Set(crm.leads.map((lead) => lead.track).filter(Boolean));
   const [track, setTrack] = useState<Track>(tracks.has("virtara") ? "virtara" : "all");
   const importLead = useImportCrm();

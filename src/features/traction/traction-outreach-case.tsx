@@ -1,4 +1,4 @@
-import { Check, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
+import { BookmarkPlus, Check, Copy, ExternalLink, RefreshCw, Sparkles, Undo2, Wand2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -15,8 +15,10 @@ import {
 import { MAX_EMAIL_BODY } from "@shared/outreach-types";
 import type { Prospect } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, Tag } from "@/components/paper";
-import { useCreateGmailDraft, useOutreachStatus, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
-import { useBriefCase, useDraftCase, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
+import { useCreateGmailDraft, useOutreachStats, useOutreachStatus, useRecordManualSend, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
+import { TOUCH_LABELS, type Touch } from "@shared/outreach-library";
+import { useChatAgents } from "@/lib/agentos/chat";
+import { useBriefCase, useDraftCase, useEmailLibrary, useReviseDraft, useSaveToLibrary, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { EmailFinder } from "./traction-outreach-email";
@@ -37,7 +39,7 @@ export function OutreachCaseView({ prospect, entry }: { prospect: Prospect; entr
 
   return (
     <div className="space-y-6">
-      <Overview prospect={prospect} />
+      <ProspectOverview prospect={prospect} />
       <KnowThem prospect={prospect} entry={entry} />
       <Decide prospect={prospect} entry={entry} sender={sender} />
       <WriteEmail prospect={prospect} entry={entry} senders={senders.data ?? []} sender={sender} />
@@ -47,7 +49,8 @@ export function OutreachCaseView({ prospect, entry }: { prospect: Prospect; entr
 
 // ─── Who they are ───────────────────────────────────────────────────────────
 
-function Overview({ prospect }: { prospect: Prospect }) {
+/** Who they are: contact, email, website, and why they are on the list. Used by Outreach and by Find. */
+export function ProspectOverview({ prospect }: { prospect: Prospect }) {
   const update = useUpdateProspect();
   const save = (field: "contact" | "email" | "website", value: string) => {
     const current = prospect[field] ?? "";
@@ -125,7 +128,8 @@ function ProspectInput({ label, value, onSave, type = "text", placeholder }: { l
 
 // ─── 1. Get to know them ────────────────────────────────────────────────────
 
-function KnowThem({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
+/** Hermes reads their website and fills the brief: what they do, what was noticed, the opening line. */
+export function KnowThem({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
   const brief = useBriefCase();
   const [notesOpen, setNotesOpen] = useState(Boolean(entry.notes));
   const briefed = Boolean(entry.about || entry.findings.length > 0);
@@ -279,12 +283,23 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
 
 // ─── 3. The email ───────────────────────────────────────────────────────────
 
+/** Which email in the sequence this one would be: emails already sent to them, plus one, at most 3. */
+function useNextTouch(prospectId: string): Touch {
+  const stats = useOutreachStats();
+  const sent = stats.data?.sentEmails.filter((email) => email.prospectId === prospectId && email.status !== "draft").length ?? 0;
+  return Math.min(sent + 1, 3) as Touch;
+}
+
 function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; entry: OutreachCase; senders: Sender[]; sender: Sender | undefined }) {
   const write = useWriteCase();
   const draft = useDraftCase();
   const status = useOutreachStatus();
   const useInbox = useUseInboxForOutreach();
   const [managing, setManaging] = useState(false);
+  const [modelId, setModelId] = useState("");
+  const library = useEmailLibrary();
+  const touch = useNextTouch(prospect.id);
+  const models = (library.data ?? []).filter((email) => email.touch === touch);
   const gaps = draftGaps(entry, sender);
   const mailbox = status.data;
 
@@ -340,7 +355,21 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <PaperButton variant="amber" disabled={draft.isPending || gaps.length > 0} onClick={() => draft.mutate(prospect.id)}>
+        {models.length > 0 ? (
+          <label className="block min-w-[200px] max-w-[320px]">
+            <FieldLabel>Model it on (optional)</FieldLabel>
+            <select value={modelId} onChange={(event) => setModelId(event.target.value)} className={cn(PAPER_INPUT, "w-full")}>
+              <option value="">Best matches from my library</option>
+              {models.map((email) => (
+                <option key={email.id} value={email.id}>
+                  {email.gotReply ? "★ " : ""}
+                  {email.subject}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <PaperButton variant="amber" disabled={draft.isPending || gaps.length > 0} onClick={() => draft.mutate({ prospectId: prospect.id, exampleId: modelId || undefined })}>
           <Sparkles className="size-3.5" aria-hidden="true" />
           {draft.isPending ? "Hermes is writing… (up to a minute)" : entry.draft ? "Draft again with Hermes" : "Draft with Hermes"}
         </PaperButton>
@@ -353,7 +382,161 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
       ) : null}
 
       <DraftEditor key={`${entry.draft?.subject}\u0000${entry.draft?.body}`} prospect={prospect} entry={entry} sender={sender} />
+      <ReviseDraftPanel prospect={prospect} entry={entry} />
     </Card>
+  );
+}
+
+const REVISE_AGENT_KEY = "agentos.traction.reviseAgent";
+const QUICK_REVISIONS = ["Make it shorter", "Warmer, less formal", "More direct", "Drop the last question"] as const;
+
+function rememberedAgent(): string | undefined {
+  try {
+    return window.localStorage.getItem(REVISE_AGENT_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Small changes to the draft on screen, made by an agent you choose.
+ *
+ * Not another draft: the agent gets the email as it is and your one-line
+ * instruction, changes only that, and may use no tools. The signature stays
+ * exactly as it was, and an answer that adds a link, address or price that
+ * is not in the email or the notes is refused by the server. The result
+ * replaces the draft, and Undo puts the old one back.
+ */
+export function ReviseDraftPanel({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
+  const agents = useChatAgents();
+  const revise = useReviseDraft();
+  const write = useWriteCase();
+  const [agentId, setAgentId] = useState(rememberedAgent);
+  const [instruction, setInstruction] = useState("");
+  const [undo, setUndo] = useState<{ subject: string; body: string }>();
+  const [note, setNote] = useState<string>();
+
+  const draft = entry.draft;
+  if (!draft?.body.trim()) return null;
+
+  const available = (agents.data ?? []).filter((agent) => agent.available);
+  const chosen = available.find((agent) => agent.id === agentId) ?? available[0];
+  const ready = chosen && instruction.trim().length >= 3 && !revise.isPending;
+
+  const run = () => {
+    if (!chosen || !ready) return;
+    setNote(undefined);
+    revise.mutate(
+      { prospectId: prospect.id, agent: chosen.id, instruction, subject: draft.subject, body: draft.body },
+      {
+        onSuccess: (result) => {
+          if (!result.changed) {
+            setNote(`${chosen.name} made no change. Try saying it differently.`);
+            return;
+          }
+          setUndo({ subject: draft.subject, body: draft.body });
+          write.mutate({ prospectId: prospect.id, patch: { draft: { subject: result.subject, body: result.body } } });
+          setNote(`Revised by ${chosen.name}.`);
+          setInstruction("");
+        },
+      },
+    );
+  };
+
+  return (
+    <form
+      aria-label="Revise this email with an agent"
+      className="mt-5 border-t border-paper-mist pt-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        run();
+      }}
+    >
+      <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">
+        <Wand2 className="size-3.5" aria-hidden="true" />
+        Revise with an agent
+      </p>
+      <p className="mt-1 text-[12.5px] text-paper-sage">Changes only what you ask. Your signature is kept as it is, and the agent cannot use tools or add links, prices or addresses that are not already here.</p>
+
+      {agents.isPending ? <p className="mt-2 text-[13px] text-paper-sage">Checking which agents are available…</p> : null}
+      {agents.data && available.length === 0 ? (
+        <p className="mt-2 text-[13px] text-paper-sage">No agent is available right now. Check Agents to see what each one needs.</p>
+      ) : null}
+
+      {chosen ? (
+        <>
+          <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Quick instructions">
+            {QUICK_REVISIONS.map((text) => (
+              <PaperButton key={text} variant="ghost" onClick={() => setInstruction(text)}>
+                {text}
+              </PaperButton>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="block min-w-[140px]">
+              <FieldLabel>Agent</FieldLabel>
+              <select
+                value={chosen.id}
+                onChange={(event) => {
+                  setAgentId(event.target.value);
+                  try {
+                    window.localStorage.setItem(REVISE_AGENT_KEY, event.target.value);
+                  } catch {
+                    // A remembered choice is a convenience, not something to fail over.
+                  }
+                }}
+                className={cn(PAPER_INPUT, "w-full")}
+              >
+                {available.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block min-w-[260px] flex-1">
+              <FieldLabel>What should change?</FieldLabel>
+              <input
+                maxLength={500}
+                value={instruction}
+                onChange={(event) => setInstruction(event.target.value)}
+                placeholder="e.g. shorter, and less formal"
+                className={cn(PAPER_INPUT, "w-full")}
+              />
+            </label>
+            <PaperButton variant="amber" type="submit" disabled={!ready}>
+              <Wand2 className="size-3.5" aria-hidden="true" />
+              {revise.isPending ? `${chosen.name} is revising…` : "Revise"}
+            </PaperButton>
+            {undo ? (
+              <PaperButton
+                variant="ghost"
+                disabled={write.isPending}
+                onClick={() => {
+                  write.mutate({ prospectId: prospect.id, patch: { draft: undo } });
+                  setUndo(undefined);
+                  setNote("Put the earlier version back.");
+                }}
+              >
+                <Undo2 className="size-3.5" aria-hidden="true" />
+                Undo
+              </PaperButton>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {revise.error ? (
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
+          {revise.error.message}
+        </p>
+      ) : null}
+      {note ? (
+        <p role="status" className="mt-2 text-[13px] text-paper-char">
+          {note}
+        </p>
+      ) : null}
+    </form>
   );
 }
 
@@ -362,6 +545,15 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
   const status = useOutreachStatus();
   const send = useSendOutreachEmail();
   const create = useCreateGmailDraft();
+  const manual = useRecordManualSend();
+  const saveToLibrary = useSaveToLibrary();
+  const nextTouch = useNextTouch(prospect.id);
+  const [libraryTouch, setLibraryTouch] = useState<Touch>();
+  // Once this draft is recorded as sent, the "next" email moves on; the draft itself stays the step it was sent as.
+  const [sentAsTouch, setSentAsTouch] = useState<Touch>();
+  const defaultTouch = sentAsTouch ?? nextTouch;
+  const [gotReply, setGotReply] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [subject, setSubject] = useState(entry.draft?.subject ?? "");
   const [body, setBody] = useState(entry.draft?.body ?? "");
   const [reviewing, setReviewing] = useState(false);
@@ -382,6 +574,19 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
         ? "Add their email address at the top."
         : undefined;
   const play = entry.path ? PATH_PLAY[entry.path] : undefined;
+  const closed = prospect.stage === "won" || prospect.stage === "lost";
+
+  // Sending from a mailbox AgentOS is not connected to: copy it out, send it there, then say so.
+  const copyEmail = async () => {
+    saveDraft();
+    try {
+      await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
     <div className="mt-4">
@@ -445,6 +650,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
                       { prospectId: prospect.id, content: { subject, body }, play, senderId: sender?.id },
                       {
                         onSuccess: (result) => {
+                          setSentAsTouch((current) => current ?? nextTouch);
                           setSentTo(result.to);
                           setReviewing(false);
                         },
@@ -477,6 +683,77 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
               {blocker ? <span className="text-[13px] text-paper-sage">{blocker}</span> : null}
             </div>
           )}
+          <div className="flex flex-wrap items-center gap-2 border-t border-paper-mist pt-3" aria-label="Sending from your own mailbox">
+            <PaperButton variant="ghost" onClick={() => void copyEmail()}>
+              <Copy className="size-3.5" aria-hidden="true" />
+              {copied ? "Copied" : "Copy email"}
+            </PaperButton>
+            <PaperButton
+              variant="ghost"
+              disabled={closed || manual.isPending || manual.isSuccess}
+              onClick={() => {
+                saveDraft();
+                setSentAsTouch((current) => current ?? nextTouch);
+                manual.mutate({ prospectId: prospect.id, content: { subject, body }, play });
+              }}
+            >
+              <Check className="size-3.5" aria-hidden="true" />
+              {manual.isPending ? "Saving…" : manual.isSuccess ? "Recorded" : "I sent it"}
+            </PaperButton>
+            <span className="text-[12.5px] text-paper-sage">
+              {closed ? "This prospect is closed." : "Sent it from your own mailbox? Press I sent it so the follow-up is tracked."}
+            </span>
+          </div>
+          {manual.error ? (
+            <p role="alert" className="text-[13px] text-paper-flame-deep">
+              {manual.error.message}
+            </p>
+          ) : null}
+          {manual.isSuccess ? (
+            <p role="status" className="text-[13px] font-semibold text-paper-moss">
+              Recorded. A follow-up is due in 3 days if they do not reply.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-3 border-t border-paper-mist pt-3" aria-label="Save this email to your library">
+            <label className="block">
+              <FieldLabel>Save to library as</FieldLabel>
+              <select
+                value={libraryTouch ?? defaultTouch}
+                onChange={(event) => setLibraryTouch(Number(event.target.value) as Touch)}
+                className={cn(PAPER_INPUT)}
+              >
+                {([1, 2, 3] as const).map((value) => (
+                  <option key={value} value={value}>
+                    {TOUCH_LABELS[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-h-9 items-center gap-2 text-[13px] text-paper-char">
+              <input type="checkbox" checked={gotReply} onChange={(event) => setGotReply(event.target.checked)} />
+              This one got a reply
+            </label>
+            <PaperButton
+              variant="ghost"
+              disabled={saveToLibrary.isPending}
+              onClick={() => {
+                saveToLibrary.mutate({ prospectId: prospect.id, subject, body, touch: libraryTouch ?? defaultTouch, gotReply, note: "" });
+              }}
+            >
+              <BookmarkPlus className="size-3.5" aria-hidden="true" />
+              {saveToLibrary.isPending ? "Saving…" : "Save to library"}
+            </PaperButton>
+          </div>
+          {saveToLibrary.error ? (
+            <p role="alert" className="text-[13px] text-paper-flame-deep">
+              {saveToLibrary.error.message}
+            </p>
+          ) : null}
+          {saveToLibrary.isSuccess ? (
+            <p role="status" className="text-[13px] text-paper-char">
+              Saved to Outreach/Email library in your vault, with their name, links and signature taken out. It will be offered as an example for similar emails.
+            </p>
+          ) : null}
           {send.error ?? create.error ? (
             <p role="alert" className="text-[13px] text-paper-flame-deep">
               {(send.error ?? create.error)?.message}

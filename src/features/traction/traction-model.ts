@@ -27,9 +27,12 @@ import type { LeadMagnet } from "@shared/lead-magnet-types";
  */
 
 export type TractionTab =
+  | "next"
+  | "find"
+  | "outreach"
+  | "follow-ups"
   | "overview"
   | "prospects"
-  | "outreach"
   | "pipeline"
   | "waiting"
   | "clients"
@@ -40,10 +43,20 @@ export type TractionTab =
   | "experiments"
   | "review";
 
-export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
-  { value: "overview", label: "Overview" },
-  { value: "prospects", label: "Prospects" },
+/**
+ * The four steps of getting a customer, in order: what to do now, find and
+ * check businesses, write to them, follow up. Everything else Traction can do
+ * is one click away under More: nothing is removed, it just is not in the way.
+ */
+export const PRIMARY_TABS: readonly { value: TractionTab; label: string }[] = [
+  { value: "next", label: "Next up" },
+  { value: "find", label: "Find" },
   { value: "outreach", label: "Outreach" },
+  { value: "follow-ups", label: "Follow-ups" },
+];
+
+export const MORE_TABS: readonly { value: TractionTab; label: string }[] = [
+  { value: "prospects", label: "All prospects" },
   { value: "pipeline", label: "Pipeline" },
   { value: "waiting", label: "Waiting on" },
   { value: "clients", label: "Clients & referrals" },
@@ -53,7 +66,10 @@ export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [
   { value: "offers", label: "Offers" },
   { value: "experiments", label: "Experiments" },
   { value: "review", label: "Weekly review" },
+  { value: "overview", label: "Dashboard" },
 ];
+
+export const TRACTION_TABS: readonly { value: TractionTab; label: string }[] = [...PRIMARY_TABS, ...MORE_TABS];
 
 export function isTractionTab(value: string | null): value is TractionTab {
   return TRACTION_TABS.some((tab) => tab.value === value);
@@ -74,10 +90,24 @@ export function prospectHref(prospectId: string): string {
   return `/traction?tab=prospects&prospect=${encodeURIComponent(prospectId)}`;
 }
 
-/** Where a queue item opens: its prospect, or the Waiting On list. */
-export function queueItemHref(item: QueueItem): string {
+export function followUpsHref(prospectId?: string): string {
+  return prospectId ? `/traction?tab=follow-ups&prospect=${encodeURIComponent(prospectId)}` : "/traction?tab=follow-ups";
+}
+
+export function outreachHref(prospectId: string): string {
+  return `/traction?tab=outreach&prospect=${encodeURIComponent(prospectId)}`;
+}
+
+/**
+ * Where a queue item opens: the screen where it can be acted on. A business
+ * that has been emailed opens its follow-up; one still to write to opens its
+ * email; a quiet proposal opens the prospect.
+ */
+export function queueItemHref(item: QueueItem, prospect?: Pick<Prospect, "stage">): string {
   if (item.kind === "crm" || item.kind === "viewed" || item.kind === "inbound" || item.kind === "second_touch") return "/traction?tab=crm";
   if (item.kind === "case_study") return "/traction?tab=case-studies";
+  if (item.prospectId && item.kind === "follow_up" && prospect?.stage === "contacted") return followUpsHref(item.prospectId);
+  if (item.prospectId && item.kind === "contact") return outreachHref(item.prospectId);
   return item.prospectId ? prospectHref(item.prospectId) : "/traction?tab=waiting";
 }
 

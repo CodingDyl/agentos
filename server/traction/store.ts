@@ -115,6 +115,11 @@ const StateSchema = z.object({
   outreachCases: z.record(z.string(), OutreachCaseSchema).default({}),
   /** The companies you send outreach as. */
   senders: z.array(SenderSchema).default([]),
+  /**
+   * Set once, when records from before "can help / not a fit" existed were
+   * carried over (see `readState`). Anything created after must be decided.
+   */
+  vettingMigrated: z.boolean().default(false),
 });
 
 export type TractionState = z.infer<typeof StateSchema>;
@@ -154,6 +159,7 @@ function emptyState(): TractionState {
     outreachSync: {},
     outreachCases: {},
     senders: [],
+    vettingMigrated: true,
   };
 }
 
@@ -176,7 +182,26 @@ export async function readState(): Promise<TractionState> {
     throw error;
   }
 
-  return StateSchema.parse(JSON.parse(raw));
+  return carryOverVetting(StateSchema.parse(JSON.parse(raw)));
+}
+
+/**
+ * Before "can help / not a fit" existed, a business with the one specific
+ * thing noticed was already on its way to outreach. Those keep that: marked
+ * "can help" once, here. Only existing records are touched; the flag is saved
+ * with the next write, and from then on a business is "can help" only when you
+ * say so.
+ */
+function carryOverVetting(state: TractionState): TractionState {
+  if (state.vettingMigrated) return state;
+  for (const prospect of state.prospects) {
+    if (prospect.stage === "target" && !prospect.vetting && prospect.observation?.trim()) {
+      prospect.vetting = "can_help";
+      prospect.vettedAt = prospect.updatedAt;
+    }
+  }
+  state.vettingMigrated = true;
+  return state;
 }
 
 async function writeState(state: TractionState): Promise<void> {
@@ -336,15 +361,27 @@ export function updateProspect(
     const existing = findProspect(state, id);
     const now = new Date().toISOString();
 
+    // "Not a fit" closes a business that has not been contacted; "can help" needs the one specific thing noticed.
+    let effective: ProspectPatch = patch;
+    if (patch.vetting === "not_a_fit" && existing.stage === "target" && patch.stage === undefined) effective = { ...patch, stage: "lost" };
+    if (patch.vetting === "can_help") {
+      const observation = patch.observation !== undefined ? patch.observation : existing.observation;
+      if (!observation?.trim()) throw new TractionConflictError("Add the one specific thing you noticed about them first.");
+    }
+
     const merged: Record<string, unknown> = { ...existing };
-    for (const [key, value] of Object.entries(patch)) {
+    for (const [key, value] of Object.entries(effective)) {
       if (value === undefined) continue;
       if (value === null) delete merged[key];
       else merged[key] = value;
     }
+    if (patch.vetting !== undefined) {
+      if (patch.vetting === null) delete merged.vettedAt;
+      else merged.vettedAt = now;
+    }
 
     const stageMoved =
-      patch.stage !== undefined && patch.stage !== existing.stage;
+      effective.stage !== undefined && effective.stage !== existing.stage;
     if (stageMoved) {
       merged.stageChangedAt = now;
       if (existing.stage === "target") merged.lastTouchAt = now;
@@ -1000,9 +1037,12 @@ export function sentInLastDay(
   state: Pick<TractionState, "outreachLog">,
   now: number = Date.now(),
 ): number {
+  // A manual send went out of someone else's mailbox, so it does not use up this mailbox's cap.
   return state.outreachLog.filter(
     (entry) =>
-      SEND_KINDS.includes(entry.kind) && now - Date.parse(entry.at) < DAY_MS,
+      entry.kind !== "manual" &&
+      SEND_KINDS.includes(entry.kind) &&
+      now - Date.parse(entry.at) < DAY_MS,
   ).length;
 }
 
@@ -1171,23 +1211,91 @@ export function settleSend(
         : { ...entry, kind: "unconfirmed" };
     state.outreachLog[state.outreachLog.indexOf(entry)] = updated;
 
-    const prospect = state.prospects.find(
-      (candidate) => candidate.id === entry.prospectId,
-    );
-    if (!prospect) return { result: undefined };
+    return { result: undefined, events: touchAfterSend(state, entry.prospectId) };
+  });
+}
 
-    const now = new Date().toISOString();
-    const next: Prospect = { ...prospect, lastTouchAt: now, updatedAt: now };
-    let events: TractionEvent[];
-    if (prospect.stage === "target") {
-      next.stage = "contacted";
-      next.stageChangedAt = now;
-      events = stageEvents(next, "target", "contacted");
-    } else {
-      events = [event(prospect.id, "followed_up")];
+/**
+ * A send counts as contact: the prospect is touched, and a target becomes
+ * contacted. Shared by Gmail sends and sends recorded by hand, so both start
+ * the same follow-up clock.
+ */
+function touchAfterSend(state: TractionState, prospectId: string): TractionEvent[] {
+  const prospect = state.prospects.find((candidate) => candidate.id === prospectId);
+  if (!prospect) return [];
+
+  const now = new Date().toISOString();
+  const next: Prospect = { ...prospect, lastTouchAt: now, updatedAt: now };
+  let events: TractionEvent[];
+  if (prospect.stage === "target") {
+    next.stage = "contacted";
+    next.stageChangedAt = now;
+    events = stageEvents(next, "target", "contacted");
+  } else {
+    events = [event(prospect.id, "followed_up")];
+  }
+  state.prospects[state.prospects.indexOf(prospect)] = next;
+  return events;
+}
+
+/** Emails sent to each prospect so far: Gmail sends and ones recorded by hand. */
+export function sendsByProspect(log: readonly OutreachLogEntry[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const entry of log) {
+    if (entry.kind === "sent" || entry.kind === "unconfirmed" || entry.kind === "manual") {
+      counts[entry.prospectId] = (counts[entry.prospectId] ?? 0) + 1;
     }
-    state.prospects[state.prospects.indexOf(prospect)] = next;
-    return { result: undefined, events };
+  }
+  return counts;
+}
+
+/** Two "I sent it" presses this close together are one press. */
+const MANUAL_DOUBLE_PRESS_MS = 60_000;
+
+/**
+ * "I sent it": records an email the person sent by hand from their own
+ * mailbox. Nothing is sent. It is logged against the prospect with what was
+ * sent, so the follow-up schedule (3 days, then 4 more) starts, and the
+ * prospect is counted as contacted.
+ *
+ * A closed prospect is refused. The same subject and body pressed twice
+ * within a minute returns the first entry rather than logging a second touch.
+ */
+export function recordManualSend(input: {
+  prospectId: string;
+  subject: string;
+  body: string;
+  play?: Play;
+}): Promise<OutreachLogEntry> {
+  return mutate((state) => {
+    const prospect = findProspect(state, input.prospectId);
+    if (prospect.stage === "won" || prospect.stage === "lost") {
+      throw new TractionConflictError("This prospect is closed.");
+    }
+
+    const now = Date.now();
+    const repeat = state.outreachLog.find(
+      (entry) =>
+        entry.kind === "manual" &&
+        entry.prospectId === prospect.id &&
+        entry.subject === input.subject &&
+        entry.body === input.body &&
+        now - Date.parse(entry.at) < MANUAL_DOUBLE_PRESS_MS,
+    );
+    if (repeat) return { result: repeat };
+
+    const entry: OutreachLogEntry = {
+      id: newId("ol"),
+      prospectId: prospect.id,
+      kind: "manual",
+      to: prospect.email ?? "",
+      subject: input.subject,
+      body: input.body,
+      play: input.play,
+      at: new Date(now).toISOString(),
+    };
+    state.outreachLog = [...state.outreachLog, entry].slice(-OUTREACH_LOG_LIMIT);
+    return { result: entry, events: touchAfterSend(state, prospect.id) };
   });
 }
 

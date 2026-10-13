@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import os from "node:os";
 import type { ChatAgent, ChatModel } from "../../shared/chat-types";
 import { agentEnv, findAgentBinary, searchedFolders } from "./agent-environment";
-import { classifyBashCommand, decideFileChanges } from "./chat-permission-policy";
+import { classifyBashCommand, decideFileChanges, textOnlyVerdict } from "./chat-permission-policy";
 import { cachedModels, rememberModels } from "./chat-model-cache";
 import { JsonLineRpc, RpcError } from "./json-line-rpc";
 import {
@@ -294,7 +294,7 @@ async function runCodexTurn(input: RunTurnInput): Promise<void> {
 
     if (method === "item/commandExecution/requestApproval") {
       const command = request.command ?? "";
-      const verdict = classifyBashCommand(command);
+      const verdict = textOnlyVerdict(input.policy) ?? classifyBashCommand(command);
       if (verdict.decision === "allow") return { decision: "accept" };
       const allowed = await input.requestApproval({ tool: "Bash", summary: oneLine(command), reason: verdict.reason, signal: input.controller.signal }).catch(() => false);
       if (!allowed) deny(itemId);
@@ -303,7 +303,7 @@ async function runCodexTurn(input: RunTurnInput): Promise<void> {
 
     if (method === "item/fileChange/requestApproval") {
       const paths = context.changePaths.get(itemId) ?? [];
-      const verdict = decideFileChanges(paths, input.policy);
+      const verdict = textOnlyVerdict(input.policy) ?? decideFileChanges(paths, input.policy);
       if (verdict.decision === "allow") return { decision: "accept" };
       const allowed = await input.requestApproval({ tool: "Edit", summary: oneLine(paths.join(", ")), reason: verdict.reason, signal: input.controller.signal }).catch(() => false);
       if (!allowed) deny(itemId);
@@ -328,7 +328,8 @@ async function runCodexTurn(input: RunTurnInput): Promise<void> {
     const thread = {
       cwd: input.policy.projectRoot,
       approvalPolicy: "untrusted",
-      sandbox: "danger-full-access",
+      // A text-only request is also sandboxed read-only, in case Codex runs something it counts as safe without asking.
+      sandbox: input.policy.textOnly ? "read-only" : "danger-full-access",
       ...(input.model !== DEFAULT_MODEL.id ? { model: input.model } : {}),
     };
 

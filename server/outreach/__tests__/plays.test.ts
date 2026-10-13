@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { briefGaps, OutreachBriefSchema, recommendPlay } from "../../../shared/outreach-plays";
 import type { OutreachLogEntry, OutreachReply } from "../../../shared/outreach-types";
-import { sequenceRefusal } from "../../traction/store";
+import { sentInLastDay, sequenceRefusal } from "../../traction/store";
 import { buildEmailPacket, offerForBrief } from "../draft";
 import { markupObservations, readResearchReply, signalsFrom } from "../research";
 import { computeOutreachStats } from "../stats";
@@ -118,6 +118,43 @@ describe("outreach results", () => {
     assert.equal(preview?.replyRate, 0.5);
     assert.deepEqual(stats.followUpsDue.map((entry) => entry.prospectId), ["a"]);
     assert.equal(stats.sentEmails.find((entry) => entry.prospectId === "b" && entry.touch === 1)?.status, "replied");
+  });
+});
+
+describe("emails sent by hand", () => {
+  const manual = (prospectId: string, to: string, daysAgo: number): OutreachLogEntry => ({
+    id: `m-${prospectId}-${daysAgo}`,
+    prospectId,
+    kind: "manual",
+    to,
+    subject: "s",
+    body: "b",
+    at: at(daysAgo),
+  });
+
+  it("counts as sent, appears as emailed, and starts the follow-up clock", () => {
+    const stats = computeOutreachStats(
+      { prospects: [{ id: "m", company: "Manual Co", stage: "contacted" }] as never, outreachLog: [manual("m", "m@m.co", 3)], outreachReplies: [], suppressions: [] },
+      NOW,
+    );
+    assert.equal(stats.sent.all, 1);
+    assert.equal(stats.sentEmails[0]?.status, "awaiting");
+    assert.deepEqual(stats.followUpsDue.map((entry) => [entry.prospectId, entry.touch]), [["m", 2]]);
+  });
+
+  it("works for a prospect with no address on file, and obeys the three-email limit", () => {
+    const stats = computeOutreachStats(
+      { prospects: [{ id: "n", company: "No Address", stage: "contacted" }] as never, outreachLog: [manual("n", "", 20), manual("n", "", 15), manual("n", "", 10)], outreachReplies: [], suppressions: [] },
+      NOW,
+    );
+    assert.equal(stats.sent.all, 3);
+    assert.deepEqual(stats.followUpsDue, []);
+  });
+
+  it("counts toward the sequence rule but not the daily cap", () => {
+    const log = [manual("m", "m@m.co", 0)];
+    assert.match(String(sequenceRefusal({ outreachLog: log, outreachReplies: [] }, "m@m.co", NOW.getTime())), /due on/);
+    assert.equal(sentInLastDay({ outreachLog: log }, NOW.getTime()), 0);
   });
 });
 

@@ -24,6 +24,7 @@ import type {
   WeeklyReview,
 } from "../../shared/traction-types";
 import { addDays, chaseDate, daysBetween, isoDate, weekStart } from "../../shared/traction-dates";
+import { followUpWait } from "../../shared/outreach-plays";
 import { CASE_STUDIES_PER_DAY } from "./case-studies";
 
 // The date rules are shared with the screen, so both count days the same way.
@@ -38,8 +39,6 @@ export { addDays, chaseDate, daysBetween, isoDate, weekStart, WAITING_CHASE_AFTE
  * what lets Hermes interpret them without being the source of them.
  */
 
-/** Days of silence before a contacted prospect is due a follow-up. */
-export const FOLLOW_UP_AFTER_DAYS = 5;
 /** Days of silence before a proposal is due a follow-up. */
 export const PROPOSAL_FOLLOW_UP_AFTER_DAYS = 7;
 /** A target left alone this long is flagged, not just queued. */
@@ -99,6 +98,8 @@ export function buildQueue(
   other: readonly (QueueItem & { rank: number })[] = [],
   /** Inbox messages matched to prospects (`suggestMailLinks`). */
   replies: readonly MailSuggestion[] = [],
+  /** Emails sent so far, by prospect. A contacted prospect with none recorded counts as one. */
+  touches: Readonly<Record<string, number>> = {},
 ): QueueItem[] {
   const snoozed = new Set(snoozes.filter((snooze) => snooze.until > today).map((snooze) => snooze.itemId));
   const claimed = new Set<string>();
@@ -195,7 +196,11 @@ export function buildQueue(
       if (prospect.nextActionDate && prospect.nextActionDate > today) return false;
       const quiet = daysBetween(quietSince(prospect), today);
       if (prospect.stage === "proposal") return quiet >= PROPOSAL_FOLLOW_UP_AFTER_DAYS;
-      if (prospect.stage === "contacted") return quiet >= FOLLOW_UP_AFTER_DAYS;
+      if (prospect.stage === "contacted") {
+        // The outreach schedule (3 days, then 4 more); after the last email they have gone quiet.
+        const wait = followUpWait(touches[prospect.id] ?? 1);
+        return wait !== undefined && quiet >= wait;
+      }
       return false;
     })
     .sort((a, b) => quietSince(a).localeCompare(quietSince(b)));

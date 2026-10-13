@@ -20,6 +20,7 @@ import {
   type OutreachStats,
   type Play,
 } from "@shared/outreach-plays";
+import { FollowUpRowSchema, type FollowUpRow } from "@shared/outreach-follow-ups";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 import { tractionKey } from "./traction";
@@ -174,6 +175,22 @@ export const useDraftOutreachEmail = () =>
     retry: 0,
   });
 
+export const followUpsKey = () => [...outreachKey(), "follow-ups"] as const;
+
+/** Everyone contacted and not yet answered, with what is due and when. */
+export function useFollowUps() {
+  return useQuery({
+    queryKey: followUpsKey(),
+    queryFn: async (): Promise<FollowUpRow[]> => {
+      const parsed = z.object({ rows: z.array(FollowUpRowSchema) }).safeParse(await request("/api/outreach/follow-ups"));
+      if (!parsed.success) throw new AgentOSRequestError("The follow-ups came back in an unexpected shape.");
+      return parsed.data.rows;
+    },
+    staleTime: 15_000,
+    networkMode: "always",
+  });
+}
+
 export const outreachStatsKey = () => [...outreachKey(), "stats"] as const;
 
 /** Sent emails, reply rates, what works, and follow-ups due. */
@@ -217,6 +234,30 @@ export const useCreateGmailDraft = () =>
     networkMode: "always",
     retry: 0,
   });
+
+export interface ManualSendResult {
+  recorded: true;
+  id: string;
+  at: string;
+}
+
+/**
+ * "I sent it": records an email the person sent by hand from their own
+ * mailbox. Nothing is sent by AgentOS; this starts the follow-up schedule.
+ */
+export function useRecordManualSend() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ prospectId, content, play }: { prospectId: string; content: EmailContent; play?: Play }) =>
+      request<ManualSendResult>(`/api/outreach/prospects/${id(prospectId)}/manual-send`, json("POST", { ...content, ...(play ? { play } : {}) })),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: outreachKey() });
+      void queryClient.invalidateQueries({ queryKey: tractionKey() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
 
 export interface SendResult {
   sent: true;

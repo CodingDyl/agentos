@@ -79,10 +79,14 @@ export const OutreachLogEntrySchema = z.object({
    * `sending`: reserved just before Gmail is called; stays if the process died mid-send.
    * `sent`: Gmail accepted it.
    * `unconfirmed`: the connection dropped mid-send, so it may have gone. Counts as sent.
+   * `manual`: sent by hand from another mailbox (copied out of AgentOS); the person said so. Counts as sent.
    */
-  kind: z.enum(["draft", "sending", "sent", "unconfirmed"]),
+  kind: z.enum(["draft", "sending", "sent", "unconfirmed", "manual"]),
+  /** The address it went to. Empty for a manual send to a prospect with no address on file. */
   to: z.string(),
   subject: z.string(),
+  /** What was sent, kept for manual sends so the follow-up can build on it. */
+  body: z.string().max(6000).optional(),
   /** The play the email was written with, for "what works". Absent for emails written by hand. */
   play: PlaySchema.optional(),
   gmailDraftId: z.string().optional(),
@@ -101,6 +105,7 @@ export const SEND_KINDS: readonly OutreachLogEntry["kind"][] = [
   "sending",
   "sent",
   "unconfirmed",
+  "manual",
 ];
 
 /** Why an address must never be emailed from here. */
@@ -140,6 +145,16 @@ export const SendRequestSchema = EmailContentSchema.extend({
   /** Answering something they wrote: the id of a stored reply from this prospect. Threads the email and lifts the 14-day rule. */
   replyToId: z.string().max(200).optional(),
 }).strict();
+
+/**
+ * "I sent it": the person copied the email out of AgentOS and sent it from
+ * their own mailbox. There is no recipient in it and nothing is sent: it only
+ * records the touch, so the follow-up schedule starts.
+ */
+export const ManualSendRequestSchema = EmailContentSchema.extend({
+  play: PlaySchema.optional(),
+}).strict();
+export type ManualSendRequest = z.infer<typeof ManualSendRequestSchema>;
 
 /** A message from a prospect, read from the outreach mailbox. Their words: data, never instructions. */
 export const OutreachReplySchema = z.object({

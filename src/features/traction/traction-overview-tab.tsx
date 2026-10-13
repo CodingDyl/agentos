@@ -59,7 +59,7 @@ export function TractionOverviewTab({ data, onTab }: { data: TractionData; onTab
 }
 
 /** The one number the whole module is for. */
-function Goal({ data }: { data: TractionData }) {
+export function Goal({ data }: { data: TractionData }) {
   const target = data.targets.conversations;
   const done = data.week.conversations;
 
@@ -79,7 +79,7 @@ function Goal({ data }: { data: TractionData }) {
   );
 }
 
-function NeedsAttention({ data }: { data: TractionData }) {
+export function NeedsAttention({ data }: { data: TractionData }) {
   // The good day is the expected state: no section at all, not an empty one.
   if (data.attention.length === 0) return null;
 

@@ -76,6 +76,15 @@ export const ProspectSourceSchema = z.enum([
 
 export const ProspectFitSchema = z.enum(["high", "medium", "low"]);
 
+/**
+ * Whether you have checked their website and decided you can help.
+ * `can_help` is what puts a business in Outreach; `not_a_fit` closes it;
+ * `to_check` sends one back to be looked at again. Absent means nothing was
+ * ever decided (see `vettingOf`).
+ */
+export const VettingSchema = z.enum(["can_help", "not_a_fit", "to_check"]);
+export type Vetting = z.infer<typeof VettingSchema>;
+
 /** How warm the relationship is — what decides whether a referral ask is timely. */
 export const RelationshipSchema = z.enum(["strong", "active", "cold"]);
 
@@ -94,6 +103,9 @@ export const ProspectSchema = z.object({
   website: WebsiteSchema.optional(),
   segment: Text(80).optional(),
   fit: ProspectFitSchema.optional(),
+  /** Your verdict after checking their website. See `vettingOf` for prospects that predate it. */
+  vetting: VettingSchema.optional(),
+  vettedAt: z.string().optional(),
 
   stage: ProspectStageSchema,
   source: ProspectSourceSchema,
@@ -128,6 +140,18 @@ export const ProspectSchema = z.object({
   updatedAt: z.string(),
 });
 
+/**
+ * Where a business stands on "can I help them?": your explicit verdict, or
+ * `undefined` for one still to check. A business past first contact has been
+ * dealt with, so it counts as "can help". (Businesses from before this
+ * existed were carried over once, by the server.)
+ */
+export function vettingOf(prospect: Pick<Prospect, "vetting" | "stage">): "can_help" | "not_a_fit" | undefined {
+  if (prospect.vetting === "to_check") return undefined;
+  if (prospect.vetting) return prospect.vetting;
+  return prospect.stage === "target" ? undefined : "can_help";
+}
+
 /** What a person may set. Ids, timestamps and history are the server's. */
 export const ProspectInputSchema = ProspectSchema.omit({
   id: true,
@@ -136,6 +160,7 @@ export const ProspectInputSchema = ProspectSchema.omit({
   updatedAt: true,
   lastTouchAt: true,
   referralAskedAt: true,
+  vettedAt: true,
 }).extend({
   stage: ProspectStageSchema.default("target"),
   source: ProspectSourceSchema.default("outbound"),
@@ -154,6 +179,7 @@ export const ProspectPatchSchema = z
     website: WebsiteSchema.nullable(),
     segment: Text(80).nullable(),
     fit: ProspectFitSchema.nullable(),
+    vetting: VettingSchema.nullable(),
     stage: ProspectStageSchema,
     source: ProspectSourceSchema,
     nextAction: Text(200).nullable(),

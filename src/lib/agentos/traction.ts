@@ -82,6 +82,9 @@ function useTractionMutation<V, R = unknown>(fn: (variables: V) => Promise<R>) {
     mutationFn: fn,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: tractionKey() });
+      // Outreach results and the follow-up list are worked out from prospect stages, so they re-read too.
+      // (The key is spelled out: outreach.ts imports this file.)
+      void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "outreach"] });
     },
     networkMode: "always",
     retry: 0,

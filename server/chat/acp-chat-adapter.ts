@@ -12,7 +12,7 @@ import {
 } from "@agentclientprotocol/sdk";
 import type { ChatAgent, ChatAgentId, ChatModel, ChatToolPart } from "../../shared/chat-types";
 import { agentEnv, findAgentBinary, searchedFolders } from "./agent-environment";
-import { decideAcpToolCall } from "./chat-permission-policy";
+import { decideAcpToolCall, textOnlyVerdict } from "./chat-permission-policy";
 import { cachedModels, rememberModels } from "./chat-model-cache";
 import { appendText, clip, DEFAULT_MODEL, findTool, oneLine, settleRunningTools, startTool, type ChatAgentAdapter, type RunTurnInput, type TurnState } from "./chat-turn";
 
@@ -167,7 +167,7 @@ export function createAcpAgent(spec: AcpAgentSpec): ChatAgentAdapter {
         if (applyAcpUpdate(state, notification)) input.onChange();
       },
       requestPermission: async (request) => {
-        const verdict = decideAcpToolCall(request.toolCall, input.policy);
+        const verdict = textOnlyVerdict(input.policy) ?? decideAcpToolCall(request.toolCall, input.policy);
         if (verdict.decision === "allow") return permissionResponse(request, true);
 
         const allowed = await input

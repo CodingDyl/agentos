@@ -1,8 +1,20 @@
 # Traction: how to use it, start to finish
 
-Three ways in, one place to work. Website forms, lead magnets and your own
-outreach all end up as items in **Traction > Overview > Today**. Work that
+Traction is four steps in a row: **Next up**, **Find**, **Outreach**,
+**Follow-ups**. Everything else is under **More**. Website forms, lead magnets
+and your own outreach all end up as items in **Next up > Today**. Work that
 list top to bottom.
+
+## The short version
+
+1. **Find**: import a candidate (or add one), open it, read their website,
+   write the one thing you noticed. **I can help them**, or **Not a fit**.
+2. **Outreach**: businesses you can help. Draft the email, edit, copy it, send
+   it from your own mailbox, press **I sent it**.
+3. **Follow-ups**: 3 days later (then 4 more) a follow-up is **Due now**.
+   **Draft follow-up**, copy, send, **I sent it**. If they answer, **They
+   replied**. After the third email with no answer they are **Gone quiet**.
+4. **Next up** shows what needs doing today across all of it.
 
 ## 0. Once, before anything
 
@@ -142,6 +154,74 @@ What it means and does not: a person opened the portal page. Not that they read
 it, and not that they will say yes. Only the latest view is kept, so it
 cannot show how many times. If you open a client's link yourself, use
 `?preview=1` on the end or it counts as their view.
+
+## 8b. You send from your own mailbox
+
+AgentOS does not need your business mailbox connected.
+
+1. Draft the email in **Outreach** and edit it.
+2. **Copy email**, send it from your own mailbox.
+3. Press **I sent it**. They become contacted, the email shows under
+   Emailed, and the follow-up clock starts: a follow-up is due 3 days after
+   the first email, 4 days after the second, and after the third the
+   prospect has gone quiet.
+4. If they reply, move them to Conversation. The follow-ups stop.
+
+AgentOS cannot see replies to a mailbox it is not connected to, so replies
+are recorded by you.
+
+## 8c. Writing in your voice, and the email library
+
+- **How emails are written:** `skills/client-outreach/SKILL.md` in the
+  AgentOS repo. Edit it and the next draft uses it (no restart). It is shown
+  on the Connectors page but only editable in the file. Switch it off on
+  Connectors to draft without it. The honesty rules are not in that file and
+  cannot be edited out of it.
+- **Save one you like:** under a draft, choose which step it was, tick *This
+  one got a reply* if it did, and press **Save to library**. It becomes a
+  note in your vault, `Outreach/Email library/`, with the business's name,
+  contact, links and your signature taken out. You can read and edit it in
+  Obsidian. Saving needs the drive plugged in.
+- **Reuse:** drafting automatically shows the best saved examples for the
+  same step. Or pick one under **Model it on**; Hermes rewrites it around
+  this business using only this business's notes.
+- Examples guide tone and shape only. Nothing is pasted in as it was.
+
+## 8d. Small changes to a draft
+
+1. Under the draft, **Revise with an agent**. Pick an agent, tap a quick
+   instruction or type your own ("shorter", "drop the last question", "make
+   it sound less like an ad"), press **Revise**.
+2. The draft is replaced and saved. **Undo** brings the previous one back
+   (until you leave the page).
+3. It only changes what you asked. Your signature is never sent to the agent
+   and is kept exactly. If the agent adds a link, address or price that is not
+   in the email or your notes, the revision is refused and nothing changes.
+4. Agents shown are the ones that are available now. Nothing is revised by
+   Hermes unless you pick Hermes.
+
+Revising is for small edits. For a new angle, use **Draft again**.
+
+## 8e. Clean up a business that went nowhere
+
+Follow-ups > **Clean up** appears when a business never showed interest and
+has work built for it. It qualifies when all three emails went unanswered
+and the last was 14 days ago, or you closed it without them ever answering.
+A business that replied, or was ever in conversation, never qualifies.
+
+1. **Review clean-up**. You see each thing that exists, where it is, and how
+   big it is.
+2. What is on your machine (the site folder, the workspace, the rebuild
+   history) is ticked. GitHub and Vercel never are.
+3. Anything AgentOS cannot show it made for this rebuild says **Will not be
+   deleted** and why. A folder, repo or workspace that existed before the
+   rebuild is never touched.
+4. **Delete**, then confirm once more. To delete from GitHub or Vercel you
+   also type the company's name, and the connector's Delete capability must
+   be switched on in Connectors (it is off by default).
+
+Their record, every email you sent and your library are always kept, and a
+line is added to their notes. Deleting cannot be undone.
 
 ## 9. Weekly
 

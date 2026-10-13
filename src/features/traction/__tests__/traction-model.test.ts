@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Prospect } from "@shared/traction-types";
-import { hermesPrompt, mailtoHref, NO_GENERIC_OUTREACH_RULE, portalViewPrompt, queueProgress, toList } from "../traction-model";
+import { followUpsHref, hermesPrompt, isTractionTab, mailtoHref, MORE_TABS, NO_GENERIC_OUTREACH_RULE, portalViewPrompt, PRIMARY_TABS, queueItemHref, queueProgress, toList } from "../traction-model";
 
 const base: Prospect = {
   id: "pr_abc12345",
@@ -106,3 +106,36 @@ describe("mailtoHref", () => {
     }
   });
 });
+
+describe("the tabs", () => {
+  it("leads with the four steps, in order, and keeps everything else under More", () => {
+    assert.deepEqual(PRIMARY_TABS.map((tab) => tab.label), ["Next up", "Find", "Outreach", "Follow-ups"]);
+    assert.ok(MORE_TABS.length >= 10);
+    const all = [...PRIMARY_TABS, ...MORE_TABS].map((tab) => tab.value);
+    assert.equal(new Set(all).size, all.length, "no tab twice");
+  });
+
+  it("still opens every old link", () => {
+    for (const old of ["overview", "prospects", "pipeline", "waiting", "clients", "case-studies", "lead-magnets", "crm", "offers", "experiments", "review"]) {
+      assert.equal(isTractionTab(old), true, old);
+    }
+    assert.equal(isTractionTab("nonsense"), false);
+    assert.equal(isTractionTab(null), false);
+  });
+});
+
+describe("where a queue item opens", () => {
+  const item = (kind: string, prospectId = "pr_abc12345") => ({ id: `${kind}:${prospectId}`, kind, prospectId, title: "", detail: [] }) as never;
+
+  it("sends a follow-up for someone already emailed to Follow-ups, and a proposal to the prospect", () => {
+    assert.equal(queueItemHref(item("follow_up"), { stage: "contacted" }), followUpsHref("pr_abc12345"));
+    assert.equal(queueItemHref(item("follow_up"), { stage: "proposal" }), "/traction?tab=prospects&prospect=pr_abc12345");
+  });
+
+  it("sends new outreach to the email, and keeps the other destinations", () => {
+    assert.equal(queueItemHref(item("contact"), { stage: "target" }), "/traction?tab=outreach&prospect=pr_abc12345");
+    assert.equal(queueItemHref(item("crm", "")), "/traction?tab=crm");
+    assert.equal(queueItemHref({ id: "waiting:wo_1", kind: "waiting", title: "", detail: [] } as never), "/traction?tab=waiting");
+  });
+});
+

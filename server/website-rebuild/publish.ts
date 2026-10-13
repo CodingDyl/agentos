@@ -198,6 +198,40 @@ export async function pushRef(localRepo: string, repo: GithubRepo, commit: strin
   }
 }
 
+/** What a cleanup needs to know about a repo before deleting it. */
+export interface GithubRepoFacts {
+  fullName: string;
+  private: boolean;
+  /** ISO time GitHub says it was created. */
+  createdAt?: string;
+}
+
+const REPO_FULL_NAME = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+
+/** A repo's facts, or undefined when it no longer exists. */
+export async function inspectGithubRepo(fullName: string, deps: PublishDeps = defaultPublishDeps): Promise<GithubRepoFacts | undefined> {
+  if (!REPO_FULL_NAME.test(fullName)) throw new PublishError(`${fullName} is not a repository name.`);
+  const [owner, name] = fullName.split("/");
+  const result = await api<{ full_name?: string; private?: boolean; created_at?: string }>(deps, "github", `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`);
+  if (result.status === 404) return undefined;
+  if (result.status !== 200) throw apiError("GitHub", result.status, result.data);
+  return { fullName: result.data.full_name ?? fullName, private: Boolean(result.data.private), createdAt: result.data.created_at };
+}
+
+/**
+ * Deletes a repository. Not recoverable from here. Needs the connector's
+ * "Delete repositories" capability switched on, and a token with the
+ * `delete_repo` scope. Already gone counts as done.
+ */
+export async function deleteGithubRepo(fullName: string, deps: PublishDeps = defaultPublishDeps): Promise<void> {
+  if (!REPO_FULL_NAME.test(fullName)) throw new PublishError(`${fullName} is not a repository name.`);
+  allow("github.delete_repository", `Deleted the repo ${fullName}`);
+  const [owner, name] = fullName.split("/");
+  const result = await api<unknown>(deps, "github", `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`, { method: "DELETE" });
+  if (result.status === 204 || result.status === 404) return;
+  throw apiError("GitHub", result.status, result.data);
+}
+
 // ------------------------------------------------------------------- Vercel
 
 export interface VercelProject {
@@ -258,6 +292,31 @@ export async function openPreviewsToLinkHolders(project: VercelProject, deps: Pu
   allow("vercel.create_preview", `Opened previews of ${project.name} to anyone with the link`);
   const result = await api<VercelProjectData>(deps, "vercel", `/v9/projects/${encodeURIComponent(project.id)}`, { method: "PATCH", body: { ssoProtection: null, passwordProtection: null } });
   if (result.status !== 200) throw apiError("Vercel", result.status, result.data);
+}
+
+/** What a cleanup needs to know about a Vercel project before deleting it. */
+export interface VercelProjectFacts {
+  id: string;
+  name: string;
+  /** Milliseconds since the epoch, as Vercel reports it. */
+  createdAt?: number;
+  linkedRepo?: string;
+}
+
+/** A project's facts, or undefined when it no longer exists. */
+export async function inspectVercelProject(id: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelProjectFacts | undefined> {
+  const result = await api<VercelProjectData & { createdAt?: number }>(deps, "vercel", `/v9/projects/${encodeURIComponent(id)}`);
+  if (result.status === 404) return undefined;
+  if (result.status !== 200) throw apiError("Vercel", result.status, result.data);
+  return { id: result.data.id, name: result.data.name, createdAt: typeof result.data.createdAt === "number" ? result.data.createdAt : undefined, linkedRepo: toProject(result.data).linkedRepo };
+}
+
+/** Deletes a project and its deployments. Not recoverable from here. Needs the "Delete projects" capability switched on. Already gone counts as done. */
+export async function deleteVercelProject(id: string, deps: PublishDeps = defaultPublishDeps): Promise<void> {
+  allow("vercel.delete_project", `Deleted the Vercel project ${id.slice(0, 40)}`);
+  const result = await api<unknown>(deps, "vercel", `/v9/projects/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (result.status === 200 || result.status === 204 || result.status === 404) return;
+  throw apiError("Vercel", result.status, result.data);
 }
 
 export interface VercelDeploymentState {

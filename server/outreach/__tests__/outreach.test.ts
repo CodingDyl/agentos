@@ -434,6 +434,40 @@ describe("the routes", () => {
     );
   });
 
+  it("lists who is in the follow-up sequence, from one schedule", async () => {
+    const made = await seed({ stage: "contacted" });
+    await api(`/prospects/${made.id}/manual-send`, { method: "POST", body: JSON.stringify({ subject: "Hello", body: "Body" }) });
+    const { status, body } = await api("/follow-ups");
+    assert.equal(status, 200);
+    const rows = body.rows as Array<{ prospectId: string; touches: number; state: string; nextTouch: number; lastBody: string }>;
+    assert.equal(rows.length, 1);
+    assert.deepEqual([rows[0].prospectId, rows[0].touches, rows[0].state, rows[0].nextTouch, rows[0].lastBody], [made.id, 1, "waiting", 2, "Body"]);
+  });
+
+  it("records an email sent by hand without a mailbox, calls nothing, and takes no recipient", async () => {
+    const made = await seed();
+    const { status, body } = await api(`/prospects/${made.id}/manual-send`, {
+      method: "POST",
+      body: JSON.stringify({ subject: "Your listing pages", body: "Hi Jane,\n\nOne thing." }),
+    });
+    assert.equal(status, 201);
+    assert.equal(body.recorded, true);
+    assert.equal(googleCalls.length, 0, "nothing is sent or drafted");
+
+    const entry = (await store.readState()).outreachLog.find((log) => log.prospectId === made.id);
+    assert.equal(entry?.kind, "manual");
+    assert.equal(entry?.to, "jane@parkview.example");
+
+    const refused = await api(`/prospects/${made.id}/manual-send`, {
+      method: "POST",
+      body: JSON.stringify({ subject: "s", body: "b", to: "victim@example.com" }),
+    });
+    assert.equal(refused.status, 400, "the schema is strict");
+
+    const missing = await api(`/prospects/pr_missing/manual-send`, { method: "POST", body: JSON.stringify({ subject: "s", body: "b" }) });
+    assert.equal(missing.status, 404);
+  });
+
   it("cannot be told who to write to: a recipient in the request is refused", async () => {
     const made = await seed();
     await completeOutreachConnection("code");
@@ -847,6 +881,23 @@ describe("outreach cases", () => {
     assert.equal((await write({ nonsense: "x" })).status, 400);
   });
 
+  it("records when a draft was saved beside the draft, and never trusts a writer's own value", async () => {
+    const made = await seed();
+    const write = (patch: unknown) => api(`/cases/${made.id}`, { method: "PATCH", body: JSON.stringify({ patch, by: "you" }) });
+
+    assert.equal((await write({ draftAt: "2001-01-01T00:00:00Z" })).status, 400, "not a field a writer can set");
+    const first = (await write({ draft: { subject: "s", body: "b" } })).body.case as { draft: Record<string, unknown>; draftAt: string };
+    assert.deepEqual(Object.keys(first.draft).sort(), ["body", "subject"], "the draft stays exactly an email");
+    assert.ok(Date.parse(first.draftAt) > Date.parse("2020-01-01"));
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const second = (await write({ draft: { subject: "s", body: "b2" } })).body.case as { draftAt: string };
+    assert.ok(second.draftAt > first.draftAt, "a new save is newer");
+
+    const cleared = (await write({ draft: null })).body.case as { draftAt: string };
+    assert.equal(cleared.draftAt, "");
+  });
+
   it("lets Hermes fill only the empty fields, unless asked to replace them", async () => {
     const made = await seed({ website: undefined });
     await api(`/cases/${made.id}`, { method: "PATCH", body: JSON.stringify({ patch: { about: "Mine" } }) });
@@ -898,6 +949,8 @@ describe("outreach cases", () => {
     assert.ok(draft.body.endsWith(`--\n${SENDER.signature}`));
     assert.match(seen, /Dylan at Virtara/);
     assert.match(seen, /Do not include any links/);
+    assert.match(seen, /STYLE GUIDE>>>/, "the client-outreach skill is part of the draft");
+    assert.ok(seen.indexOf("STYLE GUIDE>>>") < seen.indexOf("Rules:"), "the hard rules come after the style guide");
 
     const sent = await api(`/prospects/${made.id}/send`, {
       method: "POST",
@@ -908,6 +961,20 @@ describe("outreach cases", () => {
     assert.match(raw, /^From: "Dylan at Virtara" <[^>]+@[^>]+>\r\n/);
     assert.equal((await store.readState()).outreachLog[0].play, "cold_pitch");
 
+    // Their next draft is a follow-up that knows what was already sent.
+    seen = "";
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).includes("/chat/completions")) seen = String(init?.body);
+      return before(url as string, init);
+    }) as typeof fetch;
+    hermesReply = '{ "subject": "Re: Your listing pages", "body": "Hi Jane,\\n\\nOne more thing." }';
+    const followUp = await api(`/cases/${made.id}/draft`, { method: "POST" });
+    globalThis.fetch = before;
+    assert.equal(followUp.status, 200);
+    assert.match(seen, /DRAFT A FOLLOW-UP EMAIL/);
+    assert.match(seen, /Subject: Your listing pages/);
+    assert.match(seen, /Under 80 words/);
+
     // The mailbox's own signature is not the rule when a company is chosen: the company's is.
     const missing = await api(`/prospects/${made.id}/gmail-draft`, {
       method: "POST",
@@ -916,3 +983,186 @@ describe("outreach cases", () => {
     assert.equal(missing.status, 422);
   });
 });
+
+describe("the email library", () => {
+  let vault: string;
+  let service: { start(): Promise<void>; stop(): void };
+  let libraryApi: typeof import("../library");
+
+  const post = (body: unknown) => api("/library", { method: "POST", body: JSON.stringify(body) });
+
+  it("starts with a vault of its own, so the real one is never touched", async () => {
+    const { MemoryService } = await import("../../memory/service");
+    libraryApi = await import("../library");
+    vault = fs.mkdtempSync(path.join(directory, "library-vault-"));
+    fs.writeFileSync(path.join(vault, "Home.md"), "# Home\n");
+    const memory = new MemoryService({ root: vault, cacheFile: path.join(directory, "library-cache.json"), probeMs: 60_000, reconcileMs: 60_000 });
+    await memory.start();
+    service = memory;
+    libraryApi.setLibraryServiceForTests(memory);
+  });
+
+  it("saves a draft for a business without its details, and lists it", async () => {
+    const made = await seed();
+    const saved = await post({
+      prospectId: made.id,
+      subject: "Parkview Realty listing pages",
+      body: `Hi Jane,\n\nParkview Realty has no viewing button at parkview.example.\n\n--\n${SIGNATURE}`,
+      touch: 1,
+      gotReply: true,
+    });
+    assert.equal(saved.status, 201);
+
+    const listed = (await api("/library")).body.emails as Array<{ subject: string; body: string; gotReply: boolean; touch: number }>;
+    assert.equal(listed.length, 1);
+    assert.equal(listed[0].subject, "[Company] listing pages");
+    assert.equal(listed[0].body, "Hi [Name],\n\n[Company] has no viewing button at [their site].");
+    assert.equal(listed[0].gotReply, true);
+    assert.equal(listed[0].touch, 1);
+  });
+
+  it("refuses an unknown business, a fourth step, and fields it was not given", async () => {
+    const made = await seed();
+    assert.equal((await post({ prospectId: "pr_missing", subject: "s", body: "b", touch: 1 })).status, 404);
+    assert.equal((await post({ prospectId: made.id, subject: "s", body: "b", touch: 4 })).status, 400);
+    assert.equal((await post({ prospectId: made.id, subject: "s", body: "b", touch: 1, folder: "../outside" })).status, 400);
+    assert.equal((await post({ prospectId: made.id, subject: "", body: "b", touch: 1 })).status, 400);
+  });
+
+  it("shows a saved email to the drafter as an example, or the chosen one alone", async () => {
+    const made = await seed();
+    await completeOutreachConnection("code");
+    const sender = (await api("/senders", { method: "POST", body: JSON.stringify(SENDER_FOR_LIBRARY) })).body.sender as { id: string };
+    await api(`/cases/${made.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ patch: { hook: "No viewing button on mobile.", path: "cold_pitch", offer: "A new property site", senderId: sender.id } }),
+    });
+    const [email] = (await api("/library")).body.emails as Array<{ id: string }>;
+
+    const draftAndRead = async (body?: unknown) => {
+      let seen = "";
+      const before = globalThis.fetch;
+      globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+        if (String(url).includes("/chat/completions")) seen = String(init?.body);
+        return before(url as string, init);
+      }) as typeof fetch;
+      try {
+        const drafted = await api(`/cases/${made.id}/draft`, { method: "POST", body: JSON.stringify(body ?? {}) });
+        assert.equal(drafted.status, 200);
+      } finally {
+        globalThis.fetch = before;
+      }
+      return seen;
+    };
+
+    const automatic = await draftAndRead();
+    assert.match(automatic, /SAVED EXAMPLES/);
+    assert.match(automatic, /\[Company\] listing pages/);
+    assert.doesNotMatch(automatic, /Parkview Realty listing pages/);
+
+    const chosen = await draftAndRead({ exampleId: email.id });
+    assert.match(chosen, /Example 1/);
+    assert.doesNotMatch(chosen, /Example 2/);
+
+    // An id that is not in the library cannot name a file: it is simply ignored.
+    assert.match(await draftAndRead({ exampleId: "../../etc/passwd" }), /SAVED EXAMPLES/);
+  });
+
+  it("refuses to save, and creates nothing, while the vault is missing", async () => {
+    const { MemoryService } = await import("../../memory/service");
+    const missing = path.join(directory, "unplugged-drive", "vault");
+    const away = new MemoryService({ root: missing, cacheFile: path.join(directory, "away-cache.json"), probeMs: 60_000, reconcileMs: 60_000 });
+    await away.start();
+    libraryApi.setLibraryServiceForTests(away);
+
+    const made = await seed();
+    const refused = await post({ prospectId: made.id, subject: "s", body: "b", touch: 1 });
+    assert.equal(refused.status, 503);
+    assert.equal(fs.existsSync(path.join(directory, "unplugged-drive")), false);
+    assert.equal(((await api("/library")).body.emails as unknown[]).length, 0);
+
+    away.stop();
+    service.stop();
+    libraryApi.setLibraryServiceForTests(undefined);
+  });
+});
+
+describe("revising a draft with an agent", () => {
+  const saved: Record<string, string | undefined> = {};
+  let chat: typeof import("../../chat/chat-service");
+
+  const revise = (id: string, body: unknown) => api(`/cases/${id}/revise`, { method: "POST", body: JSON.stringify(body) });
+  const asking = { agent: "claude", instruction: "Make it shorter", subject: "Your listing pages", body: `Hi Jane,\n\nNo viewing button on mobile.\n\nWorth a look?\n\n--\n${SIGNATURE}` };
+
+  it("gets a stand-in agent that cannot call a real model", async () => {
+    process.env.AGENTOS_SKIP_MODEL_DISCOVERY = "1";
+    for (const key of ["HOME", "ANTHROPIC_API_KEY"]) saved[key] = process.env[key];
+    process.env.HOME = path.join(directory, "revise-home");
+    process.env.ANTHROPIC_API_KEY = "sk-test-unused";
+    chat = await import("../../chat/chat-service");
+  });
+
+  it("returns the revision with the signature put back, and saves nothing", async () => {
+    const made = await seed();
+    let prompt = "";
+    chat.setTurnRunnerForTests(async (input) => {
+      prompt = input.prompt;
+      input.state.message.parts.push({ type: "text", text: JSON.stringify({ subject: "Your listing pages", body: "Hi Jane,\n\nNo viewing button on mobile. Worth a look?" }) });
+    });
+
+    const { status, body } = await revise(made.id, asking);
+    assert.equal(status, 200);
+    assert.equal(body.body, `Hi Jane,\n\nNo viewing button on mobile. Worth a look?\n\n--\n${SIGNATURE}`);
+    assert.equal(body.changed, true);
+    assert.match(prompt, /MY INSTRUCTION: Make it shorter/);
+    assert.doesNotMatch(prompt, /Not for you/, "the signature is not sent to the agent");
+    assert.equal((await store.readState()).outreachCases[made.id]?.draft, undefined, "the draft is not changed until the screen keeps it");
+  });
+
+  it("refuses a made-up link with a 422 and the reason", async () => {
+    const made = await seed();
+    chat.setTurnRunnerForTests(async (input) => void input.state.message.parts.push({ type: "text", text: JSON.stringify({ subject: "s", body: "Hi. See https://made-up.example now." }) }));
+    const { status, body } = await revise(made.id, asking);
+    assert.equal(status, 422);
+    assert.match(String(body.error), /https:\/\/made-up\.example/);
+  });
+
+  it("says so, with a 502, when the agent is not available", async () => {
+    const made = await seed();
+    delete process.env.ANTHROPIC_API_KEY;
+    const { status, body } = await revise(made.id, asking);
+    process.env.ANTHROPIC_API_KEY = "sk-test-unused";
+    assert.equal(status, 502);
+    assert.match(String(body.error), /isn't signed in/);
+  });
+
+  it("validates the request before any agent is asked", async () => {
+    const made = await seed();
+    chat.setTurnRunnerForTests(async () => assert.fail("no agent should run"));
+    assert.equal((await revise(made.id, { ...asking, instruction: "x" })).status, 400);
+    assert.equal((await revise(made.id, { ...asking, agent: "skynet" })).status, 400);
+    assert.equal((await revise(made.id, { ...asking, body: "" })).status, 400);
+    assert.equal((await revise(made.id, { ...asking, to: "victim@example.com" })).status, 400);
+    assert.equal((await revise("pr_missing", asking)).status, 404);
+  });
+
+  it("puts the environment back", () => {
+    chat.setTurnRunnerForTests(undefined);
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+});
+
+const SENDER_FOR_LIBRARY = {
+  company: "Virtara",
+  fromName: "Dylan at Virtara",
+  about: "Websites for small businesses",
+  website: "virtara.co.za",
+  signature: 'Dylan, Virtara\nNot for you? Reply "no thanks" and I will not email you again.',
+  defaultMonthly: "R450 a month",
+  defaultSetup: "",
+  defaultProject: "from R25,000",
+};
+
