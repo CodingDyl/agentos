@@ -21,10 +21,13 @@ import { isRunning } from "../workers/job-manager";
 import { listJobs } from "../workers/job-store";
 import { describeWorkers } from "../workers/registry";
 import { activeChatWork } from "../chat/chat-service";
+import { listRuns as listRebuildRuns } from "../website-rebuild/store";
+import { listRuns as listMotionRuns } from "../motion-design/store";
 import { buildActiveWork } from "./active-work";
 import { buildAttention } from "./attention";
 import { applyDismissals } from "./dismissals";
 import { buildSystemHealth } from "./health";
+import { aggregateInbox } from "./inbox";
 
 /**
  * Assembling Mission Control from the systems that already exist.
@@ -167,7 +170,7 @@ function toMissionAutomations(
  * correctly rather than refusing to rank anything.
  */
 export async function getMissionControlData(): Promise<MissionControlData> {
-  const [dashboard, jobs, workers, automations, activity, runEvents, operatorRuns] = await Promise.all([
+  const [dashboard, jobs, workers, automations, activity, runEvents, operatorRuns, rebuilds, motion] = await Promise.all([
     settle(() => getDashboardData()),
     settle(() => listJobs(JOB_LIMIT)),
     settle(() => describeWorkers()),
@@ -175,6 +178,8 @@ export async function getMissionControlData(): Promise<MissionControlData> {
     settle(() => getActivity({ limit: ACTIVITY_LIMIT })),
     settle(() => readUiEvents(RUN_EVENT_LIMIT)),
     settle(() => listOperatorRuns(OPERATOR_RUN_LIMIT)),
+    settle(async () => listRebuildRuns()),
+    settle(() => listMotionRuns()),
   ]);
 
   const allJobs: WorkerJob[] = jobs.value ?? [];
@@ -253,12 +258,19 @@ export async function getMissionControlData(): Promise<MissionControlData> {
         }
       : undefined,
     ...(await applyDismissals(
-      buildAttention({
+      aggregateInbox({
+        attention: buildAttention({
+          jobs: openJobs,
+          history: allJobs,
+          automations: automationList,
+          projects,
+          degraded,
+        }),
+        rebuilds: rebuilds.value ?? [],
+        motion: motion.value ?? [],
+        operator: operatorRuns.value ?? [],
         jobs: openJobs,
-        history: allJobs,
-        automations: automationList,
-        projects,
-        degraded,
+        runningJobIds: new Set(openJobs.filter((job) => isRunning(job.id)).map((job) => job.id)),
       }),
     )),
     activeWork: [

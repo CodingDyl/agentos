@@ -41,7 +41,7 @@ export function TodayStrip({
     },
     {
       key: "attention",
-      label: "Needs you",
+      label: "Approvals",
       text: attention === 0 ? "Nothing waiting" : `${attention} ${attention === 1 ? "thing" : "things"} waiting`,
       href: "#needs-you",
       loud: attention > 0,

@@ -71,6 +71,18 @@ export const AttentionTypeSchema = z.enum([
   "system",
 ]);
 
+/** Which system produced the inbox row, so the card can say so in words. */
+export const AttentionSourceSchema = z.enum([
+  "workers",
+  "rebuild",
+  "motion",
+  "operator",
+  "workspace",
+  "automation",
+  "system",
+  "apply",
+]);
+
 /**
  * One thing asking for the operator.
  *
@@ -92,6 +104,8 @@ export const AttentionItemSchema = z.object({
     href: z.string(),
   }),
   createdAt: z.string(),
+  /** Which system is asking. Derived from the id when absent, so older cards still name a source. */
+  source: AttentionSourceSchema.optional(),
   /** How many attempts at the same work this card stands for, when more than one failed. */
   occurrences: z.number().int().min(1).optional(),
   /** Present on a failed job: what a retry from the card would start. */
@@ -112,6 +126,27 @@ export const AttentionItemSchema = z.object({
       canApprove: z.boolean(),
       /** Whether this job needs revision (has review findings to send back). */
       canRevise: z.boolean(),
+    })
+    .optional(),
+  /** A website rebuild stage waiting on the operator. */
+  rebuild: z
+    .object({
+      runId: z.string(),
+      stage: z.string(),
+      revision: z.number().int().nonnegative().optional(),
+      approve: z.boolean(),
+      retry: z.boolean(),
+      forceDeploy: z.boolean(),
+      recheck: z.boolean(),
+    })
+    .optional(),
+  /** A Motion Design run waiting for a concept and credit ceiling. */
+  motion: z.object({ runId: z.string() }).optional(),
+  /** An Operator run waiting for approval. */
+  operator: z
+    .object({
+      runId: z.string(),
+      approve: z.boolean(),
     })
     .optional(),
 });
@@ -262,6 +297,7 @@ export const MissionControlDataSchema = z.object({
 export type SystemStatus = z.infer<typeof SystemStatusSchema>;
 export type AttentionSeverity = z.infer<typeof AttentionSeveritySchema>;
 export type AttentionType = z.infer<typeof AttentionTypeSchema>;
+export type AttentionSource = z.infer<typeof AttentionSourceSchema>;
 export type AttentionItem = z.infer<typeof AttentionItemSchema>;
 export type ActiveWorkItem = z.infer<typeof ActiveWorkItemSchema>;
 export type MissionWorker = z.infer<typeof MissionWorkerSchema>;

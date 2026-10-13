@@ -9,7 +9,7 @@ import { CalendarEventEditor, CalendarTaskEditor, type TaskDraft } from "./calen
 import { addDays, calendarDate, calendarDays, dateFromKey, entriesForDay, type CalendarEntry } from "./calendar-model";
 import { CalendarDayAgenda, CalendarMonthGrid, CalendarWeekGrid, CalendarEntryButton } from "./calendar-grid";
 
-export function OverviewCalendar() {
+export function OverviewCalendar({ className }: { className?: string }) {
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<"day" | "week" | "month">("month");
   const [selected, setSelected] = useState(() => calendarDate(new Date()));
@@ -36,7 +36,7 @@ export function OverviewCalendar() {
   };
   const gridProps = { days, events, tasks, selected, onSelect: (date: string) => { setSelected(date); setAnchor(dateFromKey(date)); setView("day"); }, onOpen: openEntry, onDrop: drop, canDrag: !moveTask.isPending, canCreate: canWrite, onCreateEvent: (date: string, time: string) => setEditingEvent({ date, time }) };
   const rangeTitle = view === "day" ? anchor.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : view === "month" ? anchor.toLocaleDateString([], { month: "long", year: "numeric" }) : `${days[0].toLocaleDateString([], { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })}`;
-  return <PaperSection id="overview-calendar" label="Calendar" className="mt-10" action={<div className="flex flex-wrap gap-2"><PaperButton onClick={() => setEditingTask({ date: selected })}><Plus className="size-3.5" />Task</PaperButton><PaperButton variant="amber" disabled={!canWrite} onClick={() => setEditingEvent({ date: selected })}><Plus className="size-3.5" />New event</PaperButton></div>}>
+  return <PaperSection id="overview-calendar" label="Calendar" className={className} action={<div className="flex flex-wrap gap-2"><PaperButton onClick={() => setEditingTask({ date: selected })}><Plus className="size-3.5" />Task</PaperButton><PaperButton variant="amber" disabled={!canWrite} onClick={() => setEditingEvent({ date: selected })}><Plus className="size-3.5" />New event</PaperButton></div>}>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap items-center gap-2"><PaperButton aria-label="Previous calendar period" onClick={() => navigate(-1)}><ChevronLeft className="size-4" /></PaperButton><PaperButton aria-label="Next calendar period" onClick={() => navigate(1)}><ChevronRight className="size-4" /></PaperButton><h3 className="min-w-40 font-paper-display text-lg font-bold" aria-live="polite">{rangeTitle}</h3><PaperButton onClick={() => { const now = new Date(); setAnchor(now); setSelected(calendarDate(now)); }}>Today</PaperButton></div>
       <div className="flex items-center gap-2"><SegmentedControl label="Calendar view" value={view} onChange={setView} options={[{ value: "month", label: "Month" }, { value: "week", label: "Week" }, { value: "day", label: "Day" }]} /><PaperButton aria-label="Refresh calendar" disabled={calendar.isFetching || taskQuery.isFetching} onClick={() => { void calendar.refetch(); void taskQuery.refetch(); }}><RefreshCw className="size-3.5" /></PaperButton></div>
@@ -56,13 +56,13 @@ export function OverviewCalendar() {
   </PaperSection>;
 }
 
-export function TodayScheduledTasks() {
+export function TodayScheduledTasks({ className }: { className?: string }) {
   const query = useCalendarTasks();
   const [draft, setDraft] = useState<TaskDraft>();
   const today = calendarDate(new Date());
   const tasks = (query.data?.tasks ?? []).filter((task) => task.schedule?.date === today).sort((a, b) => (a.schedule?.time ?? "99").localeCompare(b.schedule?.time ?? "99"));
   if (!tasks.length && !query.error) return null;
-  return <PaperSection label="Scheduled today" action={<a href="#overview-calendar" className={`text-sm text-paper-blue underline ${PAPER_FOCUS}`}><CalendarDays className="mr-1 inline size-3.5" />Calendar</a>}>
+  return <PaperSection label="Scheduled today" className={className} action={<a href="#overview-calendar" className={`text-sm text-paper-blue underline ${PAPER_FOCUS}`}><CalendarDays className="mr-1 inline size-3.5" />Calendar</a>}>
     {query.error && <p role="alert" className="text-sm text-paper-flame-deep">Scheduled tasks couldn't be read. Refresh the calendar to try again.</p>}
     <ul className="divide-y divide-paper-mist">{tasks.map((task) => <li key={`${task.projectSlug}:${task.taskId}`}><button type="button" className={`flex w-full items-start gap-3 py-3 text-left text-sm ${PAPER_FOCUS}`} onClick={() => setDraft({ task, date: today })}><span className="w-14 shrink-0 text-paper-sage">{task.schedule?.time ?? "Any time"}</span><span className="min-w-0 flex-1"><span className={task.completed ? "line-through" : "font-medium"}>{task.title}</span><span className="mt-1 block text-xs text-paper-sage">{task.projectName}{task.calendarEventId ? " · Event preparation" : ""}</span></span><span className="text-xs text-paper-sage">{task.completed ? "Done" : "Edit"}</span></button></li>)}</ul>
     {draft && <CalendarTaskEditor draft={draft} projects={query.data?.projects ?? []} onClose={() => setDraft(undefined)} onSaved={() => setDraft(undefined)} />}

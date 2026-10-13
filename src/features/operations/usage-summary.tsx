@@ -26,7 +26,7 @@ import {
  * of em dashes would spend attention on a ledger nobody has filled yet, and
  * this screen is designed hardest for the good day.
  */
-export function UsageSummary() {
+export function UsageSummary({ className }: { className?: string }) {
   const { data } = useUsageSummary();
 
   if (!data || data.month.records === 0) return null;
@@ -38,6 +38,7 @@ export function UsageSummary() {
   return (
     <PaperSection
       label="AI usage"
+      className={className}
       action={
         <Link
           to="/operations"

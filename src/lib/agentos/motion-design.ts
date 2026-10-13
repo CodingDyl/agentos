@@ -152,6 +152,7 @@ export function useApproveMotionConcept(id: string) {
     onSuccess: (run) => {
       client.setQueryData(motionDesignKeys.run(run.id), run);
       client.setQueryData(motionDesignKeys.workspace(run.workspaceSlug), run);
+      void client.invalidateQueries({ queryKey: agentosKeys.missionControl() });
     },
     networkMode: "always",
     retry: 0,

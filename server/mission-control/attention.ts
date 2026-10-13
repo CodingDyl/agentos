@@ -356,7 +356,12 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     })),
   ];
 
-  return items.sort((a, b) => {
+  return sortAttentionItems(items);
+}
+
+/** Severity first, then age: the order *is* the advice. */
+export function sortAttentionItems(items: AttentionItem[]): AttentionItem[] {
+  return [...items].sort((a, b) => {
     const byType = TYPE_ORDER[a.type] - TYPE_ORDER[b.type];
     if (byType !== 0) return byType;
 

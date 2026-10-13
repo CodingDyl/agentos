@@ -6,6 +6,7 @@ import {
   eventTimings,
   formatBriefTime,
   formatEventTime,
+  inboxSourceLabel,
   isEvening,
   degradedSources,
   elapsed,
@@ -111,6 +112,15 @@ describe("naming the sources that did not answer", () => {
 
   it("does not call a busy source a broken one", () => {
     assert.deepEqual(degradedSources(sources({ workers: "running" })), []);
+  });
+});
+
+describe("inbox source labels", () => {
+  it("names the system a card came from, including when only the id is known", () => {
+    assert.equal(inboxSourceLabel({ id: "rebuild-1-hero", source: "rebuild" }), "Website rebuild");
+    assert.equal(inboxSourceLabel({ id: "job-abc" }), "Workers");
+    assert.equal(inboxSourceLabel({ id: "motion-x", source: "motion" }), "Motion Design");
+    assert.equal(inboxSourceLabel({ id: "x", source: "apply" }), "Apply");
   });
 });
 

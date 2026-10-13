@@ -31,14 +31,15 @@ function useArrived(): boolean {
 }
 
 /**
- * The page itself is the sheet of paper: white, edge to edge, content held to
- * the same 1400px measure the other AgentOS pages use so a wide screen does
- * not stretch the cards thin.
+ * The page itself is the sheet of paper: white, edge to edge. Content is held
+ * to the same 1400px measure the other AgentOS pages use so a wide screen does
+ * not stretch the cards thin — unless `full`, which the Dashboard uses to span
+ * the viewport.
  */
-export function PaperStage({ children }: { children: ReactNode }) {
+export function PaperStage({ children, full }: { children: ReactNode; full?: boolean }) {
   return (
     <div className="min-h-full bg-background font-paper-ui text-paper-moss">
-      <div className="collective-workspace w-full">{children}</div>
+      <div className={cn("w-full", full ? "dashboard-workspace" : "collective-workspace")}>{children}</div>
     </div>
   );
 }

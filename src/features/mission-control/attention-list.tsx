@@ -1,23 +1,33 @@
-import { ArrowRight, Check, RefreshCw, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Check, RefreshCw, Rocket, RotateCcw, Search, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import type { RebuildStageId } from "@shared/website-rebuild-types";
 import type { AttentionItem, MissionWorker } from "@shared/mission-control-types";
 import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
-import { useDismissAttention, useRestoreAttention, useRetryWorkerJob, useApproveWorkerJob, useRejectWorkerJob, useReviseWorkerJob } from "@/lib/agentos/queries";
+import {
+  useDismissAttention,
+  useRestoreAttention,
+  useRetryWorkerJob,
+  useApproveWorkerJob,
+  useRejectWorkerJob,
+  useReviseWorkerJob,
+} from "@/lib/agentos/queries";
+import { useApproveOperatorRun } from "@/lib/agentos/operator";
+import { useDecideStage, useForcePreviewDeploy, useRecheckPreview, useRetryStage } from "@/lib/agentos/rebuilds";
+import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { attentionTag } from "./mission-control-model";
+import { attentionTag, inboxSourceLabel } from "./mission-control-model";
 
 /**
- * What is waiting on you.
+ * Approvals and blockers, aggregated into one inbox.
  *
- * The most important block on the screen, and the one that has to earn its
- * prominence by disappearing. When nothing is waiting it collapses to a single
- * sentence: no empty card, no placeholder grid, no invented suggestion.
+ * The most important block on the Dashboard, and the one that has to earn its
+ * prominence by disappearing. When nothing is waiting it says so in one
+ * sentence: no empty card grid, no invented suggestion.
  *
- * Each card can be cleared. Clearing hides that occurrence from Today only:
- * the job, automation or workspace behind it is untouched, and the same thing
- * failing again later comes back as a new card. Cleared cards stay one click
- * away, so nothing is lost by tidying up.
+ * Each row names its source and age, and acts inline (Approve / Retry / Open)
+ * through the same handlers the owning screens use. Clearing hides that
+ * occurrence from the Dashboard only.
  */
 
 export interface AttentionListProps {
@@ -52,7 +62,7 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
   return (
     <PaperSection
       id="needs-you"
-      label="Needs you"
+      label="Approvals & blockers"
       count={items.length > 0 ? items.length : undefined}
       className={className}
       action={
@@ -64,7 +74,7 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
       }
     >
       {items.length === 0 ? (
-        <p className="text-[15px] text-paper-char">Nothing waiting on you.</p>
+        <p className="text-[14px] text-paper-char">Nothing waiting on you</p>
       ) : (
         <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
           {items.map((item) => (
@@ -75,7 +85,7 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
         </ul>
       )}
 
-      <div className="mt-3 flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-paper-sage" aria-live="polite">
+      <div className="mt-2 flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-paper-sage" aria-live="polite">
         {retried ? <span>{retried}</span> : null}
         {lastCleared.length > 0 ? (
           <span>
@@ -102,9 +112,9 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
       </div>
 
       {showCleared && dismissed.length > 0 ? (
-        <div className="mt-2 rounded-none bg-paper-linen px-4 py-3">
+        <div className="mt-2 rounded-none bg-paper-linen px-3 py-2.5">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[12.5px] font-medium text-paper-sage">Cleared from Today, still current</p>
+            <p className="text-[12.5px] font-medium text-paper-sage">Cleared from Dashboard, still current</p>
             <PaperButton variant="quiet" className="-mr-2" onClick={() => restore.mutate(undefined)} disabled={restore.isPending}>
               Restore all
             </PaperButton>
@@ -157,56 +167,54 @@ function WorkerJobActions({
   const busy = approve.isPending || reject.isPending || revise.isPending;
 
   return (
-    <div className="mt-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {canApprove ? (
-          <PaperButton
-            variant="ghost"
-            disabled={busy}
-            onClick={() =>
-              approve.mutate(jobId, {
-                onSuccess: () => onActioned("Approved and integrated. It's done."),
-              })
-            }
-          >
-            <Check className="size-3.5" aria-hidden="true" />
-            {approve.isPending ? "Applying..." : "Approve & apply"}
-          </PaperButton>
-        ) : null}
-        {canRevise ? (
-          <PaperButton
-            variant="ghost"
-            disabled={busy}
-            onClick={() =>
-              revise.mutate(jobId, {
-                onSuccess: () => onActioned("Sent back to the worker for revision."),
-              })
-            }
-          >
-            {revise.isPending ? "Sending..." : "Send back"}
-          </PaperButton>
-        ) : null}
+    <>
+      {canApprove ? (
         <PaperButton
-          variant="quiet"
+          variant="ghost"
           disabled={busy}
           onClick={() =>
-            reject.mutate(
-              { id: jobId },
-              {
-                onSuccess: () => onActioned("Rejected. The work was not integrated."),
-              },
-            )
+            approve.mutate(jobId, {
+              onSuccess: () => onActioned("Approved and integrated. It's done."),
+            })
           }
         >
-          {reject.isPending ? "Rejecting..." : "Reject"}
+          <Check className="size-3.5" aria-hidden="true" />
+          {approve.isPending ? "Applying..." : "Approve"}
         </PaperButton>
-      </div>
+      ) : null}
+      {canRevise ? (
+        <PaperButton
+          variant="ghost"
+          disabled={busy}
+          onClick={() =>
+            revise.mutate(jobId, {
+              onSuccess: () => onActioned("Sent back to the worker for revision."),
+            })
+          }
+        >
+          {revise.isPending ? "Sending..." : "Send back"}
+        </PaperButton>
+      ) : null}
+      <PaperButton
+        variant="quiet"
+        disabled={busy}
+        onClick={() =>
+          reject.mutate(
+            { id: jobId },
+            {
+              onSuccess: () => onActioned("Rejected. The work was not integrated."),
+            },
+          )
+        }
+      >
+        {reject.isPending ? "Rejecting..." : "Reject"}
+      </PaperButton>
       {approve.isError || reject.isError || revise.isError ? (
-        <p className="mt-2 text-[13px] text-paper-flame-deep" role="alert">
+        <p className="basis-full text-[13px] text-paper-flame-deep" role="alert">
           {(approve.error ?? reject.error ?? revise.error)?.message ?? "That action did not complete."}
         </p>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -246,38 +254,131 @@ function RetryActions({
   ));
 
   return (
-    <div className="mt-3">
+    <>
       {limitHit ? (
-        <p className="mb-2 text-[13px] text-paper-char">
+        <p className="basis-full mb-0 text-[13px] text-paper-char">
           {nameOf(worker)} hit a usage limit. {others.length > 0 ? "Another worker can take it:" : "No other worker is available right now."}
         </p>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        {limitHit ? otherButtons : null}
-        <PaperButton variant={limitHit ? "quiet" : "ghost"} disabled={retry.isPending} onClick={() => run()}>
-          <RefreshCw className="size-3.5" aria-hidden="true" />
-          {pendingOn === worker ? "Starting…" : limitHit ? `Retry on ${nameOf(worker)} anyway` : `Retry on ${nameOf(worker)}`}
-        </PaperButton>
-        {!limitHit && others.length > 0 ? (
-          showOthers ? (
-            otherButtons
-          ) : (
-            <PaperButton variant="quiet" onClick={() => setShowOthers(true)} aria-expanded={false}>
-              Another worker
-            </PaperButton>
-          )
-        ) : null}
-      </div>
+      {limitHit ? otherButtons : null}
+      <PaperButton variant={limitHit ? "quiet" : "ghost"} disabled={retry.isPending} onClick={() => run()}>
+        <RefreshCw className="size-3.5" aria-hidden="true" />
+        {pendingOn === worker ? "Starting…" : limitHit ? `Retry on ${nameOf(worker)} anyway` : "Retry"}
+      </PaperButton>
+      {!limitHit && others.length > 0 ? (
+        showOthers ? (
+          otherButtons
+        ) : (
+          <PaperButton variant="quiet" onClick={() => setShowOthers(true)} aria-expanded={false}>
+            Another worker
+          </PaperButton>
+        )
+      ) : null}
       {retry.isError ? (
-        <p className="mt-2 text-[13px] text-paper-flame-deep" role="alert">
+        <p className="basis-full text-[13px] text-paper-flame-deep" role="alert">
           {retry.error instanceof Error ? retry.error.message : "That retry didn't start."}
         </p>
       ) : null}
-    </div>
+    </>
   );
 }
 
-/** One decision, where to go and make it, a way to clear it, and, for a failed job, a retry. */
+function RebuildInboxActions({ item, onActioned }: { item: AttentionItem; onActioned: (message: string) => void }) {
+  const rebuild = item.rebuild;
+  const decide = useDecideStage(rebuild?.runId ?? "");
+  const retry = useRetryStage(rebuild?.runId ?? "");
+  const force = useForcePreviewDeploy(rebuild?.runId ?? "");
+  const recheck = useRecheckPreview(rebuild?.runId ?? "");
+
+  if (!rebuild) return null;
+
+  const stage = rebuild.stage as RebuildStageId;
+  const busy = decide.isPending || retry.isPending || force.isPending || recheck.isPending;
+  const error = decide.error ?? retry.error ?? force.error ?? recheck.error;
+
+  return (
+    <>
+      {rebuild.approve ? (
+        <PaperButton
+          variant="ghost"
+          disabled={busy || rebuild.revision === undefined}
+          onClick={() =>
+            decide.mutate(
+              { stage, revision: rebuild.revision ?? 0, decision: "approve" },
+              { onSuccess: () => onActioned("Approved. The rebuild will continue.") },
+            )
+          }
+        >
+          <Check className="size-3.5" aria-hidden="true" />
+          {decide.isPending ? "Approving…" : "Approve"}
+        </PaperButton>
+      ) : null}
+      {rebuild.retry ? (
+        <PaperButton
+          variant="ghost"
+          disabled={busy}
+          onClick={() => retry.mutate({ stage }, { onSuccess: () => onActioned("Retrying that stage.") })}
+        >
+          <RefreshCw className="size-3.5" aria-hidden="true" />
+          {retry.isPending ? "Retrying…" : "Retry"}
+        </PaperButton>
+      ) : null}
+      {rebuild.forceDeploy ? (
+        <PaperButton
+          variant="amber"
+          disabled={busy}
+          onClick={() => force.mutate(undefined as never, { onSuccess: () => onActioned("Forcing a new Vercel deploy.") })}
+        >
+          <Rocket className="size-3.5" aria-hidden="true" />
+          {force.isPending ? "Deploying…" : "Deploy now (force)"}
+        </PaperButton>
+      ) : null}
+      {rebuild.recheck ? (
+        <PaperButton
+          disabled={busy}
+          onClick={() => recheck.mutate(undefined as never, { onSuccess: () => onActioned("Re-checking Vercel.") })}
+        >
+          <Search className="size-3.5" aria-hidden="true" />
+          {recheck.isPending ? "Checking Vercel…" : "Re-check Vercel"}
+        </PaperButton>
+      ) : null}
+      {error ? (
+        <p className="basis-full text-[13px] text-paper-flame-deep" role="alert">
+          {error.message}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function OperatorInboxActions({ item, onActioned }: { item: AttentionItem; onActioned: (message: string) => void }) {
+  const approve = useApproveOperatorRun();
+  if (!item.operator?.approve) return null;
+
+  return (
+    <>
+      <PaperButton
+        variant="ghost"
+        disabled={approve.isPending}
+        onClick={() =>
+          approve.mutate(item.operator!.runId, {
+            onSuccess: () => onActioned("Approved. The operator run will continue."),
+          })
+        }
+      >
+        <Check className="size-3.5" aria-hidden="true" />
+        {approve.isPending ? "Approving…" : "Approve"}
+      </PaperButton>
+      {approve.isError ? (
+        <p className="basis-full text-[13px] text-paper-flame-deep" role="alert">
+          {approve.error instanceof Error ? approve.error.message : "That approval did not complete."}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/** One decision, where to go and make it, a way to clear it, and inline actions. */
 function AttentionCard({
   item,
   workers,
@@ -290,54 +391,64 @@ function AttentionCard({
   onRetried: (message: string) => void;
 }) {
   const tag = attentionTag(item);
+  const source = inboxSourceLabel(item);
+  const age = formatRelativeTime(item.createdAt);
 
   return (
-    <div className="group flex min-w-0 gap-4 px-5 py-4 transition-colors duration-150 hover:bg-paper-cream">
+    <div className="group flex min-w-0 gap-3 px-3 py-2.5 transition-colors duration-150 hover:bg-paper-cream">
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <Tag tone={tag.tone}>{item.occurrences ? `${tag.label} ${item.occurrences}×` : tag.label}</Tag>
-          {item.project ? <span className="text-[12.5px] font-medium text-paper-sage">{item.project}</span> : null}
-          {item.occurrences ? (
-            <span className="text-[12.5px] text-paper-sage">{item.occurrences} attempts, showing the latest</span>
+          <span className="text-[12px] font-medium text-paper-sage">{source}</span>
+          {age ? (
+            <span className="text-[12px] text-paper-sage" title={item.createdAt}>
+              {age}
+            </span>
           ) : null}
+          {item.project ? <span className="text-[12px] font-medium text-paper-sage">{item.project}</span> : null}
         </div>
 
-        <Link
-          to={item.action.href}
-          className={cn(
-            "mt-2 block max-w-[70ch] rounded-[2px] text-[15px] leading-6 font-semibold [overflow-wrap:anywhere] text-paper-moss underline-offset-4 hover:underline",
-            PAPER_FOCUS,
-          )}
-        >
+        <p className="mt-1 max-w-[70ch] text-[14.5px] leading-5 font-semibold [overflow-wrap:anywhere] text-paper-moss">
           {item.title}
-        </Link>
+        </p>
 
         {item.description ? (
-          <p className="mt-1 line-clamp-2 max-w-[80ch] text-[13.5px] leading-5 break-words text-paper-char">
+          <p className="mt-0.5 line-clamp-2 max-w-[80ch] text-[13px] leading-5 break-words text-paper-char">
             {item.description}
           </p>
         ) : null}
 
-        <Link
-          to={item.action.href}
-          tabIndex={-1}
-          className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-paper-blue hover:underline"
-        >
-          {item.action.label}
-          <ArrowRight className="size-3.5" aria-hidden="true" />
-        </Link>
-
-        <WorkerJobActions item={item} onActioned={onRetried} />
-        <RetryActions item={item} workers={workers} onRetried={onRetried} />
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {item.rebuild ? (
+            <RebuildInboxActions item={item} onActioned={onRetried} />
+          ) : item.operator ? (
+            <OperatorInboxActions item={item} onActioned={onRetried} />
+          ) : (
+            <>
+              <WorkerJobActions item={item} onActioned={onRetried} />
+              <RetryActions item={item} workers={workers} onRetried={onRetried} />
+            </>
+          )}
+          <Link
+            to={item.action.href}
+            className={cn(
+              "inline-flex min-h-8 items-center gap-1 px-2.5 text-[13px] font-semibold text-paper-blue hover:underline",
+              PAPER_FOCUS,
+            )}
+          >
+            {item.action.label || "Open"}
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </div>
       </div>
 
       <button
         type="button"
         onClick={onClear}
-        aria-label={`Clear "${item.title}" from Today`}
-        title="Clear from Today"
+        aria-label={`Clear "${item.title}" from Dashboard`}
+        title="Clear from Dashboard"
         className={cn(
-          "-mr-2 flex size-8 shrink-0 items-center justify-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+          "-mr-1 flex size-8 shrink-0 items-center justify-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
           PAPER_FOCUS,
         )}
       >
