@@ -37,7 +37,7 @@ import { loadOutreachSkill } from "./style";
 
 export class CaseError extends Error {}
 
-function blankCase(prospectId: string): OutreachCase {
+export function blankCase(prospectId: string): OutreachCase {
   return OutreachCaseSchema.parse({ prospectId });
 }
 
@@ -272,8 +272,34 @@ export function saysTheSame(check: string, findings: readonly string[]): boolean
 
 // ─── The Hermes draft ───────────────────────────────────────────────────────
 
+/**
+ * What is known about one business, as lines for a prompt: the only source of
+ * facts for a draft or a revision. Public facts and the operator's own notes;
+ * never the prospect's email address or phone number.
+ */
+export function caseFactLines(context: { prospect: Prospect; entry: OutreachCase; sender?: Sender }): (string | undefined)[] {
+  const { prospect, entry, sender } = context;
+  const path = entry.path ? PATHS[entry.path] : undefined;
+  return [
+    `THEIR BUSINESS: ${prospect.company}${prospect.segment ? ` (${prospect.segment})` : ""}`,
+    prospect.contact ? `THE PERSON: ${prospect.contact}` : undefined,
+    entry.about ? `WHAT THEY DO: ${entry.about}` : undefined,
+    entry.hook ? `OPENING LINE: ${entry.hook}` : undefined,
+    entry.findings.length > 0 ? `WHAT I NOTICED:\n${entry.findings.map((line) => `- ${line}`).join("\n")}` : undefined,
+    entry.howWeHelp ? `HOW I CAN HELP: ${entry.howWeHelp}` : undefined,
+    path ? `MY APPROACH: ${path.name}. ${path.line}` : undefined,
+    `THE OFFER: ${entry.offer}`,
+    entry.path === "build_first" && entry.previewUrl ? `PREVIEW LINK: ${entry.previewUrl}` : undefined,
+    entry.path === "build_first" && entry.monthlyPrice ? `MONTHLY PRICE: ${entry.monthlyPrice}` : undefined,
+    entry.path === "build_first" ? `SET-UP FEE: ${entry.setupPrice || "none: no upfront cost"}` : undefined,
+    entry.path === "cold_pitch" && entry.projectPrice ? `PROJECT PRICE: ${entry.projectPrice}` : undefined,
+    sender?.about ? `ABOUT ${sender.company.toUpperCase()}: ${sender.about}` : undefined,
+    entry.notes.trim() ? `MORE NOTES (facts only, use if useful):\n${entry.notes.trim().slice(0, 1500)}` : undefined,
+  ];
+}
+
 /** The most words each email in the sequence may have. The style guide asks for fewer; this is the ceiling. */
-const MAX_WORDS = { 1: 120, 2: 80, 3: 60 } as const;
+export const MAX_WORDS = { 1: 120, 2: 80, 3: 60 } as const;
 
 export function buildCaseDraftPacket(context: {
   prospect: Prospect;
@@ -291,7 +317,6 @@ export function buildCaseDraftPacket(context: {
 }): string {
   const { prospect, entry, sender, followUp } = context;
   const touch = Math.min(context.touch ?? (followUp ? 2 : 1), MAX_TOUCHES) as 1 | 2 | 3;
-  const path = entry.path ? PATHS[entry.path] : undefined;
   return [
     touch === 3 ? "DRAFT THE LAST FOLLOW-UP EMAIL" : touch === 2 ? "DRAFT A FOLLOW-UP EMAIL" : "DRAFT A FIRST OUTREACH EMAIL",
     "",
@@ -323,20 +348,7 @@ export function buildCaseDraftPacket(context: {
           "",
         ].join("\n")
       : undefined,
-    `THEIR BUSINESS: ${prospect.company}${prospect.segment ? ` (${prospect.segment})` : ""}`,
-    prospect.contact ? `THE PERSON: ${prospect.contact}` : undefined,
-    entry.about ? `WHAT THEY DO: ${entry.about}` : undefined,
-    entry.hook ? `OPENING LINE: ${entry.hook}` : undefined,
-    entry.findings.length > 0 ? `WHAT I NOTICED:\n${entry.findings.map((line) => `- ${line}`).join("\n")}` : undefined,
-    entry.howWeHelp ? `HOW I CAN HELP: ${entry.howWeHelp}` : undefined,
-    path ? `MY APPROACH: ${path.name}. ${path.line}` : undefined,
-    `THE OFFER: ${entry.offer}`,
-    entry.path === "build_first" && entry.previewUrl ? `PREVIEW LINK: ${entry.previewUrl}` : undefined,
-    entry.path === "build_first" && entry.monthlyPrice ? `MONTHLY PRICE: ${entry.monthlyPrice}` : undefined,
-    entry.path === "build_first" ? `SET-UP FEE: ${entry.setupPrice || "none: no upfront cost"}` : undefined,
-    entry.path === "cold_pitch" && entry.projectPrice ? `PROJECT PRICE: ${entry.projectPrice}` : undefined,
-    sender.about ? `ABOUT ${sender.company.toUpperCase()}: ${sender.about}` : undefined,
-    entry.notes.trim() ? `MORE NOTES (facts only, use if useful):\n${entry.notes.trim().slice(0, 1500)}` : undefined,
+    ...caseFactLines({ prospect, entry, sender }),
     "",
     "Reply with a single JSON object and nothing else:",
     '{ "subject": "under 7 words, specific, no clickbait", "body": "the email" }',

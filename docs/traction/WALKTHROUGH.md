@@ -175,6 +175,21 @@ are recorded by you.
   this business using only this business's notes.
 - Examples guide tone and shape only. Nothing is pasted in as it was.
 
+## 8d. Small changes to a draft
+
+1. Under the draft, **Revise with an agent**. Pick an agent, tap a quick
+   instruction or type your own ("shorter", "drop the last question", "make
+   it sound less like an ad"), press **Revise**.
+2. The draft is replaced and saved. **Undo** brings the previous one back
+   (until you leave the page).
+3. It only changes what you asked. Your signature is never sent to the agent
+   and is kept exactly. If the agent adds a link, address or price that is not
+   in the email or your notes, the revision is refused and nothing changes.
+4. Agents shown are the ones that are available now. Nothing is revised by
+   Hermes unless you pick Hermes.
+
+Revising is for small edits. For a new angle, use **Draft again**.
+
 ## 9. Weekly
 
 - **Experiments**: each magnet's experiment counts contacted and conversations

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ChatMessage } from "../../../shared/chat-types";
-import { applyClaudeMessage, CLAUDE_ALIASES, modelsFromClaude, startTurn } from "../claude-chat-adapter";
+import { applyClaudeMessage, CLAUDE_ALIASES, claudeSessionOptions, modelsFromClaude, startTurn } from "../claude-chat-adapter";
 
 /**
  * The transcript is what the operator reads, so the fold from Claude Code's
@@ -119,3 +119,21 @@ describe("Claude's models", () => {
     assert.ok(CLAUDE_ALIASES.every((model) => !model.id.startsWith("claude-")));
   });
 });
+
+describe("how a Claude session is set up", () => {
+  it("gives a text-only request no tools, no settings and no MCP servers", () => {
+    const options = claudeSessionOptions(true);
+    assert.deepEqual(options.tools, [], "no built-in tool at all");
+    assert.deepEqual(options.settingSources, [], "the operator's allow-rules and MCP servers are not loaded");
+    assert.equal(options.strictMcpConfig, true);
+    assert.match(options.appendPrompt, /text only/i);
+  });
+
+  it("leaves an ordinary chat as it was: the operator's own setup, all tools", () => {
+    const options = claudeSessionOptions(false);
+    assert.deepEqual(options.settingSources, ["user", "project"]);
+    assert.equal("tools" in options, false);
+    assert.match(options.appendPrompt, /operator inside AgentOS/);
+  });
+});
+

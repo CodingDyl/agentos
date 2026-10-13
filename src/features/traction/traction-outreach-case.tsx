@@ -1,4 +1,4 @@
-import { BookmarkPlus, Check, Copy, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
+import { BookmarkPlus, Check, Copy, ExternalLink, RefreshCw, Sparkles, Undo2, Wand2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -17,7 +17,8 @@ import type { Prospect } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, Tag } from "@/components/paper";
 import { useCreateGmailDraft, useOutreachStats, useOutreachStatus, useRecordManualSend, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
 import { TOUCH_LABELS, type Touch } from "@shared/outreach-library";
-import { useBriefCase, useDraftCase, useEmailLibrary, useSaveToLibrary, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
+import { useChatAgents } from "@/lib/agentos/chat";
+import { useBriefCase, useDraftCase, useEmailLibrary, useReviseDraft, useSaveToLibrary, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { EmailFinder } from "./traction-outreach-email";
@@ -379,7 +380,161 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
       ) : null}
 
       <DraftEditor key={`${entry.draft?.subject}\u0000${entry.draft?.body}`} prospect={prospect} entry={entry} sender={sender} />
+      <ReviseDraftPanel prospect={prospect} entry={entry} />
     </Card>
+  );
+}
+
+const REVISE_AGENT_KEY = "agentos.traction.reviseAgent";
+const QUICK_REVISIONS = ["Make it shorter", "Warmer, less formal", "More direct", "Drop the last question"] as const;
+
+function rememberedAgent(): string | undefined {
+  try {
+    return window.localStorage.getItem(REVISE_AGENT_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Small changes to the draft on screen, made by an agent you choose.
+ *
+ * Not another draft: the agent gets the email as it is and your one-line
+ * instruction, changes only that, and may use no tools. The signature stays
+ * exactly as it was, and an answer that adds a link, address or price that
+ * is not in the email or the notes is refused by the server. The result
+ * replaces the draft, and Undo puts the old one back.
+ */
+function ReviseDraftPanel({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
+  const agents = useChatAgents();
+  const revise = useReviseDraft();
+  const write = useWriteCase();
+  const [agentId, setAgentId] = useState(rememberedAgent);
+  const [instruction, setInstruction] = useState("");
+  const [undo, setUndo] = useState<{ subject: string; body: string }>();
+  const [note, setNote] = useState<string>();
+
+  const draft = entry.draft;
+  if (!draft?.body.trim()) return null;
+
+  const available = (agents.data ?? []).filter((agent) => agent.available);
+  const chosen = available.find((agent) => agent.id === agentId) ?? available[0];
+  const ready = chosen && instruction.trim().length >= 3 && !revise.isPending;
+
+  const run = () => {
+    if (!chosen || !ready) return;
+    setNote(undefined);
+    revise.mutate(
+      { prospectId: prospect.id, agent: chosen.id, instruction, subject: draft.subject, body: draft.body },
+      {
+        onSuccess: (result) => {
+          if (!result.changed) {
+            setNote(`${chosen.name} made no change. Try saying it differently.`);
+            return;
+          }
+          setUndo({ subject: draft.subject, body: draft.body });
+          write.mutate({ prospectId: prospect.id, patch: { draft: { subject: result.subject, body: result.body } } });
+          setNote(`Revised by ${chosen.name}.`);
+          setInstruction("");
+        },
+      },
+    );
+  };
+
+  return (
+    <form
+      aria-label="Revise this email with an agent"
+      className="mt-5 border-t border-paper-mist pt-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        run();
+      }}
+    >
+      <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">
+        <Wand2 className="size-3.5" aria-hidden="true" />
+        Revise with an agent
+      </p>
+      <p className="mt-1 text-[12.5px] text-paper-sage">Changes only what you ask. Your signature is kept as it is, and the agent cannot use tools or add links, prices or addresses that are not already here.</p>
+
+      {agents.isPending ? <p className="mt-2 text-[13px] text-paper-sage">Checking which agents are available…</p> : null}
+      {agents.data && available.length === 0 ? (
+        <p className="mt-2 text-[13px] text-paper-sage">No agent is available right now. Check Agents to see what each one needs.</p>
+      ) : null}
+
+      {chosen ? (
+        <>
+          <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Quick instructions">
+            {QUICK_REVISIONS.map((text) => (
+              <PaperButton key={text} variant="ghost" onClick={() => setInstruction(text)}>
+                {text}
+              </PaperButton>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="block min-w-[140px]">
+              <FieldLabel>Agent</FieldLabel>
+              <select
+                value={chosen.id}
+                onChange={(event) => {
+                  setAgentId(event.target.value);
+                  try {
+                    window.localStorage.setItem(REVISE_AGENT_KEY, event.target.value);
+                  } catch {
+                    // A remembered choice is a convenience, not something to fail over.
+                  }
+                }}
+                className={cn(PAPER_INPUT, "w-full")}
+              >
+                {available.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block min-w-[260px] flex-1">
+              <FieldLabel>What should change?</FieldLabel>
+              <input
+                maxLength={500}
+                value={instruction}
+                onChange={(event) => setInstruction(event.target.value)}
+                placeholder="e.g. shorter, and less formal"
+                className={cn(PAPER_INPUT, "w-full")}
+              />
+            </label>
+            <PaperButton variant="amber" type="submit" disabled={!ready}>
+              <Wand2 className="size-3.5" aria-hidden="true" />
+              {revise.isPending ? `${chosen.name} is revising…` : "Revise"}
+            </PaperButton>
+            {undo ? (
+              <PaperButton
+                variant="ghost"
+                disabled={write.isPending}
+                onClick={() => {
+                  write.mutate({ prospectId: prospect.id, patch: { draft: undo } });
+                  setUndo(undefined);
+                  setNote("Put the earlier version back.");
+                }}
+              >
+                <Undo2 className="size-3.5" aria-hidden="true" />
+                Undo
+              </PaperButton>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {revise.error ? (
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
+          {revise.error.message}
+        </p>
+      ) : null}
+      {note ? (
+        <p role="status" className="mt-2 text-[13px] text-paper-char">
+          {note}
+        </p>
+      ) : null}
+    </form>
   );
 }
 

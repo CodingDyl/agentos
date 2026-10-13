@@ -5,7 +5,7 @@ import { query, type CanUseTool, type SDKMessage } from "@anthropic-ai/claude-ag
 import type { ChatAgent, ChatMessage, ChatModel, ChatToolPart } from "../../shared/chat-types";
 import { agentEnv } from "./agent-environment";
 import { cachedModels, rememberModels } from "./chat-model-cache";
-import { decideToolUse, summariseToolInput } from "./chat-permission-policy";
+import { decideChatToolUse, summariseToolInput } from "./chat-permission-policy";
 import { DEFAULT_MODEL, oneLine, type ChatAgentAdapter, type RunTurnInput } from "./chat-turn";
 
 /**
@@ -43,6 +43,23 @@ export function modelsFromClaude(models: ReadonlyArray<{ value: string; displayN
 
 /** Told once per session, on top of Claude Code's own system prompt. */
 const CHAT_SYSTEM_PROMPT = `You are chatting with the operator inside AgentOS, their personal AI operating system. Your working directory is the AgentOS repository; you can read anything on this machine and change the project. Actions the operator has to approve (deleting, pushing, installing, touching credentials, writing outside the project) pause for their decision: if one is denied, say what you would have done and continue without it. Answer conversationally; this is a chat, not a report.`;
+
+/** Told instead of the chat prompt when only text is wanted. */
+const TEXT_ONLY_SYSTEM_PROMPT = "You are answering one request from the operator inside AgentOS. Reply with text only. You have no tools: do not try to read files, run commands or browse. Follow the request's own instructions about the format of the answer.";
+
+/**
+ * How a Claude session is set up, which differs for a text-only request.
+ *
+ * A text-only session gets no built-in tools at all, ignores the operator's
+ * Claude Code settings (their allow-rules would otherwise approve tools before
+ * the chat policy is asked, and their MCP servers would add more), and loads
+ * no MCP servers. The policy still refuses any tool call that gets through.
+ */
+export function claudeSessionOptions(textOnly: boolean) {
+  return textOnly
+    ? { tools: [] as string[], strictMcpConfig: true, settingSources: [] as Array<"user" | "project">, appendPrompt: TEXT_ONLY_SYSTEM_PROMPT }
+    : { settingSources: ["user", "project"] as Array<"user" | "project">, appendPrompt: CHAT_SYSTEM_PROMPT };
+}
 
 function hasPlanLogin(): boolean {
   return fs.existsSync(path.join(os.homedir(), ".claude"));
@@ -273,7 +290,7 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
   const state = startTurn(input.state.message);
 
   const canUseTool: CanUseTool = async (toolName, toolInput, options) => {
-    const verdict = decideToolUse(toolName, toolInput, input.policy);
+    const verdict = decideChatToolUse(toolName, toolInput, input.policy);
     if (verdict.decision === "allow") return { behavior: "allow", updatedInput: toolInput };
 
     const allowed = await input
@@ -289,6 +306,7 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
     return { behavior: "deny", message: "The operator declined this action. Carry on without it, and say what you would have done." };
   };
 
+  const session = claudeSessionOptions(input.policy.textOnly === true);
   const messages = query({
     prompt: input.prompt,
     options: {
@@ -303,8 +321,10 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
       canUseTool,
       // The operator's own Claude Code setup (CLAUDE.md, skills, MCP servers)
       // and the project's: this is their assistant, not a sandboxed worker.
-      settingSources: ["user", "project"],
-      systemPrompt: { type: "preset", preset: "claude_code", append: CHAT_SYSTEM_PROMPT },
+      // (A text-only request gets none of it: see `claudeSessionOptions`.)
+      settingSources: session.settingSources,
+      ...(session.tools ? { tools: session.tools, strictMcpConfig: session.strictMcpConfig } : {}),
+      systemPrompt: { type: "preset", preset: "claude_code", append: session.appendPrompt },
       env: { ...(await agentEnv(how.env)), CLAUDE_AGENT_SDK_CLIENT_APP: "agentos-chat/1.0" },
     },
   });

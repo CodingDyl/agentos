@@ -1060,6 +1060,74 @@ describe("the email library", () => {
   });
 });
 
+describe("revising a draft with an agent", () => {
+  const saved: Record<string, string | undefined> = {};
+  let chat: typeof import("../../chat/chat-service");
+
+  const revise = (id: string, body: unknown) => api(`/cases/${id}/revise`, { method: "POST", body: JSON.stringify(body) });
+  const asking = { agent: "claude", instruction: "Make it shorter", subject: "Your listing pages", body: `Hi Jane,\n\nNo viewing button on mobile.\n\nWorth a look?\n\n--\n${SIGNATURE}` };
+
+  it("gets a stand-in agent that cannot call a real model", async () => {
+    process.env.AGENTOS_SKIP_MODEL_DISCOVERY = "1";
+    for (const key of ["HOME", "ANTHROPIC_API_KEY"]) saved[key] = process.env[key];
+    process.env.HOME = path.join(directory, "revise-home");
+    process.env.ANTHROPIC_API_KEY = "sk-test-unused";
+    chat = await import("../../chat/chat-service");
+  });
+
+  it("returns the revision with the signature put back, and saves nothing", async () => {
+    const made = await seed();
+    let prompt = "";
+    chat.setTurnRunnerForTests(async (input) => {
+      prompt = input.prompt;
+      input.state.message.parts.push({ type: "text", text: JSON.stringify({ subject: "Your listing pages", body: "Hi Jane,\n\nNo viewing button on mobile. Worth a look?" }) });
+    });
+
+    const { status, body } = await revise(made.id, asking);
+    assert.equal(status, 200);
+    assert.equal(body.body, `Hi Jane,\n\nNo viewing button on mobile. Worth a look?\n\n--\n${SIGNATURE}`);
+    assert.equal(body.changed, true);
+    assert.match(prompt, /MY INSTRUCTION: Make it shorter/);
+    assert.doesNotMatch(prompt, /Not for you/, "the signature is not sent to the agent");
+    assert.equal((await store.readState()).outreachCases[made.id]?.draft, undefined, "the draft is not changed until the screen keeps it");
+  });
+
+  it("refuses a made-up link with a 422 and the reason", async () => {
+    const made = await seed();
+    chat.setTurnRunnerForTests(async (input) => void input.state.message.parts.push({ type: "text", text: JSON.stringify({ subject: "s", body: "Hi. See https://made-up.example now." }) }));
+    const { status, body } = await revise(made.id, asking);
+    assert.equal(status, 422);
+    assert.match(String(body.error), /https:\/\/made-up\.example/);
+  });
+
+  it("says so, with a 502, when the agent is not available", async () => {
+    const made = await seed();
+    delete process.env.ANTHROPIC_API_KEY;
+    const { status, body } = await revise(made.id, asking);
+    process.env.ANTHROPIC_API_KEY = "sk-test-unused";
+    assert.equal(status, 502);
+    assert.match(String(body.error), /isn't signed in/);
+  });
+
+  it("validates the request before any agent is asked", async () => {
+    const made = await seed();
+    chat.setTurnRunnerForTests(async () => assert.fail("no agent should run"));
+    assert.equal((await revise(made.id, { ...asking, instruction: "x" })).status, 400);
+    assert.equal((await revise(made.id, { ...asking, agent: "skynet" })).status, 400);
+    assert.equal((await revise(made.id, { ...asking, body: "" })).status, 400);
+    assert.equal((await revise(made.id, { ...asking, to: "victim@example.com" })).status, 400);
+    assert.equal((await revise("pr_missing", asking)).status, 404);
+  });
+
+  it("puts the environment back", () => {
+    chat.setTurnRunnerForTests(undefined);
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+});
+
 const SENDER_FOR_LIBRARY = {
   company: "Virtara",
   fromName: "Dylan at Virtara",

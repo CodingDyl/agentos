@@ -9,6 +9,7 @@ import {
   type SenderInput,
 } from "@shared/outreach-case";
 import { LibraryEmailSchema, type LibraryEmail, type LibrarySaveRequest } from "@shared/outreach-library";
+import type { ReviseRequest, ReviseResult } from "@shared/outreach-revise";
 import { AgentOSRequestError } from "./client";
 import { json, outreachKey, request } from "./outreach";
 import { tractionKey } from "./traction";
@@ -71,6 +72,20 @@ export const useDraftCase = () =>
   useCaseMutation(({ prospectId, exampleId }: { prospectId: string; exampleId?: string }) =>
     request(`/api/outreach/cases/${id(prospectId)}/draft`, json("POST", exampleId ? { exampleId } : {})),
   );
+
+/**
+ * Rewrites the saved draft with the agent you choose, changing only what the
+ * instruction asks. Returns the revision and saves nothing: write it with
+ * `useWriteCase` to keep it.
+ */
+export function useReviseDraft() {
+  return useMutation({
+    mutationFn: ({ prospectId, ...input }: ReviseRequest & { prospectId: string }) =>
+      request<ReviseResult>(`/api/outreach/cases/${id(prospectId)}/revise`, json("POST", input)),
+    networkMode: "always",
+    retry: 0,
+  });
+}
 
 const libraryKey = () => [...outreachKey(), "library"] as const;
 

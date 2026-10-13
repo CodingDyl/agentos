@@ -19,10 +19,25 @@ export type PolicyDecision = { decision: "allow" } | { decision: "ask"; reason: 
 export interface PolicyContext {
   /** The AgentOS repository: edits inside it are routine. */
   projectRoot: string;
+  /**
+   * A one-shot request for text (a rewrite, a summary): the agent may use no
+   * tool at all. Every tool call is put to the operator's `requestApproval`,
+   * which such a caller answers "no" to, so nothing is read, run or written.
+   */
+  textOnly?: boolean;
 }
 
 const ALLOW: PolicyDecision = { decision: "allow" };
 const ask = (reason: string): PolicyDecision => ({ decision: "ask", reason });
+
+/**
+ * For a text-only request, the verdict on every tool call: not allowed.
+ * Adapters check this before the ordinary rules, so reading a file is no
+ * more allowed than running a command.
+ */
+export function textOnlyVerdict(context: PolicyContext): PolicyDecision | undefined {
+  return context.textOnly ? ask("This request is for text only: no tools are allowed.") : undefined;
+}
 
 /** Tools that only look. */
 const READ_ONLY_TOOLS = new Set([
@@ -175,6 +190,11 @@ export function decideToolUse(toolName: string, input: Record<string, unknown>, 
   if (toolName.startsWith("mcp__")) return ask("Uses an external connector, which can act outside this machine.");
 
   return ask(`Uses ${toolName}, which AgentOS doesn't recognise as safe.`);
+}
+
+/** The verdict on one Claude tool call: refused outright for a text-only request, the ordinary rules otherwise. */
+export function decideChatToolUse(toolName: string, input: Record<string, unknown>, context: PolicyContext): PolicyDecision {
+  return textOnlyVerdict(context) ?? decideToolUse(toolName, input, context);
 }
 
 /** One line for the screen: the command, the file, or the query. */

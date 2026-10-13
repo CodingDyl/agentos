@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { classifyBashCommand, decideAcpToolCall, decideFileChanges, decideToolUse, isSecretPath, summariseToolInput } from "../chat-permission-policy";
+import { classifyBashCommand, decideAcpToolCall, decideChatToolUse, decideFileChanges, decideToolUse, isSecretPath, summariseToolInput, textOnlyVerdict } from "../chat-permission-policy";
 
 /**
  * "Full access, approve risky." The contract is in two halves, and both
@@ -149,3 +149,28 @@ describe("agents that describe tools differently", () => {
     assert.equal(acp({ kind: "other", title: "Send email" }), "ask");
   });
 });
+
+describe("a text-only request", () => {
+  const textOnly = { projectRoot: "/tmp/empty", textOnly: true };
+
+  it("allows no tool at all, not even a read", () => {
+    for (const [tool, input] of [
+      ["Read", { file_path: "/home/me/notes.md" }],
+      ["Grep", { pattern: "x" }],
+      ["WebFetch", { url: "https://example.com" }],
+      ["Edit", { file_path: "/tmp/empty/a.txt" }],
+      ["Bash", { command: "ls" }],
+      ["Task", {}],
+      ["Skill", {}],
+    ] as const) {
+      assert.equal(decideChatToolUse(tool, { ...input }, textOnly).decision, "ask", tool);
+    }
+    assert.match(String((textOnlyVerdict(textOnly) as { reason: string }).reason), /text only/);
+  });
+
+  it("leaves an ordinary chat exactly as it was", () => {
+    assert.equal(textOnlyVerdict(context), undefined);
+    assert.equal(decideChatToolUse("Read", { file_path: "/home/me/notes.md" }, context).decision, "allow");
+  });
+});
+

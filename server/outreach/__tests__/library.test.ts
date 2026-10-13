@@ -36,6 +36,7 @@ describe("making an email safe to reuse", () => {
   it("cuts the signature, which AgentOS adds at send time", () => {
     assert.equal(stripSignature("Hi\n\nBody.\n\n--\nDylan, Virtara\nNot for you? Reply no thanks."), "Hi\n\nBody.");
     assert.equal(stripSignature("No signature here"), "No signature here");
+    assert.equal(stripSignature("--\nDylan, Virtara"), "", "a signature with nothing above it");
   });
 });
 

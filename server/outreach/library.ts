@@ -43,9 +43,15 @@ export const MAX_EXAMPLES = 3;
 
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/** Where the last `--` signature line starts (a line of its own, at the start or after a newline), or -1. */
+export function signatureStart(body: string): number {
+  const last = [...body.matchAll(/(^|\n)--[ \t]*\n/g)].at(-1);
+  return last?.index ?? -1;
+}
+
 /** Everything from the last `--` signature line on. The signature is added by AgentOS at send time. */
 export function stripSignature(body: string): string {
-  const at = body.lastIndexOf("\n--\n");
+  const at = signatureStart(body);
   return (at >= 0 ? body.slice(0, at) : body).trim();
 }
 

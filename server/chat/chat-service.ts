@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Chat, ChatAgent, ChatApprovalPart, ChatMessage, ChatStreamEvent, CreateChat, SendChatMessage, StartChatRun } from "../../shared/chat-types";
@@ -57,6 +59,58 @@ function adapterFor(id: Chat["agent"]): ChatAgentAdapter {
   const adapter = ADAPTERS.find((entry) => entry.id === id);
   if (!adapter) throw new ChatStateError(`There is no ${id} agent.`);
   return adapter;
+}
+
+export interface AskAgentTextInput {
+  agent: Chat["agent"];
+  prompt: string;
+  /** A model this agent offers; anything else falls back to the agent's default. */
+  model?: string;
+  timeoutMs?: number;
+}
+
+/**
+ * Asks one agent for text and nothing else, outside any chat.
+ *
+ * For a rewrite or a summary: the agent runs in an empty temporary folder
+ * with every tool refused (`textOnly`), under a time limit, and nothing is
+ * saved as a chat. What comes back is the agent's words. A tool the agent
+ * reached for shows in the transcript as denied and has no effect.
+ */
+export async function askAgentText(input: AskAgentTextInput): Promise<string> {
+  const adapter = adapterFor(input.agent);
+  const agent = await adapter.describe();
+  if (!agent.available) throw new ChatStateError(agent.unavailableReason ?? `${agent.name} isn't available.`);
+  const model = input.model && agent.models.some((entry) => entry.id === input.model) ? input.model : agent.defaultModel;
+
+  const workdir = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-oneshot-"));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 120_000);
+  const message: ChatMessage = { id: `msg_${randomUUID()}`, role: "assistant", parts: [], createdAt: now(), model };
+  try {
+    await (turnOverride ?? adapter.runTurn)({
+      prompt: input.prompt,
+      model,
+      policy: { projectRoot: workdir, textOnly: true },
+      state: { message },
+      controller,
+      onChange: () => undefined,
+      requestApproval: async () => false,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) throw new ChatStateError(`${agent.name} took too long to answer.`);
+    // A crashed or unreachable agent is a plain message naming it, not an internal error.
+    console.error(`[agentos] ${agent.name} could not answer a text request:`, error);
+    throw new ChatStateError(`${agent.name} stopped before answering${error instanceof Error && error.message ? `: ${error.message}` : "."}`);
+  } finally {
+    clearTimeout(timer);
+    await fs.rm(workdir, { recursive: true, force: true }).catch(() => undefined);
+  }
+
+  if (message.error) throw new ChatStateError(message.error);
+  const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("").trim();
+  if (!text) throw new ChatStateError(`${agent.name} didn't answer.`);
+  return text;
 }
 
 /** Resolves when a chat's turn has fully settled and been saved. For tests and shutdown. */

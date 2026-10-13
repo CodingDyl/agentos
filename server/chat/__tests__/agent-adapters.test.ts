@@ -57,14 +57,14 @@ function reply(): ChatMessage {
   return { id: "msg_1", role: "assistant", parts: [], createdAt: new Date().toISOString() };
 }
 
-async function turn(agent: ChatAgentAdapter, options: { allow: boolean; resume?: string; model?: string; prompt?: string }) {
+async function turn(agent: ChatAgentAdapter, options: { allow: boolean; resume?: string; model?: string; prompt?: string; textOnly?: boolean }) {
   const state: TurnState = { message: reply() };
   const asked: ApprovalRequest[] = [];
   await agent.runTurn({
     prompt: options.prompt ?? "Go",
     model: options.model ?? "default",
     resume: options.resume,
-    policy: { projectRoot },
+    policy: { projectRoot, textOnly: options.textOnly },
     state,
     controller: new AbortController(),
     onChange: () => undefined,
@@ -90,6 +90,15 @@ describe("an ACP agent (Gemini CLI, Hermes)", () => {
     assert.equal(tool("t1")?.output, "git status: ok");
     assert.equal(tool("t2")?.status, "denied");
     assert.equal(state.sessionId, "s-new");
+  });
+
+  it("in a text-only request, refuses even the read-only command, and runs nothing", async () => {
+    const { asked, tool } = await turn(acp.geminiAgent, { allow: false, textOnly: true });
+
+    assert.deepEqual(asked.map((request) => request.summary), ["git status", "git push origin main"]);
+    assert.match(asked[0].reason, /text only/);
+    assert.equal(tool("t1")?.status, "denied");
+    assert.equal(tool("t2")?.status, "denied");
   });
 
   it("learns the agent's models, and the picker lists them from then on", async () => {
@@ -141,6 +150,16 @@ describe("Codex, through its app-server", () => {
     assert.equal(tool("c2")?.status, "denied");
     assert.equal(tool("f1")?.status, "denied");
     assert.equal(state.sessionId, "th-1");
+  });
+
+  it("in a text-only request, refuses the read, the push and the edit alike", async () => {
+    const { asked, tool } = await turn(codex.codexAgent, { allow: false, textOnly: true });
+
+    assert.deepEqual(asked.map((request) => request.summary), ["git status", "git push origin main", "/etc/hosts"]);
+    assert.ok(asked.every((request) => /text only/.test(request.reason)));
+    assert.equal(tool("c1")?.status, "denied");
+    assert.equal(tool("c2")?.status, "denied");
+    assert.equal(tool("f1")?.status, "denied");
   });
 
   it("runs what the operator allows", async () => {
