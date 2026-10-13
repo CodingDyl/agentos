@@ -22,6 +22,7 @@ import { BaselineReview } from "./baseline-review";
 import { BrandKitPanel } from "./brand-kit-panel";
 import { conceptLabel } from "./concept-label";
 import { ConceptViewer, type NoteState } from "./concept-viewer";
+import { PreviewPublishActions } from "./preview-publish-actions";
 import { StageStatusTag } from "./rebuild-status";
 
 /**
@@ -180,6 +181,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
               </PaperButton>
             ) : null}
             {WORKER_STAGES[stage.id] ? <WorkerSwitch run={run} stage={stage} busy={retry.isPending} onRetry={(worker) => retry.mutate({ stage: stage.id, worker })} /> : null}
+            <PreviewPublishActions runId={run.id} stage={stage} busy={retry.isPending || skip.isPending} />
           </div>
         ) : null}
         {stage.workerOverride && stage.status !== "blocked" ? (

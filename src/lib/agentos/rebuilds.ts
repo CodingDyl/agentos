@@ -109,6 +109,21 @@ export function useSkipCapture(runId: string) {
   return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/capture/skip`, RebuildRunSchema, {}));
 }
 
+/** One Vercel API deploy with forceNew, ignoring the rate-limit cooldown. */
+export function useForcePreviewDeploy(runId: string) {
+  return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/preview/deploy-now`, RebuildRunSchema, {}));
+}
+
+/** Resync the preview stage from Vercel's latest deployments of the approved SHA. */
+export function useRecheckPreview(runId: string) {
+  return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/preview/recheck`, RebuildRunSchema, {}));
+}
+
+/** Record a READY Vercel deployment the operator pastes as the live preview. */
+export function useMarkPreviewDeployed(runId: string) {
+  return useRunMutation((input: { deployment: string }) => call(`${base}/${encodeURIComponent(runId)}/stages/preview/mark-deployed`, RebuildRunSchema, input));
+}
+
 /** Workers able to do a stage, with whether each is ready now. Read only while the choice is on screen. */
 export function useStageWorkers(runId: string, stage: RebuildStageId, enabled: boolean) {
   return useQuery({

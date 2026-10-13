@@ -464,4 +464,5 @@ export const StageWorkerOptionSchema = z.object({
 });
 export const StageWorkerOptionsSchema = z.object({ workers: z.array(StageWorkerOptionSchema) });
 export const RebuildRetryInputSchema = z.object({ worker: z.union([WorkerIdSchema, z.literal("plan")]).optional() }).strict();
+export const RebuildMarkDeployedInputSchema = z.object({ deployment: z.string().trim().min(1).max(500) }).strict();
 export type StageWorkerOption = z.infer<typeof StageWorkerOptionSchema>;

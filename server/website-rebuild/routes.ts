@@ -10,6 +10,7 @@ import {
   RebuildConceptNoteInputSchema,
   RebuildPageNotesInputSchema,
   RebuildDecisionInputSchema,
+  RebuildMarkDeployedInputSchema,
   RebuildRetryInputSchema,
   RebuildStageIdSchema,
   RebuildStartSchema,
@@ -24,7 +25,8 @@ import { readDimensions } from "../designs/media";
 import { BRAND_EXTENSION } from "./brand";
 import { MAX_BRAND_UPLOAD_BYTES, toSafeRaster } from "./capture";
 import { REPORT_DIR } from "./reports";
-import { advanceInBackground, currentSkillVersion } from "./runner";
+import { STAGE_HANDLERS, advanceInBackground, currentSkillVersion } from "./runner";
+import { forcePreviewStage, markPreviewStage, recheckPreviewStage } from "./stages";
 import { isSkillEnabled } from "../skills/registry";
 import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, saveConceptNote, savePageNotes, runForProspect, runForWorkspace, setRunField } from "./store";
 
@@ -165,6 +167,45 @@ rebuildRouter.get("/:id/stages/:stage/workers", async (request, response) => {
   try {
     const run = readRun(request.params.id);
     response.json({ workers: await stageWorkerOptions(run, stageParam(request.params.stage)) });
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+async function startBlockedPreviewOverride(runId: string, handler: (typeof STAGE_HANDLERS)["preview"]): Promise<RebuildRun> {
+  const run = readRun(runId);
+  if (!(await isSkillEnabled(run.skillId))) throw new RebuildError(`The ${run.skillId} skill is disabled in Connectors → Skills. Enable it before retrying.`);
+  const preview = run.stages.find((stage) => stage.id === "preview");
+  if (preview?.status !== "blocked") throw new RebuildError("Only a blocked Vercel preview can use this.", 422);
+  resetForRetry(run.id, "preview");
+  advanceInBackground(run.id, { ...STAGE_HANDLERS, preview: handler });
+  return readRun(run.id);
+}
+
+rebuildRouter.post("/:id/stages/preview/deploy-now", async (request, response) => {
+  try {
+    response.json(await startBlockedPreviewOverride(request.params.id, forcePreviewStage));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+rebuildRouter.post("/:id/stages/preview/recheck", async (request, response) => {
+  try {
+    response.json(await startBlockedPreviewOverride(request.params.id, recheckPreviewStage));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+rebuildRouter.post("/:id/stages/preview/mark-deployed", async (request, response) => {
+  const input = RebuildMarkDeployedInputSchema.safeParse(request.body ?? {});
+  if (!input.success) {
+    response.status(422).json({ error: "Paste a Vercel deployment id (dpl_…) or a vercel.app URL." });
+    return;
+  }
+  try {
+    response.json(await startBlockedPreviewOverride(request.params.id, markPreviewStage(input.data.deployment)));
   } catch (error) {
     fail(response, error);
   }

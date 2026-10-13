@@ -13,10 +13,13 @@ import {
   DEPLOY_POLL_MS,
   PRODUCTION_BRANCH,
   PREVIEW_BRANCH,
+  commitShaMatches,
   nextPreviewDeployStep,
+  pickCommitDeployment,
   previewDeploymentBody,
   vercelBuildFailureMessage,
 } from "../deploy-policy";
+import { parseDeploymentRef } from "../publish";
 
 function headers(entries: Record<string, string>): { get(name: string): string | null } {
   const map = new Map(Object.entries(entries).map(([key, value]) => [key.toLowerCase(), value]));
@@ -157,5 +160,52 @@ describe("single preview deploy trigger", () => {
 
   it("polls for the git-push deploy no faster than once a minute", () => {
     assert.ok(DEPLOY_POLL_MS >= 60_000);
+  });
+
+  it("prefers a READY deployment of the SHA over an earlier ERROR, including production", () => {
+    const ready = { id: "dpl_ready", sha: commit, target: "production" as const, state: "READY" };
+    const failed = { id: "dpl_err", sha: commit, target: null as string | null, state: "ERROR", errorMessage: "GitHub fetch error 403 secondary rate limit" };
+    const picked = pickCommitDeployment([failed, ready], commit);
+    assert.equal(picked?.id, "dpl_ready");
+
+    const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: [failed, ready], commit });
+    assert.equal(next.step, "use-existing");
+    assert.equal(next.deployment?.id, "dpl_ready");
+  });
+
+  it("treats a READY production deploy of the SHA as success instead of blocking", () => {
+    const readyProd = { id: "dpl_4Rt2WSrRSH12t3UviybLYSKG52TD", sha: commit, target: "production" as const, state: "READY" };
+    const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: [readyProd], commit });
+    assert.equal(next.step, "use-existing");
+    assert.equal(next.deployment, readyProd);
+  });
+
+  it("matches a shortened SHA to the full commit", () => {
+    assert.equal(commitShaMatches("bccd970", "bccd970abc"), true);
+    assert.equal(commitShaMatches("bccd970abc", "bccd970"), true);
+    assert.equal(commitShaMatches("deadbeef", "bccd970abc"), false);
+    assert.equal(commitShaMatches(undefined, commit), false);
+  });
+
+  it("still waits, rather than requesting another deploy, when the only match is an ERROR after a git push", () => {
+    const failed = { sha: commit, target: null as string | null, state: "ERROR", errorMessage: "GitHub fetch error 403 secondary rate limit" };
+    const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: [failed], commit });
+    assert.equal(next.step, "use-existing");
+    assert.equal(next.deployment, failed);
+  });
+});
+
+describe("pasted Vercel deployment refs", () => {
+  it("reads a deployment id, a dashboard URL, or a vercel.app host", () => {
+    assert.deepEqual(parseDeploymentRef("dpl_4Rt2WSrRSH12t3UviybLYSKG52TD"), { id: "dpl_4Rt2WSrRSH12t3UviybLYSKG52TD" });
+    assert.deepEqual(
+      parseDeploymentRef("https://vercel.com/virtec-projects/total-electric-trusted-electricians/dpl_4Rt2WSrRSH12t3UviybLYSKG52TD"),
+      { id: "dpl_4Rt2WSrRSH12t3UviybLYSKG52TD" },
+    );
+    assert.deepEqual(parseDeploymentRef("https://total-electric-trusted-electricians-git-preview-virtec-projects.vercel.app"), {
+      url: "total-electric-trusted-electricians-git-preview-virtec-projects.vercel.app",
+    });
+    assert.equal(parseDeploymentRef("not a deployment").id, undefined);
+    assert.equal(parseDeploymentRef("not a deployment").url, undefined);
   });
 });

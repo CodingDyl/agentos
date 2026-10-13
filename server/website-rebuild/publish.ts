@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { authorize } from "../connectors/policy";
-import { PRODUCTION_BRANCH, previewDeploymentBody } from "./deploy-policy";
+import { PRODUCTION_BRANCH, commitShaMatches, previewDeploymentBody } from "./deploy-policy";
 import { backoffDelayMs, decideGithubCall } from "./github-rate-limit";
 
 /**
@@ -267,12 +267,17 @@ export interface VercelDeploymentState {
   sha?: string;
   target?: string | null;
   errorMessage?: string;
+  projectId?: string;
+  projectName?: string;
 }
 
 interface DeploymentData {
   uid?: string;
   id?: string;
   url: string;
+  name?: string;
+  project?: string;
+  projectId?: string;
   state?: string;
   readyState?: string;
   target?: string | null;
@@ -287,13 +292,15 @@ const toDeployment = (data: DeploymentData): VercelDeploymentState => ({
   sha: data.meta?.githubCommitSha,
   target: data.target,
   errorMessage: data.errorMessage,
+  projectId: data.projectId,
+  projectName: data.name ?? (typeof data.project === "string" ? data.project : undefined),
 });
 
 /** Every unfinished-or-live deployment of this commit. Production is included so the caller can refuse a second trigger. */
 export async function listCommitDeployments(project: VercelProject, commit: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState[]> {
   const list = await api<{ deployments?: DeploymentData[] }>(deps, "vercel", `/v6/deployments?projectId=${encodeURIComponent(project.id)}&limit=20`);
   if (list.status !== 200) throw apiError("Vercel", list.status, list.data);
-  return (list.data.deployments ?? []).map(toDeployment).filter((deployment) => deployment.sha === commit && deployment.state !== "CANCELED");
+  return (list.data.deployments ?? []).map(toDeployment).filter((deployment) => commitShaMatches(deployment.sha, commit) && deployment.state !== "CANCELED");
 }
 
 /** A preview deployment of exactly this commit, if Vercel has one (or is building one). Production deployments never count. */
@@ -302,9 +309,17 @@ export async function findPreviewDeployment(project: VercelProject, commit: stri
 }
 
 /** Asks Vercel to build a preview of `branch` at `commit`. Only for projects with no Git integration: a git-push already triggers one. */
-export async function requestPreviewDeployment(project: VercelProject, repo: GithubRepo, branch: string, commit: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState> {
+export async function requestPreviewDeployment(
+  project: VercelProject,
+  repo: GithubRepo,
+  branch: string,
+  commit: string,
+  deps: PublishDeps = defaultPublishDeps,
+  options: { forceNew?: boolean } = {},
+): Promise<VercelDeploymentState> {
   allow("vercel.create_preview", `Requested a preview of ${repo.fullName}@${commit.slice(0, 7)}`);
-  const result = await api<DeploymentData>(deps, "vercel", "/v13/deployments", {
+  const path = options.forceNew ? "/v13/deployments?forceNew=1" : "/v13/deployments";
+  const result = await api<DeploymentData>(deps, "vercel", path, {
     method: "POST",
     body: previewDeploymentBody(project, repo, branch, commit),
   });
@@ -314,8 +329,47 @@ export async function requestPreviewDeployment(project: VercelProject, repo: Git
   return deployment;
 }
 
+/** A person-initiated override: one new Vercel API deploy, ignoring an existing one of the same commit. */
+export async function requestForcedPreviewDeployment(
+  project: VercelProject,
+  repo: GithubRepo,
+  branch: string,
+  commit: string,
+  deps: PublishDeps = defaultPublishDeps,
+): Promise<VercelDeploymentState> {
+  return requestPreviewDeployment(project, repo, branch, commit, deps, { forceNew: true });
+}
+
 export async function readDeployment(id: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState> {
   const result = await api<DeploymentData>(deps, "vercel", `/v13/deployments/${encodeURIComponent(id)}`);
   if (result.status !== 200) throw apiError("Vercel", result.status, result.data);
   return toDeployment(result.data);
+}
+
+/** `dpl_…`, a Vercel dashboard URL that contains one, or a `*.vercel.app` host. */
+export function parseDeploymentRef(input: string): { id?: string; url?: string } {
+  const text = input.trim();
+  if (!text) return {};
+  const fromPath = /(?:^|\/)(dpl_[A-Za-z0-9]+)(?:\/|$|\?|#)/.exec(text);
+  if (fromPath) return { id: fromPath[1] };
+  try {
+    const url = text.includes("://") ? new URL(text) : new URL(`https://${text}`);
+    if (url.hostname.endsWith(".vercel.app")) return { url: url.hostname };
+  } catch {
+    // Not a URL.
+  }
+  return {};
+}
+
+export async function readDeploymentByRef(ref: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelDeploymentState> {
+  const parsed = parseDeploymentRef(ref);
+  const key = parsed.id ?? parsed.url;
+  if (!key) throw new PublishError("Paste a Vercel deployment id (dpl_…) or a vercel.app URL.");
+  return readDeployment(key, deps);
+}
+
+export function deploymentBelongsToProject(deployment: VercelDeploymentState, project: Pick<VercelProject, "id" | "name">): boolean {
+  if (deployment.projectId) return deployment.projectId === project.id;
+  if (deployment.projectName) return deployment.projectName === project.name || deployment.projectName === project.id;
+  return false;
 }
