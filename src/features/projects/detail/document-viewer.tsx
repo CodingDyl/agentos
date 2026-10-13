@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, Copy, FileText } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { EmptyState, FilterBar, Markdown, SectionLabel } from "@/components/os";
+import { DedsecLoader, EmptyState, FilterBar, Markdown, SectionLabel } from "@/components/os";
 import { useProjectDocument } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { formatTokens, SOURCE_LABELS, TYPE_LABELS } from "../documents-model";
@@ -57,7 +57,7 @@ export function DocumentViewer({
       </button>
 
       {isPending ? (
-        <p className="mt-6 text-[15px] leading-6 text-os-muted">Reading…</p>
+        <DedsecLoader variant="compact" className="mt-6" />
       ) : error || !data ? (
         <EmptyState
           label="Document unavailable"

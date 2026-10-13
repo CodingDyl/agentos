@@ -36,9 +36,11 @@ export function DedsecLoader({
   ...props
 }: DedsecLoaderProps) {
   const [shown, setShown] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
   const reduced = prefersReducedMotion();
   const size = variant === "page" ? "h-auto w-[min(20rem,72vw)]" : "h-auto w-36";
   const visible = delayMs <= 0 || shown;
+  const still = reduced || videoFailed;
 
   useEffect(() => {
     if (delayMs <= 0) return;
@@ -52,16 +54,19 @@ export function DedsecLoader({
       aria-busy="true"
       data-variant={variant}
       className={cn(
-        "flex w-full items-center justify-center bg-black",
-        variant === "page" ? "min-h-[min(32rem,70vh)]" : "min-h-40 py-6",
+        "flex w-full items-center justify-center",
+        // Keep the status in the tree during the delay, but do not paint a
+        // tall black stage — that flash is worse than flashing the animation.
+        visible && "bg-black",
+        visible && (variant === "page" ? "min-h-[min(32rem,70vh)]" : "min-h-40 py-6"),
         className,
       )}
       {...props}
     >
       <span className="sr-only">Loading…</span>
       {visible ? (
-        reduced ? (
-          <img src={DEDSEC_STILL} alt="" className={size} />
+        still ? (
+          <img src={reduced ? DEDSEC_STILL : DEDSEC_GIF} alt="" className={size} />
         ) : (
           <video
             className={size}
@@ -71,9 +76,9 @@ export function DedsecLoader({
             playsInline
             aria-hidden="true"
             poster={DEDSEC_STILL}
+            onError={() => setVideoFailed(true)}
           >
-            <source src={DEDSEC_WEBM} type="video/webm" />
-            <img src={DEDSEC_GIF} alt="" className={size} />
+            <source src={DEDSEC_WEBM} type="video/webm" onError={() => setVideoFailed(true)} />
           </video>
         )
       ) : null}

@@ -51,22 +51,24 @@ describe("DedsecLoader", () => {
     assert.match(html, /sr-only/);
   });
 
-  it("plays the looping WebM with a GIF fallback once the show delay has elapsed", () => {
+  it("plays the looping WebM once the show delay has elapsed", () => {
     installMatchMedia(false);
     const html = render(createElement(DedsecLoader, { delayMs: 0 }));
     assert.match(html, /<video[^>]*autoplay/i);
     assert.match(html, /<video[^>]*loop/i);
     assert.match(html, /type="video\/webm"/);
-    assert.match(html, /dedsec\.gif/);
+    assert.match(html, /dedsec\.webm/);
   });
 
-  it("hides the animation until the delay so a fast read does not flash", () => {
+  it("hides the animation and the black stage until the delay so a fast read does not flash", () => {
     installMatchMedia(false);
     const html = render(createElement(DedsecLoader, { delayMs: 150 }));
     assert.match(html, /role="status"/);
     assert.match(html, /Loading…/);
     assert.doesNotMatch(html, /<video/i);
     assert.doesNotMatch(html, /dedsec\.gif/);
+    assert.doesNotMatch(html, /bg-black/);
+    assert.doesNotMatch(html, /min-h-/);
   });
 
   it("shows a static first frame when the operator prefers reduced motion", () => {

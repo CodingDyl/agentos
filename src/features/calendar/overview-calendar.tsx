@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { CalendarEvent } from "@shared/today-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperSection, SegmentedControl } from "@/components/paper";
 import { mailConnectUrl } from "@/lib/agentos/client";
 import { useCalendarRange, useCalendarTasks, useSaveCalendarTask } from "@/lib/agentos/calendar";
@@ -47,9 +48,15 @@ export function OverviewCalendar({ className }: { className?: string }) {
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-paper-sage"><p><span className="font-medium text-paper-blue">Google events</span> · AgentOS tasks · {Intl.DateTimeFormat().resolvedOptions().timeZone}</p><p role="status">{calendar.isFetching || taskQuery.isFetching ? "Refreshing calendar…" : moveTask.isPending ? "Moving task…" : "Drag a task to reschedule, or open it to edit."}</p></div>
     {moveTask.error && <p role="alert" className="mb-3 text-sm text-paper-flame-deep">{moveTask.error.message}</p>}
     {notice && <p role="status" className="mb-3 text-sm text-paper-char">{notice}</p>}
-    {view !== "day" && <p className="mb-2 text-xs text-paper-sage sm:hidden">Swipe the calendar sideways to see every day. Open a task to change its date.</p>}
-    {view === "month" ? <CalendarMonthGrid {...gridProps} month={anchor.getMonth()} /> : <CalendarWeekGrid key={view} {...gridProps} />}
-    <CalendarDayAgenda date={selected} entries={entriesForDay(events, tasks, selected)} onOpen={openEntry} onCreate={() => setEditingTask({ date: selected })} />
+    {calendar.isPending && !calendar.data ? (
+      <DedsecLoader variant="compact" />
+    ) : (
+      <>
+        {view !== "day" && <p className="mb-2 text-xs text-paper-sage sm:hidden">Swipe the calendar sideways to see every day. Open a task to change its date.</p>}
+        {view === "month" ? <CalendarMonthGrid {...gridProps} month={anchor.getMonth()} /> : <CalendarWeekGrid key={view} {...gridProps} />}
+        <CalendarDayAgenda date={selected} entries={entriesForDay(events, tasks, selected)} onOpen={openEntry} onCreate={() => setEditingTask({ date: selected })} />
+      </>
+    )}
     <div className="mt-4 border-t border-paper-mist pt-3"><PaperButton aria-expanded={showUnscheduled} onClick={() => setShowUnscheduled(!showUnscheduled)}>Unscheduled tasks ({tasks.filter((task) => !task.completed && !task.schedule).length})</PaperButton>{showUnscheduled && <div className="mt-3"><label className="block text-sm text-paper-char">Find a task<input value={search} onChange={(e) => setSearch(e.target.value)} type="search" className={`mt-1 block min-h-9 w-full max-w-sm border border-paper-mist px-3 ${PAPER_FOCUS}`} /></label><p className="mt-2 text-xs text-paper-sage">Drag onto the calendar or open a task to choose its date.</p><ul className="mt-3 grid max-h-60 gap-2 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">{unscheduled.map((task) => <li key={`${task.projectSlug}:${task.taskId}`}><CalendarEntryButton entry={{ key: task.taskId, title: task.title, time: task.projectName, task }} onOpen={openEntry} draggable={!moveTask.isPending} /></li>)}</ul>{!unscheduled.length && <p className="mt-2 text-sm text-paper-sage">No matching unscheduled tasks.</p>}</div>}</div>
     {editingEvent && <CalendarEventEditor key={`${editingEvent.event?.id ?? "new"}:${editingEvent.event?.etag ?? ""}`} {...editingEvent} canWrite={canWrite} tasks={tasks} onClose={() => setEditingEvent(undefined)} onSaved={(event) => { setEditingEvent({ event, date: event.allDay ? event.start : calendarDate(new Date(event.start)) }); setNotice("Event saved to Google Calendar."); }} onTask={(draft) => { setEditingEvent(undefined); setEditingTask(draft); }} />}
     {editingTask && <CalendarTaskEditor draft={editingTask} projects={taskQuery.data?.projects ?? []} onClose={() => setEditingTask(undefined)} onSaved={() => { setEditingTask(undefined); setNotice("Task saved. It will appear in Today on its scheduled date."); }} />}

@@ -178,6 +178,8 @@ function Rows({ setup, table }: { setup: DatabaseSetup; table: DatabaseTable }) 
 
       {rows.isError ? (
         <p role="alert" className="text-[14px] text-paper-flame-deep">{rows.error.message}</p>
+      ) : rows.isPending && !rows.data ? (
+        <DedsecLoader variant="compact" />
       ) : (
         <div className="overflow-x-auto rounded-none border border-paper-mist">
           <table className="w-full border-collapse text-left text-[13px]">
