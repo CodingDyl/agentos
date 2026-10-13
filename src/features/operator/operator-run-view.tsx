@@ -2,6 +2,7 @@ import { ExternalLink, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { OperatorRun, OperatorStep, StepOutput } from "@shared/operator-types";
+import { DedsecLoader } from "@/components/os";
 import { Markdown } from "@/components/os/markdown";
 import { Meter, PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import {
@@ -40,7 +41,7 @@ import {
 export function OperatorRunView({ runId, onRunAgain }: { runId: string; onRunAgain: (input: string) => void }) {
   const { data: run, error, isPending } = useOperatorRun(runId);
 
-  if (isPending) return <div aria-busy="true" aria-label="Reading the run" className="mt-10 h-64 bg-paper-cream motion-safe:animate-pulse" />;
+  if (isPending) return <DedsecLoader variant="page" className="mt-10" />;
   if (!run) {
     return (
       <div role="alert" className="mt-10 border border-paper-mist px-5 py-4">

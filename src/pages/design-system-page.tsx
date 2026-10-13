@@ -8,6 +8,7 @@ import {
   AgentCommandInput,
   AppShell,
   CommandButton,
+  DedsecLoader,
   EmptyState,
   HairlineCard,
   PageHeader,
@@ -279,6 +280,19 @@ export function DesignSystemPage() {
                   title="Approval required"
                   steps={blockedSteps}
                 />
+              </HairlineCard>
+            </div>
+          </SpecimenSection>
+
+          <SpecimenSection
+            label="Loading"
+            title="DedSec wait, full page and in a card"
+            description="Every route and panel wait uses the same looping DedSec animation. Button spinners stay as they are."
+          >
+            <div className="grid gap-4 xl:grid-cols-2">
+              <DedsecLoader variant="page" delayMs={0} className="min-h-[22rem] border border-os-border" />
+              <HairlineCard className="p-0">
+                <DedsecLoader variant="compact" delayMs={0} />
               </HairlineCard>
             </div>
           </SpecimenSection>

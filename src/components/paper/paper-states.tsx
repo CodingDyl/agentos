@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { DedsecLoader } from "@/components/os";
 import { cn } from "@/lib/utils";
 import { PAPER_FOCUS, PaperButton } from "./paper";
 
@@ -9,9 +10,9 @@ import { PAPER_FOCUS, PaperButton } from "./paper";
  * opens with, the filter group, and the three states a read can be in.
  *
  * These replace `PageHeader`, `FilterBar`, `LoadingState`, `EmptyState` and
- * `ErrorState` from `components/os` one screen at a time. The wording rules
- * carry over: a loading state says what is being read, and an error shows the
- * underlying failure rather than placeholder content.
+ * `ErrorState` from `components/os` one screen at a time. Loading uses the
+ * shared DedSec loop; an error still shows the underlying failure rather
+ * than placeholder content.
  */
 
 export function PaperPageHeader({
@@ -112,21 +113,9 @@ export function PaperFilterBar<T extends string>({
   );
 }
 
-/** A screen waiting on data. Names what is being read rather than spinning. */
-export function PaperLoading({ title, message, className }: { title: string; message: string; className?: string }) {
-  return (
-    <div role="status" aria-live="polite" className={className}>
-      <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">
-        {title}
-      </h1>
-      <p className="mt-1 text-[13.5px] text-paper-sage">{message}</p>
-      <div className="mt-8 space-y-3" aria-hidden="true">
-        {[0, 1, 2].map((row) => (
-          <div key={row} className="h-16 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
-        ))}
-      </div>
-    </div>
-  );
+/** A screen waiting on data. The DedSec loop is the wait. */
+export function PaperLoading({ className }: { title: string; message: string; className?: string }) {
+  return <DedsecLoader variant="page" className={className} />;
 }
 
 /** A framed, quiet "nothing here". Says why, and optionally what to do. */

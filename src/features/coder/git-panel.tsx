@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { DedsecLoader } from "@/components/os";
 import {
   GitBranch,
   GitCommit,
@@ -235,12 +236,7 @@ export function GitPanel() {
   }, [loadStatus]);
 
   if (!status) {
-    return (
-      <div className="flex h-full items-center justify-center text-[#6a9fb5]">
-        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-        Loading git status...
-      </div>
-    );
+    return <DedsecLoader variant="compact" className="h-full" />;
   }
 
   const stagedFiles = status.files.filter((f) => f.staged);

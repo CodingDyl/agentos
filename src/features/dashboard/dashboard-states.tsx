@@ -1,9 +1,9 @@
 import { RefreshCw } from "lucide-react";
 import {
   CommandButton,
+  DedsecLoader,
   HairlineCard,
   SectionLabel,
-  SystemIndicator,
 } from "@/components/os";
 
 /**
@@ -12,19 +12,7 @@ import {
  */
 
 export function DashboardLoading() {
-  return (
-    <div
-      className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 px-5 py-8 sm:px-8 lg:px-12 lg:py-12"
-      role="status"
-      aria-live="polite"
-    >
-      <SectionLabel>AgentOS</SectionLabel>
-      <p className="text-[clamp(1.5rem,2.4vw,2rem)] leading-[1.1] font-normal tracking-[-0.02em] text-os-muted">
-        Reading system state…
-      </p>
-      <SystemIndicator state="syncing" label="Vault / reading" />
-    </div>
-  );
+  return <DedsecLoader variant="page" />;
 }
 
 export interface DashboardErrorProps {

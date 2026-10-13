@@ -1,7 +1,7 @@
 import { CheckCircle2, ExternalLink, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import type { SeoFinding } from "@shared/seo-types";
-import { CommandButton, EmptyState, Section, SectionLabel } from "@/components/os";
+import { CommandButton, DedsecLoader, EmptyState, Section, SectionLabel } from "@/components/os";
 import { useFileSeoFindingTask, useProjectSeo, useProjectVercelInfo, useRunSeoAudit } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, groupBySeverity, SEVERITY_DOT, SEVERITY_LABELS, SEVERITY_TEXT } from "../seo-model";
@@ -46,7 +46,7 @@ export function ProjectSeo({
 
           {vercelProjectId ? (
             vercel.isPending ? (
-              <p className="mt-2 text-[14px] leading-5 text-os-muted">Reading Vercel…</p>
+              <DedsecLoader variant="compact" className="mt-2" />
             ) : liveUrl ? (
               <a
                 href={liveUrl}
@@ -97,7 +97,7 @@ export function ProjectSeo({
       {runAudit.error ? <p className="text-[13px] leading-5 text-os-danger">{runAudit.error.message}</p> : null}
 
       {seo.isPending ? (
-        <p className="text-[15px] leading-6 text-os-muted">Reading SEO history…</p>
+        <DedsecLoader variant="compact" />
       ) : !latest ? (
         <EmptyState
           label="No audits yet"

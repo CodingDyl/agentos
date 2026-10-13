@@ -3,6 +3,7 @@ import { CircleAlert, CircleDashed, Paperclip, Split, X } from "lucide-react";
 import { useState, type ReactNode, type UIEvent } from "react";
 import { memoryMarkdownExtensions, type WikiLinkToken } from "@shared/memory-markdown";
 import type { MemoryLink, MemoryNoteDetail } from "@shared/memory-types";
+import { DedsecLoader } from "@/components/os";
 import { Markdown, type InlineOverride } from "@/components/os/markdown";
 import { PAPER_FOCUS, PaperError } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
@@ -111,7 +112,7 @@ export function NotePreview({
     return (
       <aside className={cn("flex flex-col justify-center p-8", className)} aria-label="Note">
         {isLoading ? (
-          <p role="status" className="text-[14px] text-paper-sage">Opening the note…</p>
+          <DedsecLoader variant="compact" />
         ) : (
           <div className="max-w-[34ch]">
             <p className="font-paper-display text-[19px] leading-6 font-bold text-paper-moss">No note open</p>

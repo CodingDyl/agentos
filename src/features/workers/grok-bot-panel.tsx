@@ -1,7 +1,7 @@
 import { Check, X } from "lucide-react";
 import { useState } from "react";
 import type { GrokBotTestResult } from "@shared/grok-bot-types";
-import { CommandButton, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
+import { CommandButton, DedsecLoader, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
 import { formatRelativeTime } from "@/lib/format";
 import { useGrokBotStatus, useSaveGrokBotSettings, useTestGrokBotConnection } from "@/lib/agentos/queries";
 
@@ -24,7 +24,7 @@ export function GrokBotPanel() {
   const [result, setResult] = useState<GrokBotTestResult>();
 
   if (status.isPending) {
-    return <p className="os-meta text-os-subtle">Checking Grok Bot…</p>;
+    return <DedsecLoader variant="compact" />;
   }
   if (!status.data) {
     return (

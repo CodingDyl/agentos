@@ -17,6 +17,7 @@ import type { WorkerDiff, WorkerJob, WorkerReview } from "@shared/worker-types";
 import {
   AppShell,
   CommandButton,
+  DedsecLoader,
   EmptyState,
   ErrorState,
   HairlineCard,
@@ -1018,11 +1019,7 @@ function DiffViewer({
   error?: string;
 }) {
   if (isPending) {
-    return (
-      <p className="mt-4 text-[13px] leading-5 text-os-subtle">
-        Reading the diff…
-      </p>
-    );
+    return <DedsecLoader variant="compact" className="mt-4" />;
   }
 
   if (error || !diff) {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Compass } from "@shared/compass-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PaperButton, PaperError, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useCompass } from "@/lib/agentos/compass";
@@ -32,7 +32,7 @@ export function CompassPage() {
 
         <div className="mt-8">
           {compass.isPending ? (
-            <div aria-busy="true" className="h-40 border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
+            <DedsecLoader variant="page" />
           ) : compass.error ? (
             <PaperError title="The Compass could not be read." detail={compass.error.message} headingLevel="h2" isRetrying={compass.isFetching} onRetry={() => void compass.refetch()} />
           ) : compass.data.exists ? (

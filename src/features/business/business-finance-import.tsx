@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { DedsecLoader } from "@/components/os";
 import { PaperButton, PaperCard, PaperPagination } from "@/components/paper";
 import { useFinanceBusinessExpenses, useImportFinanceExpenses } from "@/lib/agentos/business-ledger";
 import { money } from "./business-billing-format";
@@ -68,9 +69,7 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
       </div>
 
       {finance.isPending ? (
-        <p role="status" className="mt-4 text-sm">
-          Reading Finance…
-        </p>
+        <DedsecLoader variant="compact" className="mt-4" />
       ) : finance.error ? (
         <p role="alert" className="mt-4 border border-paper-flame-deep p-3 text-paper-flame-deep">
           {finance.error.message}

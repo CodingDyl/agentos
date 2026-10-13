@@ -12,7 +12,7 @@ import {
   type RebuildRun,
   type RebuildStage,
 } from "@shared/website-rebuild-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
@@ -40,7 +40,7 @@ export function RebuildPage() {
     <AppShell navigationItems={navigationItems} pageId="traction" activeHref="/traction" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
       <PaperStage>
         {rebuild.isPending ? (
-          <p role="status">Loading the rebuild…</p>
+          <DedsecLoader variant="page" />
         ) : rebuild.error || !run ? (
           <p role="alert" className="border border-paper-flame-deep p-3 text-paper-flame-deep">
             {rebuild.error?.message ?? "That rebuild could not be found."}
@@ -254,7 +254,7 @@ function WorkerSwitch({ run, stage, busy, onRetry }: { run: RebuildRun; stage: R
   return (
     <div className="basis-full border-t border-paper-flame/30 pt-3">
       {workers.isPending ? (
-        <p role="status">Checking which workers are ready…</p>
+        <DedsecLoader variant="compact" />
       ) : workers.error ? (
         <p role="alert" className="text-paper-flame-deep">{workers.error.message}</p>
       ) : (

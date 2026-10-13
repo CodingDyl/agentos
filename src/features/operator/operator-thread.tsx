@@ -2,6 +2,7 @@ import { ChevronRight, Square } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { OperatorRun } from "@shared/operator-types";
+import { DedsecLoader } from "@/components/os";
 import { Markdown } from "@/components/os/markdown";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import { useApproveOperatorRun, useOperatorRun, useStopOperatorRun } from "@/lib/agentos/operator";
@@ -32,7 +33,7 @@ export function RunMessage({ runId, onOpen, onRunAgain }: { runId: string; onOpe
         {error.message}
       </p>
     ) : (
-      <div aria-busy="true" className="h-16 w-2/3 bg-paper-cream motion-safe:animate-pulse" />
+      <DedsecLoader variant="compact" className="min-h-24 w-2/3" />
     );
   }
 
@@ -56,7 +57,7 @@ export function RunReply({ runId, onOpen, onRunAgain }: { runId: string; onOpen:
         {error.message}
       </p>
     ) : (
-      <div aria-busy="true" className="h-16 w-2/3 bg-paper-cream motion-safe:animate-pulse" />
+      <DedsecLoader variant="compact" className="min-h-24 w-2/3" />
     );
   }
   return <JarvisBubble run={run} onOpen={() => onOpen(run.id)} onRunAgain={onRunAgain} />;

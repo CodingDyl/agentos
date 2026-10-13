@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import type { OperationsData, UsageRange } from "@shared/usage-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useOperations } from "@/lib/agentos/queries";
 import { AgentsTab } from "./agents-tab";
@@ -96,7 +96,7 @@ export function OperationsPage() {
     >
       <PaperStage>
           {isPending ? (
-            <LoadingSheet />
+            <DedsecLoader variant="page" />
           ) : !data ? (
             <div className="py-4">
               <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Usage could not be read.</h1>
@@ -199,17 +199,3 @@ function Operations({
   );
 }
 
-/** The page's own shape, drawn empty while the ledger is read. */
-function LoadingSheet() {
-  return (
-    <div aria-busy="true" aria-label="Reading the ledger">
-      <div className="h-8 w-64 rounded-none bg-paper-linen motion-safe:animate-pulse" />
-      <div className="mt-3 h-4 w-40 rounded-none bg-paper-linen motion-safe:animate-pulse" />
-      <div className="mt-6 grid gap-3 md:grid-cols-[1.45fr_1fr_1fr]">
-        {[0, 1, 2].map((index) => (
-          <div key={index} className="h-56 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
-        ))}
-      </div>
-    </div>
-  );
-}

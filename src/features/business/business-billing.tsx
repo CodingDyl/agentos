@@ -6,6 +6,7 @@ import { businessInvoicePaid, calculateBusinessTotals } from "@shared/business-b
 import { useState } from "react";
 import { FinanceExpenseImport } from "./business-finance-import";
 import { businessRecordLabel, type BusinessLedgerRecord } from "@shared/business-ledger-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection } from "@/components/paper";
 import { businessLedgerUrl, useBusinessLedger, useBusinessOperation } from "@/lib/agentos/business-ledger";
 import { usePagination } from "@/lib/use-pagination";
@@ -36,7 +37,7 @@ export function LedgerRecords({ entityId, entityName, kinds, entityNames }: { en
   const pager = usePagination(rows, `${kind}|${query}`);
   return <div className="grid gap-7">
     {kinds.length > 1 ? <nav aria-label="Record type" className="flex flex-wrap gap-2">{kinds.map((value) => <PaperButton key={value} variant={kind === value ? "amber" : "ghost"} aria-pressed={kind === value} onClick={() => { setKind(value); setEditing(undefined); operation.reset(); setError(undefined); }}>{labels[value]}</PaperButton>)}</nav> : null}
-    {ledger.isPending ? <p role="status">Loading records…</p> : null}
+    {ledger.isPending ? <DedsecLoader variant="compact" /> : null}
     {error || operation.error || ledger.error ? <p role="alert" className="border border-paper-flame-deep p-3 text-paper-flame-deep">{error ?? operation.error?.message ?? ledger.error?.message}</p> : null}
     {operation.isSuccess ? <p role="status" className="text-sm text-paper-moss">Saved to your local business ledger.</p> : null}
     <PaperSection label={labels[kind]} count={rows.length}>
@@ -80,7 +81,7 @@ export function CashFlowSummary({ entityId }: { entityId: string }) {
 export function BusinessDetails({ entityId, entityName }: { entityId: string; entityName: string }) {
   const ledger = useBusinessLedger(entityId);
   const operation = useBusinessOperation(entityId);
-  if (!ledger.data) return ledger.isPending ? <p role="status">Loading business details…</p> : null;
+  if (!ledger.data) return ledger.isPending ? <DedsecLoader variant="compact" /> : null;
   const revision = ledger.data.revision;
   return <div className="grid gap-3">
     {operation.error ? <p role="alert" className="border border-paper-flame-deep p-3 text-paper-flame-deep">{operation.error.message}</p> : null}

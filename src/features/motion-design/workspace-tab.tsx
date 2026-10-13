@@ -6,13 +6,14 @@ import {
   MOTION_WIZARD_STEP_LABEL,
   type MotionRunView,
 } from "@shared/motion-design-types";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperError, Tag } from "@/components/paper";
 import { useApproveMotionConcept, useMotionForWorkspace, useSendMotionNotes } from "@/lib/agentos/motion-design";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceMotionTab({ slug }: { slug: string }) {
   const query = useMotionForWorkspace(slug);
-  if (query.isPending) return <p role="status">Loading Motion Design…</p>;
+  if (query.isPending) return <DedsecLoader variant="compact" />;
   if (query.error) {
     return <PaperError title="Motion Design could not be read." detail={query.error.message} onRetry={() => void query.refetch()} isRetrying={query.isFetching} headingLevel="h2" />;
   }

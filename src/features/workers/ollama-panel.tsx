@@ -5,7 +5,7 @@ import {
   type OllamaSettings,
   type ProbeRecord,
 } from "@shared/route-policy-types";
-import { CommandButton, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
+import { CommandButton, DedsecLoader, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
 import { formatRelativeTime } from "@/lib/format";
 import { useOllamaStatus, useProbeOllamaModel, useSaveOllamaSettings } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -71,7 +71,7 @@ export function OllamaPanel() {
   }, [status.data, draft]);
 
   if (status.isPending) {
-    return <p className="os-meta text-os-subtle">Checking Ollama…</p>;
+    return <DedsecLoader variant="compact" />;
   }
   if (!status.data || !draft) {
     return (

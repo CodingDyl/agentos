@@ -1,5 +1,6 @@
 import { ExternalLink, MessageSquare, Star } from "lucide-react";
 import type { NewsItem, TrendingRepo } from "@shared/today-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperSection } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
 import { useTodayNews, useTodayTrending } from "@/lib/agentos/queries";
@@ -53,7 +54,7 @@ export function TodayNews({ className }: { className?: string }) {
   return (
     <PaperSection label="Tech & AI news" count={items.length > 0 ? items.length : undefined} className={className}>
       {isPending ? (
-        <p className="text-[14px] text-paper-sage">Reading the news…</p>
+        <DedsecLoader variant="compact" />
       ) : isError || !data || items.length === 0 ? (
         <p className="text-[14px] leading-6 text-paper-char">
           The news couldn't be read{data && data.failed.length > 0 ? ` (${data.failed.join(", ")})` : ""}. It will try again shortly.
@@ -111,7 +112,7 @@ export function TodayTrending({ className }: { className?: string }) {
   return (
     <PaperSection label="Trending on GitHub" count={repos.length > 0 ? repos.length : undefined} className={className}>
       {isPending ? (
-        <p className="text-[14px] text-paper-sage">Reading GitHub…</p>
+        <DedsecLoader variant="compact" />
       ) : isError || !data || data.status !== "ready" ? (
         <p className="text-[14px] leading-6 text-paper-char">{data?.detail ?? "GitHub trending couldn't be read."}</p>
       ) : (

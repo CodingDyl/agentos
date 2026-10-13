@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { BusinessEntitySummary } from "@shared/business-types";
 import { BUSINESS_LEDGER_KINDS, businessRecordLabel, type BusinessImportPreview, type BusinessLedgerKind, type BusinessLedgerRecord } from "@shared/business-ledger-types";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { businessLedgerUrl, useBusinessLedger, useCommitBusinessImport, usePrepareBusinessImport } from "@/lib/agentos/business-ledger";
 
@@ -41,7 +42,7 @@ export function BusinessSetup({ entity }: { entity: BusinessEntitySummary }) {
       {preview ? <ImportReview preview={preview} busy={busy} onApply={() => commit.mutate(preview.id, { onSuccess: () => setPreview(undefined) })} onCancel={() => setPreview(undefined)} /> : null}
 
       <PaperSection label="Local records" count={records.length}>
-        {ledger.isPending ? <p role="status">Reading local records…</p> : ledger.data ? <>
+        {ledger.isPending ? <DedsecLoader variant="compact" /> : ledger.data ? <>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
             {BUSINESS_LEDGER_KINDS.map((kind) => <div key={kind}><dt className="text-[12px] text-paper-sage">{LABELS[kind]}</dt><dd className="mt-1 text-[23px] font-semibold tabular-nums">{ledger.data.counts[kind]}</dd></div>)}
           </dl>

@@ -2,7 +2,7 @@ import { ArrowRight, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ConnectorRecommendation, ConnectorSummary } from "@shared/connector-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, PaperSwitch, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useConnectors, useSetConnectorEnabled } from "@/lib/agentos/connectors";
@@ -49,11 +49,7 @@ export function ConnectorsPage() {
         </header>
 
         {isPending ? (
-          <div aria-busy="true" aria-label="Reading connectors" className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {[0, 1, 2, 3].map((index) => (
-              <div key={index} className="h-40 rounded-none border border-paper-mist bg-paper-cream motion-safe:animate-pulse" />
-            ))}
-          </div>
+          <DedsecLoader variant="page" className="mt-10" />
         ) : !data ? (
           <div role="alert" className="mt-10 rounded-none border border-paper-mist px-5 py-4">
             <p className="font-semibold text-paper-moss">Connectors couldn't be read.</p>

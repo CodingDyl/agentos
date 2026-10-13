@@ -2,6 +2,7 @@ import { Check, Copy, ExternalLink, Link2, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { LinkedProjectSite } from "@shared/vercel-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperEmpty, PaperError, PaperIndicator, PaperNotice, SegmentedControl } from "@/components/paper";
 import { useProjectSite } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
@@ -28,7 +29,7 @@ const VIEWPORTS: readonly { value: Viewport; label: string }[] = [
 export function SiteTab({ slug, onOpenSettings }: { slug: string; onOpenSettings: () => void }) {
   const site = useProjectSite(slug);
 
-  if (site.isPending) return <p className="text-[14px] text-paper-sage">Reading Vercel…</p>;
+  if (site.isPending) return <DedsecLoader variant="compact" />;
 
   if (site.isError) {
     return (
@@ -185,8 +186,8 @@ function SiteFrame({ url, viewport }: { url: string; viewport: Viewport }) {
         )}
       />
       {!loaded ? (
-        <div role="status" className="absolute inset-0 grid place-items-center text-[14px] text-paper-sage">
-          Loading {host}…
+        <div className="absolute inset-0 grid place-items-center bg-black">
+          <DedsecLoader variant="compact" className="min-h-0 bg-transparent" />
         </div>
       ) : null}
     </div>

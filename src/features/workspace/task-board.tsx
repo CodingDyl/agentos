@@ -39,6 +39,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   CommandButton,
+  DedsecLoader,
   EmptyState,
   HairlineCard,
   Section,
@@ -367,7 +368,7 @@ export function TaskBoard({ project, startAdding, onAddingHandled }: TaskBoardPr
   };
 
   if (isPending) {
-    return <p className="text-[15px] leading-6 text-os-muted">Reading TASKS.md…</p>;
+    return <DedsecLoader variant="compact" />;
   }
 
   const openCount = OPEN_SECTIONS.reduce((sum, { key }) => sum + board[key].length, 0);

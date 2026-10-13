@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useMemo } from "react";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PaperButton, PaperSection, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useAutomationSurfaces, useAutomations } from "@/lib/agentos/queries";
@@ -55,7 +55,7 @@ export function AutomationsPage() {
 
         <PaperSection label="Scheduled jobs" count={jobs.data ? automations.length : undefined} className="mt-10">
           {jobs.isPending ? (
-            <p className="text-[14px] text-paper-sage">Reading Hermes' schedule…</p>
+            <DedsecLoader variant="compact" />
           ) : !jobs.data ? (
             <div className="rounded-none border border-paper-mist px-5 py-4">
               <p className="font-semibold text-paper-moss">Hermes' schedule couldn't be read.</p>
@@ -102,7 +102,7 @@ export function AutomationsPage() {
           {surfaces.data ? (
             <BackgroundWork surfaces={surfaces.data} />
           ) : surfaces.isPending ? (
-            <p className="text-[14px] text-paper-sage">Asking Hermes what else it runs…</p>
+            <DedsecLoader variant="compact" />
           ) : (
             <p className="text-[14px] text-paper-sage">
               Hermes couldn't report its other automations. {surfaces.error?.message}

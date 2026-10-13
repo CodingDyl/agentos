@@ -18,7 +18,7 @@ import {
   type WorkspaceModule,
   type WorkspaceType,
 } from "@shared/workspace";
-import { CommandButton, SectionLabel } from "@/components/os";
+import { CommandButton, DedsecLoader, SectionLabel } from "@/components/os";
 import type { ProjectSettings as Settings } from "@/lib/agentos/client";
 import {
   useArchiveProject,
@@ -251,9 +251,11 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
         </header>
 
         {!form ? (
-          <p className="px-6 py-6 text-[15px] leading-6 text-os-muted">
-            {settings.error ? settings.error.message : "Reading settings…"}
-          </p>
+          settings.error ? (
+            <p className="px-6 py-6 text-[15px] leading-6 text-os-muted">{settings.error.message}</p>
+          ) : (
+            <DedsecLoader variant="compact" className="px-6 py-6" />
+          )
         ) : (
           <form
             className="min-h-0 flex-1 overflow-y-auto px-6 py-6"

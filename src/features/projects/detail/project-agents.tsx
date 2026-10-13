@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { ProjectDetail } from "@shared/agentos-types";
 import {
   CommandButton,
+  DedsecLoader,
   EmptyState,
   HairlineCard,
   Section,
@@ -60,7 +61,7 @@ export function ProjectAgents({
 
         <Section label="Workers">
           {workers.isPending ? (
-            <p className="text-[15px] leading-6 text-os-muted">Checking who is available…</p>
+            <DedsecLoader variant="compact" />
           ) : workers.error || !workers.data ? (
             <EmptyState variant="inline" description="Workers could not be read." />
           ) : (
@@ -133,7 +134,7 @@ export function ProjectAgents({
         }
       >
         {jobs.isPending ? (
-          <p className="text-[15px] leading-6 text-os-muted">Reading jobs…</p>
+          <DedsecLoader variant="compact" />
         ) : mine.length === 0 ? (
           <EmptyState
             variant="inline"

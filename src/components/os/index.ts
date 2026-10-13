@@ -10,6 +10,7 @@ export * from "./empty-state";
 export * from "./error-state";
 export * from "./filter-bar";
 export * from "./hairline-card";
+export * from "./dedsec-loader";
 export * from "./loading-state";
 export * from "./markdown";
 export * from "./page-header";

@@ -2,6 +2,7 @@ import { Check, ExternalLink, Play, Video } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { BriefPlan, CalendarEvent } from "@shared/today-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperSection, Tag } from "@/components/paper";
 import { mailConnectUrl } from "@/lib/agentos/client";
 import {
@@ -112,7 +113,7 @@ export function MorningPlan({ className }: { className?: string }) {
   if (brief.isPending) {
     return (
       <PaperSection label="This morning's plan" className={className}>
-        <p className="text-[14px] text-paper-sage">Reading Hermes' brief…</p>
+        <DedsecLoader variant="compact" />
       </PaperSection>
     );
   }
@@ -240,7 +241,7 @@ export function TodayCalendar({ className }: { className?: string }) {
   return (
     <PaperSection label="Calendar" count={events.length > 0 ? events.length : undefined} className={className}>
       {isPending ? (
-        <p className="text-[14px] text-paper-sage">Reading your calendar…</p>
+        <DedsecLoader variant="compact" />
       ) : !data || data.status !== "ready" ? (
         <div className="rounded-none border border-paper-mist px-4 py-3.5">
           <p className="text-[14px] leading-6 text-paper-char">
@@ -310,7 +311,7 @@ export function DayWrapUp({ className }: { className?: string }) {
           <div className="bg-paper-white px-5 py-4">
             <TodayLabel>Done today{data && data.done.length > 0 ? ` · ${data.done.length}` : ""}</TodayLabel>
             {wrap.isPending ? (
-              <p className="mt-2 text-[14px] text-paper-sage">Reading today's activity…</p>
+              <DedsecLoader variant="compact" className="mt-2" />
             ) : !data || data.done.length === 0 ? (
               <p className="mt-2 text-[14px] leading-6 text-paper-char">
                 Nothing marked done in AgentOS today. Work done elsewhere won't show here; capture it below if it matters.

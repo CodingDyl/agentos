@@ -1,7 +1,7 @@
 import { Check, GitBranch, GitCommitHorizontal, Plus, TriangleAlert } from "lucide-react";
 import { type ChangeEvent, useState } from "react";
 import type { BranchSummary, RepositoryStatus } from "@shared/repository-types";
-import { CommandButton, EmptyState, SectionLabel } from "@/components/os";
+import { CommandButton, DedsecLoader, EmptyState, SectionLabel } from "@/components/os";
 import { useRepositoryAction, useRepositoryStatus } from "@/lib/agentos/queries";
 import { GitGraph } from "./git-graph";
 import { GitGuide } from "./git-guide";
@@ -88,7 +88,7 @@ export function ProjectRepository({ slug }: { slug: string }) {
   const [creating, setCreating] = useState(false);
 
   if (isLoading) {
-    return <p className="os-meta mt-6 text-os-subtle">Reading the repository…</p>;
+    return <DedsecLoader variant="compact" className="mt-6" />;
   }
 
   if (error) {

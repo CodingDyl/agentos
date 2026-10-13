@@ -1,6 +1,7 @@
 import { ChevronDown, GitBranch, Plus } from "lucide-react";
 import { useState } from "react";
 import type { AgentSession } from "@shared/agentos-types";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PaperButton, PaperIndicator } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
 import { useAgentSessions } from "@/lib/agentos/queries";
@@ -89,7 +90,7 @@ export function AgentSessionBar({
       {showHistory ? (
         <div className="mt-4 border-t border-paper-mist pt-4">
           {isPending ? (
-            <p className="text-[13px] text-paper-sage">Reading sessions…</p>
+            <DedsecLoader variant="compact" />
           ) : previous.length === 0 ? (
             <p className="text-[13px] text-paper-sage">No previous sessions</p>
           ) : (

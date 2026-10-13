@@ -2,6 +2,7 @@ import { BookmarkPlus, Laptop, Music, Pause, Play, Plug, SkipBack, SkipForward, 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatTimestamp, type SpotifyTrack } from "@shared/learning-types";
+import { DedsecLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
 import { useImportSource, useSpotifyDevices, useSpotifyMusicLibrary, useSpotifyPlaylists } from "@/lib/agentos/learning";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,7 @@ export function SpotifyPanel({ connectResult }: { connectResult?: string }) {
   const spotify = useSpotify();
   const status = spotify.status;
 
-  if (!status) return <p className="text-[14px] text-paper-sage">Checking Spotify…</p>;
+  if (!status) return <DedsecLoader variant="compact" />;
 
   if (!spotify.ready) {
     return (
@@ -217,7 +218,7 @@ function Playlists() {
     <section aria-label="Playlists">
       <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Playlists</h2>
       {playlists.error ? <p className="mt-2 text-[13.5px] text-paper-flame-deep">{playlists.error.message}</p> : null}
-      {playlists.isPending ? <p className="mt-2 text-[14px] text-paper-sage">Reading playlists…</p> : null}
+      {playlists.isPending ? <DedsecLoader variant="compact" className="mt-2" /> : null}
       <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {list.map((playlist) => (
           <li key={playlist.id}>

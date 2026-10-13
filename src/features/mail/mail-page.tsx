@@ -2,7 +2,7 @@ import "@/styles/mail.css";
 import { useMemo, useRef, useState } from "react";
 import { PenSquare } from "lucide-react";
 import { MAIL_MAX_AGE_DAYS, MAIL_THREAD_LIMIT, type MailClassifier } from "@shared/mail-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { mailConnectUrl } from "@/lib/agentos/client";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useDisconnectMail, useMail, useMailStatus, useSyncMail } from "@/lib/agentos/queries";
@@ -266,7 +266,7 @@ export function MailPage() {
 
           <div className="mail-content" ref={listTop}>
             {status.isPending ? (
-              <p className="mail-meta">Checking Mail configuration…</p>
+              <DedsecLoader variant="compact" />
             ) : !configured && !titanLinked ? (
               <MailEmptyState
                 title="The inbox is not connected yet"
@@ -281,7 +281,7 @@ export function MailPage() {
             ) : view === "outbox" ? (
               <MailOutbox onNotice={setNotice} />
             ) : mail.isPending ? (
-              <p className="mail-meta">Reading stored mail…</p>
+              <DedsecLoader variant="compact" />
             ) : !mail.data || totalThreads === 0 ? (
               <MailEmptyState
                 title="No mail synced yet"

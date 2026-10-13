@@ -3,7 +3,7 @@ import { FileText } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { MissionControlData } from "@shared/mission-control-types";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage, SegmentedControl } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatTime, sourceLabel, toneFor } from "@/features/activity";
@@ -77,7 +77,7 @@ export function MissionControlPage() {
     >
       <PaperStage full>
         {isPending ? (
-          <p className="text-[14px] text-paper-sage">Reading your day…</p>
+          <DedsecLoader variant="page" />
         ) : !data ? (
           <div>
             <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.015em]">Your day couldn't be read.</h1>

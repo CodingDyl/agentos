@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, KeyRound, Pencil, Plus, RefreshCw, Trash2 } 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import type { DatabaseSetup, DatabaseTable, RowKey } from "@shared/database-types";
+import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, SegmentedControl, Tag } from "@/components/paper";
 import {
   useDatabaseRows,
@@ -32,7 +33,7 @@ export function DatabaseTab({ slug }: { slug: string }) {
   const linked = useMemo(() => setups.data ?? [], [setups.data]);
   const setup = linked.find((entry) => entry.id === setupId) ?? linked[0];
 
-  if (setups.isPending) return <p className="text-[14px] text-paper-sage">Reading linked databases…</p>;
+  if (setups.isPending) return <DedsecLoader variant="compact" />;
   if (setups.isError) return <p role="alert" className="text-[14px] text-paper-flame-deep">{setups.error.message}</p>;
 
   if (!setup) {
@@ -92,7 +93,7 @@ function Tables({ setup, tableName, onSelectTable }: { setup: DatabaseSetup; tab
   const list = tables.data?.tables ?? [];
   const table = list.find((entry) => entry.name === tableName) ?? list[0];
 
-  if (tables.isPending) return <p className="text-[14px] text-paper-sage">Reading tables…</p>;
+  if (tables.isPending) return <DedsecLoader variant="compact" />;
   if (tables.isError) {
     return (
       <div role="alert">

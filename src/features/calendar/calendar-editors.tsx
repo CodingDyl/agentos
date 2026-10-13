@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { X, Plus, CheckSquare } from "lucide-react";
 import type { CalendarEvent } from "@shared/today-types";
 import type { CalendarTask } from "@shared/calendar-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton } from "@/components/paper";
 import { useCalendarSuggestions, useSaveCalendarEvent, useSaveCalendarTask } from "@/lib/agentos/calendar";
 import { addDays, calendarDate, dateFromKey, localDateTime } from "./calendar-model";
@@ -66,7 +67,7 @@ export function CalendarEventEditor({ event, date, time = "09:00", canWrite, tas
       {dirty && <p className="mt-2 text-xs text-paper-sage">Save your changes before working with linked tasks.</p>}
       {review && <div className="mt-4 space-y-2">
         <p className="text-sm text-paper-char">From your preparation notes. Open a suggestion, choose its date and save to create it.</p>
-        {suggestions.isPending && <p role="status" className="text-sm">Reading preparation notes…</p>}
+        {suggestions.isPending && <DedsecLoader variant="compact" className="min-h-24" />}
         {suggestions.error && <p role="alert" className="text-sm text-paper-flame-deep">{suggestions.error.message}</p>}
         {suggestions.data?.suggestions.map((suggestion) => { const exists = linked.some((task) => task.title === suggestion); return <div key={suggestion} className="flex items-center justify-between gap-3 border-b border-paper-mist py-2 text-sm"><span>{suggestion}</span><PaperButton disabled={exists || dirty} onClick={() => onTask({ date, eventId: event.id, title: suggestion })}>{exists ? "Already linked" : "Review task"}</PaperButton></div>; })}
         {suggestions.data?.suggestions.length === 0 && <p className="text-sm text-paper-sage">Add preparation notes and save the event first.</p>}

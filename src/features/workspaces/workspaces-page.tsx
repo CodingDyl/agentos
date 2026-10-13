@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ProjectState, ProjectSummary } from "@shared/agentos-types";
 import { WORKSPACE_TYPE_LABELS, type WorkspaceType } from "@shared/workspace";
-import { AppShell } from "@/components/os";
+import { AppShell, DedsecLoader } from "@/components/os";
 import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { sortProjects, stateLabel } from "@/features/projects/projects-model";
@@ -95,7 +95,9 @@ export function WorkspacesPage() {
           </div>
         </header>
 
-        {isPending ? null : !data ? (
+        {isPending ? (
+          <DedsecLoader variant="page" className="mt-10" />
+        ) : !data ? (
           <div className="mt-10">
             <h2 className="font-paper-display text-[21px] font-bold">The portfolio could not be read.</h2>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">

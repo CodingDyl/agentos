@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, Download, ExternalLink, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { SkillSummary } from "@shared/skill-types";
+import { DedsecLoader } from "@/components/os";
 import { PaperButton, PaperSection, PaperSwitch, Tag } from "@/components/paper";
 import { useDeleteSkill, useSetSkillEnabled, useSkills, useUpdateMarketplaceSkill } from "@/lib/agentos/skills";
 import { MarketplaceInstall } from "./marketplace-install";
@@ -82,9 +83,7 @@ export function SkillsSection() {
         </p>
       ) : null}
       {skills.isPending ? (
-        <p role="status" className="text-[13px]">
-          Reading skills…
-        </p>
+        <DedsecLoader variant="compact" />
       ) : skills.error ? (
         <p role="alert" className="text-[13px] text-paper-flame-deep">
           {skills.error.message}

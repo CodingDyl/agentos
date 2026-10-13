@@ -2,6 +2,7 @@ import { History, MessageSquarePlus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ChatSummary } from "@shared/chat-types";
+import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton } from "@/components/paper";
 import { cn } from "@/lib/utils";
 import { groupChats } from "./chat-model";
@@ -46,7 +47,7 @@ export function ChatHistorySidebar({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {loading ? (
-          <div aria-busy="true" className="m-1 h-24 bg-paper-cream motion-safe:animate-pulse" />
+          <DedsecLoader variant="compact" className="min-h-32" />
         ) : error ? (
           <p role="alert" className="p-2 text-[13px] text-paper-flame-deep">
             {error}
