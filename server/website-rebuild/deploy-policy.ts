@@ -15,6 +15,7 @@ export const PRODUCTION_BRANCH = "main";
 export const DEPLOY_POLL_MS = 60_000;
 
 export interface CommitDeployment {
+  id?: string;
   sha?: string;
   target?: string | null;
   state: string;
@@ -23,25 +24,55 @@ export interface CommitDeployment {
 
 export type PreviewDeployStep = "wait" | "use-existing" | "request-preview" | "blocked";
 
+/** Vercel may store a shortened SHA; AgentOS has the full approved commit. */
+export function commitShaMatches(deploymentSha: string | undefined, commit: string): boolean {
+  if (!deploymentSha || !commit) return false;
+  const left = deploymentSha.toLowerCase();
+  const right = commit.toLowerCase();
+  return left === right || left.startsWith(right) || right.startsWith(left);
+}
+
+function deployRank(state: string): number {
+  if (state === "READY") return 0;
+  if (state === "ERROR" || state === "CANCELED") return 2;
+  return 1;
+}
+
+/**
+ * The deployment of this commit to treat as the preview: a READY one of any
+ * target first (a later API deploy, or production, still counts), then one
+ * still building, then an ERROR. Listing order is kept for equal rank, so
+ * the newest READY wins when Vercel returns newest-first.
+ */
+export function pickCommitDeployment<T extends CommitDeployment>(deployments: readonly T[], commit: string): T | undefined {
+  const ofCommit = deployments.filter((deployment) => commitShaMatches(deployment.sha, commit) && deployment.state !== "CANCELED");
+  return [...ofCommit].sort((left, right) => deployRank(left.state) - deployRank(right.state))[0];
+}
+
 export function nextPreviewDeployStep<T extends CommitDeployment>(input: {
   gitPushTriggered: boolean;
   deployments: readonly T[];
   commit: string;
 }): { step: PreviewDeployStep; deployment?: T; message?: string } {
-  const ofCommit = input.deployments.filter((deployment) => deployment.sha === input.commit && deployment.state !== "CANCELED");
-  const preview = ofCommit.find((deployment) => deployment.target !== "production");
-  if (preview) return { step: "use-existing", deployment: preview };
+  const chosen = pickCommitDeployment(input.deployments, input.commit);
+  if (chosen && chosen.state !== "ERROR") return { step: "use-existing", deployment: chosen };
 
-  const production = ofCommit.find((deployment) => deployment.target === "production");
-  if (production) {
-    return {
-      step: "blocked",
-      deployment: production,
-      message: isRateLimitText(production.errorMessage ?? "")
-        ? githubRateLimitMessage()
-        : `Vercel deployed the ${PREVIEW_BRANCH} branch as production instead of a preview. AgentOS did not start a second deploy: that would hit GitHub's rate limit again. Set the project's production branch to ${PRODUCTION_BRANCH} in Vercel, then retry.`,
-    };
+  if (chosen?.state === "ERROR" && chosen.target === "production") {
+    const preview = input.deployments.find(
+      (deployment) => commitShaMatches(deployment.sha, input.commit) && deployment.target !== "production" && deployment.state !== "CANCELED",
+    );
+    if (!preview) {
+      return {
+        step: "blocked",
+        deployment: chosen,
+        message: isRateLimitText(chosen.errorMessage ?? "")
+          ? githubRateLimitMessage()
+          : `Vercel deployed the ${PREVIEW_BRANCH} branch as production instead of a preview. AgentOS did not start a second deploy: that would hit GitHub's rate limit again. Set the project's production branch to ${PRODUCTION_BRANCH} in Vercel, then retry.`,
+      };
+    }
   }
+
+  if (chosen?.state === "ERROR") return { step: "use-existing", deployment: chosen };
 
   if (input.gitPushTriggered) return { step: "wait" };
   return { step: "request-preview" };

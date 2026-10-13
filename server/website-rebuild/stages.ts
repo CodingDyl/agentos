@@ -10,8 +10,9 @@ import { HermesError, sendToHermes } from "../hermes/client";
 import { writeCase } from "../outreach/cases";
 import { buildBrandBrief, repoBrandFiles } from "./brand";
 import { ClientRepoUnavailable, commitFiles, ensureClientRepo, git, readRepoFile, repoFolderName } from "./client-repo";
-import { DEPLOY_POLL_MS, PREVIEW_BRANCH, PRODUCTION_BRANCH, nextPreviewDeployStep, vercelBuildFailureMessage } from "./deploy-policy";
+import { DEPLOY_POLL_MS, PREVIEW_BRANCH, PRODUCTION_BRANCH, nextPreviewDeployStep, pickCommitDeployment, vercelBuildFailureMessage } from "./deploy-policy";
 import {
+  deploymentBelongsToProject,
   ensurePrivateRepo,
   ensureVercelProject,
   listCommitDeployments,
@@ -20,8 +21,12 @@ import {
   PublishError,
   pushRef,
   readDeployment,
+  readDeploymentByRef,
+  requestForcedPreviewDeployment,
   requestPreviewDeployment,
+  type GithubRepo,
   type VercelDeploymentState,
+  type VercelProject,
 } from "./publish";
 import { checkPreview, qaTable } from "./qa";
 import {
@@ -89,7 +94,9 @@ const publishCalls = {
   openPreviewsToLinkHolders,
   listCommitDeployments,
   requestPreviewDeployment,
+  requestForcedPreviewDeployment,
   readDeployment,
+  readDeploymentByRef,
 };
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -571,17 +578,38 @@ async function publishStep<T>(step: () => Promise<T>): Promise<T> {
   }
 }
 
-/**
- * Stage 7: the approved revision, live on a Vercel preview a client can open.
- *
- * Private GitHub repo on the token's account; the approved commit pushed to a
- * `preview` branch (never `main` after the first push, so nothing reaches
- * production); Vercel's Git integration builds it; previews are opened to
- * anyone with the link; then the preview is checked as a stranger would see
- * it. Each step looks before it acts, so a retry never makes a second repo,
- * project or deployment.
- */
-export const previewStage: StageHandler = async (context) => {
+interface PreviewPublish {
+  commit: string;
+  repo: GithubRepo;
+  project: VercelProject;
+  repoPath: string;
+}
+
+function storedPreviewPublish(run: RebuildRun): Omit<PreviewPublish, "repoPath"> | undefined {
+  const commit = approvedCommit(run);
+  if (!commit || !run.vercelProject || !run.githubRepo) return undefined;
+  const [owner, name] = run.githubRepo.split("/");
+  if (!owner || !name) return undefined;
+  return {
+    commit,
+    repo: { owner, name, fullName: run.githubRepo, private: true, defaultBranch: PRODUCTION_BRANCH, htmlUrl: `https://github.com/${run.githubRepo}` },
+    project: { id: run.vercelProject, name, protected: false, linkedRepo: run.githubRepo },
+  };
+}
+
+async function localRepoPath(context: StageContext): Promise<string> {
+  return repoFor(context, stageDeps.current);
+}
+
+/** Prefer the stored GitHub/Vercel ids so a GitHub rate limit cannot block a Vercel-only retry. */
+async function previewPublishFromStore(context: StageContext): Promise<PreviewPublish> {
+  const stored = storedPreviewPublish(context.run);
+  if (stored) return { ...stored, repoPath: await localRepoPath(context) };
+  return preparePreviewPublish(context);
+}
+
+/** Repo, GitHub remote and Vercel project: created once, reused on retry. Never deploys. */
+async function preparePreviewPublish(context: StageContext): Promise<PreviewPublish> {
   const deps = stageDeps.current;
   const { run } = context;
   const commit = approvedCommit(run);
@@ -606,52 +634,54 @@ export const previewStage: StageHandler = async (context) => {
   const { project } = await publishStep(() => deps.publish.ensureVercelProject(name, repo));
   setRunField(run.id, "vercel_project", project.id);
   await publishStep(() => deps.publish.openPreviewsToLinkHolders(project));
+  return { commit, repo, project, repoPath };
+}
 
-  context.activity(`Pushing the approved commit ${commit.slice(0, 7)} to the preview branch`);
-  await publishStep(() => deps.publish.pushRef(repoPath, repo, commit, PREVIEW_BRANCH, true));
-  const gitPushTriggered = Boolean(project.linkedRepo);
-
-  // One trigger: the git push. Polling faster than a minute, or requesting a
-  // second API deploy of the same commit, is how GitHub's secondary rate limit gets hit.
-  const pickupMs = 3 * 60 * 1000;
-  let deployment: VercelDeploymentState | undefined;
-  for (let waited = 0; !deployment && waited <= pickupMs; waited += DEPLOY_POLL_MS) {
-    const listed = await publishStep(() => deps.publish.listCommitDeployments(project, commit));
-    const next = nextPreviewDeployStep({ gitPushTriggered, deployments: listed, commit });
-    if (next.step === "use-existing" && next.deployment) {
-      deployment = next.deployment;
-      break;
-    }
-    if (next.step === "blocked") throw new StageBlocked(next.message ?? "Vercel started a production deployment of the preview branch.");
-    if (next.step === "request-preview") {
-      deployment = await publishStep(() => deps.publish.requestPreviewDeployment(project, repo, PREVIEW_BRANCH, commit));
-      break;
-    }
-    if (waited >= pickupMs) break;
-    context.activity("Waiting for Vercel to pick up the push");
-    await deps.sleep(DEPLOY_POLL_MS);
-  }
-  if (!deployment) {
-    throw new StageBlocked("Vercel did not start a preview from the push. AgentOS did not request a second deploy, to avoid GitHub rate limits. Check the GitHub integration in Vercel, then retry.");
-  }
-  setRunField(run.id, "deployment_id", deployment.id);
-
+async function waitForReadyDeployment(
+  context: StageContext,
+  project: VercelProject,
+  commit: string,
+  deployment: VercelDeploymentState,
+): Promise<VercelDeploymentState> {
+  const deps = stageDeps.current;
+  setRunField(context.run.id, "deployment_id", deployment.id);
   for (let poll = 0; !["READY", "ERROR", "CANCELED"].includes(deployment.state); poll += 1) {
     if (poll * DEPLOY_POLL_MS > deps.deployTimeoutMs) throw new StageBlocked(`Vercel has not finished building ${deployment.url} after ${Math.round(deps.deployTimeoutMs / 60000)} minutes. Check it in Vercel, then retry.`);
     context.activity(`Vercel is building the preview (${deployment.state.toLowerCase()})`);
     await deps.sleep(DEPLOY_POLL_MS);
-    deployment = await publishStep(() => deps.publish.readDeployment(deployment?.id ?? ""));
+    deployment = await publishStep(() => deps.publish.readDeployment(deployment.id));
   }
-  if (deployment.state !== "READY") throw new StageBlocked(vercelBuildFailureMessage(deployment));
+  if (deployment.state === "READY") return deployment;
+  context.activity("Checking Vercel for a later READY deploy of this commit");
+  const listed = await publishStep(() => deps.publish.listCommitDeployments(project, commit));
+  const ready = pickCommitDeployment(listed, commit);
+  if (ready?.state === "READY") {
+    setRunField(context.run.id, "deployment_id", ready.id);
+    return ready;
+  }
+  throw new StageBlocked(vercelBuildFailureMessage(deployment));
+}
 
-  context.activity("Checking the preview as a visitor with no login");
+async function handoffReadyPreview(
+  context: StageContext,
+  publish: PreviewPublish,
+  deployment: VercelDeploymentState,
+  options: { skipQa?: boolean; operatorNote?: string } = {},
+): Promise<StageOutcome> {
+  const deps = stageDeps.current;
+  const { run, commit, repo, repoPath } = { ...context, ...publish };
   const routes = routesFrom(await git(repoPath, ["show", `${commit}:sitemap.json`]).catch(() => undefined));
-  const qa = await deps.checkPreview(deployment.url, routes, run.requiredFunctions);
+  const qa = options.skipQa
+    ? { passed: true, checks: [{ check: "Marked as deployed", status: "pass" as const, detail: options.operatorNote ?? "The operator confirmed a READY Vercel deployment." }] }
+    : await (async () => {
+        context.activity("Checking the preview as a visitor with no login");
+        return deps.checkPreview(deployment.url, routes, run.requiredFunctions);
+      })();
 
   const artifactIds: string[] = [];
-  if (qa.checks[0]?.status === "pass") {
+  if (!options.skipQa && qa.checks[0]?.status === "pass") {
     try {
-      const shots = await deps.screenshot(routes.slice(0, 3).map((route) => ({ name: routeName(route), target: `${deployment?.url}${route}` })), await deps.scratchDir("preview"));
+      const shots = await deps.screenshot(routes.slice(0, 3).map((route) => ({ name: routeName(route), target: `${deployment.url}${route}` })), await deps.scratchDir("preview"));
       for (const shot of shots) artifactIds.push(await context.writeImage(`${shot.name}-${shot.viewport}`, `${shot.name} (${shot.viewport})`, shot.file));
     } catch (error) {
       context.log(`Screenshots of the preview could not be taken: ${error instanceof Error ? error.message : "unknown error"}.`, "warning");
@@ -666,6 +696,7 @@ export const previewStage: StageHandler = async (context) => {
     `- Vercel deployment: ${deployment.id}`,
     "- Access: anyone with the link, no login. Not promoted to production; no domain or DNS changes.",
     `- Checked: ${new Date().toISOString()}`,
+    ...(options.operatorNote ? [`- Note: ${options.operatorNote}`] : []),
     "",
     "## Checks as a visitor with no login",
     "",
@@ -695,6 +726,126 @@ export const previewStage: StageHandler = async (context) => {
     context.log(`The preview link could not be saved on the lead: ${error instanceof Error ? error.message : "unknown error"}. It is in the handoff report.`, "warning");
   }
   return { summary: `Live at ${deployment.url} for anyone with the link. Every check passed.`, artifactIds, ref: commit };
+}
+
+async function pickupGitPushDeployment(context: StageContext, publish: PreviewPublish): Promise<VercelDeploymentState> {
+  const deps = stageDeps.current;
+  const { project, repo, commit } = publish;
+  const gitPushTriggered = Boolean(project.linkedRepo);
+  const pickupMs = 3 * 60 * 1000;
+  let deployment: VercelDeploymentState | undefined;
+  for (let waited = 0; !deployment && waited <= pickupMs; waited += DEPLOY_POLL_MS) {
+    const listed = await publishStep(() => deps.publish.listCommitDeployments(project, commit));
+    const next = nextPreviewDeployStep({ gitPushTriggered, deployments: listed, commit });
+    if (next.step === "use-existing" && next.deployment) {
+      deployment = next.deployment;
+      break;
+    }
+    if (next.step === "blocked") throw new StageBlocked(next.message ?? "Vercel started a production deployment of the preview branch.");
+    if (next.step === "request-preview") {
+      deployment = await publishStep(() => deps.publish.requestPreviewDeployment(project, repo, PREVIEW_BRANCH, commit));
+      break;
+    }
+    if (waited >= pickupMs) break;
+    context.activity("Waiting for Vercel to pick up the push");
+    await deps.sleep(DEPLOY_POLL_MS);
+  }
+  if (!deployment) {
+    throw new StageBlocked("Vercel did not start a preview from the push. AgentOS did not request a second deploy, to avoid GitHub rate limits. Check the GitHub integration in Vercel, then retry.");
+  }
+  return deployment;
+}
+
+/**
+ * Stage 7: the approved revision, live on a Vercel preview a client can open.
+ *
+ * Private GitHub repo on the token's account; the approved commit pushed to a
+ * `preview` branch (never `main` after the first push, so nothing reaches
+ * production); Vercel's Git integration builds it; previews are opened to
+ * anyone with the link; then the preview is checked as a stranger would see
+ * it. Each step looks before it acts, so a retry never makes a second repo,
+ * project or deployment. A READY deploy of the approved SHA (any target) is
+ * success: retry will not bind to an older ERROR of the same commit.
+ */
+export const previewStage: StageHandler = async (context) => {
+  const deps = stageDeps.current;
+  const stored = storedPreviewPublish(context.run);
+  if (stored) {
+    context.activity("Looking for a Vercel deployment of the approved commit");
+    const listed = await publishStep(() => deps.publish.listCommitDeployments(stored.project, stored.commit));
+    const already = pickCommitDeployment(listed, stored.commit);
+    if (already) {
+      // Repo and project already exist. Do not git-push the same SHA again: that
+      // is how a rate-limited clone gets hit twice. A READY (any target) is
+      // success; an ERROR re-lists once, then blocks so the operator can force.
+      context.log(`Using existing Vercel deployment ${already.id} (${already.state}) of this commit.`);
+      const publish = { ...stored, repoPath: await localRepoPath(context) };
+      const deployment = await waitForReadyDeployment(context, stored.project, stored.commit, already);
+      return handoffReadyPreview(context, publish, deployment);
+    }
+  }
+
+  const publish = await preparePreviewPublish(context);
+  const { project, commit, repoPath, repo } = publish;
+  context.activity("Looking for a Vercel deployment of the approved commit");
+  const already = pickCommitDeployment(await publishStep(() => deps.publish.listCommitDeployments(project, commit)), commit);
+  let deployment: VercelDeploymentState;
+  if (already?.state === "READY" || (already && already.state !== "ERROR")) {
+    context.log(`Using existing Vercel deployment ${already.id} (${already.state}) of this commit.`);
+    deployment = already;
+  } else {
+    context.activity(`Pushing the approved commit ${commit.slice(0, 7)} to the preview branch`);
+    await publishStep(() => deps.publish.pushRef(repoPath, repo, commit, PREVIEW_BRANCH, true));
+    deployment = await pickupGitPushDeployment(context, publish);
+  }
+  deployment = await waitForReadyDeployment(context, project, commit, deployment);
+  return handoffReadyPreview(context, publish, deployment);
 };
+
+/** Resync from Vercel's latest deploys of the approved SHA. Does not push or create a deploy. */
+export const recheckPreviewStage: StageHandler = async (context) => {
+  const deps = stageDeps.current;
+  const publish = await previewPublishFromStore(context);
+  context.activity("Re-checking Vercel for a deployment of the approved commit");
+  const listed = await publishStep(() => deps.publish.listCommitDeployments(publish.project, publish.commit));
+  const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: listed, commit: publish.commit });
+  if (next.step === "blocked") throw new StageBlocked(next.message ?? "Vercel started a production deployment of the preview branch.");
+  if (!next.deployment) {
+    throw new StageBlocked("Vercel has no deployment of this commit yet. Use Deploy now (force) to create one, or paste a READY deployment id.");
+  }
+  const deployment = await waitForReadyDeployment(context, publish.project, publish.commit, next.deployment);
+  return handoffReadyPreview(context, publish, deployment);
+};
+
+/** Clears the blocker and requests exactly one Vercel API deploy with forceNew. */
+export const forcePreviewStage: StageHandler = async (context) => {
+  const deps = stageDeps.current;
+  const publish = await previewPublishFromStore(context);
+  context.activity("Requesting a new Vercel deploy (force)");
+  const requested = await publishStep(() => deps.publish.requestForcedPreviewDeployment(publish.project, publish.repo, PREVIEW_BRANCH, publish.commit));
+  const deployment = await waitForReadyDeployment(context, publish.project, publish.commit, requested);
+  return handoffReadyPreview(context, publish, deployment);
+};
+
+/** Verify a pasted Vercel deployment (READY, this project) and record it as the live preview. */
+export function markPreviewStage(deploymentRef: string): StageHandler {
+  return async (context) => {
+    const deps = stageDeps.current;
+    const publish = await previewPublishFromStore(context);
+    context.activity("Verifying the pasted Vercel deployment");
+    const deployment = await publishStep(() => deps.publish.readDeploymentByRef(deploymentRef));
+    if (deployment.state !== "READY") {
+      throw new StageBlocked(`That deployment is ${deployment.state}, not READY. Open it in Vercel, or pick a successful one.`);
+    }
+    if (!deploymentBelongsToProject(deployment, publish.project)) {
+      throw new StageBlocked(`That deployment is not for this workspace's Vercel project (${publish.project.name}).`);
+    }
+    setRunField(context.run.id, "deployment_id", deployment.id);
+    return handoffReadyPreview(context, publish, deployment, {
+      skipQa: true,
+      operatorNote: "Marked as deployed by the operator from a READY Vercel deployment.",
+    });
+  };
+}
 
 export type { StageOutcome };
