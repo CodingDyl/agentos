@@ -313,3 +313,52 @@ describe("serving checkpoint frames", () => {
     assert.equal(checkpointImagePath("anm_x", "look", "a.png"), undefined);
   });
 });
+
+describe("a gate run that leaves no frames", () => {
+  it("says what Claude said, what failed, and where its images went instead", async () => {
+    const { describeMissingFrames, studioDir } = await import("../animate");
+    process.env.AGENTOS_MEDIA_DIR = fs.mkdtempSync(path.join(testRoot, "media-"));
+    const id = "anm_aaaabbbbccccdddd";
+    const studio = studioDir(id);
+    fs.mkdirSync(path.join(studio, "checkpoints", "look", "frames"), { recursive: true });
+    fs.writeFileSync(path.join(studio, "checkpoints", "look", "notes.md"), "Two frames.");
+    fs.writeFileSync(path.join(studio, "checkpoints", "look", "frames", "look-1.png"), "");
+    fs.mkdirSync(path.join(studio, "pieces", "demo", "stills"), { recursive: true });
+    fs.writeFileSync(path.join(studio, "pieces", "demo", "stills", "beat-2.png"), "");
+
+    const message = await describeMissingFrames(
+      { id, piece: "demo", attempts: 1, summary: "Playwright could not launch Chromium, so the frames are not rendered.", lastToolError: "browserType.launch: Executable doesn't exist", stopReason: "success", run: undefined },
+      "look",
+    );
+    assert.match(message, /^Claude ended the look run without saving any frames AgentOS can show in checkpoints\/look\//);
+    assert.match(message, /checkpoints\/look\/frames\/look-1\.png there, but frames must be PNG, JPG or WEBP directly in checkpoints\/look\//);
+    assert.match(message, /It did render pieces\/demo\/stills\/beat-2\.png/);
+    assert.match(message, /Last tool error: browserType\.launch/);
+    assert.match(message, /Claude's last message: "Playwright could not launch Chromium/);
+    assert.doesNotMatch(message, /ended with "success"/);
+  });
+
+  it("links its worker job back to the film, and Workers will not re-run it as a bare job", async () => {
+    const { syncWorkerJob } = await import("../animate");
+    const { readJob: readWorkerJob } = await import("../../workers/job-store");
+    const { retryJob } = await import("../../workers/job-manager");
+    const job = {
+      id: "anm_5555666677778888",
+      title: "Origin test",
+      status: "failed",
+      error: "No frames.",
+      stage: "look",
+      request: { project: "test-project" },
+      createdAt: "2026-10-07T19:00:00Z",
+      completedAt: "2026-10-07T19:05:00Z",
+      log: [],
+      assetIds: [],
+    } as unknown as AnimateRecord;
+    await syncWorkerJob(job);
+    const worker = await readWorkerJob(job.workerJobId!);
+    assert.deepEqual(worker?.origin, { label: "Claude Motion", href: "/designs/animate/anm_5555666677778888" });
+    const retried = await retryJob(job.workerJobId!);
+    assert.equal(retried.job, undefined);
+    assert.match(retried.error ?? "", /belongs to Claude Motion/);
+  });
+});

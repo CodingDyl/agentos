@@ -422,6 +422,11 @@ export const WorkerJobSchema = WorkerJobRequestSchema.extend({
   interruptedAt: z.string().optional(),
   /** The job this one re-ran, when it was started as a retry. */
   retryOf: z.string().optional(),
+  /**
+   * The page that owns this run, when another part of AgentOS started it (a
+   * Claude Motion film, say). It is resumed there, not retried from Workers.
+   */
+  origin: z.object({ label: z.string(), href: z.string() }).optional(),
 });
 
 /**

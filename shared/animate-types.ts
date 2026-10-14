@@ -83,6 +83,8 @@ export const AnimateJobSchema = z.object({
   assetIds: z.array(z.string()).default([]),
   /** Exactly what Claude was sent for its first run. */
   prompt: z.string(),
+  /** The run's record in Workers, where its events and Claude's last steps are listed. */
+  workerJobId: z.string().optional(),
 });
 
 export const AnimateStyleSchema = z.object({

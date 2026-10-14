@@ -649,6 +649,8 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
   if (!isTerminal(previous.status) || running.has(jobId)) {
     return { error: "Only a finished job can be retried. Cancel it first." };
   }
+  // A run another page owns would be re-run here as a bare worker job without its studio or session.
+  if (previous.origin) return { error: `This run belongs to ${previous.origin.label}. Resume it there.` };
 
   const worker = options.worker ?? previous.requestedWorker ?? previous.worker;
   const request: WorkerJobRequest = {
