@@ -173,7 +173,8 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
     [job.lastEventAt, newestStreamed].filter((value): value is string => !!value).sort().at(-1) ?? job.startedAt;
   const interrupted = Boolean(job.interruptedAt);
   const stalled = Boolean(job.stalledSince) && !finished;
-  const retryable = finished && (job.status === "failed" || job.status === "cancelled");
+  // A run another page owns (a Claude Motion film) is resumed there, with its studio and session.
+  const retryable = finished && !job.origin && (job.status === "failed" || job.status === "cancelled");
 
   // Only so a routing decision can name its workers rather than print ids.
   const { data: workersData } = useWorkers();
@@ -221,6 +222,11 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
                 <span className={stalled ? "os-meta text-os-warning" : "os-meta text-os-subtle"}>
                   Last heard {formatRelativeTime(lastHeard)}
                 </span>
+              ) : null}
+              {job.origin ? (
+                <Link to={job.origin.href} className="os-focus-ring os-meta cursor-pointer rounded-md text-os-subtle underline-offset-2 hover:text-foreground hover:underline">
+                  Open in {job.origin.label}
+                </Link>
               ) : null}
               {job.retryOf ? (
                 <Link to={`/workers/jobs/${job.retryOf}`} className="os-focus-ring os-meta cursor-pointer rounded-md text-os-subtle hover:text-foreground">

@@ -1,6 +1,6 @@
-import { Check, RotateCcw, Square, X } from "lucide-react";
+import { Check, ExternalLink, RotateCcw, Square, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { ANIMATE_STAGES, ANIMATE_STAGE_LABEL, type AnimateCheckpoint, type AnimateJob, type AnimateStage } from "@shared/animate-types";
 import type { DesignAsset } from "@shared/agentos-types";
 import { AppShell, Markdown } from "@/components/os";
@@ -118,9 +118,9 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
       return { step: "Tool execution", reason: toolMatch[1] };
     }
     
-    const stageMatch = error.match(/Claude stopped before drawing the (\w+) frames/);
+    const stageMatch = error.match(/^Claude ended the (\w+) run without saving any frames|Claude stopped before drawing the (\w+) frames/);
     if (stageMatch) {
-      return { step: `${stageMatch[1]} frames`, reason: error };
+      return { step: `${stageMatch[1] ?? stageMatch[2]} frames`, reason: error };
     }
     
     // Generic - just show the error
@@ -165,13 +165,28 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
               Failed at {failingInfo.step}
             </p>
           ) : null}
-          <p className="text-[13.5px] leading-6 text-paper-char">
-            {failingInfo.reason}
-          </p>
+          {/* The first line says what went wrong; the rest is the evidence: Claude's last words, the failing tool, stray files. */}
+          <p className="text-[13.5px] leading-6 font-medium text-paper-char">{failingInfo.reason.split("\n")[0]}</p>
+          {failingInfo.reason.includes("\n") ? (
+            <ul className="list-disc space-y-1 pl-5 text-[13px] leading-6 break-words text-paper-char">
+              {failingInfo.reason
+                .split("\n")
+                .slice(1)
+                .map((line, index) => (
+                  <li key={index}>{line}</li>
+                ))}
+            </ul>
+          ) : null}
           {stopped ? (
-            <p className="text-[13px] text-paper-sage">
-              Resume carries on in the same session, with everything it has made so far.
-            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
+              <p className="text-paper-sage">Resume carries on in the same session, with everything it has made so far.</p>
+              {job.workerJobId ? (
+                <Link to={`/workers/jobs/${job.workerJobId}`} className={cn("inline-flex items-center gap-1 font-medium text-paper-blue hover:underline", PAPER_FOCUS)}>
+                  Open the worker job
+                  <ExternalLink className="size-3.5" aria-hidden="true" />
+                </Link>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

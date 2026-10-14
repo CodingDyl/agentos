@@ -61,6 +61,8 @@ import { projectContext, resolveReferences } from "./review-context";
 const REPO_NODE_MODULES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../node_modules");
 
 const POLL_MS = 1500;
+/** How many of Claude's last steps a failed run copies into its worker job. */
+const FAILURE_CONTEXT_LINES = 15;
 const MAX_LOG = 400;
 const GATE_TIMEOUT_MS = 45 * 60 * 1000;
 const BUILD_TIMEOUT_MS = 2 * 60 * 60 * 1000;
@@ -165,6 +167,8 @@ const StoredAnimateJobSchema = AnimateJobSchema.extend({
       offset: z.number().int().nonnegative(),
       deadline: z.string(),
       cancelRequested: z.boolean().default(false),
+      /** When this attempt started, to tell what it made from what an earlier one did. */
+      startedAt: z.string().optional(),
     })
     .optional(),
   imported: z.record(z.string(), z.object({ assetId: z.string(), mtimeMs: z.number() })).default({}),
@@ -407,6 +411,7 @@ export async function syncWorkerJob(job: StoredJob): Promise<void> {
     // The studio log is the heartbeat. Stamping "now" on every sync made a
     // dead run look recently heard from while it sat as "may have finished".
     lastEventAt: job.log.at(-1)?.at ?? existing?.lastEventAt ?? job.startedAt ?? job.createdAt,
+    origin: { label: "Claude Motion", href: `/designs/animate/${job.id}` },
   };
   
   await saveWorkerJob(workerJob);
@@ -430,8 +435,8 @@ export async function syncWorkerJob(job: StoredJob): Promise<void> {
       },
     });
     
-    // Include recent log lines as context
-    const recentLogs = job.log.slice(-5).filter(entry => entry.kind !== "system");
+    // Claude's last steps, so the worker job shows what it was doing when it stopped.
+    const recentLogs = job.log.filter((entry) => entry.kind !== "system").slice(-FAILURE_CONTEXT_LINES);
     for (const logEntry of recentLogs) {
       await appendEvent({
         id: crypto.randomUUID(),
@@ -618,7 +623,7 @@ async function start(job: StoredJob): Promise<void> {
   job.startedAt = job.startedAt ?? new Date().toISOString();
   job.error = undefined;
   job.resultError = undefined;
-  job.run = { pid, logFile, offset: 0, deadline: new Date(Date.now() + timeoutMs(job.stage)).toISOString(), cancelRequested: false };
+  job.run = { pid, logFile, offset: 0, deadline: new Date(Date.now() + timeoutMs(job.stage)).toISOString(), cancelRequested: false, startedAt: new Date().toISOString() };
   pushLog(job, "system", `${attempt === 1 ? "Claude Code started" : "Claude Code resumed"} · ${job.model} · ${job.stage}`);
   await save(job);
 
@@ -768,6 +773,58 @@ async function readCheckpoint(job: StoredJob, stage: AnimateStage, fallbackNotes
   return { stage, at: new Date().toISOString(), notes, images };
 }
 
+const ANY_IMAGE = /\.(png|jpe?g|webp|gif|svg)$/i;
+
+/** Image files under `root`, a few folders deep, as paths relative to the studio. */
+async function imagesUnder(studio: string, root: string, depth: number, since?: number): Promise<string[]> {
+  const found: string[] = [];
+  const walk = async (dir: string, left: number): Promise<void> => {
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (left > 0) await walk(full, left - 1);
+      } else if (ANY_IMAGE.test(entry.name)) {
+        const at = since === undefined ? 0 : ((await fs.stat(full).catch(() => undefined))?.mtimeMs ?? 0);
+        if (since === undefined || at >= since) found.push(path.relative(studio, full));
+      }
+    }
+  };
+  await walk(root, depth);
+  return found.sort();
+}
+
+const listed = (paths: string[], limit = 4) => `${paths.slice(0, limit).join(", ")}${paths.length > limit ? ` and ${paths.length - limit} more` : ""}`;
+
+/**
+ * Why a Look or Storyboard run ended with notes but no frames AgentOS can
+ * show: what Claude said last, the last tool that failed, how the run ended,
+ * and any images it did make that are in the wrong place or form.
+ */
+export async function describeMissingFrames(job: Pick<StoredJob, "id" | "piece" | "summary" | "lastToolError" | "stopReason" | "attempts" | "run">, stage: AnimateStage): Promise<string> {
+  const studio = studioDir(job.id);
+  const folder = `checkpoints/${stage}/`;
+  const lines = [`Claude ended the ${stage} run without saving any frames AgentOS can show in ${folder}`];
+
+  const inFolder = await imagesUnder(studio, path.join(studio, "checkpoints", stage), 2);
+  const unusable = inFolder.filter((file) => path.dirname(file) !== path.join("checkpoints", stage) || !IMAGE_NAME.test(path.basename(file)));
+  if (unusable.length > 0) {
+    lines.push(`It saved ${listed(unusable)} there, but frames must be PNG, JPG or WEBP directly in ${folder} with plain names like ${stage === "look" ? "look-1.png" : "panel-1.png"}.`);
+  }
+  const since = job.run?.startedAt ? Date.parse(job.run.startedAt) : undefined;
+  const elsewhere = await imagesUnder(studio, path.join(studio, "pieces", job.piece), 3, since);
+  if (elsewhere.length > 0) lines.push(`It did render ${listed(elsewhere)}, but did not copy them into ${folder}`);
+  if (job.lastToolError) lines.push(`Last tool error: ${job.lastToolError}`);
+  if (job.stopReason && job.stopReason !== "success") lines.push(`Claude Code ended with "${job.stopReason}".`);
+  const stderr = await stderrTail(job as StoredJob);
+  if (stderr) lines.push(`Claude Code reported: ${stderr}`);
+  const said = job.summary?.replace(/\s+/g, " ").trim();
+  if (said) lines.push(`Claude's last message: "${said.length > 400 ? `${said.slice(0, 399)}…` : said}"`);
+  if (lines.length === 1) lines.push("It gave no reason. Open the worker job to see its last steps.");
+  return lines.join("\n");
+}
+
 /** The file served for a checkpoint frame. Names are matched, never joined blindly. */
 export function checkpointImagePath(id: string, stage: string, name: string): string | undefined {
   if (!isAnimateId(id) || !(ANIMATE_STAGES as readonly string[]).includes(stage) || !IMAGE_NAME.test(name)) return undefined;
@@ -800,7 +857,7 @@ async function settle(job: StoredJob): Promise<void> {
     }
     const reason =
       job.resultError ??
-      (checkpoint ? `Claude stopped before drawing the ${stage} frames.` : (await stderrTail(job)) || `Claude Code stopped without leaving the ${stage} checkpoint.`);
+      (checkpoint ? await describeMissingFrames(job, stage) : (await stderrTail(job)) || `Claude Code stopped without leaving the ${stage} checkpoint.`);
     await finishWith(job, "failed", reason);
     return;
   }
