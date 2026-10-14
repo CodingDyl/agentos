@@ -167,8 +167,30 @@ AgentOS does not need your business mailbox connected.
    prospect has gone quiet.
 4. If they reply, move them to Conversation. The follow-ups stop.
 
-AgentOS cannot see replies to a mailbox it is not connected to, so replies
-are recorded by you.
+### Seeing their replies
+
+If your Titan mailbox is connected on the **Inbox** page, AgentOS checks it
+for replies every 15 minutes (and when you press **Check now** on
+Follow-ups). It only looks for mail from the exact address of a business you
+emailed, sent after your first email to them, from the last 60 days. It reads
+without marking anything as read and never sends or deletes.
+
+A reply moves the business to **Wrote back** at the top of Follow-ups and
+raises "They replied" on Next up. Its follow-ups stop, it can no longer be
+cleaned up, and it counts as a reply in the results. On the reply:
+
+- **Move to conversation** when it is real (offers to save the email that
+  got it to your library).
+- **Not theirs** if it was something else (an auto-reply, an invoice). The
+  business goes back to its follow-up schedule.
+- **Not interested** closes them.
+
+Titan must allow other apps: in Titan webmail turn on *Enable Titan on other
+apps*. Titan refuses this with two-factor sign-in on. If Titan refuses, the
+reason shows on Follow-ups and nothing already found is lost.
+
+Without Titan connected, record replies yourself: move them to Conversation.
+A colleague replying from another address is not matched; move them by hand.
 
 ## 8c. Writing in your voice, and the email library
 

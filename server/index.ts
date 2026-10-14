@@ -90,6 +90,7 @@ import { grokBotRouter } from "./workers/grok-bot-routes";
 import { memoryService } from "./memory/service";
 import { completeOutreachConnection, OutreachAuthError, parseOutreachState } from "./outreach/auth";
 import { startOutreachSyncTimer } from "./outreach/sync";
+import { startTitanReplyTimer } from "./outreach/titan-replies";
 import { cleanupRouter } from "./cleanup/routes";
 import { outreachRouter } from "./outreach/routes";
 import { rebuildRouter, recoverRebuildsAtStartup } from "./website-rebuild/routes";
@@ -4561,6 +4562,8 @@ server.listen(PORT, HOST, () => {
   startStallWatch();
   startLiveReconcile();
   startOutreachSyncTimer();
+  // Replies to outreach sent by hand from the Virtara (Titan) mailbox. See server/outreach/titan-replies.ts.
+  startTitanReplyTimer();
   // Finance's monthly review writes itself once a month is over. See server/finance/monthly-review.ts.
   startMonthlyReviewSchedule();
 });
