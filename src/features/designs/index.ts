@@ -5,6 +5,7 @@ export * from "./design-grid";
 export * from "./design-tile";
 export * from "./designs-model";
 export * from "./designs-page";
+export * from "./download-toast";
 export * from "./generations-page";
 export * from "./upload-dropzone";
 export * from "./motion-job-page";

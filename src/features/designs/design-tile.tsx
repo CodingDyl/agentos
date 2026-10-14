@@ -3,6 +3,8 @@ import { useState } from "react";
 import type { DesignAsset } from "@shared/agentos-types";
 import { PAPER_FOCUS } from "@/components/paper";
 import { cn } from "@/lib/utils";
+import { CreativeDownloadButton } from "./download-button";
+import { sourceFromAsset } from "./download-media";
 import { aspectRatio, formatDuration, hasPoster } from "./designs-model";
 
 export interface DesignTileProps {
@@ -159,6 +161,8 @@ export function DesignTile({
               <Layers className="size-3.5" strokeWidth={1.5} />
             </TileAction>
           )}
+
+          <CreativeDownloadButton source={sourceFromAsset(asset)} />
 
           <TileAction label="Open" onClick={() => onOpen(asset)} className="ml-auto">
             <Maximize2 className="size-3.5" strokeWidth={1.5} />
