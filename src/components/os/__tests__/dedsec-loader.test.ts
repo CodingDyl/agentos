@@ -90,7 +90,9 @@ describe("DedsecLoader", () => {
       assert.match(html, /h-auto/);
       assert.match(html, /max-h-full/);
       assert.match(html, /object-contain/);
+      assert.match(html, /object-center/);
       assert.match(html, /aspect-square/);
+      assert.match(html, /min-w-0/);
       assert.match(html, /image-rendering:pixelated/);
       assert.match(html, /overflow-hidden/);
       assert.match(html, /items-center/);
@@ -111,6 +113,7 @@ describe("DedsecLoader", () => {
     assert.match(reduced, /h-auto/);
     assert.match(reduced, /max-h-full/);
     assert.match(reduced, /object-contain/);
+    assert.match(reduced, /object-center/);
     assert.match(reduced, /aspect-square/);
     assert.match(reduced, /image-rendering:pixelated/);
     assert.doesNotMatch(reduced, /bg-black/);

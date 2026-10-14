@@ -25,7 +25,7 @@ function prefersReducedMotion(): boolean {
 
 /** Square media fills the parent width; max-height + contain prevent overflow. */
 const MEDIA_CLASS =
-  "aspect-square h-auto w-full max-h-full object-contain [image-rendering:pixelated]";
+  "aspect-square h-auto max-h-full min-h-0 min-w-0 w-full object-contain object-center [image-rendering:pixelated]";
 
 /**
  * Shared Watch Dogs DedSec loading animation.
