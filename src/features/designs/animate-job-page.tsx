@@ -22,6 +22,7 @@ import { useDesignLibrary } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AnimateStatus } from "./animate-status";
+import { CreativeDownloadButton } from "./download-button";
 import { Films, StudioLog } from "./motion-job-page";
 
 /**
@@ -254,7 +255,12 @@ function Notes({ checkpoint }: { checkpoint: AnimateCheckpoint }) {
               <button type="button" onClick={() => setOpen(index)} aria-label={`Enlarge ${image.name}`} className={cn("block w-full cursor-zoom-in bg-paper-moss", PAPER_FOCUS)}>
                 <img src={image.url} alt={image.name} loading="lazy" className="w-full" />
               </button>
-              <p className="mt-1 text-[12px] text-paper-sage">{image.name.replace(/\.[a-z]+$/i, "")}</p>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <p className="truncate text-[12px] text-paper-sage">{image.name.replace(/\.[a-z]+$/i, "")}</p>
+                <CreativeDownloadButton
+                  source={{ url: image.url, title: image.name, date: checkpoint.at, filename: image.name }}
+                />
+              </div>
             </li>
           ))}
         </ul>
@@ -283,7 +289,13 @@ function FrameViewer({ images, index, onIndex, onClose }: { images: AnimateCheck
       <button type="button" onClick={onClose} aria-label="Close" className={cn("absolute top-4 right-4 grid size-11 cursor-pointer place-items-center bg-paper-white text-paper-moss", PAPER_FOCUS)}>
         <X className="size-4" aria-hidden="true" />
       </button>
-      <img src={image.url} alt={image.name} className="max-h-[88vh] max-w-full" onClick={(event) => event.stopPropagation()} />
+      <div className="flex max-h-[88vh] max-w-full flex-col items-center gap-3" onClick={(event) => event.stopPropagation()}>
+        <img src={image.url} alt={image.name} className="max-h-[80vh] max-w-full" />
+        <CreativeDownloadButton
+          source={{ url: image.url, title: image.name, filename: image.name }}
+          variant="label"
+        />
+      </div>
       {images.length > 1 ? <p className="absolute bottom-4 text-[13px] text-paper-white tabular-nums">{index + 1} of {images.length} · arrow keys to step</p> : null}
     </div>
   );

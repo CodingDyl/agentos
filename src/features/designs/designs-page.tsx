@@ -37,6 +37,8 @@ import {
   LIBRARY_FILTERS,
   type LibraryFilter,
 } from "./designs-model";
+import { sourceFromAsset } from "./download-media";
+import { useCreativeDownload } from "./use-creative-download";
 import { UploadDropzone } from "./upload-dropzone";
 
 /**
@@ -79,6 +81,7 @@ export function DesignsPage() {
   const updateAsset = useUpdateDesignAsset();
   const deleteAsset = useDeleteDesignAsset();
   const setMembership = useSetBoardMembership();
+  const { downloadMany } = useCreativeDownload();
 
   const assets = useMemo(() => data?.assets ?? [], [data]);
   const boards = useMemo(() => data?.boards ?? [], [data]);
@@ -378,6 +381,10 @@ export function DesignsPage() {
                       count={selected.length}
                       onStart={() => setSelecting(true)}
                       onReview={() => setReviewing(true)}
+                      onDownloadSelected={() => {
+                        const chosen = visible.filter((asset) => selected.includes(asset.id));
+                        void downloadMany(chosen.map(sourceFromAsset));
+                      }}
                       onClear={() => {
                         setSelecting(false);
                         setSelected([]);
@@ -467,6 +474,7 @@ function SelectionBar({
   count,
   onStart,
   onReview,
+  onDownloadSelected,
   onClear,
 }: {
   label: string;
@@ -476,6 +484,7 @@ function SelectionBar({
   count: number;
   onStart: () => void;
   onReview: () => void;
+  onDownloadSelected: () => void;
   onClear: () => void;
 }) {
   if (!selecting) {
@@ -498,6 +507,9 @@ function SelectionBar({
       <div className="flex flex-wrap gap-2">
         <PaperButton variant={reviewing ? "ghost" : "amber"} onClick={onReview} disabled={count === 0}>
           Review with Hermes
+        </PaperButton>
+        <PaperButton variant="ghost" onClick={onDownloadSelected} disabled={count === 0}>
+          Download selected
         </PaperButton>
         <PaperButton variant="quiet" onClick={onClear}>
           Cancel

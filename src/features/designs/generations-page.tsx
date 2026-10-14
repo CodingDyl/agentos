@@ -17,6 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useDesignGenerations, useDesignLibrary } from "@/lib/agentos/queries";
+import { CreativeDownloadButton } from "./download-button";
+import { sourceFromAsset } from "./download-media";
 
 /**
  * Every generation, and what it made.
@@ -182,18 +184,23 @@ function GenerationRow({
         {results.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {results.map((asset) => (
-              <Link
-                key={asset.id}
-                to={`/designs?asset=${encodeURIComponent(asset.id)}`}
-                className={cn("rounded-none", PAPER_FOCUS)}
-                aria-label={`Open ${asset.filename}`}
-              >
-                <img
-                  src={asset.thumbnailUrl}
-                  alt={asset.filename}
-                  className="size-20 rounded-none object-cover ring-1 ring-paper-mist transition-[box-shadow] duration-150 hover:ring-paper-sage"
+              <div key={asset.id} className="relative">
+                <Link
+                  to={`/designs?asset=${encodeURIComponent(asset.id)}`}
+                  className={cn("rounded-none", PAPER_FOCUS)}
+                  aria-label={`Open ${asset.filename}`}
+                >
+                  <img
+                    src={asset.thumbnailUrl}
+                    alt={asset.filename}
+                    className="size-20 rounded-none object-cover ring-1 ring-paper-mist transition-[box-shadow] duration-150 hover:ring-paper-sage"
+                  />
+                </Link>
+                <CreativeDownloadButton
+                  source={sourceFromAsset(asset)}
+                  className="absolute right-1 bottom-1 size-7"
                 />
-              </Link>
+              </div>
             ))}
           </div>
         ) : null}
