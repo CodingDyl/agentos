@@ -1,6 +1,7 @@
 import { FollowUpRowSchema, type FollowUpRow, type FollowUpState } from "../../shared/outreach-follow-ups";
 import { followUpWait, GONE_QUIET_AFTER_DAYS } from "../../shared/outreach-plays";
 import type { TractionState } from "../traction/store";
+import { latestReply, type ReplySources } from "./replies";
 
 /**
  * Who is in the follow-up sequence and what is due, from the record alone.
@@ -13,9 +14,9 @@ import type { TractionState } from "../traction/store";
 
 const DAY = 86_400_000;
 const lower = (value: string) => value.trim().toLowerCase();
-const ORDER: Record<FollowUpState, number> = { due: 0, waiting: 1, final: 2, quiet: 3, stopped: 4 };
+const ORDER: Record<FollowUpState, number> = { replied: -1, due: 0, waiting: 1, final: 2, quiet: 3, stopped: 4 };
 
-type State = Pick<TractionState, "prospects" | "outreachLog" | "outreachReplies" | "suppressions">;
+type State = Pick<TractionState, "prospects" | "outreachLog" | "suppressions"> & ReplySources;
 
 export function computeFollowUps(state: State, now: Date = new Date()): FollowUpRow[] {
   const nowMs = now.getTime();
@@ -32,14 +33,18 @@ export function computeFollowUps(state: State, now: Date = new Date()): FollowUp
     const lastAt = last?.at ?? prospect.lastTouchAt ?? prospect.stageChangedAt;
     const address = lower(prospect.email ?? last?.to ?? "");
 
-    // An answer in the outreach mailbox is the "They replied" queue item's, not a follow-up.
-    const firstAt = Date.parse(sends[0]?.at ?? lastAt);
-    if (address && state.outreachReplies.some((reply) => lower(reply.fromEmail) === address && Date.parse(reply.at) > firstAt)) continue;
-
     const base = { prospectId: prospect.id, company: prospect.company, contact: prospect.contact, touches, lastAt, lastSubject: last?.subject, lastBody: last?.body };
     const stop = address ? state.suppressions.find((entry) => lower(entry.address) === address) : undefined;
     if (stop) {
       rows.push({ ...base, state: "stopped", stoppedReason: stop.reason === "bounced" ? "The address bounced" : stop.reason === "manual" ? "On your do-not-contact list" : "They asked not to be emailed" });
+      continue;
+    }
+
+    // They wrote back after the first email (in the outreach mailbox, or in your own Titan inbox): no more follow-ups.
+    const firstAt = Date.parse(sends[0]?.at ?? lastAt);
+    const reply = latestReply(state, prospect, firstAt);
+    if (reply) {
+      rows.push({ ...base, state: "replied", reply });
       continue;
     }
 

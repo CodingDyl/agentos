@@ -13,6 +13,7 @@ import type { Prospect, TractionEvent } from "../../shared/traction-types";
 import { agentOSRoot } from "../agentos/filesystem";
 import { decide } from "../connectors/policy";
 import { computeFollowUps } from "../outreach/follow-ups";
+import { latestReply } from "../outreach/replies";
 import { readEvents, readState, TractionNotFoundError, updateProspect, type TractionState } from "../traction/store";
 import { REPORT_DIR } from "../website-rebuild/reports";
 import { clientSitesDir, git as runGit } from "../website-rebuild/client-repo";
@@ -104,8 +105,8 @@ export function cleanupEligibility(input: { prospect: Prospect; state: TractionS
   if (events.some((event) => event.prospectId === prospect.id && event.kind === "stage_changed" && event.to && SHOWED_INTEREST.has(event.to))) {
     reasons.push("At some point they were in conversation, or further. That is interest, so their work is kept.");
   }
-  const address = prospect.email ? lower(prospect.email) : undefined;
-  if (state.outreachReplies.some((reply) => reply.prospectId === prospect.id || (address && lower(reply.fromEmail) === address))) {
+  // Any reply, in the outreach mailbox or your own Titan inbox, at any time.
+  if (latestReply(state, prospect)) {
     reasons.push("They have written back. Their work is kept.");
   }
   if (prospect.crmId?.startsWith("virtec:client:")) reasons.push("They are a client in Virtec.");

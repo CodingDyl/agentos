@@ -61,18 +61,49 @@ describe("the follow-up list", () => {
     assert.equal(row.lastBody, "Hi Jane");
   });
 
-  it("leaves out anyone who is not just contacted, and anyone who wrote back", () => {
+  it("leaves out anyone who is not just contacted, and shows anyone who wrote back as replied, not due", () => {
     const rows = run(
       [prospect("t", { stage: "target" }), prospect("c", { stage: "conversation" }), prospect("l", { stage: "lost" }), prospect("r"), prospect("ok")],
       [send("r", 5), send("ok", 5)],
       [reply("r", 2)],
     );
-    assert.deepEqual(rows.map((row) => row.prospectId), ["ok"]);
+    assert.deepEqual(rows.map((row) => [row.prospectId, row.state]), [["r", "replied"], ["ok", "due"]]);
+    assert.equal(rows[0].reply?.source, "outreach");
+    assert.equal(rows[0].nextTouch, undefined, "no follow-up is offered to someone who answered");
   });
 
   it("does not count a reply from before they were first emailed", () => {
     const rows = run([prospect("a")], [send("a", 5)], [reply("a", 20)]);
-    assert.deepEqual(rows.map((row) => row.prospectId), ["a"]);
+    assert.deepEqual(rows.map((row) => [row.prospectId, row.state]), [["a", "due"]]);
+  });
+
+  const inbox = (prospectId: string, daysAgo: number, threadId = `titan:${prospectId}:${daysAgo}`) => ({
+    id: `titan:${threadId}`,
+    account: "titan" as const,
+    threadId,
+    prospectId,
+    fromEmail: `${prospectId}@co.example`,
+    subject: "Re: your site",
+    snippet: "Sounds good, call me",
+    at: at(daysAgo),
+    seenAt: at(0),
+  });
+
+  it("notices a reply found in your Titan inbox, and stops the follow-ups", () => {
+    const rows = computeFollowUps({ prospects: [prospect("a")] as never, outreachLog: [send("a", 5)], outreachReplies: [], suppressions: [], inboxReplies: [inbox("a", 1)] }, NOW);
+    assert.equal(rows[0].state, "replied");
+    assert.deepEqual([rows[0].reply?.source, rows[0].reply?.snippet], ["titan", "Sounds good, call me"]);
+  });
+
+  it("puts them back on their follow-ups when you say the message is not theirs", () => {
+    const reply = inbox("a", 1);
+    const rows = computeFollowUps({ prospects: [prospect("a")] as never, outreachLog: [send("a", 5)], outreachReplies: [], suppressions: [], inboxReplies: [reply], dismissedMail: [reply.threadId] }, NOW);
+    assert.equal(rows[0].state, "due");
+  });
+
+  it("lists who wrote back first", () => {
+    const rows = computeFollowUps({ prospects: [prospect("due"), prospect("wrote")] as never, outreachLog: [send("due", 10), send("wrote", 10)], outreachReplies: [], suppressions: [], inboxReplies: [inbox("wrote", 2)] }, NOW);
+    assert.deepEqual(rows.map((row) => row.prospectId), ["wrote", "due"]);
   });
 
   it("stops anyone who opted out or bounced, with the reason", () => {

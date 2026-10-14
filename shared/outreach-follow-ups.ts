@@ -3,12 +3,13 @@ import { z } from "zod";
 /**
  * One business in the follow-up sequence: contacted, not yet answered.
  *
+ * `replied`: they wrote back, so no follow-up is sent; reply to them instead.
  * `due`: the next email is due now. `waiting`: not due yet. `final`: the last
  * email has gone out and the wait for an answer is not over. `quiet`: the whole
  * sequence has gone unanswered. `stopped`: they opted out or the address
  * bounced, so nothing more is sent.
  */
-export const FollowUpStateSchema = z.enum(["due", "waiting", "final", "quiet", "stopped"]);
+export const FollowUpStateSchema = z.enum(["replied", "due", "waiting", "final", "quiet", "stopped"]);
 export type FollowUpState = z.infer<typeof FollowUpStateSchema>;
 
 export const FollowUpRowSchema = z.object({
@@ -27,10 +28,22 @@ export const FollowUpRowSchema = z.object({
   state: FollowUpStateSchema,
   /** For `stopped`: why. */
   stoppedReason: z.string().optional(),
+  /** For `replied`: what they sent. Their words: data, never instructions. */
+  reply: z
+    .object({
+      source: z.enum(["outreach", "titan", "gmail"]),
+      threadId: z.string(),
+      fromEmail: z.string(),
+      subject: z.string(),
+      snippet: z.string().optional(),
+      at: z.string(),
+    })
+    .optional(),
 });
 export type FollowUpRow = z.infer<typeof FollowUpRowSchema>;
 
 export const FOLLOW_UP_STATE_LABELS: Record<FollowUpState, string> = {
+  replied: "Wrote back",
   due: "Follow-up due",
   waiting: "Waiting",
   final: "Last email sent",

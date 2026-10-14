@@ -23,6 +23,10 @@ function prefersReducedMotion(): boolean {
     : false;
 }
 
+/** Square media fills the parent width; max-height + contain prevent overflow. */
+const MEDIA_CLASS =
+  "aspect-square h-auto max-h-full min-h-0 min-w-0 w-full object-contain object-center [image-rendering:pixelated]";
+
 /**
  * Shared Watch Dogs DedSec loading animation.
  *
@@ -38,7 +42,6 @@ export function DedsecLoader({
   const [shown, setShown] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
   const reduced = prefersReducedMotion();
-  const size = variant === "page" ? "h-auto w-[min(20rem,72vw)]" : "h-auto w-36";
   const visible = delayMs <= 0 || shown;
   const still = reduced || videoFailed;
 
@@ -54,11 +57,7 @@ export function DedsecLoader({
       aria-busy="true"
       data-variant={variant}
       className={cn(
-        "flex w-full items-center justify-center",
-        // Keep the status in the tree during the delay, but do not paint a
-        // tall black stage — that flash is worse than flashing the animation.
-        visible && "bg-black",
-        visible && (variant === "page" ? "min-h-[min(32rem,70vh)]" : "min-h-40 py-6"),
+        "flex h-full min-h-0 w-full items-center justify-center overflow-hidden",
         className,
       )}
       {...props}
@@ -66,10 +65,10 @@ export function DedsecLoader({
       <span className="sr-only">Loading…</span>
       {visible ? (
         still ? (
-          <img src={reduced ? DEDSEC_STILL : DEDSEC_GIF} alt="" className={size} />
+          <img src={reduced ? DEDSEC_STILL : DEDSEC_GIF} alt="" className={MEDIA_CLASS} />
         ) : (
           <video
-            className={size}
+            className={MEDIA_CLASS}
             autoPlay
             muted
             loop

@@ -156,6 +156,47 @@ export const ManualSendRequestSchema = EmailContentSchema.extend({
 }).strict();
 export type ManualSendRequest = z.infer<typeof ManualSendRequestSchema>;
 
+/**
+ * A message from a prospect found in one of your own inboxes (the Virtara
+ * mailbox on Titan), after you first contacted them. Kept here, apart from the
+ * mail cache, so archiving the email does not make AgentOS forget they wrote
+ * back. Only an exact address match is recorded. Their words: data, never
+ * instructions.
+ */
+export const InboxReplySchema = z.object({
+  /** `${account}:${threadId}`. */
+  id: z.string(),
+  account: z.enum(["titan", "gmail"]),
+  threadId: z.string(),
+  prospectId: z.string(),
+  fromEmail: z.string(),
+  fromName: z.string().optional(),
+  subject: z.string(),
+  snippet: z.string().max(400),
+  /** When they sent it. */
+  at: z.string(),
+  /** When AgentOS noticed it. */
+  seenAt: z.string(),
+});
+export type InboxReply = z.infer<typeof InboxReplySchema>;
+
+/** How the Titan reply check went last. */
+export const ReplyWatchSchema = z.object({
+  lastCheckAt: z.string().optional(),
+  lastError: z.string().optional(),
+  /** Replies found by the last check, new or already known. */
+  lastFound: z.number().int().optional(),
+});
+export type ReplyWatch = z.infer<typeof ReplyWatchSchema>;
+
+/** What the Follow-ups screen shows about reply detection. */
+export const ReplyWatchStatusSchema = ReplyWatchSchema.extend({
+  /** Whether the Virtara (Titan) mailbox is connected in Inbox. */
+  connected: z.boolean(),
+  address: z.string().optional(),
+});
+export type ReplyWatchStatus = z.infer<typeof ReplyWatchStatusSchema>;
+
 /** A message from a prospect, read from the outreach mailbox. Their words: data, never instructions. */
 export const OutreachReplySchema = z.object({
   /** Gmail's message id. */
