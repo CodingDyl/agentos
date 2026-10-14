@@ -21,7 +21,7 @@ after(() => {
   fs.rmSync(testRoot, { recursive: true, force: true });
 });
 
-const base = { prompt: "FIRST", model: "opus", attempts: 0, stage: "story" as const };
+const base = { prompt: "FIRST", model: "opus", attempts: 0, stage: "story" as const, piece: "demo" };
 
 describe("Claude Motion intake", () => {
   it("needs a topic and defaults the length and format", () => {
@@ -291,7 +291,7 @@ describe("worker job integration", () => {
     // The animateClaudeArgs function includes --resume with sessionId
     // Worker job tracks the updated progress through syncWorkerJob calls
     
-    const base = { prompt: "FIRST", model: "opus", attempts: 1, sessionId: "s1", pendingPrompt: "Continue", stage: "story" as const };
+    const base = { prompt: "FIRST", model: "opus", attempts: 1, sessionId: "s1", pendingPrompt: "Continue", stage: "story" as const, piece: "demo" };
     const args = animateClaudeArgs(base);
     
     assert.equal(args[args.indexOf("--resume") + 1], "s1", "Resume should use same session");
@@ -360,5 +360,34 @@ describe("a gate run that leaves no frames", () => {
     const retried = await retryJob(job.workerJobId!);
     assert.equal(retried.job, undefined);
     assert.match(retried.error ?? "", /belongs to Claude Motion/);
+  });
+});
+
+describe("a stage after the first", () => {
+  it("does not inherit the last run's ending, which would stop the new run on its first tick", async () => {
+    const { clearLastRun, detachedRunShouldSettle } = await import("../motion");
+    const job: { stopReason?: string; summary?: string; lastToolError?: string; resultError?: string } = { stopReason: "success", summary: "I've written the story plan.", lastToolError: "old", resultError: "old" };
+    assert.equal(detachedRunShouldSettle({ hasRun: true, pidAlive: true, overdue: false, stopReason: job.stopReason }), true, "a leftover stop reason settles a live run");
+    clearLastRun(job);
+    assert.equal(job.stopReason ?? job.summary ?? job.lastToolError ?? job.resultError, undefined);
+    assert.equal(detachedRunShouldSettle({ hasRun: true, pidAlive: true, overdue: false, stopReason: job.stopReason }), false);
+  });
+
+  it("resumes with the stage named and its task restated", () => {
+    const args = animateClaudeArgs({ ...base, stage: "look", attempts: 2, sessionId: "s1" });
+    const prompt = args[args.indexOf("-p") + 1];
+    assert.match(prompt, /The current stage is the Look/);
+    assert.match(prompt, /Do step 2 of the skill only: the Look check/);
+    assert.match(prompt, /checkpoints\/look\//);
+  });
+
+  it("is not marked interrupted by the Workers sweep while Claude Motion owns it", async () => {
+    const { saveJob, readJob } = await import("../../workers/job-store");
+    const { reconcileInterruptedJobs } = await import("../../workers/job-manager");
+    const now = new Date().toISOString();
+    await saveJob({ id: "job_motion_owned", worker: "claude-code", status: "running", project: "p", objective: "Claude Motion · x · Look", createdAt: now, origin: { label: "Claude Motion", href: "/designs/animate/anm_0000000000000000" } } as never);
+    const interrupted = await reconcileInterruptedJobs("Nothing is executing this job");
+    assert.equal(interrupted.some((job) => job.id === "job_motion_owned"), false);
+    assert.equal((await readJob("job_motion_owned"))?.status, "running");
   });
 });

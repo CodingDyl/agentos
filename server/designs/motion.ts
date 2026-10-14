@@ -377,6 +377,19 @@ function readCommandLine(pid: number): string | undefined {
  * may be reused, and a deadline may have passed. Any of those means the
  * record must not sit as "running" / "may have finished" forever.
  */
+/**
+ * Forgets how the previous run ended, before a new one starts. A `stopReason`
+ * left over from the last run reads as "this run has ended", so the first
+ * tick would stop the new run within seconds of starting it; a stale summary
+ * would be taken for the new run's checkpoint notes.
+ */
+export function clearLastRun(job: { resultError?: string; stopReason?: string; lastToolError?: string; summary?: string }): void {
+  job.resultError = undefined;
+  job.stopReason = undefined;
+  job.lastToolError = undefined;
+  job.summary = undefined;
+}
+
 export function detachedRunShouldSettle(input: {
   hasRun: boolean;
   pidAlive: boolean;
@@ -472,7 +485,7 @@ async function start(job: StoredMotionJob): Promise<void> {
   job.status = "running";
   job.startedAt = job.startedAt ?? new Date().toISOString();
   job.error = undefined;
-  job.resultError = undefined;
+  clearLastRun(job);
   job.run = { pid, logFile, offset: 0, deadline: new Date(Date.now() + timeoutMs()).toISOString(), cancelRequested: false };
   pushLog(
     job,

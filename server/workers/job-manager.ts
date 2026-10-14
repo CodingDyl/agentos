@@ -537,6 +537,8 @@ export async function reconcileInterruptedJobs(
 
   for (const job of jobs) {
     if (!LIVE.includes(job.status) || running.has(job.id)) continue;
+    // Watched by pid elsewhere (Claude Motion), or owned by a page that settles its own runs: not ours to interrupt.
+    if (external.has(job.id) || job.origin) continue;
 
     // A job waiting on a file bridge was never running; pick the wait back up.
     const bridgeWorker = isParkedOnBridge(job) ? getWorker(job.resolvedWorker ?? job.worker as WorkerId) : undefined;
