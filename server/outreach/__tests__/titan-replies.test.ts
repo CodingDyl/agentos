@@ -9,12 +9,12 @@ process.env.AGENTOS_UI_DIR = directory;
 
 const store = await import("../../traction/store");
 const { replySearchQueries } = await import("../../mail/titan-client");
-const { checkTitanReplies, replyWatchStatus, REPLY_LOOKBACK_DAYS } = await import("../titan-replies");
+const { checkTitanReplies, replyWatchStatus, REPLY_LOOKBACK_DAYS, startTitanReplyTimer, titanReplyTimerEnabled } = await import("../titan-replies");
 const { latestReply, allReplies } = await import("../replies");
 const { computeOutreachStats } = await import("../stats");
 const { cleanupEligibility } = await import("../../cleanup/client-cleanup");
 const { getTraction } = await import("../../traction/traction");
-const { ProspectInputSchema, ProspectPatchSchema } = await import("../../../shared/traction-types");
+const { ProspectInputSchema, ProspectPatchSchema, ThreadIdSchema, DismissMailSuggestionSchema } = await import("../../../shared/traction-types");
 
 const DAY = 86_400_000;
 beforeEach(() => fs.rmSync(path.join(directory, "traction"), { recursive: true, force: true }));
@@ -200,5 +200,24 @@ describe("the reply check", () => {
     release();
     await Promise.all([first, second]);
     assert.equal(calls, 1);
+  });
+});
+
+describe("the kill switch", () => {
+  it("stops the automatic check when AGENTOS_TITAN_REPLY_WATCH is off, and only then", () => {
+    for (const value of ["off", "OFF", "0", "false", "no", " off "]) assert.equal(titanReplyTimerEnabled({ AGENTOS_TITAN_REPLY_WATCH: value }), false, value);
+    for (const value of [undefined, "", "on", "1"]) assert.equal(titanReplyTimerEnabled({ AGENTOS_TITAN_REPLY_WATCH: value }), true, String(value));
+    assert.equal(startTitanReplyTimer(1000, { AGENTOS_TITAN_REPLY_WATCH: "off" }), undefined);
+    const timer = startTitanReplyTimer(1000, {});
+    assert.ok(timer);
+    clearInterval(timer);
+  });
+});
+
+describe("thread ids a person can act on", () => {
+  it("accepts Gmail and Titan thread ids (so Not theirs works on a Titan reply) and nothing odd", () => {
+    for (const ok of ["18c4f2a9b1", "abc_DEF-12", "titan:1700000000:42"]) assert.equal(ThreadIdSchema.safeParse(ok).success, true, ok);
+    for (const bad of ["", "titan:1", "titan:1:2:3", "titan:a:b", "../etc", "x y", "titan:1:42/../x", "a".repeat(129)]) assert.equal(ThreadIdSchema.safeParse(bad).success, false, bad);
+    assert.equal(DismissMailSuggestionSchema.safeParse({ threadId: "titan:1:42" }).success, true);
   });
 });

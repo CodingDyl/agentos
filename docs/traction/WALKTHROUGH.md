@@ -189,6 +189,10 @@ Titan must allow other apps: in Titan webmail turn on *Enable Titan on other
 apps*. Titan refuses this with two-factor sign-in on. If Titan refuses, the
 reason shows on Follow-ups and nothing already found is lost.
 
+To stop the automatic 15-minute check (for example if Titan starts locking
+you out), start AgentOS with `AGENTOS_TITAN_REPLY_WATCH=off`. **Check now**
+still works.
+
 Without Titan connected, record replies yourself: move them to Conversation.
 A colleague replying from another address is not matched; move them by hand.
 

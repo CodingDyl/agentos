@@ -77,8 +77,14 @@ export async function replyWatchStatus(deps: Pick<ReplyCheckDeps, "account"> = d
   return { connected: true, address: account.address, ...(await readState()).replyWatch };
 }
 
+/** AGENTOS_TITAN_REPLY_WATCH=off stops the automatic check (Check now still works). */
+export function titanReplyTimerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return !/^(off|0|false|no)$/i.test(env.AGENTOS_TITAN_REPLY_WATCH?.trim() ?? "");
+}
+
 /** Checks a minute after start, then every 15 minutes. Silent when no Titan mailbox is connected. */
-export function startTitanReplyTimer(intervalMs = 15 * 60_000): NodeJS.Timeout {
+export function startTitanReplyTimer(intervalMs = 15 * 60_000, env: NodeJS.ProcessEnv = process.env): NodeJS.Timeout | undefined {
+  if (!titanReplyTimerEnabled(env)) return undefined;
   const check = () =>
     void checkTitanReplies().catch((error: unknown) => console.warn(`[outreach] Titan reply check failed: ${error instanceof Error ? error.message : "unknown error"}`));
   setTimeout(check, 60_000).unref();
