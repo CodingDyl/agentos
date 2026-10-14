@@ -27,6 +27,7 @@ import {
 import { LibrarySaveRequestSchema } from "../../shared/outreach-library";
 import { caseRouter } from "./case-routes";
 import { computeFollowUps } from "./follow-ups";
+import { checkTitanReplies, replyWatchStatus } from "./titan-replies";
 import { LibraryError, libraryService, listLibrary, saveToLibrary } from "./library";
 import { allow, ApolloError, revealEmail, searchPeopleAtDomain } from "./apollo";
 import type { Sender } from "../../shared/outreach-case";
@@ -489,6 +490,24 @@ outreachRouter.get("/follow-ups", async (_request, response) => {
     response.json({ rows: computeFollowUps(await readState()) });
   } catch (error) {
     fail(response, error, "read the follow-ups");
+  }
+});
+
+/** Whether replies are being noticed in your Titan mailbox, and how the last check went. */
+outreachRouter.get("/reply-watch", async (_request, response) => {
+  try {
+    response.json(await replyWatchStatus());
+  } catch (error) {
+    fail(response, error, "read the reply check");
+  }
+});
+
+/** Checks your Titan mailbox for replies now. Read-only. */
+outreachRouter.post("/reply-watch/check", async (_request, response) => {
+  try {
+    response.json(await checkTitanReplies());
+  } catch (error) {
+    fail(response, error, "check for replies");
   }
 });
 

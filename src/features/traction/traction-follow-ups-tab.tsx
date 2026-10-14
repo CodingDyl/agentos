@@ -6,9 +6,9 @@ import { MAX_TOUCHES } from "@shared/outreach-plays";
 import type { Touch } from "@shared/outreach-library";
 import type { Prospect, TractionData } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperEmpty, PaperError, PaperSection, Tag } from "@/components/paper";
-import { useFollowUps, useRecordManualSend } from "@/lib/agentos/outreach";
+import { useCheckTitanReplies, useFollowUps, useRecordManualSend, useReplyWatch } from "@/lib/agentos/outreach";
 import { useDraftCase, useOutreachCases, useSaveToLibrary, useWriteCase } from "@/lib/agentos/outreach-cases";
-import { useUpdateProspect } from "@/lib/agentos/traction";
+import { useDismissMailSuggestion, useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { CleanUpSection } from "./traction-cleanup";
 import { formatShortDate } from "./traction-model";
@@ -49,6 +49,7 @@ export function TractionFollowUpsTab({ data, selectedId, onCompose }: { data: Tr
   }
   const rows = followUps.data ?? [];
   const group = (...states: FollowUpRow["state"][]) => rows.filter((row) => states.includes(row.state));
+  const replied = group("replied");
   const due = group("due");
   const waiting = group("waiting", "final");
   const quiet = group("quiet");
@@ -60,7 +61,15 @@ export function TractionFollowUpsTab({ data, selectedId, onCompose }: { data: Tr
 
   return (
     <div className="max-w-[64rem] space-y-10">
+      <ReplyWatchBar now={Date.parse(data.generatedAt)} />
       <NoticeBar notice={notice} onDismiss={() => setNotice(undefined)} />
+
+      {replied.length > 0 ? (
+        <PaperSection label="Wrote back" count={replied.length}>
+          <p className="-mt-2 mb-3 max-w-[70ch] text-[13px] leading-5 text-paper-sage">They answered, so no more follow-ups go to them. Reply from your mailbox, then move them to Conversation. If it is not really from them, say so and they go back to their follow-ups.</p>
+          <ul className="space-y-4">{replied.map(renderRow)}</ul>
+        </PaperSection>
+      ) : null}
 
       <PaperSection label="Due now" count={due.length}>
         {due.length === 0 ? (
@@ -149,7 +158,7 @@ function NoticeBar({ notice, onDismiss }: { notice: Notice | undefined; onDismis
 
 // ─── One business ───────────────────────────────────────────────────────────
 
-const TONE: Record<FollowUpRow["state"], "flame" | "marigold" | "muted" | "green"> = { due: "flame", waiting: "muted", final: "muted", quiet: "marigold", stopped: "muted" };
+const TONE: Record<FollowUpRow["state"], "flame" | "marigold" | "muted" | "green"> = { replied: "green", due: "flame", waiting: "muted", final: "muted", quiet: "marigold", stopped: "muted" };
 
 function FollowUpItem({
   row,
@@ -179,7 +188,9 @@ function FollowUpItem({
   const since = daysBetween(row.lastAt, now);
   const overdue = row.dueAt ? daysBetween(row.dueAt, now) : 0;
   const when =
-    row.state === "due"
+    row.state === "replied" && row.reply
+      ? `Wrote back ${ago(daysBetween(row.reply.at, now))}${row.reply.source === "titan" ? ", found in your Virtara mailbox" : ""}`
+      : row.state === "due"
       ? overdue > 0
         ? `Follow-up ${row.nextTouch} was due ${ago(overdue)}`
         : `Follow-up ${row.nextTouch} is due today`
@@ -213,7 +224,9 @@ function FollowUpItem({
         <Tag tone={TONE[row.state]}>{FOLLOW_UP_STATE_LABELS[row.state]}</Tag>
       </div>
 
-      {row.state !== "stopped" ? (
+      {row.state === "replied" && row.reply ? <ReplyBlock row={row} onNotice={onNotice} /> : null}
+
+      {row.state !== "stopped" && row.state !== "replied" ? (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {canDraft && !current ? (
             <PaperButton variant={row.state === "due" ? "amber" : "ghost"} disabled={draft.isPending} onClick={() => draft.mutate({ prospectId: row.prospectId })}>
@@ -272,6 +285,104 @@ function FollowUpItem({
         />
       ) : null}
     </li>
+  );
+}
+
+// ─── They wrote back ────────────────────────────────────────────────────────
+
+function ReplyBlock({ row, onNotice }: { row: FollowUpRow; onNotice: (notice: Notice) => void }) {
+  const update = useUpdateProspect();
+  const notTheirs = useDismissMailSuggestion();
+  const reply = row.reply;
+  if (!reply) return null;
+
+  return (
+    <div className="mt-3 space-y-3">
+      {/* Their words, shown as text and never followed as instructions. */}
+      <div className="border-l-2 border-paper-green bg-paper-cream px-3 py-2 text-[13px] leading-5 text-paper-char">
+        <p className="font-semibold text-paper-moss">{reply.subject}</p>
+        {reply.snippet ? <p className="mt-0.5 whitespace-pre-wrap">{reply.snippet}</p> : null}
+        <p className="mt-1 text-[12px] text-paper-sage">From {reply.fromEmail}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <PaperButton
+          variant="amber"
+          disabled={update.isPending}
+          onClick={() => update.mutate({ prospectId: row.prospectId, patch: { stage: "conversation" } }, { onSuccess: () => onNotice({ kind: "replied", row }) })}
+          aria-label={`Move ${row.company} to conversation`}
+        >
+          Move to conversation
+        </PaperButton>
+        <PaperButton
+          disabled={notTheirs.isPending}
+          onClick={() => notTheirs.mutate(reply.threadId)}
+          aria-label={`This message is not from ${row.company}`}
+          title="It is not really from them: they go back to their follow-ups"
+        >
+          Not theirs
+        </PaperButton>
+        <PaperButton
+          disabled={update.isPending}
+          onClick={() => update.mutate({ prospectId: row.prospectId, patch: { stage: "lost" } }, { onSuccess: () => onNotice({ kind: "closed", row }) })}
+          aria-label={`${row.company} is not interested`}
+        >
+          Not interested
+        </PaperButton>
+        {reply.source === "titan" ? (
+          <a href="/inbox" className={cn("px-2 text-[13px] text-paper-blue hover:underline", PAPER_FOCUS)}>
+            Open Inbox
+          </a>
+        ) : null}
+      </div>
+      {update.error ?? notTheirs.error ? (
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
+          {(update.error ?? notTheirs.error)?.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Says whether replies in your Titan mailbox are being noticed, when it last looked, and lets you look now. */
+function ReplyWatchBar({ now }: { now: number }) {
+  const watch = useReplyWatch();
+  const check = useCheckTitanReplies();
+  if (!watch.data) return null;
+
+  if (!watch.data.connected) {
+    return (
+      <p className="text-[13px] leading-5 text-paper-sage">
+        Replies to emails you send from your own mailbox are not noticed yet.{" "}
+        <a href="/inbox" className={cn("text-paper-blue hover:underline", PAPER_FOCUS)}>
+          Connect your Virtara (Titan) mailbox in Inbox
+        </a>{" "}
+        and AgentOS checks it for replies every 15 minutes, without marking anything read.
+      </p>
+    );
+  }
+
+  const last = watch.data.lastCheckAt ? Math.max(0, Math.round((now - Date.parse(watch.data.lastCheckAt)) / 60_000)) : undefined;
+  const status = check.data ?? watch.data;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-paper-char" aria-live="polite">
+      <span>
+        Replies are checked in {watch.data.address} every 15 minutes
+        {last === undefined ? ", not yet checked." : `; last checked ${last <= 1 ? "just now" : `${last} minutes ago`}.`}
+      </span>
+      <PaperButton variant="ghost" disabled={check.isPending} onClick={() => check.mutate()}>
+        {check.isPending ? "Checking…" : "Check now"}
+      </PaperButton>
+      {status.lastError ? (
+        <span role="alert" className="basis-full text-paper-flame-deep">
+          The last check failed: {status.lastError}
+        </span>
+      ) : null}
+      {check.error ? (
+        <span role="alert" className="basis-full text-paper-flame-deep">
+          {check.error.message}
+        </span>
+      ) : null}
+    </div>
   );
 }
 

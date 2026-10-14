@@ -7,6 +7,7 @@ import {
 } from "../../shared/outreach-plays";
 import { SEND_KINDS, type OutreachLogEntry } from "../../shared/outreach-types";
 import type { TractionState } from "../traction/store";
+import { allReplies, type ReplySources } from "./replies";
 
 /**
  * What outreach has done: emails sent, who replied, and which plays work.
@@ -20,7 +21,7 @@ import type { TractionState } from "../traction/store";
 const DAY = 86_400_000;
 const POSITIVE = new Set(["conversation", "proposal", "won"]);
 
-type State = Pick<TractionState, "outreachLog" | "outreachReplies" | "suppressions" | "prospects">;
+type State = Pick<TractionState, "outreachLog" | "suppressions" | "prospects"> & ReplySources;
 
 const lower = (value: string) => value.trim().toLowerCase();
 
@@ -34,9 +35,11 @@ export function computeOutreachStats(state: State, now: Date = new Date()): Outr
     .filter((entry) => entry.kind === "sent" || entry.kind === "unconfirmed" || entry.kind === "manual")
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
+  // Replies from both places: the outreach mailbox and your own Titan inbox.
+  const replies = allReplies(state);
   /** First reply per address, after a given time. */
   const replyAfter = (address: string, after: number): string | undefined =>
-    state.outreachReplies
+    replies
       .filter((reply) => lower(reply.fromEmail) === lower(address) && Date.parse(reply.at) > after)
       .map((reply) => reply.at)
       .sort()[0];

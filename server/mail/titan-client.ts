@@ -290,6 +290,64 @@ export async function getTitanThreadSummary(threadId: string): Promise<ThreadSum
   });
 }
 
+/** One message the reply check found: who sent it, when, and a short preview. */
+export interface TitanFoundMessage {
+  threadId: string;
+  fromEmail: string;
+  fromName?: string;
+  subject: string;
+  snippet: string;
+  messageDate: string;
+}
+
+/** An address plain enough to put in a search: no spaces, quotes or brackets. */
+const PLAIN_ADDRESS = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+/**
+ * The IMAP searches for messages from these addresses since a date, in groups
+ * so no single command grows without bound. Pure, so it is tested without a
+ * server. Addresses that are not plain are dropped, never quoted into a query.
+ */
+export function replySearchQueries(addresses: readonly string[], since: Date, groupSize = 20): Array<Record<string, unknown>> {
+  const wanted = [...new Set(addresses.map((address) => address.trim().toLowerCase()).filter((address) => PLAIN_ADDRESS.test(address)))];
+  const queries: Array<Record<string, unknown>> = [];
+  for (let start = 0; start < wanted.length; start += groupSize) {
+    const group = wanted.slice(start, start + groupSize);
+    queries.push(group.length === 1 ? { since, from: group[0] } : { since, or: group.map((from) => ({ from })) });
+  }
+  return queries;
+}
+
+/**
+ * Messages in the Inbox from any of these addresses since a date, newest
+ * first. For noticing replies from prospects. Read-only: it searches and reads
+ * a short preview with BODY.PEEK, so nothing is marked read, moved or changed,
+ * and no other message is opened. IMAP matches FROM loosely, so only an exact
+ * sender is kept.
+ */
+export async function findTitanMessagesFrom(addresses: readonly string[], since: Date, limit = 50): Promise<TitanFoundMessage[]> {
+  const queries = replySearchQueries(addresses, since);
+  if (queries.length === 0) return [];
+  const wanted = new Set(addresses.map((address) => address.trim().toLowerCase()));
+
+  return withInbox(async (client, uidValidity) => {
+    const uids = new Set<number>();
+    for (const query of queries) {
+      for (const uid of (await client.search(query, { uid: true })) || []) uids.add(uid);
+    }
+    const found: TitanFoundMessage[] = [];
+    for (const uid of [...uids].sort((left, right) => right - left).slice(0, limit)) {
+      const message = await client.fetchOne(String(uid), { uid: true, envelope: true, flags: true, internalDate: true, source: { maxLength: SNIPPET_SOURCE_BYTES } }, { uid: true });
+      if (!message) continue;
+      const parsed = message.source ? await simpleParser(message.source).catch(() => undefined) : undefined;
+      const summary = summaryFromMessage(titanThreadId(uidValidity, uid), message, parsed ? plainTextOf(parsed) : undefined);
+      if (!summary.fromEmail || !wanted.has(summary.fromEmail)) continue;
+      found.push({ threadId: summary.threadId, fromEmail: summary.fromEmail, fromName: summary.fromName, subject: summary.subject, snippet: summary.snippet, messageDate: summary.messageDate });
+    }
+    return found;
+  });
+}
+
 /** One message's plain-text body, read when a person opens it and never stored. */
 export async function getTitanThreadBody(threadId: string): Promise<string> {
   return withInbox(async (client, uidValidity) => {

@@ -21,6 +21,7 @@ import {
   type Play,
 } from "@shared/outreach-plays";
 import { FollowUpRowSchema, type FollowUpRow } from "@shared/outreach-follow-ups";
+import { ReplyWatchStatusSchema, type ReplyWatchStatus } from "@shared/outreach-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 import { tractionKey } from "./traction";
@@ -174,6 +175,42 @@ export const useDraftOutreachEmail = () =>
     networkMode: "always",
     retry: 0,
   });
+
+const replyWatchKey = () => [...outreachKey(), "reply-watch"] as const;
+
+/** Whether replies are noticed in your Titan mailbox, and how the last check went. */
+export function useReplyWatch() {
+  return useQuery({
+    queryKey: replyWatchKey(),
+    queryFn: async (): Promise<ReplyWatchStatus> => {
+      const parsed = ReplyWatchStatusSchema.safeParse(await request("/api/outreach/reply-watch"));
+      if (!parsed.success) throw new AgentOSRequestError("The reply check came back in an unexpected shape.");
+      return parsed.data;
+    },
+    staleTime: 30_000,
+    // The server checks every 15 minutes on its own; this keeps "checked … ago" honest.
+    refetchInterval: 60_000,
+    networkMode: "always",
+  });
+}
+
+/** Checks your Titan mailbox for replies now. Read-only. */
+export function useCheckTitanReplies() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<ReplyWatchStatus> => {
+      const parsed = ReplyWatchStatusSchema.safeParse(await request("/api/outreach/reply-watch/check", { method: "POST" }));
+      if (!parsed.success) throw new AgentOSRequestError("The reply check came back in an unexpected shape.");
+      return parsed.data;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: outreachKey() });
+      void queryClient.invalidateQueries({ queryKey: tractionKey() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
 
 export const followUpsKey = () => [...outreachKey(), "follow-ups"] as const;
 

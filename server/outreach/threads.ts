@@ -1,4 +1,4 @@
-import type { OutreachReply } from "../../shared/outreach-types";
+import type { InboxReply, OutreachReply } from "../../shared/outreach-types";
 import type { MailThread } from "../../shared/mail-types";
 
 /**
@@ -19,3 +19,22 @@ export function outreachReplyThreads(replies: readonly OutreachReply[]): MailThr
     unread: true,
   }));
 }
+
+/**
+ * Replies found in your own inbox (Titan), as threads, so the Next up queue
+ * raises "Reply to …" for them even when the Inbox has not been refreshed or
+ * the email was archived.
+ */
+export function inboxReplyThreads(replies: readonly InboxReply[]): MailThread[] {
+  return replies.map((reply) => ({
+    threadId: reply.threadId,
+    fromEmail: reply.fromEmail,
+    fromName: reply.fromName,
+    subject: reply.subject,
+    snippet: reply.snippet,
+    messageDate: reply.at,
+    classified: false,
+    unread: true,
+  }));
+}
+

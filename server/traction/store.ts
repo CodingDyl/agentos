@@ -1,16 +1,21 @@
 import { OutreachCaseSchema, SenderSchema } from "../../shared/outreach-case";
 import { FOLLOW_UP_DAYS, MAX_TOUCHES, type Play } from "../../shared/outreach-plays";
 import { LeadMagnetSchema } from "../../shared/lead-magnet-types";
+import { allReplies, type ReplySources } from "../outreach/replies";
 import {
+  InboxReplySchema,
   OUTREACH_LOG_LIMIT,
   OUTREACH_REPLY_LIMIT,
   OutreachLogEntrySchema,
   OutreachReplySchema,
+  ReplyWatchSchema,
   REPEAT_WINDOW_DAYS,
   SEND_KINDS,
   SuppressionSchema,
+  type InboxReply,
   type OutreachLogEntry,
   type OutreachReply,
+  type ReplyWatch,
   type Suppression,
   type SuppressionReason,
 } from "../../shared/outreach-types";
@@ -110,6 +115,10 @@ const StateSchema = z.object({
   suppressions: z.array(SuppressionSchema).default([]),
   /** Messages from prospects, read from the outreach mailbox. */
   outreachReplies: z.array(OutreachReplySchema).default([]),
+  /** Messages from prospects found in your own inbox (Titan). See `InboxReplySchema`. */
+  inboxReplies: z.array(InboxReplySchema).default([]),
+  /** How the last Titan reply check went. */
+  replyWatch: ReplyWatchSchema.default({}),
   outreachSync: z.object({ lastSyncAt: z.string().optional() }).default({}),
   /** Per prospect: the brief, the decision and the draft. See shared/outreach-case.ts. */
   outreachCases: z.record(z.string(), OutreachCaseSchema).default({}),
@@ -156,6 +165,8 @@ function emptyState(): TractionState {
     outreachLog: [],
     suppressions: [],
     outreachReplies: [],
+    inboxReplies: [],
+    replyWatch: {},
     outreachSync: {},
     outreachCases: {},
     senders: [],
@@ -1090,11 +1101,12 @@ export function removeSuppression(address: string): Promise<void> {
  * around it. Returns the reason in words, or undefined when it may go.
  */
 export function sequenceRefusal(
-  state: Pick<TractionState, "outreachLog" | "outreachReplies">,
+  state: Pick<TractionState, "outreachLog"> & ReplySources,
   to: string,
   now: number,
 ): string | undefined {
-  const lastReply = state.outreachReplies
+  // A reply in either place (the outreach mailbox or your Titan inbox) starts the sequence over.
+  const lastReply = allReplies(state)
     .filter((reply) => sameAddress(reply.fromEmail, to))
     .reduce((latest, reply) => Math.max(latest, Date.parse(reply.at)), 0);
   const sends = state.outreachLog
@@ -1167,6 +1179,83 @@ export function recordOutreachReply(reply: OutreachReply): Promise<boolean> {
     if (state.outreachReplies.some((entry) => entry.id === reply.id)) return { result: false };
     state.outreachReplies = [...state.outreachReplies, reply].slice(-OUTREACH_REPLY_LIMIT);
     return { result: true };
+  });
+}
+
+/** The most inbox replies kept. Old ones are dropped, oldest first. */
+const INBOX_REPLY_LIMIT = 1000;
+
+/**
+ * When you first reached a business: its first recorded email, or the moment
+ * it was marked contacted. Undefined for one never contacted, whose messages
+ * are not replies.
+ */
+export function firstContactAt(prospect: Prospect, log: readonly OutreachLogEntry[]): number | undefined {
+  const sends = log
+    .filter((entry) => entry.prospectId === prospect.id && (entry.kind === "sent" || entry.kind === "unconfirmed" || entry.kind === "manual"))
+    .map((entry) => Date.parse(entry.at));
+  if (sends.length > 0) return Math.min(...sends);
+  if (prospect.stage === "target") return undefined;
+  const touched = prospect.lastTouchAt ? Date.parse(prospect.lastTouchAt) : Date.parse(prospect.stageChangedAt);
+  return Number.isNaN(touched) ? undefined : touched;
+}
+
+export interface FoundMessage {
+  threadId: string;
+  fromEmail: string;
+  fromName?: string;
+  subject: string;
+  snippet: string;
+  /** When it was sent, ISO. */
+  messageDate: string;
+}
+
+/**
+ * Keeps the messages that are replies: from a business's exact address, sent
+ * after you first contacted them. Each is kept once. Returns how many are new.
+ */
+export function recordInboxReplies(account: InboxReply["account"], found: readonly FoundMessage[], now: Date = new Date()): Promise<number> {
+  return mutate((state) => {
+    const known = new Set(state.inboxReplies.map((reply) => reply.id));
+    const added: InboxReply[] = [];
+
+    for (const message of found) {
+      const from = message.fromEmail.trim().toLowerCase();
+      const id = `${account}:${message.threadId}`;
+      if (known.has(id)) continue;
+      const sentAt = Date.parse(message.messageDate);
+      if (Number.isNaN(sentAt)) continue;
+      const prospect = state.prospects.find((candidate) => candidate.email?.trim().toLowerCase() === from);
+      if (!prospect) continue;
+      const contacted = firstContactAt(prospect, state.outreachLog);
+      if (contacted === undefined || sentAt <= contacted) continue;
+
+      known.add(id);
+      added.push({
+        id,
+        account,
+        threadId: message.threadId,
+        prospectId: prospect.id,
+        fromEmail: from,
+        fromName: message.fromName,
+        subject: message.subject.slice(0, 300),
+        snippet: message.snippet.replace(/\s+/g, " ").trim().slice(0, 400),
+        at: new Date(sentAt).toISOString(),
+        seenAt: now.toISOString(),
+      });
+    }
+
+    if (added.length > 0) {
+      state.inboxReplies = [...state.inboxReplies, ...added].sort((a, b) => a.at.localeCompare(b.at)).slice(-INBOX_REPLY_LIMIT);
+    }
+    return { result: added.length };
+  });
+}
+
+export function setReplyWatch(watch: ReplyWatch): Promise<void> {
+  return mutate((state) => {
+    state.replyWatch = watch;
+    return { result: undefined };
   });
 }
 

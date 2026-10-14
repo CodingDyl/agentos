@@ -386,8 +386,8 @@ export const MailLinkSchema = z.object({
   linkedAt: z.string(),
 });
 
-/** Gmail thread ids are opaque, but always short and URL-safe. */
-export const ThreadIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+/** Gmail thread ids are opaque but short and URL-safe; Titan's are `titan:<uidvalidity>:<uid>`. */
+export const ThreadIdSchema = z.string().regex(/^(?:[A-Za-z0-9_-]{1,128}|titan:\d{1,20}:\d{1,10})$/);
 
 export const ConfirmMailLinkSchema = z.object({
   threadId: ThreadIdSchema,
