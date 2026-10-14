@@ -10,6 +10,7 @@ import {
   ANIMATE_GATES,
   ANIMATE_SKILL_ID,
   ANIMATE_STAGES,
+  ANIMATE_STAGE_LABEL,
   type AnimateCheckpoint,
   type AnimateJob,
   type AnimateRequest,
@@ -37,6 +38,7 @@ import {
   MOTION_ALLOWED_TOOLS,
   MOTION_DENIED_TOOLS,
   motionModel,
+  clearLastRun,
   planEnvironment,
   slug,
   stopGroup,
@@ -312,6 +314,11 @@ function firstPrompt(request: AnimateRequest, piece: string, brandFiles: string[
   ].join("\n");
 }
 
+/** Resuming restates the stage: the session may have ended before it heard which stage it is on. */
+export function resumePrompt(stage: AnimateStage, piece: string): string {
+  return `${RESUME_PROMPT}\n\nThe current stage is the ${ANIMATE_STAGE_LABEL[stage]}. ${STAGE_TASK[stage](piece)}`;
+}
+
 const RESUME_PROMPT = [
   "AgentOS restarted or the operator asked you to carry on. Continue the current stage from where you stopped:",
   "check what is already in pieces/ and checkpoints/, finish the stage, write its checkpoint, and stop.",
@@ -529,9 +536,9 @@ function effortFor(stage: AnimateStage): string {
   return process.env.AGENTOS_ANIMATE_EFFORT?.trim() || (stage === "build" ? "max" : "high");
 }
 
-export function animateClaudeArgs(job: Pick<StoredJob, "prompt" | "sessionId" | "attempts" | "model" | "pendingPrompt" | "stage">): string[] {
+export function animateClaudeArgs(job: Pick<StoredJob, "prompt" | "sessionId" | "attempts" | "model" | "pendingPrompt" | "stage" | "piece">): string[] {
   const resume = job.attempts > 0 && job.sessionId;
-  const prompt = resume ? (job.pendingPrompt ?? RESUME_PROMPT) : job.pendingPrompt ? `${job.prompt}\n\n${job.pendingPrompt}` : job.prompt;
+  const prompt = resume ? (job.pendingPrompt ?? resumePrompt(job.stage, job.piece)) : job.pendingPrompt ? `${job.prompt}\n\n${job.pendingPrompt}` : job.prompt;
   return [
     ...(resume ? ["--resume", job.sessionId!] : []),
     "-p",
@@ -622,7 +629,7 @@ async function start(job: StoredJob): Promise<void> {
   job.status = "running";
   job.startedAt = job.startedAt ?? new Date().toISOString();
   job.error = undefined;
-  job.resultError = undefined;
+  clearLastRun(job);
   job.run = { pid, logFile, offset: 0, deadline: new Date(Date.now() + timeoutMs(job.stage)).toISOString(), cancelRequested: false, startedAt: new Date().toISOString() };
   pushLog(job, "system", `${attempt === 1 ? "Claude Code started" : "Claude Code resumed"} · ${job.model} · ${job.stage}`);
   await save(job);
