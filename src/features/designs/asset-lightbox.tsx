@@ -8,6 +8,8 @@ import type {
 } from "@shared/agentos-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton } from "@/components/paper";
 import { cn } from "@/lib/utils";
+import { CreativeDownloadButton } from "./download-button";
+import { sourceFromAsset } from "./download-media";
 import { formatAdded, typeLabel } from "./designs-model";
 
 /** The same toggle chip `PaperFilterBar` draws, for choices inside a panel. */
@@ -113,7 +115,7 @@ export function AssetLightbox({
         aria-label={asset.filename}
         className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-white font-paper-ui text-paper-moss lg:flex-row"
       >
-        <div className="flex min-h-0 flex-1 items-center justify-center bg-paper-linen p-4 md:p-8">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 bg-paper-linen p-4 md:p-8">
           {asset.mediaType === "video" ? (
             <video
               key={asset.id}
@@ -133,6 +135,7 @@ export function AssetLightbox({
               className="max-h-[45vh] max-w-full object-contain lg:max-h-[80vh]"
             />
           )}
+          <CreativeDownloadButton source={sourceFromAsset(asset)} variant="label" />
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-8 overflow-y-auto border-t border-paper-mist p-5 md:p-6 lg:w-96 lg:border-t-0 lg:border-l">

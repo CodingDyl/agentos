@@ -23,6 +23,8 @@ import { useDesignLibrary } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { sourceLabel } from "./designs-model";
+import { CreativeDownloadButton } from "./download-button";
+import { sourceFromAsset } from "./download-media";
 import { MotionStatus, PromptBlock } from "./motion-status";
 
 /**
@@ -183,13 +185,16 @@ export function Films({ films }: { films: DesignAsset[] }) {
     <PaperSection
       label={films.length > 1 ? "Films" : "Film"}
       action={
-        <Link
-          to={`/designs?asset=${film.id}`}
-          className={cn("inline-flex min-h-8 items-center gap-1.5 px-2 text-[13px] font-medium text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
-        >
-          Open in Creative
-          <ExternalLink className="size-3.5" aria-hidden="true" />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <CreativeDownloadButton source={sourceFromAsset(film)} variant="label" />
+          <Link
+            to={`/designs?asset=${film.id}`}
+            className={cn("inline-flex min-h-8 items-center gap-1.5 px-2 text-[13px] font-medium text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+          >
+            Open in Creative
+            <ExternalLink className="size-3.5" aria-hidden="true" />
+          </Link>
+        </div>
       }
     >
       {films.length > 1 ? (
@@ -324,9 +329,14 @@ function Round({ round, latest }: { round: MotionRound; latest: boolean }) {
 
 function Sheet({ url, label }: { url: string; label: string }) {
   return (
-    <a href={url} target="_blank" rel="noreferrer" className={cn("block cursor-zoom-in bg-paper-moss", PAPER_FOCUS)} aria-label={`Open ${label} full size`}>
-      <img src={url} alt={label} className="w-full" loading="lazy" />
-    </a>
+    <div>
+      <a href={url} target="_blank" rel="noreferrer" className={cn("block cursor-zoom-in bg-paper-moss", PAPER_FOCUS)} aria-label={`Open ${label} full size`}>
+        <img src={url} alt={label} className="w-full" loading="lazy" />
+      </a>
+      <div className="mt-2">
+        <CreativeDownloadButton source={{ url, title: label, filename: label }} variant="label" />
+      </div>
+    </div>
   );
 }
 

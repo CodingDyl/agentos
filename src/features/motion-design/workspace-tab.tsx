@@ -10,6 +10,7 @@ import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperError, Tag } from "@/components/paper";
 import { useApproveMotionConcept, useMotionForWorkspace, useSendMotionNotes } from "@/lib/agentos/motion-design";
 import { cn } from "@/lib/utils";
+import { CreativeDownloadButton } from "@/features/designs/download-button";
 
 export function WorkspaceMotionTab({ slug }: { slug: string }) {
   const query = useMotionForWorkspace(slug);
@@ -172,7 +173,10 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
                 {progress.keyframes.map((image) => (
                   <figure key={image.url} className="border border-paper-mist">
                     <img src={image.url} alt={image.name} className="aspect-video w-full object-cover" />
-                    <figcaption className="truncate px-2 py-1 font-mono text-[11px]">{image.name}</figcaption>
+                    <figcaption className="flex items-center justify-between gap-1 px-2 py-1">
+                      <span className="truncate font-mono text-[11px]">{image.name}</span>
+                      <CreativeDownloadButton source={{ url: image.url, title: image.name, filename: image.name }} />
+                    </figcaption>
                   </figure>
                 ))}
               </div>
@@ -184,18 +188,28 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
               <h4 className="font-medium">Clips</h4>
               <div className="mt-2 grid gap-3">
                 {progress.clips.map((clip) => (
-                  <video key={clip.url} src={clip.url} controls className="w-full border border-paper-mist" />
+                  <div key={clip.url} className="space-y-2">
+                    <video src={clip.url} controls className="w-full border border-paper-mist" />
+                    <CreativeDownloadButton
+                      source={{ url: clip.url, title: clip.name, filename: clip.name }}
+                      variant="label"
+                    />
+                  </div>
                 ))}
               </div>
             </div>
           ) : null}
 
           {progress.previewUrl ? (
-            <p className="mt-4">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <a href={progress.previewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-paper-blue hover:underline">
                 Latest preview <ExternalLink className="size-3.5" />
               </a>
-            </p>
+              <CreativeDownloadButton
+                source={{ url: progress.previewUrl, title: "motion-preview" }}
+                variant="label"
+              />
+            </div>
           ) : null}
 
           {progress.ledger ? (

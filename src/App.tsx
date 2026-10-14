@@ -23,6 +23,7 @@ import {
   BoardDetailPage,
   BoardsPage,
   DesignsPage,
+  DownloadToastProvider,
   GenerationsPage,
   AnimateJobPage,
   AnimatePage,
@@ -47,6 +48,7 @@ function App() {
           produced it, because navigating away is often the moment the
           operator realises they wanted it back. */}
       <WorkspaceFeedbackProvider>
+      <DownloadToastProvider>
         {/* Quick Create hosts the global forms; the palette, the shell's `+`
             and Mission Control all open them from here. */}
         <QuickCreateProvider>
@@ -130,6 +132,7 @@ function App() {
         </AppShellActionsContext.Provider>
         </CommandPaletteProvider>
         </QuickCreateProvider>
+      </DownloadToastProvider>
       </WorkspaceFeedbackProvider>
       </FocusSessionProvider>
       </SpotifyProvider>
