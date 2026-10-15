@@ -272,6 +272,9 @@ export async function runRepositoryAction(
       }
 
       case "stash": {
+        // macOS `._*` sidecars come and go on an exFAT or network drive, and git
+        // fails the whole stash ("could not lstat") when one vanishes mid-run.
+        await removeMetadataFiles(repoPath);
         const files = await uncommittedFiles(repoPath);
 
         if (files.length === 0) return refuse("There is nothing to stash.");

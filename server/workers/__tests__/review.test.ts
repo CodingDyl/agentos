@@ -8,7 +8,7 @@ import { after, before, describe, it } from "node:test";
 import type { WorkerJob } from "../../../shared/worker-types";
 import { extractJson, readReview } from "../../hermes/worker-review";
 import { buildReviewPacket, buildRevisionRequest } from "../review-builder";
-import { integrationBlockerDetails, integrationBlockers } from "../review";
+import { integrationBlockerDetails, integrationBlockers, isAgentOSOwnedChange } from "../review";
 
 /**
  * The review step is the one that decides whether generated code gets in front
@@ -385,6 +385,35 @@ describe("what must be true before anything is integrated", () => {
     assert.ok(blockers.some((blocker) => /uncommitted changes/.test(blocker)));
 
     await fs.rm(path.join(repo, "scratch.txt"));
+  });
+
+  it("is not blocked by the job's own saved documents or macOS sidecars, and names what does block", async () => {
+    const head = (await run("git", ["rev-parse", "HEAD"], { cwd: repo })).stdout.trim();
+    const job = integrable({ baseCommit: head, targetBranch: "main" });
+    const artifacts = path.join(repo, "projects", job.project, "artifacts", job.id);
+    await fs.mkdir(artifacts, { recursive: true });
+    await fs.writeFile(path.join(artifacts, "concepts.md"), "# Concepts\n", "utf8");
+    await fs.writeFile(path.join(repo, "projects", job.project, "artifacts", `._${job.id}`), "x", "utf8");
+    await fs.writeFile(path.join(repo, ".DS_Store"), "x", "utf8");
+
+    assert.deepEqual(await integrationBlockers(job), [], "documents AgentOS registered for the job do not count");
+
+    await fs.writeFile(path.join(repo, "scratch.txt"), "wip\n", "utf8");
+    const blockers = await integrationBlockers(job);
+    assert.equal(blockers.length, 1);
+    assert.match(blockers[0], /uncommitted changes \(scratch\.txt\)/, "it says which file");
+
+    await fs.rm(path.join(repo, "scratch.txt"));
+    await fs.rm(path.join(repo, "projects"), { recursive: true, force: true });
+    await fs.rm(path.join(repo, ".DS_Store"));
+  });
+
+  it("only treats the project's own artifacts folder as AgentOS's", () => {
+    assert.equal(isAgentOSOwnedChange("projects/bosch/artifacts/job_1/a.md", "bosch"), true);
+    assert.equal(isAgentOSOwnedChange("vault/projects/bosch/artifacts/job_1/a.md", "bosch"), true);
+    assert.equal(isAgentOSOwnedChange("projects/other/artifacts/job_1/a.md", "bosch"), false);
+    assert.equal(isAgentOSOwnedChange("projects/bosch/site/index.html", "bosch"), false);
+    assert.equal(isAgentOSOwnedChange("projects/bosch/site/._index.html", "bosch"), true);
   });
 });
 

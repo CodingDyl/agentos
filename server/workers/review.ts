@@ -17,13 +17,13 @@ import {
 } from "./review-builder";
 import { removeMetadataFiles } from "../agentos/metadata-files";
 import { runValidation } from "./validation";
+import { uncommittedFiles } from "../agentos/git";
 import { createWorkerEvent } from "./worker";
 import {
   commitWorktree,
   currentBranch,
   fastForward,
   headCommit,
-  isClean,
   removeWorktree,
 } from "./worktree";
 
@@ -378,6 +378,37 @@ export async function integrationBlockers(job: WorkerJob): Promise<string[]> {
 }
 
 /**
+ * What AgentOS itself leaves in the source repository, which is no reason to
+ * refuse an integration.
+ *
+ * When the repository is the vault (a workspace whose code lives inside it),
+ * the job's own documents are saved under `projects/<slug>/artifacts/` the
+ * moment it finishes, before anyone reviews it. Counting them as "uncommitted
+ * changes" meant a job could never be approved: it dirtied the repository
+ * itself, and stashing them hid the very documents it had just registered.
+ * macOS `._*` sidecars are the same: the drive's doing, never the project's.
+ *
+ * Nothing here weakens the safety it stands in for. The merge is `--ff-only`,
+ * and git refuses it outright if it would overwrite any of these files.
+ */
+export function isAgentOSOwnedChange(file: string, project: string): boolean {
+  const name = file.split("/").at(-1) ?? file;
+  if (name.startsWith("._") || name === ".DS_Store") return true;
+  return file.startsWith(`projects/${project}/artifacts/`) || file.includes(`/projects/${project}/artifacts/`);
+}
+
+/** The uncommitted paths that do block an integration, or `unreadable` when git cannot say. */
+async function blockingChanges(job: WorkerJob): Promise<string[] | "unreadable"> {
+  try {
+    const files = await uncommittedFiles(job.sourceRepoPath!);
+    return files.map((entry) => entry.path).filter((file) => !isAgentOSOwnedChange(file, job.project));
+  } catch {
+    // A repository that cannot be read is not known to be clean, and this answer gates an integration.
+    return "unreadable";
+  }
+}
+
+/**
  * The same blockers, each carrying what would resolve it.
  *
  * The cure is decided here rather than in React, because deciding it there
@@ -460,10 +491,14 @@ export async function integrationBlockerDetails(
     });
   }
 
-  if (!(await isClean(job.sourceRepoPath))) {
+  const dirty = await blockingChanges(job);
+
+  if (dirty === "unreadable") {
+    blockers.push({ message: "The source repository could not be read, so it is not known to be clean." });
+  } else if (dirty.length > 0) {
+    const named = dirty.slice(0, 5).join(", ");
     blockers.push({
-      message:
-        "The source repository has uncommitted changes. Commit or stash them first.",
+      message: `The source repository has uncommitted changes (${named}${dirty.length > 5 ? ` and ${dirty.length - 5} more` : ""}). Commit or stash them first.`,
       cure: { kind: "stash" },
     });
   }
