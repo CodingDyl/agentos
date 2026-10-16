@@ -110,6 +110,7 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     effort: input.effort,
     extraAllowedTools: MOTION_SITE_TOOLS,
     claudeSettingSources: "user,project",
+    claudeMcpServers: ["playwright"],
     timeoutMs: 45 * 60 * 1000,
     constraints: [
       "Do not submit paid Higgsfield jobs until motion-studio/credits.approved.json exists.",
@@ -195,8 +196,12 @@ export async function approveMotionConcept(
     effort: run.effort,
     extraAllowedTools: [...MOTION_SITE_TOOLS, ...creditToolsAllowed(approval)],
     claudeSettingSources: "user,project",
+    claudeMcpServers: ["playwright"],
     timeoutMs: 4 * 60 * 60 * 1000,
-    constraints: [`Do not exceed ${input.ceiling} Higgsfield credits, including pending charges in motion-credit-ledger.csv.`],
+    constraints: [
+      `Do not exceed ${input.ceiling} Higgsfield credits, including pending charges in motion-credit-ledger.csv.`,
+      "Read web references with WebFetch and check the site in the Playwright browser tools (mcp__playwright__*), never by driving Chrome from node.",
+    ],
   }, { retryOf: run.proposalJobId });
 
   if (!started.job) throw new MotionDesignError(started.error ?? "Claude Code could not be started for the build.", 409);
@@ -238,6 +243,7 @@ export async function sendMotionNotes(run: MotionRun, text: string): Promise<Mot
         effort: run.effort,
         extraAllowedTools: [...MOTION_SITE_TOOLS, ...creditToolsAllowed(run.approval)],
         claudeSettingSources: "user,project",
+        claudeMcpServers: ["playwright"],
         timeoutMs: 2 * 60 * 60 * 1000,
       }, { retryOf: jobId });
       if (started.job) {

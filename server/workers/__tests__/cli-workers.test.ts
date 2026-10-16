@@ -51,6 +51,27 @@ describe("Claude Code", () => {
     assert.ok(args.indexOf("Write") < args.indexOf("--disallowedTools"));
   });
 
+  it("never denies WebFetch outright, so a job's own grant takes effect", () => {
+    const plain = claudeCodeArgs({ prompt: "go" });
+    assert.ok(!plain.includes("WebFetch"), "off by default: not allowed, not denied");
+
+    const granted = claudeCodeArgs({ prompt: "go", extraAllowedTools: ["WebFetch"] });
+    assert.equal(granted.lastIndexOf("WebFetch"), granted.indexOf("WebFetch"));
+    assert.ok(granted.indexOf("WebFetch") < granted.indexOf("--disallowedTools"));
+  });
+
+  it("hands a job only the MCP servers it asked for, headless and allowed", () => {
+    assert.ok(!claudeCodeArgs({ prompt: "go" }).includes("--mcp-config"));
+
+    const args = claudeCodeArgs({ prompt: "go", mcpServers: ["playwright"] });
+    assert.ok(args.includes("--strict-mcp-config"));
+    const config = JSON.parse(args[args.indexOf("--mcp-config") + 1]);
+    assert.equal(config.mcpServers.playwright.command, "npx");
+    assert.ok(config.mcpServers.playwright.args.includes("--headless"));
+    assert.ok(args.indexOf("mcp__playwright") > args.indexOf("--allowedTools"));
+    assert.ok(args.indexOf("mcp__playwright") < args.indexOf("--disallowedTools"));
+  });
+
   it("reads tokens from the result event and records no cost", async () => {
     const reader = claudeCodeReader();
     assert.equal(reader.line(JSON.stringify({ type: "system", subtype: "init", model: "claude-sonnet-4-6" }))?.message, "Claude Code started · claude-sonnet-4-6");

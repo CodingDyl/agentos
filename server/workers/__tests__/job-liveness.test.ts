@@ -92,6 +92,10 @@ describe("job liveness", () => {
       error: "Interrupted",
       completedAt: "2026-09-14T18:00:00.000Z",
       constraints: ["Keep it small"],
+      extraAllowedTools: ["WebFetch", "Bash(higgsfield:*)"],
+      claudeSettingSources: "user,project",
+      claudeMcpServers: ["playwright"],
+      timeoutMs: 60_000,
     });
     await store.saveJob(failed);
 
@@ -106,6 +110,11 @@ describe("job liveness", () => {
     assert.equal(retried.retryOf, "job_failed000000000");
     assert.equal(retried.objective, failed.objective);
     assert.deepEqual(retried.constraints, ["Keep it small"]);
+    // A retry keeps what the job was allowed to do, or a studio build stalls on approvals.
+    assert.deepEqual(retried.extraAllowedTools, ["WebFetch", "Bash(higgsfield:*)"]);
+    assert.equal(retried.claudeSettingSources, "user,project");
+    assert.deepEqual(retried.claudeMcpServers, ["playwright"]);
+    assert.equal(retried.timeoutMs, 60_000);
 
     // The mock worker finishes on its own; wait for it so the temp dir can go.
     for (let attempt = 0; attempt < 200 && manager.isRunning(retried.id); attempt += 1) {

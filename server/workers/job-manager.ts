@@ -668,6 +668,14 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
     skillId: previous.skillId,
+    // What the job was allowed to do. Without these a retried studio build
+    // loses its Higgsfield, web and skill access and stalls on approval prompts.
+    modelOverride: previous.modelOverride,
+    effort: previous.effort,
+    extraAllowedTools: previous.extraAllowedTools,
+    claudeSettingSources: previous.claudeSettingSources,
+    claudeMcpServers: previous.claudeMcpServers,
+    timeoutMs: previous.timeoutMs,
   };
 
   const started = await startJob(request, { retryOf: previous.id, ...(previous.skill ? { skill: previous.skill } : {}) });

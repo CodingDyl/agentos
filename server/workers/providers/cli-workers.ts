@@ -37,7 +37,14 @@ const CLAUDE_ALLOWED = [
   "Bash(ls:*)",
 ];
 
-/** Refused whatever the prompt says, the same refusals the Grok worker runs with. */
+/**
+ * Refused whatever the prompt says, the same refusals the Grok worker runs with.
+ *
+ * WebFetch and WebSearch are not here: deny outranks allow, so listing them
+ * made a job's own grant (Motion Design asks for WebFetch) silently useless.
+ * They stay off by default because they are not in CLAUDE_ALLOWED, and an
+ * unlisted tool is refused in a headless run.
+ */
 const CLAUDE_DENIED = [
   "Bash(git push:*)",
   "Bash(git commit:*)",
@@ -49,9 +56,28 @@ const CLAUDE_DENIED = [
   "Read(**/.env)",
   "Read(**/.env.*)",
   "Edit(**/.env)",
-  "WebFetch",
-  "WebSearch",
 ];
+
+/**
+ * MCP servers a job may be handed. Headless and isolated, so a worker's browser
+ * never opens a window on the operator's screen or touches a real profile.
+ */
+const CLAUDE_MCP_SERVERS = {
+  playwright: { command: "npx", args: ["@playwright/mcp@latest", "--headless", "--isolated"] },
+} as const;
+
+export type ClaudeMcpServerId = keyof typeof CLAUDE_MCP_SERVERS;
+
+function mcpArgs(servers: readonly ClaudeMcpServerId[] | undefined): { config: string[]; tools: string[] } {
+  const ids = [...new Set(servers ?? [])];
+  if (ids.length === 0) return { config: [], tools: [] };
+  const mcpServers = Object.fromEntries(ids.map((id) => [id, CLAUDE_MCP_SERVERS[id]]));
+  return {
+    config: ["--mcp-config", JSON.stringify({ mcpServers })],
+    // A bare server name allows every tool that server offers.
+    tools: ids.map((id) => `mcp__${id}`),
+  };
+}
 
 export function claudeCodeArgs(input: {
   prompt: string;
@@ -59,7 +85,9 @@ export function claudeCodeArgs(input: {
   effort?: string;
   extraAllowedTools?: string[];
   settingSources?: string;
+  mcpServers?: readonly ClaudeMcpServerId[];
 }): string[] {
+  const mcp = mcpArgs(input.mcpServers);
   return [
     "-p",
     input.prompt,
@@ -74,11 +102,13 @@ export function claudeCodeArgs(input: {
     "--setting-sources",
     input.settingSources?.trim() || "project",
     "--strict-mcp-config",
+    ...mcp.config,
     ...(input.model ? ["--model", input.model] : []),
     ...(input.effort ? ["--effort", input.effort] : []),
     "--allowedTools",
     ...CLAUDE_ALLOWED,
     ...(input.extraAllowedTools ?? []),
+    ...mcp.tools,
     "--disallowedTools",
     ...CLAUDE_DENIED,
   ];
@@ -164,6 +194,7 @@ export const claudeCodeWorker = createCliWorker({
       effort: job.effort,
       extraAllowedTools: job.extraAllowedTools,
       settingSources: job.claudeSettingSources,
+      mcpServers: job.claudeMcpServers,
     }),
   env: (base) => {
     // Without these removed, Claude Code would bill the API key AgentOS holds

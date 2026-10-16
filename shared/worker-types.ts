@@ -189,6 +189,12 @@ export const WorkerJobRequestSchema = z.object({
   extraAllowedTools: z.array(z.string().min(1).max(80)).max(50).optional(),
   /** Claude Code `--setting-sources`. Default remains `project`. */
   claudeSettingSources: z.string().trim().max(40).optional(),
+  /**
+   * Claude Code only: MCP servers AgentOS hands this job. Claude Code runs with
+   * `--strict-mcp-config`, so the operator's own servers never reach a worker;
+   * these are the only ones it sees. `playwright` is a headless browser.
+   */
+  claudeMcpServers: z.array(z.enum(["playwright"])).max(4).optional(),
   /** How long this job may run before AgentOS stops it. */
   timeoutMs: z.number().int().positive().max(28_800_000).optional(),
 });
