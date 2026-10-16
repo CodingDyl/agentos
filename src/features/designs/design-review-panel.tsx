@@ -5,13 +5,14 @@ import type {
   DesignReview,
   DesignReviewMode,
 } from "@shared/design-intelligence-types";
+import { FilterToolbar } from "@/components/os";
 import {
   FieldLabel,
   PAPER_FOCUS,
   PAPER_INPUT,
   PaperButton,
   PaperCard,
-  PaperFilterBar,
+  SegmentedControl,
   Tag,
 } from "@/components/paper";
 import {
@@ -207,21 +208,29 @@ export function DesignReviewPanel({
             {projects.length > 0 ? (
               <div className="mt-6">
                 <FieldLabel>Workspace</FieldLabel>
-                <PaperFilterBar<string>
-                  label="Choose a workspace"
-                  value={project}
-                  onChange={setProject}
-                  options={projects.map((entry) => ({
-                    value: entry.slug,
-                    label: entry.name,
-                  }))}
+                <FilterToolbar
+                  label="Workspace"
+                  groups={[
+                    {
+                      id: "workspace",
+                      label: "Workspace",
+                      value: project,
+                      emptyValue: projects[0]?.slug ?? "agentos",
+                      searchable: true,
+                      onChange: setProject,
+                      options: projects.map((entry) => ({
+                        value: entry.slug,
+                        label: entry.name,
+                      })),
+                    },
+                  ]}
                 />
               </div>
             ) : null}
 
             <div className="mt-6">
               <FieldLabel>Mode</FieldLabel>
-              <PaperFilterBar<DesignReviewMode>
+              <SegmentedControl<DesignReviewMode>
                 label="Choose a review mode"
                 value={mode}
                 onChange={setMode}

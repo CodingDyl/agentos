@@ -135,7 +135,7 @@ import type {
   StartValidationTask,
   UpdateValidationTask,
 } from "@shared/validation-sprint-types";
-import { useIsMutating, useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useIsMutating, useMutation, useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   forkAgentSession,
@@ -944,6 +944,7 @@ export function useActivity(query: ActivityQuery = {}) {
     staleTime: 15_000,
     retry: 1,
     networkMode: "always",
+    placeholderData: keepPreviousData,
   });
 }
 

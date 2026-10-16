@@ -3,8 +3,8 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ProjectState, ProjectSummary } from "@shared/agentos-types";
 import { WORKSPACE_TYPE_LABELS, type WorkspaceType } from "@shared/workspace";
-import { AppShell, DedsecLoader } from "@/components/os";
-import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, SegmentedControl, Tag } from "@/components/paper";
+import { AppShell, DedsecLoader, FilterToolbar, type FilterGroup } from "@/components/os";
+import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { sortProjects, stateLabel } from "@/features/projects/projects-model";
 import { MotionDesignWizard } from "@/features/motion-design";
@@ -121,22 +121,7 @@ export function WorkspacesPage() {
                   className={cn(PAPER_INPUT, "w-full pl-8")}
                 />
               </label>
-              <SegmentedControl label="Show" options={SCOPES} value={scope} onChange={setScope} />
-              {presentTypes.length > 1 ? (
-                <select
-                  aria-label="Workspace type"
-                  value={type}
-                  onChange={(event) => setType(event.target.value as WorkspaceType | "all")}
-                  className={cn(PAPER_INPUT, "cursor-pointer pr-8")}
-                >
-                  <option value="all">All types</option>
-                  {presentTypes.map((entry) => (
-                    <option key={entry} value={entry}>
-                      {WORKSPACE_TYPE_LABELS[entry]}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
+              <WorkspaceFilters scope={scope} onScope={setScope} type={type} onType={setType} presentTypes={presentTypes} />
             </div>
 
             {visible.length === 0 ? (
@@ -238,4 +223,48 @@ function WorkspaceGroup({ label, workspaces, all }: { label: string; workspaces:
       </ul>
     </section>
   );
+}
+
+function WorkspaceFilters({
+  scope,
+  onScope,
+  type,
+  onType,
+  presentTypes,
+}: {
+  scope: Scope;
+  onScope: (value: Scope) => void;
+  type: WorkspaceType | "all";
+  onType: (value: WorkspaceType | "all") => void;
+  presentTypes: string[];
+}) {
+  const groups: FilterGroup[] = [
+    {
+      id: "scope",
+      label: "Show",
+      value: scope,
+      emptyValue: "all",
+      onChange: (value) => onScope(value as Scope),
+      options: SCOPES,
+    },
+  ];
+
+  if (presentTypes.length > 1) {
+    groups.push({
+      id: "type",
+      label: "Type",
+      value: type,
+      emptyValue: "all",
+      onChange: (value) => onType(value as WorkspaceType | "all"),
+      options: [
+        { value: "all", label: "All types" },
+        ...presentTypes.map((entry) => ({
+          value: entry,
+          label: WORKSPACE_TYPE_LABELS[entry as WorkspaceType] ?? entry,
+        })),
+      ],
+    });
+  }
+
+  return <FilterToolbar className="w-auto min-w-0 flex-1" groups={groups} />;
 }

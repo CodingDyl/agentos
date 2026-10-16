@@ -65,12 +65,6 @@ const FILTER_EMPTY: Record<Exclude<MailStatusFilter, "all">, string> = {
 
 type MailAccountFilter = "all" | "gmail" | "titan";
 
-const ACCOUNT_FILTERS: readonly { value: MailAccountFilter; label: string }[] = [
-  { value: "all", label: "All accounts" },
-  { value: "gmail", label: "Gmail" },
-  { value: "titan", label: "Virtara" },
-];
-
 export function MailPage() {
   const navigationItems = useNavigationItems();
   const status = useMailStatus();
@@ -304,23 +298,19 @@ export function MailPage() {
                     </a>
                   </div>
                 ) : null}
-                {titanLinked ? (
-                  <div className="mail-filters mail-account-filter" role="group" aria-label="Filter by account">
-                    {ACCOUNT_FILTERS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`mail-filter${accountFilter === option.value ? " mail-filter--active" : ""}`}
-                        aria-pressed={accountFilter === option.value}
-                        onClick={() => changeAccount(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
                 <div className="mail-controls">
-                  {sorted ? <MailFilters value={filter} counts={counts} onChange={changeFilter} /> : <span />}
+                  {titanLinked || sorted ? (
+                    <MailFilters
+                      value={filter}
+                      counts={counts}
+                      onChange={changeFilter}
+                      showStatus={sorted}
+                      account={titanLinked ? accountFilter : undefined}
+                      onAccountChange={titanLinked ? changeAccount : undefined}
+                    />
+                  ) : (
+                    <span />
+                  )}
                   <MailBulkBar
                     key={filter}
                     threadIds={filteredIds}

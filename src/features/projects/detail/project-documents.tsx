@@ -2,7 +2,7 @@ import { PenLine, Plus, Search, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ArtifactType, DocumentProposal, ProjectDetail } from "@shared/agentos-types";
-import { CommandButton, DedsecLoader, EmptyState, FilterBar, Markdown, Section, SectionLabel } from "@/components/os";
+import { CommandButton, DedsecLoader, EmptyState, FilterBar, FilterToolbar, Markdown, Section, SectionLabel } from "@/components/os";
 import { useWorkspaceFeedback } from "@/features/workspace";
 import { useCreateDocument, useProjectDocuments, useProposeDocument } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -72,7 +72,21 @@ export function ProjectDocuments({ project }: { project: ProjectDetail }) {
         </label>
 
         <div className="flex flex-wrap items-center gap-3">
-          {filters.length > 2 ? <FilterBar<DocumentFilter> label="Filter by type" value={filter} onChange={setFilter} options={filters} /> : null}
+          {filters.length > 2 ? (
+            <FilterToolbar
+              className="w-auto"
+              groups={[
+                {
+                  id: "type",
+                  label: "Type",
+                  value: filter,
+                  emptyValue: "all",
+                  onChange: (value) => setFilter(value as DocumentFilter),
+                  options: filters,
+                },
+              ]}
+            />
+          ) : null}
           <CommandButton variant="secondary" icon={Plus} iconPosition="start" onClick={() => setCreating(creating ? undefined : "blank")}>
             New document
           </CommandButton>

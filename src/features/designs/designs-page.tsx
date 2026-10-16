@@ -2,14 +2,13 @@ import { Clapperboard, ImagePlus, PenLine, Search, Sparkles, Upload } from "luci
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { DesignAsset } from "@shared/agentos-types";
-import { AppShell } from "@/components/os";
+import { AppShell, FilterToolbar, type FilterGroup } from "@/components/os";
 import {
   PAPER_FOCUS,
   PAPER_INPUT,
   PaperButton,
   PaperEmpty,
   PaperError,
-  PaperFilterBar,
   PaperLoading,
   PaperPageHeader,
   PaperStage,
@@ -269,66 +268,18 @@ export function DesignsPage() {
                 </PaperButton>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-                <PaperFilterBar<LibraryFilter>
-                  label="Filter visuals by kind"
-                  options={LIBRARY_FILTERS}
-                  value={filter}
-                  onChange={setFilter}
-                />
-
-                {projects.length > 0 ? (
-                  <PaperFilterBar<string>
-                    label="Filter visuals by workspace"
-                    value={project}
-                    onChange={(value) =>
-                      setParam("project", value === "all" ? undefined : value)
-                    }
-                    options={[
-                      { value: "all", label: "All workspaces" },
-                      ...projects.map((entry) => ({
-                        value: entry.slug,
-                        label: entry.name,
-                      })),
-                      // Loose work is findable rather than merely present.
-                      ...(assets.some((asset) => !asset.project)
-                        ? [{ value: UNASSIGNED, label: "Unassigned" }]
-                        : []),
-                    ]}
-                  />
-                ) : null}
-              </div>
-
-              {products.length > 0 || sources.length > 1 ? (
-                <div className="mt-4 flex flex-wrap items-start gap-x-8 gap-y-4">
-                  {products.length > 0 ? (
-                    <PaperFilterBar<string>
-                      label="Filter visuals by product"
-                      value={product}
-                      onChange={(value) => setParam("product", value === "all" ? undefined : value)}
-                      options={[
-                        { value: "all", label: "All products" },
-                        ...products.map((entry) => ({ value: entry, label: entry })),
-                      ]}
-                    />
-                  ) : null}
-
-                  {sources.length > 1 ? (
-                    <PaperFilterBar<string>
-                      label="Filter visuals by source"
-                      value={source}
-                      onChange={(value) => setParam("source", value === "all" ? undefined : value)}
-                      options={[
-                        { value: "all", label: "Any source" },
-                        ...sources.map((entry) => ({
-                          value: entry,
-                          label: entry === "higgsfield" ? "Higgsfield" : entry === "upload" ? "Uploaded" : entry,
-                        })),
-                      ]}
-                    />
-                  ) : null}
-                </div>
-              ) : null}
+              <DesignLibraryFilters
+                filter={filter}
+                onFilter={setFilter}
+                project={project}
+                product={product}
+                source={source}
+                projects={projects}
+                products={products}
+                sources={sources}
+                assets={assets}
+                onParam={setParam}
+              />
 
               {upload.isError ? (
                 <p role="alert" className="mt-6 text-[13.5px] leading-5 text-paper-flame-deep">
@@ -467,6 +418,94 @@ const VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
  * checkbox instead of the image would make the common case worse to serve the
  * rare one.
  */
+function DesignLibraryFilters({
+  filter,
+  onFilter,
+  project,
+  product,
+  source,
+  projects,
+  products,
+  sources,
+  assets,
+  onParam,
+}: {
+  filter: LibraryFilter;
+  onFilter: (value: LibraryFilter) => void;
+  project: string;
+  product: string;
+  source: string;
+  projects: { slug: string; name: string }[];
+  products: string[];
+  sources: string[];
+  assets: DesignAsset[];
+  onParam: (key: string, value: string | undefined) => void;
+}) {
+  const groups: FilterGroup[] = [
+    {
+      id: "kind",
+      label: "Kind",
+      value: filter,
+      emptyValue: "all",
+      onChange: (value) => onFilter(value as LibraryFilter),
+      options: LIBRARY_FILTERS,
+    },
+  ];
+
+  if (projects.length > 0) {
+    groups.push({
+      id: "workspace",
+      label: "Workspace",
+      value: project,
+      emptyValue: "all",
+      searchable: true,
+      onChange: (value) => onParam("project", value === "all" ? undefined : value),
+      options: [
+        { value: "all", label: "All workspaces" },
+        ...projects.map((entry) => ({ value: entry.slug, label: entry.name })),
+        ...(assets.some((asset) => !asset.project) ? [{ value: UNASSIGNED, label: "Unassigned" }] : []),
+      ],
+    });
+  }
+
+  if (products.length > 0) {
+    groups.push({
+      id: "product",
+      label: "Product",
+      value: product,
+      emptyValue: "all",
+      onChange: (value) => onParam("product", value === "all" ? undefined : value),
+      options: [
+        { value: "all", label: "All products" },
+        ...products.map((entry) => ({ value: entry, label: entry })),
+      ],
+    });
+  }
+
+  if (sources.length > 1) {
+    groups.push({
+      id: "source",
+      label: "Source",
+      value: source,
+      emptyValue: "all",
+      onChange: (value) => onParam("source", value === "all" ? undefined : value),
+      options: [
+        { value: "all", label: "Any source" },
+        ...sources.map((entry) => ({
+          value: entry,
+          label: entry === "higgsfield" ? "Higgsfield" : entry === "upload" ? "Uploaded" : entry,
+        })),
+      ],
+    });
+  }
+
+  return (
+    <div className="mt-5">
+      <FilterToolbar groups={groups} />
+    </div>
+  );
+}
+
 function SelectionBar({
   label,
   selecting,
