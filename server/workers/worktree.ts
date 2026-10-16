@@ -121,6 +121,56 @@ export async function commitWorktree(
   return commit;
 }
 
+/** Scratch space a worker leaves behind that a retry should not inherit. */
+const SNAPSHOT_EXCLUDES = [":(glob)**/.scratch/**", ":(glob)**/node_modules/**"];
+
+/** Files above this stay out of a snapshot: renders and caches, not work. */
+const SNAPSHOT_MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Commits an unfinished attempt's work on its own branch, so a retry can start
+ * from it instead of from nothing.
+ *
+ * Only for a job that died (quota, crash, cancel): nobody reviewed this, and
+ * it never reaches the source branch except through the retry's own review.
+ * Scratch directories and very large files are left out. Returns the commit
+ * the retry should branch from, or `undefined` when there was nothing to keep.
+ */
+export async function snapshotWorktree(
+  worktreePath: string,
+  message: string,
+): Promise<string | undefined> {
+  if (!(await isRepository(worktreePath))) return undefined;
+
+  await git(worktreePath, ["add", "-A"]);
+  await git(worktreePath, ["reset", "-q", "--", ...SNAPSHOT_EXCLUDES]).catch(() => undefined);
+
+  const { stdout } = await git(worktreePath, ["diff", "--cached", "--name-only", "-z"]);
+  const staged = stdout.split("\0").filter(Boolean);
+  const oversize: string[] = [];
+  for (const file of staged) {
+    const stat = await fs.stat(path.join(worktreePath, file)).catch(() => undefined);
+    if (stat && stat.size > SNAPSHOT_MAX_FILE_BYTES) oversize.push(file);
+  }
+  if (oversize.length > 0) await git(worktreePath, ["reset", "-q", "--", ...oversize]);
+
+  // Nothing new to keep: the attempt's own base is still the right start.
+  if (staged.length === oversize.length) return (await headCommit(worktreePath)) ?? undefined;
+
+  await git(worktreePath, [
+    "-c",
+    "user.name=AgentOS",
+    "-c",
+    "user.email=agentos@localhost",
+    "commit",
+    "--no-verify",
+    "-m",
+    message,
+  ]);
+
+  return (await headCommit(worktreePath)) ?? undefined;
+}
+
 /**
  * Fast-forwards the source branch onto the worker's.
  *

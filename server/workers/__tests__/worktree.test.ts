@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { after, before, describe, it } from "node:test";
-import { changedFiles, isRepository } from "../worktree";
+import { changedFiles, isRepository, snapshotWorktree } from "../worktree";
 
 /**
  * What a job reports as changed is read from git, and is the list a person
@@ -67,5 +67,50 @@ describe("what git says changed", () => {
     assert.equal(await isRepository(directory), false);
     assert.equal(await isRepository(repo), true);
     assert.equal(await isRepository(path.join(directory, "nope")), false);
+  });
+});
+
+describe("keeping an unfinished attempt for its retry", () => {
+  let directory: string;
+
+  before(async () => {
+    directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-snapshot-"));
+  });
+
+  after(async () => {
+    await fs.rm(directory, { recursive: true, force: true });
+  });
+
+  async function repoWithCommit(name: string): Promise<string> {
+    const repo = path.join(directory, name);
+    await fs.mkdir(repo, { recursive: true });
+    await run("git", ["init", "-q", "-b", "main", "."], { cwd: repo });
+    await fs.writeFile(path.join(repo, "README.md"), "# Test\n", "utf8");
+    await run("git", ["add", "-A"], { cwd: repo });
+    await run("git", ["-c", "user.email=t@t", "-c", "user.name=T", "commit", "-qm", "init"], { cwd: repo });
+    return repo;
+  }
+
+  it("commits the work and leaves scratch directories out", async () => {
+    const repo = await repoWithCommit("work");
+    const before = (await run("git", ["rev-parse", "HEAD"], { cwd: repo })).stdout.trim();
+    await fs.writeFile(path.join(repo, "README.md"), "# Half done\n", "utf8");
+    await fs.mkdir(path.join(repo, "site/.scratch"), { recursive: true });
+    await fs.writeFile(path.join(repo, "site/index.html"), "<h1>Hi</h1>\n", "utf8");
+    await fs.writeFile(path.join(repo, "site/.scratch/render.bin"), "x", "utf8");
+
+    const commit = await snapshotWorktree(repo, "keep");
+
+    assert.ok(commit);
+    assert.notEqual(commit, before);
+    const files = (await run("git", ["show", "--name-only", "--format=", commit], { cwd: repo })).stdout.trim().split("\n");
+    assert.deepEqual(files.sort(), ["README.md", "site/index.html"]);
+  });
+
+  it("returns the existing commit when there is nothing new to keep", async () => {
+    const repo = await repoWithCommit("clean");
+    const head = (await run("git", ["rev-parse", "HEAD"], { cwd: repo })).stdout.trim();
+
+    assert.equal(await snapshotWorktree(repo, "keep"), head);
   });
 });

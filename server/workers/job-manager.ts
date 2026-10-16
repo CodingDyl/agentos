@@ -47,7 +47,7 @@ import { authorize } from "../connectors/policy";
 import { runValidation } from "./validation";
 import { createWorkerEvent, type Worker } from "./worker";
 import { repositoryProblem } from "../agentos/git";
-import { changedFiles, createWorktree, isRepository } from "./worktree";
+import { changedFiles, createWorktree, isRepository, snapshotWorktree } from "./worktree";
 
 /**
  * Runs jobs.
@@ -633,8 +633,42 @@ export async function interruptRunningJobs(reason: string): Promise<void> {
   await flushEvents();
 }
 
+const CONTINUATION_PREFIX = "This run continues ";
+
+function withoutContinuation(constraints: readonly string[] | undefined): string[] {
+  return (constraints ?? []).filter((line) => !line.startsWith(CONTINUATION_PREFIX));
+}
+
 /**
- * Runs a job again from scratch: same brief, fresh worktree, new id.
+ * Where a retry of a dead attempt should start: that attempt's own unfinished
+ * work, saved as a commit on its branch.
+ *
+ * Without this every retry began from the source branch again, and a long
+ * studio build that ran out of quota redid (and re-paid for) everything it had
+ * already made. Only a job that failed or was cancelled is continued; work
+ * that reached review has its own path.
+ */
+async function continueFrom(previous: WorkerJob): Promise<{ commit: string; note: string } | undefined> {
+  if (previous.status !== "failed" && previous.status !== "cancelled") return undefined;
+  if (!previous.worktreePath || !previous.baseCommit) return undefined;
+
+  const commit = await snapshotWorktree(
+    previous.worktreePath,
+    `AgentOS: unfinished work from ${previous.id}, kept for its retry`,
+  ).catch(() => undefined);
+  if (!commit) return undefined;
+
+  return {
+    commit,
+    note:
+      `${CONTINUATION_PREFIX}${previous.id}, which stopped before finishing. Its work is already in this checkout ` +
+      "(see git log and the project's logs and ledger). Pick up where it stopped; do not redo or re-pay for steps it finished.",
+  };
+}
+
+/**
+ * Runs a job again: same brief, fresh worktree, new id. A failed or cancelled
+ * attempt's unfinished work comes with it (see `continueFrom`).
  *
  * For a job that failed or was interrupted. Not a revision — there is no
  * review to respond to and possibly no work to continue — so it is a new job
@@ -655,15 +689,16 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
   if (previous.origin) return { error: `This run belongs to ${previous.origin.label}. Resume it there.` };
 
   const worker = options.worker ?? previous.requestedWorker ?? previous.worker;
+  const continued = await continueFrom(previous);
   const request: WorkerJobRequest = {
     worker,
     requestedWorker: worker,
     project: previous.project,
     objective: previous.objective,
     repoPath: previous.sourceRepoPath ?? previous.repoPath,
-    baseRef: previous.baseRef,
+    baseRef: continued?.commit ?? previous.baseRef,
     contextFiles: previous.contextFiles,
-    constraints: previous.constraints,
+    constraints: continued ? [...withoutContinuation(previous.constraints), continued.note] : previous.constraints,
     acceptanceCriteria: previous.acceptanceCriteria,
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
