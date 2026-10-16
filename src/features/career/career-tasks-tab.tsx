@@ -7,7 +7,7 @@ import {
   type CareerTaskCategory,
   type CareerTaskMeta,
 } from "@shared/career-types";
-import { DedsecLoader } from "@/components/os";
+import { DedsecLoader, FilterToolbar } from "@/components/os";
 import { PAPER_INPUT, PaperButton, PaperSection, Tag } from "@/components/paper";
 import { useSaveTaskMeta } from "@/lib/agentos/career";
 import type { TaskRecord } from "@/lib/agentos/client";
@@ -41,14 +41,25 @@ export function CareerTasksTab({ data }: { data: CareerData }) {
         label="Open"
         count={open.length}
         action={
-          <select aria-label="Filter by category" className={PAPER_INPUT} value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}>
-            <option value="all">All categories</option>
-            {CAREER_TASK_CATEGORIES.map((value) => (
-              <option key={value} value={value}>
-                {CAREER_TASK_CATEGORY_LABELS[value]}
-              </option>
-            ))}
-          </select>
+          <FilterToolbar
+            className="w-auto"
+            groups={[
+              {
+                id: "category",
+                label: "Category",
+                value: filter,
+                emptyValue: "all",
+                onChange: (value) => setFilter(value as typeof filter),
+                options: [
+                  { value: "all", label: "All categories" },
+                  ...CAREER_TASK_CATEGORIES.map((value) => ({
+                    value,
+                    label: CAREER_TASK_CATEGORY_LABELS[value],
+                  })),
+                ],
+              },
+            ]}
+          />
         }
       >
         {tasks.isPending ? (

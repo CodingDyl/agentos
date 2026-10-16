@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { CASE_STAGE_LABEL, caseStage, type CaseStage, type OutreachCase } from "@shared/outreach-case";
 import { playById, PLAYS, type OutreachStats, type Rate, type SentEmail } from "@shared/outreach-plays";
 import { vettingOf, type Prospect, type TractionData } from "@shared/traction-types";
+import { FilterToolbar } from "@/components/os";
 import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperCard, PaperEmpty, PaperError, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useOutreachStats } from "@/lib/agentos/outreach";
 import { useOutreachCases } from "@/lib/agentos/outreach-cases";
@@ -126,14 +127,20 @@ function WriteView({
     <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">
       <nav aria-label="Businesses" className="min-w-0">
         <div className="space-y-2">
-          <SegmentedControl<ListFilter>
-            label="Which businesses"
-            value={filter}
-            onChange={setFilter}
-            options={[
-              { value: "to_email", label: "To email" },
-              { value: "emailed", label: "Emailed" },
-              { value: "all", label: "All" },
+          <FilterToolbar
+            groups={[
+              {
+                id: "which",
+                label: "Businesses",
+                value: filter,
+                emptyValue: "to_email",
+                onChange: (value) => setFilter(value as ListFilter),
+                options: [
+                  { value: "to_email", label: "To email" },
+                  { value: "emailed", label: "Emailed" },
+                  { value: "all", label: "All" },
+                ],
+              },
             ]}
           />
           <label className="relative block">

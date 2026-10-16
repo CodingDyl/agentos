@@ -2,8 +2,8 @@ import { Archive, ArchiveRestore, BookmarkPlus, Check, Clock, ExternalLink, Link
 import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { formatTimestamp, LEARNING_SOURCE_LABELS, type LearningSource } from "@shared/learning-types";
-import { AppShell, DedsecLoader } from "@/components/os";
-import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs, SegmentedControl, Tag } from "@/components/paper";
+import { AppShell, DedsecLoader, FilterToolbar } from "@/components/os";
+import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import { useDeleteSource, useImportSource, useLearningLibrary, useUpdateSource } from "@/lib/agentos/learning";
@@ -461,7 +461,18 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
 
   return (
     <div>
-      <SegmentedControl label="Show" options={VIDEO_FILTERS} value={filter} onChange={setFilter} />
+      <FilterToolbar
+        groups={[
+          {
+            id: "show",
+            label: "Show",
+            value: filter,
+            emptyValue: "all",
+            onChange: (value) => setFilter(value as VideoFilter),
+            options: VIDEO_FILTERS,
+          },
+        ]}
+      />
       {shown.length === 0 ? <p className="mt-5 text-[14px] text-paper-sage">Nothing here.</p> : null}
       <ul className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {shown.map((source) => (

@@ -2,7 +2,8 @@ import { Archive, ArchiveRestore, Brain, ExternalLink, Pencil, Play, Plus, Searc
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { formatTimestamp, LEARNING_SOURCE_LABELS, type LearningNote, type LearningSource, type LearningSourceType } from "@shared/learning-types";
-import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, SegmentedControl, Tag } from "@/components/paper";
+import { FilterToolbar } from "@/components/os";
+import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, Tag } from "@/components/paper";
 import { Markdown } from "@/components/os/markdown";
 import { formatRelativeTime } from "@/lib/format";
 import { useUpdateLearningNote } from "@/lib/agentos/learning";
@@ -63,25 +64,46 @@ export function SavedLearning({
             <Plus className="size-3.5" strokeWidth={2} aria-hidden="true" /> New
           </PaperButton>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <SegmentedControl label="Source" options={SOURCE_FILTERS} value={filters.sourceType} onChange={(sourceType) => setFilters({ ...filters, sourceType })} />
-          <select
-            value={filters.workspace}
-            onChange={(event) => setFilters({ ...filters, workspace: event.target.value })}
-            aria-label="Workspace"
-            className={cn(PAPER_INPUT, "min-h-8 cursor-pointer text-[13px]")}
-          >
-            <option value="all">Any workspace</option>
-            <option value="">No workspace</option>
-            {(projects.data?.projects ?? []).map((project) => (
-              <option key={project.slug} value={project.slug}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-          <label className="flex items-center gap-1.5 text-[13px] text-paper-char">
-            <input type="checkbox" checked={filters.archived} onChange={(event) => setFilters({ ...filters, archived: event.target.checked })} /> Archived
-          </label>
+        <div className="mt-3">
+          <FilterToolbar
+            groups={[
+              {
+                id: "source",
+                label: "Source",
+                value: filters.sourceType,
+                emptyValue: "all",
+                onChange: (sourceType) => setFilters({ ...filters, sourceType: sourceType as LearningSourceType | "all" }),
+                options: SOURCE_FILTERS,
+              },
+              {
+                id: "workspace",
+                label: "Workspace",
+                value: filters.workspace,
+                emptyValue: "all",
+                searchable: true,
+                onChange: (workspace) => setFilters({ ...filters, workspace }),
+                options: [
+                  { value: "all", label: "Any workspace" },
+                  { value: "", label: "No workspace" },
+                  ...(projects.data?.projects ?? []).map((project) => ({
+                    value: project.slug,
+                    label: project.name,
+                  })),
+                ],
+              },
+              {
+                id: "archived",
+                label: "Archived",
+                value: filters.archived ? "yes" : "no",
+                emptyValue: "no",
+                onChange: (value) => setFilters({ ...filters, archived: value === "yes" }),
+                options: [
+                  { value: "no", label: "Hide archived" },
+                  { value: "yes", label: "Show archived" },
+                ],
+              },
+            ]}
+          />
         </div>
 
         <ul className="mt-4 divide-y divide-paper-mist border-y border-paper-mist" aria-label="Learnings">

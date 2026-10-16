@@ -7,12 +7,11 @@ import { PAPER_FOCUS, PaperButton } from "./paper";
 
 /**
  * Page furniture for screens on the paper world: the header every moved screen
- * opens with, the filter group, and the three states a read can be in.
+ * opens with, and the three states a read can be in.
  *
- * These replace `PageHeader`, `FilterBar`, `LoadingState`, `EmptyState` and
- * `ErrorState` from `components/os` one screen at a time. Loading uses the
- * shared DedSec loop; an error still shows the underlying failure rather
- * than placeholder content.
+ * List filters live on the shared `FilterToolbar` in `components/os`. Loading
+ * uses the shared DedSec loop; an error still shows the underlying failure
+ * rather than placeholder content.
  */
 
 export function PaperPageHeader({
@@ -56,60 +55,6 @@ export function PaperBackLink({ to, children }: { to: string; children: ReactNod
       <ArrowLeft className="size-3.5" aria-hidden="true" />
       {children}
     </Link>
-  );
-}
-
-export interface PaperFilterOption<T extends string> {
-  value: T;
-  label: string;
-  /** Shown after the label, e.g. a match count. */
-  count?: number;
-}
-
-/**
- * A group of toggle chips for filtering a list. Unlike `SegmentedControl` it
- * wraps, so it holds a long set (every workspace) without scrolling sideways.
- */
-export function PaperFilterBar<T extends string>({
-  options,
-  value,
-  onChange,
-  label,
-  className,
-}: {
-  options: readonly PaperFilterOption<T>[];
-  value: T;
-  onChange: (value: T) => void;
-  /** Names the group for screen readers, e.g. "Filter activity by source". */
-  label: string;
-  className?: string;
-}) {
-  return (
-    <div role="group" aria-label={label} className={cn("flex flex-wrap items-center gap-1.5", className)}>
-      {options.map((option) => {
-        const selected = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none border px-3 text-[13px] font-medium transition-colors duration-150",
-              PAPER_FOCUS,
-              selected
-                ? "border-paper-moss bg-paper-moss text-paper-white"
-                : "border-paper-mist text-paper-char hover:bg-paper-linen hover:text-paper-moss",
-            )}
-          >
-            {option.label}
-            {option.count !== undefined ? (
-              <span className={cn("tabular-nums", selected ? "text-paper-mist" : "text-paper-sage")}>{option.count}</span>
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

@@ -6,13 +6,14 @@ import type {
 } from "@shared/design-generation-types";
 import { MAX_REFERENCE_IMAGES, MAX_VARIATIONS } from "@shared/design-generation-types";
 import type { DesignAsset } from "@shared/agentos-types";
+import { FilterToolbar } from "@/components/os";
 import {
   FieldLabel,
   PAPER_FOCUS,
   PAPER_INPUT,
   PaperButton,
   PaperCard,
-  PaperFilterBar,
+  SegmentedControl,
   Tag,
 } from "@/components/paper";
 import {
@@ -166,20 +167,26 @@ export function GeneratePanel({
           <>
             {projects.length > 0 ? (
               <div className="mt-6 flex flex-wrap items-start gap-x-8 gap-y-5">
-                <div>
+                <div className="min-w-0 flex-1">
                   <FieldLabel>Workspace</FieldLabel>
-                  <PaperFilterBar<string>
-                    label="Choose a workspace"
-                    value={project}
-                    onChange={(next) => {
-                      setProject(next);
-                      if (!next) setProduct("");
-                    }}
-                    // `No project` first and selected by default: an image
-                    // made to think with does not have to belong to anything.
-                    options={[
-                      { value: "", label: "No workspace" },
-                      ...projects.map((entry) => ({ value: entry.slug, label: entry.name })),
+                  <FilterToolbar
+                    label="Workspace"
+                    groups={[
+                      {
+                        id: "workspace",
+                        label: "Workspace",
+                        value: project,
+                        emptyValue: "",
+                        searchable: true,
+                        onChange: (next) => {
+                          setProject(next);
+                          if (!next) setProduct("");
+                        },
+                        options: [
+                          { value: "", label: "No workspace" },
+                          ...projects.map((entry) => ({ value: entry.slug, label: entry.name })),
+                        ],
+                      },
                     ]}
                   />
                 </div>
@@ -244,7 +251,7 @@ export function GeneratePanel({
             <div className="mt-6 flex flex-wrap gap-x-8 gap-y-6">
               <div>
                 <FieldLabel>Aspect ratio</FieldLabel>
-                <PaperFilterBar<AspectRatio>
+                <SegmentedControl<AspectRatio>
                   label="Choose an aspect ratio"
                   value={ratio}
                   onChange={setRatio}
@@ -257,7 +264,7 @@ export function GeneratePanel({
 
               <div>
                 <FieldLabel>Variations</FieldLabel>
-                <PaperFilterBar<string>
+                <SegmentedControl
                   label="How many variations"
                   value={String(count)}
                   onChange={(value) => setCount(Number(value))}

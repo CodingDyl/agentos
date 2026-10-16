@@ -1,9 +1,9 @@
 import { FileText, GraduationCap, Scale, Search } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ArtifactSource, KnowledgeItem } from "@shared/agentos-types";
-import { AppShell, DedsecLoader } from "@/components/os";
-import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, SegmentedControl, Tag } from "@/components/paper";
+import { AppShell, DedsecLoader, FilterToolbar, type FilterGroup } from "@/components/os";
+import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { SOURCE_LABELS } from "@/features/projects/documents-model";
 import { formatRelativeTime } from "@/lib/format";
@@ -103,37 +103,14 @@ export function KnowledgePage() {
           </label>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2.5">
-          <FilterSelect label="Workspace" value={filters.workspace} onChange={(value) => setFilter("workspace", value, "all")}>
-            <option value="all">All workspaces</option>
-            {workspaces.map(([slug, name]) => (
-              <option key={slug} value={slug}>
-                {name}
-              </option>
-            ))}
-          </FilterSelect>
-          <FilterSelect label="Type" value={filters.type} onChange={(value) => setFilter("type", value, "all")}>
-            <option value="all">All types</option>
-            {types.map((type) => (
-              <option key={type} value={type}>
-                {KNOWLEDGE_TYPE_LABEL(type)}
-              </option>
-            ))}
-          </FilterSelect>
-          <FilterSelect label="Creator" value={filters.creator} onChange={(value) => setFilter("creator", value, "all")}>
-            <option value="all">Anyone</option>
-            {creators.map((source) => (
-              <option key={source} value={source}>
-                {SOURCE_LABELS[source]}
-              </option>
-            ))}
-          </FilterSelect>
-          <SegmentedControl label="Updated" options={WHEN} value={filters.when} onChange={(value) => setFilter("when", value, "any")} />
-          {filtered ? (
-            <PaperButton variant="quiet" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
-              Clear
-            </PaperButton>
-          ) : null}
+        <div className="mt-4">
+          <KnowledgeFilterBar
+            filters={filters}
+            workspaces={workspaces}
+            types={types}
+            creators={creators}
+            onFilter={setFilter}
+          />
         </div>
 
         <div className="mt-8">
@@ -176,22 +153,65 @@ export function KnowledgePage() {
   );
 }
 
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  children,
+function KnowledgeFilterBar({
+  filters,
+  workspaces,
+  types,
+  creators,
+  onFilter,
 }: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
+  filters: KnowledgeFilters;
+  workspaces: [string, string][];
+  types: string[];
+  creators: ArtifactSource[];
+  onFilter: (key: "workspace" | "type" | "creator" | "when", value: string, fallback: string) => void;
 }) {
-  return (
-    <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={cn(PAPER_INPUT, "cursor-pointer pr-8")}>
-      {children}
-    </select>
-  );
+  const groups: FilterGroup[] = [
+    {
+      id: "workspace",
+      label: "Workspace",
+      value: filters.workspace,
+      emptyValue: "all",
+      searchable: true,
+      onChange: (value) => onFilter("workspace", value, "all"),
+      options: [
+        { value: "all", label: "All workspaces" },
+        ...workspaces.map(([slug, name]) => ({ value: slug, label: name })),
+      ],
+    },
+    {
+      id: "type",
+      label: "Type",
+      value: filters.type,
+      emptyValue: "all",
+      onChange: (value) => onFilter("type", value, "all"),
+      options: [
+        { value: "all", label: "All types" },
+        ...types.map((type) => ({ value: type, label: KNOWLEDGE_TYPE_LABEL(type as KnowledgeItem["type"]) })),
+      ],
+    },
+    {
+      id: "creator",
+      label: "Creator",
+      value: filters.creator,
+      emptyValue: "all",
+      onChange: (value) => onFilter("creator", value, "all"),
+      options: [
+        { value: "all", label: "Anyone" },
+        ...creators.map((source) => ({ value: source, label: SOURCE_LABELS[source] })),
+      ],
+    },
+    {
+      id: "when",
+      label: "Updated",
+      value: filters.when,
+      emptyValue: "any",
+      onChange: (value) => onFilter("when", value, "any"),
+      options: WHEN,
+    },
+  ];
+
+  return <FilterToolbar groups={groups} />;
 }
 
 function KnowledgeRow({ item }: { item: KnowledgeItem }) {
