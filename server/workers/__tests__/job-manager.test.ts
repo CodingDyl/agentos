@@ -250,6 +250,29 @@ describe("running jobs", () => {
       );
     });
 
+    it("records the usage-saving route on the job", async () => {
+      const { job } = await manager.startJob({
+        worker: "mock",
+        project: "agentos",
+        objective: "Implement the login form",
+        repoPath: repo,
+        modelRouteType: "execute",
+        validationCommands: ["exit 0"],
+      });
+      assert.ok(job);
+      assert.equal(job.modelRouteType, "execute");
+      assert.equal(job.modelRoute?.taskType, "execute");
+      assert.equal(job.modelRoute?.model, "sonnet");
+      assert.equal(job.modelRoute?.effort, "medium");
+      await settle(job.id);
+
+      const retried = await manager.retryJob(job.id);
+      assert.ok(retried.job);
+      assert.equal(retried.job.modelRouteType, "execute");
+      assert.equal(retried.job.modelRoute?.taskType, "execute");
+      await settle(retried.job.id);
+    });
+
     it("fails a job whose validation fails, whatever the worker reported", async () => {
       const { job } = await manager.startJob({
         worker: "mock",

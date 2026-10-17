@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { agentOSRoot } from "../agentos/filesystem";
 import { git, isRepository } from "../agentos/git";
+import { motionSiteTemplate } from "./site-template";
 
 const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"];
 const GITIGNORE = ["node_modules/", ".next/", "out/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", ".DS_Store", ""].join("\n");
@@ -26,11 +27,15 @@ export async function ensureMotionSiteRepo(slug: string, name: string): Promise<
   }
 
   await fs.writeFile(path.join(repo, ".gitignore"), GITIGNORE, { flag: "wx" }).catch(() => undefined);
-  await fs.writeFile(
-    path.join(repo, "README.md"),
-    `# ${name}\n\nMotion Design site, built by Claude Code with the motion-site-studio skill.\n`,
-    { flag: "wx" },
-  ).catch(() => undefined);
+  const existingPackage = await fs.readFile(path.join(repo, "package.json"), "utf8").catch(() => undefined);
+  if (!existingPackage) {
+    const files = motionSiteTemplate(name);
+    for (const [relative, contents] of Object.entries(files)) {
+      const target = path.join(repo, relative);
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.writeFile(target, contents, { flag: "wx" }).catch(() => undefined);
+    }
+  }
   await git(repo, ["add", "-A"]);
   await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", "Start the motion site"]);
   return repo;

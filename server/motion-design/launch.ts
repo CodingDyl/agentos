@@ -12,6 +12,7 @@ import {
 } from "../../shared/motion-design-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, patchProject, toSlug } from "../agentos/mutations/projects";
+import { routeFor } from "../model-routing/resolve";
 import { startJob, readJob, steerJob } from "../workers/job-manager";
 import { bundledSkillPath } from "./skill-install";
 import { commitSiteFiles, ensureMotionSiteRepo, writeApprovalFile } from "./site-repo";
@@ -100,14 +101,19 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     interviewAnswered: true,
   });
 
+  const routed = routeFor("motion");
+  const model = input.model?.trim() || routed.model;
+  const effort = input.effort ?? routed.effort;
+
   const started = await startJob({
     worker: "claude-code",
     requestedWorker: "claude-code",
     project: slug,
     objective: prompt,
     repoPath: repo,
-    modelOverride: input.model,
-    effort: input.effort,
+    modelRouteType: "motion",
+    modelOverride: model,
+    effort,
     extraAllowedTools: MOTION_SITE_TOOLS,
     claudeSettingSources: "user,project",
     claudeMcpServers: ["playwright"],
@@ -136,8 +142,8 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     budgetPlan: input.budgetPlan,
     budgetCeiling: input.budgetCeiling,
     codeOnly: input.codeOnly,
-    model: input.model,
-    effort: input.effort,
+    model,
+    effort,
     siteRepoPath: repo,
     proposalJobId: started.job.id,
     concepts: [],
@@ -192,6 +198,7 @@ export async function approveMotionConcept(
     project: run.workspaceSlug,
     objective: prompt,
     repoPath: run.siteRepoPath,
+    modelRouteType: "motion",
     modelOverride: run.model,
     effort: run.effort,
     extraAllowedTools: [...MOTION_SITE_TOOLS, ...creditToolsAllowed(approval)],
@@ -239,6 +246,7 @@ export async function sendMotionNotes(run: MotionRun, text: string): Promise<Mot
         project: run.workspaceSlug,
         objective: `Operator notes (highest design priority). Apply these in the next round, then continue the design loop:\n\n${note.text}`,
         repoPath: run.siteRepoPath,
+        modelRouteType: "motion",
         modelOverride: run.model,
         effort: run.effort,
         extraAllowedTools: [...MOTION_SITE_TOOLS, ...creditToolsAllowed(run.approval)],

@@ -9,6 +9,7 @@ import { GrokBotBridgeSchema } from "./grok-bot-types";
 import { WorkerCapabilitySchema, WorkerIdSchema } from "./worker-ids";
 import { ExecutionAttemptSchema, RoutingModeSchema, TaskMetadataSchema } from "./route-policy-types";
 import { WorkerRoutingDecisionSchema } from "./worker-routing-types";
+import { ModelRouteDecisionSchema, ModelRouteTaskTypeSchema } from "./model-routing-types";
 
 /**
  * The worker contract.
@@ -185,6 +186,13 @@ export const WorkerJobRequestSchema = z.object({
   modelOverride: z.string().trim().max(80).optional(),
   /** Claude Code `--effort`, when the CLI supports it. */
   effort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
+  /**
+   * Usage-saving task type. Set by the flow that created the job (Motion,
+   * a plan step, a code apply). Absent, the router classifies the brief.
+   */
+  modelRouteType: ModelRouteTaskTypeSchema.optional(),
+  /** The resolved type, model and effort. Recorded so the job can show them. */
+  modelRoute: ModelRouteDecisionSchema.optional(),
   /** Extra `--allowedTools` entries for this job, on top of the worker default. */
   extraAllowedTools: z.array(z.string().min(1).max(80)).max(50).optional(),
   /** Claude Code `--setting-sources`. Default remains `project`. */

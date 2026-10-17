@@ -70,12 +70,13 @@ export const BUILD_STAGE_LABEL: Record<BuildStage, string> = {
   copy: "Copy polish",
 };
 
-export const MOTION_DESIGN_EFFORTS = ["high", "xhigh", "max"] as const;
+export const MOTION_WIZARD_EFFORTS = ["low", "medium", "high"] as const;
+export const MOTION_DESIGN_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export const MotionDesignEffortSchema = z.enum(MOTION_DESIGN_EFFORTS);
 export type MotionDesignEffort = z.infer<typeof MotionDesignEffortSchema>;
 
 export const DEFAULT_MOTION_MODEL = "claude-opus-5-5";
-export const DEFAULT_MOTION_EFFORT: MotionDesignEffort = "max";
+export const DEFAULT_MOTION_EFFORT: MotionDesignEffort = "high";
 
 export const BUDGET_PLAN_IDS = ["taster", "standard", "full", "custom"] as const;
 export const BudgetPlanIdSchema = z.enum(BUDGET_PLAN_IDS);
@@ -495,7 +496,11 @@ function line(label: string, value: string, youDecide: boolean, fallback = "not 
 const SKILL_INVOCATION = `/motion-site-studio
 
 Build a 3D motion website from my attached references.
-Analyze what makes them work, then interview me in one batch.
+The site is a Next.js App Router TypeScript project (already scaffolded).
+Use GSAP + ScrollTrigger (register client-side in useGSAP/useEffect),
+@react-three/fiber for 3D, and Framer Motion for UI motion.
+Do not replace the app with a standalone index.html.
+Analyze what makes the references work, then interview me in one batch.
 Show two concepts and a verified itemized budget before spending.
 Generate the images and video with Higgsfield if available, build the site,
 and iterate against the reference rules and my feedback.`;

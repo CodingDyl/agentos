@@ -208,6 +208,14 @@ describe("whether a visual contract is ready to send", () => {
   });
 });
 
+describe("modelRouteLabel", () => {
+  it("names the type, model and effort", async () => {
+    const { modelRouteLabel } = await import("@shared/model-routing-types");
+    assert.equal(modelRouteLabel({ taskType: "execute", model: "sonnet", effort: "medium" }), "Execute · sonnet · medium");
+    assert.equal(modelRouteLabel({ taskType: "motion", model: "claude-opus-5-5", effort: "high" }), "Motion / video · claude-opus-5-5 · high");
+  });
+});
+
 describe("jobTitle", () => {
   it("uses the first line of a long brief, cut to a readable length", async () => {
     const { jobTitle } = await import("../workers-model");
