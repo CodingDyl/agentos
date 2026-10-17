@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { uiStateDir } from "../agentos/session-store";
 import { OllamaSettingsSchema, type OllamaSettings } from "../../shared/route-policy-types";
+import { mergeModelRouting, type ModelRoutingTable } from "../../shared/model-routing-types";
 
 /**
  * Which AIs the operator has switched on or off, and which model each uses.
@@ -30,6 +31,8 @@ interface Settings {
   ollama?: OllamaSettings;
   /** Where the Grok Bot workspace lives; undefined until the operator sets it. */
   grokBotWorkspace?: string;
+  /** Usage-saving model table. Absent until the operator edits it. */
+  modelRouting?: ModelRoutingTable;
 }
 
 let settings: Settings | undefined;
@@ -65,6 +68,7 @@ function load(): Settings {
       ollama: ollama.success ? ollama.data : undefined,
       grokBotWorkspace:
         typeof parsed.grokBotWorkspace === "string" && parsed.grokBotWorkspace.trim() ? parsed.grokBotWorkspace : undefined,
+      modelRouting: parsed.modelRouting ? mergeModelRouting(parsed.modelRouting) : undefined,
     };
   } catch {
     settings = { disabled: new Set(), enabled: new Set(), models: {} };
@@ -83,7 +87,14 @@ function save(next: Settings): void {
   fs.writeFileSync(
     temporary,
     JSON.stringify(
-      { disabled: [...next.disabled].sort(), enabled: [...next.enabled].sort(), models: next.models, ollama: next.ollama, grokBotWorkspace: next.grokBotWorkspace },
+      {
+        disabled: [...next.disabled].sort(),
+        enabled: [...next.enabled].sort(),
+        models: next.models,
+        ollama: next.ollama,
+        grokBotWorkspace: next.grokBotWorkspace,
+        modelRouting: next.modelRouting,
+      },
       null,
       2,
     ),
@@ -156,6 +167,16 @@ export function setGrokBotWorkspace(workspace: string | undefined): void {
 /** Only tests need this — forgets the in-memory copy so the file is read again. */
 export function resetAiSettingsCache(): void {
   settings = undefined;
+}
+
+/** The raw settings object. Used by model-routing so both share one file. */
+export function readAiSettingsFile(): Settings {
+  return load();
+}
+
+/** Merges a patch into the settings file. */
+export function writeAiSettingsFile(patch: Partial<Settings>): void {
+  save({ ...load(), ...patch });
 }
 
 /** What a gated integration says when the operator has switched it off. */

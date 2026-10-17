@@ -148,8 +148,8 @@ export function deniedTools(): string[] {
   return [...DENIED_TOOLS];
 }
 
-function model(): string {
-  return process.env.CLAUDE_WORKER_MODEL?.trim() || "sonnet";
+function model(job?: { modelOverride?: string }): string {
+  return job?.modelOverride?.trim() || process.env.CLAUDE_WORKER_MODEL?.trim() || "sonnet";
 }
 
 function boundedNumber(value: string | undefined, fallback: number): number {
@@ -267,7 +267,8 @@ export function buildQueryOptions(
     // Both the working directory and the boundary for this run.
     cwd: worktreePath,
 
-    model: model(),
+    model: model(job),
+    ...(job.effort ? { effort: job.effort } : {}),
     maxTurns: maxTurns(),
     maxBudgetUsd: maxBudgetUsd(),
     abortController: controller,
@@ -371,7 +372,7 @@ export const claudeWorker: Worker = {
     timeout.unref?.();
 
     emit("job.progress", "Starting Claude", {
-      model: model(),
+      model: model(job),
       maxTurns: turns,
       maxBudgetUsd: budget,
       allowedTools: allowed.length,

@@ -18,8 +18,8 @@ For ordinary website tasks without a motion or reference-led design requirement,
 
 ## Operating rules
 
-- Inspect the existing project, stack, assets, and applicable project instructions before implementation. Reuse the established stack unless a change is justified.
-- Use the strongest available model and highest effort setting when selectable. Do not claim to change settings the environment cannot control.
+- Inspect the existing project, stack, assets, and applicable project instructions before implementation. Reuse the established Next.js App Router TypeScript stack unless a change is justified.
+- Honour the model and effort the operator chose in AgentOS. Do not raise them, and do not claim to change settings the environment cannot control.
 - Follow available website-building, generation, and deployment tools' instructions. Verify Higgsfield capabilities and command syntax before use; never invent tools or commands.
 - Treat this as a standalone instruction skill. It does not include the original downloadable package or scripts. Create project-specific helpers only when needed.
 - Confirm current model availability, pricing, frame conditioning, duration, and resolution using official documentation or the authenticated provider before paid jobs.
@@ -121,14 +121,24 @@ Keep compatible dimensions, aspect ratios, frame rates, and encoding across the 
 
 ## 5. Build the website and run the design loop
 
+The project is a **Next.js App Router + TypeScript** app. AgentOS seeds `app/`, `components/scroll-film.tsx` and `components/scene.tsx`. Extend those files. Do not replace the app with a standalone `index.html`.
+
+Required motion libraries, already listed in `package.json`:
+
+- **GSAP** with **ScrollTrigger**. Register the plugin only on the client, inside `useGSAP` or `useEffect` — never at module top-level (the App Router renders on the server, where `window` does not exist).
+- **Three.js** through `@react-three/fiber` (and `@react-three/drei` where it helps). Keep the canvas in a client component.
+- **Framer Motion** for UI entrance and page transitions.
+
+A static `index.html` with CDN script tags is the usual reason slide animations never play: opening it via `file://` has no HTTP origin, ScrollTrigger is often not registered, scripts load in the wrong order, and there is no pin/`end` distance for the scroller. Serve with `npm run dev` or `npm run build && npm start`.
+
 Implement the approved page with readable content, responsive layouts, clear navigation, and one primary conversion action.
 
 - Map scroll progress deterministically to video time or image-sequence frames. Check forward scrolling, reverse scrolling, and stopping at joins.
+- Pin the film section with **one** ScrollTrigger timeline (`pin: true`, `end: "+=…"`, `scrub: 1`) and animate slides against that pin’s progress. Do not also give each slide its own viewport-relative trigger while the parent is pinned — pinned slides never cross `top 75%`, so those tweens never start.
 - Give each section a purposeful supporting motion graphic where it helps the story. Use restrained code-based motion when extra video adds little value.
 - Make the hero readable before media loads. Provide a poster or static fallback, staged media loading, and suitable mobile assets.
 - Respect reduced-motion preferences with a useful static or low-motion experience. Support keyboard navigation, visible focus, readable contrast, and controls for long-running animation.
 - Avoid autoplay audio. Introduce sound only through a clear user action.
-- For code-based motion, preserve the same visual rules and review process. Use suitable CSS, SVG, canvas, or WebGL rather than pretending a film was generated.
 
 ### Three review perspectives
 
@@ -165,6 +175,8 @@ Do not promise that subjective design quality “beats” every reference. Repor
 /motion-site-studio
 
 Build a 3D motion website from my attached references.
+The site is a Next.js App Router TypeScript project.
+Use GSAP + ScrollTrigger (register client-side), @react-three/fiber, and Framer Motion.
 Analyze what makes them work, then interview me in one batch.
 Show two concepts and a verified itemized budget before spending.
 Generate the images and video with Higgsfield if available, build the site,

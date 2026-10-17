@@ -10,6 +10,7 @@ import { grokWorker } from "../workers/providers/grok-worker";
 import { ollamaWorker } from "../workers/providers/ollama-worker";
 import { envKeySet, findApp, findConfig, findOnPath, serverAnswers } from "./detect";
 import { readClaudeCodeUsage, readCodexUsage } from "./local-usage";
+import { modelRoutingTable } from "../model-routing/settings";
 import { aiModel, isAiEnabled, OPT_IN, switchedOffReason } from "./settings";
 
 interface Health {
@@ -361,5 +362,6 @@ export async function readAiStack(now = new Date()): Promise<AiStack> {
     generatedAt: new Date().toISOString(),
     windowLabel: since.toLocaleString("en-US", { month: "long", year: "numeric" }),
     entries: entries.filter((entry): entry is AiStackEntry => entry !== undefined),
+    modelRouting: modelRoutingTable(),
   };
 }

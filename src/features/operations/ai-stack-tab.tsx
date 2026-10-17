@@ -1,7 +1,9 @@
 import { useId, useState, type ReactNode } from "react";
 import type { AiStackEntry, AiStatus } from "@shared/ai-stack-types";
 import type { OperationsData } from "@shared/usage-types";
-import { useAiStack, useSetAiEnabled, useSetAiModel } from "@/lib/agentos/queries";
+import type { ModelRouteEffort, ModelRouteTaskType, ModelRoutingTable } from "@shared/model-routing-types";
+import { MODEL_ROUTE_TASK_LABEL, MODEL_ROUTE_TASK_TYPES } from "@shared/model-routing-types";
+import { useAiStack, useSaveModelRouting, useSetAiEnabled, useSetAiModel } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { EVIDENCE_LABELS, monthlyPrice, STATUS_LABELS, subscriptionsFor, summarise } from "./ai-stack-model";
 import { Figure } from "./figures";
@@ -34,7 +36,7 @@ const OFF_CONSEQUENCE: Record<string, string> = {
   gemini: "Off until you switch it on. On, AgentOS can send coding jobs here, and they count against your Google plan.",
   "hermes-worker": "Off until you switch it on. On, Hermes can take coding jobs as well as orchestrate them.",
   hermes: "Task scoping, milestone planning, routing and reviews stop or fall back while this is off.",
-  jev: "Mail still syncs, but new threads are not classified while this is off.",
+  jev: "Mail still syncs, but new threads are not classified, and free-form jobs fall back to a keyword heuristic.",
 };
 
 const DOT: Record<AiStatus, string> = {
@@ -56,6 +58,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
   const stack = useAiStack();
   const toggle = useSetAiEnabled();
   const setModel = useSetAiModel();
+  const saveRouting = useSaveModelRouting();
 
   if (stack.isPending) {
     return <DedsecLoader variant="compact" />;
@@ -91,10 +94,19 @@ export function AiStackTab({ data }: { data: OperationsData }) {
         />
       </div>
 
-      {toggle.error || setModel.error ? (
+      {toggle.error || setModel.error || saveRouting.error ? (
         <p role="alert" className="-mt-6 text-[13px] leading-5 text-paper-moss">
-          {(toggle.error ?? setModel.error)?.message}
+          {(toggle.error ?? setModel.error ?? saveRouting.error)?.message}
         </p>
+      ) : null}
+
+      {stack.data.modelRouting ? (
+        <ModelRoutingPanel
+          key={JSON.stringify(stack.data.modelRouting)}
+          table={stack.data.modelRouting}
+          saving={saveRouting.isPending}
+          onSave={(routes) => saveRouting.mutate(routes)}
+        />
       ) : null}
 
       <PaperSection label="Connected to AgentOS" count={connected.length}>
@@ -330,4 +342,76 @@ function Readout({ label, title, children }: { label: string; title?: string; ch
 
 function Sep() {
   return <span className="text-paper-ash"> · </span>;
+}
+
+const EFFORTS: ModelRouteEffort[] = ["low", "medium", "high", "xhigh", "max"];
+
+function ModelRoutingPanel({
+  table,
+  saving,
+  onSave,
+}: {
+  table: ModelRoutingTable;
+  saving: boolean;
+  onSave: (routes: ModelRoutingTable) => void;
+}) {
+  const [draft, setDraft] = useState(table);
+
+  const change = (type: ModelRouteTaskType, patch: Partial<ModelRoutingTable[ModelRouteTaskType]>) => {
+    setDraft((current) => ({ ...current, [type]: { ...current[type], ...patch } }));
+  };
+
+  return (
+    <PaperSection label="Usage-saving model routing">
+      <p className="-mt-1 mb-4 max-w-[72ch] text-[14px] leading-6 text-paper-char">
+        Every job is classified as Plan, Execute, Motion, or a normal request, then given that type&apos;s model and
+        effort. Flows that already know the type (Motion wizard, plan steps, code apply) tag it. Free-form asks go
+        through Jev when it is on, otherwise a cheap keyword read.
+      </p>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {MODEL_ROUTE_TASK_TYPES.map((type) => (
+          <PaperCard key={type} className="space-y-3">
+            <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">{MODEL_ROUTE_TASK_LABEL[type]}</h3>
+            <label className="block">
+              <span className="text-[12.5px] font-medium text-paper-sage">Model</span>
+              <input
+                className={cn(PAPER_INPUT, "mt-1 w-full font-mono text-[13px]")}
+                value={draft[type].model}
+                spellCheck={false}
+                onChange={(event) => change(type, { model: event.target.value })}
+              />
+            </label>
+            <fieldset>
+              <legend className="text-[12.5px] font-medium text-paper-sage">Effort</legend>
+              <div className="mt-1 flex gap-2">
+                {EFFORTS.map((effort) => (
+                  <button
+                    key={effort}
+                    type="button"
+                    onClick={() => change(type, { effort })}
+                    className={cn(
+                      "border px-3 py-1.5 font-mono text-[13px]",
+                      draft[type].effort === effort ? "border-paper-blue text-paper-blue" : "border-paper-mist text-paper-char",
+                    )}
+                  >
+                    {effort}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          </PaperCard>
+        ))}
+      </div>
+      <div className="mt-4">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onSave(draft)}
+          className="border border-paper-blue px-3 py-1.5 text-[13px] text-paper-blue"
+        >
+          {saving ? "Saving…" : "Save routing table"}
+        </button>
+      </div>
+    </PaperSection>
+  );
 }

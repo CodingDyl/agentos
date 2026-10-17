@@ -169,6 +169,16 @@ describe("what the run does not inherit", () => {
     assert.equal(options().cwd, "/tmp/worktree");
   });
 
+  it("passes the job's effort into the SDK", () => {
+    const withEffort = buildQueryOptions(
+      { ...job(), effort: "medium" },
+      "/tmp/worktree",
+      new AbortController(),
+    );
+    assert.equal(withEffort.effort, "medium");
+    assert.equal(options().effort, undefined);
+  });
+
   it("asks nothing of an operator who is not there", () => {
     assert.equal(options().permissionMode, "dontAsk");
   });

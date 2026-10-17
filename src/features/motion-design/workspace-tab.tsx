@@ -43,6 +43,7 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
           <h2 className="font-paper-display text-[24px] font-bold tracking-[-0.01em] text-paper-moss">Motion Design</h2>
           <p className="mt-1 text-[13.5px] text-paper-char">
             {MOTION_WIZARD_STEP_LABEL[run.step]} · {run.brief.brandName || run.workspaceSlug}
+            {` · Motion / video · ${run.model} · ${run.effort}`}
             {run.codeOnly ? " · code-only motion" : ""}
           </p>
         </div>

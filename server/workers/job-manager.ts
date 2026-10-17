@@ -47,6 +47,7 @@ import { authorize } from "../connectors/policy";
 import { runValidation } from "./validation";
 import { createWorkerEvent, type Worker } from "./worker";
 import { repositoryProblem } from "../agentos/git";
+import { resolveModelRoute } from "../model-routing/resolve";
 import { changedFiles, createWorktree, isRepository } from "./worktree";
 
 /**
@@ -269,6 +270,13 @@ export async function startJob(
     authorize(`${worker.id}.run_job`, { initiator: "system", detail: request.project ? `Job for ${request.project}` : "Coding job" });
   }
 
+  const modelRoute = await resolveModelRoute({
+    objective: request.objective,
+    taggedType: request.modelRouteType,
+    modelOverride: request.modelOverride,
+    effort: request.effort,
+  });
+
   let job: WorkerJob = {
     ...request,
     // Whatever named these — Hermes scoping, a retry, a hand-typed form — the
@@ -301,6 +309,14 @@ export async function startJob(
     // What was asked for, which is not always what ran.
     requestedWorker: request.requestedWorker ?? request.worker,
     routing: resolved.routing,
+    modelRouteType: modelRoute.taskType,
+    modelRoute,
+    ...(worker.id === "claude" || worker.id === "claude-code"
+      ? {
+          modelOverride: request.modelOverride?.trim() || modelRoute.model,
+          effort: request.effort ?? modelRoute.effort,
+        }
+      : {}),
     revision: 1,
     createdAt: new Date().toISOString(),
     ...extra,
@@ -668,6 +684,9 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
     skillId: previous.skillId,
+    modelRouteType: previous.modelRouteType,
+    modelOverride: previous.modelOverride,
+    effort: previous.effort,
   };
 
   const started = await startJob(request, { retryOf: previous.id, ...(previous.skill ? { skill: previous.skill } : {}) });

@@ -114,8 +114,10 @@ describe("a chat", () => {
     await service.sendMessage(chat.id, { text: "Hi" });
     await service.turnSettled(chat.id);
 
-    assert.equal(calls[0].model, "default");
-    assert.equal((await store.readChat(chat.id))?.model, "default");
+    // Free-form "Hi" is a normal request, so the router picks Haiku and pins
+    // it so the next turn does not hop to another family.
+    assert.equal(calls[0].model, "haiku");
+    assert.equal((await store.readChat(chat.id))?.model, "haiku");
   });
 
   it("offers Grok alongside the others", async () => {

@@ -230,6 +230,7 @@ import {
   type MailSendTag,
 } from "@shared/mail-compose-types";
 import { AiStackSchema, type AiStack } from "@shared/ai-stack-types";
+import { ModelRoutingTableSchema, type ModelRoutingTable } from "@shared/model-routing-types";
 import {
   ProjectSiteSchema,
   ProjectVercelInfoSchema,
@@ -536,6 +537,17 @@ export function setAiModel(input: { id: string; model: string }): Promise<unknow
   return workerRequest(`/api/ai-stack/${encodeURIComponent(input.id)}`, {
     method: "PUT",
     ...asJson({ model: input.model }),
+  });
+}
+
+export function getModelRouting(): Promise<{ routes: ModelRoutingTable }> {
+  return readVault("/api/model-routing", (value) => z.object({ routes: ModelRoutingTableSchema }).safeParse(value));
+}
+
+export function saveModelRouting(routes: ModelRoutingTable): Promise<unknown> {
+  return workerRequest("/api/model-routing", {
+    method: "PUT",
+    ...asJson(routes),
   });
 }
 
