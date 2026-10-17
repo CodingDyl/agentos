@@ -46,6 +46,7 @@ import { WorkspaceRebuildTab } from "@/features/rebuild";
 import { WorkspaceMotionTab } from "@/features/motion-design";
 import { useMotionForWorkspace } from "@/lib/agentos/motion-design";
 import { SiteTab } from "@/features/site";
+import { ShipPanel } from "@/features/ship";
 import { stateLabel } from "@/features/projects/projects-model";
 import { HEALTH_LABELS } from "@/features/projects/roadmap-model";
 import { DecisionsEditor, ProjectSettings, SourceViewer, TaskBoard, useWorkspaceFeedback } from "@/features/workspace";
@@ -75,7 +76,7 @@ type WorkspaceTab = "overview" | WorkspaceModule;
 const TAB_ALIASES: Record<string, WorkspaceTab> = { designs: "creative", milestones: "roadmap" };
 
 /** Tabs drawn on paper. Everything else is still Editorial Terminal. */
-const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion"]);
+const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion", "ship"]);
 
 function readTab(value: string | null): WorkspaceTab {
   if (!value) return "overview";
@@ -333,6 +334,8 @@ function WorkspacePanel({
       return <WorkspaceMotionTab slug={project.slug} />;
     case "site":
       return <SiteTab slug={project.slug} onOpenSettings={onOpenSettings} />;
+    case "ship":
+      return <ShipPanel slug={project.slug} projectName={project.name} />;
     case "decisions":
       return <DecisionsEditor project={project.slug} />;
     case "activity":

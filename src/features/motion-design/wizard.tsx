@@ -126,7 +126,7 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
         workspaceName: draft.workspaceName.trim() || draft.brief.brandName.trim() || undefined,
       });
       onClose();
-      navigate(`/workspaces/${encodeURIComponent(run.workspaceSlug)}?tab=motion`);
+      navigate(`/workspaces/${encodeURIComponent(run.workspaceSlug)}?tab=ship`);
     } catch {
       // Shown from launch.error below.
     }

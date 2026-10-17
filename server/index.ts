@@ -204,6 +204,8 @@ import {
 import { animateRouter } from "./designs/animate-routes";
 import { downloadRouter } from "./designs/download-routes";
 import { motionDesignRouter } from "./motion-design/routes";
+import { shipRouter } from "./ship/routes";
+import { stopAllDevServers } from "./ship/dev-server";
 import { motionRouter } from "./designs/motion-routes";
 import { readDecision, respondToApproval } from "./hermes/approvals";
 import { accountStatus, estimateCost, listModels } from "./designs/higgsfield";
@@ -393,6 +395,7 @@ app.disable("x-powered-by");
 app.use("/api/business/ledger", express.json({ limit: "16mb" }));
 // Attachments arrive base64-encoded: 18 MB of files is 24 MB of JSON.
 app.use("/api/mail/compose", express.json({ limit: "26mb" }));
+app.use("/api/projects/:slug/ship", express.json({ limit: "8mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
@@ -448,6 +451,7 @@ app.use("/api/designs/animate", animateRouter);
 app.use("/api/designs/motion", motionRouter);
 app.use("/api/designs/download", downloadRouter);
 app.use("/api/motion-design", express.json({ limit: "4mb" }), motionDesignRouter);
+app.use("/api/projects/:slug/ship", shipRouter);
 
 app.get("/api/health", (_request, response) => {
   response.json({ status: "ok", root: agentOSRoot() });
@@ -4630,6 +4634,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   try {
     killAllTerminals();
+    stopAllDevServers();
   } catch (error) {
     console.error("[coder] Failed to kill terminals:", error);
   }
