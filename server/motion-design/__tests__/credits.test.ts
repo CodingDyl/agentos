@@ -113,6 +113,15 @@ describe("motion design credit approval gate", () => {
     assert.equal(ledger.rows[1]?.quotedCredits, 45);
   });
 
+  it("totals credits to the cent, without float drift", () => {
+    const csv = [
+      "timestamp,job_id,purpose,model,settings,quoted,actual,status,output,cumulative,remaining",
+      ...[2, 2, 2, 5, 2, 2, 5, 4.02, 2, 2, 5, 5, 4.02].map((credits, index) => `2026-10-16T00:00:${String(index).padStart(2, "0")}Z,hf_${index},x,m,s,${credits},${credits},accepted,,,`),
+    ].join("\n");
+
+    assert.equal(parseCreditLedger(csv).spent, 42.04);
+  });
+
   it("a concept without an approved ceiling cannot spend even if its itemized cost is filled in", () => {
     const denied = authorizeHiggsfieldSpend({
       approval: undefined,

@@ -431,7 +431,9 @@ export function parseCreditLedger(csv: string): CreditLedger {
     else spent += row.actualCredits ?? row.quotedCredits ?? 0;
   }
 
-  return { rows, spent, pending, committed: spent + pending, raw: csv };
+  // Summed floats drift (42.04 becomes 42.039999…); credits are quoted to cents.
+  const cents = (value: number) => Math.round(value * 100) / 100;
+  return { rows, spent: cents(spent), pending: cents(pending), committed: cents(spent + pending), raw: csv };
 }
 
 function splitCsvLine(line: string): string[] {
