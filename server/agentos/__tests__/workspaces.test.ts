@@ -63,6 +63,7 @@ describe("workspace tabs", () => {
     const tabs = resolveWorkspaceTabs({ type: "business" });
 
     assert.ok(tabs.primary.includes("clients"));
+    assert.ok(tabs.primary.includes("ship"));
     assert.ok(!tabs.primary.includes("repository"));
     assert.ok(!tabs.primary.includes("agents"));
     assert.ok(tabs.more.includes("repository"));
@@ -74,6 +75,7 @@ describe("workspace tabs", () => {
 
     assert.ok(tabs.primary.includes("repository"));
     assert.ok(tabs.primary.includes("agents"));
+    assert.ok(tabs.primary.includes("ship"));
   });
 
   it("gives a linked repository a tab without configuration", () => {
@@ -85,7 +87,7 @@ describe("workspace tabs", () => {
   it("uses configured modules wholesale, in order, and never loses a module", () => {
     const tabs = resolveWorkspaceTabs({ type: "software", configured: ["documents", "tasks"], hasRepository: true });
 
-    assert.deepEqual(tabs.primary, ["documents", "tasks"]);
+    assert.deepEqual(tabs.primary, ["documents", "tasks", "ship"]);
     // Every module but Website rebuild and Motion Design, which only a workspace with those runs ever shows.
     assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length - 2);
     assert.ok(![...tabs.primary, ...tabs.more].includes("rebuild"));
@@ -103,8 +105,17 @@ describe("workspace tabs", () => {
   it("puts Motion Design first when the workspace has a run", () => {
     const tabs = resolveWorkspaceTabs({ type: "product", hasMotion: true });
     assert.equal(tabs.primary[0], "motion");
+    assert.ok(tabs.primary.includes("ship"));
     assert.ok(!tabs.more.includes("motion"));
+    assert.ok(!tabs.more.includes("ship"));
     assert.ok(!resolveWorkspaceTabs({ type: "product" }).primary.includes("motion"));
+  });
+
+  it("puts Ship on every workspace, even a custom module list", () => {
+    for (const type of ["product", "business", "client", "software", "personal", "research", "general"] as const) {
+      assert.ok(resolveWorkspaceTabs({ type }).primary.includes("ship"), type);
+    }
+    assert.ok(resolveWorkspaceTabs({ type: "personal", configured: ["tasks"] }).primary.includes("ship"));
   });
 
   it("gives a linked Vercel project the Site tab, before Decisions", () => {
@@ -119,7 +130,7 @@ describe("workspace tabs", () => {
   });
 
   it("parses a hand-written module list tolerantly", () => {
-    assert.deepEqual(parseModuleList("Tasks, designs; repo, nonsense, tasks"), ["tasks", "creative", "repository"]);
+    assert.deepEqual(parseModuleList("Tasks, designs; repo, nonsense, tasks, deploy"), ["tasks", "creative", "repository", "ship"]);
   });
 });
 

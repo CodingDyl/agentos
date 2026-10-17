@@ -1,4 +1,4 @@
-import { Check, Copy, ExternalLink, Link2, RotateCw } from "lucide-react";
+import { Check, Copy, Link2, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { LinkedProjectSite } from "@shared/vercel-types";
@@ -6,9 +6,9 @@ import { DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperEmpty, PaperError, PaperIndicator, PaperNotice, SegmentedControl } from "@/components/paper";
 import { useProjectSite } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
-import { openSiteInWindow } from "@/lib/tauri-utils";
 import { cn } from "@/lib/utils";
 import { deploymentHealth, displayHost, servingNote } from "./site-model";
+import { BlockedSitePanel, SitePreviewFrame } from "./site-preview";
 
 type Viewport = "desktop" | "mobile";
 
@@ -160,36 +160,8 @@ function LinkedSite({
       ) : site.embed?.allowed === false ? (
         <BlockedSitePanel url={site.url} projectId={site.projectId} projectName={site.projectName} reason={site.embed.reason} />
       ) : (
-        <SiteFrame key={frameKey} url={site.url} viewport={viewport} />
+        <SitePreviewFrame key={frameKey} url={site.url} viewport={viewport} title={`Live site: ${displayHost(site.url)}`} />
       )}
-    </div>
-  );
-}
-
-function SiteFrame({ url, viewport }: { url: string; viewport: Viewport }) {
-  const [loaded, setLoaded] = useState(false);
-  const host = displayHost(url);
-
-  return (
-    <div className="relative h-[calc(100vh-20rem)] min-h-[560px] border border-paper-mist bg-paper-linen">
-      <iframe
-        title={`Live site: ${host}`}
-        src={url}
-        onLoad={() => setLoaded(true)}
-        // Scripts and forms work; popups and top-level navigation don't, so the site can't open a tab or replace AgentOS.
-        sandbox="allow-scripts allow-same-origin allow-forms allow-downloads"
-        referrerPolicy="no-referrer"
-        className={cn(
-          "mx-auto block h-full bg-white transition-[width,opacity] duration-200 ease-out",
-          viewport === "mobile" ? "w-[390px] max-w-full border-x border-paper-mist" : "w-full",
-          loaded ? "opacity-100" : "opacity-0",
-        )}
-      />
-      {!loaded ? (
-        <div className="absolute inset-0 grid place-items-center bg-black">
-          <DedsecLoader variant="compact" className="min-h-0 bg-transparent" />
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -245,45 +217,3 @@ function ConnectorsLink() {
   );
 }
 
-/**
- * When a site blocks framing, show a panel with an "Open site" button that
- * opens the site in its own native window (Tauri) or new tab (browser).
- */
-function BlockedSitePanel({ url, projectId, projectName, reason }: { url: string; projectId: string; projectName: string; reason?: string }) {
-  const [opening, setOpening] = useState(false);
-
-  const openSite = async () => {
-    setOpening(true);
-    try {
-      await openSiteInWindow(url, projectName, projectId);
-    } finally {
-      // Reset after a moment so the button state clears
-      setTimeout(() => setOpening(false), 500);
-    }
-  };
-
-  return (
-    <div className="space-y-4 border border-paper-mist bg-paper-linen p-6">
-      <div className="space-y-2">
-        <p className="text-[14px] text-paper-char">
-          <strong>{displayHost(url)}</strong> blocks embedding, so it opens in its own window.
-        </p>
-        {reason ? <p className="text-[13px] text-paper-sage">{reason}</p> : null}
-      </div>
-      
-      <PaperButton variant="amber" onClick={openSite} disabled={opening}>
-        <ExternalLink className="size-3.5" strokeWidth={2} aria-hidden="true" />
-        Open site
-      </PaperButton>
-
-      <details className="text-[13px] text-paper-sage">
-        <summary className="cursor-pointer hover:text-paper-char">Advanced</summary>
-        <p className="mt-2">
-          To embed the site directly, add{" "}
-          <code className="bg-paper-stone px-1 font-mono text-[12.5px]">frame-ancestors &apos;self&apos; {window.location.origin}</code> to the
-          site&apos;s Content-Security-Policy and drop any <code className="bg-paper-stone px-1 font-mono text-[12.5px]">X-Frame-Options</code> header.
-        </p>
-      </details>
-    </div>
-  );
-}

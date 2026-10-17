@@ -53,6 +53,9 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
               Open worker job
             </Link>
           ) : null}
+          <Link to={`/workspaces/${encodeURIComponent(run.workspaceSlug)}?tab=ship`} className="inline-flex items-center gap-1 text-[13px] text-paper-blue hover:underline">
+            Open Ship
+          </Link>
           <Link to={`/coder?workspace=${encodeURIComponent(run.workspaceSlug)}`} className="inline-flex items-center gap-1 text-[13px] text-paper-blue hover:underline">
             Open in Coder
           </Link>

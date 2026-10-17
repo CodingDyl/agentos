@@ -70,7 +70,7 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
   }
 
   const repo = await ensureMotionSiteRepo(slug, name);
-  await patchProject({ slug, repoPath: repo }).catch(() => undefined);
+  await patchProject({ slug, repoPath: repo, configuration: { localPath: repo } }).catch(() => undefined);
   await copyBundledSkillIntoRepo(repo);
   const files: Record<string, string | Buffer> = {
     "motion-studio/brief.md": briefMarkdown(input.brief, input.references),

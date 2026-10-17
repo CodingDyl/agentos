@@ -120,7 +120,7 @@ export const CONNECTORS: readonly CatalogConnector[] = [
       { action: "read_logs", name: "Read build and runtime logs", risk: "read" },
       { action: "create_project", name: "Create projects", risk: "write-external" },
       { action: "create_preview", name: "Create preview deployments", risk: "write-external" },
-      { action: "deploy_production", name: "Deploy to production", risk: "write-external", policy: "approval" },
+      { action: "deploy_production", name: "Deploy to production", risk: "write-external", policy: "approval", implementedBy: "server/ship/deploy.ts" },
       { action: "delete_project", name: "Delete projects", risk: "destructive" },
     ],
   },
