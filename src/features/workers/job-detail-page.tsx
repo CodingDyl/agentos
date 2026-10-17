@@ -60,6 +60,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { DocumentList } from "@/features/projects/detail/document-list";
 import { cn } from "@/lib/utils";
 import { useJobEvents } from "./use-job-events";
+import { modelRouteLabel } from "@shared/model-routing-types";
 import { bySeverity, formatDuration, hasReviewableWork, isCancellable, isFinished, jobTitle, statusLabel, statusPill, toSteps, type StepState, verdictLabel, verdictPill } from "./workers-model";
 
 const PAGE_PADDING =
@@ -213,6 +214,11 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
                 {(job.resolvedWorker ?? job.worker).toUpperCase()} · {job.project}
                 {duration ? ` · ${duration}` : ""}
               </span>
+              {job.modelRoute ? (
+                <span className="os-meta text-os-subtle" title={job.modelRoute.reason}>
+                  {modelRouteLabel(job.modelRoute)}
+                </span>
+              ) : null}
               {job.skill ? (
                 <span className="os-meta text-os-subtle" title="The skill's instructions as they were when this job was created">
                   Skill: {job.skill.name} v{job.skill.version}

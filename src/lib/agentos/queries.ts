@@ -51,7 +51,7 @@ import {
 } from "./client";
 import type { AutomationControl } from "@shared/agentos-types";
 import type { MissionControlData } from "@shared/mission-control-types";
-import { getAiStack, setAiEnabled, setAiModel } from "./client";
+import { getAiStack, saveModelRouting, setAiEnabled, setAiModel } from "./client";
 import {
   createTaskFromSeoFinding,
   getProjectSeo,
@@ -553,6 +553,19 @@ export function useSetAiEnabled() {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
       void queryClient.invalidateQueries({ queryKey: [...agentosKeys.all, "execution-options"] });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useSaveModelRouting() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: saveModelRouting,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.aiStack() });
     },
     networkMode: "always",
     retry: 0,

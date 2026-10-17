@@ -47,6 +47,8 @@ describe("motion design prompt assembly", () => {
 
     assert.match(prompt, /^\/motion-site-studio\n/);
     assert.match(prompt, /Build a 3D motion website from my attached references/);
+    assert.match(prompt, /Next\.js App Router TypeScript project/);
+    assert.match(prompt, /GSAP \+ ScrollTrigger/);
     assert.match(prompt, /Show two concepts and a verified itemized budget before spending/);
     assert.match(prompt, /Brand: Pantry Pilot/);
     assert.match(prompt, /A grocery list that cooks with you/);

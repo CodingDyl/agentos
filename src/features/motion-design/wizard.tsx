@@ -4,6 +4,7 @@ import { Film, Plus, X } from "lucide-react";
 import {
   BUDGET_PLANS,
   CREDIT_COST_TABLE,
+  MOTION_WIZARD_EFFORTS,
   MOTION_WIZARD_STEP_LABEL,
   REFERENCE_LIBRARY_LINKS,
   REFERENCE_LIKE_LABEL,
@@ -54,7 +55,7 @@ function emptyDraft(): MotionDraft {
     budgetCeiling: 330,
     codeOnly: false,
     model: "claude-opus-5-5",
-    effort: "max",
+    effort: "high",
     workspaceName: "",
   };
 }
@@ -605,8 +606,9 @@ function LaunchStep({
       </label>
       <fieldset>
         <FieldLabel>Effort</FieldLabel>
+        <p className="mb-2 text-[12.5px] text-paper-sage">Low is the cheaper run. High is the Motion default from the routing table. The model field overrides the table.</p>
         <div className="flex gap-2">
-          {(["high", "xhigh", "max"] as const).map((effort) => (
+          {MOTION_WIZARD_EFFORTS.map((effort) => (
             <button
               key={effort}
               type="button"

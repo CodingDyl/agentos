@@ -262,7 +262,7 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
   try {
     context.activity(`${reviewer.name} is reviewing revision ${context.revision}`);
     const { job } = await deps.runJob(
-      () => ({ project: context.run.workspaceSlug ?? "", objective: reviewBrief(context.run, context.stage, context.revision, tag), repoPath: repo, validationCommands: [`test -s ${file}`] }),
+      () => ({ project: context.run.workspaceSlug ?? "", objective: reviewBrief(context.run, context.stage, context.revision, tag), repoPath: repo, modelRouteType: "plan", validationCommands: [`test -s ${file}`] }),
       [reviewer.id],
       undefined,
       { onProgress: context.activity, onStarted: (jobId) => context.log(`Review job ${jobId} started with ${reviewer.name}.`) },
@@ -321,8 +321,8 @@ export const researchStage: StageHandler = async (context) => {
     const { job, worker } = await work(context, deps, run.workerPlan.research, (picked) =>
       picked.id === "grok-bot"
         ? // A file-bridge worker has no checkout: it gets the site in the brief and answers with the report.
-          { project: run.workspaceSlug ?? "", objective: researchBrief(run, deps.today(), `${site.structure}\n\n${site.transcript}`.slice(0, 24_000)) }
-        : { project: run.workspaceSlug ?? "", objective: researchBrief(run, deps.today()), repoPath: repo, validationCommands: [`test -s ${researchFile(run)}`] },
+          { project: run.workspaceSlug ?? "", objective: researchBrief(run, deps.today(), `${site.structure}\n\n${site.transcript}`.slice(0, 24_000)), modelRouteType: "plan" }
+        : { project: run.workspaceSlug ?? "", objective: researchBrief(run, deps.today()), repoPath: repo, modelRouteType: "plan", validationCommands: [`test -s ${researchFile(run)}`] },
     );
     researchWorker = worker;
     researchJob = job;
@@ -403,6 +403,7 @@ export const heroStage: StageHandler = async (context) => {
     project: run.workspaceSlug ?? "",
     objective: heroBrief(run, context.changeRequest),
     repoPath: repo,
+    modelRouteType: "execute",
     validationCommands: [files.map((file) => `test -s ${file}`).join(" && ")],
   }));
   const commit = await integrate(context, deps, job, repo, "hero concepts");
@@ -464,6 +465,7 @@ export const buildStage: StageHandler = async (context) => {
     project: run.workspaceSlug ?? "",
     objective: buildBrief(run, run.heroChoice ?? "", context.changeRequest),
     repoPath: repo,
+    modelRouteType: "execute",
     validationCommands: NEXT_VALIDATION,
   }));
   // The baseline is reviewed page by page, so every page is photographed top to bottom.
@@ -497,6 +499,7 @@ export const functionsStage: StageHandler = async (context) => {
     project: run.workspaceSlug ?? "",
     objective: functionsBrief(run, context.changeRequest),
     repoPath: repo,
+    modelRouteType: "execute",
     validationCommands: [...NEXT_VALIDATION, "npm test", `test -s ${functionalityFile(run)}`],
   }));
   const shots = await photographSite(context, deps, job);

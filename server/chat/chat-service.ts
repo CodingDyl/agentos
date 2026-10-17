@@ -10,6 +10,7 @@ import { geminiAgent, grokAgent, hermesAgent } from "./acp-chat-adapter";
 import type { ApprovalRequest, ChatAgentAdapter, RunTurnInput, TurnState } from "./chat-turn";
 import { claudeAgent } from "./claude-chat-adapter";
 import { codexAgent } from "./codex-chat-adapter";
+import { pickOfferedModel, resolveModelRoute } from "../model-routing/resolve";
 
 /**
  * Chats: one conversation each, one turn running at a time per chat.
@@ -81,7 +82,7 @@ export async function askAgentText(input: AskAgentTextInput): Promise<string> {
   const adapter = adapterFor(input.agent);
   const agent = await adapter.describe();
   if (!agent.available) throw new ChatStateError(agent.unavailableReason ?? `${agent.name} isn't available.`);
-  const model = input.model && agent.models.some((entry) => entry.id === input.model) ? input.model : agent.defaultModel;
+  const model = await launchChatModel(agent, input.prompt, input.model);
 
   const workdir = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-oneshot-"));
   const controller = new AbortController();
@@ -145,6 +146,15 @@ function agentFor(id: Chat["agent"]): Promise<ChatAgent> {
 
 function checkModel(agent: ChatAgent, model: string): void {
   if (!agent.models.some((entry) => entry.id === model)) throw new ChatStateError(`${agent.name} has no model called ${model}.`);
+}
+
+async function launchChatModel(agent: ChatAgent, prompt: string, requested?: string): Promise<string> {
+  if (requested && requested !== "default" && agent.models.some((entry) => entry.id === requested)) {
+    return requested;
+  }
+  if (requested && requested !== "default") return agent.defaultModel;
+  const route = await resolveModelRoute({ objective: prompt });
+  return pickOfferedModel(agent.models, route.model, agent.defaultModel);
 }
 
 export async function createChat(input: CreateChat): Promise<Chat> {
@@ -211,7 +221,7 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
 
   const agent = await agentFor(chat.agent);
   if (!agent.available) throw new ChatStateError(agent.unavailableReason ?? `${agent.name} isn't available.`);
-  if (input.model) {
+  if (input.model && input.model !== "default") {
     checkModel(agent, input.model);
     chat.model = input.model;
   } else if (!agent.models.some((entry) => entry.id === chat.model)) {
@@ -221,10 +231,12 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
     chat.model = agent.defaultModel;
   }
 
+  const launchModel = await launchChatModel(agent, input.text, input.model ?? (chat.model === "default" ? "default" : chat.model));
+
   const at = now();
   if (chat.messages.length === 0) chat.title = titleFrom(input.text);
   chat.messages.push({ id: `msg_${randomUUID()}`, role: "user", parts: [{ type: "text", text: input.text }], createdAt: at });
-  const reply: ChatMessage = { id: `msg_${randomUUID()}`, role: "assistant", parts: [], createdAt: at, model: chat.model };
+  const reply: ChatMessage = { id: `msg_${randomUUID()}`, role: "assistant", parts: [], createdAt: at, model: launchModel };
   chat.messages.push(reply);
   chat.status = "running";
   chat.updatedAt = at;
@@ -239,7 +251,7 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
 
   turn.settled = runTurn({
     prompt: input.text,
-    model: chat.model,
+    model: launchModel,
     resume: chat.agentSessionId,
     policy: { projectRoot: PROJECT_ROOT },
     state,

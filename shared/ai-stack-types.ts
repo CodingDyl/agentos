@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ModelRoutingTableSchema } from "./model-routing-types";
 
 /**
  * The AI stack: every AI this machine has, and which of them AgentOS uses.
@@ -95,6 +96,8 @@ export const AiStackSchema = z.object({
   /** What the usage figures cover, e.g. "September 2026". */
   windowLabel: z.string(),
   entries: z.array(AiStackEntrySchema),
+  /** Usage-saving model table. Always present so Settings can edit it. */
+  modelRouting: ModelRoutingTableSchema,
 });
 
 /** A switch, a model, or both. An empty model clears it back to the tool's default. */

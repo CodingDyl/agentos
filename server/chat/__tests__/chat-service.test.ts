@@ -114,7 +114,9 @@ describe("a chat", () => {
     await service.sendMessage(chat.id, { text: "Hi" });
     await service.turnSettled(chat.id);
 
-    assert.equal(calls[0].model, "default");
+    // Free-form "Hi" is a normal request, so the router picks Haiku. The chat
+    // itself stays on the agent's default until someone chooses a model.
+    assert.equal(calls[0].model, "haiku");
     assert.equal((await store.readChat(chat.id))?.model, "default");
   });
 

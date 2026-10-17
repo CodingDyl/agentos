@@ -18,6 +18,7 @@ import {
 import { recordActivity } from "../activity/ui-events";
 import { uiStateDir } from "../agentos/session-store";
 import { findOnPath } from "../ai-stack/detect";
+import { modelRoutingTable } from "../model-routing/settings";
 import { createAsset } from "./library";
 import { mediaRoot, probeVideo, storeVideo } from "./media";
 import { buildStudioPrompt, fillTemplate, readMotionPrompts } from "./motion-prompts";
@@ -182,7 +183,7 @@ function toWire(job: StoredMotionJob): MotionJob {
 // ---------------------------------------------------------------------------
 
 export function motionModel(): string {
-  return process.env.AGENTOS_MOTION_MODEL?.trim() || "opus";
+  return process.env.AGENTOS_MOTION_MODEL?.trim() || modelRoutingTable().motion.model;
 }
 
 async function missingRequirements(): Promise<string[]> {

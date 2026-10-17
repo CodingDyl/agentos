@@ -435,6 +435,7 @@ export async function delegateTask(
     manualOptionId: approval.manualOptionId,
     project: slug,
     objective: approval.plan.objective,
+    modelRouteType: "execute",
     repoPath,
     // The project's configured branch, when it names one; the checkout otherwise.
     baseRef: configuration.defaultBranch,

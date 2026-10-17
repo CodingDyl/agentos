@@ -92,8 +92,7 @@ function Film({ job, films }: { job: MotionJobDetail; films: DesignAsset[] }) {
         description={[
           `${job.request.durationSec}s`,
           job.request.formats.join(" + "),
-          job.model ?? "Claude Code",
-          `effort ${job.request.effort}`,
+          `Motion / video · ${job.model ?? "Claude Code"} · ${job.request.effort}`,
           `started ${formatRelativeTime(job.createdAt)}`,
         ].join(" · ")}
         actions={

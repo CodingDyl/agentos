@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { DelegateJobForm } from "./delegate-job-form";
 import { GrokBotPanel } from "./grok-bot-panel";
 import { OllamaPanel } from "./ollama-panel";
+import { modelRouteLabel } from "@shared/model-routing-types";
 import { formatDuration, isCancellable, isFinished, jobTitle, statusLabel, statusPill } from "./workers-model";
 
 const PAGE_PADDING =
@@ -251,6 +252,7 @@ function BusyJob({ job }: { job: WorkerJob }) {
           <span className="line-clamp-1">{jobTitle(job.objective)}</span>
           <span className="os-meta mt-1 block text-os-subtle">
             {job.project}
+            {job.modelRoute ? ` · ${modelRouteLabel(job.modelRoute)}` : ""}
             {job.lastEventAt ?? job.startedAt ? ` · last heard ${formatRelativeTime(job.lastEventAt ?? job.startedAt)}` : ""}
           </span>
         </Link>
@@ -318,6 +320,7 @@ function JobRow({ job }: { job: WorkerJob }) {
             </h3>
             <p className="os-meta mt-2 text-os-subtle">
               {(job.resolvedWorker ?? job.worker).toUpperCase()} · {job.project}
+              {job.modelRoute ? ` · ${modelRouteLabel(job.modelRoute)}` : ""}
               {duration ? ` · ${duration}` : ""}
               {/* The pulse. A running job says when it was last heard from,
                   so "running" is checkable against a clock rather than taken
