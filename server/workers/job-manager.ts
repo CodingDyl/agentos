@@ -684,6 +684,9 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
     skillId: previous.skillId,
+    modelRouteType: previous.modelRouteType,
+    modelOverride: previous.modelOverride,
+    effort: previous.effort,
   };
 
   const started = await startJob(request, { retryOf: previous.id, ...(previous.skill ? { skill: previous.skill } : {}) });

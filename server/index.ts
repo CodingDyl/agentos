@@ -350,7 +350,7 @@ import { setAiEnabled, setAiModel } from "./ai-stack/settings";
 import { normaliseWorkerModel } from "./ai-stack/model-names";
 import { hasConfigurableModel, isToggleable, readAiStack } from "./ai-stack/stack";
 import { SetAiEnabledRequestSchema } from "../shared/ai-stack-types";
-import { ModelRoutingTableSchema } from "../shared/model-routing-types";
+import { MODEL_ROUTE_TASK_TYPES, ModelRoutingTableSchema, type ModelRoutingTable } from "../shared/model-routing-types";
 import { modelRoutingTable, setModelRouting } from "./model-routing/settings";
 import { SPOKEN_STYLE } from "../shared/voice-types";
 import { runSeoAudit } from "./seo/audit";
@@ -1025,6 +1025,16 @@ app.put("/api/ai-stack/:id", (request, response) => {
   }
 });
 
+function normaliseRoutingTable(table: ModelRoutingTable): { table?: ModelRoutingTable; error?: string } {
+  const next = { ...table };
+  for (const type of MODEL_ROUTE_TASK_TYPES) {
+    const checked = normaliseWorkerModel("claude-code", table[type].model);
+    if (checked.error) return { error: checked.error };
+    if (checked.model) next[type] = { ...table[type], model: checked.model };
+  }
+  return { table: next };
+}
+
 /**
  * Usage-saving model routing. Every launch reads this table. Editing it
  * never starts a job — it only changes what the next one is given.
@@ -1034,14 +1044,20 @@ app.get("/api/model-routing", (_request, response) => {
 });
 
 app.put("/api/model-routing", (request, response) => {
-  const parsed = ModelRoutingTableSchema.safeParse(request.body ?? request.body?.routes);
-  const nested = !parsed.success ? ModelRoutingTableSchema.safeParse((request.body as { routes?: unknown })?.routes) : parsed;
-  if (!nested.success) {
+  const body = request.body as { routes?: unknown; plan?: unknown } | undefined;
+  const raw = body && body.plan ? body : body?.routes;
+  const parsed = ModelRoutingTableSchema.safeParse(raw);
+  if (!parsed.success) {
     response.status(400).json({ error: "Send a route for plan, execute, motion and normal, each with a model and an effort." });
     return;
   }
+  const checked = normaliseRoutingTable(parsed.data);
+  if (checked.error) {
+    response.status(400).json({ error: checked.error });
+    return;
+  }
   try {
-    response.json({ routes: setModelRouting(nested.data) });
+    response.json({ routes: setModelRouting(checked.table) });
   } catch (error) {
     console.error("[agentos] model routing save failed:", error);
     response.status(500).json({ error: "Unable to save the model routing table" });

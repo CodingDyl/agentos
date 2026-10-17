@@ -18,6 +18,7 @@ import {
 import { recordActivity } from "../activity/ui-events";
 import { uiStateDir } from "../agentos/session-store";
 import { findOnPath } from "../ai-stack/detect";
+import { resolveModelRoute } from "../model-routing/resolve";
 import { modelRoutingTable } from "../model-routing/settings";
 import { createAsset } from "./library";
 import { mediaRoot, probeVideo, storeVideo } from "./media";
@@ -265,7 +266,14 @@ export async function createMotionJob(request: MotionJobRequest): Promise<Motion
     request,
     prompt: buildStudioPrompt({ request, rules: prompts.rules.text, brief, brandFiles, hasWorkspaceContext: Boolean(context) }),
     promptSources: { rules: prompts.rules.source, template: template.source },
-    model: motionModel(),
+    model: (
+      await resolveModelRoute({
+        objective: brief,
+        taggedType: "motion",
+        modelOverride: process.env.AGENTOS_MOTION_MODEL?.trim(),
+        effort: request.effort,
+      })
+    ).model,
     createdAt: new Date().toISOString(),
     attempts: 0,
     log: [{ at: new Date().toISOString(), kind: "system", message: "Studio set up. Waiting for Claude Code." }],

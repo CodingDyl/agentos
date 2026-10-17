@@ -12,6 +12,7 @@ import {
 } from "../../shared/motion-design-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, patchProject, toSlug } from "../agentos/mutations/projects";
+import { routeFor } from "../model-routing/resolve";
 import { startJob, readJob, steerJob } from "../workers/job-manager";
 import { bundledSkillPath } from "./skill-install";
 import { commitSiteFiles, ensureMotionSiteRepo, writeApprovalFile } from "./site-repo";
@@ -100,6 +101,10 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     interviewAnswered: true,
   });
 
+  const routed = routeFor("motion");
+  const model = input.model?.trim() || routed.model;
+  const effort = input.effort ?? routed.effort;
+
   const started = await startJob({
     worker: "claude-code",
     requestedWorker: "claude-code",
@@ -107,8 +112,8 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     objective: prompt,
     repoPath: repo,
     modelRouteType: "motion",
-    modelOverride: input.model,
-    effort: input.effort,
+    modelOverride: model,
+    effort,
     extraAllowedTools: MOTION_SITE_TOOLS,
     claudeSettingSources: "user,project",
     timeoutMs: 45 * 60 * 1000,
@@ -136,8 +141,8 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     budgetPlan: input.budgetPlan,
     budgetCeiling: input.budgetCeiling,
     codeOnly: input.codeOnly,
-    model: input.model,
-    effort: input.effort,
+    model,
+    effort,
     siteRepoPath: repo,
     proposalJobId: started.job.id,
     concepts: [],

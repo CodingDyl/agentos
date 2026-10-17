@@ -566,6 +566,7 @@ export function useSaveModelRouting() {
     mutationFn: saveModelRouting,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.aiStack() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.workers() });
     },
     networkMode: "always",
     retry: 0,

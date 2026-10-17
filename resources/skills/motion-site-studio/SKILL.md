@@ -134,7 +134,7 @@ A static `index.html` with CDN script tags is the usual reason slide animations 
 Implement the approved page with readable content, responsive layouts, clear navigation, and one primary conversion action.
 
 - Map scroll progress deterministically to video time or image-sequence frames. Check forward scrolling, reverse scrolling, and stopping at joins.
-- Pin the film section (`ScrollTrigger.create({ pin: true, end: "+=…" })`) so there is scroll distance to scrub.
+- Pin the film section with **one** ScrollTrigger timeline (`pin: true`, `end: "+=…"`, `scrub: 1`) and animate slides against that pin’s progress. Do not also give each slide its own viewport-relative trigger while the parent is pinned — pinned slides never cross `top 75%`, so those tweens never start.
 - Give each section a purposeful supporting motion graphic where it helps the story. Use restrained code-based motion when extra video adds little value.
 - Make the hero readable before media loads. Provide a poster or static fallback, staged media loading, and suitable mobile assets.
 - Respect reduced-motion preferences with a useful static or low-motion experience. Support keyboard navigation, visible focus, readable contrast, and controls for long-running animation.

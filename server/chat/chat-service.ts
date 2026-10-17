@@ -232,6 +232,10 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
   }
 
   const launchModel = await launchChatModel(agent, input.text, input.model ?? (chat.model === "default" ? "default" : chat.model));
+  // Pin the first routed model so later turns do not hop family mid-session.
+  if (!input.model && chat.model === "default" && launchModel !== "default") {
+    chat.model = launchModel;
+  }
 
   const at = now();
   if (chat.messages.length === 0) chat.title = titleFrom(input.text);

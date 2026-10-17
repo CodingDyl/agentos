@@ -18,7 +18,7 @@ after(async () => {
 
 describe("motion site Next.js template", () => {
   it("is an App Router TypeScript project with GSAP registered on the client", () => {
-    const files = motionSiteTemplate("Pantry Pilot");
+    const files = motionSiteTemplate("Pantry & Pilot");
     assert.match(files["package.json"] ?? "", /"next"/);
     assert.match(files["package.json"] ?? "", /"gsap"/);
     assert.match(files["package.json"] ?? "", /"@react-three\/fiber"/);
@@ -28,7 +28,11 @@ describe("motion site Next.js template", () => {
     assert.match(files["components/scroll-film.tsx"] ?? "", /gsap\.registerPlugin\(ScrollTrigger\)/);
     assert.match(files["components/scroll-film.tsx"] ?? "", /useGSAP/);
     assert.match(files["components/scroll-film.tsx"] ?? "", /pin: true/);
+    assert.match(files["components/scroll-film.tsx"] ?? "", /gsap\.timeline/);
+    assert.match(files["components/scroll-film.tsx"] ?? "", /prefers-reduced-motion/);
+    assert.doesNotMatch(files["components/scroll-film.tsx"] ?? "", /start: "top 75%"/);
     assert.match(files["components/scroll-film.tsx"] ?? "", /file:\/\//);
+    assert.match(files["components/scroll-film.tsx"] ?? "", /Pantry &amp; Pilot/);
     assert.match(files["components/scene.tsx"] ?? "", /@react-three\/fiber/);
   });
 

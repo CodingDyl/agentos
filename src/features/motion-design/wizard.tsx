@@ -16,6 +16,7 @@ import {
   type ReferenceLike,
   type YouDecideFields,
 } from "@shared/motion-design-types";
+import { DEFAULT_MODEL_ROUTING } from "@shared/model-routing-types";
 import { DedsecLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperError, PaperSwitch } from "@/components/paper";
 import {
@@ -27,6 +28,7 @@ import {
   useMotionSetup,
   useSaveMotionDraft,
 } from "@/lib/agentos/motion-design";
+import { useAiStack } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 
 const INTAKE: MotionWizardStep[] = ["setup", "references", "brief", "launch"];
@@ -46,7 +48,11 @@ const emptyBrief: MotionBrief = {
   youDecide: {},
 };
 
-function emptyDraft(): MotionDraft {
+function wizardEffort(effort: string): MotionDraft["effort"] {
+  return effort === "low" || effort === "medium" || effort === "high" ? effort : "high";
+}
+
+function emptyDraft(motion = DEFAULT_MODEL_ROUTING.motion): MotionDraft {
   return {
     step: "setup",
     brief: emptyBrief,
@@ -54,8 +60,8 @@ function emptyDraft(): MotionDraft {
     budgetPlan: "standard",
     budgetCeiling: 330,
     codeOnly: false,
-    model: "claude-opus-5-5",
-    effort: "high",
+    model: motion.model,
+    effort: wizardEffort(motion.effort),
     workspaceName: "",
   };
 }
@@ -67,9 +73,11 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
   const save = useSaveMotionDraft();
   const install = useInstallMotionSkill();
   const launch = useLaunchMotionDesign();
+  const stack = useAiStack();
+  const motionRoute = stack.data?.modelRouting?.motion ?? DEFAULT_MODEL_ROUTING.motion;
   const storedDraft = stored.data?.draft;
   const [edited, setEdited] = useState<MotionDraft | undefined>();
-  const draft = edited ?? storedDraft ?? emptyDraft();
+  const draft = edited ?? storedDraft ?? emptyDraft(motionRoute);
   const [link, setLink] = useState("");
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [uploadError, setUploadError] = useState<string>();
@@ -84,7 +92,7 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
 
   const setDraft = (next: MotionDraft | ((current: MotionDraft) => MotionDraft)) => {
     setEdited((current) => {
-      const base = current ?? storedDraft ?? emptyDraft();
+      const base = current ?? storedDraft ?? emptyDraft(motionRoute);
       return typeof next === "function" ? next(base) : next;
     });
   };

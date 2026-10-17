@@ -268,6 +268,7 @@ export function buildQueryOptions(
     cwd: worktreePath,
 
     model: model(job),
+    ...(job.effort ? { effort: job.effort } : {}),
     maxTurns: maxTurns(),
     maxBudgetUsd: maxBudgetUsd(),
     abortController: controller,

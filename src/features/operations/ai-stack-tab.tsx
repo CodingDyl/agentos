@@ -102,6 +102,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
 
       {stack.data.modelRouting ? (
         <ModelRoutingPanel
+          key={JSON.stringify(stack.data.modelRouting)}
           table={stack.data.modelRouting}
           saving={saveRouting.isPending}
           onSave={(routes) => saveRouting.mutate(routes)}
@@ -343,7 +344,7 @@ function Sep() {
   return <span className="text-paper-ash"> · </span>;
 }
 
-const EFFORTS: ModelRouteEffort[] = ["low", "medium", "high"];
+const EFFORTS: ModelRouteEffort[] = ["low", "medium", "high", "xhigh", "max"];
 
 function ModelRoutingPanel({
   table,

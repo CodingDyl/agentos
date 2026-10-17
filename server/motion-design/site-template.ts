@@ -20,7 +20,6 @@ export function motionSiteTemplate(name: string): Record<string, string> {
           dev: "next dev",
           build: "next build",
           start: "next start",
-          lint: "next lint",
         },
         dependencies: {
           "@gsap/react": "^2.1.2",
@@ -138,6 +137,10 @@ import { useRef } from "react";
  *
  * Register plugins only after mount (useGSAP / useEffect). Doing it at module
  * top-level breaks under the App Router because \`window\` is missing on the server.
+ *
+ * One pin, one timeline. Do not also give each slide its own viewport-relative
+ * ScrollTrigger while the parent is pinned — pinned slides never cross
+ * "top 75%", so those tweens never start.
  */
 export function ScrollFilm() {
   const root = useRef<HTMLElement>(null);
@@ -146,30 +149,32 @@ export function ScrollFilm() {
     () => {
       gsap.registerPlugin(ScrollTrigger);
       const slides = gsap.utils.toArray<HTMLElement>(".slide");
-      slides.forEach((slide) => {
-        gsap.fromTo(
-          slide.querySelector(".slide-inner"),
-          { y: 80, opacity: 0 },
-          {
-            y: 0,
-            opacity: 1,
-            ease: "none",
-            scrollTrigger: {
-              trigger: slide,
-              start: "top 75%",
-              end: "top 25%",
-              scrub: true,
-            },
-          },
-        );
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        gsap.set(slides, { autoAlpha: 1 });
+        gsap.set(".slide-inner", { y: 0, opacity: 1 });
+        return;
+      }
+      gsap.set(slides, { autoAlpha: 0 });
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: root.current,
+          start: "top top",
+          end: "+=200%",
+          pin: true,
+          scrub: 1,
+          anticipatePin: 1,
+        },
       });
-      ScrollTrigger.create({
-        trigger: root.current,
-        start: "top top",
-        end: "+=200%",
-        pin: true,
-        scrub: 1,
-        anticipatePin: 1,
+      slides.forEach((slide, index) => {
+        const inner = slide.querySelector(".slide-inner");
+        if (index === 0) {
+          tl.to(slide, { autoAlpha: 1, duration: 0.4 }, 0);
+          if (inner) tl.fromTo(inner, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, 0);
+          return;
+        }
+        tl.to(slides[index - 1], { autoAlpha: 0, duration: 0.4 }, index);
+        tl.fromTo(slide, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4 }, index);
+        if (inner) tl.fromTo(inner, { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, index);
       });
     },
     { scope: root },
@@ -196,9 +201,9 @@ export function ScrollFilm() {
         </div>
       </div>
       <style>{\`
-        .film { min-height: 100vh; padding: 12vh 8vw 40vh; }
-        .film h1 { font-size: clamp(2.4rem, 7vw, 6rem); margin: 0 0 12vh; }
-        .slide { min-height: 70vh; display: flex; align-items: center; }
+        .film { height: 100vh; position: relative; overflow: hidden; padding: 12vh 8vw; }
+        .film h1 { font-size: clamp(2.4rem, 7vw, 6rem); margin: 0 0 8vh; position: relative; z-index: 2; }
+        .slide { position: absolute; inset: 0; display: flex; align-items: center; padding: 24vh 8vw 12vh; }
         .slide-inner { max-width: 36rem; font-size: 1.4rem; line-height: 1.45; }
       \`}</style>
     </section>
@@ -255,5 +260,10 @@ function slug(name: string): string {
 }
 
 function escapeJsxText(value: string): string {
-  return value.replace(/[&<>{}]/g, "");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/{/g, "&#123;")
+    .replace(/}/g, "&#125;");
 }

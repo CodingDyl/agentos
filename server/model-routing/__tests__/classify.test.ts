@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { classifyTaskType, heuristicTaskType } from "../classify";
+import { classifyTaskType, heuristicTaskType, shouldClassifyWithJev } from "../classify";
 
 describe("heuristic task classification", () => {
   it("reads a Motion Design or film brief as motion", () => {
@@ -24,6 +24,15 @@ describe("heuristic task classification", () => {
   it("treats a free-form ask as a normal request", () => {
     assert.equal(heuristicTaskType("What is in today's inbox?"), "normal");
     assert.equal(heuristicTaskType("Summarise yesterday's meeting"), "normal");
+    assert.equal(heuristicTaskType("Write a summary of the meeting"), "normal");
+    assert.equal(heuristicTaskType("Create a short note about pricing"), "normal");
+  });
+
+  it("asks Jev only when a send function is given or the live switch is on", () => {
+    assert.equal(
+      shouldClassifyWithJev(async () => ({ model: "jev-latest", answers: {} })),
+      true,
+    );
   });
 
   it("prefers motion over a generic 'build' when both appear", () => {
