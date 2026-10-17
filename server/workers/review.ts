@@ -17,7 +17,7 @@ import {
 } from "./review-builder";
 import { removeMetadataFiles } from "../agentos/metadata-files";
 import { runValidation } from "./validation";
-import { uncommittedFiles } from "../agentos/git";
+import { git, uncommittedFiles } from "../agentos/git";
 import { createWorkerEvent } from "./worker";
 import {
   commitWorktree,
@@ -505,7 +505,7 @@ export async function integrationBlockerDetails(
 
   const head = await headCommit(job.sourceRepoPath);
 
-  if (job.baseCommit && head !== job.baseCommit) {
+  if (job.baseCommit && head !== job.baseCommit && !(await isAncestor(job.sourceRepoPath, head, job.baseCommit))) {
     // The reviewed tree and the integrated tree would no longer be the same
     // thing. Rebasing would produce code nobody reviewed, so it is refused
     // rather than resolved.
@@ -518,6 +518,23 @@ export async function integrationBlockerDetails(
   }
 
   return blockers;
+}
+
+/**
+ * Whether `ancestor` is in `commit`'s history.
+ *
+ * A retry that continues a dead attempt starts from that attempt's saved work,
+ * which sits ahead of the branch rather than on it. The branch has not moved,
+ * the fast-forward still lands exactly the reviewed tree, so it is no blocker.
+ */
+async function isAncestor(repoPath: string, ancestor: string | undefined, commit: string): Promise<boolean> {
+  if (!ancestor) return false;
+  try {
+    await git(repoPath, ["merge-base", "--is-ancestor", ancestor, commit]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
