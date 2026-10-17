@@ -12,7 +12,7 @@ import { CreativeDownloadButton } from "./download-button";
 import { sourceFromAsset } from "./download-media";
 import { formatAdded, typeLabel } from "./designs-model";
 
-/** The same toggle chip `PaperFilterBar` draws, for choices inside a panel. */
+/** Toggle chip for choices inside a panel — not a list filter. */
 const CHIP =
   "inline-flex min-h-8 cursor-pointer items-center rounded-none border px-3 text-[13px] font-medium transition-colors duration-150 " +
   PAPER_FOCUS;

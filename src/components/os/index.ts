@@ -9,6 +9,7 @@ export * from "./command-button";
 export * from "./empty-state";
 export * from "./error-state";
 export * from "./filter-bar";
+export * from "./filter-toolbar";
 export * from "./hairline-card";
 export * from "./dedsec-loader";
 export * from "./loading-state";

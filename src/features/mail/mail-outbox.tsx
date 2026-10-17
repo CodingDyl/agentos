@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ExternalLink, Paperclip, Send, Trash2 } from "lucide-react";
 import { MailSendTagSchema, type MailOutboxItem, type MailSendTag } from "@shared/mail-compose-types";
-import { DedsecLoader } from "@/components/os";
+import { DedsecLoader, FilterToolbar } from "@/components/os";
 import { formatRelativeTime } from "@/lib/format";
 import { useDiscardMailDraft, useMailOutbox, useRetagMailOutboxItem, useSendMailDraft } from "@/lib/agentos/queries";
 import { TAG_LABEL } from "./mail-compose-model";
@@ -146,19 +146,21 @@ export function MailOutbox({ onNotice }: { onNotice: (message: string) => void }
 
   return (
     <section aria-label="Sent and drafts">
-      <div className="mail-filters" role="group" aria-label="Filter by tag">
-        {FILTERS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={filter === value}
-            className={`mail-filter${filter === value ? " mail-filter--active" : ""}`}
-            onClick={() => setFilter(value)}
-          >
-            {value === "all" ? "All" : TAG_LABEL[value]}
-          </button>
-        ))}
-      </div>
+      <FilterToolbar
+        groups={[
+          {
+            id: "tag",
+            label: "Tag",
+            value: filter,
+            emptyValue: "all",
+            onChange: (value) => setFilter(value as TagFilter),
+            options: FILTERS.map((value) => ({
+              value,
+              label: value === "all" ? "All" : TAG_LABEL[value],
+            })),
+          },
+        ]}
+      />
 
       {outbox.isPending ? (
         <DedsecLoader variant="compact" />

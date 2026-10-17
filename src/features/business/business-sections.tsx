@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { BusinessAgreement, BusinessData, BusinessEntitySummary, BusinessFollowUp, BusinessQuote, BusinessRetainer } from "@shared/business-types";
-import { PAPER_FOCUS, PaperButton, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
+import { FilterToolbar } from "@/components/os";
+import { PAPER_FOCUS, PaperButton, PaperPagination, PaperSection, Tag } from "@/components/paper";
 import { useFollowUpAction } from "@/lib/agentos/business";
 import { cn } from "@/lib/utils";
 import { ClientDraftForm } from "./business-draft";
@@ -51,14 +52,20 @@ export function QuotesSection({ entity, data }: Scoped) {
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          label="Quote type"
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "all", label: `All (${all.length})` },
-            { value: "project", label: `Project (${all.filter((quote) => quote.kind === "project").length})` },
-            { value: "maintenance", label: `Maintenance (${all.filter((quote) => quote.kind === "maintenance").length})` },
+        <FilterToolbar
+          groups={[
+            {
+              id: "kind",
+              label: "Type",
+              value: filter,
+              emptyValue: "all",
+              onChange: (value) => setFilter(value as QuoteFilter),
+              options: [
+                { value: "all", label: "All", count: all.length },
+                { value: "project", label: "Project", count: all.filter((quote) => quote.kind === "project").length },
+                { value: "maintenance", label: "Maintenance", count: all.filter((quote) => quote.kind === "maintenance").length },
+              ],
+            },
           ]}
         />
       </div>
