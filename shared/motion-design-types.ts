@@ -550,7 +550,7 @@ export function assembleMotionPrompt(input: {
       ? "The interview is already answered below. Only ask about gaps. Do not re-ask questions that have answers."
       : "Interview me in one batch.",
     "You decide (creative only — not a spending authorisation). You decide is not spending authority. Creative 'you decide' answers never authorize Higgsfield spend.",
-    "Present two concrete concepts with an itemized cost. Write them to motion-studio/concepts.json and stop. Do not submit paid jobs until motion-studio/credits.approved.json exists.",
+    `Present two concrete concepts with an itemized cost. Write them to motion-studio/concepts.json as {"concepts":[{"id":"A","title":"…","summary":"…","journey":"one sentence","sections":"one sentence","motion":"one sentence","plannedCredits":51,"recommended":true,"itemized":[{"label":"Key images K1-K3","credits":6}]}, …]} (extra fields are fine) and stop. Do not submit paid jobs until motion-studio/credits.approved.json exists.`,
     "Maintain motion-credit-ledger.csv in the project, including pending charges.",
     "Keep a concise review log covering Brief, Design rules, and Craft.",
     codeOnly
@@ -592,4 +592,9 @@ export const MOTION_SITE_ALLOWED_TOOLS = [
   "Bash(cat:*)",
   "Bash(head:*)",
   "Bash(file:*)",
+  // The build stage installs and runs the site it is making.
+  "Bash(ls:*)",
+  "Bash(node:*)",
+  "Bash(npm:*)",
+  "Bash(npx:*)",
 ] as const;

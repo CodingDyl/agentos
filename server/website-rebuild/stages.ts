@@ -46,9 +46,17 @@ import {
 } from "./prompts";
 import { REPORT_DIR, reportFile, wrapReport } from "./reports";
 import { routeList, routeName, routesFrom, screenshot, serveBuiltNextApp } from "./screens";
+import { libraryContextFor } from "../reengineer/library";
 import { StageBlocked, type StageContext, type StageHandler, type StageOutcome } from "./stage-kit";
 import { readRun, setRunField } from "./store";
 import { integrateJob, pickWorker, runJob, WorkerStageBlocked, type PickedWorker } from "./workers";
+
+/** What the library may tell each build stage. A stage reads only the kinds that bear on it. */
+const HERO_KINDS = ["layout", "style", "motion", "component"] as const;
+const BUILD_KINDS = ["component", "layout", "pattern", "style", "motion"] as const;
+const FUNCTION_KINDS = ["function", "pattern", "component"] as const;
+
+const withPatterns = (brief: string, patterns: string) => (patterns ? `${brief}\n\n${patterns}` : brief);
 
 /**
  * Stages 3 to 6: research, hero concepts, copy and structure, functions.
@@ -399,9 +407,10 @@ export const heroStage: StageHandler = async (context) => {
   await seedBrandKit(context, deps, repo);
 
   const files = HERO_CONCEPTS.flatMap((concept) => [`design/${concept}/DESIGN.md`, `design/${concept}/hero.html`]);
+  const patterns = await libraryContextFor(HERO_KINDS);
   const { job, worker } = await work(context, deps, run.workerPlan.hero, () => ({
     project: run.workspaceSlug ?? "",
-    objective: heroBrief(run, context.changeRequest),
+    objective: withPatterns(heroBrief(run, context.changeRequest), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: [files.map((file) => `test -s ${file}`).join(" && ")],
@@ -461,9 +470,10 @@ export const buildStage: StageHandler = async (context) => {
   const repo = await repoFor(context, deps);
   // Again here, so a change to the kit after the concepts were approved reaches the build.
   await seedBrandKit(context, deps, repo);
+  const patterns = await libraryContextFor(BUILD_KINDS);
   const { job, worker } = await work(context, deps, run.workerPlan.build, () => ({
     project: run.workspaceSlug ?? "",
-    objective: buildBrief(run, run.heroChoice ?? "", context.changeRequest),
+    objective: withPatterns(buildBrief(run, run.heroChoice ?? "", context.changeRequest), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: NEXT_VALIDATION,
@@ -495,9 +505,10 @@ export const functionsStage: StageHandler = async (context) => {
   }
 
   const repo = await repoFor(context, deps);
+  const patterns = await libraryContextFor(FUNCTION_KINDS);
   const { job, worker } = await work(context, deps, run.workerPlan.functions, () => ({
     project: run.workspaceSlug ?? "",
-    objective: functionsBrief(run, context.changeRequest),
+    objective: withPatterns(functionsBrief(run, context.changeRequest), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: [...NEXT_VALIDATION, "npm test", `test -s ${functionalityFile(run)}`],

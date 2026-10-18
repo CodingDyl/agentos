@@ -23,6 +23,7 @@ import { modelRoutingTable } from "../model-routing/settings";
 import { createAsset } from "./library";
 import { mediaRoot, probeVideo, storeVideo } from "./media";
 import { buildStudioPrompt, fillTemplate, readMotionPrompts } from "./motion-prompts";
+import { libraryContextFor } from "../reengineer/library";
 import { projectContext, resolveReferences } from "./review-context";
 
 /**
@@ -248,10 +249,12 @@ export async function createMotionJob(request: MotionJobRequest): Promise<Motion
   }
 
   const context = request.project ? await projectContext(request.project).catch(() => "") : "";
+  const patterns = await libraryContextFor(["motion", "style", "pattern"]);
   await fs.writeFile(
     path.join(dir, "BRIEF.md"),
     [`# Brief`, "", brief, request.template !== "custom" && request.brief ? `\n## Further direction\n\n${request.brief}` : "",
-      context ? `\n## Workspace context (${request.project})\n\n${context}` : ""].join("\n"),
+      context ? `\n## Workspace context (${request.project})\n\n${context}` : "",
+      patterns ? `\n${patterns}` : ""].join("\n"),
   );
 
   const title =

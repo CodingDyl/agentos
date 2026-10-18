@@ -105,3 +105,41 @@ describe("motion design prompt assembly", () => {
     assert.ok(suggestions.every((entry) => entry.likes.length > 0 && entry.note));
   });
 });
+
+describe("reading the concepts the skill wrote", () => {
+  it("reads the shape Claude actually produced: name, hero_idea, line_items and totals", async () => {
+    const { parseConcepts } = await import("../progress");
+    const concepts = parseConcepts(
+      JSON.stringify({
+        concepts: [
+          {
+            id: "A",
+            name: "Into Bay One",
+            recommended: true,
+            hero_idea: "The camera drives from the kerb into a bright bay.",
+            journey: [{ id: "K1", frame: "Wide from the forecourt kerb" }, { id: "K2", frame: "Inside the bay" }],
+            sections: [{ name: "Services" }, { name: "How it works" }],
+            motion_approach: "Scroll-scrubbed video.",
+            line_items: [{ item: "Key images", credits: 6, kind: "planned" }, { item: "Remake", credits: 26.5, kind: "contingency" }],
+            totals: { planned: 51 },
+          },
+          { id: "B", name: "The Open Bay", line_items: [{ item: "Loop", credits: 22.5 }, { item: "Remake", credits: 20, kind: "contingency" }] },
+        ],
+      }),
+    );
+    assert.equal(concepts.length, 2);
+    assert.equal(concepts[0].title, "Into Bay One");
+    assert.equal(concepts[0].plannedCredits, 51);
+    assert.equal(concepts[0].recommended, true);
+    assert.match(concepts[0].journey ?? "", /kerb.*→.*bay/);
+    assert.equal(concepts[0].sections, "Services → How it works");
+    assert.equal(concepts[1].plannedCredits, 22.5, "contingency lines are not planned spend");
+  });
+
+  it("still reads the shape the page documents", async () => {
+    const { parseConcepts } = await import("../progress");
+    const [concept] = parseConcepts(JSON.stringify([{ id: "a", title: "T", plannedCredits: 10, journey: "start to end" }]));
+    assert.equal(concept.plannedCredits, 10);
+    assert.equal(concept.journey, "start to end");
+  });
+});

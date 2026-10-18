@@ -31,6 +31,7 @@ import {
   MotionPage,
 } from "@/features/designs";
 import { KnowledgePage } from "@/features/knowledge";
+import { LibraryPage } from "@/features/reengineer";
 import { MemoryPage } from "@/features/memory";
 import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
@@ -92,6 +93,7 @@ function App() {
           <Route path="/projects/:slug" element={<ProjectRedirect />} />
           <Route path="/coder" element={<CoderPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
+          <Route path="/knowledge/library" element={<LibraryPage />} />
           <Route path="/memory" element={<MemoryPage />} />
           <Route path="/learning" element={<LearningPage />} />
           <Route path="/hub" element={<Navigate to="/learning" replace />} />

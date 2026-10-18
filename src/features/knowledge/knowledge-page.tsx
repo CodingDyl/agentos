@@ -1,4 +1,4 @@
-import { FileText, GraduationCap, Scale, Search } from "lucide-react";
+import { FileText, GraduationCap, Microscope, Scale, Search } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ArtifactSource, KnowledgeItem } from "@shared/agentos-types";
@@ -81,7 +81,13 @@ export function KnowledgePage() {
     <AppShell navigationItems={navigationItems} pageId="knowledge" activeHref="/knowledge" modelLabel="Model / AgentOS V1">
       <PaperStage>
         <header>
-          <h1 className="font-paper-display text-[34px] leading-[1.1] font-extrabold tracking-[-0.015em] text-paper-moss">Knowledge</h1>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <h1 className="font-paper-display text-[34px] leading-[1.1] font-extrabold tracking-[-0.015em] text-paper-moss">Knowledge</h1>
+            <Link to="/knowledge/library" className={cn("inline-flex min-h-11 items-center gap-2 border border-paper-mist px-4 text-[13px] font-medium text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}>
+              <Microscope className="size-3.5" aria-hidden="true" />
+              Library: take a site apart
+            </Link>
+          </div>
           <p className="mt-1 text-[14px] text-paper-sage tabular-nums">
             {data
               ? `${documents} ${documents === 1 ? "document" : "documents"} · ${decisions} ${decisions === 1 ? "decision" : "decisions"}${learnings ? ` · ${learnings} ${learnings === 1 ? "learning" : "learnings"}` : ""} · ${workspaces.filter(([slug]) => slug !== "learning").length} workspaces`

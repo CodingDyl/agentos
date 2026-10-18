@@ -43,6 +43,7 @@ import {
   slug,
   stopGroup,
 } from "./motion";
+import { libraryContextFor } from "../reengineer/library";
 import { projectContext, resolveReferences } from "./review-context";
 
 /**
@@ -278,7 +279,7 @@ const STAGE_TASK: Record<AnimateStage, (piece: string) => string> = {
     ].join(" "),
 };
 
-function intakeBlock(request: AnimateRequest, brandFiles: string[], context: string): string {
+function intakeBlock(request: AnimateRequest, brandFiles: string[], context: string, patterns: string): string {
   return [
     "## Intake (already answered by the operator — do not ask)",
     `- About: ${request.topic}`,
@@ -291,12 +292,13 @@ function intakeBlock(request: AnimateRequest, brandFiles: string[], context: str
       ? `- Reference images in assets/ (use them as the operator's own screenshots/logos, or as look references): ${brandFiles.join(", ")}`
       : "- Reference images: none",
     context ? `\n## Workspace context (${request.project})\n\n${context}` : undefined,
+    patterns ? `\n${patterns}` : undefined,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-function firstPrompt(request: AnimateRequest, piece: string, brandFiles: string[], context: string): string {
+function firstPrompt(request: AnimateRequest, piece: string, brandFiles: string[], context: string, patterns: string): string {
   return [
     "You are running the Animate skill inside AgentOS, unattended. Your working directory is the studio.",
     "The skill is in ./skill — read ./skill/SKILL.md now and follow it, with these AgentOS rules that override it:",
@@ -306,7 +308,7 @@ function firstPrompt(request: AnimateRequest, piece: string, brandFiles: string[
     "- Playwright and ffmpeg are installed. If something is genuinely missing, say so in your closing message and stop.",
     `- The piece name is \`${piece}\`.`,
     "",
-    intakeBlock(request, brandFiles, context),
+    intakeBlock(request, brandFiles, context, patterns),
     "",
     "## This run",
     STAGE_TASK.story(piece),
@@ -502,7 +504,8 @@ export async function createAnimateJob(request: AnimateRequest): Promise<Animate
 
   const context = request.project ? await projectContext(request.project).catch(() => "") : "";
   const piece = slug(request.topic, "piece");
-  const prompt = firstPrompt(request, piece, brandFiles, context);
+  const patterns = await libraryContextFor(["motion", "style", "pattern"]);
+  const prompt = firstPrompt(request, piece, brandFiles, context, patterns);
 
   const job: StoredJob = {
     id,

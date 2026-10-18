@@ -45,17 +45,67 @@ async function listFiles(root: string, relative: string): Promise<string[]> {
   }
 }
 
-export function parseConcepts(text: string): MotionConcept[] {
+type Loose = Record<string, unknown>;
+
+const isObject = (value: unknown): value is Loose => typeof value === "object" && value !== null && !Array.isArray(value);
+const text = (value: unknown): string | undefined => (typeof value === "string" && value.trim() ? value.trim() : undefined);
+const number = (value: unknown): number | undefined => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined);
+
+/** A list the skill wrote as objects or strings, as one readable line. */
+function listLine(value: unknown, keys: string[]): string | undefined {
+  if (typeof value === "string") return text(value);
+  if (!Array.isArray(value)) return undefined;
+  const parts = value
+    .map((entry) => (isObject(entry) ? keys.map((key) => text(entry[key])).find(Boolean) : text(entry)))
+    .filter((part): part is string => Boolean(part))
+    .map((part) => (part.length > 90 ? `${part.slice(0, 89)}…` : part));
+  return parts.length > 0 ? parts.join(" → ") : undefined;
+}
+
+const clip = (value: string | undefined, limit: number) => (value && value.length > limit ? `${value.slice(0, limit - 1)}…` : value);
+
+/**
+ * Reads `motion-studio/concepts.json`.
+ *
+ * The skill writes this file, not AgentOS, and has used more than one shape
+ * for it: `title` or `name`, a flat `plannedCredits` or a `totals.planned`
+ * beside `line_items`, a journey as a sentence or as a list of frames. A
+ * strict reader that finds nothing it recognises shows no concepts, and then
+ * the credit approval the whole run is waiting for never appears. So this
+ * reads the names the skill is known to use and falls back on what it can
+ * tell, rather than discarding a concept over a field it wanted as a string.
+ */
+export function parseConcepts(raw: string): MotionConcept[] {
   try {
-    const parsed: unknown = JSON.parse(text);
-    const list = Array.isArray(parsed) ? parsed : parsed && typeof parsed === "object" && "concepts" in parsed ? (parsed as { concepts: unknown }).concepts : [];
-    if (!Array.isArray(list)) return [];
+    const parsed: unknown = JSON.parse(raw);
+    const list = Array.isArray(parsed) ? parsed : isObject(parsed) && Array.isArray(parsed.concepts) ? parsed.concepts : [];
     return list.flatMap((entry, index) => {
+      if (!isObject(entry)) return [];
+      const totals = isObject(entry.totals) ? entry.totals : {};
+      const lineItems = Array.isArray(entry.itemized) ? entry.itemized : Array.isArray(entry.line_items) ? entry.line_items : [];
+      const itemized = lineItems.flatMap((item) => {
+        if (!isObject(item)) return [];
+        const label = text(item.label) ?? text(item.item);
+        const credits = number(item.credits);
+        return label && credits !== undefined ? [{ label: clip(label, 200)!, credits }] : [];
+      });
+      const planned =
+        number(entry.plannedCredits) ??
+        number(entry.credits) ??
+        number(totals.planned) ??
+        itemized.filter((_, i) => (lineItems[i] as Loose | undefined)?.kind !== "contingency").reduce((sum, item) => sum + item.credits, 0);
+
       const result = MotionConceptSchema.safeParse({
-        ...(typeof entry === "object" && entry ? entry : {}),
-        id: (entry as { id?: string })?.id ?? (index === 0 ? "a" : "b"),
-        title: (entry as { title?: string })?.title ?? `Concept ${index === 0 ? "A" : "B"}`,
-        plannedCredits: Number((entry as { plannedCredits?: number })?.plannedCredits ?? (entry as { credits?: number })?.credits ?? 0),
+        id: clip(text(entry.id) ?? (index === 0 ? "A" : "B"), 40),
+        title: clip(text(entry.title) ?? text(entry.name) ?? `Concept ${index === 0 ? "A" : "B"}`, 120),
+        summary: clip(text(entry.summary) ?? text(entry.hero_idea) ?? text(entry.hero) ?? "", 2000),
+        hero: clip(text(entry.hero) ?? text(entry.hero_idea), 800),
+        journey: clip(listLine(entry.journey, ["frame", "label", "id"]), 800),
+        sections: clip(listLine(entry.sections, ["name", "title"]), 800),
+        motion: clip(text(entry.motion) ?? text(entry.motion_approach), 800),
+        plannedCredits: planned,
+        itemized,
+        recommended: typeof entry.recommended === "boolean" ? entry.recommended : undefined,
       });
       return result.success ? [result.data] : [];
     });

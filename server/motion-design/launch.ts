@@ -14,11 +14,15 @@ import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, patchProject, toSlug } from "../agentos/mutations/projects";
 import { routeFor } from "../model-routing/resolve";
 import { startJob, readJob, steerJob } from "../workers/job-manager";
+import { withLibrary } from "../reengineer/library";
 import { bundledSkillPath } from "./skill-install";
 import { commitSiteFiles, ensureMotionSiteRepo, writeApprovalFile } from "./site-repo";
 import { MotionDesignError, clearDraft, createMotionRunId, saveRun } from "./store";
 
 export const MOTION_SITE_TOOLS = [...MOTION_SITE_ALLOWED_TOOLS];
+
+/** What the library may tell a motion site: how it moves, looks and is laid out. */
+const SITE_MOTION_KINDS = ["motion", "style", "layout", "component", "pattern"] as const;
 
 function workspaceName(input: MotionLaunchInput): string {
   const named = input.workspaceName?.trim() || input.brief.brandName?.trim();
@@ -93,13 +97,16 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
   }
   await commitSiteFiles(repo, files, "Add the Motion Design brief and references");
 
-  const prompt = assembleMotionPrompt({
-    brief: input.brief,
-    references: storedReferences,
-    budgetCeiling: input.budgetCeiling,
-    codeOnly: input.codeOnly,
-    interviewAnswered: true,
-  });
+  const prompt = await withLibrary(
+    assembleMotionPrompt({
+      brief: input.brief,
+      references: storedReferences,
+      budgetCeiling: input.budgetCeiling,
+      codeOnly: input.codeOnly,
+      interviewAnswered: true,
+    }),
+    SITE_MOTION_KINDS,
+  );
 
   const routed = routeFor("motion");
   const model = input.model?.trim() || routed.model;
@@ -175,6 +182,7 @@ export async function approveMotionConcept(
   await writeApprovalFile(run.siteRepoPath, approval);
 
   const prompt = [
+    await withLibrary(
     assembleMotionPrompt({
       brief: run.brief,
       references: run.references,
@@ -182,6 +190,8 @@ export async function approveMotionConcept(
       codeOnly: false,
       interviewAnswered: true,
     }),
+    SITE_MOTION_KINDS,
+    ),
     "",
     `Concept ${concept.id} (${concept.title}) is approved.`,
     `Credit ceiling: ${input.ceiling}. Planned spend: ${concept.plannedCredits}. Keep about 15% of the ceiling as reserve.`,

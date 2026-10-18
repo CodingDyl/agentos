@@ -50,6 +50,7 @@ import {
 } from "./agentos/repository";
 import { RepositoryActionSchema } from "../shared/repository-types";
 import { readGitGraph } from "./agentos/git-graph";
+import { reengineerRouter } from "./reengineer/routes";
 import {
   getProjectDocuments,
   listRecentDocuments,
@@ -444,6 +445,7 @@ app.use("/api/spotify", spotifyRouter);
 app.use("/api/workers/grok-bot", grokBotRouter);
 
 /** Motion studio: briefs in, Claude Code renders films, finished MP4s land in Creative. */
+app.use("/api/reengineer", reengineerRouter);
 app.use("/api/designs/animate", animateRouter);
 app.use("/api/designs/motion", motionRouter);
 app.use("/api/designs/download", downloadRouter);
