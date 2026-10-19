@@ -35,6 +35,7 @@ import { LibraryPage } from "@/features/reengineer";
 import { MemoryPage } from "@/features/memory";
 import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
+import { AgentProfilePage, AgentsPage } from "@/features/agents";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
 import { CoderPage } from "@/features/coder";
 import { DesignSystemPage } from "@/pages/design-system-page";
@@ -122,6 +123,8 @@ function App() {
             path="/operations/agents/:id"
             element={<AgentDetailPage />}
           />
+          <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/agents/:id" element={<AgentProfilePage />} />
           <Route path="/workers" element={<WorkersPage />} />
           <Route path="/workers/jobs/:id" element={<JobDetailPage />} />
           <Route path="/design-system" element={<DesignSystemPage />} />

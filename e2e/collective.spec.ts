@@ -21,7 +21,7 @@ test("Collective preserves route surfaces, real empty states, and dark tokens", 
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const routes = ["/", "/inbox", "/traction", "/business", "/finance", "/operator", "/workspaces", "/workspaces/pantry-pilot", "/knowledge", "/memory", "/learning", "/designs", "/designs/boards", "/designs/generations", "/designs/motion", "/automations", "/connectors", "/activity", "/operations", "/workers", "/agent", "/compass", "/design-system"];
+  const routes = ["/", "/inbox", "/traction", "/business", "/finance", "/operator", "/workspaces", "/workspaces/pantry-pilot", "/knowledge", "/memory", "/learning", "/designs", "/designs/boards", "/designs/generations", "/designs/motion", "/automations", "/connectors", "/activity", "/operations", "/agents", "/workers", "/agent", "/compass", "/design-system"];
   for (const route of routes) {
     await page.goto(route);
     await expect(page.locator("main[data-agentos-page]")).toBeVisible();

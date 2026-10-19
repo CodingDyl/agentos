@@ -97,6 +97,7 @@ import { outreachRouter } from "./outreach/routes";
 import { rebuildRouter, recoverRebuildsAtStartup } from "./website-rebuild/routes";
 import { siteRequestRouter } from "./site-requests/routes";
 import { skillsRouter } from "./skills/routes";
+import { agentsRouter } from "./agents/routes";
 import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
 import { connectorsRouter } from "./connectors/routes";
@@ -408,6 +409,7 @@ app.use("/api/cleanup", cleanupRouter);
 app.use("/api/rebuilds", rebuildRouter);
 app.use("/api/site-requests", siteRequestRouter);
 app.use("/api/skills", skillsRouter);
+app.use("/api/agents", agentsRouter);
 recoverRebuildsAtStartup();
 app.use("/api/compass", compassRouter);
 app.use("/api/focus", focusRouter);
@@ -2277,6 +2279,7 @@ app.post("/api/worker-jobs", async (request, response) => {
       modelRouteType: ["plan", "execute", "motion", "normal"].includes(body.modelRouteType) ? body.modelRouteType : undefined,
       modelOverride: typeof body.modelOverride === "string" ? body.modelOverride : undefined,
       effort: ["low", "medium", "high", "xhigh", "max"].includes(body.effort) ? body.effort : undefined,
+      agentId: typeof body.agentId === "string" && body.agentId.trim() ? body.agentId.trim() : undefined,
     });
 
     if (!job) {

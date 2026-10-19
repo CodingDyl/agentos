@@ -18,6 +18,7 @@ import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import { useCancelWorkerJob, useWorkerJobs, useWorkers } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
+import { AgentChip } from "@/features/agents";
 import { DelegateJobForm } from "./delegate-job-form";
 import { GrokBotPanel } from "./grok-bot-panel";
 import { OllamaPanel } from "./ollama-panel";
@@ -251,6 +252,8 @@ function BusyJob({ job }: { job: WorkerJob }) {
         >
           <span className="line-clamp-1">{jobTitle(job.objective)}</span>
           <span className="os-meta mt-1 block text-os-subtle">
+            {job.agentId ? <AgentChip agentId={job.agentId} tone="os" linked={false} /> : null}
+            {job.agentId ? " · " : null}
             {job.project}
             {job.modelRoute ? ` · ${modelRouteLabel(job.modelRoute)}` : ""}
             {job.lastEventAt ?? job.startedAt ? ` · last heard ${formatRelativeTime(job.lastEventAt ?? job.startedAt)}` : ""}
@@ -319,6 +322,12 @@ function JobRow({ job }: { job: WorkerJob }) {
               {jobTitle(job.objective)}
             </h3>
             <p className="os-meta mt-2 text-os-subtle">
+              {job.agentId ? (
+                <>
+                  <AgentChip agentId={job.agentId} tone="os" linked={false} />
+                  {" · "}
+                </>
+              ) : null}
               {(job.resolvedWorker ?? job.worker).toUpperCase()} · {job.project}
               {job.modelRoute ? ` · ${modelRouteLabel(job.modelRoute)}` : ""}
               {duration ? ` · ${duration}` : ""}

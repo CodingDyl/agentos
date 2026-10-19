@@ -125,6 +125,7 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     claudeSettingSources: "user,project",
     claudeMcpServers: ["playwright"],
     timeoutMs: 45 * 60 * 1000,
+    agentId: "motion-studio",
     constraints: [
       "Do not submit paid Higgsfield jobs until motion-studio/credits.approved.json exists.",
       "You decide answers are creative only and never authorize spend.",
@@ -215,6 +216,7 @@ export async function approveMotionConcept(
     claudeSettingSources: "user,project",
     claudeMcpServers: ["playwright"],
     timeoutMs: 4 * 60 * 60 * 1000,
+    agentId: "motion-studio",
     constraints: [
       `Do not exceed ${input.ceiling} Higgsfield credits, including pending charges in motion-credit-ledger.csv.`,
       "Read web references with WebFetch and check the site in the Playwright browser tools (mcp__playwright__*), never by driving Chrome from node.",
@@ -263,6 +265,7 @@ export async function sendMotionNotes(run: MotionRun, text: string): Promise<Mot
         claudeSettingSources: "user,project",
         claudeMcpServers: ["playwright"],
         timeoutMs: 2 * 60 * 60 * 1000,
+        agentId: "motion-studio",
       }, { retryOf: jobId });
       if (started.job) {
         return saveRun({ ...run, notes: [...run.notes, note], buildJobId: started.job.id, status: "building", error: undefined });

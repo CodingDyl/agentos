@@ -18,6 +18,7 @@ const items = [
   { href: "/workspaces", section: "work" as const },
   { href: "/learning", section: "memory" as const },
   { href: "/operations", section: "operations" as const },
+  { href: "/agents", section: "operations" as const },
   { href: "/workers", section: "operations" as const },
   { href: "/compass", section: "footer" as const },
 ];

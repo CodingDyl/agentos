@@ -421,6 +421,7 @@ export async function syncWorkerJob(job: StoredJob): Promise<void> {
     // dead run look recently heard from while it sat as "may have finished".
     lastEventAt: job.log.at(-1)?.at ?? existing?.lastEventAt ?? job.startedAt ?? job.createdAt,
     origin: { label: "Claude Motion", href: `/designs/animate/${job.id}` },
+    agentId: "motion-studio",
   };
   
   await saveWorkerJob(workerJob);

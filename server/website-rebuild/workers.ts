@@ -46,7 +46,7 @@ export const defaultWorkerDeps: WorkerDeps = {
     const health = await worker.healthCheck().catch(() => ({ available: false, reason: "could not report its health" }));
     return { available: health.available, name: worker.name, reason: health.reason, manualOnly: worker.manualOnly };
   },
-  start: (request) => startJob(request),
+  start: (request) => startJob({ ...request, agentId: request.agentId ?? "virtara-desk" }),
   read: readJob,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };

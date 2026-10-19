@@ -187,6 +187,11 @@ export const WorkerJobRequestSchema = z.object({
   /** Claude Code `--effort`, when the CLI supports it. */
   effort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
   /**
+   * The specialist that owns this job. Set by the flow that created it, or
+   * resolved at launch (Jev, then a heuristic, then Chief of Staff).
+   */
+  agentId: z.string().trim().min(1).max(64).optional(),
+  /**
    * Usage-saving task type. Set by the flow that created the job (Motion,
    * a plan step, a code apply). Absent, the router classifies the brief.
    */

@@ -1,8 +1,10 @@
 import {
   DEFAULT_MODEL_ROUTING,
+  MODEL_ROUTE_TASK_TYPES,
   type ModelRouteDecision,
   type ModelRouteEffort,
   type ModelRouteTaskType,
+  type ModelRoutingTable,
 } from "../../shared/model-routing-types";
 import { classifyTaskType } from "./classify";
 import { modelRoutingTable } from "./settings";
@@ -12,6 +14,8 @@ export interface ResolveModelRouteInput {
   taggedType?: ModelRouteTaskType;
   modelOverride?: string;
   effort?: ModelRouteEffort;
+  /** Overlay on the AI Stack table, used by a specialist's own routes. */
+  table?: Partial<ModelRoutingTable>;
 }
 
 /**
@@ -26,7 +30,13 @@ export async function resolveModelRoute(input: ResolveModelRouteInput): Promise<
     objective: input.objective,
     taggedType: input.taggedType,
   });
-  const table = modelRoutingTable();
+  const table = { ...modelRoutingTable() };
+  if (input.table) {
+    for (const type of MODEL_ROUTE_TASK_TYPES) {
+      const overlay = input.table[type];
+      if (overlay) table[type] = overlay;
+    }
+  }
   const assignment = table[classified.taskType] ?? DEFAULT_MODEL_ROUTING[classified.taskType];
   const model = input.modelOverride?.trim() || assignment.model;
   const effort = input.effort ?? assignment.effort;

@@ -57,7 +57,8 @@ const SCREENS: readonly { label: string; href: string; hint: string; keywords: s
   { label: "Connectors", href: "/connectors", hint: "Services and capabilities", keywords: ["integrations", "github", "vercel", "permissions", "capabilities"] },
   { label: "Activity", href: "/activity", hint: "Timeline", keywords: ["history", "log"] },
   { label: "Friction", href: "/operations?tab=friction", hint: "What to fix first", keywords: ["feedback", "annoyances", "papercuts", "review"] },
-  { label: "Agents", href: "/workers", hint: "Workers and their jobs", keywords: ["jobs", "grok", "claude", "workers", "cancel"] },
+  { label: "Agents", href: "/agents", hint: "The team, their jobs and ceilings", keywords: ["jobs", "team", "roster", "specialists", "workers"] },
+  { label: "Worker jobs", href: "/workers", hint: "Runtime workers and their jobs", keywords: ["jobs", "grok", "claude", "workers", "cancel"] },
   { label: "Hermes console", href: "/agent", hint: "Operations · agents", keywords: ["agent", "chat", "console"] },
 ];
 

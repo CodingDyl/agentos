@@ -52,7 +52,7 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Memory", href: "/memory", icon: Network, section: "memory" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "memory" },
   { label: "Operations", href: "/operations", icon: Gauge, section: "operations" },
-  { label: "Agents", href: "/workers", icon: Bot, section: "operations" },
+  { label: "Agents", href: "/agents", icon: Bot, section: "operations" },
   { label: "Career", href: "/career", icon: BriefcaseBusiness, section: "operations" },
   { label: "Automations", href: "/automations", icon: CalendarClock, section: "operations" },
   { label: "Connectors", href: "/connectors", icon: Plug, section: "operations" },

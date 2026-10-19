@@ -64,6 +64,16 @@ describe("resolveModelRoute", () => {
     assert.equal(route.effort, "low");
     assert.equal(route.source, "heuristic");
   });
+
+  it("overlays a specialist table on the global assignment", async () => {
+    const route = await resolveModelRoute({
+      objective: "anything",
+      taggedType: "execute",
+      table: { execute: { model: "haiku", effort: "low" } },
+    });
+    assert.equal(route.model, "haiku");
+    assert.equal(route.effort, "low");
+  });
 });
 
 describe("pickOfferedModel", () => {

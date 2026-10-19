@@ -191,6 +191,7 @@ export async function launchReengineer(request: ReengineerRequest): Promise<Reen
     extraAllowedTools: REENGINEER_TOOLS,
     claudeSettingSources: "user,project",
     timeoutMs: 45 * 60 * 1000,
+    agentId: "site-audit",
     constraints: ["Do not copy the target's source, text, images or brand assets.", "Write only under reengineer/."],
     acceptanceCriteria: [`reengineer/${id}/teardown.md and library.json are written.`],
     validationCommands: [`test -s reengineer/${id}/teardown.md`, `test -s reengineer/${id}/library.json`],

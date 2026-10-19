@@ -115,6 +115,16 @@ import {
   type WorkersResponse,
 } from "@shared/worker-types";
 import {
+  AgentDetailResponseSchema as RegistryAgentDetailSchema,
+  AgentPatchSchema,
+  AgentResponseSchema as RegistryAgentResponseSchema,
+  AgentsResponseSchema,
+  type AgentDetailResponse as RegistryAgentDetail,
+  type AgentPatch,
+  type AgentResponse as RegistryAgentResponse,
+  type AgentsResponse,
+} from "@shared/agent-types";
+import {
   type DesignGeneration,
   type DesignGenerationRequest,
   DesignGenerationResponseSchema,
@@ -879,6 +889,34 @@ export function setDesignBoardMembership(
 export function getWorkers(): Promise<WorkersResponse> {
   return readVault("/api/workers", (value) =>
     WorkersResponseSchema.safeParse(value),
+  );
+}
+
+export function getAgents(): Promise<AgentsResponse> {
+  return readVault("/api/agents", (value) => AgentsResponseSchema.safeParse(value), "The agent roster could not be read.");
+}
+
+export function getAgent(id: string): Promise<RegistryAgentDetail> {
+  return readVault(
+    `/api/agents/${encodeURIComponent(id)}`,
+    (value) => RegistryAgentDetailSchema.safeParse(value),
+    "There is no agent with that id.",
+  );
+}
+
+export function patchAgent(id: string, patch: AgentPatch): Promise<RegistryAgentResponse> {
+  const parsed = AgentPatchSchema.safeParse(patch);
+  if (!parsed.success) {
+    return Promise.reject(new AgentOSRequestError(parsed.error.issues[0]?.message ?? "That update could not be read."));
+  }
+  return workerRequest(
+    `/api/agents/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    },
+    (value) => RegistryAgentResponseSchema.safeParse(value),
   );
 }
 
