@@ -221,6 +221,34 @@ export async function removeWorktree(
   }
 }
 
+/**
+ * Where a job's own project sits inside its checkout.
+ *
+ * A job's repository can be a subfolder of a larger git repository (a site in
+ * the vault, a package in a monorepo). The worktree is a checkout of the whole
+ * repository, so the project is at the same subpath inside it. Commands that
+ * belong to the project (`npm run build`) must run there; at the worktree root
+ * there is no package.json and they fail at once, whatever the worker built.
+ */
+export async function projectDirIn(
+  worktreePath: string,
+  sourceRepoPath: string | undefined,
+): Promise<string> {
+  if (!sourceRepoPath) return worktreePath;
+
+  try {
+    const { stdout } = await git(sourceRepoPath, ["rev-parse", "--show-prefix"]);
+    const prefix = stdout.trim();
+    if (!prefix) return worktreePath;
+
+    const target = path.join(worktreePath, prefix.replace(/\/$/, ""));
+    await fs.access(target);
+    return target;
+  } catch {
+    return worktreePath;
+  }
+}
+
 /** Files the worker changed, relative to the branch point. */
 export async function changedFiles(worktreePath: string): Promise<string[]> {
   return (await uncommittedFiles(worktreePath)).map((entry) => entry.path);

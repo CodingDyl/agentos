@@ -7,6 +7,7 @@ import type { RoadmapTask } from "../../shared/agentos-types";
 import type { RoutingMode } from "../../shared/route-policy-types";
 import type { WorkerId } from "../../shared/worker-types";
 import { getMilestoneDetail } from "./roadmap";
+import { queueTasks } from "./milestone-queue";
 import { delegateTask, prepareDelegation } from "./task-delegation";
 
 /**
@@ -31,11 +32,10 @@ export function skipReasonFor(task: RoadmapTask): string | undefined {
  * together, so a milestone with several ready tasks is one review instead of
  * N separate trips through the single-task flow.
  *
- * Sequential, not parallel: preparing a task's plan is a Hermes call, and
+ * Scoping is sequential, not parallel: preparing a task's plan is a Hermes call, and
  * Hermes is one local process — asking it several things at once would only
- * make every one of them slower. Once a plan is approved and started, the
- * resulting jobs *do* run in parallel (each gets its own git worktree), so
- * nothing here throttles execution — only the scoping step in front of it.
+ * make every one of them slower. Running the approved tasks is separate, and
+ * one at a time by default (see `startMilestoneDelegation`).
  */
 export async function prepareMilestoneDelegation(
   slug: string,
@@ -65,12 +65,12 @@ export async function prepareMilestoneDelegation(
 }
 
 /**
- * Starts every task a person approved out of a prepared batch.
+ * Starts the tasks a person approved out of a prepared batch.
  *
- * One task failing to start (its plan grew stale, something else delegated it
- * in the meantime) does not stop the rest — each is independent, and a
- * milestone that got 4 of 5 tasks running is worth more than one that aborted
- * on the first problem.
+ * One at a time unless `parallel` is set: the first task that starts is run,
+ * and the rest wait in the project's queue until it has landed (see
+ * `milestone-queue.ts`). One task failing to start (its plan grew stale,
+ * something else delegated it in the meantime) does not stop the rest.
  */
 export async function startMilestoneDelegation(
   slug: string,
@@ -78,8 +78,12 @@ export async function startMilestoneDelegation(
 ): Promise<MilestoneDelegationResult> {
   const started: MilestoneDelegationResult["started"] = [];
   const failed: MilestoneDelegationResult["failed"] = [];
+  const queued: string[] = [];
+  const approvals = [...request.tasks];
 
-  for (const { taskId, plan, worker, routing, repoPath, routingMode, manualOptionId } of request.tasks) {
+  while (approvals.length > 0) {
+    const approval = approvals.shift()!;
+    const { taskId, plan, worker, routing, repoPath, routingMode, manualOptionId } = approval;
     const { job, error } = await delegateTask(slug, taskId, {
       plan,
       worker,
@@ -91,7 +95,13 @@ export async function startMilestoneDelegation(
 
     if (job) started.push({ taskId, jobId: job.id });
     else failed.push({ taskId, error: error ?? "Could not start this task." });
+
+    if (job && !request.parallel) {
+      await queueTasks(slug, job.id, approvals);
+      queued.push(...approvals.map((entry) => entry.taskId));
+      break;
+    }
   }
 
-  return { started, failed };
+  return { started, failed, queued };
 }

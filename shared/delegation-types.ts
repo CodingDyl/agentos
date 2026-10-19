@@ -209,11 +209,19 @@ export const MilestoneTaskApprovalSchema = TaskDelegationApprovalSchema.extend({
 
 export const MilestoneDelegationStartRequestSchema = z.object({
   tasks: z.array(MilestoneTaskApprovalSchema).min(1),
+  /**
+   * Start every task at once. Off by default: tasks run one at a time, each
+   * starting only after the one before it has landed, so a task builds on the
+   * code the previous one produced instead of on a base it never saw.
+   */
+  parallel: z.boolean().optional(),
 });
 
 export const MilestoneDelegationResultSchema = z.object({
   started: z.array(z.object({ taskId: z.string(), jobId: z.string() })),
   failed: z.array(z.object({ taskId: z.string(), error: z.string() })),
+  /** Approved tasks waiting for the one before them to land. */
+  queued: z.array(z.string()).default([]),
 });
 
 export type MilestoneTaskPreview = z.infer<typeof MilestoneTaskPreviewSchema>;

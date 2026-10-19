@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { after, before, describe, it } from "node:test";
-import { changedFiles, isRepository, snapshotWorktree } from "../worktree";
+import { changedFiles, isRepository, projectDirIn, snapshotWorktree } from "../worktree";
 
 /**
  * What a job reports as changed is read from git, and is the list a person
@@ -112,5 +112,28 @@ describe("keeping an unfinished attempt for its retry", () => {
     const head = (await run("git", ["rev-parse", "HEAD"], { cwd: repo })).stdout.trim();
 
     assert.equal(await snapshotWorktree(repo, "keep"), head);
+  });
+});
+
+describe("where a job's project sits in its checkout", () => {
+  it("is the project's subfolder when the repository is a larger one", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-projdir-"));
+    try {
+      const repo = path.join(directory, "vault");
+      await fs.mkdir(path.join(repo, "projects/site"), { recursive: true });
+      await run("git", ["init", "-q", "-b", "main", "."], { cwd: repo });
+      await fs.writeFile(path.join(repo, "projects/site/package.json"), "{}\n", "utf8");
+      await run("git", ["add", "-A"], { cwd: repo });
+      await run("git", ["-c", "user.email=t@t", "-c", "user.name=T", "commit", "-qm", "init"], { cwd: repo });
+
+      const checkout = path.join(directory, "checkout");
+      await run("git", ["worktree", "add", "-q", "-b", "job", checkout], { cwd: repo });
+
+      assert.equal(await projectDirIn(checkout, path.join(repo, "projects/site")), path.join(checkout, "projects/site"));
+      assert.equal(await projectDirIn(checkout, repo), checkout);
+      assert.equal(await projectDirIn(checkout, undefined), checkout);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
   });
 });

@@ -24,6 +24,7 @@ import {
   currentBranch,
   fastForward,
   headCommit,
+  projectDirIn,
   removeWorktree,
 } from "./worktree";
 
@@ -153,7 +154,7 @@ export async function validateJob(jobId: string): Promise<ActionResult> {
 
   const outcome = await runValidation(
     commands,
-    job.worktreePath,
+    await projectDirIn(job.worktreePath, job.sourceRepoPath),
     (type, message, metadata) => void record(jobId, type, message, metadata),
     // Not cancellable from here: these are the operator's own commands, run
     // deliberately, and a half-run validation is worse than a slow one.
@@ -578,6 +579,20 @@ export function textResultApprovable(job: WorkerJob): { ok: true } | { ok: false
   return { ok: true };
 }
 
+/**
+ * Starts the next task waiting on this job, now that it has landed. Imported
+ * when needed: the queue starts jobs, and jobs import this module.
+ */
+async function releaseQueuedTask(job: WorkerJob): Promise<void> {
+  try {
+    const { releaseNextTask } = await import("../agentos/milestone-queue");
+    const next = await releaseNextTask(job.project, job.id);
+    if (next) await record(job.id, "job.progress", `Started the next queued task, ${next.taskId}`);
+  } catch (error) {
+    console.error("[agentos] could not release the next queued task:", error);
+  }
+}
+
 async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
   const approvable = textResultApprovable(job);
   if (!approvable.ok) return approvable;
@@ -593,6 +608,8 @@ async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
     project: job.project,
     metadata: { jobId: job.id, text: true },
   });
+
+  await releaseQueuedTask(job);
 
   return { ok: true, job: completed };
 }
@@ -761,6 +778,8 @@ async function integrate(job: WorkerJob): Promise<ActionResult> {
 
   await removeWorktree(source, job.id);
   await record(job.id, "job.completed", "Integrated and validated");
+
+  await releaseQueuedTask(job);
 
   // Filed under AgentOS, not the worker: the worker's part ended long before
   // this, and a timeline that credited the integration to it would blur the

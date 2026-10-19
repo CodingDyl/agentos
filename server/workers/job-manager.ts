@@ -49,7 +49,7 @@ import { createWorkerEvent, type Worker } from "./worker";
 import { repositoryProblem } from "../agentos/git";
 import { resolveModelRoute } from "../model-routing/resolve";
 import { applyAgentLaunchPolicy, resolveAgentAssignment } from "../agents/route";
-import { changedFiles, createWorktree, isRepository, snapshotWorktree } from "./worktree";
+import { changedFiles, createWorktree, isRepository, projectDirIn, snapshotWorktree } from "./worktree";
 
 /**
  * Runs jobs.
@@ -964,7 +964,7 @@ async function run(
 
       validation = await runValidation(
         commands,
-        worktree,
+        await projectDirIn(worktree, job.sourceRepoPath),
         (type, message, metadata) => emit(job.id, type, message, metadata),
         controller.signal,
       );
