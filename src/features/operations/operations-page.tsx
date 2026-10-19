@@ -157,6 +157,7 @@ function Operations({
         <div className="flex flex-wrap items-center gap-2">
         {/* The power-user surfaces, one click away rather than in the sidebar. */}
         <QuietLink to="/agent">Hermes console</QuietLink>
+        <QuietLink to="/agents">Team</QuietLink>
         <QuietLink to="/workers">Worker jobs</QuietLink>
         <SegmentedControl
           label="Range"

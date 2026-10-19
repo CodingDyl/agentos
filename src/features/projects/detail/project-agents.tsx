@@ -10,8 +10,9 @@ import {
   StatusPill,
   SystemIndicator,
 } from "@/components/os";
+import { AgentChip } from "@/features/agents";
 import { statusLabel, statusPill } from "@/features/workers/workers-model";
-import { useAgentStatus, useWorkerJobs, useWorkers } from "@/lib/agentos/queries";
+import { useAgentStatus, useAgents, useWorkerJobs, useWorkers } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,13 +38,57 @@ export function ProjectAgents({
   const hermes = useAgentStatus();
   const workers = useWorkers();
   const jobs = useWorkerJobs();
+  const roster = useAgents();
 
   const mine = (jobs.data?.jobs ?? []).filter((job) => job.project === project.slug);
+  const linked = (roster.data?.agents ?? []).filter((agent) => agent.linkedWorkspaces.includes(project.slug));
   const { configuration } = project;
 
   return (
     <div className="grid gap-x-8 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:gap-x-16">
       <div className="space-y-10">
+        <Section
+          label="Specialists"
+          action={
+            <Link
+              to="/agents"
+              className="os-focus-ring os-meta -mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-os-subtle transition-colors duration-150 hover:text-foreground"
+            >
+              Team →
+            </Link>
+          }
+        >
+          {roster.isPending ? (
+            <DedsecLoader variant="compact" />
+          ) : linked.length === 0 ? (
+            <EmptyState variant="inline" description="No specialist is linked to this workspace yet. Link one from Agents." />
+          ) : (
+            <HairlineCard className="overflow-hidden">
+              <ul className="divide-y divide-os-border">
+                {linked.map((agent) => (
+                  <li key={agent.id}>
+                    <Link
+                      to={`/agents/${agent.id}`}
+                      className="os-focus-ring flex cursor-pointer items-start justify-between gap-4 px-5 py-3.5 transition-colors duration-150 hover:bg-os-surface-raised"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-[15px] leading-6 text-foreground">
+                          {agent.avatar} {agent.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-[13px] text-os-subtle">{agent.role}</span>
+                      </span>
+                      <SystemIndicator
+                        state={agent.openJobs > 0 ? "running" : "online"}
+                        label={agent.openJobs > 0 ? `${agent.openJobs} open` : "Idle"}
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </HairlineCard>
+          )}
+        </Section>
+
         <Section label="Orchestrator">
           <HairlineCard className="p-5">
             <div className="flex items-center justify-between gap-4">
@@ -154,6 +199,12 @@ export function ProjectAgents({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] leading-6 text-foreground">{job.objective}</p>
                       <p className="mt-0.5 os-meta text-os-subtle">
+                        {job.agentId ? (
+                          <>
+                            <AgentChip agentId={job.agentId} tone="os" linked={false} />
+                            {" · "}
+                          </>
+                        ) : null}
                         {job.resolvedWorker ?? job.worker} · {new Date(job.createdAt).toLocaleDateString()}
                       </p>
                     </div>

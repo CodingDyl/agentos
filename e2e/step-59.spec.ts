@@ -167,16 +167,17 @@ test.describe("Compatibility", () => {
     await expect(page.getByRole("tab", { name: "Creative", selected: true })).toBeVisible();
   });
 
-  test("the workers page is reached from Agents and still loads", async ({ page }) => {
+  test("the agents page is reached from Agents and still loads", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("complementary", { name: "Primary navigation" }).getByRole("link", { name: "Agents" }).click();
-    await expect(page).toHaveURL(/\/workers$/);
-    await expect(page.locator("[data-agentos-page]")).toHaveAttribute("data-agentos-page", "workers");
+    await expect(page).toHaveURL(/\/agents$/);
+    await expect(page.locator("[data-agentos-page]")).toHaveAttribute("data-agentos-page", "agents");
     await expect(page.getByRole("link", { name: "Agents", current: "page" })).toBeVisible();
 
     await page.goto("/operations?tab=system");
     await expect(page.getByRole("tab", { name: "System", selected: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Worker jobs" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Team" }).first()).toBeVisible();
   });
 
   test("⌘K offers everyday creation and navigation", async ({ page }) => {

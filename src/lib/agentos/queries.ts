@@ -180,6 +180,9 @@ import {
   routeTaskDelegation,
   saveOllamaSettings,
   getWorkers,
+  getAgents,
+  getAgent,
+  patchAgent,
   completeTask,
   finaliseDesignReview,
   generateDesigns,
@@ -220,6 +223,7 @@ import {
   verifyWorkerJobVisually,
 } from "./client";
 import type { WorkerJobRequest, WorkerJobStatus } from "@shared/worker-types";
+import type { AgentPatch } from "@shared/agent-types";
 import type { RoutingMode } from "@shared/route-policy-types";
 import type { MilestoneTaskApproval, TaskDelegationApproval } from "@shared/delegation-types";
 
@@ -261,6 +265,8 @@ export const agentosKeys = {
     [...agentosKeys.all, "design-reviews", project ?? "all"] as const,
   workers: () => [...agentosKeys.all, "workers"] as const,
   workerJobs: () => [...agentosKeys.all, "worker-jobs"] as const,
+  agents: () => [...agentosKeys.all, "agent-roster"] as const,
+  agent: (id: string) => [...agentosKeys.all, "agent-roster", id] as const,
   taskDelegations: (slug: string) =>
     [...agentosKeys.all, "task-delegations", slug] as const,
   taskCompletion: (slug: string, taskId: string) =>
@@ -1089,6 +1095,41 @@ export function useWorkers() {
     staleTime: 30_000,
     retry: 1,
     networkMode: "always",
+  });
+}
+
+export function useAgents() {
+  return useQuery({
+    queryKey: agentosKeys.agents(),
+    queryFn: getAgents,
+    staleTime: 15_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+export function useAgent(id: string) {
+  return useQuery({
+    queryKey: agentosKeys.agent(id),
+    queryFn: () => getAgent(id),
+    enabled: id.length > 0,
+    staleTime: 10_000,
+    retry: 1,
+    networkMode: "always",
+  });
+}
+
+export function usePatchAgent(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (patch: AgentPatch) => patchAgent(id, patch),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.agents() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.agent(id) });
+    },
+    networkMode: "always",
+    retry: 0,
   });
 }
 

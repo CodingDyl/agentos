@@ -167,12 +167,14 @@ describe("running jobs", () => {
         project: "agentos",
         objective: "Prove the pipeline",
         repoPath: repo,
+        agentId: "chief-of-staff",
         // A real command with a real exit code — the point is that AgentOS
         // runs it, not that it is interesting.
         validationCommands: ["exit 0"],
       });
 
       assert.ok(job, error ?? "the job should have started");
+      assert.equal(job.agentId, "chief-of-staff");
       jobId = job.id;
 
       manager.subscribe(jobId, (event) => events.push(event));

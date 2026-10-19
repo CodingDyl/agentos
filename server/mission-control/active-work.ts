@@ -2,6 +2,7 @@ import type { ActivityEvent } from "../../shared/agentos-types";
 import type { ActiveWorkItem } from "../../shared/mission-control-types";
 import type { OperatorRun, OperatorRunStatus } from "../../shared/operator-types";
 import type { WorkerJob, WorkerJobStatus } from "../../shared/worker-types";
+import { getAgentRecord } from "../agents/store";
 import { isLive } from "../operator/engine";
 import { isRunning } from "../workers/job-manager";
 
@@ -70,12 +71,20 @@ function shortTitle(value: string, limit = 90): string {
  * server restart leaves jobs recorded as `running` that are not; those are
  * reported at their recorded stage rather than claimed as live.
  */
+function actorForJob(job: WorkerJob): string {
+  if (job.agentId) {
+    const owner = getAgentRecord(job.agentId);
+    if (owner) return `${owner.avatar} ${owner.name}`;
+  }
+  return (job.resolvedWorker ?? job.worker).toUpperCase();
+}
+
 export function activeJobs(jobs: readonly WorkerJob[]): ActiveWorkItem[] {
   return jobs
     .filter((job) => RUNNING_STATUSES.includes(job.status))
     .map((job) => ({
       id: job.id,
-      actor: (job.resolvedWorker ?? job.worker).toUpperCase(),
+      actor: actorForJob(job),
       // `auto` is a request for a worker, not a worker; nothing to point at yet.
       agent: (job.resolvedWorker ?? job.worker) === "auto" ? undefined : (job.resolvedWorker ?? job.worker),
       title: shortTitle(job.objective),

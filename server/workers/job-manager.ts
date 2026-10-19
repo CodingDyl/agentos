@@ -48,6 +48,7 @@ import { runValidation } from "./validation";
 import { createWorkerEvent, type Worker } from "./worker";
 import { repositoryProblem } from "../agentos/git";
 import { resolveModelRoute } from "../model-routing/resolve";
+import { applyAgentLaunchPolicy, resolveAgentAssignment } from "../agents/route";
 import { changedFiles, createWorktree, isRepository, snapshotWorktree } from "./worktree";
 
 /**
@@ -202,9 +203,25 @@ export interface StartJobResult {
 export async function startJob(
   request: WorkerJobRequest,
   /** Fields the job carries from birth that are not part of the request, e.g. `retryOf`. */
-  extra: Pick<Partial<WorkerJob>, "retryOf" | "skill"> = {},
+  extra: Pick<Partial<WorkerJob>, "retryOf" | "skill"> & { flow?: string } = {},
 ): Promise<StartJobResult> {
   let resolved: Awaited<ReturnType<typeof resolveWorkerId>>;
+
+  const assigned = await resolveAgentAssignment({
+    objective: request.objective,
+    project: request.project,
+    agentId: request.agentId,
+    flow: extra.flow,
+  });
+  if (assigned.error || !assigned.agent) return { error: assigned.error ?? "No agent could be selected for this job." };
+
+  const launched = applyAgentLaunchPolicy({
+    agent: assigned.agent,
+    request,
+    brief: !extra.retryOf,
+  });
+  if (launched.error) return { error: launched.error };
+  request = launched.request;
 
   // A named skill is checked and copied first: a disabled skill, or one whose
   // connectors are not connected, never leaves a job behind. A retry brings
@@ -275,6 +292,7 @@ export async function startJob(
     taggedType: request.modelRouteType,
     modelOverride: request.modelOverride,
     effort: request.effort,
+    table: launched.table,
   });
 
   let job: WorkerJob = {
@@ -319,7 +337,8 @@ export async function startJob(
       : {}),
     revision: 1,
     createdAt: new Date().toISOString(),
-    ...extra,
+    agentId: assigned.agent.id,
+    ...(extra.retryOf ? { retryOf: extra.retryOf } : {}),
     ...(skill ? { skill } : {}),
   };
 
@@ -346,6 +365,7 @@ export async function startJob(
       metadata: {
         jobId: job.id,
         worker: worker.id,
+        agentId: job.agentId,
         recommended: job.routing.selectedWorker,
         confidence: job.routing.confidence,
         decidedBy: job.routing.decidedBy,
@@ -359,7 +379,7 @@ export async function startJob(
     type: "worker.started",
     description: `${worker.name}: ${job.objective}`,
     project: job.project,
-    metadata: { jobId: job.id, worker: worker.id },
+    metadata: { jobId: job.id, worker: worker.id, agentId: job.agentId },
   });
 
   // Deliberately not awaited: the caller gets the job, the work continues.
@@ -728,6 +748,7 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     claudeSettingSources: previous.claudeSettingSources,
     claudeMcpServers: previous.claudeMcpServers,
     timeoutMs: previous.timeoutMs,
+    agentId: previous.agentId,
   };
 
   const started = await startJob(request, { retryOf: previous.id, ...(previous.skill ? { skill: previous.skill } : {}) });
@@ -1173,7 +1194,7 @@ async function run(
         ? `${worker.name} job cancelled`
         : `${worker.name}: ${detail}`,
       project: job.project,
-      metadata: { jobId: job.id, worker: worker.id },
+      metadata: { jobId: job.id, worker: worker.id, agentId: job.agentId },
     });
   } finally {
     // The stream is closed once listeners are dropped, so the log has to be

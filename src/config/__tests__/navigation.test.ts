@@ -64,7 +64,7 @@ describe("sidebar navigation", () => {
     assert.ok(labels.includes("Agents"));
     assert.ok(labels.includes("Operations"));
     assert.equal(operations.find((item) => item.label === "Career")?.href, "/career");
-    assert.equal(operations.find((item) => item.label === "Agents")?.href, "/workers");
+    assert.equal(operations.find((item) => item.label === "Agents")?.href, "/agents");
     assert.equal(operations.find((item) => item.label === "Operations")?.href, "/operations");
   });
 
@@ -88,7 +88,7 @@ describe("sidebar navigation", () => {
       "/connectors",
       "/operations",
       "/activity",
-      "/workers",
+      "/agents",
       "/compass",
     ]) {
       assert.ok(hrefs.has(href), `missing ${href}`);

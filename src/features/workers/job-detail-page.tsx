@@ -27,6 +27,7 @@ import {
   StatusPill,
 } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
+import { AgentChip } from "@/features/agents";
 import { FrictionButton, SprintPanel } from "@/features/validation";
 import { RoutingDecision } from "./routing-decision";
 import { AttemptsPanel, RoutePolicyPanel, TextResultStation } from "./route-policy-panel";
@@ -211,6 +212,12 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
                 label={statusLabel(job.status)}
               />
               <span className="os-meta text-os-subtle">
+                {job.agentId ? (
+                  <>
+                    <AgentChip agentId={job.agentId} tone="os" />
+                    {" · "}
+                  </>
+                ) : null}
                 {(job.resolvedWorker ?? job.worker).toUpperCase()} · {job.project}
                 {duration ? ` · ${duration}` : ""}
               </span>
