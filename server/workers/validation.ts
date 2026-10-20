@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import path from "node:path";
 import type { WorkerValidation } from "../../shared/worker-types";
 import type { EmitWorkerEvent } from "./worker";
 
@@ -149,6 +151,48 @@ function runCommand(
  * A job with no validation commands has not passed validation — it simply had
  * none to run, which is reported as such rather than as a pass.
  */
+/** Whether a path exists. */
+async function exists(target: string): Promise<boolean> {
+  return fs.access(target).then(
+    () => true,
+    () => false,
+  );
+}
+
+/**
+ * Installs a project's dependencies when a command is about to need them.
+ *
+ * `node_modules` is gitignored, so it lives only in whichever checkout ran
+ * `npm install`. A worker installs in its own worktree; the real repository
+ * the work lands in, a fresh retry's checkout, and a re-check later all start
+ * without it, and `npm run build` there fails at once with "next: command not
+ * found" whatever the code is. Installing first is what the operator would do
+ * by hand. Returns a failed result when the install itself fails.
+ */
+async function installDependencies(
+  commands: readonly string[],
+  cwd: string,
+  emit: EmitWorkerEvent,
+  signal: AbortSignal,
+): Promise<WorkerValidation | undefined> {
+  if (!commands.some((command) => /^\s*(npm|npx)\b/.test(command))) return undefined;
+  if (!(await exists(path.join(cwd, "package.json")))) return undefined;
+  if (await exists(path.join(cwd, "node_modules"))) return undefined;
+
+  const command = (await exists(path.join(cwd, "package-lock.json"))) ? "npm ci" : "npm install";
+  emit("validation.started", `${command} (dependencies are not installed here yet)`);
+
+  const result = await runCommand(command, cwd, signal);
+  emit("validation.completed", `${command}: ${result.success ? "passed" : "failed"}`, {
+    command,
+    success: result.success,
+    executed: true,
+  });
+
+  // Only a failure is worth a row of its own; a clean install is not a check.
+  return result.success ? undefined : result;
+}
+
 export async function runValidation(
   commands: readonly string[],
   cwd: string,
@@ -156,6 +200,9 @@ export async function runValidation(
   signal: AbortSignal,
 ): Promise<ValidationOutcome> {
   const results: WorkerValidation[] = [];
+
+  const installFailure = await installDependencies(commands, cwd, emit, signal);
+  if (installFailure) return { results: [installFailure], passed: false };
 
   for (const raw of commands) {
     const command = raw.trim();

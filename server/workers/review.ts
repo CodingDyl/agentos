@@ -126,12 +126,60 @@ export async function getJobDiff(
  * in a worktree a worker is still writing to would report on a tree that no
  * longer exists by the time anyone reads it.
  */
+/**
+ * Re-runs the validation commands in the source repository for a job whose work
+ * has already landed there, and completes the job when they pass.
+ *
+ * The job was marked failed because the check after landing did not pass. That
+ * check can be wrong about the work (a missing install, a flaky build), and the
+ * work is already on the branch, so the honest way out is to run it again, not
+ * to leave a landed job looking failed or to land it twice.
+ */
+async function recheckLandedJob(job: WorkerJob): Promise<ActionResult> {
+  const source = job.sourceRepoPath!;
+  const commands = (job.validationCommands ?? []).filter((command) => command.trim().length > 0);
+
+  await removeMetadataFiles(source);
+  await record(job.id, "validation.started", `Re-running ${commands.length} command${commands.length === 1 ? "" : "s"} in the source repository`);
+
+  const outcome = await runValidation(
+    commands,
+    source,
+    (type, message, metadata) => void record(job.id, type, message, metadata),
+    new AbortController().signal,
+  );
+
+  if (!outcome.passed) {
+    const failed = await update(job, { result: { ...(job.result ?? { summary: "" }), tests: outcome.results } });
+    return { ok: false, error: "Validation still fails in the source repository.", job: failed };
+  }
+
+  const completed = await update(job, {
+    status: "completed",
+    completedAt: new Date().toISOString(),
+    error: undefined,
+    result: { ...(job.result ?? { summary: "" }), tests: outcome.results },
+  });
+
+  await removeWorktree(source, job.id);
+  await record(job.id, "job.completed", "Integrated and validated");
+  await releaseQueuedTask(job);
+
+  return { ok: true, job: completed };
+}
+
 export async function validateJob(jobId: string): Promise<ActionResult> {
   const job = await readJob(jobId);
   if (!job) return { ok: false, error: "There is no such job." };
 
   if (isRunning(jobId)) {
     return { ok: false, error: "That job is still running." };
+  }
+
+  // Work that already landed but failed its check in the source repository:
+  // the check is what is re-run, there, and a pass finishes the job.
+  if (job.status === "failed" && job.integratedCommit && job.sourceRepoPath) {
+    return recheckLandedJob(job);
   }
 
   if (!job.worktreePath) {
