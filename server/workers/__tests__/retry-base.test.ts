@@ -111,4 +111,33 @@ describe("where a retry starts", () => {
     assert.notEqual(persisted?.baseCommit, head);
     assert.equal(await fs.readFile(path.join(persisted!.worktreePath!, "half-done.txt"), "utf8"), "partial work");
   });
+
+  it("closes a job that was waiting on review when its replacement starts", async () => {
+    const head = await git(repo, "rev-parse", "HEAD");
+    await failedJobAt("job_waiting0000000000", head);
+    const waiting = await store.readJob("job_waiting0000000000");
+    await store.saveJob({ ...waiting!, status: "awaiting_review" } as never);
+
+    const { job: replacement } = await manager.retryJob("job_waiting0000000000");
+    assert.ok(replacement);
+    await settle(replacement.id);
+
+    assert.equal((await store.readJob("job_waiting0000000000"))?.status, "cancelled");
+    assert.ok((await store.readEvents("job_waiting0000000000")).some((event) => event.message?.includes(replacement.id)));
+  });
+
+  it("treats a fast-forward pull as a new base, not as the worker's work", async () => {
+    const head = await git(repo, "rev-parse", "HEAD");
+    const created = await worktrees.createWorktree(repo, "job_pull000000000000", head);
+
+    await fs.writeFile(path.join(repo, "landed.txt"), "from a sibling job");
+    await git(repo, "add", "-A");
+    await git(repo, "commit", "-m", "sibling landed");
+    const latest = await git(repo, "rev-parse", "HEAD");
+
+    assert.equal(await worktrees.pulledBase(created.path, head), undefined);
+    await git(created.path, "merge", "--ff-only", latest);
+    assert.equal(await worktrees.pulledBase(created.path, head), latest);
+    assert.equal(await worktrees.pulledBase(created.path, latest), undefined);
+  });
 });

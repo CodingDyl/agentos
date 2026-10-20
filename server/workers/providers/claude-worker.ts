@@ -64,6 +64,16 @@ const BASE_TOOLS: readonly string[] = [
   ...bashRules("git status"),
   ...bashRules("git diff"),
   ...bashRules("git log"),
+  // Staying current with work that landed while this job ran. Reading is free;
+  // the only thing that may move the checkout is a fast-forward, which can
+  // carry in commits that already exist and nothing else.
+  ...bashRules("git show"),
+  ...bashRules("git ls-tree"),
+  ...bashRules("git merge-base"),
+  ...bashRules("git rev-list"),
+  ...bashRules("git fetch"),
+  ...bashRules("git merge --ff-only"),
+  ...bashRules("git pull --ff-only"),
 ];
 
 /**
@@ -230,6 +240,13 @@ Do not:
 
 Committing, pushing, and creating worktrees are blocked rather than merely
 discouraged. Leave your work uncommitted in the working tree.
+
+Other jobs land work on the branch while you run. To see it, use git log and git
+show on the branch you were started from. To bring it into your checkout, run
+git fetch, then git merge --ff-only <branch> (or git pull --ff-only). A fast
+forward is the only way to update: merges, rebases and resets are refused, and
+git will stop if your uncommitted edits overlap the incoming files. Pulling
+changes your starting point, not your work: AgentOS reviews only what you changed.
 
 AgentOS owns validation: it reads the changed files from git and runs the
 validation commands itself. Reporting success does not make a job pass.

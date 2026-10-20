@@ -643,6 +643,7 @@ function ReviewStation({ job }: { job: WorkerJob }) {
   const reject = useRejectWorkerJob();
   const discard = useDiscardWorkerWorktree();
   const retry = useRetryWorkerJob();
+  const navigate = useNavigate();
   // The cures that act on the repository rather than on the job.
   const repository = useRepositoryAction(job.project);
   const validate = useValidateWorkerJob();
@@ -709,7 +710,8 @@ function ReviewStation({ job }: { job: WorkerJob }) {
       case "retry":
         // Deliberately not "rebase". The reviewed tree cannot be applied to a
         // base it was never reviewed against, so the offer is a fresh run.
-        return { label: "Re-run on the new base", run: () => retry.mutate(job.id) };
+        // The old job is closed once the new one starts, so go and watch the new one.
+        return { label: "Re-run on the new base", run: () => retry.mutate(job.id, { onSuccess: ({ job: next }) => void navigate(`/workers/jobs/${next.id}`) }) };
       default:
         return null;
     }

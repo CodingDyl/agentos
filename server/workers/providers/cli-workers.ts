@@ -34,6 +34,13 @@ const CLAUDE_ALLOWED = [
   "Bash(git status:*)",
   "Bash(git diff:*)",
   "Bash(git log:*)",
+  "Bash(git show:*)",
+  "Bash(git ls-tree:*)",
+  "Bash(git merge-base:*)",
+  "Bash(git rev-list:*)",
+  "Bash(git fetch:*)",
+  "Bash(git merge --ff-only:*)",
+  "Bash(git pull --ff-only:*)",
   "Bash(ls:*)",
 ];
 

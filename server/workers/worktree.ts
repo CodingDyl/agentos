@@ -258,6 +258,29 @@ export async function projectDirIn(
   }
 }
 
+/**
+ * The commit a worker moved its checkout to by pulling, or `undefined`.
+ *
+ * A worker may fast-forward onto the latest work (`git merge --ff-only`,
+ * `git pull --ff-only`). It cannot commit, so a HEAD that has moved past the
+ * base can only be commits that already existed. Those commits are not the
+ * worker's work: the base moves up to them, so the diff, the review and the
+ * "has the branch advanced" check all describe only what the worker changed.
+ */
+export async function pulledBase(worktreePath: string, baseCommit: string | undefined): Promise<string | undefined> {
+  if (!baseCommit) return undefined;
+
+  const head = await headCommit(worktreePath);
+  if (!head || head === baseCommit) return undefined;
+
+  try {
+    await git(worktreePath, ["merge-base", "--is-ancestor", baseCommit, head]);
+    return head;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Files the worker changed, relative to the branch point. */
 export async function changedFiles(worktreePath: string): Promise<string[]> {
   return (await uncommittedFiles(worktreePath)).map((entry) => entry.path);

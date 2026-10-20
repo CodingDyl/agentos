@@ -1,6 +1,6 @@
 import { ArrowRight, Check, RefreshCw, Rocket, RotateCcw, Search, X } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { RebuildStageId } from "@shared/website-rebuild-types";
 import type { AttentionItem, MissionWorker } from "@shared/mission-control-types";
 import { PAPER_FOCUS, PaperButton, PaperSection, Tag } from "@/components/paper";
@@ -233,6 +233,7 @@ function RetryActions({
   onRetried: (message: string) => void;
 }) {
   const retry = useRetryWorkerJob();
+  const navigate = useNavigate();
   const [showOthers, setShowOthers] = useState(false);
   if (!item.retry) return null;
 
@@ -244,7 +245,12 @@ function RetryActions({
   const run = (target?: string) =>
     retry.mutate(
       { id: jobId, worker: target },
-      { onSuccess: () => onRetried(`Retrying on ${nameOf(target ?? worker)}. It's under Active now.`) },
+      {
+        onSuccess: ({ job }) => {
+          onRetried(`Retrying on ${nameOf(target ?? worker)}.`);
+          void navigate(`/workers/jobs/${job.id}`);
+        },
+      },
     );
 
   const otherButtons = others.map((entry) => (

@@ -49,7 +49,7 @@ import { createWorkerEvent, type Worker } from "./worker";
 import { repositoryProblem } from "../agentos/git";
 import { resolveModelRoute } from "../model-routing/resolve";
 import { applyAgentLaunchPolicy, resolveAgentAssignment } from "../agents/route";
-import { changedFiles, createWorktree, isRepository, projectDirIn, snapshotWorktree } from "./worktree";
+import { changedFiles, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
 
 /**
  * Runs jobs.
@@ -762,6 +762,14 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
   if (started.job) {
     emit(started.job.id, "job.progress", `Retry of ${previous.id}`, { retryOf: previous.id });
 
+    // A job still waiting on review would sit beside its replacement, offering
+    // an approval of work built on a base that has moved. The new run replaces
+    // it; its checkout is kept, as with any cancel.
+    if (previous.status === "awaiting_review") {
+      const closed = await cancelJob(previous.id);
+      if (closed.ok) emit(previous.id, "job.progress", `Replaced by ${started.job.id}`, { replacedBy: started.job.id });
+    }
+
     // The task follows the retry. A task that stayed linked to the dead
     // attempt would show "interrupted" while the fresh run finished unseen,
     // and its artifacts would be filed under a job id rather than under it.
@@ -937,6 +945,16 @@ async function run(
       const check = validateOutput(result.summary, job.expectedOutput);
       if (!check.ok) throw new OutputRejected(check.reason);
       result.summary = check.value;
+    }
+
+    // A worker that pulled the latest work moved its checkout past where it
+    // started. Those commits are not its work, so they become the new base.
+    if (job.worktreePath) {
+      const pulled = await pulledBase(job.worktreePath, job.baseCommit);
+      if (pulled) {
+        job = await update(job, { baseCommit: pulled });
+        emit(job.id, "job.progress", `Pulled the latest work. This job's base is now ${pulled.slice(0, 8)}`, { base: pulled });
+      }
     }
 
     // What actually changed on disk is read from git, not taken on trust —

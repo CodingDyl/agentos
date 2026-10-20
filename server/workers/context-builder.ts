@@ -136,6 +136,12 @@ export function buildContextPacket(job: WorkerJob): string {
     section("\nConstraints:", list(constraints)),
     section("\nAcceptance:", list(job.acceptanceCriteria)),
     job.skill ? section(`\nSkill: ${job.skill.name} (v${job.skill.version})`, skillSection(job.skill.instructions, job.skill.baseDir)) : undefined,
+    job.targetBranch && job.baseCommit
+      ? section(
+          "\nBranch:",
+          `Started from ${job.targetBranch} at ${job.baseCommit.slice(0, 8)}. Work other jobs land afterwards is on ${job.targetBranch}: git log ${job.targetBranch}, then git fetch and git merge --ff-only ${job.targetBranch} to bring it in.`,
+        )
+      : undefined,
     section("\nValidation:", (job.validationCommands ?? []).join("\n")),
     section("\nDocuments:", ARTIFACT_INSTRUCTIONS),
     section("\nMemory:", MEMORY_INSTRUCTIONS),
