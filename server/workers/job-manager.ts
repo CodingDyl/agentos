@@ -46,7 +46,7 @@ import { getWorker } from "./registry";
 import { authorize } from "../connectors/policy";
 import { runValidation } from "./validation";
 import { createWorkerEvent, type Worker } from "./worker";
-import { repositoryProblem } from "../agentos/git";
+import { git, headCommit, repositoryProblem } from "../agentos/git";
 import { resolveModelRoute } from "../model-routing/resolve";
 import { applyAgentLaunchPolicy, resolveAgentAssignment } from "../agents/route";
 import { changedFiles, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
@@ -684,7 +684,7 @@ function withoutContinuation(constraints: readonly string[] | undefined): string
  * already made. Only a job that failed or was cancelled is continued; work
  * that reached review has its own path.
  */
-async function continueFrom(previous: WorkerJob): Promise<{ commit: string; note: string } | undefined> {
+async function continueFrom(previous: WorkerJob): Promise<{ commit?: string; note: string } | undefined> {
   if (previous.status !== "failed" && previous.status !== "cancelled") return undefined;
   if (!previous.worktreePath || !previous.baseCommit) return undefined;
 
@@ -700,12 +700,37 @@ async function continueFrom(previous: WorkerJob): Promise<{ commit: string; note
   // it would look for files that are on the branch now but not in its checkout.
   if (commit === previous.baseCommit) return undefined;
 
+  // Work kept on a base the branch has since moved past cannot be continued in
+  // place: the retry would build on a tree missing what landed meanwhile. It
+  // starts from the branch as it is now, and the old work stays on its own
+  // branch, readable with git, for the worker to take what is still wanted.
+  const head = previous.sourceRepoPath ? await headCommit(previous.sourceRepoPath) : undefined;
+  if (head && previous.sourceRepoPath && !(await contains(previous.sourceRepoPath, commit, head))) {
+    return {
+      note:
+        `${CONTINUATION_PREFIX}${previous.id}, which stopped before finishing, on a newer base: work has landed on ` +
+        `${previous.targetBranch ?? "the branch"} since. Its unfinished work is kept on branch ${previous.workerBranch ?? "its worker branch"} ` +
+        `(commit ${commit.slice(0, 8)}); read it with git log and git show, and bring over only what is still wanted. ` +
+        "Do not redo or re-pay for steps it finished.",
+    };
+  }
+
   return {
     commit,
     note:
       `${CONTINUATION_PREFIX}${previous.id}, which stopped before finishing. Its work is already in this checkout ` +
       "(see git log and the project's logs and ledger). Pick up where it stopped; do not redo or re-pay for steps it finished.",
   };
+}
+
+/** Whether `commit` has `ancestor` in its history. */
+async function contains(repoPath: string, commit: string, ancestor: string): Promise<boolean> {
+  try {
+    await git(repoPath, ["merge-base", "--is-ancestor", ancestor, commit]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -738,7 +763,9 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     project: previous.project,
     objective: previous.objective,
     repoPath: previous.sourceRepoPath ?? previous.repoPath,
-    baseRef: continued?.commit ?? previous.baseRef,
+    // Continuing means that attempt's commit. A stale attempt continues nothing:
+    // its work stays on its branch and the retry starts from the branch as it is.
+    baseRef: continued ? continued.commit : previous.baseRef,
     contextFiles: previous.contextFiles,
     constraints: continued ? [...withoutContinuation(previous.constraints), continued.note] : previous.constraints,
     acceptanceCriteria: previous.acceptanceCriteria,

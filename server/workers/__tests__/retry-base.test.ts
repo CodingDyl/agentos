@@ -140,4 +140,25 @@ describe("where a retry starts", () => {
     assert.equal(await worktrees.pulledBase(created.path, head), latest);
     assert.equal(await worktrees.pulledBase(created.path, latest), undefined);
   });
+
+  it("starts from the branch as it is now when the kept work is on a base that has moved", async () => {
+    const head = await git(repo, "rev-parse", "HEAD");
+    const created = await failedJobAt("job_stale00000000000", head);
+    await fs.writeFile(path.join(created.path, "half-done.txt"), "partial work");
+
+    await fs.writeFile(path.join(repo, "later.txt"), "landed after the attempt began");
+    await git(repo, "add", "-A");
+    await git(repo, "commit", "-m", "landed meanwhile");
+    const current = await git(repo, "rev-parse", "HEAD");
+
+    const { job: retried } = await manager.retryJob("job_stale00000000000");
+    assert.ok(retried);
+    await settle(retried.id);
+
+    const persisted = await store.readJob(retried.id);
+    assert.equal(persisted?.baseCommit, current);
+    await fs.access(path.join(persisted!.worktreePath!, "later.txt"));
+    // The old work is not thrown away; the worker is told where it is.
+    assert.ok(persisted?.constraints?.some((line) => line.includes("kept on branch")));
+  });
 });
