@@ -1,3 +1,4 @@
+import { DevServerStateSchema, type DevServerState } from "@shared/dev-server-types";
 import {
   GrokBotStatusSchema,
   GrokBotTestResultSchema,
@@ -943,6 +944,16 @@ export function getWorkerJobEvents(id: string) {
 }
 
 /** Shared failure handling for the worker layer's write calls. */
+/** The Dev tab's read: whether the project's server is running, what Start would run, and its output tail. */
+export function getDevServer(slug: string): Promise<DevServerState> {
+  return readVault(`/api/projects/${encodeURIComponent(slug)}/dev-server`, (value) => DevServerStateSchema.safeParse(value), "That project is not in the AgentOS portfolio.");
+}
+
+/** Starts, stops or restarts the project's own dev server. Local only. */
+export function actOnDevServer(slug: string, action: "start" | "stop" | "restart"): Promise<DevServerState> {
+  return workerRequest(`/api/projects/${encodeURIComponent(slug)}/dev-server/${action}`, { method: "POST" }, (value) => DevServerStateSchema.safeParse(value));
+}
+
 async function workerRequest<T>(
   path: string,
   init: RequestInit,

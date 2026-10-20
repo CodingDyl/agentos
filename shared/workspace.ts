@@ -37,6 +37,7 @@ export const WorkspaceModuleSchema = z.enum([
   "rebuild",
   "site",
   "motion",
+  "dev",
 ]);
 
 export type WorkspaceType = z.infer<typeof WorkspaceTypeSchema>;
@@ -96,6 +97,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   rebuild: "Website rebuild",
   site: "Site",
   motion: "Motion Design",
+  dev: "Dev server",
 };
 
 /** The label a module's tab carries in a workspace of this type. */
@@ -171,6 +173,11 @@ export function resolveWorkspaceTabs(input: {
     primary.splice(at === -1 ? primary.length : at, 0, "repository");
   }
 
+  // A local repository can usually be run, so it earns the Dev server tab right after Repository.
+  if (!configured && input.hasRepository && !primary.includes("dev")) {
+    primary.splice(primary.indexOf("repository") + 1, 0, "dev");
+  }
+
   if (!configured && input.hasDatabase && !primary.includes("database")) {
     const at = primary.indexOf("decisions");
     primary.splice(at === -1 ? primary.length : at, 0, "database");
@@ -201,7 +208,7 @@ export function resolveWorkspaceTabs(input: {
 export function parseModuleList(value: string | undefined): WorkspaceModule[] {
   if (!value) return [];
 
-  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site", "motion-design": "motion" };
+  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site", "motion-design": "motion", "dev-server": "dev", server: "dev" };
   const modules = value
     .split(/[,;]/)
     .map((word) => word.trim().toLowerCase())

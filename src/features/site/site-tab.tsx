@@ -166,7 +166,7 @@ function LinkedSite({
   );
 }
 
-function SiteFrame({ url, viewport }: { url: string; viewport: Viewport }) {
+export function SiteFrame({ url, viewport }: { url: string; viewport: Viewport }) {
   const [loaded, setLoaded] = useState(false);
   const host = displayHost(url);
 
@@ -194,7 +194,7 @@ function SiteFrame({ url, viewport }: { url: string; viewport: Viewport }) {
   );
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
+export function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
       <dt className="font-paper-utility text-[12px] leading-[18px] font-medium tracking-[0.08em] text-paper-sage uppercase">{label}</dt>
@@ -204,7 +204,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** The address as text plus copy — never a link out, so the site stays in AgentOS. */
-function UrlValue({ url, fromDeployment }: { url: string; fromDeployment: boolean }) {
+export function UrlValue({ url, fromDeployment }: { url: string; fromDeployment: boolean }) {
   const [copied, setCopied] = useState(false);
 
   const copy = () => {

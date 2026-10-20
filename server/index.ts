@@ -108,6 +108,8 @@ import { reconcileChats } from "./chat/chat-service";
 import { reconcileOperatorRuns } from "./operator/service";
 import { coderRouter, handleTerminalWebSocket } from "./coder/routes";
 import { killAllTerminals } from "./coder/pty-manager";
+import { devServerRouter } from "./dev-server/routes";
+import { devServers } from "./dev-server/manager";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -408,6 +410,8 @@ app.use("/api/outreach", outreachRouter);
 app.use("/api/cleanup", cleanupRouter);
 app.use("/api/rebuilds", rebuildRouter);
 app.use("/api/site-requests", siteRequestRouter);
+/** A workspace's Dev tab: run the project's own dev server from inside AgentOS. */
+app.use("/api/projects/:slug/dev-server", devServerRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/agents", agentsRouter);
 recoverRebuildsAtStartup();
@@ -4634,6 +4638,9 @@ let shuttingDown = false;
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
+
+  // Dev servers are this process's children; none may outlive it.
+  devServers.killAll();
 
   try {
     killAllTerminals();

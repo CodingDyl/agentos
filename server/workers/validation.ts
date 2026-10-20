@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
-import fs from "node:fs/promises";
-import path from "node:path";
 import type { WorkerValidation } from "../../shared/worker-types";
+import { installCommandFor } from "./dependencies";
 import type { EmitWorkerEvent } from "./worker";
 
 /**
@@ -151,14 +150,6 @@ function runCommand(
  * A job with no validation commands has not passed validation — it simply had
  * none to run, which is reported as such rather than as a pass.
  */
-/** Whether a path exists. */
-async function exists(target: string): Promise<boolean> {
-  return fs.access(target).then(
-    () => true,
-    () => false,
-  );
-}
-
 /**
  * Installs a project's dependencies when a command is about to need them.
  *
@@ -176,10 +167,10 @@ async function installDependencies(
   signal: AbortSignal,
 ): Promise<WorkerValidation | undefined> {
   if (!commands.some((command) => /^\s*(npm|npx)\b/.test(command))) return undefined;
-  if (!(await exists(path.join(cwd, "package.json")))) return undefined;
-  if (await exists(path.join(cwd, "node_modules"))) return undefined;
 
-  const command = (await exists(path.join(cwd, "package-lock.json"))) ? "npm ci" : "npm install";
+  const command = await installCommandFor(cwd);
+  if (!command) return undefined;
+
   emit("validation.started", `${command} (dependencies are not installed here yet)`);
 
   const result = await runCommand(command, cwd, signal);
