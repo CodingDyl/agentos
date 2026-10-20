@@ -694,6 +694,12 @@ async function continueFrom(previous: WorkerJob): Promise<{ commit: string; note
   ).catch(() => undefined);
   if (!commit) return undefined;
 
+  // An attempt that kept nothing has nothing to continue from. Its base is only
+  // where the source branch was when it started: after a sibling job landed
+  // (a scaffold, a dependency) that base is out of date, and a retry cut from
+  // it would look for files that are on the branch now but not in its checkout.
+  if (commit === previous.baseCommit) return undefined;
+
   return {
     commit,
     note:
