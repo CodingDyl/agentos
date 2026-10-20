@@ -49,6 +49,7 @@ import {
   useProjectDocuments,
   useRepositoryAction,
   useRetryWorkerJob,
+  useUpdateWorkerJob,
   useValidateWorkerJob,
   useReviewWorkerJob,
   useReviseWorkerJob,
@@ -647,6 +648,7 @@ function ReviewStation({ job }: { job: WorkerJob }) {
   // The cures that act on the repository rather than on the job.
   const repository = useRepositoryAction(job.project);
   const validate = useValidateWorkerJob();
+  const update = useUpdateWorkerJob();
 
   const diff = useWorkerJobDiff(job.id, showDiff);
 
@@ -668,7 +670,7 @@ function ReviewStation({ job }: { job: WorkerJob }) {
     reject.isPending ||
     discard.isPending;
 
-  const failure = [review, revise, approve, reject, discard, validate, retry].find(
+  const failure = [review, revise, approve, reject, discard, validate, retry, update].find(
     (mutation) => mutation.isError,
   )?.error;
 
@@ -707,6 +709,10 @@ function ReviewStation({ job }: { job: WorkerJob }) {
         return { label: "Run validation", run: () => validate.mutate(job.id) };
       case "review":
         return { label: "Review again", run: () => review.mutate(job.id) };
+      case "update":
+        // Merges the newer work in beside the reviewed change, re-validates the
+        // combination and clears the review, so what lands has been looked at.
+        return { label: update.isPending ? "Merging…" : "Bring up to date", run: () => update.mutate(job.id) };
       case "retry":
         // Deliberately not "rebase". The reviewed tree cannot be applied to a
         // base it was never reviewed against, so the offer is a fresh run.
@@ -821,11 +827,22 @@ function ReviewStation({ job }: { job: WorkerJob }) {
                           repository.isPending ||
                           retry.isPending ||
                           review.isPending ||
-                          validate.isPending
+                          validate.isPending ||
+                          update.isPending
                         }
                         className="os-focus-ring os-meta shrink-0 cursor-pointer rounded-sm text-os-amber hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         {cure.label}
+                      </button>
+                    ) : null}
+                    {blocker.cure?.kind === "update" ? (
+                      <button
+                        type="button"
+                        onClick={() => retry.mutate(job.id, { onSuccess: ({ job: next }) => void navigate(`/workers/jobs/${next.id}`) })}
+                        disabled={retry.isPending || update.isPending}
+                        className="os-focus-ring os-meta shrink-0 cursor-pointer rounded-sm text-os-subtle hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        Or re-run from scratch
                       </button>
                     ) : null}
                   </li>

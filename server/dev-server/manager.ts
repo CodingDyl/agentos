@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
 import type { DevFramework, DevServerStatus } from "../../shared/dev-server-types";
+import { clearSidecarBuildCache } from "../agentos/metadata-files";
 import { installCommandFor } from "../workers/dependencies";
 import { commandFor, detectDevProject, portFromOutput, stripAnsi } from "./detect";
 
@@ -277,6 +278,10 @@ export class DevServerManager {
     }
 
     if (!current()) return;
+
+    if (await clearSidecarBuildCache(entry.cwd).catch(() => false)) {
+      this.append(entry, Buffer.from("Cleared a build cache that macOS sidecar files had broken.\n"));
+    }
 
     const port = await freePort();
     if (!current()) return;

@@ -218,6 +218,78 @@ export async function validateJob(jobId: string): Promise<ActionResult> {
   return { ok: true, job: updated };
 }
 
+/**
+ * Brings a job's work up to date with its branch, then makes it re-reviewable.
+ *
+ * The branch moved while the job waited (another job landed). Rebasing is
+ * still refused: it rewrites work nobody reviewed. A merge does not: the
+ * worker's change stays exactly as reviewed, the branch's newer commits come
+ * in beside it, and the combined tree is what gets validated and reviewed
+ * again before anything lands. A fast-forward of the result is then possible
+ * because it contains the branch's head.
+ *
+ * A conflict is not resolved here. The merge is abandoned, the checkout is as
+ * it was, and the answer is a fresh run on the new base.
+ */
+export async function updateJobToLatest(jobId: string): Promise<ActionResult> {
+  const job = await readJob(jobId);
+  if (!job) return { ok: false, error: "There is no such job." };
+  if (isRunning(jobId)) return { ok: false, error: "That job is still running." };
+
+  if (job.status !== "awaiting_review" && job.status !== "changes_required") {
+    return { ok: false, error: `Only work waiting for review can be brought up to date. This job is ${job.status}.` };
+  }
+  if (!job.worktreePath || !job.sourceRepoPath) return { ok: false, error: "That job has no checkout to update." };
+
+  const source = job.sourceRepoPath;
+  const head = await headCommit(source);
+  if (!head) return { ok: false, error: "The source repository's branch could not be read." };
+  if (head === job.baseCommit) return { ok: false, error: "This job is already on the branch's latest work." };
+
+  await record(jobId, "job.progress", `Merging the latest ${job.targetBranch ?? "branch"} work (${head.slice(0, 8)}) into this job`);
+
+  // The worker's edits become a commit on its own branch first, so the merge has something to merge into.
+  await commitWorktree(job.worktreePath, `AgentOS: work from ${job.id}, before bringing it up to date`);
+
+  try {
+    await git(job.worktreePath, ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost", "merge", "--no-edit", head]);
+  } catch (error) {
+    const { stdout } = await git(job.worktreePath, ["diff", "--name-only", "--diff-filter=U"]).catch(() => ({ stdout: "" }));
+    const conflicts = stdout.split("\n").filter(Boolean);
+    await git(job.worktreePath, ["merge", "--abort"]).catch(() => undefined);
+
+    const reason = conflicts.length > 0
+      ? `The newer work conflicts with this job in ${conflicts.slice(0, 5).join(", ")}${conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ""}. Run the job again on the new base instead.`
+      : `The newer work could not be merged: ${error instanceof Error ? error.message.split("\n")[0] : "unknown error"}`;
+    await record(jobId, "job.progress", reason);
+    return { ok: false, error: reason };
+  }
+
+  // The tree changed, so what was reviewed and checked no longer describes it.
+  const commands = (job.validationCommands ?? []).filter((command) => command.trim().length > 0);
+  const outcome = commands.length > 0
+    ? await runValidation(
+        commands,
+        await projectDirIn(job.worktreePath, job.sourceRepoPath),
+        (type, message, metadata) => void record(jobId, type, message, metadata),
+        new AbortController().signal,
+      )
+    : undefined;
+
+  const updated = await update(job, {
+    baseCommit: head,
+    // Kept in the history: a follow-up review has to know what was already said.
+    ...(job.review ? { reviewHistory: [...(job.reviewHistory ?? []), job.review] } : {}),
+    review: undefined,
+    visualVerification: undefined,
+    result: { ...(job.result ?? { summary: "" }), ...(outcome ? { tests: outcome.results } : {}) },
+  });
+
+  await record(jobId, "job.progress", `Brought up to date with ${job.targetBranch ?? "the branch"}. ${outcome && !outcome.passed ? "Validation failed on the combined work. " : ""}Review it again before it lands.`);
+
+  return { ok: true, job: updated };
+}
+
 export async function reviewJob(jobId: string): Promise<ActionResult> {
   const job = await readJob(jobId);
   if (!job) return { ok: false, error: "There is no such job." };
@@ -611,9 +683,10 @@ export async function integrationBlockerDetails(
     // rather than resolved.
     blockers.push({
       message: `${job.targetBranch ?? "The branch"} has advanced since this job started. The reviewed work can no longer be fast-forwarded, and rebasing it would produce a result nobody reviewed.`,
-      // No safe cure exists. Running the job again on the new base produces
-      // work that can actually be reviewed against what is there now.
-      cure: { kind: "retry" },
+      // Merging the newer work in and checking it again produces a tree that
+      // can be reviewed against what is there now; running the job from
+      // scratch is the fallback when the merge conflicts.
+      cure: { kind: "update" },
     });
   }
 

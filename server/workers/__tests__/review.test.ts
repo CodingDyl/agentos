@@ -559,14 +559,14 @@ describe("blockers that carry their own cure", () => {
    * Rebasing the reviewed tree onto a moved base integrates code nobody
    * reviewed, so the offer is a fresh run against what is actually there.
    */
-  it("offers a re-run, never a rebase, when the base has moved", async () => {
+  it("offers a merge-and-recheck, never a rebase, when the base has moved", async () => {
     const blockers = await integrationBlockerDetails(
       reviewed({ baseCommit: "0000000000000000000000000000000000000000" }),
     );
 
     const moved = blockers.find((entry) => /has advanced since this job started/.test(entry.message));
 
-    assert.deepEqual(moved?.cure, { kind: "retry" });
+    assert.deepEqual(moved?.cure, { kind: "update" });
     assert.match(moved?.message ?? "", /rebasing it would produce a result nobody reviewed/);
 
     // Nothing anywhere in the set may offer to rebase or force.

@@ -277,6 +277,7 @@ import {
   getJobDiff,
   integrationBlockerDetails,
   validateJob,
+  updateJobToLatest,
   rejectJob,
   requestRevision,
   requestVisualRevision,
@@ -2467,6 +2468,26 @@ app.post("/api/worker-jobs/:id/validate", async (request, response) => {
   } catch (error) {
     console.error("[agentos] validation run failed:", error);
     response.status(500).json({ error: "Unable to validate that job" });
+  }
+});
+
+/**
+ * Merges the branch's newer work into a job waiting on review, re-validates the
+ * result and clears the old review. A conflict is a 409 that says where.
+ */
+app.post("/api/worker-jobs/:id/update", async (request, response) => {
+  try {
+    const result = await updateJobToLatest(request.params.id);
+
+    if (!result.ok) {
+      response.status(409).json({ error: result.error });
+      return;
+    }
+
+    response.json({ job: result.job });
+  } catch (error) {
+    console.error("[agentos] update to latest failed:", error);
+    response.status(500).json({ error: "Unable to bring that job up to date" });
   }
 });
 

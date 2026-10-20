@@ -569,6 +569,8 @@ export const IntegrationCureSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("validate") }),
   z.object({ kind: z.literal("review") }),
   z.object({ kind: z.literal("retry") }),
+  /** Merge the branch's newer work into this job's checkout, then check it again. */
+  z.object({ kind: z.literal("update") }),
 ]);
 
 export const IntegrationBlockerSchema = z.object({

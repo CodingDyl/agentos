@@ -2491,6 +2491,15 @@ export async function runRepositoryAction(
   return parsed.data;
 }
 
+/** Merges the branch's newer work into a job waiting on review, then re-validates it. */
+export function updateWorkerJob(id: string): Promise<{ job: WorkerJob }> {
+  return workerRequest(
+    `/api/worker-jobs/${encodeURIComponent(id)}/update`,
+    { method: "POST" },
+    (value) => WorkerJobResponseSchema.safeParse(value),
+  );
+}
+
 /** Re-runs a finished job's validation commands in its own worktree. */
 export function validateWorkerJob(id: string): Promise<{ job: WorkerJob }> {
   return workerRequest(

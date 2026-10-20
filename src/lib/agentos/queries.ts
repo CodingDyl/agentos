@@ -68,6 +68,7 @@ import {
   getRepositoryStatus,
   runRepositoryAction,
   validateWorkerJob,
+  updateWorkerJob,
   getRecentDocuments,
   getKnowledge,
   getCaptures,
@@ -2789,6 +2790,21 @@ export function useRepositoryAction(slug: string) {
  * Invalidates the integration check as well as the job: the whole point of
  * running it is that the "cannot be applied" panel should change.
  */
+/** Brings a job waiting on review up to date with its branch. */
+export function useUpdateWorkerJob() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => updateWorkerJob(id),
+    onSuccess: (_result, id) => {
+      void client.invalidateQueries({ queryKey: agentosKeys.workerJob(id) });
+      void client.invalidateQueries({ queryKey: agentosKeys.workerJobs() });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
 export function useValidateWorkerJob() {
   const client = useQueryClient();
 

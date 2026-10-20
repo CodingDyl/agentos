@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import type { WorkerValidation } from "../../shared/worker-types";
+import { clearSidecarBuildCache } from "../agentos/metadata-files";
 import { installCommandFor } from "./dependencies";
 import type { EmitWorkerEvent } from "./worker";
 
@@ -191,6 +192,11 @@ export async function runValidation(
   signal: AbortSignal,
 ): Promise<ValidationOutcome> {
   const results: WorkerValidation[] = [];
+
+  // A build cache with macOS sidecars in it fails every build, whatever the code is.
+  if (await clearSidecarBuildCache(cwd).catch(() => false)) {
+    emit("validation.started", "Cleared a build cache that macOS sidecar files had broken");
+  }
 
   const installFailure = await installDependencies(commands, cwd, emit, signal);
   if (installFailure) return { results: [installFailure], passed: false };

@@ -87,3 +87,37 @@ export async function removeMetadataFiles(repoPath: string): Promise<number> {
   await ignoreLocally(repoPath);
   return removed;
 }
+
+/**
+ * Clears a framework's build cache when macOS has littered it with sidecars.
+ *
+ * On an exFAT drive, `._*` files appear inside `.next` beside the cache's own
+ * files, and Turbopack reads them as part of its database: the next build fails
+ * with "Failed to open database: invalid digit found in string" whatever the
+ * code is. The cache is derived, gitignored and rebuilt by the next build, so
+ * removing it is the cure. Only a cache that has sidecars in it is touched.
+ * Returns whether it was cleared.
+ */
+export async function clearSidecarBuildCache(projectDir: string): Promise<boolean> {
+  const cache = path.join(projectDir, ".next");
+  const polluted = await hasSidecar(cache, 0);
+  if (!polluted) return false;
+
+  await fs.rm(cache, { recursive: true, force: true });
+  return true;
+}
+
+async function hasSidecar(dir: string, depth: number): Promise<boolean> {
+  if (depth > 8) return false;
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith("._")) return true;
+    if (entry.isDirectory() && (await hasSidecar(path.join(dir, entry.name), depth + 1))) return true;
+  }
+  return false;
+}
