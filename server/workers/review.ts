@@ -17,6 +17,7 @@ import {
   buildVisualRevisionRequest,
 } from "./review-builder";
 import { removeMetadataFiles } from "../agentos/metadata-files";
+import { markTaskDone } from "./task-done";
 import { runValidation } from "./validation";
 import { git, uncommittedFiles } from "../agentos/git";
 import { createWorkerEvent } from "./worker";
@@ -164,7 +165,7 @@ async function recheckLandedJob(job: WorkerJob): Promise<ActionResult> {
 
   await removeWorktree(source, job.id);
   await record(job.id, "job.completed", "Integrated and validated");
-  await releaseQueuedTask(job);
+  await settleTask(job);
 
   return { ok: true, job: completed };
 }
@@ -681,6 +682,18 @@ export function textResultApprovable(job: WorkerJob): { ok: true } | { ok: false
  * Starts the next task waiting on this job, now that it has landed. Imported
  * when needed: the queue starts jobs, and jobs import this module.
  */
+/**
+ * What follows a job landing: its task is marked done, then the next queued
+ * task starts. In that order, so a task that waits on this one sees it done.
+ */
+async function settleTask(job: WorkerJob): Promise<void> {
+  const done = await markTaskDone(job);
+  if (done.marked) await record(job.id, "job.progress", `Marked ${done.taskId} done`);
+  else if (done.error) await record(job.id, "job.progress", `Could not mark the task done: ${done.error}`);
+
+  await releaseQueuedTask(job);
+}
+
 async function releaseQueuedTask(job: WorkerJob): Promise<void> {
   try {
     const { releaseNextTask } = await import("../agentos/milestone-queue");
@@ -707,7 +720,7 @@ async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
     metadata: { jobId: job.id, text: true },
   });
 
-  await releaseQueuedTask(job);
+  await settleTask(job);
 
   return { ok: true, job: completed };
 }
@@ -934,7 +947,7 @@ async function integrate(job: WorkerJob, aroundLocalChanges = false): Promise<Ac
   await removeWorktree(source, job.id);
   await record(job.id, "job.completed", "Integrated and validated");
 
-  await releaseQueuedTask(job);
+  await settleTask(job);
 
   // Filed under AgentOS, not the worker: the worker's part ended long before
   // this, and a timeline that credited the integration to it would blur the
