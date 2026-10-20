@@ -249,11 +249,26 @@ export const WorkerReviewCriterionSchema = z.object({
   note: z.string().optional(),
 });
 
+/** What a follow-up review concluded about one issue an earlier review raised. */
+export const WorkerReviewResolutionSchema = z.object({
+  /** The earlier issue's title, so a reader can match it up. */
+  title: z.string(),
+  resolved: z.boolean(),
+  note: z.string().optional(),
+});
+
 export const WorkerReviewSchema = z.object({
   jobId: z.string(),
   verdict: WorkerReviewVerdictSchema,
   summary: z.string(),
+  /**
+   * On a first review, every issue found. On a follow-up, the earlier issues
+   * that are still open (marked so) followed by genuinely new ones: this is the
+   * list a revision request is built from.
+   */
   issues: z.array(WorkerReviewIssueSchema),
+  /** Follow-up reviews only: the verdict on each issue the previous review raised. */
+  resolutions: z.array(WorkerReviewResolutionSchema).optional(),
   acceptanceCriteria: z.array(WorkerReviewCriterionSchema),
   reviewedAt: z.string(),
   /** Which revision of the work was reviewed. */
@@ -411,6 +426,11 @@ export const WorkerJobSchema = WorkerJobRequestSchema.extend({
   /** The most recent review. */
   review: WorkerReviewSchema.optional(),
   /**
+   * The reviews of earlier revisions, oldest first. `review` is only ever the
+   * latest, and a follow-up review has to know what it already raised.
+   */
+  reviewHistory: z.array(WorkerReviewSchema).optional(),
+  /**
    * The most recent visual verdict, for the revision that is current.
    *
    * Earlier revisions are not overwritten — they are kept on disk beside their
@@ -512,6 +532,7 @@ export type WorkerJobRequest = z.infer<typeof WorkerJobRequestSchema>;
 export type WorkerValidation = z.infer<typeof WorkerValidationSchema>;
 export type WorkerReviewVerdict = z.infer<typeof WorkerReviewVerdictSchema>;
 export type WorkerReviewIssue = z.infer<typeof WorkerReviewIssueSchema>;
+export type WorkerReviewResolution = z.infer<typeof WorkerReviewResolutionSchema>;
 export type WorkerReviewCriterion = z.infer<typeof WorkerReviewCriterionSchema>;
 export type WorkerReview = z.infer<typeof WorkerReviewSchema>;
 export type WorkerDiffFile = z.infer<typeof WorkerDiffFileSchema>;

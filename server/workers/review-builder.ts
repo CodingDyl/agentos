@@ -1,5 +1,5 @@
 import type { VisualIssue } from "../../shared/visual-verification-types";
-import type { WorkerDiff, WorkerJob } from "../../shared/worker-types";
+import type { WorkerDiff, WorkerJob, WorkerReviewIssue } from "../../shared/worker-types";
 
 /**
  * The review packet.
@@ -89,7 +89,29 @@ function renderDiff(diff: WorkerDiff): string {
  * operator can read exactly what the reviewer was shown when they want to know
  * why it said what it said.
  */
+/**
+ * The issues a follow-up review is checking: the previous review's, each with
+ * an id the reply answers by. `settled` are the titles from rounds before that,
+ * already dealt with and not to be re-opened.
+ */
+export function previousIssuesFor(job: WorkerJob): WorkerReviewIssue[] {
+  const last = job.review;
+  const reviewedRevision = last?.revision ?? 1;
+  // A review of the *current* revision is being redone, not followed up.
+  if (!last || reviewedRevision >= (job.revision ?? 1)) return [];
+  return last.issues;
+}
+
+function describeIssue(issue: WorkerReviewIssue, id: string): string {
+  return [`${id}. [${issue.severity}] ${issue.title}`, issue.file ? `   File: ${issue.file}` : undefined, `   ${issue.detail}`]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function buildReviewPacket(job: WorkerJob, diff: WorkerDiff): string {
+  const previous = previousIssuesFor(job);
+  const settled = (job.reviewHistory ?? []).flatMap((review) => review.issues.map((issue) => issue.title));
+
   const validation = (job.result?.tests ?? []).map(
     (test) =>
       `${test.success ? "PASS" : "FAIL"}  ${test.command}${
@@ -108,8 +130,13 @@ export function buildReviewPacket(job: WorkerJob, diff: WorkerDiff): string {
     `PROJECT\n${job.project}`,
     "",
     `OBJECTIVE\n${job.objective}`,
-    job.revision && job.revision > 1
-      ? `\nREVISION\nThis is revision ${job.revision}. Earlier findings were sent back to the worker; check they were actually addressed.`
+    previous.length > 0
+      ? `\nREVISION\nThis is revision ${job.revision}, a follow-up review. The issues below were raised by the previous review and sent back to the worker. Check each one against the diff.\n\nISSUES TO CHECK\n${previous.map((issue, index) => describeIssue(issue, `P${index + 1}`)).join("\n")}`
+      : job.revision && job.revision > 1
+        ? `\nREVISION\nThis is revision ${job.revision}. No earlier findings were recorded for it; review it in full.`
+        : undefined,
+    previous.length > 0 && settled.length > 0
+      ? `\nALREADY SETTLED IN EARLIER ROUNDS (do not raise these again)\n${bulleted([...new Set(settled)])}`
       : undefined,
     (job.acceptanceCriteria ?? []).length > 0
       ? `\nACCEPTANCE CRITERIA\n${numbered(job.acceptanceCriteria ?? [])}`

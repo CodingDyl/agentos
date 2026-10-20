@@ -230,10 +230,23 @@ describe("the review packet", () => {
   });
 
   it("tells a re-review that it is one", () => {
-    const second = buildReviewPacket({ ...job, revision: 2 }, diff);
+    const earlier = {
+      jobId: "job_1",
+      verdict: "changes_required" as const,
+      summary: "s",
+      issues: [{ severity: "major" as const, title: "Build is broken", detail: "fix it" }],
+      acceptanceCriteria: [],
+      reviewedAt: new Date().toISOString(),
+      revision: 1,
+    };
+    const second = buildReviewPacket({ ...job, revision: 2, review: earlier }, diff);
 
     assert.match(second, /This is revision 2/);
-    assert.match(second, /check they were actually addressed/);
+    assert.match(second, /Check each one against the diff/);
+    assert.match(second, /P1\. \[major\] Build is broken/, "it names what was raised, so it can be checked");
+
+    const unrecorded = buildReviewPacket({ ...job, revision: 2, review: undefined }, diff);
+    assert.match(unrecorded, /No earlier findings were recorded/);
   });
 
   it("admits when the diff was too big to show in full", () => {

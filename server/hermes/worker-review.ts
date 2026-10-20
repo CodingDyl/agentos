@@ -2,6 +2,7 @@ import type {
   WorkerReview,
   WorkerReviewCriterion,
   WorkerReviewIssue,
+  WorkerReviewResolution,
   WorkerReviewVerdict,
 } from "../../shared/worker-types";
 import { REVIEW_TIMEOUT_MS, sendToHermes } from "./client";
@@ -43,7 +44,7 @@ const REVIEW_SKILL = "/review-worker-job";
  * object instead of an array — both well-formed JSON that `readVerdict` and
  * `readCriteria` would still have thrown away.
  */
-const OUTPUT_CONTRACT = `You are operating as an automated reviewer inside a program, not talking to a person. Your reply is parsed by machine. Reply-length conventions and any habit of reporting work as "what changed / what's verified / what's left" do not apply here: the schema below replaces them.
+const CONTRACT_TEMPLATE = `You are operating as an automated reviewer inside a program, not talking to a person. Your reply is parsed by machine. Reply-length conventions and any habit of reporting work as "what changed / what's verified / what's left" do not apply here: the schema below replaces them.
 
 Review the packet you are given, write your reasoning as prose, then end your reply with one fenced json block and nothing after it:
 
@@ -70,11 +71,45 @@ Review the packet you are given, write your reasoning as prose, then end your re
 - acceptanceCriteria MUST be an array with one entry per criterion in the packet: never an object or a map.
 - severity MUST be one of: critical, major, minor.
 - PASS only when the work is safe to put in front of a person for acceptance. Passing validation does not by itself earn a PASS, and a PASS must not also list critical or major issues.
-- CHANGES_REQUIRED when something must change. List every issue you want addressed.
+- CHANGES_REQUIRED when something must change.
 - BLOCKED when you cannot responsibly judge it: the diff is unreadable, or the brief and the change do not correspond.
 - If there are no issues, return an empty array and say so in the summary.
 
+__ROUND__
+
 Judge only what the packet contains. The changed files are already quoted in it; do not try to read them from disk, do not modify anything, and do not run commands. A reply without a parseable block is discarded and the job is recorded as unreviewed.`;
+
+/**
+ * The rule for a first review: say everything now.
+ *
+ * Reviews used to drip-feed. Each one found a few issues, the worker fixed
+ * them, and the next one found a few different ones that had been there all
+ * along, so work cycled between reviewer and worker for as long as the reviewer
+ * kept noticing new things. The first review is the one complete pass; the
+ * follow-up only verifies it.
+ */
+const FIRST_ROUND = `THIS IS THE ONE FULL REVIEW. Go through the work completely before you answer: every acceptance criterion, every changed file, correctness, edge cases, error handling, security, accessibility, and fit with the constraints. List EVERY issue you find in this single pass, minor ones included, ordered most severe first. Do not hold anything back for a later review: after this, the worker fixes what you list and a follow-up review only checks those fixes. Issues you leave out now will not be asked about again.
+
+CHANGES_REQUIRED: list every issue you want addressed, in "issues".`;
+
+/**
+ * The rule for a follow-up: verify, then report only what is new.
+ *
+ * The earlier issues are numbered in the packet so the reply can answer each
+ * by id. Anything the reviewer does not answer is treated as still open, so a
+ * forgotten issue can never read as a quiet fix.
+ */
+const FOLLOW_UP_ROUND = `THIS IS A FOLLOW-UP REVIEW. The packet lists the issues the previous review raised, each with an id (P1, P2, ...). The worker was asked to fix them.
+
+1. Add a "previousIssues" array to the JSON, one entry per listed issue: { "id": "P1", "resolved": true, "note": "optional, required when not resolved" }. Check each against the diff; do not take the worker's word for it. An issue you do not answer is treated as still open.
+2. "issues" lists only problems that are NOT already in the packet's list: something the revision broke or introduced, or a real defect the first review missed. Same fields as before. Do not repeat an unresolved earlier issue there (it is carried forward from previousIssues), do not re-open one you marked resolved, and do not raise preferences or style opinions that were not issues before.
+3. CHANGES_REQUIRED only if an earlier critical or major issue is still unresolved, or you list a new critical or major issue. Otherwise PASS, with any new minor issues listed.`;
+
+export type ReviewRound = "first" | "follow-up";
+
+export function outputContract(round: ReviewRound): string {
+  return CONTRACT_TEMPLATE.replace("__ROUND__", round === "first" ? FIRST_ROUND : FOLLOW_UP_ROUND);
+}
 
 const SEVERITIES = new Set(["critical", "major", "minor"]);
 
@@ -204,6 +239,51 @@ function readCriteria(value: unknown): WorkerReviewCriterion[] {
 }
 
 /**
+ * Reads a follow-up's answers about the issues it was shown.
+ *
+ * Returns the earlier issues still open, rewritten as issues so they travel in
+ * the same list as new ones, and one resolution per earlier issue. An issue the
+ * reviewer did not answer, or answered in a way that cannot be read, is open:
+ * only an explicit `resolved: true` closes one.
+ */
+function readFollowUp(
+  value: unknown,
+  previous: readonly WorkerReviewIssue[],
+): { carried: WorkerReviewIssue[]; resolutions: WorkerReviewResolution[] } {
+  const answers = new Map<string, { resolved: boolean; note?: string }>();
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const source = asRecord(entry);
+      const id = asString(source?.id)?.toUpperCase();
+      if (!source || !id) continue;
+      answers.set(id, { resolved: source.resolved === true, note: asString(source.note) });
+    }
+  }
+
+  const carried: WorkerReviewIssue[] = [];
+  const resolutions: WorkerReviewResolution[] = [];
+
+  previous.forEach((issue, index) => {
+    const answer = answers.get(`P${index + 1}`);
+    const resolved = answer?.resolved === true;
+    const note = answer?.note ?? (answer ? undefined : "The follow-up review did not say, so this is treated as still open.");
+
+    resolutions.push({ title: issue.title, resolved, note });
+
+    if (!resolved) {
+      carried.push({
+        ...issue,
+        title: `Still open: ${issue.title.replace(/^Still open:\s*/i, "")}`,
+        detail: note ? `${issue.detail}\n\nFollow-up review: ${note}` : issue.detail,
+      });
+    }
+  });
+
+  return { carried, resolutions };
+}
+
+/**
  * Reads Hermes' reply into a review.
  *
  * Exported so the parsing can be tested against real replies without calling
@@ -213,6 +293,7 @@ export function readReview(
   jobId: string,
   text: string,
   revision?: number,
+  previous: readonly WorkerReviewIssue[] = [],
 ): WorkerReview {
   const reviewedAt = new Date().toISOString();
   const base = { jobId, reviewedAt, revision, raw: text };
@@ -236,7 +317,11 @@ export function readReview(
     };
   }
 
-  const issues = readIssues(payload.issues);
+  const raised = readIssues(payload.issues);
+  const { carried, resolutions } = readFollowUp(payload.previousIssues, previous);
+  // Earlier issues that are still open come first: they are the reason a
+  // revision is still being asked for, and the worker is sent this list.
+  const issues = [...carried, ...raised];
   const summary =
     asString(payload.summary) ?? "The reviewer returned no summary.";
 
@@ -253,6 +338,7 @@ export function readReview(
       ? `${summary} (Recorded as changes required: the review passed the work while also raising findings that are not minor.)`
       : summary,
     issues,
+    ...(previous.length > 0 ? { resolutions } : {}),
     acceptanceCriteria: readCriteria(payload.acceptanceCriteria ?? payload.criteria),
   };
 }
@@ -268,14 +354,16 @@ export async function requestReview(
   packet: string,
   revision?: number,
   project?: string,
+  /** The issues the previous review raised, when this is a follow-up to it. */
+  previous: readonly WorkerReviewIssue[] = [],
 ): Promise<WorkerReview> {
   const reply = await sendToHermes(`${REVIEW_SKILL}\n\n${packet}`, {
     operation: "code-review",
     jobId,
     project,
-    system: OUTPUT_CONTRACT,
+    system: outputContract(previous.length > 0 ? "follow-up" : "first"),
     timeoutMs: REVIEW_TIMEOUT_MS,
   });
 
-  return readReview(jobId, reply, revision);
+  return readReview(jobId, reply, revision, previous);
 }

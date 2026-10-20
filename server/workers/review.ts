@@ -13,6 +13,7 @@ import { appendEvent, readJob, saveJob } from "./job-store";
 import {
   buildReviewPacket,
   buildRevisionRequest,
+  previousIssuesFor,
   buildVisualRevisionRequest,
 } from "./review-builder";
 import { removeMetadataFiles } from "../agentos/metadata-files";
@@ -251,7 +252,7 @@ export async function reviewJob(jobId: string): Promise<ActionResult> {
     const diff = await readDiff(jobId, job.worktreePath, job.baseCommit);
     const packet = buildReviewPacket(reviewing, diff);
 
-    review = await requestReview(jobId, packet, job.revision, job.project);
+    review = await requestReview(jobId, packet, job.revision, job.project, previousIssuesFor(job));
   } catch (error) {
     const detail =
       error instanceof Error ? error.message : "The review could not be run.";
@@ -266,8 +267,18 @@ export async function reviewJob(jobId: string): Promise<ActionResult> {
 
   const passed = review.verdict === "pass";
 
+  // The review being replaced is kept when it was of an earlier revision: the
+  // next follow-up has to know what was already raised. A re-run of the same
+  // revision's review just replaces it.
+  const replaced = reviewing.review;
+  const history =
+    replaced && (replaced.revision ?? 1) < (reviewing.revision ?? 1)
+      ? [...(reviewing.reviewHistory ?? []), replaced]
+      : reviewing.reviewHistory;
+
   const next = await update(reviewing, {
     review,
+    reviewHistory: history,
     // A pass returns the job to where it was: waiting, now on a person.
     status: passed ? "awaiting_review" : "changes_required",
   });
