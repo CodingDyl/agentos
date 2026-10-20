@@ -161,4 +161,24 @@ describe("where a retry starts", () => {
     // The old work is not thrown away; the worker is told where it is.
     assert.ok(persisted?.constraints?.some((line) => line.includes("kept on branch")));
   });
+
+  it("does not keep pinning retries to a stale base when nothing new was kept", async () => {
+    const head = await git(repo, "rev-parse", "HEAD");
+    const created = await failedJobAt("job_pinned0000000000", head);
+    const saved = await store.readJob("job_pinned0000000000");
+    // A retry that was itself cut from an earlier attempt's kept work, and then kept nothing.
+    await store.saveJob({ ...saved!, baseRef: head } as never);
+
+    await fs.writeFile(path.join(repo, "newer.txt"), "landed afterwards");
+    await git(repo, "add", "-A");
+    await git(repo, "commit", "-m", "landed again");
+    const current = await git(repo, "rev-parse", "HEAD");
+    void created;
+
+    const { job: retried } = await manager.retryJob("job_pinned0000000000");
+    assert.ok(retried);
+    await settle(retried.id);
+
+    assert.equal((await store.readJob(retried.id))?.baseCommit, current);
+  });
 });

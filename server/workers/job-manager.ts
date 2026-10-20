@@ -698,7 +698,9 @@ async function continueFrom(previous: WorkerJob): Promise<{ commit?: string; not
   // where the source branch was when it started: after a sibling job landed
   // (a scaffold, a dependency) that base is out of date, and a retry cut from
   // it would look for files that are on the branch now but not in its checkout.
-  if (commit === previous.baseCommit) return undefined;
+  // (A retry already pinned to an earlier attempt's work is the exception:
+  // that work is what it has to carry on, and is checked for staleness below.)
+  if (commit === previous.baseCommit && !previous.baseRef) return undefined;
 
   // Work kept on a base the branch has since moved past cannot be continued in
   // place: the retry would build on a tree missing what landed meanwhile. It
