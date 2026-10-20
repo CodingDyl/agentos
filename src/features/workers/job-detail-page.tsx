@@ -693,6 +693,13 @@ function ReviewStation({ job }: { job: WorkerJob }) {
           label: "Stash them",
           run: () => repository.mutate({ kind: "stash" }),
         };
+      case "apply-around":
+        // Sets the operator's edits to the same files aside, lands the reviewed
+        // work, and puts the edits back: approval and cure in one click.
+        return {
+          label: "Apply around my changes",
+          run: () => approve.mutate({ id: job.id, aroundLocalChanges: true }),
+        };
       case "validate":
         // Runs the job's own commands in its own worktree, and records what
         // they said — so the blocker either clears or names what still fails.

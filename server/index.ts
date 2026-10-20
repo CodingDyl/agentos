@@ -2737,7 +2737,9 @@ app.post("/api/worker-jobs/:id/revise", async (request, response) => {
  */
 app.post("/api/worker-jobs/:id/approve", async (request, response) => {
   try {
-    const result = await approveJob(request.params.id);
+    const result = await approveJob(request.params.id, {
+      aroundLocalChanges: request.body?.aroundLocalChanges === true,
+    });
 
     if (!result.ok) {
       response.status(409).json({ error: result.error, job: result.job });

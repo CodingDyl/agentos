@@ -1693,7 +1693,8 @@ export function useApproveWorkerJob() {
   const refresh = useJobRefresh();
 
   return useMutation({
-    mutationFn: (id: string) => approveWorkerJob(id),
+    mutationFn: (input: string | { id: string; aroundLocalChanges?: boolean }) =>
+      typeof input === "string" ? approveWorkerJob(input) : approveWorkerJob(input.id, { aroundLocalChanges: input.aroundLocalChanges }),
     onSuccess: refresh,
     networkMode: "always",
     retry: 0,

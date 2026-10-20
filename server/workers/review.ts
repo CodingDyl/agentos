@@ -398,6 +398,26 @@ export function isAgentOSOwnedChange(file: string, project: string): boolean {
   return file.startsWith(`projects/${project}/artifacts/`) || file.includes(`/projects/${project}/artifacts/`);
 }
 
+/**
+ * The files an integration would write in the source repository: everything
+ * that differs between the source's current commit and the job's checkout,
+ * committed or not, new files included. `undefined` when it cannot be read.
+ */
+async function filesTheJobWrites(job: WorkerJob): Promise<Set<string> | undefined> {
+  try {
+    const head = await headCommit(job.sourceRepoPath!);
+    if (!head) return undefined;
+
+    const { stdout } = await git(job.worktreePath!, ["diff", "--name-only", "-z", head]);
+    const tracked = stdout.split("\0").filter(Boolean);
+    const untracked = (await uncommittedFiles(job.worktreePath!)).filter((entry) => entry.untracked).map((entry) => entry.path);
+
+    return new Set([...tracked, ...untracked]);
+  } catch {
+    return undefined;
+  }
+}
+
 /** The uncommitted paths that do block an integration, or `unreadable` when git cannot say. */
 async function blockingChanges(job: WorkerJob): Promise<string[] | "unreadable"> {
   try {
@@ -497,11 +517,30 @@ export async function integrationBlockerDetails(
   if (dirty === "unreadable") {
     blockers.push({ message: "The source repository could not be read, so it is not known to be clean." });
   } else if (dirty.length > 0) {
-    const named = dirty.slice(0, 5).join(", ");
-    blockers.push({
-      message: `The source repository has uncommitted changes (${named}${dirty.length > 5 ? ` and ${dirty.length - 5} more` : ""}). Commit or stash them first.`,
-      cure: { kind: "stash" },
-    });
+    const touched = await filesTheJobWrites(job);
+
+    if (!touched) {
+      // The job's checkout cannot be read, so which files it would write is
+      // not known, and every uncommitted file has to count.
+      const named = dirty.slice(0, 5).join(", ");
+      blockers.push({
+        message: `The source repository has uncommitted changes (${named}${dirty.length > 5 ? ` and ${dirty.length - 5} more` : ""}). Commit or stash them first.`,
+        cure: { kind: "stash" },
+      });
+    } else {
+      // Uncommitted work in files the job does not touch is no obstacle: the
+      // fast-forward leaves it exactly where it is. Only a file both sides
+      // changed is a problem, and git would refuse to overwrite it.
+      const overlap = dirty.filter((file) => touched.has(file));
+
+      if (overlap.length > 0) {
+        const named = overlap.slice(0, 5).join(", ");
+        blockers.push({
+          message: `You have uncommitted changes in files this work also changes (${named}${overlap.length > 5 ? ` and ${overlap.length - 5} more` : ""}). Applying it would overwrite them.`,
+          cure: { kind: "apply-around" },
+        });
+      }
+    }
   }
 
   const head = await headCommit(job.sourceRepoPath);
@@ -614,7 +653,10 @@ async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
   return { ok: true, job: completed };
 }
 
-export async function approveJob(jobId: string): Promise<ActionResult> {
+export async function approveJob(
+  jobId: string,
+  options: { aroundLocalChanges?: boolean } = {},
+): Promise<ActionResult> {
   const job = await readJob(jobId);
   if (!job) return { ok: false, error: "There is no such job." };
 
@@ -633,7 +675,11 @@ export async function approveJob(jobId: string): Promise<ActionResult> {
   // review is the person reading it; there is nothing to fast-forward.
   if (isTextResult(job)) return approveTextResult(job);
 
-  const blockers = await integrationBlockers(job);
+  // "Apply around my changes" is the operator's answer to the one blocker it
+  // names, so that blocker is the only one it clears.
+  const blockers = (await integrationBlockerDetails(job))
+    .filter((entry) => !(options.aroundLocalChanges && entry.cure?.kind === "apply-around"))
+    .map((entry) => entry.message);
 
   if (blockers.length > 0) {
     return { ok: false, error: blockers.join(" ") };
@@ -652,7 +698,49 @@ export async function approveJob(jobId: string): Promise<ActionResult> {
     metadata: { jobId },
   });
 
-  return integrate(approved);
+  return integrate(approved, Boolean(options.aroundLocalChanges));
+}
+
+/**
+ * Sets the operator's own uncommitted edits aside for the length of one
+ * fast-forward: only the files the job also writes, stashed with their
+ * untracked siblings. Nothing is discarded; `restoreSetAside` puts them back.
+ */
+async function setAsideOverlap(job: WorkerJob, source: string): Promise<boolean> {
+  const dirty = await blockingChanges(job);
+  const touched = await filesTheJobWrites(job);
+  if (dirty === "unreadable" || !touched) return false;
+
+  const overlap = dirty.filter((file) => touched.has(file));
+  if (overlap.length === 0) return false;
+
+  await git(source, ["stash", "push", "-u", "-m", `AgentOS: set aside for ${job.id}`, "--", ...overlap]);
+  await record(job.id, "integration.started", `Set aside your edits to ${overlap.length} file${overlap.length === 1 ? "" : "s"} while this lands`);
+  return true;
+}
+
+/**
+ * Puts the set-aside edits back. A clean pop is the normal case. When both
+ * sides changed the same lines git stops with conflict markers in the file and
+ * keeps the stash, so the edits are still recoverable either way.
+ */
+async function restoreSetAside(job: WorkerJob, source: string): Promise<void> {
+  try {
+    await git(source, ["stash", "pop"]);
+    await record(job.id, "integration.completed", "Put your edits back on top of the landed work");
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    const message =
+      "Your edits conflict with the work that just landed. Conflict markers are in the files and your edits are kept in `git stash`. Resolve the markers, then `git stash drop`.";
+
+    await record(job.id, "integration.completed", `${message} (${detail.split("\n")[0]})`);
+    await recordActivity({
+      type: "worker.integration.failed",
+      description: message,
+      project: job.project,
+      metadata: { jobId: job.id },
+    });
+  }
 }
 
 /**
@@ -663,7 +751,7 @@ export async function approveJob(jobId: string): Promise<ActionResult> {
  * is bit-for-bit the tree that was reviewed. Git refuses rather than resolving
  * anything, which is the property that makes this safe to automate.
  */
-async function integrate(job: WorkerJob): Promise<ActionResult> {
+async function integrate(job: WorkerJob, aroundLocalChanges = false): Promise<ActionResult> {
   const source = job.sourceRepoPath!;
   const branch = job.workerBranch!;
 
@@ -672,6 +760,7 @@ async function integrate(job: WorkerJob): Promise<ActionResult> {
   await record(job.id, "integration.started", `Fast-forwarding ${job.targetBranch}`);
 
   let commit: string;
+  let setAside = false;
 
   try {
     commit = await commitWorktree(
@@ -679,8 +768,13 @@ async function integrate(job: WorkerJob): Promise<ActionResult> {
       `worker: ${job.objective.split("\n")[0].slice(0, 72)}`,
     );
 
+    if (aroundLocalChanges) setAside = await setAsideOverlap(job, source);
+
     await fastForward(source, branch);
   } catch (error) {
+    // The operator's changes go back whatever happened to the integration.
+    if (setAside) await restoreSetAside(job, source);
+
     const detail =
       error instanceof Error ? error.message : "The work could not be integrated.";
 
@@ -701,6 +795,8 @@ async function integrate(job: WorkerJob): Promise<ActionResult> {
 
     return { ok: false, error: detail, job: failed };
   }
+
+  if (setAside) await restoreSetAside(job, source);
 
   const integratedCommit = (await headCommit(source)) ?? commit;
 

@@ -1468,10 +1468,15 @@ export function reviseWorkerJob(id: string): Promise<{ job: WorkerJob }> {
 }
 
 /** Approves the work and integrates it. The one call that touches the repo. */
-export function approveWorkerJob(id: string): Promise<{ job: WorkerJob }> {
+export function approveWorkerJob(
+  id: string,
+  options: { aroundLocalChanges?: boolean } = {},
+): Promise<{ job: WorkerJob }> {
   return workerRequest(
     `/api/worker-jobs/${encodeURIComponent(id)}/approve`,
-    { method: "POST" },
+    options.aroundLocalChanges
+      ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(options) }
+      : { method: "POST" },
     (value) => WorkerJobResponseSchema.safeParse(value),
   );
 }

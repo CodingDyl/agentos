@@ -543,6 +543,8 @@ export type WorkerJobEventsResponse = z.infer<
 export const IntegrationCureSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("switch"), branch: z.string() }),
   z.object({ kind: z.literal("stash") }),
+  /** Land the work around the operator's own edits to the same files. */
+  z.object({ kind: z.literal("apply-around") }),
   z.object({ kind: z.literal("validate") }),
   z.object({ kind: z.literal("review") }),
   z.object({ kind: z.literal("retry") }),

@@ -103,6 +103,15 @@ export async function commitWorktree(
   message: string,
 ): Promise<string> {
   await git(worktreePath, ["add", "-A"]);
+
+  // A retry that continues earlier work can finish with nothing new to commit:
+  // the work is already the branch's tip, and `git commit` refuses to make an
+  // empty one. The tip is then what gets integrated.
+  if (!(await git(worktreePath, ["status", "--porcelain"])).stdout.trim()) {
+    const tip = await headCommit(worktreePath);
+    if (tip) return tip;
+  }
+
   await git(worktreePath, [
       "-c",
       "user.name=AgentOS",
