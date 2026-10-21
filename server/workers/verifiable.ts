@@ -28,5 +28,5 @@ export const WORKER_TOOLING_RULE = [
   "Do not install browsers or other large tools, and do not start long background installs.",
   "If something you need is missing or a command is refused, say so in your summary and stop; do not wait for it.",
   "Pass options as command arguments, not as environment-variable prefixes (FOO=1 node x.js is refused; node x.js --foo is not).",
-  `After you finish, AgentOS builds the project and opens it in Chromium at five widths itself, and the reviewer sees the result. To look before then, run the same check: node ${BROWSER_CHECK_SCRIPT} --project . --out /tmp/agentos-browser-check (it starts the site, takes screenshots and lists problems).`,
+  `After you finish, AgentOS builds the project and opens it in Chromium at five widths itself, and the reviewer sees the result. To look before then, run the same check: node ${BROWSER_CHECK_SCRIPT} --project . --out .agentos/browser-check (it starts the site, saves screenshots there and lists problems; the folder is git-ignored). Open the screenshots with Read to judge how the page looks. AgentOS's own run leaves its screenshots in the same folder.`,
 ].join(" ");

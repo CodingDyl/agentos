@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { WorkerValidation } from "../../shared/worker-types";
-import { uiStateDir } from "../agentos/session-store";
+import { git } from "../agentos/git";
 
 /**
  * AgentOS's own look at a web project, in one browser.
@@ -54,9 +54,30 @@ export async function defaultValidationFor(projectDir: string): Promise<string[]
   return typeof scripts.build === "string" ? ["npm run build"] : [];
 }
 
-export async function runBrowserCheck(projectDir: string, jobId: string, signal?: AbortSignal): Promise<WorkerValidation> {
-  // Outside the checkout, so screenshots never show up as the worker's changes.
-  const out = path.join(uiStateDir(), "browser-checks", `${jobId}-${Date.now()}`);
+/** Where the check writes, inside the project so a worker's next run can open the screenshots. */
+export const BROWSER_CHECK_DIR = ".agentos/browser-check";
+
+/**
+ * Keeps `.agentos/` out of git, without touching the project's `.gitignore`:
+ * screenshots must never show up as the worker's changes or be committed.
+ */
+async function excludeFromGit(projectDir: string): Promise<void> {
+  try {
+    const { stdout } = await git(projectDir, ["rev-parse", "--git-path", "info/exclude"]);
+    const file = path.resolve(projectDir, stdout.trim());
+    const current = await fs.readFile(file, "utf8").catch(() => "");
+    if (current.split("\n").includes(".agentos/")) return;
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, `${current}${current && !current.endsWith("\n") ? "\n" : ""}# AgentOS scratch (browser checks)\n.agentos/\n`);
+  } catch {
+    // Not a repository: nothing to keep out of.
+  }
+}
+
+export async function runBrowserCheck(projectDir: string, _jobId: string, signal?: AbortSignal): Promise<WorkerValidation> {
+  await excludeFromGit(projectDir);
+  const out = path.join(projectDir, BROWSER_CHECK_DIR);
+  await fs.rm(out, { recursive: true, force: true });
 
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [BROWSER_CHECK_SCRIPT, "--project", projectDir, "--out", out], { cwd: projectDir, detached: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -91,7 +112,7 @@ export async function runBrowserCheck(projectDir: string, jobId: string, signal?
         success: loaded,
         detail: loaded
           ? [
-              `Opened the site in Chromium at 1440, 1024, 768, 390 and 320 px, with motion and with reduced motion, scrolled down and back (${parsed.checked ?? 0} views). Screenshots: ${out}.`,
+              `Opened the site in Chromium at 1440, 1024, 768, 390 and 320 px, with motion and with reduced motion, scrolled down and back (${parsed.checked ?? 0} views). Screenshots: ${BROWSER_CHECK_DIR}/ in the project folder (git-ignored; open them to judge the look).`,
               problems.length ? `Found: ${problems.slice(0, 15).join("; ")}${problems.length > 15 ? ` and ${problems.length - 15} more` : ""}.` : "No sideways scroll, console errors, failed requests or dead in-page links.",
             ].join(" ")
           : `The site could not be opened: ${(parsed.reason ?? output.slice(-1500)).trim()}`,
