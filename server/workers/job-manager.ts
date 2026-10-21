@@ -147,6 +147,22 @@ export function subscribe(
   return () => job.listeners.delete(listener);
 }
 
+/**
+ * Jobs a review or an approval is working on right now. These run in this
+ * process but not through `running`, so the liveness sweep must not mistake a
+ * job that is being reviewed or integrated for one nobody is executing.
+ */
+const held = new Set<string>();
+
+export async function holding<T>(jobId: string, action: () => Promise<T>): Promise<T> {
+  held.add(jobId);
+  try {
+    return await action();
+  } finally {
+    held.delete(jobId);
+  }
+}
+
 export function isRunning(jobId: string): boolean {
   return running.has(jobId) || external.has(jobId);
 }
@@ -576,6 +592,16 @@ export async function reconcileInterruptedJobs(
     if (!LIVE.includes(job.status) || running.has(job.id)) continue;
     // Watched by pid elsewhere (Claude Motion), or owned by a page that settles its own runs: not ours to interrupt.
     if (external.has(job.id) || job.origin) continue;
+    // Being reviewed or integrated right now, in this process.
+    if (held.has(job.id)) continue;
+
+    // A review cut off by a restart lost nothing: the work is intact, so the
+    // job goes back to waiting for one, never to failed.
+    if (job.status === "reviewing") {
+      await saveJob({ ...job, status: job.review ? "changes_required" : "awaiting_review", stalledSince: undefined });
+      emit(job.id, "job.progress", "The review was cut off before it finished. Run it again.");
+      continue;
+    }
 
     // A job waiting on a file bridge was never running; pick the wait back up.
     const bridgeWorker = isParkedOnBridge(job) ? getWorker(job.resolvedWorker ?? job.worker as WorkerId) : undefined;

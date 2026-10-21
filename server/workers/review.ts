@@ -8,7 +8,7 @@ import type {
 import { recordActivity } from "../activity/ui-events";
 import { requestReview } from "../hermes/worker-review";
 import { readDiff } from "./diff";
-import { isRunning, rerunJob } from "./job-manager";
+import { holding, isRunning, rerunJob } from "./job-manager";
 import { appendEvent, readJob, saveJob } from "./job-store";
 import {
   buildReviewPacket,
@@ -345,7 +345,11 @@ export async function updateJobToLatest(jobId: string): Promise<ActionResult> {
   return { ok: true, job: updated };
 }
 
-export async function reviewJob(jobId: string): Promise<ActionResult> {
+export function reviewJob(jobId: string): Promise<ActionResult> {
+  return holding(jobId, () => runReview(jobId));
+}
+
+async function runReview(jobId: string): Promise<ActionResult> {
   const job = await readJob(jobId);
   if (!job) return { ok: false, error: "There is no such job." };
 
@@ -872,9 +876,16 @@ async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
   return { ok: true, job: completed };
 }
 
-export async function approveJob(
+export function approveJob(
   jobId: string,
   options: { aroundLocalChanges?: boolean } = {},
+): Promise<ActionResult> {
+  return holding(jobId, () => runApproval(jobId, options));
+}
+
+async function runApproval(
+  jobId: string,
+  options: { aroundLocalChanges?: boolean },
 ): Promise<ActionResult> {
   const job = await readJob(jobId);
   if (!job) return { ok: false, error: "There is no such job." };
