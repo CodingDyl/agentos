@@ -2400,7 +2400,11 @@ app.post("/api/worker-jobs/:id/retry", async (request, response) => {
     response.status(400).json({ error: "That isn't a worker AgentOS knows." });
     return;
   }
-  const { job, error } = await retryJob(request.params.id, { worker: worker?.data });
+  const criteria = (request.body as { acceptanceCriteria?: unknown } | undefined)?.acceptanceCriteria;
+  const acceptanceCriteria = Array.isArray(criteria)
+    ? criteria.filter((line): line is string => typeof line === "string" && line.trim().length > 0).map((line) => line.trim().slice(0, 500)).slice(0, 20)
+    : undefined;
+  const { job, error } = await retryJob(request.params.id, { worker: worker?.data, acceptanceCriteria });
 
   if (!job) {
     response.status(409).json({ error: error ?? "That job could not be retried." });

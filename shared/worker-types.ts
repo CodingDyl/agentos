@@ -241,6 +241,8 @@ export const WorkerReviewIssueSchema = z.object({
   file: z.string().optional(),
   /** The acceptance criterion it bears on, when it bears on one. */
   criterion: z.string().optional(),
+  /** False when the worker cannot fix it in its checkout (a missing tool, a permission, a person's decision). */
+  fixable: z.boolean().optional(),
 });
 
 export const WorkerReviewCriterionSchema = z.object({

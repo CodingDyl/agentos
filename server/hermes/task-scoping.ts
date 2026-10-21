@@ -1,4 +1,5 @@
 import type { DelegationPlan } from "../../shared/delegation-types";
+import { VERIFIABLE_CRITERIA_RULE } from "../workers/verifiable";
 import type { ProjectTask } from "../../shared/agentos-types";
 import { WorkerTaskTypeSchema } from "../../shared/worker-routing-types";
 import { sendToHermes } from "./client";
@@ -111,6 +112,8 @@ export function buildScopingPacket(input: ScopingInput): string {
     "",
     "Respect what DECISIONS.md has already settled. A plan that contradicts a",
     "recorded decision is wrong even if it would otherwise be a good idea.",
+    "",
+    `ACCEPTANCE CRITERIA: ${VERIFIABLE_CRITERIA_RULE}`,
     "",
     "Validation commands must be ones this repository actually has. If you",
     "cannot tell what they are, return an empty list rather than guessing:",

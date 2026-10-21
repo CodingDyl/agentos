@@ -5,6 +5,7 @@ import type {
   WorkerReviewResolution,
   WorkerReviewVerdict,
 } from "../../shared/worker-types";
+import { ONE_BROWSER_RULE } from "../workers/verifiable";
 import { REVIEW_TIMEOUT_MS, sendToHermes } from "./client";
 
 /**
@@ -44,6 +45,8 @@ const REVIEW_SKILL = "/review-worker-job";
  * object instead of an array — both well-formed JSON that `readVerdict` and
  * `readCriteria` would still have thrown away.
  */
+const ONE_BROWSER = `${ONE_BROWSER_RULE} Do not raise missing coverage of other browsers or devices as an issue.`;
+
 const CONTRACT_TEMPLATE = `You are operating as an automated reviewer inside a program, not talking to a person. Your reply is parsed by machine. Reply-length conventions and any habit of reporting work as "what changed / what's verified / what's left" do not apply here: the schema below replaces them.
 
 Review the packet you are given, write your reasoning as prose, then end your reply with one fenced json block and nothing after it:
@@ -61,7 +64,8 @@ Review the packet you are given, write your reasoning as prose, then end your re
       "title": "short",
       "detail": "what is wrong and what would fix it",
       "file": "optional path",
-      "criterion": "optional criterion this bears on"
+      "criterion": "optional criterion this bears on",
+      "fixable": true
     }
   ]
 }
@@ -73,6 +77,8 @@ Review the packet you are given, write your reasoning as prose, then end your re
 - PASS only when the work is safe to put in front of a person for acceptance. Passing validation does not by itself earn a PASS, and a PASS must not also list critical or major issues.
 - CHANGES_REQUIRED when something must change.
 - BLOCKED when you cannot responsibly judge it: the diff is unreadable, or the brief and the change do not correspond.
+- fixable: false when the worker cannot resolve the issue by changing code in its checkout: a tool or browser is not installed, a command needs permission, it needs network, a real device, an external account, or a decision only the person can make. Sending such an issue back to the worker only repeats it. Use BLOCKED when every critical or major issue is not fixable.
+- ${ONE_BROWSER}
 - If there are no issues, return an empty array and say so in the summary.
 
 __ROUND__
@@ -209,6 +215,8 @@ function readIssues(value: unknown): WorkerReviewIssue[] {
         detail: detail || title,
         file: asString(source.file) ?? asString(source.path),
         criterion: asString(source.criterion),
+        // Only an explicit `false` marks an issue as beyond the worker.
+        ...(source.fixable === false ? { fixable: false } : {}),
       },
     ];
   });
@@ -331,10 +339,18 @@ export function readReview(
     verdict === "pass" &&
     issues.some((issue) => issue.severity !== "minor");
 
+  // Changes the worker cannot make are not a revision: sending them back only
+  // repeats the round. When nothing serious is left that the worker can fix,
+  // the job is blocked on a person instead.
+  const serious = issues.filter((issue) => issue.severity !== "minor");
+  const beyondWorker = verdict === "changes_required" && serious.length > 0 && serious.every((issue) => issue.fixable === false);
+
   return {
     ...base,
-    verdict: contradicted ? "changes_required" : verdict,
-    summary: contradicted
+    verdict: contradicted ? "changes_required" : beyondWorker ? "blocked" : verdict,
+    summary: beyondWorker
+      ? `${summary} (Recorded as blocked: every remaining issue needs something the worker cannot do in its checkout.)`
+      : contradicted
       ? `${summary} (Recorded as changes required: the review passed the work while also raising findings that are not minor.)`
       : summary,
     issues,

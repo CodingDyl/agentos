@@ -2571,8 +2571,8 @@ export function useRetryWorkerJob() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: string | { id: string; worker?: string }) =>
-      typeof input === "string" ? retryWorkerJob(input) : retryWorkerJob(input.id, input.worker),
+    mutationFn: (input: string | { id: string; worker?: string; acceptanceCriteria?: string[] }) =>
+      typeof input === "string" ? retryWorkerJob(input) : retryWorkerJob(input.id, input.worker, input.acceptanceCriteria),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.workerJobs() });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });

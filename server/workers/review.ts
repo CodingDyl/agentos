@@ -231,6 +231,62 @@ export async function validateJob(jobId: string): Promise<ActionResult> {
  * A conflict is not resolved here. The merge is abandoned, the checkout is as
  * it was, and the answer is a fresh run on the new base.
  */
+/**
+ * Merges the source branch's head into a job's checkout, when the branch has
+ * moved past the job's base. The worker's edits are committed on its own
+ * branch first. A conflict is abandoned, leaving the checkout as it was.
+ */
+async function mergeBranchHead(
+  job: WorkerJob,
+): Promise<{ status: "current" } | { status: "merged"; head: string } | { status: "failed"; error: string }> {
+  const source = job.sourceRepoPath!;
+  const worktree = job.worktreePath!;
+  const head = await headCommit(source);
+  if (!head) return { status: "failed", error: "The source repository's branch could not be read." };
+  // The branch has not moved, or the job already contains its head (a retry built on kept work).
+  if (head === job.baseCommit || (job.baseCommit && (await isAncestor(source, head, job.baseCommit)))) return { status: "current" };
+
+  await record(job.id, "job.progress", `Merging the latest ${job.targetBranch ?? "branch"} work (${head.slice(0, 8)}) into this job`);
+  await commitWorktree(worktree, `AgentOS: work from ${job.id}, before bringing it up to date`);
+
+  try {
+    await git(worktree, ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost", "merge", "--no-edit", head]);
+    return { status: "merged", head };
+  } catch (error) {
+    const { stdout } = await git(worktree, ["diff", "--name-only", "--diff-filter=U"]).catch(() => ({ stdout: "" }));
+    const conflicts = stdout.split("\n").filter(Boolean);
+    await git(worktree, ["merge", "--abort"]).catch(() => undefined);
+
+    const reason = conflicts.length > 0
+      ? `The newer work conflicts with this job in ${conflicts.slice(0, 5).join(", ")}${conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ""}. Run the job again on the new base instead.`
+      : `The newer work could not be merged: ${error instanceof Error ? error.message.split("\n")[0] : "unknown error"}`;
+    await record(job.id, "job.progress", reason);
+    return { status: "failed", error: reason };
+  }
+}
+
+/** An issue's title without the "Still open:" a follow-up adds. */
+function issueKey(title: string): string {
+  return title.replace(/^(still open:\s*)+/i, "").trim().toLowerCase();
+}
+
+/** How many times one finding has been sent back and come back unresolved before it stops being sent. */
+export const MAX_SEND_BACKS = 2;
+
+/**
+ * Findings that have already been sent back the most times and are still open.
+ * Sending them again is the loop that wastes a worker's runs: it has shown it
+ * cannot fix them, so a person decides instead.
+ */
+export function stuckIssues(job: WorkerJob): Set<string> {
+  const counts = new Map<string, number>();
+  for (const review of [...(job.reviewHistory ?? []), ...(job.review ? [job.review] : [])]) {
+    for (const key of new Set(review.issues.map((issue) => issueKey(issue.title)))) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  // Raised once, then still open after each send-back.
+  return new Set([...counts].filter(([, count]) => count > MAX_SEND_BACKS).map(([key]) => key));
+}
+
 export async function updateJobToLatest(jobId: string): Promise<ActionResult> {
   const job = await readJob(jobId);
   if (!job) return { ok: false, error: "There is no such job." };
@@ -241,29 +297,10 @@ export async function updateJobToLatest(jobId: string): Promise<ActionResult> {
   }
   if (!job.worktreePath || !job.sourceRepoPath) return { ok: false, error: "That job has no checkout to update." };
 
-  const source = job.sourceRepoPath;
-  const head = await headCommit(source);
-  if (!head) return { ok: false, error: "The source repository's branch could not be read." };
-  if (head === job.baseCommit) return { ok: false, error: "This job is already on the branch's latest work." };
-
-  await record(jobId, "job.progress", `Merging the latest ${job.targetBranch ?? "branch"} work (${head.slice(0, 8)}) into this job`);
-
-  // The worker's edits become a commit on its own branch first, so the merge has something to merge into.
-  await commitWorktree(job.worktreePath, `AgentOS: work from ${job.id}, before bringing it up to date`);
-
-  try {
-    await git(job.worktreePath, ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost", "merge", "--no-edit", head]);
-  } catch (error) {
-    const { stdout } = await git(job.worktreePath, ["diff", "--name-only", "--diff-filter=U"]).catch(() => ({ stdout: "" }));
-    const conflicts = stdout.split("\n").filter(Boolean);
-    await git(job.worktreePath, ["merge", "--abort"]).catch(() => undefined);
-
-    const reason = conflicts.length > 0
-      ? `The newer work conflicts with this job in ${conflicts.slice(0, 5).join(", ")}${conflicts.length > 5 ? ` and ${conflicts.length - 5} more` : ""}. Run the job again on the new base instead.`
-      : `The newer work could not be merged: ${error instanceof Error ? error.message.split("\n")[0] : "unknown error"}`;
-    await record(jobId, "job.progress", reason);
-    return { ok: false, error: reason };
-  }
+  const merged = await mergeBranchHead(job);
+  if (merged.status === "current") return { ok: false, error: "This job is already on the branch's latest work." };
+  if (merged.status === "failed") return { ok: false, error: merged.error };
+  const head = merged.head;
 
   // The tree changed, so what was reviewed and checked no longer describes it.
   const commands = (job.validationCommands ?? []).filter((command) => command.trim().length > 0);
@@ -396,7 +433,21 @@ export async function requestRevision(jobId: string): Promise<ActionResult> {
     };
   }
 
-  const findings = (job.review?.issues ?? []).map((issue) =>
+  const issues = job.review?.issues ?? [];
+  const stuck = stuckIssues(job);
+  // Only what the worker can fix, and has not already failed to fix twice, goes back.
+  const sendable = issues.filter((issue) => issue.fixable !== false && !stuck.has(issueKey(issue.title)));
+  const held = issues.filter((issue) => !sendable.includes(issue));
+
+  if (issues.length > 0 && sendable.length === 0) {
+    const reasons = held.map((issue) => `${issueKey(issue.title)} (${issue.fixable === false ? "needs something the worker cannot do" : `sent back ${MAX_SEND_BACKS} times and still open`})`);
+    return {
+      ok: false,
+      error: `Sending this back would repeat the same round: ${reasons.join("; ")}. Re-run it with acceptance criteria the worker can meet here, or reject it.`,
+    };
+  }
+
+  const findings = sendable.map((issue) =>
     [
       `[${issue.severity}] ${issue.title}`,
       issue.file ? `File: ${issue.file}` : undefined,
@@ -406,18 +457,23 @@ export async function requestRevision(jobId: string): Promise<ActionResult> {
       .join("\n   "),
   );
 
-  if (findings.length === 0) {
-    // Nothing actionable to send. Asking a worker to fix unspecified problems
-    // is how scope quietly expands.
-    return {
-      ok: false,
-      error:
-        "The review recorded no specific findings, so there is nothing to send back. Read its reply and decide yourself.",
-    };
+  // A revision on a base the branch has moved past fixes old code: bring it up to date first.
+  let current = job;
+  if (job.worktreePath && job.sourceRepoPath) {
+    const merged = await mergeBranchHead(job);
+    if (merged.status === "failed") return { ok: false, error: merged.error };
+    if (merged.status === "merged") {
+      current = await update(job, { baseCommit: merged.head });
+      await record(jobId, "job.progress", `Brought up to date with ${job.targetBranch ?? "the branch"} before sending it back`);
+    }
   }
 
-  const brief = buildRevisionRequest(job, findings);
-  const started = await rerunJob(job, brief);
+  if (held.length > 0) {
+    await record(jobId, "job.progress", `Not sent back (a person decides these): ${held.map((issue) => issueKey(issue.title)).join("; ")}`);
+  }
+
+  const brief = buildRevisionRequest(current, findings);
+  const started = await rerunJob(current, brief);
 
   if (!started.ok) return { ok: false, error: started.error };
 

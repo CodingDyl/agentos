@@ -2164,11 +2164,11 @@ export async function draftMilestoneReviewWithHermes(slug: string, id: string): 
 }
 
 /** A fresh run of a finished job; `worker` hands it to a different worker. */
-export function retryWorkerJob(id: string, worker?: string): Promise<{ job: WorkerJob }> {
+export function retryWorkerJob(id: string, worker?: string, acceptanceCriteria?: string[]): Promise<{ job: WorkerJob }> {
   return workerRequest(
     `/api/worker-jobs/${encodeURIComponent(id)}/retry`,
-    worker
-      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ worker }) }
+    worker || acceptanceCriteria
+      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ worker, acceptanceCriteria }) }
       : { method: "POST" },
     (value) => WorkerJobResponseSchema.safeParse(value),
   );

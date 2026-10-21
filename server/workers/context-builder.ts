@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { WORKER_TOOLING_RULE } from "./verifiable";
 import path from "node:path";
 import { agentOSRoot } from "../agentos/filesystem";
 import type { WorkerJob } from "../../shared/worker-types";
@@ -23,6 +24,7 @@ const STANDING_CONSTRAINTS: readonly string[] = [
   "Do not modify AgentOS vault files.",
   "Do not commit, push, or change git remotes.",
   "Do not make architectural changes beyond the objective.",
+  WORKER_TOOLING_RULE,
 ];
 
 /**

@@ -685,7 +685,7 @@ function withoutContinuation(constraints: readonly string[] | undefined): string
  * that reached review has its own path.
  */
 async function continueFrom(previous: WorkerJob): Promise<{ commit?: string; note: string } | undefined> {
-  if (previous.status !== "failed" && previous.status !== "cancelled") return undefined;
+  if (previous.status !== "failed" && previous.status !== "cancelled" && previous.status !== "changes_required") return undefined;
   if (!previous.worktreePath || !previous.baseCommit) return undefined;
 
   const commit = await snapshotWorktree(
@@ -747,11 +747,12 @@ async function contains(repoPath: string, commit: string, ancestor: string): Pro
  * Starts a fresh run of a finished job. `worker` hands it to someone else:
  * the answer to a worker that ran out of quota is rarely the same worker.
  */
-export async function retryJob(jobId: string, options: { worker?: WorkerId } = {}): Promise<StartJobResult> {
+export async function retryJob(jobId: string, options: { worker?: WorkerId; acceptanceCriteria?: string[] } = {}): Promise<StartJobResult> {
   const previous = await readJob(jobId);
   if (!previous) return { error: "That job does not exist." };
 
-  if (!isTerminal(previous.status) || running.has(jobId)) {
+  // Work sent back by a review can be re-run too: that is how criteria the worker could never meet get replaced.
+  if ((!isTerminal(previous.status) && previous.status !== "changes_required") || running.has(jobId)) {
     return { error: "Only a finished job can be retried. Cancel it first." };
   }
   // A run another page owns would be re-run here as a bare worker job without its studio or session.
@@ -770,7 +771,7 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     baseRef: continued ? continued.commit : previous.baseRef,
     contextFiles: previous.contextFiles,
     constraints: continued ? [...withoutContinuation(previous.constraints), continued.note] : previous.constraints,
-    acceptanceCriteria: previous.acceptanceCriteria,
+    acceptanceCriteria: options.acceptanceCriteria?.length ? options.acceptanceCriteria : previous.acceptanceCriteria,
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
     skillId: previous.skillId,
@@ -794,7 +795,7 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId } = {
     // A job still waiting on review would sit beside its replacement, offering
     // an approval of work built on a base that has moved. The new run replaces
     // it; its checkout is kept, as with any cancel.
-    if (previous.status === "awaiting_review") {
+    if (previous.status === "awaiting_review" || previous.status === "changes_required") {
       const closed = await cancelJob(previous.id);
       if (closed.ok) emit(previous.id, "job.progress", `Replaced by ${started.job.id}`, { replacedBy: started.job.id });
     }

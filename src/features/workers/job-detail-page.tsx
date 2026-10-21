@@ -39,6 +39,7 @@ import {
   shortDigest,
 } from "./route-policy-model";
 import { VisualVerificationPanel } from "./visual-verification-panel";
+import { CriteriaRerun, needsPerson } from "./criteria-rerun";
 import { GrokBotJobPanel } from "./grok-bot-job-panel";
 import {
   useApproveWorkerJob,
@@ -864,6 +865,8 @@ function ReviewStation({ job }: { job: WorkerJob }) {
           </div>
         ) : null}
 
+        {job.status === "changes_required" && needsPerson(job.review) ? <CriteriaRerun job={job} /> : null}
+
         {failure ? (
           <p className="mt-5 max-w-[72ch] text-[13px] leading-5 text-os-danger">
             {failure instanceof Error ? failure.message : "That action failed."}
@@ -907,7 +910,8 @@ function ReviewStation({ job }: { job: WorkerJob }) {
               ) : null}
 
               {job.status === "changes_required" &&
-              (job.review?.issues.length ?? 0) > 0 ? (
+              (job.review?.issues.length ?? 0) > 0 &&
+              !needsPerson(job.review) ? (
                 <CommandButton
                   variant="primary"
                   icon={ArrowRight}
@@ -1027,6 +1031,7 @@ function HermesReview({ review }: { review: WorkerReview }) {
                 <span className={cn("os-meta", SEVERITY_TONE[issue.severity])}>
                   {issue.severity}
                 </span>
+                {issue.fixable === false ? <span className="os-meta ml-3 text-os-warning">needs you, not the worker</span> : null}
                 <p className="mt-1.5 max-w-[62ch] text-[14px] leading-5 text-foreground">
                   {issue.title}
                 </p>
