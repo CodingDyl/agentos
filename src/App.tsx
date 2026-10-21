@@ -15,6 +15,7 @@ import { OperatorChatPage, OperatorPage } from "@/features/operator";
 import { TractionPage } from "@/features/traction";
 import { RebuildPage } from "@/features/rebuild";
 import { CompassPage } from "@/features/compass";
+import { PersonasPage, StartupsPage, VenturePage } from "@/features/startups";
 import { FinancePage } from "@/features/finance";
 import { CareerPage } from "@/features/career";
 import { MissionControlPage } from "@/features/mission-control";
@@ -69,6 +70,9 @@ function App() {
           <Route path="/today" element={<Navigate to="/" replace />} />
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
           <Route path="/compass" element={<CompassPage />} />
+          <Route path="/startups" element={<StartupsPage />} />
+          <Route path="/startups/personas" element={<PersonasPage />} />
+          <Route path="/startups/:slug" element={<VenturePage />} />
           <Route path="/inbox" element={<MailPage />} />
           <Route path="/mail" element={<Redirect to="/inbox" />} />
           {/* Getting customers, beside the work — not under it. */}

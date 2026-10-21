@@ -46,6 +46,8 @@ import { WorkspaceRebuildTab } from "@/features/rebuild";
 import { WorkspaceMotionTab } from "@/features/motion-design";
 import { useMotionForWorkspace } from "@/lib/agentos/motion-design";
 import { DevServerTab } from "@/features/dev-server";
+import { StartupTab } from "@/features/startups";
+import { useVentureForWorkspace } from "@/lib/agentos/startups";
 import { SiteTab } from "@/features/site";
 import { stateLabel } from "@/features/projects/projects-model";
 import { HEALTH_LABELS } from "@/features/projects/roadmap-model";
@@ -76,7 +78,7 @@ type WorkspaceTab = "overview" | WorkspaceModule;
 const TAB_ALIASES: Record<string, WorkspaceTab> = { designs: "creative", milestones: "roadmap" };
 
 /** Tabs drawn on paper. Everything else is still Editorial Terminal. */
-const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion", "dev"]);
+const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion", "dev", "startup"]);
 
 function readTab(value: string | null): WorkspaceTab {
   if (!value) return "overview";
@@ -95,6 +97,8 @@ export function WorkspacePage() {
   // A client website rebuild earns the Website rebuild tab.
   const rebuild = useRebuildForWorkspace(slug);
   const motion = useMotionForWorkspace(slug);
+  // A workspace that graduated from a venture keeps its MVP contract in view.
+  const venture = useVentureForWorkspace(slug);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = readTab(searchParams.get("tab"));
@@ -180,6 +184,7 @@ export function WorkspacePage() {
         hasDatabase: (databases.data?.length ?? 0) > 0,
         hasRebuild: Boolean(rebuild.data),
         hasMotion: Boolean(motion.data),
+        hasStartup: Boolean(venture.data),
         hasSite: Boolean(project.configuration.vercelProjectId),
       })
     : { primary: [], more: [] };
@@ -332,6 +337,8 @@ function WorkspacePanel({
       return <WorkspaceRebuildTab slug={project.slug} />;
     case "motion":
       return <WorkspaceMotionTab slug={project.slug} />;
+    case "startup":
+      return <StartupTab workspace={project.slug} />;
     case "dev":
       return <DevServerTab slug={project.slug} />;
     case "site":

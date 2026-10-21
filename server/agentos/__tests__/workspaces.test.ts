@@ -86,8 +86,8 @@ describe("workspace tabs", () => {
     const tabs = resolveWorkspaceTabs({ type: "software", configured: ["documents", "tasks"], hasRepository: true });
 
     assert.deepEqual(tabs.primary, ["documents", "tasks"]);
-    // Every module but Website rebuild and Motion Design, which only a workspace with those runs ever shows.
-    assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length - 2);
+    // Every module but Website rebuild, Motion Design and Startup, which only a workspace with those ever shows.
+    assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length - 3);
     assert.ok(![...tabs.primary, ...tabs.more].includes("rebuild"));
     assert.ok(![...tabs.primary, ...tabs.more].includes("motion"));
   });
@@ -95,7 +95,7 @@ describe("workspace tabs", () => {
   it("puts a client rebuild first, and only when the workspace has one", () => {
     const tabs = resolveWorkspaceTabs({ type: "client", hasRebuild: true });
     assert.equal(tabs.primary[0], "rebuild");
-    assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length - 1);
+    assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length - 2);
     // Configured modules still get it: the tab follows the rebuild, not the settings.
     assert.equal(resolveWorkspaceTabs({ type: "client", configured: ["tasks"], hasRebuild: true }).primary[0], "rebuild");
   });
@@ -105,6 +105,12 @@ describe("workspace tabs", () => {
     assert.equal(tabs.primary[0], "motion");
     assert.ok(!tabs.more.includes("motion"));
     assert.ok(!resolveWorkspaceTabs({ type: "product" }).primary.includes("motion"));
+  });
+
+  it("leads with Startup only for a workspace that graduated from a venture", () => {
+    assert.equal(resolveWorkspaceTabs({ type: "product", hasStartup: true }).primary[0], "startup");
+    const plain = resolveWorkspaceTabs({ type: "product" });
+    assert.ok(![...plain.primary, ...plain.more].includes("startup"));
   });
 
   it("gives a linked Vercel project the Site tab, before Decisions", () => {

@@ -18,6 +18,7 @@ import {
   SquareTerminal,
   Target,
   Wallet,
+  Rocket,
 } from "lucide-react";
 import type { AppShellNavigationItem } from "@/components/os";
 
@@ -45,6 +46,7 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Traction", href: "/traction", icon: Target, section: "business" },
   { label: "Finance", href: "/finance", icon: Wallet, section: "business" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
+  { label: "Startups", href: "/startups", icon: Rocket, section: "work" },
   { label: "Coder", href: "/coder", icon: Code, section: "work" },
   { label: "Creative", href: "/designs", icon: Images, section: "work" },
   { label: "Operator", href: "/operator", icon: SquareTerminal, section: "work" },

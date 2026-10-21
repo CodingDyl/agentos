@@ -324,6 +324,7 @@ import { MAIL_ACCOUNT_LABEL, mailAccountOf, TitanConnectRequestSchema, TitanUpda
 import { activeMailClassifier } from "./mail/classifier";
 import { captureNote, CAPTURE_PATH, parseCaptures } from "./agentos/capture";
 import { compassRouter } from "./compass/routes";
+import { startupsRouter } from "./startups/routes";
 import { focusRouter } from "./focus/routes";
 import { acceptCapture, CaptureTriageError, deleteCapture, readTriage, suggestHomes } from "./agentos/capture-triage";
 import { CaptureAcceptSchema } from "../shared/capture-types";
@@ -418,6 +419,8 @@ app.use("/api/skills", skillsRouter);
 app.use("/api/agents", agentsRouter);
 recoverRebuildsAtStartup();
 app.use("/api/compass", compassRouter);
+/** Startups: ventures walked from idea to MVP, filed under saas/ in the vault. */
+app.use("/api/startups", startupsRouter);
 app.use("/api/focus", focusRouter);
 app.use("/api/calendar", calendarRouter);
 

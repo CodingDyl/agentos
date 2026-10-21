@@ -38,6 +38,7 @@ export const WorkspaceModuleSchema = z.enum([
   "site",
   "motion",
   "dev",
+  "startup",
 ]);
 
 export type WorkspaceType = z.infer<typeof WorkspaceTypeSchema>;
@@ -98,6 +99,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   site: "Site",
   motion: "Motion Design",
   dev: "Dev server",
+  startup: "Startup",
 };
 
 /** The label a module's tab carries in a workspace of this type. */
@@ -164,6 +166,7 @@ export function resolveWorkspaceTabs(input: {
   hasRebuild?: boolean;
   /** A Motion Design run earns its tab the same way a rebuild does. */
   hasMotion?: boolean;
+  hasStartup?: boolean;
 }): WorkspaceTabs {
   const configured = input.configured && input.configured.length > 0 ? input.configured : undefined;
   const primary = [...(configured ?? DEFAULT_WORKSPACE_MODULES[input.type])];
@@ -190,15 +193,18 @@ export function resolveWorkspaceTabs(input: {
 
   if (input.hasRebuild && !primary.includes("rebuild")) primary.unshift("rebuild");
   if (input.hasMotion && !primary.includes("motion")) primary.unshift("motion");
+  // A workspace that graduated from a venture leads with where it came from.
+  if (input.hasStartup && !primary.includes("startup")) primary.unshift("startup");
   // Without a rebuild or Motion Design run there is nothing to show, so those
   // tabs are not offered under More either.
   const withoutEmpty = primary.filter(
-    (module) => (module !== "rebuild" || input.hasRebuild) && (module !== "motion" || input.hasMotion),
+    (module) => (module !== "rebuild" || input.hasRebuild) && (module !== "motion" || input.hasMotion) && (module !== "startup" || input.hasStartup),
   );
 
   const unique = withoutEmpty.filter((module, index) => withoutEmpty.indexOf(module) === index);
   const more = WORKSPACE_MODULES.filter(
-    (module) => !unique.includes(module) && (module !== "rebuild" || input.hasRebuild) && (module !== "motion" || input.hasMotion),
+    (module) =>
+      !unique.includes(module) && (module !== "rebuild" || input.hasRebuild) && (module !== "motion" || input.hasMotion) && (module !== "startup" || input.hasStartup),
   );
 
   return { primary: unique, more };
