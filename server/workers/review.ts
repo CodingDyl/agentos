@@ -101,7 +101,7 @@ export async function getJobDiff(
   const job = await readJob(jobId);
   if (!job?.worktreePath) return undefined;
 
-  return readDiff(jobId, job.worktreePath, job.baseCommit);
+  return readDiff(jobId, job.worktreePath, await diffBase(job));
 }
 
 /**
@@ -265,6 +265,24 @@ async function mergeBranchHead(
   }
 }
 
+/**
+ * Where the work being reviewed starts: the last commit the job shares with
+ * its branch. Not the job's own base, which for a retry that continued an
+ * earlier attempt is that attempt's saved work: diffing from there would hide
+ * everything carried over from the reviewer, which then reports it missing.
+ */
+async function diffBase(job: WorkerJob): Promise<string | undefined> {
+  if (!job.worktreePath || !job.sourceRepoPath || !job.baseCommit) return job.baseCommit;
+  const head = await headCommit(job.sourceRepoPath);
+  if (!head) return job.baseCommit;
+  try {
+    const { stdout } = await git(job.worktreePath, ["merge-base", "HEAD", head]);
+    return stdout.trim() || job.baseCommit;
+  } catch {
+    return job.baseCommit;
+  }
+}
+
 /** An issue's title without the "Still open:" a follow-up adds. */
 function issueKey(title: string): string {
   return title.replace(/^(still open:\s*)+/i, "").trim().toLowerCase();
@@ -359,7 +377,7 @@ export async function reviewJob(jobId: string): Promise<ActionResult> {
   let review: WorkerReview;
 
   try {
-    const diff = await readDiff(jobId, job.worktreePath, job.baseCommit);
+    const diff = await readDiff(jobId, job.worktreePath, await diffBase(job));
     const packet = buildReviewPacket(reviewing, diff);
 
     review = await requestReview(jobId, packet, job.revision, job.project, previousIssuesFor(job));
