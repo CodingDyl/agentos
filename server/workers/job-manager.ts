@@ -772,7 +772,8 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId; acce
     // its work stays on its branch and the retry starts from the branch as it is.
     baseRef: continued ? continued.commit : options.fresh ? undefined : previous.baseRef,
     contextFiles: previous.contextFiles,
-    constraints: continued ? [...withoutContinuation(previous.constraints), continued.note] : previous.constraints,
+    // An earlier attempt's "this run continues…" note describes that attempt, never this one.
+    constraints: continued ? [...withoutContinuation(previous.constraints), continued.note] : withoutContinuation(previous.constraints),
     acceptanceCriteria: options.acceptanceCriteria?.length ? options.acceptanceCriteria : previous.acceptanceCriteria,
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
