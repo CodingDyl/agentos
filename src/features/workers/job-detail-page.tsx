@@ -375,6 +375,8 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
         <ReviewStation job={job} />
       ) : null}
 
+      {job.status === "completed" && !isTextResultJob(job) ? <CompletedNotice job={job} /> : null}
+
       <div className="mt-10 grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Section label="Activity" className="lg:col-start-1">
           {steps.length === 0 ? (
@@ -614,6 +616,23 @@ function ValidationList({
  * one. Validation, review, and approval are separate blocks with separate
  * authors, so it is never ambiguous who said what.
  */
+/** A landed job says so plainly: nothing is left to approve, review or send back. */
+function CompletedNotice({ job }: { job: WorkerJob }) {
+  const when = job.approvedAt ?? job.completedAt;
+  return (
+    <section aria-label="Completed" className="mt-10 max-w-[72ch] rounded-lg border border-os-success/40 bg-os-success/5 p-5 md:p-6">
+      <p className="os-meta text-os-success">Completed</p>
+      <p className="mt-2 text-[15px] leading-6 text-foreground">
+        {job.integratedCommit
+          ? `Approved and applied${job.targetBranch ? ` to ${job.targetBranch}` : ""} as ${job.integratedCommit.slice(0, 8)}, and validated there.`
+          : "Approved and closed."}
+        {when ? <span className="text-os-muted"> {formatRelativeTime(when)}.</span> : null}
+      </p>
+      {job.review?.summary ? <p className="mt-2 text-[13px] leading-5 text-os-muted">Review: {job.review.summary}</p> : null}
+    </section>
+  );
+}
+
 function ReviewStation({ job }: { job: WorkerJob }) {
   const [showDiff, setShowDiff] = useState(false);
 

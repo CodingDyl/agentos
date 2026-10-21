@@ -1180,10 +1180,16 @@ export function useWorkerJob(id: string) {
     staleTime: 5_000,
     retry: 1,
     networkMode: "always",
-    refetchInterval: (query) =>
-      query.state.data && IN_FLIGHT.has(query.state.data.job.status)
-        ? 2_000
-        : false,
+    // A settled job can still change from elsewhere (approved from another
+    // page, by an agent, or by the liveness sweep): keep checking it slowly, so
+    // the page never offers an action on a state the job has left.
+    refetchInterval: (query) => {
+      const status = query.state.data?.job.status;
+      if (!status) return false;
+      if (IN_FLIGHT.has(status)) return 2_000;
+      return ["awaiting_review", "changes_required", "approved", "integrating"].includes(status) ? 10_000 : false;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -1602,7 +1608,8 @@ export function useStartWorkerJob() {
 
   return useMutation({
     mutationFn: startWorkerJob,
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1613,7 +1620,8 @@ export function useCancelWorkerJob() {
 
   return useMutation({
     mutationFn: (id: string) => cancelWorkerJob(id),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1631,7 +1639,8 @@ export function useReviewWorkerJob() {
 
   return useMutation({
     mutationFn: (id: string) => reviewWorkerJob(id),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1642,7 +1651,8 @@ export function useReviseWorkerJob() {
 
   return useMutation({
     mutationFn: (id: string) => reviseWorkerJob(id),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1672,7 +1682,8 @@ export function useVerifyWorkerJobVisually() {
 
   return useMutation({
     mutationFn: (id: string) => verifyWorkerJobVisually(id),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1684,7 +1695,8 @@ export function useRequestVisualRevision() {
 
   return useMutation({
     mutationFn: (id: string) => requestWorkerVisualRevision(id),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1696,7 +1708,8 @@ export function useApproveWorkerJob() {
   return useMutation({
     mutationFn: (input: string | { id: string; aroundLocalChanges?: boolean }) =>
       typeof input === "string" ? approveWorkerJob(input) : approveWorkerJob(input.id, { aroundLocalChanges: input.aroundLocalChanges }),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1708,7 +1721,8 @@ export function useRejectWorkerJob() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       rejectWorkerJob(id, reason),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
@@ -1719,7 +1733,8 @@ export function useDiscardWorkerWorktree() {
 
   return useMutation({
     mutationFn: (id: string) => discardWorkerWorktree(id),
-    onSuccess: refresh,
+    // Settled, not just success: a refused action (the job moved on) must show where it is now.
+    onSettled: refresh,
     networkMode: "always",
     retry: 0,
   });
