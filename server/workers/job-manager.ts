@@ -50,7 +50,7 @@ import { git, headCommit, repositoryProblem } from "../agentos/git";
 import { resolveModelRoute } from "../model-routing/resolve";
 import { applyAgentLaunchPolicy, resolveAgentAssignment } from "../agents/route";
 import { changedFiles, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
-import { BROWSER_CHECK_LABEL, defaultValidationFor, isWebProject, runBrowserCheck } from "./browser-check";
+import { BROWSER_CHECK_LABEL, defaultValidationFor, excludeFromGit, isWebProject, runBrowserCheck } from "./browser-check";
 
 /**
  * Runs jobs.
@@ -962,6 +962,8 @@ async function run(
     // vault). The worker starts there, not at the repository root, or it builds
     // in the wrong place: a second copy of the site at the vault root.
     const projectDir = job.worktreePath ? await projectDirIn(job.worktreePath, job.sourceRepoPath) : undefined;
+    // Before the worker starts: its own browser checks must never read as its changes.
+    if (projectDir) await excludeFromGit(projectDir);
 
     // A web project whose job named no checks still gets its build checked.
     if (projectDir && !(job.validationCommands ?? []).some((command) => command.trim())) {

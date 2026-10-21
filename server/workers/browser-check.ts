@@ -61,7 +61,7 @@ export const BROWSER_CHECK_DIR = ".agentos/browser-check";
  * Keeps `.agentos/` out of git, without touching the project's `.gitignore`:
  * screenshots must never show up as the worker's changes or be committed.
  */
-async function excludeFromGit(projectDir: string): Promise<void> {
+export async function excludeFromGit(projectDir: string): Promise<void> {
   try {
     const { stdout } = await git(projectDir, ["rev-parse", "--git-path", "info/exclude"]);
     const file = path.resolve(projectDir, stdout.trim());
