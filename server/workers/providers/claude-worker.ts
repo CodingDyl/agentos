@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { BROWSER_CHECK_SCRIPT } from "../browser-check";
 import { homedir } from "node:os";
 import path from "node:path";
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
@@ -74,6 +75,8 @@ const BASE_TOOLS: readonly string[] = [
   ...bashRules("git fetch"),
   ...bashRules("git merge --ff-only"),
   ...bashRules("git pull --ff-only"),
+  // AgentOS's own one-browser check, so a worker can look at what it built.
+  ...bashRules(`node ${BROWSER_CHECK_SCRIPT}`),
 ];
 
 /**

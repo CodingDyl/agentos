@@ -50,6 +50,7 @@ import { git, headCommit, repositoryProblem } from "../agentos/git";
 import { resolveModelRoute } from "../model-routing/resolve";
 import { applyAgentLaunchPolicy, resolveAgentAssignment } from "../agents/route";
 import { changedFiles, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
+import { BROWSER_CHECK_LABEL, defaultValidationFor, isWebProject, runBrowserCheck } from "./browser-check";
 
 /**
  * Runs jobs.
@@ -747,7 +748,7 @@ async function contains(repoPath: string, commit: string, ancestor: string): Pro
  * Starts a fresh run of a finished job. `worker` hands it to someone else:
  * the answer to a worker that ran out of quota is rarely the same worker.
  */
-export async function retryJob(jobId: string, options: { worker?: WorkerId; acceptanceCriteria?: string[] } = {}): Promise<StartJobResult> {
+export async function retryJob(jobId: string, options: { worker?: WorkerId; acceptanceCriteria?: string[]; fresh?: boolean } = {}): Promise<StartJobResult> {
   const previous = await readJob(jobId);
   if (!previous) return { error: "That job does not exist." };
 
@@ -759,7 +760,8 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId; acce
   if (previous.origin) return { error: `This run belongs to ${previous.origin.label}. Resume it there.` };
 
   const worker = options.worker ?? previous.requestedWorker ?? previous.worker;
-  const continued = await continueFrom(previous);
+  // `fresh`: the attempt's work is wrong, not unfinished (built in the wrong folder, against a brief that changed).
+  const continued = options.fresh ? undefined : await continueFrom(previous);
   const request: WorkerJobRequest = {
     worker,
     requestedWorker: worker,
@@ -768,7 +770,7 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId; acce
     repoPath: previous.sourceRepoPath ?? previous.repoPath,
     // Continuing means that attempt's commit. A stale attempt continues nothing:
     // its work stays on its branch and the retry starts from the branch as it is.
-    baseRef: continued ? continued.commit : previous.baseRef,
+    baseRef: continued ? continued.commit : options.fresh ? undefined : previous.baseRef,
     contextFiles: previous.contextFiles,
     constraints: continued ? [...withoutContinuation(previous.constraints), continued.note] : previous.constraints,
     acceptanceCriteria: options.acceptanceCriteria?.length ? options.acceptanceCriteria : previous.acceptanceCriteria,
@@ -955,10 +957,21 @@ async function run(
       });
     }
 
+    // The project can be a folder inside a larger repository (a site inside the
+    // vault). The worker starts there, not at the repository root, or it builds
+    // in the wrong place: a second copy of the site at the vault root.
+    const projectDir = job.worktreePath ? await projectDirIn(job.worktreePath, job.sourceRepoPath) : undefined;
+
+    // A web project whose job named no checks still gets its build checked.
+    if (projectDir && !(job.validationCommands ?? []).some((command) => command.trim())) {
+      const fallback = await defaultValidationFor(projectDir);
+      if (fallback.length) job = await update(job, { validationCommands: fallback });
+    }
+
     job = await update(job, { status: "running" });
 
     const result = await worker.start(job, {
-      worktreePath: job.worktreePath,
+      worktreePath: projectDir ?? job.worktreePath,
       contextPacket: briefOverride ?? buildContextPacket(job),
       emit: (type, message, metadata) => emit(job.id, type, message, metadata),
       signal: controller.signal,
@@ -1022,6 +1035,16 @@ async function run(
         (type, message, metadata) => emit(job.id, type, message, metadata),
         controller.signal,
       );
+    }
+
+    // AgentOS looks at a web project in one browser itself, so the reviewer
+    // has browser evidence that no worker could produce. Skipped when the
+    // build failed: there is nothing to open.
+    if (worktree && validation.passed && projectDir && (await isWebProject(projectDir)) && !controller.signal.aborted) {
+      emit(job.id, "validation.started", BROWSER_CHECK_LABEL);
+      const checked = await runBrowserCheck(projectDir, job.id, controller.signal);
+      validation = { results: [...validation.results, checked], passed: validation.passed && checked.success };
+      emit(job.id, "validation.completed", `${BROWSER_CHECK_LABEL}: ${checked.success ? "passed" : "failed"}`, { command: checked.command, success: checked.success, executed: true });
     }
 
     if (controller.signal.aborted) throw new Error("Cancelled");

@@ -79,6 +79,7 @@ Review the packet you are given, write your reasoning as prose, then end your re
 - BLOCKED when you cannot responsibly judge it: the diff is unreadable, or the brief and the change do not correspond.
 - fixable: false when the worker cannot resolve the issue by changing code in its checkout: a tool or browser is not installed, a command needs permission, it needs network, a real device, an external account, or a decision only the person can make. Sending such an issue back to the worker only repeats it. Use BLOCKED when every critical or major issue is not fixable.
 - ${ONE_BROWSER}
+- Judge the result, not the worker's process. Which tools, skills or instructions files the worker used is not an issue; what the code does is. A check AgentOS ran (its build and its Chromium browser check, under VALIDATION) is browser evidence: do not ask the worker for browser testing it already covers.
 - If there are no issues, return an empty array and say so in the summary.
 
 __ROUND__
