@@ -6,7 +6,9 @@
  * would notice: horizontal scroll, console errors, failed requests, in-page
  * links that go nowhere. Writes screenshots and report.json to --out.
  *
- *   node scripts/browser-check.mjs --project <dir> --out <dir> [--widths 1440,1024,768,390,320] [--paths /]
+ *   node scripts/browser-check.mjs --project <dir> --out <dir> [--widths 1440,1024,768,390,320] [--paths /] [--static]
+ *
+ * --static serves the folder's index.html as plain files instead of running its dev script.
  *
  * Used by AgentOS after a worker job's validation, and by workers themselves.
  * Exit code 0 when the site loaded and no problems were found, 1 when problems
@@ -58,6 +60,8 @@ async function readJson(file) {
 
 /** How to serve the project: its own dev script, or a plain static server for an index.html. */
 async function serveCommand(port) {
+  // --static: serve the folder's own index.html as plain files, e.g. to photograph an original static site beside its rebuild.
+  if (args.static === "true" && (await exists(path.join(project, "index.html")))) return { static: true };
   const manifest = await readJson(path.join(project, "package.json"));
   const scripts = manifest?.scripts ?? {};
   const script = ["dev", "start"].find((name) => typeof scripts[name] === "string");
