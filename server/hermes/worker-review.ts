@@ -84,7 +84,7 @@ Review the packet you are given, write your reasoning as prose, then end your re
 
 __ROUND__
 
-Judge only what the packet contains. The changed files are already quoted in it; do not try to read them from disk, do not modify anything, and do not run commands. A reply without a parseable block is discarded and the job is recorded as unreviewed.`;
+Judge only what the packet contains. The changed files are already quoted in it; do not try to read them from disk, do not modify anything, and do not run commands. The work exists only in the worker's isolated checkout, which you cannot reach: a file you look for on disk will not be there. An added file's full content is its patch in DIFF, so a file listed under CHANGED FILES with a patch is present; never report it missing. A reply without a parseable block is discarded and the job is recorded as unreviewed.`;
 
 /**
  * The rule for a first review: say everything now.
