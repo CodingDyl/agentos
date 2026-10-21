@@ -39,7 +39,7 @@ import {
   shortDigest,
 } from "./route-policy-model";
 import { VisualVerificationPanel } from "./visual-verification-panel";
-import { CriteriaRerun, needsPerson } from "./criteria-rerun";
+import { CriteriaRerun } from "./criteria-rerun";
 import { GrokBotJobPanel } from "./grok-bot-job-panel";
 import {
   useApproveWorkerJob,
@@ -64,7 +64,7 @@ import { DocumentList } from "@/features/projects/detail/document-list";
 import { cn } from "@/lib/utils";
 import { useJobEvents } from "./use-job-events";
 import { modelRouteLabel } from "@shared/model-routing-types";
-import { bySeverity, formatDuration, hasReviewableWork, isCancellable, isFinished, jobTitle, statusLabel, statusPill, toSteps, type StepState, verdictLabel, verdictPill } from "./workers-model";
+import { bySeverity, formatDuration, hasReviewableWork, isCancellable, isFinished, jobTitle, needsPerson, statusLabel, statusPill, toSteps, type StepState, verdictLabel, verdictPill } from "./workers-model";
 
 const PAGE_PADDING =
   "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
@@ -531,14 +531,24 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
               {job.repoPath ? (
                 <Detail label="Repository" value={job.repoPath} mono />
               ) : null}
+              {job.desiredOutcome ? (
+                <Detail label="Desired outcome" value={job.desiredOutcome} />
+              ) : null}
+              {job.scope ? <Detail label="What this entails" value={job.scope} /> : null}
+              {job.referenceLinks?.length ? (
+                <Detail label="Links" value={job.referenceLinks.join(" · ")} />
+              ) : null}
               {job.contextFiles?.length ? (
-                <Detail label="Context" value={job.contextFiles.join(", ")} />
+                <Detail label="Context" value={job.contextFiles.map((file) => file.split(/[/\\]/).at(-1) ?? file).join(", ")} />
               ) : null}
               {job.acceptanceCriteria?.length ? (
                 <Detail
                   label="Acceptance"
                   value={job.acceptanceCriteria.join(" · ")}
                 />
+              ) : null}
+              {job.constraints?.length ? (
+                <Detail label="Constraints" value={job.constraints.join(" · ")} />
               ) : null}
             </dl>
           </Section>
@@ -574,6 +584,7 @@ function ValidationList({
   return (
     <ul className={cn("space-y-3", className)}>
       {(tests ?? []).map((test) => {
+        const baseline = Boolean(test.detail?.includes("baseline (no changes)"));
         const Icon = test.success ? Check : X;
 
         return (
@@ -581,7 +592,7 @@ function ValidationList({
             <Icon
               className={cn(
                 "mt-0.5 size-3.5 shrink-0",
-                test.success ? "text-os-success" : "text-os-danger",
+                test.success ? "text-os-success" : baseline ? "text-os-subtle" : "text-os-danger",
               )}
               strokeWidth={1.75}
               aria-hidden="true"
@@ -589,6 +600,7 @@ function ValidationList({
             <div className="min-w-0">
               <span className="font-mono text-[12px] leading-5 break-all text-os-muted">
                 {test.command}
+                {baseline ? " · baseline (no changes)" : null}
               </span>
               {/* A passing command explains itself; a failing one has to. */}
               {test.detail && !test.success ? (

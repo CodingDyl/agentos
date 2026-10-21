@@ -128,6 +128,15 @@ export const WorkerJobRequestSchema = z.object({
   /** Commit-ish the isolated copy branches from. Defaults to the checkout. */
   baseRef: z.string().optional(),
   contextFiles: z.array(z.string()).optional(),
+  /**
+   * What done looks like, when the operator wrote it separately from the
+   * one-line objective. Folded into the worker brief and shown on the job.
+   */
+  desiredOutcome: z.string().optional(),
+  /** Scope and steps the work should cover. */
+  scope: z.string().optional(),
+  /** URLs the operator attached as references. */
+  referenceLinks: z.array(z.string()).optional(),
   constraints: z.array(z.string()).optional(),
   acceptanceCriteria: z.array(z.string()).optional(),
   validationCommands: z.array(z.string()).optional(),

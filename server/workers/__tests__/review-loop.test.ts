@@ -57,10 +57,12 @@ describe("what scoping and workers are told", () => {
     assert.match(packet, /Never require Firefox, Safari/);
   });
 
-  it("workers are told to stop rather than wait on a missing tool", () => {
+  it("workers are told to stop rather than wait on a missing required tool", () => {
     const packet = buildContextPacket({ id: "job_x", project: "bosch", objective: "QA" } as unknown as WorkerJob);
     assert.match(packet, /Do not install browsers/);
+    assert.match(packet, /required tool \(reading or editing the project files\) is refused/);
     assert.match(packet, /say so in your summary and stop/);
+    assert.match(packet, /optional tool is unavailable or refused/);
   });
 });
 

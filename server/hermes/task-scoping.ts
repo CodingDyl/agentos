@@ -1,6 +1,6 @@
 import type { DelegationPlan } from "../../shared/delegation-types";
 import { VERIFIABLE_CRITERIA_RULE } from "../workers/verifiable";
-import type { ProjectTask } from "../../shared/agentos-types";
+import type { ProjectTask, TaskBrief } from "../../shared/agentos-types";
 import { WorkerTaskTypeSchema } from "../../shared/worker-routing-types";
 import { sendToHermes } from "./client";
 import { extractJson } from "./worker-review";
@@ -81,6 +81,8 @@ export interface ScopingInput {
   gitSummary?: string;
   /** Related vault excerpts, with their sources, retrieved for this task. */
   memoryText?: string;
+  /** Extra detail the operator wrote when creating the task. */
+  taskBrief?: TaskBrief;
 }
 
 /**
@@ -102,6 +104,14 @@ export function buildScopingPacket(input: ScopingInput): string {
     `PROJECT: ${input.project}`,
     `TASK: [${input.task.id}] ${input.task.title}`,
     `HORIZON: ${input.task.section}`,
+    input.taskBrief?.desiredOutcome ? `DESIRED OUTCOME: ${input.taskBrief.desiredOutcome}` : undefined,
+    input.taskBrief?.scope ? `WHAT THIS ENTAILS: ${input.taskBrief.scope}` : undefined,
+    input.taskBrief?.acceptanceCriteria?.length
+      ? `ACCEPTANCE:\n${input.taskBrief.acceptanceCriteria.map((item) => `- ${item}`).join("\n")}`
+      : undefined,
+    input.taskBrief?.constraints?.length
+      ? `CONSTRAINTS:\n${input.taskBrief.constraints.map((item) => `- ${item}`).join("\n")}`
+      : undefined,
     "",
     clip(input.projectMarkdown, "PROJECT.md"),
     clip(input.statusMarkdown, "STATUS.md"),
@@ -182,13 +192,18 @@ export function readDelegationPlan(
  * plan is editable, so the operator can supply what they know.
  */
 export function fallbackPlan(input: ScopingInput): DelegationPlan {
+  const brief = input.taskBrief;
+  const objectiveParts = [input.task.title];
+  if (brief?.desiredOutcome?.trim()) objectiveParts.push(`Done looks like: ${brief.desiredOutcome.trim()}`);
+  if (brief?.scope?.trim()) objectiveParts.push(`This entails: ${brief.scope.trim()}`);
+
   return {
     taskId: input.task.id,
     project: input.project,
-    objective: input.task.title,
+    objective: objectiveParts.join("\n\n"),
     contextFiles: [],
-    constraints: [],
-    acceptanceCriteria: [],
+    constraints: brief?.constraints ?? [],
+    acceptanceCriteria: brief?.acceptanceCriteria ?? [],
     validationCommands: [],
     scopedBy: "agentos",
   };

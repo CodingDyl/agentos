@@ -2,7 +2,7 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ArtifactType, ProjectTaskSection } from "@shared/agentos-types";
-import { CommandButton, SectionLabel } from "@/components/os";
+import { CommandButton, DedsecLoader, SectionLabel } from "@/components/os";
 import { TYPE_LABELS } from "@/features/projects/documents-model";
 import {
   useCaptureNote,
@@ -17,6 +17,8 @@ import {
   type QuickCreateControls,
   type QuickCreateKind,
 } from "./quick-create-context";
+import { TaskBriefFields } from "./task-brief-fields";
+import { emptyTaskBriefDraft, lines, taskBriefHasContent } from "./task-brief-model";
 import { useWorkspaceFeedback } from "./use-workspace-feedback";
 
 /**
@@ -72,6 +74,8 @@ function QuickTask({ project, onClose }: { project?: string; onClose: () => void
   const [slug, setSlug] = useState(project ?? "");
   const [title, setTitle] = useState("");
   const [section, setSection] = useState<ProjectTaskSection>("now");
+  const [details, setDetails] = useState(false);
+  const [brief, setBrief] = useState(emptyTaskBriefDraft);
 
   const chosen = slug || projects[0]?.slug || "";
   const create = useCreateTask(chosen);
@@ -81,14 +85,32 @@ function QuickTask({ project, onClose }: { project?: string; onClose: () => void
   const name = projects.find((entry) => entry.slug === chosen)?.name ?? chosen;
 
   return (
-    <QuickDialog label="New task" hint="Appends one line to the project's TASKS.md." onClose={onClose}>
+    <QuickDialog
+      label="New task"
+      hint={details ? "Title on TASKS.md; extra detail stored with the task and handed to a worker." : "Appends one line to the project's TASKS.md."}
+      onClose={onClose}
+      wide={details}
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault();
           if (!chosen || title.trim().length === 0) return;
 
           create.mutate(
-            { title, section },
+            {
+              title,
+              section,
+              ...(taskBriefHasContent(brief)
+                ? {
+                    desiredOutcome: brief.desiredOutcome.trim() || undefined,
+                    scope: brief.scope.trim() || undefined,
+                    acceptanceCriteria: lines(brief.acceptance),
+                    constraints: lines(brief.constraints),
+                    links: lines(brief.links),
+                    files: brief.files,
+                  }
+                : {}),
+            },
             {
               onSuccess: (result) => {
                 feedback.recordEdit(`${result.taskId} created in ${name}.`, result.undoId);
@@ -144,6 +166,23 @@ function QuickTask({ project, onClose }: { project?: string; onClose: () => void
             ))}
           </div>
         </Field>
+
+        <button
+          type="button"
+          onClick={() => setDetails((open) => !open)}
+          className="os-focus-ring mt-5 cursor-pointer text-[13px] leading-5 text-os-muted hover:text-foreground"
+        >
+          {details ? "Hide extra detail" : "Add outcome, steps, references"}
+        </button>
+
+        {details ? <TaskBriefFields draft={brief} onChange={setBrief} disabled={create.isPending} /> : null}
+
+        {create.isPending && details ? (
+          <div className="mt-5 flex items-center gap-3">
+            <DedsecLoader variant="compact" delayMs={0} className="h-16 w-16" />
+            <p className="text-[13px] leading-5 text-os-muted">Saving the task and its references…</p>
+          </div>
+        ) : null}
 
         {create.error ? <p className="mt-5 text-[13px] leading-5 text-os-danger">{create.error.message}</p> : null}
 
@@ -480,11 +519,13 @@ function QuickDialog({
   hint,
   onClose,
   children,
+  wide,
 }: {
   label: string;
   hint: string;
   onClose: () => void;
   children: ReactNode;
+  wide?: boolean;
 }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -508,7 +549,9 @@ function QuickDialog({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className="relative flex max-h-full w-[min(92vw,34rem)] flex-col overflow-hidden rounded-xl border border-os-border-strong bg-os-surface"
+        className={`relative flex max-h-full flex-col overflow-hidden rounded-xl border border-os-border-strong bg-os-surface ${
+          wide ? "w-[min(92vw,48rem)]" : "w-[min(92vw,34rem)]"
+        }`}
       >
         <header className="flex items-start justify-between gap-4 border-b border-os-border px-5 py-4">
           <div>

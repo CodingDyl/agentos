@@ -169,6 +169,15 @@ describe("what the run does not inherit", () => {
     assert.equal(options().cwd, "/tmp/worktree");
   });
 
+  it("grants extra writable roots for git metadata outside the worktree", () => {
+    const withRoots = buildQueryOptions(job(), "/tmp/worktree", new AbortController(), {
+      cwd: "/tmp/worktree/site",
+      writableRoots: ["/tmp/worktree", "/repo/.git/worktrees/job"],
+    });
+    assert.equal(withRoots.cwd, "/tmp/worktree/site");
+    assert.deepEqual(withRoots.additionalDirectories, ["/repo/.git/worktrees/job"]);
+  });
+
   it("passes the job's effort into the SDK", () => {
     const withEffort = buildQueryOptions(
       { ...job(), effort: "medium" },

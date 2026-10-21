@@ -59,6 +59,9 @@ const DENY_RULES: readonly string[] = [
   "Bash(git commit)",
   "Bash(git remote)",
   "Bash(git reset --hard)",
+  "Bash(git fetch)",
+  "Bash(git pull)",
+  "Bash(git merge)",
   // A second worktree would put work outside the one being reviewed.
   "Bash(git worktree)",
   // Destructive and privileged commands have no place in a scoped job.
@@ -140,6 +143,8 @@ export function buildGrokPrompt(contextPacket: string): string {
     "How this run is judged:",
     "- Committing, pushing, and changing git remotes are blocked, not merely",
     "  discouraged. Leave your work uncommitted in the working tree.",
+    "- Do not run git fetch, pull or merge. AgentOS keeps the checkout current.",
+    "- If an optional tool is unavailable or refused, continue without it.",
     "- AgentOS reads the changed files from git and runs the validation",
     "  commands itself. Reporting success does not make a job pass.",
     "",
@@ -252,7 +257,7 @@ export const grokWorker: Worker = {
 
   async start(
     job: WorkerJob,
-    { emit, signal, worktreePath, contextPacket }: WorkerRunContext,
+    { emit, signal, worktreePath, cwd: runCwd, contextPacket }: WorkerRunContext,
   ): Promise<WorkerJobResult> {
     // Isolation is the whole basis for running this unattended. Without a
     // worktree, Grok would be writing into the operator's live checkout.
@@ -262,11 +267,12 @@ export const grokWorker: Worker = {
       );
     }
 
+    const cwd = runCwd ?? worktreePath;
     const prompt = buildGrokPrompt(contextPacket);
     const sandbox = sandboxProfile();
 
     const args = buildGrokArgs({
-      cwd: worktreePath,
+      cwd,
       prompt,
       allowWeb: process.env.AGENTOS_GROK_ALLOW_WEB === "1",
       sandbox,
@@ -283,7 +289,7 @@ export const grokWorker: Worker = {
     const child = spawn(grokBinary(), args, {
       // Both are set: `--cwd` is what Grok reports and resolves against, and
       // the process cwd is what the sandbox confines writes to.
-      cwd: worktreePath,
+      cwd,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });

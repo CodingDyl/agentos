@@ -118,10 +118,24 @@ describe("Codex", () => {
     const args = codexArgs({ cwd: "/tmp/wt", prompt: "go", lastMessage: "/tmp/last" });
     assert.equal(args[0], "exec");
     assert.equal(args[args.indexOf("--sandbox") + 1], "workspace-write");
+    assert.equal(args[args.indexOf("--ask-for-approval") + 1], "never");
     assert.equal(args[args.indexOf("--cd") + 1], "/tmp/wt");
     assert.ok(args.includes("check_for_update_on_startup=false"));
     assert.ok(!args.includes("--model"));
     assert.equal(args.at(-1), "go");
+  });
+
+  it("adds git metadata outside the worktree as writable roots", () => {
+    const args = codexArgs({
+      cwd: "/tmp/wt",
+      prompt: "go",
+      lastMessage: "/tmp/last",
+      writableRoots: ["/repo/.git/worktrees/job", "/repo/.git"],
+    });
+    assert.ok(args.includes("--add-dir"));
+    assert.ok(args.includes("/repo/.git/worktrees/job"));
+    const config = args[args.indexOf("-c", args.indexOf("check_for_update_on_startup=false")) + 1];
+    assert.match(config, /sandbox_workspace_write.writable_roots=/);
   });
 
   it("sums turn usage, keeps cached apart, and prefers the last-message file", async () => {

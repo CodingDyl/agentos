@@ -45,6 +45,11 @@ function mergeSeeds(existing: AgentRecord[], knownSeedIds: string[]): State {
   for (const seed of SEED_AGENTS) {
     if (!known.has(seed.id) && !byId.has(seed.id)) {
       byId.set(seed.id, seed);
+    } else if (seed.allowedTools.length > 0) {
+      const current = byId.get(seed.id);
+      if (current && current.allowedTools.length === 0) {
+        byId.set(seed.id, { ...current, allowedTools: [...seed.allowedTools] });
+      }
     }
     known.add(seed.id);
   }
@@ -76,9 +81,18 @@ function load(): State {
 function mergeChanged(file: string, next: State): boolean {
   try {
     const parsed = record(JSON.parse(fs.readFileSync(file, "utf8")));
-    const count = Array.isArray(parsed.agents) ? parsed.agents.length : 0;
+    const diskAgents = Array.isArray(parsed.agents) ? parsed.agents : [];
     const known = Array.isArray(parsed.knownSeedIds) ? parsed.knownSeedIds.length : 0;
-    return count !== next.agents.length || known !== next.knownSeedIds.length;
+    if (diskAgents.length !== next.agents.length || known !== next.knownSeedIds.length) return true;
+
+    const diskTools = new Map<string, number>();
+    for (const entry of diskAgents) {
+      if (!entry || typeof entry !== "object") continue;
+      const row = entry as { id?: unknown; allowedTools?: unknown };
+      if (typeof row.id !== "string") continue;
+      diskTools.set(row.id, Array.isArray(row.allowedTools) ? row.allowedTools.length : 0);
+    }
+    return next.agents.some((agent) => (diskTools.get(agent.id) ?? 0) !== agent.allowedTools.length);
   } catch {
     return true;
   }

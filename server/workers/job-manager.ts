@@ -18,7 +18,7 @@ import {
 } from "../visual-verification";
 import type { WorkerRoutingDecision } from "../../shared/worker-routing-types";
 import { collectWorkerUsage } from "../usage/collector";
-import { buildContextPacket, resolveContextFiles } from "./context-builder";
+import { buildContextPacket, resolveContextFiles, visionAttachments } from "./context-builder";
 import { listConnectors } from "../connectors/registry";
 import { SkillError, skillForJob } from "../skills/registry";
 import { retrieveMemoryContext } from "../memory/retrieval";
@@ -49,8 +49,13 @@ import { createWorkerEvent, type Worker } from "./worker";
 import { git, headCommit, repositoryProblem } from "../agentos/git";
 import { resolveModelRoute } from "../model-routing/resolve";
 import { applyAgentLaunchPolicy, resolveAgentAssignment } from "../agents/route";
-import { changedFiles, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
+import { baselineValidation, judgeImplementationAttempt } from "./attempt-honesty";
 import { BROWSER_CHECK_LABEL, defaultValidationFor, excludeFromGit, isWebProject, runBrowserCheck } from "./browser-check";
+import { gitWritableRoots } from "./git-sandbox";
+import { preflightMessage, preflightWorkerLaunch } from "./preflight";
+import { ensureProjectRepo } from "./project-repo";
+import { prepareWorktreeDependencies } from "./worktree-deps";
+import { bringWorktreeUpToDate, changedFiles, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
 
 /**
  * Runs jobs.
@@ -810,6 +815,9 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId; acce
     modelOverride: previous.modelOverride,
     effort: previous.effort,
     extraAllowedTools: previous.extraAllowedTools,
+    desiredOutcome: previous.desiredOutcome,
+    scope: previous.scope,
+    referenceLinks: previous.referenceLinks,
     claudeSettingSources: previous.claudeSettingSources,
     claudeMcpServers: previous.claudeMcpServers,
     timeoutMs: previous.timeoutMs,
@@ -902,6 +910,106 @@ function flushEvents(): Promise<unknown> {
   return writes;
 }
 
+type JobEmit = (type: WorkerEventType, message?: string, metadata?: Record<string, unknown>) => void;
+
+/**
+ * Isolates a coding job: the project becomes its own repo when it sat inside
+ * a parent vault, then a worktree is created from that root.
+ */
+async function isolateJobWorktree(job: WorkerJob, emit: JobEmit): Promise<WorkerJob> {
+  if (!job.repoPath) throw new Error("A coding job needs a repository path.");
+
+  let repoPath = job.repoPath;
+  try {
+    const isolated = await ensureProjectRepo(repoPath);
+    repoPath = isolated.gitRoot;
+    if (isolated.note) {
+      emit("job.progress", isolated.note, {
+        initialized: isolated.initialized,
+        nestedInParent: isolated.nestedInParent,
+        gitRoot: isolated.gitRoot,
+      });
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    emit("job.progress", `Could not make the project its own repository (${detail}). Worktreeing from the parent checkout and running the worker in the project subfolder.`);
+    if (!(await isRepository(repoPath))) {
+      throw new Error(await repositoryProblem(repoPath), { cause: error });
+    }
+  }
+
+  const worktree = await createWorktree(repoPath, job.id, job.baseRef);
+
+  const next = await update(job, {
+    repoPath,
+    worktreePath: worktree.path,
+    sourceRepoPath: repoPath,
+    baseCommit: worktree.baseRef,
+    targetBranch: worktree.targetBranch,
+    workerBranch: worktree.branch,
+  });
+
+  emit("job.progress", "Isolated worktree created", {
+    worktree: worktree.path,
+    cwd: worktree.cwd,
+    branch: worktree.branch,
+    base: worktree.baseRef,
+    targetBranch: worktree.targetBranch,
+    gitDir: worktree.gitDir,
+  });
+
+  return next;
+}
+
+/**
+ * Dependencies, git writable roots, and a fast-forward from the source branch
+ * — all before a worker is started, so a missing node_modules or an unwritable
+ * gitdir fails the job instead of spending tokens.
+ */
+async function prepareLaunch(job: WorkerJob, worker: Worker, emit: JobEmit): Promise<void> {
+  if (!job.worktreePath) return;
+
+  const cwd = await projectDirIn(job.worktreePath, job.sourceRepoPath);
+  const source = job.sourceRepoPath ?? job.repoPath ?? cwd;
+
+  emit("job.progress", "Preparing the worktree (dependencies and git)");
+
+  const deps = await prepareWorktreeDependencies(source, cwd);
+  emit("job.progress", deps.detail, { method: deps.method, ok: deps.ok });
+  if (!deps.ok) {
+    throw new Error(deps.detail);
+  }
+
+  const approvedTools = [
+    "Read",
+    "Edit",
+    "Write",
+    "Glob",
+    "Grep",
+    "Bash(npm:*)",
+    "Bash(npx:*)",
+    "Bash(node:*)",
+    ...(job.extraAllowedTools ?? []),
+  ];
+  const preflight = await preflightWorkerLaunch({
+    worktreePath: job.worktreePath,
+    cwd,
+    approvedTools,
+  });
+  if (!preflight.ok) {
+    throw new Error(preflightMessage(preflight.issues));
+  }
+
+  const brought = await bringWorktreeUpToDate(job.worktreePath, job.targetBranch);
+  if (brought && brought !== job.baseCommit) {
+    emit("job.progress", `Brought the checkout up to date on ${job.targetBranch} at ${brought.slice(0, 8)}`, {
+      base: brought,
+    });
+  }
+
+  emit("job.progress", `${worker.name} preflight passed`, { cwd });
+}
+
 async function update(
   job: WorkerJob,
   changes: Partial<WorkerJob>,
@@ -959,29 +1067,15 @@ async function run(
         revision: job.revision ?? 1,
       });
     } else if (job.repoPath && worker.capabilities.includes("code")) {
-      if (!(await isRepository(job.repoPath))) {
-        throw new Error(await repositoryProblem(job.repoPath));
-      }
+      job = await isolateJobWorktree(job, (type, message, metadata) =>
+        emit(job.id, type, message, metadata),
+      );
+    }
 
-      const worktree = await createWorktree(job.repoPath, job.id, job.baseRef);
-
-      // Where this came from and what it was branched off. Checked again
-      // before anything is integrated, so work reviewed against one commit is
-      // never fast-forwarded onto a different one.
-      job = await update(job, {
-        worktreePath: worktree.path,
-        sourceRepoPath: job.repoPath,
-        baseCommit: worktree.baseRef,
-        targetBranch: worktree.targetBranch,
-        workerBranch: worktree.branch,
-      });
-
-      emit(job.id, "job.progress", "Isolated worktree created", {
-        worktree: worktree.path,
-        branch: worktree.branch,
-        base: worktree.baseRef,
-        targetBranch: worktree.targetBranch,
-      });
+    if (job.worktreePath) {
+      await prepareLaunch(job, worker, (type, message, metadata) =>
+        emit(job.id, type, message, metadata),
+      );
     }
 
     // The project can be a folder inside a larger repository (a site inside the
@@ -999,8 +1093,21 @@ async function run(
 
     job = await update(job, { status: "running" });
 
+    const cwd = job.worktreePath
+      ? await projectDirIn(job.worktreePath, job.sourceRepoPath)
+      : undefined;
+    const writableRoots = job.worktreePath
+      ? (await gitWritableRoots(job.worktreePath))?.extraRoots
+      : undefined;
+
     const result = await worker.start(job, {
-      worktreePath: projectDir ?? job.worktreePath,
+      // The git worktree stays the checkout AgentOS isolated. Process cwd is
+      // the project folder inside it (a site in a vault, a package in a
+      // monorepo) so builds and the worker land in the right place.
+      worktreePath: job.worktreePath,
+      cwd: projectDir ?? cwd,
+      writableRoots,
+      attachments: visionAttachments(job.contextFiles),
       contextPacket: briefOverride ?? buildContextPacket(job),
       emit: (type, message, metadata) => emit(job.id, type, message, metadata),
       signal: controller.signal,
@@ -1036,6 +1143,13 @@ async function run(
       ? await changedFiles(job.worktreePath)
       : result.changedFiles;
 
+    const honesty = judgeImplementationAttempt({
+      simulated: worker.simulated,
+      worktreePath: job.worktreePath,
+      changedFiles: changed ?? [],
+      implementsCode: worker.capabilities.includes("code"),
+    });
+
     // The worker has had its say. Whether the work stands is decided here, by
     // running the commands rather than by reading what the worker claimed.
     const commands = (job.validationCommands ?? []).filter(
@@ -1051,7 +1165,7 @@ async function run(
     // happened, whatever the job record says afterwards.
     const worktree = job.worktreePath;
 
-    if (worktree && commands.length > 0) {
+    if (worktree && commands.length > 0 && !honesty.skipValidation) {
       job = await update(job, { status: "validating" });
 
       emit(job.id, "job.progress", "Validating the work", {
@@ -1064,12 +1178,23 @@ async function run(
         (type, message, metadata) => emit(job.id, type, message, metadata),
         controller.signal,
       );
+    } else if (honesty.skipValidation && commands.length > 0) {
+      validation = { results: commands.map(baselineValidation), passed: false };
+      emit(job.id, "job.progress", "Skipped build checks: the worker made no file changes (baseline only)");
     }
 
     // AgentOS looks at a web project in one browser itself, so the reviewer
     // has browser evidence that no worker could produce. Skipped when the
-    // build failed: there is nothing to open.
-    if (worktree && validation.passed && projectDir && (await isWebProject(projectDir)) && !controller.signal.aborted) {
+    // build failed, and skipped when nothing changed: photographing the
+    // unchanged baseline is not evidence the objective passed.
+    if (
+      worktree &&
+      !honesty.skipValidation &&
+      validation.passed &&
+      projectDir &&
+      (await isWebProject(projectDir)) &&
+      !controller.signal.aborted
+    ) {
       emit(job.id, "validation.started", BROWSER_CHECK_LABEL);
       const checked = await runBrowserCheck(projectDir, job.id, controller.signal);
       validation = { results: [...validation.results, checked], passed: validation.passed && checked.success };
@@ -1080,10 +1205,10 @@ async function run(
 
     // Only a validation that actually ran can fail one. A job that was never
     // checked is unverified, which is a different thing from broken.
-    const validated = Boolean(worktree) && commands.length > 0;
-    const failed = validated && !validation.passed;
+    const validated = Boolean(worktree) && commands.length > 0 && !honesty.skipValidation;
+    const failed = honesty.failed || (validated && !validation.passed);
 
-    const blockers = [...(result.blockers ?? [])];
+    const blockers = [...(result.blockers ?? []), ...(honesty.blocker ? [honesty.blocker] : [])];
 
     // What the worker wrote down, kept. Declared documents and any Markdown it
     // left at the worktree root are copied into the vault under the task,
@@ -1093,7 +1218,7 @@ async function run(
       ? await collectArtifacts(job, worker, worktree, result.summary, changed ?? [])
       : [];
 
-    if (!validated && !((job.routing?.policy || job.bridge) && !job.worktreePath)) {
+    if (!validated && !honesty.skipValidation && !((job.routing?.policy || job.bridge) && !job.worktreePath)) {
       // Said out loud, because "no failures" and "nothing was checked" look
       // identical on a screen otherwise.
       blockers.push(
@@ -1160,16 +1285,18 @@ async function run(
               passed: !failed,
               detail: job.expectedOutput
                 ? "Output matched the expected format."
-                : "Output was non-empty.",
+                : honesty.detail,
             }
           : undefined,
       }).attempts,
       completedAt: new Date().toISOString(),
       error: failed
-        ? `Validation failed: ${validation.results
-            .filter((entry) => !entry.success)
-            .map((entry) => entry.command)
-            .join(", ")}`
+        ? honesty.failed
+          ? honesty.detail
+          : `Validation failed: ${validation.results
+              .filter((entry) => !entry.success)
+              .map((entry) => entry.command)
+              .join(", ")}`
         : undefined,
       result: {
         ...result,

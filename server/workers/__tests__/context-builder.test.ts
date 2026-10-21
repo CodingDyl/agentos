@@ -57,6 +57,22 @@ describe("the handoff", () => {
     assert.match(packet, /Work only inside the worktree you were given\./);
     assert.match(packet, /Do not modify AgentOS vault files\./);
     assert.match(packet, /Do not commit, push, or change git remotes\./);
+    assert.match(packet, /Do not run git fetch, pull, merge, or rebase/);
+    assert.match(packet, /optional tool is unavailable or refused/);
+  });
+
+  it("carries the operator's desired outcome and scope", () => {
+    const packet = buildContextPacket(
+      job({
+        desiredOutcome: "The loader is DedSec.",
+        scope: "Replace the Chef spinner.",
+        referenceLinks: ["https://example.com/shot.png"],
+      }),
+    );
+
+    assert.match(packet, /Desired outcome:\nThe loader is DedSec\./);
+    assert.match(packet, /Scope:\nReplace the Chef spinner\./);
+    assert.match(packet, /- https:\/\/example.com\/shot\.png/);
   });
 
   it("keeps the job's own constraints alongside the standing ones", () => {

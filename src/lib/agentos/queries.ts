@@ -92,6 +92,8 @@ import {
   bulkProjectTasks,
   createNewProject,
   createProjectTask,
+  getTaskBrief,
+  uploadTaskReference,
   deleteProjectDecision,
   deleteProjectTask,
   getBackups,
@@ -272,6 +274,8 @@ export const agentosKeys = {
     [...agentosKeys.all, "task-delegations", slug] as const,
   taskCompletion: (slug: string, taskId: string) =>
     [...agentosKeys.all, "task-completion", slug, taskId] as const,
+  taskBrief: (slug: string, taskId: string) =>
+    [...agentosKeys.all, "task-brief", slug, taskId] as const,
   workerJob: (id: string) => [...agentosKeys.all, "worker-job", id] as const,
   automation: (id: string) => [...agentosKeys.all, "automation", id] as const,
   agentStatus: () => [...agentosKeys.all, "agent", "status"] as const,
@@ -2170,18 +2174,48 @@ function useWorkspaceRefresh(slug: string) {
       agentosKeys.dashboard(),
       agentosKeys.missionControl(),
       agentosKeys.backups(),
+      [...agentosKeys.all, "task-brief", slug],
     ]) {
       void queryClient.invalidateQueries({ queryKey: key });
     }
   }, [queryClient, slug]);
 }
 
+export function useTaskBrief(slug: string, taskId: string | undefined) {
+  return useQuery({
+    queryKey: agentosKeys.taskBrief(slug, taskId ?? ""),
+    queryFn: () => getTaskBrief(slug, taskId ?? ""),
+    enabled: slug.length > 0 && Boolean(taskId),
+    staleTime: 10_000,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
 export function useCreateTask(slug: string) {
   const refresh = useWorkspaceRefresh(slug);
 
   return useMutation({
-    mutationFn: (input: { title: string; section?: string; expectedRevision?: string }) =>
-      createProjectTask({ slug, ...input }),
+    mutationFn: async (input: {
+      title: string;
+      section?: string;
+      expectedRevision?: string;
+      desiredOutcome?: string;
+      scope?: string;
+      acceptanceCriteria?: string[];
+      constraints?: string[];
+      links?: string[];
+      files?: File[];
+    }) => {
+      const { files, ...body } = input;
+      const result = await createProjectTask({ slug, ...body });
+      if (files?.length && result.taskId) {
+        for (const file of files) {
+          await uploadTaskReference({ slug, taskId: result.taskId, file });
+        }
+      }
+      return result;
+    },
     onSuccess: refresh,
     networkMode: "always",
     retry: 0,

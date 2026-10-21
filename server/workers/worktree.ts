@@ -3,6 +3,9 @@ import path from "node:path";
 import {
   currentBranch,
   git,
+  gitCommonDir,
+  gitDir,
+  gitToplevel,
   headCommit,
   isClean,
   isRepository,
@@ -43,6 +46,10 @@ export interface WorktreeHandle {
   baseRef: string;
   /** The branch the work will eventually be merged back into. */
   targetBranch: string;
+  /** Directory the worker should treat as cwd (the project, not a parent vault). */
+  cwd: string;
+  gitDir?: string;
+  gitCommonDir?: string;
 }
 
 /**
@@ -56,17 +63,19 @@ export async function createWorktree(
   jobId: string,
   baseRef = "HEAD",
 ): Promise<WorktreeHandle> {
-  if (!(await isRepository(repoPath))) {
+  const gitRoot = (await gitToplevel(repoPath)) ?? repoPath;
+
+  if (!(await isRepository(gitRoot))) {
     throw new Error(await repositoryProblem(repoPath));
   }
 
   let resolvedBase: string;
 
   try {
-    const { stdout } = await git(repoPath, ["rev-parse", baseRef]);
+    const { stdout } = await git(gitRoot, ["rev-parse", baseRef]);
     resolvedBase = stdout.trim();
   } catch {
-    throw new Error(`Could not resolve ${baseRef} in ${repoPath}.`);
+    throw new Error(`Could not resolve ${baseRef} in ${gitRoot}.`);
   }
 
   const target = path.join(worktreeRoot(), jobId);
@@ -75,7 +84,7 @@ export async function createWorktree(
   await fs.mkdir(worktreeRoot(), { recursive: true });
 
   try {
-    await git(repoPath, ["worktree", "add", "-b", branch, target, resolvedBase]);
+    await git(gitRoot, ["worktree", "add", "-b", branch, target, resolvedBase]);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`Could not create a worktree for ${jobId}: ${detail}`, {
@@ -85,9 +94,20 @@ export async function createWorktree(
 
   // What the work will merge back into. Recorded now rather than at
   // integration time, so a job says which branch it was ever meant for.
-  const targetBranch = (await currentBranch(repoPath)) ?? "HEAD";
+  const targetBranch = (await currentBranch(gitRoot)) ?? "HEAD";
+  const cwd = await projectDirIn(target, repoPath);
+  const dir = await gitDir(target);
+  const common = await gitCommonDir(target);
 
-  return { path: target, branch, baseRef: resolvedBase, targetBranch };
+  return {
+    path: target,
+    branch,
+    baseRef: resolvedBase,
+    targetBranch,
+    cwd,
+    gitDir: dir,
+    gitCommonDir: common,
+  };
 }
 
 /**
@@ -216,15 +236,16 @@ export async function removeWorktree(
   jobId: string,
 ): Promise<void> {
   const target = path.join(worktreeRoot(), jobId);
+  const gitRoot = (await gitToplevel(repoPath)) ?? repoPath;
 
   try {
-    await git(repoPath, ["worktree", "remove", "--force", target]);
+    await git(gitRoot, ["worktree", "remove", "--force", target]);
   } catch {
     // Already gone, or never created — which is the state we wanted.
   }
 
   try {
-    await git(repoPath, ["branch", "-D", branchFor(jobId)]);
+    await git(gitRoot, ["branch", "-D", branchFor(jobId)]);
   } catch {
     // Same: a branch that is not there needs no deleting.
   }
@@ -259,13 +280,40 @@ export async function projectDirIn(
 }
 
 /**
+ * Fast-forwards this checkout onto later commits on `branch`.
+ *
+ * AgentOS does this outside the worker sandbox. Workers are told not to run
+ * git fetch, pull or merge: those need the gitdir, which a workspace-write
+ * sandbox cannot see unless extra writable roots were granted.
+ */
+export async function bringWorktreeUpToDate(
+  worktreePath: string,
+  branch: string | undefined,
+): Promise<string | undefined> {
+  if (!branch || branch === "HEAD") return undefined;
+
+  try {
+    await git(worktreePath, ["fetch", "--quiet", "origin", branch]);
+  } catch {
+    // No remote, no network, or the branch is only local. Local merge still applies.
+  }
+
+  try {
+    await git(worktreePath, ["merge", "--ff-only", branch]);
+  } catch {
+    return undefined;
+  }
+
+  return (await headCommit(worktreePath)) ?? undefined;
+}
+
+/**
  * The commit a worker moved its checkout to by pulling, or `undefined`.
  *
- * A worker may fast-forward onto the latest work (`git merge --ff-only`,
- * `git pull --ff-only`). It cannot commit, so a HEAD that has moved past the
- * base can only be commits that already existed. Those commits are not the
- * worker's work: the base moves up to them, so the diff, the review and the
- * "has the branch advanced" check all describe only what the worker changed.
+ * AgentOS now fast-forwards the checkout itself. A worker that still managed
+ * to pull (an older prompt, a tool that slipped through) is handled the same
+ * way: HEAD that has moved past the base can only be commits that already
+ * existed, so they become the new base rather than the worker's work.
  */
 export async function pulledBase(worktreePath: string, baseCommit: string | undefined): Promise<string | undefined> {
   if (!baseCommit) return undefined;

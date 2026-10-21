@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
-import { WORKER_TOOLING_RULE } from "./verifiable";
 import path from "node:path";
 import { agentOSRoot } from "../agentos/filesystem";
 import type { WorkerJob } from "../../shared/worker-types";
+import { WORKER_TOOLING_RULE } from "./verifiable";
 
 /**
  * The handoff contract.
@@ -23,6 +23,7 @@ const STANDING_CONSTRAINTS: readonly string[] = [
   "Work only inside the worktree you were given.",
   "Do not modify AgentOS vault files.",
   "Do not commit, push, or change git remotes.",
+  "Do not run git fetch, pull, merge, or rebase. AgentOS keeps the checkout current and commits after review.",
   "Do not make architectural changes beyond the objective.",
   WORKER_TOOLING_RULE,
 ];
@@ -129,6 +130,9 @@ export function buildContextPacket(job: WorkerJob): string {
     "JOB",
     section("\nProject:", job.project),
     section("\nObjective:", job.objective),
+    section("\nDesired outcome:", job.desiredOutcome),
+    section("\nScope:", job.scope),
+    section("\nReference links:", list(job.referenceLinks)),
     // Inline material for text tasks. Without it, a fallback worker would be
     // handed the objective ("summarise these notes") but not the notes.
     section("\nSupplied material:", job.inputText?.trim()),
@@ -141,7 +145,7 @@ export function buildContextPacket(job: WorkerJob): string {
     job.targetBranch && job.baseCommit
       ? section(
           "\nBranch:",
-          `Started from ${job.targetBranch} at ${job.baseCommit.slice(0, 8)}. Work other jobs land afterwards is on ${job.targetBranch}: git log ${job.targetBranch}, then git fetch and git merge --ff-only ${job.targetBranch} to bring it in.`,
+          `Started from ${job.targetBranch} at ${job.baseCommit.slice(0, 8)}. AgentOS fast-forwards this checkout onto later work on ${job.targetBranch}; do not git fetch, pull or merge yourself. git log ${job.targetBranch} still shows what landed.`,
         )
       : undefined,
     section("\nValidation:", (job.validationCommands ?? []).join("\n")),
@@ -159,6 +163,13 @@ export function buildContextPacket(job: WorkerJob): string {
  * than one that is refused, so both are caught before a worker is started
  * rather than surfacing as a confusing failure mid-run.
  */
+const VISION_FILE = /\.(png|jpe?g|gif|webp|pdf|svg)$/i;
+
+/** Reference files a vision-capable worker can open as images. */
+export function visionAttachments(files: readonly string[] | undefined): string[] {
+  return (files ?? []).filter((file) => VISION_FILE.test(file));
+}
+
 export function validateJobRequest(job: {
   objective?: unknown;
   project?: unknown;

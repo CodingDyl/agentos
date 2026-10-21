@@ -1,22 +1,10 @@
 import { RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { WorkerJob, WorkerReview } from "@shared/worker-types";
+import type { WorkerJob } from "@shared/worker-types";
 import { CommandButton } from "@/components/os";
 import { useRetryWorkerJob } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
-
-/**
- * Whether a review's findings are for a person, not the worker: it was
- * blocked, or every serious finding needs something the worker cannot do in
- * its checkout. Sending such a review back only repeats the round.
- */
-export function needsPerson(review: WorkerReview | undefined): boolean {
-  if (!review) return false;
-  if (review.verdict === "blocked") return true;
-  const serious = review.issues.filter((issue) => issue.severity !== "minor");
-  return serious.length > 0 && serious.every((issue) => issue.fixable === false);
-}
 
 /**
  * The way out of a review the worker cannot satisfy: change what it is asked

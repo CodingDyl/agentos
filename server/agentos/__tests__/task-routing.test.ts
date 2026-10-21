@@ -110,9 +110,11 @@ before(async () => {
     role: "test double",
     capabilities: ["code", "research"],
     healthCheck: async () => ({ available: true }),
-    start: async () => {
+    start: async (_job, context) => {
       cloudRuns += 1;
-      return { summary: "done", changedFiles: [] };
+      const root = context.cwd ?? context.worktreePath;
+      if (root) fs.appendFileSync(path.join(root, "README.md"), "retry button\n");
+      return { summary: "done" };
     },
   });
 });

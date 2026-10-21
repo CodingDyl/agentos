@@ -127,6 +127,13 @@ import {
   updateTask,
 } from "./agentos/mutations/tasks";
 import {
+  mimeForRefName,
+  readTaskBrief,
+  readTaskReference,
+  saveTaskBrief,
+  saveTaskReference,
+} from "./agentos/mutations/task-brief";
+import {
   archiveProject,
   createProject,
   patchProject,
@@ -2883,6 +2890,37 @@ app.post("/api/activity", async (request, response) => {
  * back, letting the console re-read and show what changed rather than only
  * saying that something did.
  */
+function stringListFrom(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) {
+    const entries = value
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    return entries.length > 0 ? entries : undefined;
+  }
+  if (typeof value === "string") {
+    const entries = value.split("\n").map((entry) => entry.trim()).filter(Boolean);
+    return entries.length > 0 ? entries : undefined;
+  }
+  return undefined;
+}
+
+async function saveTaskBriefIfPresent(
+  slug: string,
+  taskId: string,
+  body: Record<string, unknown>,
+) {
+  const desiredOutcome = typeof body.desiredOutcome === "string" ? body.desiredOutcome : undefined;
+  const scope = typeof body.scope === "string" ? body.scope : undefined;
+  const acceptanceCriteria = stringListFrom(body.acceptanceCriteria);
+  const constraints = stringListFrom(body.constraints);
+  const links = stringListFrom(body.links);
+  if (!desiredOutcome?.trim() && !scope?.trim() && !acceptanceCriteria && !constraints && !links) {
+    return undefined;
+  }
+  return saveTaskBrief({ slug, taskId, desiredOutcome, scope, acceptanceCriteria, constraints, links });
+}
+
 function mutationFailed(error: unknown, response: express.Response): void {
   if (error instanceof RevisionConflictError) {
     response.status(409).json({
@@ -3087,6 +3125,8 @@ app.post("/api/projects/:slug/tasks", async (request, response) => {
         typeof expectedRevision === "string" ? expectedRevision : undefined,
     });
 
+    const brief = await saveTaskBriefIfPresent(request.params.slug, result.taskId, request.body ?? {});
+
     await recordActivity({
       type: "task.created",
       description: `${result.taskId}: ${title}`,
@@ -3094,7 +3134,74 @@ app.post("/api/projects/:slug/tasks", async (request, response) => {
       metadata: { taskId: result.taskId },
     });
 
-    response.status(201).json(result);
+    response.status(201).json({ ...result, brief });
+  } catch (error) {
+    mutationFailed(error, response);
+  }
+});
+
+app.get("/api/projects/:slug/tasks/:taskId/brief", async (request, response) => {
+  try {
+    const brief = await readTaskBrief(request.params.slug, request.params.taskId);
+    response.json({ brief: brief ?? null });
+  } catch (error) {
+    mutationFailed(error, response);
+  }
+});
+
+app.patch("/api/projects/:slug/tasks/:taskId/brief", async (request, response) => {
+  try {
+    const brief = await saveTaskBrief({
+      slug: request.params.slug,
+      taskId: request.params.taskId,
+      desiredOutcome: typeof request.body?.desiredOutcome === "string" ? request.body.desiredOutcome : undefined,
+      scope: typeof request.body?.scope === "string" ? request.body.scope : undefined,
+      acceptanceCriteria: stringListFrom(request.body?.acceptanceCriteria),
+      constraints: stringListFrom(request.body?.constraints),
+      links: stringListFrom(request.body?.links),
+    });
+    response.json({ brief });
+  } catch (error) {
+    mutationFailed(error, response);
+  }
+});
+
+app.post(
+  "/api/projects/:slug/tasks/:taskId/refs",
+  express.raw({ type: () => true, limit: "12mb" }),
+  async (request, response) => {
+    try {
+      const body = Buffer.isBuffer(request.body)
+        ? request.body
+        : Buffer.from(typeof request.body === "string" ? request.body : "");
+      const filename =
+        typeof request.query.filename === "string" && request.query.filename.trim().length > 0
+          ? request.query.filename
+          : "reference";
+      const reference = await saveTaskReference({
+        slug: request.params.slug,
+        taskId: request.params.taskId,
+        filename,
+        mimeType: typeof request.headers["content-type"] === "string" ? request.headers["content-type"] : undefined,
+        body,
+      });
+      response.status(201).json({ reference });
+    } catch (error) {
+      mutationFailed(error, response);
+    }
+  },
+);
+
+app.get("/api/projects/:slug/tasks/:taskId/refs/:name", async (request, response) => {
+  try {
+    const { body, relativePath } = await readTaskReference(
+      request.params.slug,
+      request.params.taskId,
+      request.params.name,
+    );
+    response.setHeader("Content-Type", mimeForRefName(relativePath));
+    response.setHeader("Cache-Control", "private, max-age=3600");
+    response.send(body);
   } catch (error) {
     mutationFailed(error, response);
   }

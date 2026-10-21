@@ -89,6 +89,7 @@ export function commandFor(project: DevProject, port: number): { command: string
   return { command: flags ? `${base} -- ${flags}` : base, env };
 }
 
+// eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
 
 export function stripAnsi(text: string): string {

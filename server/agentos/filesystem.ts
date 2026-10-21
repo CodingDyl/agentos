@@ -194,3 +194,23 @@ export async function writeAgentOSFile(
   await fs.writeFile(temporary, contents, "utf8");
   await fs.rename(temporary, target);
 }
+
+/** Binary vault write — reference uploads, not documents. */
+export async function writeAgentOSBytes(
+  relativePath: string,
+  contents: Buffer,
+  root?: string,
+): Promise<void> {
+  const target = resolveWithinRoot(relativePath, root);
+  const temporary = `${target}.${process.pid}.tmp`;
+
+  await assertVaultRootPresent(root);
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  await fs.writeFile(temporary, contents);
+  await fs.rename(temporary, target);
+}
+
+/** Binary vault read. */
+export async function readAgentOSBytes(relativePath: string, root?: string): Promise<Buffer> {
+  return fs.readFile(resolveWithinRoot(relativePath, root));
+}

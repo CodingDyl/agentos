@@ -29,6 +29,20 @@ export type EmitWorkerEvent = (
 export interface WorkerRunContext {
   /** The isolated checkout to work in, when the job has one. */
   worktreePath?: string;
+  /**
+   * Directory the worker process should run in. A project that sits inside a
+   * larger repository has a worktree of the whole repo; this is the project
+   * folder inside it. After the project is isolated as its own repo, it is
+   * the worktree root.
+   */
+  cwd?: string;
+  /**
+   * Extra folders a sandbox must be able to write. Git worktrees keep their
+   * gitdir and common dir in the source repository, outside the worktree.
+   */
+  writableRoots?: string[];
+  /** Image and document paths to attach for vision-capable workers. */
+  attachments?: string[];
   /** The scoped handoff: objective, constraints, acceptance, validation. */
   contextPacket: string;
   emit: EmitWorkerEvent;

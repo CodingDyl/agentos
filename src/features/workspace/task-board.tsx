@@ -63,6 +63,8 @@ import {
   useTaskDelegations,
 } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
+import { TaskBriefFields } from "./task-brief-fields";
+import { emptyTaskBriefDraft, lines, taskBriefHasContent } from "./task-brief-model";
 import { useWorkspaceFeedback } from "./use-workspace-feedback";
 
 /**
@@ -584,18 +586,34 @@ function AddTask({
   onReload: () => void;
 }) {
   const [title, setTitle] = useState("");
+  const [details, setDetails] = useState(false);
+  const [brief, setBrief] = useState(emptyTaskBriefDraft);
   const create = useCreateTask(project);
   const feedback = useWorkspaceFeedback();
 
   return (
     <form
-      className="mb-4 flex flex-wrap items-center gap-2"
+      className="mb-4"
       onSubmit={(event) => {
         event.preventDefault();
         if (title.trim().length === 0) return;
 
         create.mutate(
-          { title, section, expectedRevision: revision },
+          {
+            title,
+            section,
+            expectedRevision: revision,
+            ...(taskBriefHasContent(brief)
+              ? {
+                  desiredOutcome: brief.desiredOutcome.trim() || undefined,
+                  scope: brief.scope.trim() || undefined,
+                  acceptanceCriteria: lines(brief.acceptance),
+                  constraints: lines(brief.constraints),
+                  links: lines(brief.links),
+                  files: brief.files,
+                }
+              : {}),
+          },
           {
             onSuccess: (result) => {
               feedback.recordEdit(`${result.taskId} created.`, result.undoId);
@@ -607,23 +625,42 @@ function AddTask({
         );
       }}
     >
-      <input
-        autoFocus
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onDone();
-        }}
-        placeholder="What needs doing"
-        className="os-focus-ring min-w-0 flex-1 rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          autoFocus
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onDone();
+          }}
+          placeholder="What needs doing"
+          className="os-focus-ring min-w-0 flex-1 rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+        />
 
-      <CommandButton type="submit" variant="primary" loading={create.isPending} loadingLabel="Adding">
-        Add
-      </CommandButton>
-      <CommandButton variant="quiet" onClick={onDone}>
-        Cancel
-      </CommandButton>
+        <CommandButton type="submit" variant="primary" loading={create.isPending} loadingLabel="Adding">
+          Add
+        </CommandButton>
+        <CommandButton variant="quiet" onClick={onDone}>
+          Cancel
+        </CommandButton>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setDetails((open) => !open)}
+        className="os-focus-ring mt-2 cursor-pointer text-[12px] leading-5 text-os-muted hover:text-foreground"
+      >
+        {details ? "Hide extra detail" : "Add outcome, steps, references"}
+      </button>
+
+      {details ? <TaskBriefFields draft={brief} onChange={setBrief} disabled={create.isPending} /> : null}
+
+      {create.isPending && details ? (
+        <div className="mt-3 flex items-center gap-3">
+          <DedsecLoader variant="compact" delayMs={0} className="h-14 w-14" />
+          <p className="text-[13px] leading-5 text-os-muted">Saving the task and its references…</p>
+        </div>
+      ) : null}
     </form>
   );
 }

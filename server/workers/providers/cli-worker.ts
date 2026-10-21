@@ -69,7 +69,14 @@ export interface CliWorkerSpec {
   installHint: string;
   /** Extra health requirement beyond the binary, e.g. a sign-in file. */
   ready?: () => Promise<{ ok: boolean; reason?: string }>;
-  args(input: { cwd: string; prompt: string; model?: string; files: CliRunFiles; job: WorkerJob }): string[];
+  args(input: {
+    cwd: string;
+    prompt: string;
+    model?: string;
+    files: CliRunFiles;
+    job: WorkerJob;
+    writableRoots?: string[];
+  }): string[];
   /** The child's environment. Defaults to the server's own. */
   env?(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv;
   reader(input: { model?: string }): CliOutputReader;
@@ -91,10 +98,12 @@ export function buildCliPrompt(contextPacket: string): string {
     "How this run is judged:",
     "- Do not commit, push, or change git remotes. Leave your work uncommitted",
     "  in the working tree; AgentOS reads the changes from git.",
-    "- Other jobs land work on the branch while you run. To pick it up, run",
-    "  git fetch and then git merge --ff-only <branch> (or git pull --ff-only);",
-    "  other ways of changing history are refused. Pulling moves your starting",
-    "  point, not your work: only what you changed is reviewed.",
+    "- Do not run git fetch, pull, merge or rebase. AgentOS keeps the checkout",
+    "  current outside the sandbox.",
+    "- Required tools (reading and editing project files) are pre-approved.",
+    "  If an optional tool is unavailable or refused — a codebase graph, an MCP",
+    "  server, web search — continue without it. Only stop if a required tool",
+    "  is refused.",
     "- Do not read or edit .env files or credentials.",
     "- AgentOS runs the validation commands itself. Reporting success does not",
     "  make a job pass.",
@@ -145,10 +154,15 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
       return { available: true, reason: `${binary}${model ? ` · model ${model}` : ""}` };
     },
 
-    async start(job: WorkerJob, { emit, signal, worktreePath, contextPacket }: WorkerRunContext): Promise<WorkerJobResult> {
+    async start(
+      job: WorkerJob,
+      { emit, signal, worktreePath, cwd: runCwd, writableRoots, contextPacket }: WorkerRunContext,
+    ): Promise<WorkerJobResult> {
       if (!worktreePath) {
         throw new Error(`${spec.name} needs an isolated worktree. Give the job a repository so one can be created.`);
       }
+
+      const cwd = runCwd ?? worktreePath;
 
       const binary = await findOnPath(spec.binary);
       if (!binary) throw new Error(`${spec.binary} is not installed. ${spec.installHint}`);
@@ -162,12 +176,12 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
 
       const model = job.modelOverride?.trim() || aiModel(spec.id);
       const prompt = buildCliPrompt(contextPacket);
-      const args = spec.args({ cwd: worktreePath, prompt, model, files, job });
+      const args = spec.args({ cwd, prompt, model, files, job, writableRoots });
 
       emit("job.progress", `Starting ${spec.name}`, { model: model ?? "tool default", promptBytes: prompt.length });
 
       const child = spawn(binary, args, {
-        cwd: worktreePath,
+        cwd,
         env: spec.env ? spec.env(process.env) : process.env,
         stdio: ["ignore", "pipe", "pipe"],
       });

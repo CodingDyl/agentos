@@ -32,7 +32,21 @@ describe("the agent registry", () => {
     }
     assert.equal(getAgentRecord("chief-of-staff")?.name, "Chief of Staff");
     assert.equal(getAgentRecord("motion-studio")?.avatar, "🎬");
+    assert.ok((getAgentRecord("frontend-friend")?.allowedTools.length ?? 0) > 0);
     assert.equal(fs.existsSync(path.join(directory, "agents.json")), true);
+  });
+
+  it("fills empty seed allowedTools on an existing registry row", () => {
+    const file = path.join(directory, "agents.json");
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as {
+      agents: Array<{ id: string; allowedTools: string[] }>;
+    };
+    parsed.agents = parsed.agents.map((agent) =>
+      agent.id === "frontend-friend" ? { ...agent, allowedTools: [] } : agent,
+    );
+    fs.writeFileSync(file, `${JSON.stringify(parsed, null, 2)}\n`);
+    resetAgentsCache();
+    assert.ok((getAgentRecord("frontend-friend")?.allowedTools.length ?? 0) > 0);
   });
 
   it("persists an edit and does not overwrite it on reload", () => {

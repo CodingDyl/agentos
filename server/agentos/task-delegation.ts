@@ -26,6 +26,7 @@ import {
   parseRepositoryPath,
 } from "./projects";
 import { projectTaskLinks, readTaskLink, saveTaskLink } from "./task-jobs";
+import { readTaskBrief, taskBriefContextFiles } from "./mutations/task-brief";
 
 /**
  * Delegating a project task.
@@ -204,6 +205,17 @@ async function discoverVisualAcceptance(
 /** The task types a `ui-tasks` default counts as UI work. */
 const UI_TASK_TYPES = new Set(["design-implementation"]);
 
+function composeObjective(scoped: string, brief?: { desiredOutcome?: string; scope?: string }): string {
+  const parts = [scoped];
+  const outcome = brief?.desiredOutcome?.trim();
+  if (outcome && !scoped.includes(outcome)) parts.push(`Done looks like: ${outcome}`);
+  const scope = brief?.scope?.trim();
+  if (scope && scope !== scoped.trim() && !scoped.includes(scope)) {
+    parts.push(`This entails: ${scope}`);
+  }
+  return parts.join("\n\n");
+}
+
 function defaultVisualEnabled(
   configuration: ProjectConfiguration,
   taskType: string | undefined,
@@ -340,6 +352,11 @@ export async function prepareDelegation(
     budgetTokens: 1_500,
   }).catch(() => undefined);
 
+  const [brief, briefFiles] = await Promise.all([
+    readTaskBrief(slug, task.id),
+    taskBriefContextFiles(slug, task.id),
+  ]);
+
   const scoped = await scopeTask({
     project: slug,
     task,
@@ -348,6 +365,7 @@ export async function prepareDelegation(
     tasksMarkdown,
     decisionsMarkdown,
     memoryText: memory?.text || undefined,
+    taskBrief: brief,
   });
 
   const configuration = parseConfiguration(projectMarkdown);
@@ -358,6 +376,16 @@ export async function prepareDelegation(
   // the ones this repository is known to have.
   const plan: DelegationPlan = {
     ...scoped,
+    objective: composeObjective(scoped.objective, brief),
+    contextFiles: [...new Set([...scoped.contextFiles, ...briefFiles])],
+    constraints: [
+      ...scoped.constraints,
+      ...(brief?.constraints ?? []),
+    ],
+    acceptanceCriteria: [
+      ...(brief?.acceptanceCriteria ?? []),
+      ...scoped.acceptanceCriteria,
+    ],
     scopingMemory: memory
       ? { status: memory.status, sources: memory.sources, warnings: memory.warnings }
       : undefined,
@@ -423,6 +451,7 @@ export async function delegateTask(
   const repoPath =
     approval.repoPath ?? (projectMarkdown ? parseRepositoryPath(projectMarkdown) : undefined);
   const configuration = parseConfiguration(projectMarkdown);
+  const brief = await readTaskBrief(slug, task.id);
 
   const { job, error: startError } = await startJob({
     worker: approval.worker,
@@ -435,6 +464,9 @@ export async function delegateTask(
     manualOptionId: approval.manualOptionId,
     project: slug,
     objective: approval.plan.objective,
+    desiredOutcome: brief?.desiredOutcome,
+    scope: brief?.scope,
+    referenceLinks: brief?.links,
     modelRouteType: "execute",
     repoPath,
     // The project's configured branch, when it names one; the checkout otherwise.

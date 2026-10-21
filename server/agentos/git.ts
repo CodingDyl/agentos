@@ -115,6 +115,50 @@ export async function isRepository(repoPath: string): Promise<boolean> {
   return (await ask(repoPath, ["rev-parse", "--is-inside-work-tree"])) === "true";
 }
 
+/** Absolute path git reported, whether it came back relative or not. */
+function resolveGitPath(repoPath: string, reported: string): string {
+  return path.isAbsolute(reported) ? path.resolve(reported) : path.resolve(repoPath, reported);
+}
+
+/**
+ * The repository root that contains this path, or `undefined` if it is not
+ * inside a work tree. A project folder can sit inside a larger vault repo:
+ * this is how we tell the two apart.
+ */
+export async function gitToplevel(repoPath: string): Promise<string | undefined> {
+  const raw = await ask(repoPath, ["rev-parse", "--show-toplevel"]);
+  return raw ? path.resolve(raw) : undefined;
+}
+
+/** The gitdir this checkout uses. For a worktree, that is *not* inside it. */
+export async function gitDir(repoPath: string): Promise<string | undefined> {
+  const raw = await ask(repoPath, ["rev-parse", "--absolute-git-dir"]);
+  return raw ? path.resolve(raw) : undefined;
+}
+
+/** The shared git directory a worktree's gitdir points at. */
+export async function gitCommonDir(repoPath: string): Promise<string | undefined> {
+  const raw = await ask(repoPath, ["rev-parse", "--git-common-dir"]);
+  return raw ? resolveGitPath(repoPath, raw) : undefined;
+}
+
+/** True when this path is the repository root, not a subfolder of a larger one. */
+export async function isGitRoot(repoPath: string): Promise<boolean> {
+  const toplevel = await gitToplevel(repoPath);
+  if (!toplevel) return false;
+  return path.resolve(repoPath) === toplevel;
+}
+
+/** True when this folder has its own `.git`, rather than inheriting a parent's. */
+export async function hasOwnGit(repoPath: string): Promise<boolean> {
+  try {
+    await fs.access(path.join(repoPath, ".git"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The commit a repository is currently on. */
 export async function headCommit(repoPath: string): Promise<string | undefined> {
   return ask(repoPath, ["rev-parse", "HEAD"]);

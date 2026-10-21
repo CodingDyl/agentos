@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type { WorkerProviderMetrics } from "../../../shared/worker-types";
 import { clip, createCliWorker, jsonLine, num, record, type CliOutputReader } from "./cli-worker";
+import { codexSandboxFlags, geminiIncludeFlags } from "../git-sandbox";
 
 /**
  * How each of the operator's coding CLIs is called and read. The engine that
@@ -38,9 +39,6 @@ const CLAUDE_ALLOWED = [
   "Bash(git ls-tree:*)",
   "Bash(git merge-base:*)",
   "Bash(git rev-list:*)",
-  "Bash(git fetch:*)",
-  "Bash(git merge --ff-only:*)",
-  "Bash(git pull --ff-only:*)",
   "Bash(ls:*)",
 ];
 
@@ -58,6 +56,9 @@ const CLAUDE_DENIED = [
   "Bash(git remote:*)",
   "Bash(git reset:*)",
   "Bash(git worktree:*)",
+  "Bash(git fetch:*)",
+  "Bash(git pull:*)",
+  "Bash(git merge:*)",
   "Bash(rm -rf:*)",
   "Bash(sudo:*)",
   "Read(**/.env)",
@@ -93,8 +94,10 @@ export function claudeCodeArgs(input: {
   extraAllowedTools?: string[];
   settingSources?: string;
   mcpServers?: readonly ClaudeMcpServerId[];
+  writableRoots?: string[];
 }): string[] {
   const mcp = mcpArgs(input.mcpServers);
+  const extraDirs = (input.writableRoots ?? []).flatMap((root) => ["--add-dir", root]);
   return [
     "-p",
     input.prompt,
@@ -103,6 +106,7 @@ export function claudeCodeArgs(input: {
     "--verbose",
     "--permission-mode",
     "acceptEdits",
+    ...extraDirs,
     // Project settings only by default: the operator's own user settings, hooks
     // and MCP servers are theirs, not the job's. Motion Design passes
     // `user,project` so ~/.claude/skills and a Higgsfield MCP are available.
@@ -194,7 +198,7 @@ export const claudeCodeWorker = createCliWorker({
     (await exists(path.join(os.homedir(), ".claude")))
       ? { ok: true }
       : { ok: false, reason: "Claude Code has never been signed in on this machine. Run `claude` once and log in." },
-  args: ({ prompt, model, job }) =>
+  args: ({ prompt, model, job, writableRoots }) =>
     claudeCodeArgs({
       prompt,
       model,
@@ -202,6 +206,7 @@ export const claudeCodeWorker = createCliWorker({
       extraAllowedTools: job.extraAllowedTools,
       settingSources: job.claudeSettingSources,
       mcpServers: job.claudeMcpServers,
+      writableRoots,
     }),
   env: (base) => {
     // Without these removed, Claude Code would bill the API key AgentOS holds
@@ -226,13 +231,22 @@ export const claudeCodeWorker = createCliWorker({
 // Codex, on the operator's ChatGPT plan.
 // ---------------------------------------------------------------------------
 
-export function codexArgs(input: { cwd: string; prompt: string; model?: string; lastMessage: string }): string[] {
+export function codexArgs(input: {
+  cwd: string;
+  prompt: string;
+  model?: string;
+  lastMessage: string;
+  writableRoots?: string[];
+}): string[] {
   return [
     "exec",
     "--json",
     // Writes confined to the worktree, network off: Codex's own sandbox.
+    // Git metadata lives outside the worktree; extra writable roots cover it.
     "--sandbox",
     "workspace-write",
+    "--ask-for-approval",
+    "never",
     "--cd",
     input.cwd,
     "--skip-git-repo-check",
@@ -241,6 +255,7 @@ export function codexArgs(input: { cwd: string; prompt: string; model?: string; 
     // An update mid-job replaces the binary underneath the run.
     "-c",
     "check_for_update_on_startup=false",
+    ...codexSandboxFlags(input.cwd, input.writableRoots ?? []),
     ...(input.model ? ["--model", input.model] : []),
     input.prompt,
   ];
@@ -323,7 +338,8 @@ export const codexWorker = createCliWorker({
     (await exists(path.join(os.homedir(), ".codex", "auth.json")))
       ? { ok: true }
       : { ok: false, reason: "Codex is not signed in. Run `codex login`." },
-  args: ({ cwd, prompt, model, files }) => codexArgs({ cwd, prompt, model, lastMessage: files.lastMessage }),
+  args: ({ cwd, prompt, model, files, writableRoots }) =>
+    codexArgs({ cwd, prompt, model, lastMessage: files.lastMessage, writableRoots }),
   reader: ({ model }) => codexReader(model),
 });
 
@@ -340,7 +356,14 @@ export const geminiWorker = createCliWorker({
   installHint: "Install it with `npm install -g @google/gemini-cli`, then run `gemini` once to sign in.",
   // Edits approved automatically; shell commands are not, so they are refused
   // rather than run in a job nobody is watching.
-  args: ({ prompt, model }) => ["-p", prompt, "--approval-mode", "auto_edit", ...(model ? ["--model", model] : [])],
+  args: ({ prompt, model, writableRoots }) => [
+    "-p",
+    prompt,
+    "--approval-mode",
+    "auto_edit",
+    ...geminiIncludeFlags(writableRoots ?? []),
+    ...(model ? ["--model", model] : []),
+  ],
   reader: () => {
     return {
       line: (line) => (line.trim() ? { message: clip(line) } : undefined),

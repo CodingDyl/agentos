@@ -20,9 +20,11 @@ import {
   usePrepareTaskDelegation,
   useRouteTaskDelegation,
   useStartTaskDelegation,
+  useTaskBrief,
   useTaskCompletion,
   useWorkers,
 } from "@/lib/agentos/queries";
+import { TaskBriefReadout } from "@/features/workspace/task-brief-fields";
 import { optionLabel } from "@/features/workers/route-policy-model";
 import { RoutePolicyPanel } from "@/features/workers/route-policy-panel";
 import { RoutingControls } from "@/features/workers/routing-controls";
@@ -127,6 +129,7 @@ export function TaskPanel({
     task.id,
     delegation?.status === "completed",
   );
+  const brief = useTaskBrief(project, task.id);
 
   const active = delegation?.active === true;
   const jobId = delegation?.jobId;
@@ -291,6 +294,8 @@ export function TaskPanel({
       <p className="mt-3 max-w-[62ch] text-[15px] leading-6 text-foreground">
         {task.title}
       </p>
+
+      {brief.data ? <TaskBriefReadout brief={brief.data} slug={project} compact /> : null}
 
       {/* What this task has produced so far: plans, research, reports — kept
           under the task rather than in a worktree that gets discarded. */}

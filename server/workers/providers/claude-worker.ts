@@ -72,10 +72,9 @@ const BASE_TOOLS: readonly string[] = [
   ...bashRules("git ls-tree"),
   ...bashRules("git merge-base"),
   ...bashRules("git rev-list"),
-  ...bashRules("git fetch"),
-  ...bashRules("git merge --ff-only"),
-  ...bashRules("git pull --ff-only"),
   // AgentOS's own one-browser check, so a worker can look at what it built.
+  // Git fetch/pull/merge stay denied: AgentOS keeps the checkout current
+  // outside the sandbox, where the gitdir is writable.
   ...bashRules(`node ${BROWSER_CHECK_SCRIPT}`),
 ];
 
@@ -92,6 +91,9 @@ const DENIED_TOOLS: readonly string[] = [
   "Bash(git commit:*)",
   "Bash(git remote:*)",
   "Bash(git reset:*)",
+  "Bash(git fetch:*)",
+  "Bash(git pull:*)",
+  "Bash(git merge:*)",
   // A second worktree would put work outside the one being reviewed.
   "Bash(git worktree:*)",
   "Bash(git clean:*)",
@@ -154,7 +156,7 @@ export function validationRules(
 
 /** Everything Claude is allowed to do on this job. */
 export function allowedTools(job: WorkerJob): string[] {
-  return [...BASE_TOOLS, ...validationRules(job.validationCommands)];
+  return [...BASE_TOOLS, ...validationRules(job.validationCommands), ...(job.extraAllowedTools ?? [])];
 }
 
 export function deniedTools(): string[] {
@@ -244,12 +246,11 @@ Do not:
 Committing, pushing, and creating worktrees are blocked rather than merely
 discouraged. Leave your work uncommitted in the working tree.
 
-Other jobs land work on the branch while you run. To see it, use git log and git
-show on the branch you were started from. To bring it into your checkout, run
-git fetch, then git merge --ff-only <branch> (or git pull --ff-only). A fast
-forward is the only way to update: merges, rebases and resets are refused, and
-git will stop if your uncommitted edits overlap the incoming files. Pulling
-changes your starting point, not your work: AgentOS reviews only what you changed.
+AgentOS keeps the checkout current. Do not run git fetch, pull, merge or rebase.
+git log and git show on the branch you were started from still tell you what
+landed. Required tools (reading and editing project files) are pre-approved. If
+an optional tool is unavailable or refused, continue without it. Only stop if a
+required tool is refused.
 
 AgentOS owns validation: it reads the changed files from git and runs the
 validation commands itself. Reporting success does not make a job pass.
@@ -282,10 +283,16 @@ export function buildQueryOptions(
   job: WorkerJob,
   worktreePath: string,
   controller: AbortController,
+  extra?: { cwd?: string; writableRoots?: string[] },
 ): Options {
+  const cwd = extra?.cwd ?? worktreePath;
+  const additionalDirectories = [
+    ...(extra?.writableRoots ?? []).filter((root) => root !== cwd && root !== worktreePath),
+  ];
   return {
     // Both the working directory and the boundary for this run.
-    cwd: worktreePath,
+    cwd,
+    ...(additionalDirectories.length > 0 ? { additionalDirectories } : {}),
 
     model: model(job),
     ...(job.effort ? { effort: job.effort } : {}),
@@ -361,7 +368,7 @@ export const claudeWorker: Worker = {
 
   async start(
     job: WorkerJob,
-    { emit, signal, worktreePath, contextPacket }: WorkerRunContext,
+    { emit, signal, worktreePath, cwd, writableRoots, contextPacket }: WorkerRunContext,
   ): Promise<WorkerJobResult> {
     // Isolation is the whole basis for running this unattended. Without a
     // worktree, Claude would be writing into the operator's live checkout.
@@ -405,7 +412,7 @@ export const claudeWorker: Worker = {
     try {
       const messages = query({
         prompt: buildClaudePrompt(contextPacket),
-        options: buildQueryOptions(job, worktreePath, controller),
+        options: buildQueryOptions(job, worktreePath, controller, { cwd, writableRoots }),
       });
 
       for await (const message of messages) {

@@ -2,7 +2,7 @@ import type {
   VisualAcceptanceContext,
   VisualVerificationVerdict,
 } from "@shared/visual-verification-types";
-import type { WorkerJobStatus, WorkerReviewVerdict } from "@shared/worker-types";
+import type { WorkerJobStatus, WorkerReview, WorkerReviewVerdict } from "@shared/worker-types";
 import type { AgentStatus } from "@/components/os";
 
 /**
@@ -90,6 +90,18 @@ export function isAwaitingReview(status: WorkerJobStatus): boolean {
  * A rejected job keeps everything until someone discards it, so the review, the
  * diff and the worktree are all still worth showing.
  */
+/**
+ * Whether a review's findings are for a person, not the worker: it was
+ * blocked, or every serious finding needs something the worker cannot do in
+ * its checkout. Sending such a review back only repeats the round.
+ */
+export function needsPerson(review: WorkerReview | undefined): boolean {
+  if (!review) return false;
+  if (review.verdict === "blocked") return true;
+  const serious = review.issues.filter((issue) => issue.severity !== "minor");
+  return serious.length > 0 && serious.every((issue) => issue.fixable === false);
+}
+
 export function hasReviewableWork(status: WorkerJobStatus): boolean {
   return [
     "awaiting_review",

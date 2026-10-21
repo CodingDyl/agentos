@@ -93,6 +93,10 @@ import {
   type DashboardData,
   type ProjectDetail,
   type ProjectsResponse,
+  TaskBriefSchema,
+  TaskReferenceSchema,
+  type TaskBrief,
+  type TaskReference,
 } from "@shared/agentos-types";
 import {
   MissionControlDataSchema,
@@ -1956,14 +1960,66 @@ export interface TaskWrite {
 }
 
 export function createProjectTask(
-  input: TaskWrite & { title: string; section?: string },
-): Promise<{ taskId: string; revision: string; undoId?: string }> {
+  input: TaskWrite & {
+    title: string;
+    section?: string;
+    desiredOutcome?: string;
+    scope?: string;
+    acceptanceCriteria?: string[];
+    constraints?: string[];
+    links?: string[];
+  },
+): Promise<{ taskId: string; revision: string; undoId?: string; brief?: TaskBrief }> {
   const { slug, ...body } = input;
 
   return writeVault(`/api/projects/${encodeURIComponent(slug)}/tasks`, {
     method: "POST",
     ...asJson(body),
   });
+}
+
+const TaskBriefResponseSchema = z.object({ brief: TaskBriefSchema.nullable() });
+const TaskReferenceResponseSchema = z.object({ reference: TaskReferenceSchema });
+
+export function getTaskBrief(slug: string, taskId: string): Promise<TaskBrief | null> {
+  return readVault(
+    `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(taskId)}/brief`,
+    (value) => TaskBriefResponseSchema.safeParse(value),
+    "That task has no brief.",
+  ).then((payload) => payload.brief);
+}
+
+export function saveTaskBrief(
+  input: { slug: string; taskId: string } & Pick<
+    TaskBrief,
+    "desiredOutcome" | "scope" | "acceptanceCriteria" | "constraints" | "links"
+  >,
+): Promise<TaskBrief> {
+  const { slug, taskId, ...body } = input;
+  return writeVault(
+    `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(taskId)}/brief`,
+    { method: "PATCH", ...asJson(body) },
+  ).then((payload) => (payload as { brief: TaskBrief }).brief);
+}
+
+export function uploadTaskReference(input: {
+  slug: string;
+  taskId: string;
+  file: File;
+}): Promise<TaskReference> {
+  const params = new URLSearchParams({ filename: input.file.name });
+  return writeVault<{ reference: TaskReference }>(
+    `/api/projects/${encodeURIComponent(input.slug)}/tasks/${encodeURIComponent(input.taskId)}/refs?${params.toString()}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": input.file.type || "application/octet-stream" },
+      body: input.file,
+    },
+  ).then((payload) => TaskReferenceResponseSchema.parse(payload).reference);
+}
+
+export function taskReferenceUrl(slug: string, taskId: string, name: string): string {
+  return `/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(taskId)}/refs/${encodeURIComponent(name)}`;
 }
 
 export function patchProjectTask(

@@ -100,6 +100,25 @@ export const TaskExecutionStatusSchema = z.enum([
   "done",
 ]);
 
+/** Extra detail a task can carry beyond the TASKS.md line. */
+export const TaskReferenceSchema = z.object({
+  name: z.string(),
+  relativePath: z.string(),
+  mimeType: z.string().optional(),
+  /** True for images that can render as a thumbnail. */
+  image: z.boolean().optional(),
+});
+
+export const TaskBriefSchema = z.object({
+  taskId: z.string(),
+  desiredOutcome: z.string().optional(),
+  scope: z.string().optional(),
+  acceptanceCriteria: z.array(z.string()).optional(),
+  constraints: z.array(z.string()).optional(),
+  links: z.array(z.string()).optional(),
+  references: z.array(TaskReferenceSchema).optional(),
+});
+
 export const ProjectTaskSchema = z.object({
   schedule: TaskScheduleSchema.optional(),
   calendarEventId: z.string().optional(),
@@ -1138,6 +1157,8 @@ export type MainFocus = z.infer<typeof MainFocusSchema>;
 export type DashboardData = z.infer<typeof DashboardDataSchema>;
 export type ProjectsResponse = z.infer<typeof ProjectsResponseSchema>;
 export type ProjectTaskSection = z.infer<typeof ProjectTaskSectionSchema>;
+export type TaskReference = z.infer<typeof TaskReferenceSchema>;
+export type TaskBrief = z.infer<typeof TaskBriefSchema>;
 export type ProjectTask = z.infer<typeof ProjectTaskSchema>;
 export type ProjectTaskGroup = z.infer<typeof ProjectTaskGroupSchema>;
 export type ProjectDecision = z.infer<typeof ProjectDecisionSchema>;
