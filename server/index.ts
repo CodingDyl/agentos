@@ -51,6 +51,7 @@ import {
 import { RepositoryActionSchema } from "../shared/repository-types";
 import { readGitGraph } from "./agentos/git-graph";
 import { reengineerRouter } from "./reengineer/routes";
+import { startReengineerIngest } from "./reengineer/runs";
 import {
   getProjectDocuments,
   listRecentDocuments,
@@ -4638,6 +4639,8 @@ server.listen(PORT, HOST, () => {
   });
 
   startStallWatch();
+  // Teardowns are filed into the vault when their job ends. See server/reengineer/runs.ts.
+  startReengineerIngest();
   startLiveReconcile();
   startOutreachSyncTimer();
   // Replies to outreach sent by hand from the Virtara (Titan) mailbox. See server/outreach/titan-replies.ts.

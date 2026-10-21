@@ -284,8 +284,11 @@ async function ingest(run: ReengineerRun, roots: string[]): Promise<ReengineerRu
     copied.set(name, path.posix.join(TEARDOWN_DIR, "assets", run.id, name));
   }
 
-  const entryIds: string[] = [];
-  for (const entry of entries) {
+  // A crash between filing entries and saving the run would otherwise file
+  // them again on the next attempt, so entries this run already filed are kept.
+  const filed = (await listLibrary()).filter((entry) => entry.source.runId === run.id);
+  const entryIds: string[] = filed.map((entry) => entry.id);
+  for (const entry of filed.length > 0 ? [] : entries) {
     const shot = entry.screenshot ? copied.get(path.basename(entry.screenshot)) : undefined;
     const added = await addEntry({
       title: entry.title,
@@ -323,14 +326,67 @@ async function ingest(run: ReengineerRun, roots: string[]): Promise<ReengineerRu
 // Views
 // ---------------------------------------------------------------------------
 
+/** Runs being filed right now, so two readers (or a reader and the sweep) never file one run twice. */
+const filing = new Map<string, Promise<ReengineerRun>>();
+
+/**
+ * Files a finished run's output into the vault, once. Concurrent callers share
+ * one filing; the run is re-read inside it, so a caller holding a stale copy
+ * that was filed in the meantime gets the filed one back.
+ */
+function settle(run: ReengineerRun, roots: string[]): Promise<ReengineerRun> {
+  const pending = filing.get(run.id);
+  if (pending) return pending;
+  const work = (async () => {
+    const fresh = (await readRun(run.id)) ?? run;
+    return fresh.ingestedAt ? fresh : ingest(fresh, roots);
+  })().finally(() => filing.delete(run.id));
+  filing.set(run.id, work);
+  return work;
+}
+
+const isFinished = (job: Awaited<ReturnType<typeof readJob>>) => Boolean(job) && (job!.status === "awaiting_review" || job!.status === "completed");
+const rootsOf = (job: NonNullable<Awaited<ReturnType<typeof readJob>>>) => [job.worktreePath, job.sourceRepoPath].filter((root): root is string => Boolean(root));
+
+/**
+ * Files every run whose worker has finished but whose output is not yet in the
+ * vault. Run on a timer from boot, so a teardown reaches the library when the
+ * job ends, not when someone next opens the Library page, and after a restart.
+ */
+export async function ingestFinishedRuns(): Promise<number> {
+  let filed = 0;
+  for (const run of await readRuns()) {
+    if (run.ingestedAt) continue;
+    const job = await readJob(run.jobId);
+    if (!job || !isFinished(job)) continue;
+    try {
+      if ((await settle(run, rootsOf(job))).ingestedAt) filed += 1;
+    } catch (error) {
+      console.error("[agentos] reengineer ingest failed:", error instanceof Error ? error.message : error);
+    }
+  }
+  return filed;
+}
+
+let ingestWatch: NodeJS.Timeout | undefined;
+
+/** Starts the sweep above. Idempotent; called once at boot. */
+export function startReengineerIngest(): void {
+  if (ingestWatch) return;
+  const sweep = () => void ingestFinishedRuns().catch(() => undefined);
+  ingestWatch = setInterval(sweep, 15_000);
+  ingestWatch.unref?.();
+  sweep();
+}
+
 async function view(run: ReengineerRun): Promise<ReengineerRunView> {
   const job = await readJob(run.jobId);
   let current = run;
 
-  const finished = job && (job.status === "awaiting_review" || job.status === "completed");
+  const finished = isFinished(job);
   if (finished && !run.ingestedAt) {
     try {
-      current = await ingest(run, [job.worktreePath, job.sourceRepoPath].filter((root): root is string => Boolean(root)));
+      current = await settle(run, rootsOf(job!));
     } catch (error) {
       console.error("[agentos] reengineer ingest failed:", error instanceof Error ? error.message : error);
     }

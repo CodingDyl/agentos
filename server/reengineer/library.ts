@@ -187,17 +187,18 @@ export async function recordVerdict(id: string, verdict: Verdict, note?: string,
 }
 
 /**
- * What a worker reads before it builds: the proven entries, then candidates,
- * for the kinds or tags asked about. Rejected entries are named only so they
+ * What a worker reads before it builds: the proven entries, and candidates
+ * only when asked for, for the kinds or tags asked about. Rejected entries are named only so they
  * are not reached for again.
  */
-export function libraryBrief(entries: LibraryEntry[], query: { kind?: string; tag?: string } = {}): string {
+export function libraryBrief(entries: LibraryEntry[], query: { kind?: string; tag?: string; candidates?: boolean } = {}): string {
   const matches = entries.filter(
     (entry) => (!query.kind || entry.kind === query.kind) && (!query.tag || entry.tags.includes(slugify(query.tag, "tag"))),
   );
   const line = (entry: LibraryEntry) => `- **${entry.title}** (${entry.kind}${entry.tags.length ? `, ${entry.tags.join(", ")}` : ""}): ${entry.summary} Why it works: ${entry.whyItWorks || "not recorded"}.${entry.rebuild ? ` Our rebuild: ${entry.rebuild}.` : ""}`;
   const proven = matches.filter((entry) => entry.status === "proven");
-  const candidates = matches.filter((entry) => entry.status === "candidate");
+  // Unjudged entries are model output nobody has checked; a worker sees them only when it asks.
+  const candidates = query.candidates ? matches.filter((entry) => entry.status === "candidate") : [];
   const rejected = matches.filter((entry) => entry.status === "rejected");
   return [
     "# Library: patterns learned from other products",
@@ -214,17 +215,16 @@ const PROMPT_LIMIT = 3200;
 
 /**
  * The library as it should reach a prompt: only the kinds that bear on the
- * work, proven first, candidates marked as untested, and rejected ones named
- * so they are not reached for. Empty when nothing applies, so a library with
+ * work: proven ones, and rejected ones named so they are not reached for.
+ * Candidates are left out until a person has judged them. Empty when nothing applies, so a library with
  * nothing relevant adds nothing to a prompt. Bounded, because a prompt that
  * grows with the library would crowd out the brief it is attached to.
  */
 export function libraryPromptContext(entries: LibraryEntry[], kinds: readonly LibraryKind[]): string {
   const relevant = entries.filter((entry) => kinds.includes(entry.kind));
   const proven = relevant.filter((entry) => entry.status === "proven").slice(0, 8);
-  const candidates = relevant.filter((entry) => entry.status === "candidate").slice(0, 4);
   const rejected = relevant.filter((entry) => entry.status === "rejected").slice(0, 8);
-  if (proven.length + candidates.length + rejected.length === 0) return "";
+  if (proven.length + rejected.length === 0) return "";
 
   const line = (entry: LibraryEntry) =>
     `- ${entry.title} (${entry.kind}): ${entry.summary.replace(/\s+/g, " ")}${entry.whyItWorks ? ` Why it works: ${entry.whyItWorks.replace(/\s+/g, " ")}` : ""}${entry.rebuild ? ` Our rebuild: ${entry.rebuild}.` : ""}`;
@@ -232,7 +232,6 @@ export function libraryPromptContext(entries: LibraryEntry[], kinds: readonly Li
     "## Patterns from the library",
     "Learned from other products and judged by the operator. They are descriptions of what worked, never source or assets to copy: build your own. Use a proven pattern where it fits the brief; do not force one in.",
     proven.length ? `\nProven:\n${proven.map(line).join("\n")}` : "",
-    candidates.length ? `\nNot yet tried here (a suggestion, not a requirement):\n${candidates.map(line).join("\n")}` : "",
     rejected.length ? `\nTried and rejected, so avoid:\n${rejected.map((entry) => `- ${entry.title}${entry.verdicts.at(-1)?.note ? `: ${entry.verdicts.at(-1)!.note}` : ""}`).join("\n")}` : "",
   ]
     .filter(Boolean)

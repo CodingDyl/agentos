@@ -108,6 +108,17 @@ describe("the library in a prompt", () => {
     assert.match(await withLibrary("BRIEF", ["motion"]), /^BRIEF\n\n## Patterns from the library/);
   });
 
+  it("keeps unjudged candidates out of prompts and briefs unless asked", async () => {
+    const { libraryPromptContext } = await import("../library");
+    await addEntry({ title: "Untested ticker", kind: "motion", summary: "A ticker.", whyItWorks: "Unknown.", tags: [], source: { target: "https://d.test" } });
+    const entries = await listLibrary();
+    assert.ok(!libraryPromptContext(entries, ["motion"]).includes("Untested ticker"));
+    assert.ok(!libraryBrief(entries).includes("Untested ticker"));
+    assert.match(libraryBrief(entries, { candidates: true }), /## Worth trying[\s\S]*Untested ticker/);
+    await recordVerdict("untested-ticker", "proven");
+    assert.match(libraryPromptContext(await listLibrary(), ["motion"]), /Untested ticker/);
+  });
+
   it("stays bounded however large the library grows", async () => {
     const { libraryPromptContext } = await import("../library");
     const big = Array.from({ length: 40 }, (_, index) => ({

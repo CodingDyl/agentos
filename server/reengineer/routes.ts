@@ -89,6 +89,7 @@ reengineerRouter.get("/library/brief", async (request, response) => {
     const text = libraryBrief(await listLibrary(), {
       kind: typeof request.query.kind === "string" ? request.query.kind : undefined,
       tag: typeof request.query.tag === "string" ? request.query.tag : undefined,
+      candidates: request.query.candidates === "1",
     });
     response.json({ brief: text });
   } catch (error) {
