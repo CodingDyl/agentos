@@ -23,6 +23,7 @@ const DEFAULT_GITIGNORE = [
   "dist/",
   "build/",
   "coverage/",
+  "._*",
   ".DS_Store",
   "*.log",
   ".env",

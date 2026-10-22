@@ -5,8 +5,11 @@ import { promisify } from "node:util";
 
 /**
  * Where a client's site code lives: its own git repository on the SSD,
- * `/Volumes/DylanSSD/dev/projects/clients/<slug>` unless
- * `AGENTOS_CLIENT_SITES_DIR` says otherwise.
+ * `/Volumes/DylanSSD/projects/clients/<slug>` unless
+ * `AGENTOS_CLIENT_PROJECTS_ROOT` or `AGENTOS_CLIENT_SITES_DIR` says otherwise.
+ *
+ * Project metadata stays in the AgentOS-Memory vault. The code repo must not
+ * live there: nesting it inside the vault made workers worktree the whole vault.
  *
  * If the drive is not plugged in, the stage stops and says so. It never falls
  * back to the laptop's disk: client code in two places is worse than waiting.
@@ -14,12 +17,38 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 
-export const DEFAULT_CLIENT_SITES_DIR = "/Volumes/DylanSSD/dev/projects/clients";
+export const DEFAULT_CLIENT_PROJECTS_ROOT = "/Volumes/DylanSSD/projects/clients";
+/** @deprecated Use DEFAULT_CLIENT_PROJECTS_ROOT. Kept so older imports still resolve. */
+export const DEFAULT_CLIENT_SITES_DIR = DEFAULT_CLIENT_PROJECTS_ROOT;
 
 export class ClientRepoUnavailable extends Error {}
 
 export function clientSitesDir(): string {
-  return process.env.AGENTOS_CLIENT_SITES_DIR?.trim() || DEFAULT_CLIENT_SITES_DIR;
+  return (
+    process.env.AGENTOS_CLIENT_PROJECTS_ROOT?.trim() ||
+    process.env.AGENTOS_CLIENT_SITES_DIR?.trim() ||
+    DEFAULT_CLIENT_PROJECTS_ROOT
+  );
+}
+
+/** A usable recorded path, or undefined when it is blank / the PROJECT.md placeholder. */
+export function usableRepoPath(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed || /^_?not set_?$/i.test(trimmed)) return undefined;
+  return trimmed;
+}
+
+/** `/Volumes/DylanSSD/projects/clients/<slug>` (or the configured root). */
+export function defaultClientRepoPath(slug: string): string {
+  return path.join(clientSitesDir(), repoFolderName(slug));
+}
+
+/**
+ * Where this client's code lives: a recorded path wins, then the
+ * configurable clients root. Never migrates files.
+ */
+export function resolveClientRepoPath(slug: string, recorded?: string): string {
+  return usableRepoPath(recorded) ?? defaultClientRepoPath(slug);
 }
 
 /** `/Volumes/DylanSSD/...` → `/Volumes/DylanSSD`: the mount that must be present. */
@@ -42,25 +71,28 @@ export function repoFolderName(slug: string): string {
   return clean;
 }
 
-const GITIGNORE = ["node_modules/", ".next/", "out/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", ".DS_Store", "screenshots/", ""].join("\n");
+const GITIGNORE = ["node_modules/", ".next/", "out/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", "._*", ".DS_Store", "screenshots/", ""].join("\n");
+
+export async function assertClientDrivePresent(directory = clientSitesDir()): Promise<void> {
+  const mount = mountPointOf(directory);
+  if (!mount) return;
+  try {
+    await fs.access(mount);
+  } catch {
+    throw new ClientRepoUnavailable(`Connect ${path.basename(mount)}: client sites are kept on it (${directory}), and it is not plugged in.`);
+  }
+}
 
 /**
  * The client's repository, created on first use with one commit so worker
  * jobs have something to branch from. Safe to call again: an existing
- * repository is returned as it is.
+ * repository is returned as it is. A recorded path is used as-is so a
+ * project that still lives at an older location is not recreated.
  */
-export async function ensureClientRepo(slug: string, company: string): Promise<string> {
-  const root = clientSitesDir();
-  const mount = mountPointOf(root);
-  if (mount) {
-    try {
-      await fs.access(mount);
-    } catch {
-      throw new ClientRepoUnavailable(`Connect ${path.basename(mount)}: client sites are kept on it (${root}), and it is not plugged in.`);
-    }
-  }
+export async function ensureClientRepo(slug: string, company: string, recorded?: string): Promise<string> {
+  const repo = resolveClientRepoPath(slug, recorded);
+  await assertClientDrivePresent(repo);
 
-  const repo = path.join(root, repoFolderName(slug));
   await fs.mkdir(repo, { recursive: true });
 
   try {

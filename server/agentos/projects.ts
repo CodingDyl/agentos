@@ -331,7 +331,8 @@ export function parseRepositoryPath(markdown: string): string | undefined {
   const raw = getField(section, "Local repository") ?? getField(section, "Local repo");
   // Expanded here, the one place the path is read, so no consumer has to
   // remember: git runs with the path as `cwd`, and `~` is a shell feature.
-  return raw ? expandHome(raw) : raw;
+  if (!raw || /^_?not set_?$/i.test(raw.trim())) return undefined;
+  return expandHome(raw);
 }
 
 /**
