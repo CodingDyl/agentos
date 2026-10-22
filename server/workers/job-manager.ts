@@ -7,7 +7,10 @@ import type {
   WorkerJobRequest,
   WorkerJobStatus,
 } from "../../shared/worker-types";
+import path from "node:path";
 import type { ArtifactSource } from "../../shared/agentos-types";
+import { readOptionalFile } from "../agentos/filesystem";
+import { parseRepositoryPath } from "../agentos/projects";
 import { parseArtifactDeclarations, registerJobArtifacts } from "../agentos/mutations/documents";
 import { projectTaskLinks, saveTaskLink } from "../agentos/task-jobs";
 import type { VisualVerificationResult } from "../../shared/visual-verification-types";
@@ -776,6 +779,26 @@ async function contains(repoPath: string, commit: string, ancestor: string): Pro
  * that remembers which one it replaced.
  */
 /**
+ * The project's current Local repository, or the path this job last used.
+ *
+ * A retry that copied the stored path forever would keep failing after the
+ * folder moved, even once PROJECT.md pointed at the new checkout.
+ */
+async function repoPathForRetry(previous: WorkerJob): Promise<string | undefined> {
+  if (previous.project) {
+    const markdown = await readOptionalFile(`projects/${previous.project}/PROJECT.md`);
+    const recorded = markdown ? parseRepositoryPath(markdown) : undefined;
+    if (recorded) return recorded;
+  }
+  return previous.sourceRepoPath ?? previous.repoPath;
+}
+
+function sameRepoPath(left?: string, right?: string): boolean {
+  if (!left || !right) return true;
+  return path.resolve(left) === path.resolve(right);
+}
+
+/**
  * Starts a fresh run of a finished job. `worker` hands it to someone else:
  * the answer to a worker that ran out of quota is rarely the same worker.
  */
@@ -791,14 +814,16 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId; acce
   if (previous.origin) return { error: `This run belongs to ${previous.origin.label}. Resume it there.` };
 
   const worker = options.worker ?? previous.requestedWorker ?? previous.worker;
-  // `fresh`: the attempt's work is wrong, not unfinished (built in the wrong folder, against a brief that changed).
-  const continued = options.fresh ? undefined : await continueFrom(previous);
+  const repoPath = await repoPathForRetry(previous);
+  const stored = previous.sourceRepoPath ?? previous.repoPath;
+  // Unfinished work from the old checkout cannot be continued in a different repository.
+  const continued = options.fresh || !sameRepoPath(repoPath, stored) ? undefined : await continueFrom(previous);
   const request: WorkerJobRequest = {
     worker,
     requestedWorker: worker,
     project: previous.project,
     objective: previous.objective,
-    repoPath: previous.sourceRepoPath ?? previous.repoPath,
+    repoPath,
     // Continuing means that attempt's commit. A stale attempt continues nothing:
     // its work stays on its branch and the retry starts from the branch as it is.
     baseRef: continued ? continued.commit : options.fresh ? undefined : previous.baseRef,

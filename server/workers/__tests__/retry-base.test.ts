@@ -181,4 +181,55 @@ describe("where a retry starts", () => {
 
     assert.equal((await store.readJob(retried.id))?.baseCommit, current);
   });
+
+  it("retries against the project's current Local repository after the folder moved", async () => {
+    const vault = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-retry-vault-"));
+    const currentRepo = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-retry-moved-"));
+    const gone = path.join(os.tmpdir(), `agentos-gone-site-${Date.now()}`);
+    const previousRoot = process.env.AGENTOS_ROOT;
+    try {
+      await git(currentRepo, "init", "-b", "main");
+      await git(currentRepo, "config", "user.email", "t@localhost");
+      await git(currentRepo, "config", "user.name", "T");
+      await fs.writeFile(path.join(currentRepo, "README.md"), "# Bosch\n");
+      await git(currentRepo, "add", "-A");
+      await git(currentRepo, "commit", "-m", "site");
+
+      process.env.AGENTOS_ROOT = vault;
+      await fs.mkdir(path.join(vault, "projects", "bosch"), { recursive: true });
+      await fs.writeFile(
+        path.join(vault, "projects", "bosch", "PROJECT.md"),
+        `# Bosch\n\n## Connected Systems\n\n- Local repository: ${currentRepo}\n`,
+      );
+
+      await store.saveJob({
+        id: "job_moved00000000000",
+        worker: "mock",
+        requestedWorker: "mock",
+        resolvedWorker: "mock",
+        project: "bosch",
+        objective: "Do a thing",
+        status: "failed",
+        revision: 1,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        repoPath: gone,
+        sourceRepoPath: gone,
+      } as never);
+
+      const { job: retried, error } = await manager.retryJob("job_moved00000000000");
+      assert.equal(error, undefined);
+      assert.ok(retried);
+      await settle(retried.id);
+
+      const persisted = await store.readJob(retried.id);
+      assert.equal(persisted?.repoPath, path.resolve(currentRepo));
+      assert.equal(persisted?.sourceRepoPath, path.resolve(currentRepo));
+    } finally {
+      if (previousRoot === undefined) delete process.env.AGENTOS_ROOT;
+      else process.env.AGENTOS_ROOT = previousRoot;
+      await fs.rm(vault, { recursive: true, force: true });
+      await fs.rm(currentRepo, { recursive: true, force: true });
+    }
+  });
 });
