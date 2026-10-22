@@ -64,6 +64,15 @@ describe("what scoping and workers are told", () => {
     assert.match(packet, /say so in your summary and stop/);
     assert.match(packet, /optional tool is unavailable or refused/);
   });
+
+  it("tells workers AgentOS runs Chromium outside the sandbox, and not to run it themselves", () => {
+    const packet = buildContextPacket({ id: "job_x", project: "bosch", objective: "QA" } as unknown as WorkerJob);
+    assert.match(packet, /outside the worker sandbox/);
+    assert.match(packet, /Do not run Chromium, Playwright, or a browser-check script/);
+    assert.match(packet, /Do not wait for browser evidence of your own/);
+    assert.doesNotMatch(packet, /browser-check\.mjs/);
+    assert.doesNotMatch(packet, /To look before then/);
+  });
 });
 
 describe("sending work back", () => {
