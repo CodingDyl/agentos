@@ -140,6 +140,13 @@ describe("repository path", () => {
   it("returns undefined when no repository is linked", () => {
     assert.equal(parseRepositoryPath("# Project\n\n## Purpose\nA thing.\n"), undefined);
   });
+
+  it("treats the placeholder Local repository line as unset", () => {
+    assert.equal(
+      parseRepositoryPath("## Connected Systems\n\n- Local repository: _not set_\n"),
+      undefined,
+    );
+  });
 });
 
 describe("git status", () => {

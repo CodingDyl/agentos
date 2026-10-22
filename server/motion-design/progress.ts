@@ -184,9 +184,9 @@ export async function currentAttempt(run: MotionRun): Promise<WorkerJob | undefi
 /**
  * Where the site lives inside a job's checkout.
  *
- * The site folder can be a subfolder of a bigger repository (the vault), and a
- * worktree is a checkout of the whole repository, so the same subpath is
- * needed inside it.
+ * New sites are their own repositories. Older ones may still be a subfolder
+ * of a bigger repository (the vault); a worktree is then a checkout of that
+ * whole repository, so the same subpath is needed inside it.
  */
 async function siteInWorktree(job: WorkerJob | undefined, siteRepoPath: string | undefined): Promise<string | undefined> {
   if (!job?.worktreePath) return undefined;

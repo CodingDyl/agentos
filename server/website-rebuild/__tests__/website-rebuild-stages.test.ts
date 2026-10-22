@@ -435,7 +435,10 @@ describe("client repo and helpers", () => {
     const second = await ensureClientRepo("total-electric", "Total Electric");
     assert.equal(first, second);
     assert.equal(git(first, "rev-list", "--count", "HEAD"), "1");
-    assert.match(fs.readFileSync(path.join(first, ".gitignore"), "utf8"), /node_modules/);
+    const ignore = fs.readFileSync(path.join(first, ".gitignore"), "utf8");
+    assert.match(ignore, /node_modules/);
+    assert.match(ignore, /\._\*/);
+    assert.match(ignore, /\.DS_Store/);
     await assert.rejects(ensureClientRepo("../../etc", "x").then((repo) => assert.ok(repo.startsWith(sites))).then(() => {
       throw new ClientRepoUnavailable("contained");
     }), /contained/);
@@ -443,6 +446,7 @@ describe("client repo and helpers", () => {
 
   it("knows the mount a clients folder depends on", () => {
     assert.equal(mountPointOf("/Volumes/DylanSSD/dev/projects/clients"), "/Volumes/DylanSSD");
+    assert.equal(mountPointOf("/Volumes/DylanSSD/projects/clients"), "/Volumes/DylanSSD");
     assert.equal(mountPointOf("/Users/dylan/clients"), undefined);
   });
 

@@ -7,12 +7,17 @@ import { motionSiteTemplate } from "../site-template";
 import { ensureMotionSiteRepo } from "../site-repo";
 
 const previous = process.env.AGENTOS_ROOT;
+const previousProjects = process.env.AGENTOS_CLIENT_PROJECTS_ROOT;
 const vault = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-motion-site-"));
+const clients = path.join(vault, "clients");
 process.env.AGENTOS_ROOT = vault;
+process.env.AGENTOS_CLIENT_PROJECTS_ROOT = clients;
 
 after(async () => {
   if (previous === undefined) delete process.env.AGENTOS_ROOT;
   else process.env.AGENTOS_ROOT = previous;
+  if (previousProjects === undefined) delete process.env.AGENTOS_CLIENT_PROJECTS_ROOT;
+  else process.env.AGENTOS_CLIENT_PROJECTS_ROOT = previousProjects;
   await fs.rm(vault, { recursive: true, force: true });
 });
 

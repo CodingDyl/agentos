@@ -427,6 +427,8 @@ describe("what must be true before anything is integrated", () => {
     assert.equal(isAgentOSOwnedChange("projects/other/artifacts/job_1/a.md", "bosch"), false);
     assert.equal(isAgentOSOwnedChange("projects/bosch/site/index.html", "bosch"), false);
     assert.equal(isAgentOSOwnedChange("projects/bosch/site/._index.html", "bosch"), true);
+    assert.equal(isAgentOSOwnedChange("/Volumes/DylanSSD/projects/clients/bosch/index.html", "bosch"), false);
+    assert.equal(isAgentOSOwnedChange("/Volumes/DylanSSD/projects/clients/bosch/._index.html", "bosch"), true);
   });
 });
 

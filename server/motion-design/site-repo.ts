@@ -1,18 +1,20 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { agentOSRoot } from "../agentos/filesystem";
 import { git, isRepository } from "../agentos/git";
+import { assertClientDrivePresent, resolveClientRepoPath } from "../website-rebuild/client-repo";
 import { motionSiteTemplate } from "./site-template";
 
 const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"];
-const GITIGNORE = ["node_modules/", ".next/", "out/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", ".DS_Store", ""].join("\n");
+const GITIGNORE = ["node_modules/", ".next/", "out/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", "._*", ".DS_Store", ""].join("\n");
 
-export function siteRepoPath(slug: string): string {
-  return path.join(agentOSRoot(), "projects", slug, "site");
+/** Default location for a new motion site: the shared client-projects root. */
+export function siteRepoPath(slug: string, recorded?: string): string {
+  return resolveClientRepoPath(slug, recorded);
 }
 
-export async function ensureMotionSiteRepo(slug: string, name: string): Promise<string> {
-  const repo = siteRepoPath(slug);
+export async function ensureMotionSiteRepo(slug: string, name: string, recorded?: string): Promise<string> {
+  const repo = siteRepoPath(slug, recorded);
+  await assertClientDrivePresent(repo);
   await fs.mkdir(repo, { recursive: true });
 
   if (await isRepository(repo)) {

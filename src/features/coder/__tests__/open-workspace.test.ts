@@ -92,6 +92,16 @@ describe("extractWorkspaceLocalPath", () => {
     assert.equal(extractWorkspaceLocalPath({ configuration: {} }), undefined);
     assert.equal(extractWorkspaceLocalPath(null), undefined);
   });
+
+  it("falls back to the project's recorded Local repository path", () => {
+    assert.equal(
+      extractWorkspaceLocalPath({
+        configuration: {},
+        git: { repositoryPath: "/Volumes/DylanSSD/projects/clients/bosch" },
+      }),
+      "/Volumes/DylanSSD/projects/clients/bosch",
+    );
+  });
 });
 
 describe("planWorkspaceOpen", () => {
@@ -103,6 +113,17 @@ describe("planWorkspaceOpen", () => {
         detail: { configuration: { localPath: "/Users/dylan/dev/pantry-pilot" } },
       }),
       { kind: "open", localPath: "/Users/dylan/dev/pantry-pilot", slug: "pantry-pilot" },
+    );
+  });
+
+  it("opens the recorded Local repository when Coder has no localPath of its own", () => {
+    assert.deepEqual(
+      planWorkspaceOpen({
+        slug: "bosch",
+        name: "Bosch",
+        detail: { git: { repositoryPath: "/Volumes/DylanSSD/projects/clients/bosch" } },
+      }),
+      { kind: "open", localPath: "/Volumes/DylanSSD/projects/clients/bosch", slug: "bosch" },
     );
   });
 

@@ -14,8 +14,10 @@ const run = promisify(execFile);
 
 /**
  * A project folder that is not its own git repo — it sits inside a larger
- * vault repository, the way Bosch's site sits inside AgentOS. Worktrees
- * created from that folder used to check out the whole vault.
+ * vault repository, the way an older Motion site used to live at
+ * `AgentOS-Memory/projects/<slug>/site`. New sites are created outside the
+ * vault; this fixture keeps the isolation behaviour for recorded vault paths
+ * that have not been moved.
  */
 
 describe("a project folder inside a parent repository", () => {

@@ -37,7 +37,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
 }
 
-/** Pulls `configuration.localPath`, or a top-level `localPath` if nested differently. */
+/** Pulls `configuration.localPath`, a top-level `localPath`, or the recorded Local repository. */
 export function extractWorkspaceLocalPath(detail: unknown): string | undefined {
   const root = asRecord(detail);
   if (!root) return undefined;
@@ -45,7 +45,13 @@ export function extractWorkspaceLocalPath(detail: unknown): string | undefined {
   const fromConfig = readString(asRecord(root.configuration)?.localPath);
   if (fromConfig) return fromConfig;
 
-  return readString(root.localPath);
+  const topLevel = readString(root.localPath);
+  if (topLevel) return topLevel;
+
+  const recorded = readString(asRecord(root.git)?.repositoryPath);
+  if (recorded && isFilesystemPath(recorded)) return recorded;
+
+  return undefined;
 }
 
 export function planWorkspaceOpen(input: {

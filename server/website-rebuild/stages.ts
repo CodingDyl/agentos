@@ -68,7 +68,7 @@ const withPatterns = (brief: string, patterns: string) => (patterns ? `${brief}\
  */
 
 export interface StageDeps {
-  ensureRepo: (slug: string, company: string) => Promise<string>;
+  ensureRepo: (slug: string, company: string, recorded?: string) => Promise<string>;
   commitFiles: typeof commitFiles;
   readRepoFile: typeof readRepoFile;
   readVaultFile: (relativePath: string) => Promise<string | undefined>;
@@ -177,7 +177,7 @@ function workspaceDoc(run: RebuildRun, name: string): string {
 async function repoFor(context: StageContext, deps: StageDeps): Promise<string> {
   if (!context.run.workspaceSlug) throw new StageBlocked("The run has no workspace yet.");
   try {
-    const repo = await deps.ensureRepo(context.run.workspaceSlug, context.run.company);
+    const repo = await deps.ensureRepo(context.run.workspaceSlug, context.run.company, context.run.repoPath);
     if (repo !== context.run.repoPath) setRunField(context.run.id, "repo_path", repo);
     // Checked every time, so a rebuild whose repo predates this still gets linked. Never overwrites a path the person set.
     if (await deps.linkWorkspaceRepo(context.run.workspaceSlug, repo).catch(() => false)) context.log(`Linked ${repo} as the workspace's repository, so Settings and the Repository tab show it.`);

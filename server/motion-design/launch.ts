@@ -12,9 +12,11 @@ import {
 } from "../../shared/motion-design-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { createProject, patchProject, toSlug } from "../agentos/mutations/projects";
+import { repositoryPathFor } from "../agentos/repository";
 import { routeFor } from "../model-routing/resolve";
 import { startJob, readJob, steerJob } from "../workers/job-manager";
 import { withLibrary } from "../reengineer/library";
+import { ClientRepoUnavailable } from "../website-rebuild/client-repo";
 import { bundledSkillPath } from "./skill-install";
 import { commitSiteFiles, ensureMotionSiteRepo, writeApprovalFile } from "./site-repo";
 import { MotionDesignError, clearDraft, createMotionRunId, saveRun } from "./store";
@@ -73,8 +75,15 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     });
   }
 
-  const repo = await ensureMotionSiteRepo(slug, name);
-  await patchProject({ slug, repoPath: repo }).catch(() => undefined);
+  const recorded = await repositoryPathFor(slug);
+  let repo: string;
+  try {
+    repo = await ensureMotionSiteRepo(slug, name, recorded);
+  } catch (error) {
+    if (error instanceof ClientRepoUnavailable) throw new MotionDesignError(error.message, 409);
+    throw error;
+  }
+  if (!recorded) await patchProject({ slug, repoPath: repo }).catch(() => undefined);
   await copyBundledSkillIntoRepo(repo);
   const files: Record<string, string | Buffer> = {
     "motion-studio/brief.md": briefMarkdown(input.brief, input.references),
