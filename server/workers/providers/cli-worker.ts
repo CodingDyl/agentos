@@ -177,6 +177,8 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
       const model = job.modelOverride?.trim() || aiModel(spec.id);
       const prompt = buildCliPrompt(contextPacket);
       const args = spec.args({ cwd, prompt, model, files, job, writableRoots });
+      const flagProblem = preflightCliFlags(spec.binary, args);
+      if (flagProblem) throw new Error(flagProblem);
 
       emit("job.progress", `Starting ${spec.name}`, { model: model ?? "tool default", promptBytes: prompt.length });
 
@@ -217,9 +219,7 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
         if (signal.aborted) throw new Error("Cancelled");
 
         if (code !== 0) {
-          const detail = exitDetail(stdout, stderr);
-          const reason = signalName ? `${spec.name} was stopped by ${signalName}` : `${spec.name} exited with code ${code ?? "unknown"}`;
-          throw new Error(detail ? `${reason}: ${detail}` : reason);
+          throw new Error(launchFailureMessage(spec.name, code, signalName, stdout, stderr));
         }
 
         const outcome = await reader.finish(stdout, files);
@@ -248,12 +248,68 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
 }
 
 /**
+ * Flags `codex exec` (0.156+) does not accept. `--ask-for-approval` is a
+ * top-level `codex` flag; passing it to `exec` exits with clap usage text
+ * instead of doing the job. Caught here so a regression fails before spawn.
+ */
+const CODEX_EXEC_UNSUPPORTED = new Set(["--ask-for-approval", "--full-auto"]);
+
+/**
+ * Refuses a launch whose argv the current CLI is known not to accept.
+ *
+ * Health never runs the binary (an interrupted `codex --version` once deleted
+ * the install). This check is the preflight that still catches a flag the
+ * installed CLI will reject.
+ */
+export function preflightCliFlags(binary: string, args: readonly string[]): string | undefined {
+  if (binary !== "codex") return undefined;
+  const rejected = args.find((arg) => CODEX_EXEC_UNSUPPORTED.has(arg));
+  if (!rejected) return undefined;
+  return (
+    `Codex exec does not accept ${rejected}. AgentOS launches it with ` +
+    `\`-c approval_policy="never"\` and \`--sandbox workspace-write\` instead. ` +
+    `Update AgentOS if this message appears.`
+  );
+}
+
+/**
  * Why a CLI exited badly, in its own words. Stderr first; but a tool that
  * streams JSON (Claude Code with `--output-format stream-json`) reports most
  * failures (expired login, usage limit, a refused flag) as a final `result`
  * event on stdout with nothing on stderr, so that is read next, then the
  * last plain lines of stdout. Without this the job said only "exited with code 1".
+ *
+ * Clap usage errors (unsupported flags) are rewritten so the operator sees
+ * which flag to drop, not a wall of `Usage:`.
  */
+export function launchFailureMessage(
+  name: string,
+  code: number | null,
+  signalName: NodeJS.Signals | null,
+  stdout: string,
+  stderr: string,
+): string {
+  const detail = exitDetail(stdout, stderr);
+  const reason = signalName ? `${name} was stopped by ${signalName}` : `${name} exited with code ${code ?? "unknown"}`;
+  const flag = unsupportedFlagName(detail);
+  if (flag) {
+    return (
+      `${name} rejected launch flag ${flag}. This version of ${name} does not ` +
+      `accept that option — AgentOS needs to match the installed CLI. ${detail}`
+    );
+  }
+  return detail ? `${reason}: ${detail}` : reason;
+}
+
+/** The flag clap (or a similar parser) refused, when the failure is that kind. */
+export function unsupportedFlagName(detail: string): string | undefined {
+  const match =
+    detail.match(/unexpected argument ['`](--[a-z0-9-]+)['`]/i) ??
+    detail.match(/to pass ['`](--[a-z0-9-]+)['`]/i) ??
+    detail.match(/unknown (?:argument|option) ['`](--[a-z0-9-]+)['`]/i);
+  return match?.[1];
+}
+
 export function exitDetail(stdout: string, stderr: string): string {
   const fromStderr = stderr.trim().split("\n").filter(Boolean).slice(-4).join(" ");
   if (fromStderr) return clip(fromStderr, 600);

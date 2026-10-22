@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 import { buildCliPrompt } from "../providers/cli-worker";
+import { launchFailureMessage, preflightCliFlags, unsupportedFlagName } from "../providers/cli-worker";
 import { claudeCodeArgs, claudeCodeReader, codexArgs, codexReader, hermesUsage } from "../providers/cli-workers";
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-cli-workers-"));
@@ -118,11 +119,25 @@ describe("Codex", () => {
     const args = codexArgs({ cwd: "/tmp/wt", prompt: "go", lastMessage: "/tmp/last" });
     assert.equal(args[0], "exec");
     assert.equal(args[args.indexOf("--sandbox") + 1], "workspace-write");
-    assert.equal(args[args.indexOf("--ask-for-approval") + 1], "never");
+    // `codex exec` (0.156+) rejects `--ask-for-approval`; unattended approval
+    // is a config override instead. Sandbox and writable-roots stay as they were.
+    assert.ok(!args.includes("--ask-for-approval"));
+    assert.ok(!args.includes("--full-auto"));
+    const policy = args.indexOf('approval_policy="never"');
+    assert.ok(policy > 0);
+    assert.equal(args[policy - 1], "-c");
     assert.equal(args[args.indexOf("--cd") + 1], "/tmp/wt");
     assert.ok(args.includes("check_for_update_on_startup=false"));
     assert.ok(!args.includes("--model"));
     assert.equal(args.at(-1), "go");
+    assert.equal(preflightCliFlags("codex", args), undefined);
+  });
+
+  it("preflight refuses the old --ask-for-approval exec flag", () => {
+    const message = preflightCliFlags("codex", ["exec", "--ask-for-approval", "never"]);
+    assert.match(message ?? "", /does not accept --ask-for-approval/);
+    assert.match(message ?? "", /approval_policy/);
+    assert.equal(preflightCliFlags("claude", ["--ask-for-approval", "never"]), undefined);
   });
 
   it("adds git metadata outside the worktree as writable roots", () => {
@@ -134,8 +149,10 @@ describe("Codex", () => {
     });
     assert.ok(args.includes("--add-dir"));
     assert.ok(args.includes("/repo/.git/worktrees/job"));
-    const config = args[args.indexOf("-c", args.indexOf("check_for_update_on_startup=false")) + 1];
-    assert.match(config, /sandbox_workspace_write.writable_roots=/);
+    const roots = args.find((arg) => arg.includes("sandbox_workspace_write.writable_roots="));
+    assert.match(roots ?? "", /sandbox_workspace_write.writable_roots=/);
+    assert.equal(args[args.indexOf(roots!) - 1], "-c");
+    assert.ok(args.includes('approval_policy="never"'));
   });
 
   it("sums turn usage, keeps cached apart, and prefers the last-message file", async () => {
@@ -193,5 +210,14 @@ describe("why a CLI exited badly", async () => {
     assert.equal(exitDetail('{"type":"result","subtype":"error_max_turns","is_error":true}', ""), "error max turns");
     assert.equal(exitDetail("Invalid API key · Please run /login\n", ""), "Invalid API key · Please run /login");
     assert.equal(exitDetail("", ""), "");
+  });
+  it("names an unsupported flag from clap usage text", () => {
+    const clap =
+      "error: unexpected argument '--ask-for-approval' found\n\n  tip: to pass '--ask-for-approval' as a value, use '-- --ask-for-approval'\nUsage: codex exec [OPTIONS] [PROMPT]";
+    assert.equal(unsupportedFlagName(clap.replace(/\s+/g, " ")), "--ask-for-approval");
+    assert.match(
+      launchFailureMessage("Codex", 2, null, "", clap),
+      /rejected launch flag --ask-for-approval/,
+    );
   });
 });

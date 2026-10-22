@@ -245,8 +245,6 @@ export function codexArgs(input: {
     // Git metadata lives outside the worktree; extra writable roots cover it.
     "--sandbox",
     "workspace-write",
-    "--ask-for-approval",
-    "never",
     "--cd",
     input.cwd,
     "--skip-git-repo-check",
@@ -255,6 +253,11 @@ export function codexArgs(input: {
     // An update mid-job replaces the binary underneath the run.
     "-c",
     "check_for_update_on_startup=false",
+    // `codex exec` does not take `--ask-for-approval` (that flag is top-level
+    // `codex` only). A headless job must never pause for a person, so the
+    // approval policy is set as config instead.
+    "-c",
+    'approval_policy="never"',
     ...codexSandboxFlags(input.cwd, input.writableRoots ?? []),
     ...(input.model ? ["--model", input.model] : []),
     input.prompt,
