@@ -1,4 +1,7 @@
 import type {
+  RerunPreview,
+  RerunSetting,
+  RetryJobInput,
   WorkerArtifact,
   WorkerEvent,
   WorkerEventType,
@@ -12,7 +15,7 @@ import type { ArtifactSource } from "../../shared/agentos-types";
 import { readOptionalFile } from "../agentos/filesystem";
 import { parseRepositoryPath } from "../agentos/projects";
 import { parseArtifactDeclarations, registerJobArtifacts } from "../agentos/mutations/documents";
-import { projectTaskLinks, saveTaskLink } from "../agentos/task-jobs";
+import { deleteTaskLink, projectTaskLinks, readTaskLink, saveTaskLink } from "../agentos/task-jobs";
 import type { VisualVerificationResult } from "../../shared/visual-verification-types";
 import { recordActivity } from "../activity/ui-events";
 import {
@@ -799,54 +802,88 @@ function sameRepoPath(left?: string, right?: string): boolean {
 }
 
 /**
- * Starts a fresh run of a finished job. `worker` hands it to someone else:
- * the answer to a worker that ran out of quota is rarely the same worker.
+ * Statuses that still have a process (or claim to). A retry stops these first
+ * so it does not race the old run.
  */
-export async function retryJob(jobId: string, options: { worker?: WorkerId; acceptanceCriteria?: string[]; fresh?: boolean } = {}): Promise<StartJobResult> {
+const IN_FLIGHT: readonly WorkerJobStatus[] = [
+  "queued",
+  "preparing",
+  "running",
+  "waiting",
+  "validating",
+  "visual_validating",
+  "reviewing",
+];
+
+/** Statuses a cancel can no longer change: the job is over, one way or another. */
+const SETTLED: readonly WorkerJobStatus[] = ["completed", "rejected", "failed", "cancelled"];
+
+async function waitUntilNotRunning(jobId: string, timeoutMs = 8_000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (isRunning(jobId) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return !isRunning(jobId);
+}
+
+/**
+ * Starts a fresh run of a job. `worker` hands it to someone else: the answer
+ * to a worker that ran out of quota is rarely the same worker.
+ *
+ * Any state can be retried, including a stuck live run (that run is cancelled
+ * first). Frozen model/effort/agent from the previous attempt are dropped so
+ * the retry uses current routing, unless the operator overrides them.
+ */
+export async function retryJob(jobId: string, options: RetryJobInput = {}): Promise<StartJobResult> {
   const previous = await readJob(jobId);
   if (!previous) return { error: "That job does not exist." };
 
-  // Work sent back by a review can be re-run too: that is how criteria the worker could never meet get replaced.
-  if ((!isTerminal(previous.status) && previous.status !== "changes_required") || running.has(jobId)) {
-    return { error: "Only a finished job can be retried. Cancel it first." };
+  if (previous.status === "integrating") {
+    return { error: "That job is being applied to the repository right now. Let it finish, then retry if needed." };
   }
-  // A run another page owns would be re-run here as a bare worker job without its studio or session.
-  if (previous.origin) return { error: `This run belongs to ${previous.origin.label}. Resume it there.` };
+
+  if (IN_FLIGHT.includes(previous.status) || isRunning(jobId)) {
+    const closed = await cancelJob(jobId);
+    if (!closed.ok) return { error: closed.error };
+    if (!(await waitUntilNotRunning(jobId))) {
+      return { error: "The previous run could not be stopped in time. Cancel it, then retry." };
+    }
+  }
 
   const worker = options.worker ?? previous.requestedWorker ?? previous.worker;
-  const repoPath = await repoPathForRetry(previous);
+  const repoPath = options.repoPath?.trim() || (await repoPathForRetry(previous));
   const stored = previous.sourceRepoPath ?? previous.repoPath;
   // Unfinished work from the old checkout cannot be continued in a different repository.
   const continued = options.fresh || !sameRepoPath(repoPath, stored) ? undefined : await continueFrom(previous);
+  const constraints = options.constraints ?? withoutContinuation(previous.constraints);
   const request: WorkerJobRequest = {
     worker,
     requestedWorker: worker,
     project: previous.project,
-    objective: previous.objective,
+    objective: options.objective?.trim() || previous.objective,
     repoPath,
     // Continuing means that attempt's commit. A stale attempt continues nothing:
     // its work stays on its branch and the retry starts from the branch as it is.
     baseRef: continued ? continued.commit : options.fresh ? undefined : previous.baseRef,
     contextFiles: previous.contextFiles,
     // An earlier attempt's "this run continues…" note describes that attempt, never this one.
-    constraints: continued ? [...withoutContinuation(previous.constraints), continued.note] : withoutContinuation(previous.constraints),
+    constraints: continued ? [...constraints, continued.note] : constraints,
     acceptanceCriteria: options.acceptanceCriteria?.length ? options.acceptanceCriteria : previous.acceptanceCriteria,
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
     skillId: previous.skillId,
-    // What the job was allowed to do. Without these a retried studio build
-    // loses its Higgsfield, web and skill access and stalls on approval prompts.
+    // Task type is kept so current routing still knows what kind of work this is.
+    // Model, effort and agent are resolved fresh unless the operator set them.
     modelRouteType: previous.modelRouteType,
-    modelOverride: previous.modelOverride,
-    effort: previous.effort,
+    modelOverride: options.modelOverride,
+    effort: options.effort,
     extraAllowedTools: previous.extraAllowedTools,
-    desiredOutcome: previous.desiredOutcome,
-    scope: previous.scope,
-    referenceLinks: previous.referenceLinks,
+    desiredOutcome: options.desiredOutcome !== undefined ? options.desiredOutcome : previous.desiredOutcome,
+    scope: options.scope !== undefined ? options.scope : previous.scope,
+    referenceLinks: options.referenceLinks ?? previous.referenceLinks,
     claudeSettingSources: previous.claudeSettingSources,
     claudeMcpServers: previous.claudeMcpServers,
     timeoutMs: previous.timeoutMs,
-    agentId: previous.agentId,
   };
 
   const started = await startJob(request, { retryOf: previous.id, ...(previous.skill ? { skill: previous.skill } : {}) });
@@ -857,7 +894,8 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId; acce
     // A job still waiting on review would sit beside its replacement, offering
     // an approval of work built on a base that has moved. The new run replaces
     // it; its checkout is kept, as with any cancel.
-    if (previous.status === "awaiting_review" || previous.status === "changes_required") {
+    const leftover = await readJob(previous.id);
+    if (leftover && !SETTLED.includes(leftover.status) && leftover.status !== "integrating") {
       const closed = await cancelJob(previous.id);
       if (closed.ok) emit(previous.id, "job.progress", `Replaced by ${started.job.id}`, { replacedBy: started.job.id });
     }
@@ -873,6 +911,91 @@ export async function retryJob(jobId: string, options: { worker?: WorkerId; acce
   }
 
   return started;
+}
+
+function setting(key: RerunSetting["key"], label: string, original?: string, current?: string): RerunSetting {
+  const left = original?.trim() || undefined;
+  const right = current?.trim() || undefined;
+  return { key, label, original: left, current: right, changed: (left ?? "") !== (right ?? "") };
+}
+
+/**
+ * What a retry will use, compared with the frozen snapshot on the original job.
+ */
+export async function rerunPreview(jobId: string): Promise<{ preview?: RerunPreview; error?: string }> {
+  const job = await readJob(jobId);
+  if (!job) return { error: "That job does not exist." };
+
+  const currentRepo = await repoPathForRetry(job);
+  const currentRoute = await resolveModelRoute({
+    objective: job.objective,
+    taggedType: job.modelRouteType,
+  });
+  const assigned = await resolveAgentAssignment({
+    objective: job.objective,
+    project: job.project,
+  }).catch(() => undefined);
+
+  const originalModel = job.modelOverride?.trim() || job.modelRoute?.model;
+  const originalEffort = job.effort ?? job.modelRoute?.effort;
+  const worker = job.requestedWorker ?? job.worker;
+
+  return {
+    preview: {
+      jobId: job.id,
+      worker,
+      brief: {
+        objective: job.objective,
+        desiredOutcome: job.desiredOutcome,
+        scope: job.scope,
+        acceptanceCriteria: job.acceptanceCriteria ?? [],
+        constraints: withoutContinuation(job.constraints),
+        referenceLinks: job.referenceLinks ?? [],
+      },
+      settings: [
+        setting("repoPath", "Repository", job.sourceRepoPath ?? job.repoPath, currentRepo),
+        setting("worker", "Worker", worker, worker),
+        setting("model", "Model", originalModel, currentRoute.model),
+        setting("effort", "Effort", originalEffort, currentRoute.effort),
+        setting("agent", "Agent", job.agentId, assigned && "agent" in assigned ? assigned.agent?.id : undefined),
+      ],
+    },
+  };
+}
+
+/**
+ * Frees a task whose job is dead, missing, or stuck holding it.
+ *
+ * Cancels the linked job when it still holds the task (except mid-integrate).
+ * A missing job record just drops the link.
+ */
+export async function unstickTask(
+  slug: string,
+  taskId: string,
+): Promise<{ ok: true; released: boolean; job?: WorkerJob } | { ok: false; error: string }> {
+  const link = await readTaskLink(slug, taskId);
+  if (!link) return { ok: false, error: "That task is not linked to a job." };
+
+  const job = await readJob(link.jobId);
+  if (!job) {
+    await deleteTaskLink(slug, taskId);
+    return { ok: true, released: true };
+  }
+
+  if (SETTLED.includes(job.status)) {
+    return { ok: true, released: false, job };
+  }
+
+  if (job.status === "integrating") {
+    return {
+      ok: false,
+      error: "That job is being applied to the repository right now. Let it finish, then revert if needed.",
+    };
+  }
+
+  const cancelled = await cancelJob(job.id);
+  if (!cancelled.ok) return { ok: false, error: cancelled.error };
+  return { ok: true, released: true, job: cancelled.job };
 }
 
 /**
@@ -1518,9 +1641,6 @@ export type CancelResult =
   | { ok: true; job: WorkerJob; stopped: boolean }
   | { ok: false; error: string };
 
-/** Statuses a cancel can no longer change: the job is over, one way or another. */
-const SETTLED: readonly WorkerJobStatus[] = ["completed", "rejected", "failed", "cancelled"];
-
 /**
  * Cancels a job, wherever it is in its life.
  *
@@ -1538,6 +1658,10 @@ const SETTLED: readonly WorkerJobStatus[] = ["completed", "rejected", "failed", 
  * repository, and stopping halfway is worse than letting it land.
  */
 export async function cancelJob(jobId: string): Promise<CancelResult> {
+  // A detached Motion run is still "live" to the console. Dropping the claim
+  // lets the operator unstick it even if the other process is gone.
+  releaseExternalRun(jobId);
+
   const live = running.get(jobId);
 
   if (live) {

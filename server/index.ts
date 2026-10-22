@@ -4,7 +4,6 @@ import http from "node:http";
 import express from "express";
 import { WebSocketServer } from "ws";
 import { AutomationControlSchema, CuratorControlSchema } from "../shared/agentos-types";
-import { WorkerIdSchema } from "../shared/worker-ids";
 import { MailBulkRequestSchema, MailCorrectionSchema } from "../shared/mail-types";
 import { MailComposeRequestSchema, MailPolishRequestSchema, MailSendTagSchema } from "../shared/mail-compose-types";
 import { ZodError } from "zod";
@@ -224,11 +223,13 @@ import {
   cancelJob,
   interruptRunningJobs,
   isRunning,
+  rerunPreview,
   retryJob,
   startJob,
   startStallWatch,
   steerJob,
   subscribe,
+  unstickTask,
   withLiveness,
 } from "./workers/job-manager";
 import {
@@ -303,7 +304,7 @@ import { workerPerformance } from "./workers/metrics";
 import { routeJob } from "./workers/router";
 import { WorkerRoutingDecisionSchema } from "../shared/worker-routing-types";
 import { RoutingModeSchema, TaskMetadataSchema } from "../shared/route-policy-types";
-import { WorkerJobRequestSchema } from "../shared/worker-types";
+import { RetryJobInputSchema, WorkerJobRequestSchema } from "../shared/worker-types";
 import {
   VisualAcceptanceContextSchema,
   type VisualAcceptanceContext,
@@ -1381,6 +1382,22 @@ app.post("/api/projects/:slug/tasks/:taskId/start", async (request, response) =>
   }
 });
 
+/** Frees a task whose job is dead, missing, or stuck holding it. */
+app.post("/api/projects/:slug/tasks/:taskId/unstick", async (request, response) => {
+  if (!localWrite(request, response)) return;
+  try {
+    const result = await unstickTask(request.params.slug, request.params.taskId);
+    if (!result.ok) {
+      response.status(409).json({ error: result.error });
+      return;
+    }
+    response.json({ ok: true, released: result.released, job: result.job });
+  } catch (error) {
+    console.error("[agentos] unstick failed:", error);
+    response.status(500).json({ error: "Unable to unstick that task" });
+  }
+});
+
 /** What has been delegated in this project, and where each job has got to. */
 app.get("/api/projects/:slug/task-delegations", async (request, response) => {
   try {
@@ -2379,7 +2396,16 @@ app.get("/api/worker-jobs/:id/events", async (request, response) => {
   });
 });
 
+function localWrite(request: express.Request, response: express.Response): boolean {
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(request.hostname)) {
+    response.status(403).json({ error: "Worker jobs can only be changed on this machine." });
+    return false;
+  }
+  return true;
+}
+
 app.post("/api/worker-jobs/:id/cancel", async (request, response) => {
+  if (!localWrite(request, response)) return;
   try {
     const result = await cancelJob(request.params.id);
 
@@ -2395,24 +2421,30 @@ app.post("/api/worker-jobs/:id/cancel", async (request, response) => {
   }
 });
 
-/**
- * Runs a finished job again from scratch — the answer to "interrupted" and to
- * "failed". A new job with a fresh worktree that remembers what it replaced.
- */
-app.post("/api/worker-jobs/:id/retry", async (request, response) => {
-  // Optional: retry on a different worker. An unknown id is refused, never passed on.
-  const requested = (request.body as { worker?: unknown } | undefined)?.worker;
-  const worker = requested === undefined ? undefined : WorkerIdSchema.safeParse(requested);
-  if (worker && !worker.success) {
-    response.status(400).json({ error: "That isn't a worker AgentOS knows." });
+app.get("/api/worker-jobs/:id/rerun-preview", async (request, response) => {
+  if (!localWrite(request, response)) return;
+  const { preview, error } = await rerunPreview(request.params.id);
+  if (!preview) {
+    response.status(404).json({ error: error ?? "That job does not exist." });
     return;
   }
-  const criteria = (request.body as { acceptanceCriteria?: unknown } | undefined)?.acceptanceCriteria;
-  const acceptanceCriteria = Array.isArray(criteria)
-    ? criteria.filter((line): line is string => typeof line === "string" && line.trim().length > 0).map((line) => line.trim().slice(0, 500)).slice(0, 20)
-    : undefined;
-  const fresh = (request.body as { fresh?: unknown } | undefined)?.fresh === true;
-  const { job, error } = await retryJob(request.params.id, { worker: worker?.data, acceptanceCriteria, fresh });
+  response.json(preview);
+});
+
+/**
+ * Runs a job again. A new job with a fresh worktree that remembers what it
+ * replaced. Optional body edits the brief or worker; current routing applies
+ * unless model/effort are set here.
+ */
+app.post("/api/worker-jobs/:id/retry", async (request, response) => {
+  if (!localWrite(request, response)) return;
+  const body = request.body && typeof request.body === "object" ? request.body : {};
+  const parsed = RetryJobInputSchema.safeParse(body);
+  if (!parsed.success) {
+    response.status(400).json({ error: "That retry could not be read." });
+    return;
+  }
+  const { job, error } = await retryJob(request.params.id, parsed.data);
 
   if (!job) {
     response.status(409).json({ error: error ?? "That job could not be retried." });

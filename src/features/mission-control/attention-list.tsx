@@ -8,6 +8,7 @@ import {
   useDismissAttention,
   useRestoreAttention,
   useRetryWorkerJob,
+  useCancelWorkerJob,
   useApproveWorkerJob,
   useRejectWorkerJob,
   useReviseWorkerJob,
@@ -209,6 +210,8 @@ function WorkerJobActions({
       >
         {reject.isPending ? "Rejecting..." : "Reject"}
       </PaperButton>
+      <StopJobButton jobId={jobId} onActioned={onActioned} />
+      <RetryJobButton jobId={jobId} onRetried={onActioned} />
       {approve.isError || reject.isError || revise.isError ? (
         <p className="basis-full text-[13px] text-paper-flame-deep" role="alert">
           {(approve.error ?? reject.error ?? revise.error)?.message ?? "That action did not complete."}
@@ -244,7 +247,7 @@ function RetryActions({
 
   const run = (target?: string) =>
     retry.mutate(
-      { id: jobId, worker: target },
+      { id: jobId, ...(target ? { worker: target } : {}) },
       {
         onSuccess: ({ job }) => {
           onRetried(`Retrying on ${nameOf(target ?? worker)}.`);
@@ -285,6 +288,56 @@ function RetryActions({
           {retry.error instanceof Error ? retry.error.message : "That retry didn't start."}
         </p>
       ) : null}
+    </>
+  );
+}
+
+function StopJobButton({ jobId, onActioned }: { jobId: string; onActioned: (message: string) => void }) {
+  const cancel = useCancelWorkerJob();
+  return (
+    <>
+      <PaperButton
+        variant="quiet"
+        disabled={cancel.isPending}
+        onClick={() => cancel.mutate(jobId, { onSuccess: () => onActioned("Stopped. The task is free to delegate again.") })}
+      >
+        {cancel.isPending ? "Stopping…" : "Stop"}
+      </PaperButton>
+      {cancel.isError ? (
+        <p className="basis-full text-[13px] text-paper-flame-deep" role="alert">
+          {cancel.error instanceof Error ? cancel.error.message : "That job could not be stopped."}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function RetryJobButton({ jobId, onRetried }: { jobId: string; onRetried: (message: string) => void }) {
+  const retry = useRetryWorkerJob();
+  const navigate = useNavigate();
+  return (
+    <>
+      <PaperButton
+        variant="quiet"
+        disabled={retry.isPending}
+        onClick={() =>
+          retry.mutate(jobId, {
+            onSuccess: ({ job }) => {
+              onRetried("Retrying with current settings.");
+              void navigate(`/workers/jobs/${job.id}`);
+            },
+          })
+        }
+      >
+        <RefreshCw className="size-3.5" aria-hidden="true" />
+        {retry.isPending ? "Starting…" : "Retry"}
+      </PaperButton>
+      <Link
+        to={`/workers/jobs/${jobId}`}
+        className={cn("inline-flex min-h-8 items-center px-2.5 text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}
+      >
+        Edit & rerun
+      </Link>
     </>
   );
 }

@@ -5,8 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDot,
-  RotateCcw,
-  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -41,9 +39,9 @@ import {
 import { VisualVerificationPanel } from "./visual-verification-panel";
 import { CriteriaRerun } from "./criteria-rerun";
 import { GrokBotJobPanel } from "./grok-bot-job-panel";
+import { JobRunControls } from "./job-run-controls";
 import {
   useApproveWorkerJob,
-  useCancelWorkerJob,
   useDiscardWorkerWorktree,
   useRefreshWorkerJob,
   useRejectWorkerJob,
@@ -64,7 +62,7 @@ import { DocumentList } from "@/features/projects/detail/document-list";
 import { cn } from "@/lib/utils";
 import { useJobEvents } from "./use-job-events";
 import { modelRouteLabel } from "@shared/model-routing-types";
-import { bySeverity, formatDuration, hasReviewableWork, isCancellable, isFinished, jobTitle, needsPerson, statusLabel, statusPill, toSteps, type StepState, verdictLabel, verdictPill } from "./workers-model";
+import { bySeverity, formatDuration, hasReviewableWork, isFinished, jobTitle, needsPerson, statusLabel, statusPill, toSteps, type StepState, verdictLabel, verdictPill } from "./workers-model";
 
 const PAGE_PADDING =
   "mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12";
@@ -85,9 +83,6 @@ export function JobDetailPage() {
   const navigationItems = useNavigationItems();
   const { id = "" } = useParams();
   const { data, isPending, isFetching, error, refetch } = useWorkerJob(id);
-  const cancelJob = useCancelWorkerJob();
-  const retryJob = useRetryWorkerJob();
-  const navigate = useNavigate();
   const events = useJobEvents(id);
   const refreshJob = useRefreshWorkerJob();
 
@@ -129,20 +124,7 @@ export function JobDetailPage() {
             isRetrying={isFetching}
           />
         ) : (
-          <JobDetail
-            job={job}
-            events={events}
-            onCancel={() => cancelJob.mutate(job.id)}
-            isCancelling={cancelJob.isPending}
-            cancelError={cancelJob.error?.message}
-            onRetry={() =>
-              retryJob.mutate(job.id, {
-                onSuccess: ({ job: next }) => void navigate(`/workers/jobs/${next.id}`),
-              })
-            }
-            isRetrying={retryJob.isPending}
-            retryError={retryJob.error?.message}
-          />
+          <JobDetail job={job} events={events} />
         )}
       </div>
     </AppShell>
@@ -152,20 +134,10 @@ export function JobDetailPage() {
 interface JobDetailProps {
   job: WorkerJob;
   events: ReturnType<typeof useJobEvents>;
-  onCancel: () => void;
-  isCancelling: boolean;
-  cancelError?: string;
-  onRetry: () => void;
-  isRetrying: boolean;
-  retryError?: string;
 }
 
-function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, isRetrying, retryError }: JobDetailProps) {
+function JobDetail({ job, events }: JobDetailProps) {
   const finished = isFinished(job.status);
-  const cancellable = isCancellable(job.status);
-  // A live run stops at once; finished work asks first, because it throws
-  // away a result someone may still have wanted to review.
-  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const steps = toSteps(events, finished);
   const duration = formatDuration(job.startedAt, job.completedAt);
 
@@ -177,8 +149,6 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
     [job.lastEventAt, newestStreamed].filter((value): value is string => !!value).sort().at(-1) ?? job.startedAt;
   const interrupted = Boolean(job.interruptedAt);
   const stalled = Boolean(job.stalledSince) && !finished;
-  // A run another page owns (a Claude Motion film) is resumed there, with its studio and session.
-  const retryable = finished && !job.origin && (job.status === "failed" || job.status === "cancelled");
 
   // Only so a routing decision can name its workers rather than print ids.
   const { data: workersData } = useWorkers();
@@ -260,69 +230,10 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
               jobId={job.id}
               project={job.project}
             />
-
-            {cancellable && !confirmingCancel ? (
-              <CommandButton
-                variant="danger"
-                icon={Square}
-                iconPosition="start"
-                onClick={() => (finished ? setConfirmingCancel(true) : onCancel())}
-                loading={isCancelling}
-                loadingLabel={finished ? "Cancelling" : "Stopping"}
-              >
-                Cancel job
-              </CommandButton>
-            ) : null}
-
-            {retryable ? (
-              <CommandButton
-                variant={interrupted ? "primary" : "secondary"}
-                icon={RotateCcw}
-                iconPosition="start"
-                onClick={onRetry}
-                loading={isRetrying}
-                loadingLabel="Starting"
-              >
-                Retry
-              </CommandButton>
-            ) : null}
+            <JobRunControls job={job} density="header" />
           </div>
         </div>
       </header>
-
-      {confirmingCancel && cancellable ? (
-        <div className="mt-10 max-w-[72ch] rounded-lg border border-os-danger/40 bg-os-danger/5 p-5 md:p-6" role="alertdialog" aria-label="Cancel this job?">
-          <p className="os-meta text-os-danger">Cancel this job?</p>
-          <p className="mt-3 text-[15px] leading-6 text-foreground">
-            {job.resolvedWorker ?? job.worker} has finished its run. Cancelling closes the job without reviewing or applying
-            the work, and frees the task for new work. The worktree is kept until you discard it, and Retry starts it again.
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <CommandButton
-              variant="danger"
-              icon={Square}
-              iconPosition="start"
-              onClick={() => {
-                onCancel();
-                setConfirmingCancel(false);
-              }}
-              loading={isCancelling}
-              loadingLabel="Cancelling"
-            >
-              Yes, cancel job
-            </CommandButton>
-            <CommandButton variant="quiet" onClick={() => setConfirmingCancel(false)}>
-              Keep it
-            </CommandButton>
-          </div>
-        </div>
-      ) : null}
-
-      {cancelError ? (
-        <p className="mt-6 max-w-[72ch] text-[13px] leading-5 text-os-danger" role="alert">
-          {cancelError}
-        </p>
-      ) : null}
 
       {stalled ? (
         <div className="mt-10 max-w-[72ch] rounded-lg border border-os-warning/40 bg-os-warning/5 p-5 md:p-6" role="status">
@@ -361,7 +272,6 @@ function JobDetail({ job, events, onCancel, isCancelling, cancelError, onRetry, 
               Usually a restart of the AgentOS data adapter (saving a server file restarts it in development). The worktree is intact; a retry starts a fresh run.
             </p>
           ) : null}
-          {retryError ? <p className="mt-3 text-[13px] leading-5 text-os-danger">{retryError}</p> : null}
         </div>
       ) : null}
 

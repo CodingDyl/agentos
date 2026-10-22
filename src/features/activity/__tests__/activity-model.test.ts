@@ -148,6 +148,11 @@ describe("where an event leads", () => {
   it("offers nothing when there is nowhere to go", () => {
     assert.deepEqual(linksFor(event({ type: "vault.committed" })), []);
   });
+
+  it("opens the worker job when the event names one", () => {
+    const links = linksFor(event({ metadata: { jobId: "job_abc" } }));
+    assert.ok(links.some((link) => link.to === "/workers/jobs/job_abc"));
+  });
 });
 
 describe("the expanded event", () => {

@@ -166,13 +166,19 @@ describe("job liveness", () => {
     assert.equal(manager.isRunning("job_external000000"), false);
   });
 
-  it("refuses to retry a job that is still live", async () => {
+  it("retries a job that is still live by stopping it first", async () => {
     await store.saveJob(job({ id: "job_live00000000000", status: "running" }));
 
     const { job: retried, error } = await manager.retryJob("job_live00000000000");
 
-    assert.equal(retried, undefined);
-    assert.match(error ?? "", /finished job/);
+    assert.equal(error, undefined);
+    assert.ok(retried);
+    assert.equal(retried.retryOf, "job_live00000000000");
+    assert.equal((await store.readJob("job_live00000000000"))?.status, "cancelled");
+
+    for (let attempt = 0; attempt < 200 && manager.isRunning(retried.id); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
   });
 });
 

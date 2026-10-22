@@ -21,7 +21,8 @@ import {
   setMilestoneCriterion,
   type MilestoneAction,
 } from "./client";
-import { retryWorkerJob } from "./client";
+import { getRerunPreview, retryWorkerJob, unstickTaskJob } from "./client";
+import type { RetryJobInput } from "@shared/worker-types";
 import {
   clearMailCorrection,
   correctMailThread,
@@ -2615,16 +2616,46 @@ export function useDraftMilestoneReview(slug: string) {
   });
 }
 
-/** A fresh run of a finished job. The new job is what the caller navigates to. */
+/** A fresh run of a job. The new job is what the caller navigates to. */
 export function useRetryWorkerJob() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: string | { id: string; worker?: string; acceptanceCriteria?: string[] }) =>
-      typeof input === "string" ? retryWorkerJob(input) : retryWorkerJob(input.id, input.worker, input.acceptanceCriteria),
+    mutationFn: (input: string | ({ id: string } & Omit<RetryJobInput, "worker"> & { worker?: string })) => {
+      if (typeof input === "string") return retryWorkerJob(input);
+      const { id, worker, ...rest } = input;
+      return retryWorkerJob(id, { ...rest, worker: worker as RetryJobInput["worker"] });
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.workerJobs() });
       void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
+      void queryClient.invalidateQueries({ queryKey: ["agentos", "task-delegations"] });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useRerunPreview(id: string, enabled = false) {
+  return useQuery({
+    queryKey: [...agentosKeys.workerJob(id), "rerun-preview"],
+    queryFn: () => getRerunPreview(id),
+    enabled: enabled && id.length > 0,
+    staleTime: 5_000,
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+export function useUnstickTask(slug: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (taskId: string) => unstickTaskJob(slug, taskId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.workerJobs() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.missionControl() });
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.taskDelegations(slug) });
     },
     networkMode: "always",
     retry: 0,
