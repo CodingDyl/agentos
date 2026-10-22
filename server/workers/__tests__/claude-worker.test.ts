@@ -87,6 +87,8 @@ describe("what Claude is permitted to do", () => {
     assert.ok(tools.includes("Bash(git diff)"));
     assert.ok(!tools.some((tool) => tool.includes("git commit")));
     assert.ok(!tools.some((tool) => tool.includes("git push")));
+    // Chromium runs after validation in AgentOS, not as a worker Bash grant.
+    assert.ok(!tools.some((tool) => tool.includes("browser-check")));
   });
 
   it("adds the job's own validation commands to the base tools", () => {

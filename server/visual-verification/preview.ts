@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
+import { prepareWorktreeDependencies } from "../workers/worktree-deps";
 
 /**
  * Running the implementation, so it can be looked at.
@@ -25,9 +25,6 @@ export class PreviewError extends Error {
     this.name = "PreviewError";
   }
 }
-
-/** Long enough for a cold `npm install` on a real project. */
-const INSTALL_TIMEOUT_MS = 8 * 60 * 1000;
 
 /** Long enough for a dev server to compile, short enough to fail usefully. */
 const READY_TIMEOUT_MS = 120_000;
@@ -150,18 +147,14 @@ export async function resolvePreviewCommand(
   };
 }
 
-function hash(contents: string): string {
-  return createHash("sha256").update(contents).digest("hex");
-}
-
 /**
  * Gets dependencies into the worktree.
  *
  * A fresh worktree has no `node_modules`, and installing one from scratch for
  * every verification would make this step cost minutes it does not need to.
- * When the source repository has already installed the *identical* lockfile,
- * its tree is linked rather than duplicated — identical lockfiles mean
- * identical dependencies, so this is a shortcut rather than an assumption.
+ * The same preparation the worker launch uses: clone or copy when the source
+ * lockfile matches (Next/Vite cannot follow a symlink out of the worktree),
+ * then `npm ci --prefer-offline` if that is not available.
  *
  * A worker that added a dependency changes the lockfile, which fails that
  * check, and the install happens properly.
@@ -171,87 +164,12 @@ async function installDependencies(
   sourceRepoPath: string | undefined,
   onProgress: (message: string) => void,
 ): Promise<void> {
-  if (await exists(path.join(worktreePath, "node_modules"))) return;
-
-  if (sourceRepoPath) {
-    const [worktreeLock, sourceLock] = await Promise.all([
-      fs.readFile(path.join(worktreePath, "package-lock.json"), "utf8").catch(() => undefined),
-      fs.readFile(path.join(sourceRepoPath, "package-lock.json"), "utf8").catch(() => undefined),
-    ]);
-
-    const sourceModules = path.join(sourceRepoPath, "node_modules");
-
-    if (
-      worktreeLock &&
-      sourceLock &&
-      hash(worktreeLock) === hash(sourceLock) &&
-      (await exists(sourceModules))
-    ) {
-      onProgress("Linking the source repository's dependencies");
-
-      await fs.symlink(
-        sourceModules,
-        path.join(worktreePath, "node_modules"),
-        "dir",
-      );
-
-      return;
-    }
+  onProgress("Preparing dependencies in the worktree");
+  const prepared = await prepareWorktreeDependencies(sourceRepoPath ?? worktreePath, worktreePath);
+  if (!prepared.ok) {
+    throw new PreviewError(prepared.detail);
   }
-
-  onProgress("Installing dependencies in the worktree");
-
-  await runToCompletion("npm install", worktreePath, INSTALL_TIMEOUT_MS);
-}
-
-/** Runs a command and rejects with its output when it does not succeed. */
-function runToCompletion(
-  command: string,
-  cwd: string,
-  timeoutMs: number,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, {
-      cwd,
-      shell: true,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let output = "";
-
-    const capture = (chunk: Buffer) => {
-      output = `${output}${chunk.toString("utf8")}`.slice(-MAX_OUTPUT_CHARS * 2);
-    };
-
-    child.stdout?.on("data", capture);
-    child.stderr?.on("data", capture);
-
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new PreviewError(`\`${command}\` timed out.`));
-    }, timeoutMs);
-
-    child.once("error", (error) => {
-      clearTimeout(timer);
-      reject(new PreviewError(`Could not run \`${command}\`: ${error.message}`));
-    });
-
-    child.once("close", (code) => {
-      clearTimeout(timer);
-
-      if (code === 0) {
-        resolve();
-        return;
-      }
-
-      reject(
-        new PreviewError(
-          `\`${command}\` exited with ${code ?? "no code"}. ${tail(output)}`,
-        ),
-      );
-    });
-  });
+  onProgress(prepared.detail);
 }
 
 export interface Preview {

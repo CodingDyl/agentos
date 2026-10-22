@@ -95,7 +95,7 @@ export async function preflightWorkerLaunch(input: PreflightInput): Promise<Pref
     if (!(await exists(modules))) {
       issues.push({
         code: "deps_missing",
-        message: `Dependencies are not installed in the worktree (${modules} is missing). AgentOS should have linked or installed them before launch; retry the job, or run the project's install in ${input.projectRepo?.projectPath ?? "the source checkout"} first.`,
+        message: `Dependencies are not installed in the worktree (${modules} is missing). AgentOS should have copied or installed them before launch; retry the job, or run the project's install in ${input.projectRepo?.projectPath ?? "the source checkout"} first.`,
       });
     }
   }

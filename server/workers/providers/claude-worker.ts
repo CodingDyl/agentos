@@ -1,5 +1,4 @@
 import { mkdir } from "node:fs/promises";
-import { BROWSER_CHECK_SCRIPT } from "../browser-check";
 import { homedir } from "node:os";
 import path from "node:path";
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
@@ -72,10 +71,9 @@ const BASE_TOOLS: readonly string[] = [
   ...bashRules("git ls-tree"),
   ...bashRules("git merge-base"),
   ...bashRules("git rev-list"),
-  // AgentOS's own one-browser check, so a worker can look at what it built.
-  // Git fetch/pull/merge stay denied: AgentOS keeps the checkout current
-  // outside the sandbox, where the gitdir is writable.
-  ...bashRules(`node ${BROWSER_CHECK_SCRIPT}`),
+  // Browser evidence is AgentOS's post-validation Chromium step, outside the
+  // sandbox. Git fetch/pull/merge stay denied: AgentOS keeps the checkout
+  // current outside the sandbox, where the gitdir is writable.
 ];
 
 /**

@@ -9,10 +9,12 @@ import { git } from "../agentos/git";
  * AgentOS's own look at a web project, in one browser.
  *
  * Workers cannot install browsers, and a review with no browser evidence keeps
- * asking for it. So after validation AgentOS runs `scripts/browser-check.mjs`
- * itself: the project's own dev server, Chromium at five widths, with motion
- * and with reduced motion, scrolled down and back. The result goes into the
- * job's checks, where the reviewer reads it.
+ * asking for it. Codex's workspace-write sandbox also refuses Chromium, so the
+ * worker must not be the one that runs this. After validation AgentOS runs
+ * `scripts/browser-check.mjs` itself, outside that sandbox: the project's own
+ * dev server, Chromium at five widths, with motion and with reduced motion,
+ * scrolled down and back. The result goes into the job's checks, where the
+ * reviewer reads it.
  *
  * Problems it finds (sideways scroll, console errors, links to nothing) are
  * reported, not failed on: they may predate the job, and the reviewer judges

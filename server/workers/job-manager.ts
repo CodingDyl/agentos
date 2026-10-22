@@ -1230,7 +1230,8 @@ async function run(
     // vault). The worker starts there, not at the repository root, or it builds
     // in the wrong place: a second copy of the site at the vault root.
     const projectDir = job.worktreePath ? await projectDirIn(job.worktreePath, job.sourceRepoPath) : undefined;
-    // Before the worker starts: its own browser checks must never read as its changes.
+    // Before the worker starts: AgentOS's browser-check screenshots (written
+    // after validation, outside the worker sandbox) must never read as changes.
     if (projectDir) await excludeFromGit(projectDir);
 
     // A web project whose job named no checks still gets its build checked.
@@ -1331,10 +1332,11 @@ async function run(
       emit(job.id, "job.progress", "Skipped build checks: the worker made no file changes (baseline only)");
     }
 
-    // AgentOS looks at a web project in one browser itself, so the reviewer
-    // has browser evidence that no worker could produce. Skipped when the
-    // build failed, and skipped when nothing changed: photographing the
-    // unchanged baseline is not evidence the objective passed.
+    // AgentOS looks at a web project in one browser itself, outside the
+    // worker sandbox, so the reviewer has Chromium evidence Codex cannot
+    // produce. Skipped when the build failed, and skipped when nothing
+    // changed: photographing the unchanged baseline is not evidence the
+    // objective passed.
     if (
       worktree &&
       !honesty.skipValidation &&
