@@ -474,7 +474,8 @@ export const WorkerJobSchema = WorkerJobRequestSchema.extend({
   retryOf: z.string().optional(),
   /**
    * The page that owns this run, when another part of AgentOS started it (a
-   * Claude Motion film, say). It is resumed there, not retried from Workers.
+   * Claude Motion film, say). Linked from the job, but the operator can still
+   * retry or cancel it from Workers.
    */
   origin: z.object({ label: z.string(), href: z.string() }).optional(),
 });
@@ -559,6 +560,52 @@ export type WorkerJobResponse = z.infer<typeof WorkerJobResponseSchema>;
 export type WorkerJobEventsResponse = z.infer<
   typeof WorkerJobEventsResponseSchema
 >;
+
+/**
+ * What a retry will use, compared with the original job's frozen snapshot.
+ *
+ * Reruns take the project's current repository, the current model-routing
+ * table, and a freshly assigned agent, unless the operator overrides them.
+ */
+export const RerunSettingSchema = z.object({
+  key: z.enum(["repoPath", "worker", "model", "effort", "agent"]),
+  label: z.string(),
+  original: z.string().optional(),
+  current: z.string().optional(),
+  changed: z.boolean(),
+});
+
+export const RerunPreviewSchema = z.object({
+  jobId: z.string(),
+  brief: z.object({
+    objective: z.string(),
+    desiredOutcome: z.string().optional(),
+    scope: z.string().optional(),
+    acceptanceCriteria: z.array(z.string()),
+    constraints: z.array(z.string()),
+    referenceLinks: z.array(z.string()),
+  }),
+  worker: z.string(),
+  settings: z.array(RerunSettingSchema),
+});
+
+export const RetryJobInputSchema = z.object({
+  worker: z.union([WorkerIdSchema, z.literal("auto")]).optional(),
+  objective: z.string().min(1).max(20_000).optional(),
+  desiredOutcome: z.string().max(8_000).optional(),
+  scope: z.string().max(8_000).optional(),
+  acceptanceCriteria: z.array(z.string().max(500)).max(20).optional(),
+  constraints: z.array(z.string().max(500)).max(20).optional(),
+  referenceLinks: z.array(z.string().max(2_000)).max(20).optional(),
+  modelOverride: z.string().trim().max(80).optional(),
+  effort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
+  repoPath: z.string().max(1_000).optional(),
+  fresh: z.boolean().optional(),
+});
+
+export type RerunSetting = z.infer<typeof RerunSettingSchema>;
+export type RerunPreview = z.infer<typeof RerunPreviewSchema>;
+export type RetryJobInput = z.infer<typeof RetryJobInputSchema>;
 
 /**
  * A reason a reviewed job cannot be applied, and what would resolve it.

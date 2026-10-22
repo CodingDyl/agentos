@@ -79,6 +79,17 @@ export function isCancellable(status: WorkerJobStatus): boolean {
   return !["completed", "rejected", "failed", "cancelled", "integrating"].includes(status);
 }
 
+/**
+ * Whether the operator can start this job again.
+ *
+ * Integrating is the one refusal: the work is being written into the
+ * repository. Every other state — including a live run, review, or a job
+ * another page started — can be replaced with a fresh attempt.
+ */
+export function isRetryable(status: WorkerJobStatus): boolean {
+  return status !== "integrating";
+}
+
 /** Whether the job is waiting on a person rather than on a machine. */
 export function isAwaitingReview(status: WorkerJobStatus): boolean {
   return status === "awaiting_review";

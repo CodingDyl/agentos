@@ -338,7 +338,7 @@ describe("a gate run that leaves no frames", () => {
     assert.doesNotMatch(message, /ended with "success"/);
   });
 
-  it("links its worker job back to the film, and Workers will not re-run it as a bare job", async () => {
+  it("links its worker job back to the film, and still lets the operator retry it from Workers", async () => {
     const { syncWorkerJob } = await import("../animate");
     const { readJob: readWorkerJob } = await import("../../workers/job-store");
     const { retryJob } = await import("../../workers/job-manager");
@@ -358,8 +358,15 @@ describe("a gate run that leaves no frames", () => {
     const worker = await readWorkerJob(job.workerJobId!);
     assert.deepEqual(worker?.origin, { label: "Claude Motion", href: "/designs/animate/anm_5555666677778888" });
     const retried = await retryJob(job.workerJobId!);
-    assert.equal(retried.job, undefined);
-    assert.match(retried.error ?? "", /belongs to Claude Motion/);
+    // Origin is a link, not a lock. Retry may still refuse if that worker is
+    // switched off — it must not refuse because the film started the job.
+    assert.doesNotMatch(retried.error ?? "", /belongs to Claude Motion/);
+    if (retried.job) {
+      const { isRunning } = await import("../../workers/job-manager");
+      for (let attempt = 0; attempt < 200 && isRunning(retried.job.id); attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
   });
 });
 

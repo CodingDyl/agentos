@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatDuration,
+  isCancellable,
   isFinished,
+  isRetryable,
   statusLabel,
   toSteps,
   visualAcceptanceProblem,
@@ -121,6 +123,21 @@ describe("how a job's state reads", () => {
     assert.equal(isFinished("cancelled"), true);
     assert.equal(isFinished("running"), false);
     assert.equal(isFinished("queued"), false);
+  });
+
+  it("lets the operator retry any job except one being applied", () => {
+    assert.equal(isRetryable("running"), true);
+    assert.equal(isRetryable("awaiting_review"), true);
+    assert.equal(isRetryable("completed"), true);
+    assert.equal(isRetryable("rejected"), true);
+    assert.equal(isRetryable("integrating"), false);
+  });
+
+  it("lets the operator cancel a review job but not a settled one", () => {
+    assert.equal(isCancellable("awaiting_review"), true);
+    assert.equal(isCancellable("reviewing"), true);
+    assert.equal(isCancellable("completed"), false);
+    assert.equal(isCancellable("integrating"), false);
   });
 });
 

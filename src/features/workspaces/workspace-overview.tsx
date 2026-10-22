@@ -7,6 +7,7 @@ import type { WorkspaceModule, WorkspaceType } from "@shared/workspace";
 import { Meter, PAPER_FOCUS, Tag } from "@/components/paper";
 import { SOURCE_LABELS, TYPE_LABELS } from "@/features/projects/documents-model";
 import { taskJobState } from "@/features/projects/detail/task-job-state";
+import { JobIdControls } from "@/features/workers/job-run-controls";
 import { HEALTH_LABELS } from "@/features/projects/roadmap-model";
 import { formatRelativeTime } from "@/lib/format";
 import {
@@ -260,6 +261,7 @@ function TaskLine({
           <Link to={`/workers/jobs/${job.jobId}`} className={cn("ml-1 rounded-none font-medium text-paper-blue hover:underline", PAPER_FOCUS)}>
             View
           </Link>
+          <JobIdControls jobId={job.jobId} />
         </div>
       ) : null}
     </li>

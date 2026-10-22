@@ -22,6 +22,7 @@ import {
   useStartTaskDelegation,
   useTaskBrief,
   useTaskCompletion,
+  useUnstickTask,
   useWorkers,
 } from "@/lib/agentos/queries";
 import { TaskBriefReadout } from "@/features/workspace/task-brief-fields";
@@ -30,6 +31,7 @@ import { RoutePolicyPanel } from "@/features/workers/route-policy-panel";
 import { RoutingControls } from "@/features/workers/routing-controls";
 import { RoutingDecision } from "@/features/workers/routing-decision";
 import { VisualAcceptanceFields } from "@/features/workers/visual-acceptance-fields";
+import { JobIdControls } from "@/features/workers/job-run-controls";
 import { visualAcceptanceProblem } from "@/features/workers/workers-model";
 import { cn } from "@/lib/utils";
 import { ContextPicker } from "./context-picker";
@@ -133,6 +135,7 @@ export function TaskPanel({
 
   const active = delegation?.active === true;
   const jobId = delegation?.jobId;
+  const unstick = useUnstickTask(project);
 
   /**
    * A task with no id cannot be delegated.
@@ -318,7 +321,7 @@ export function TaskPanel({
             ) : null}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <Link to={`/workers/jobs/${jobId}`}>
               <CommandButton variant="primary">
                 {delegation.status === "awaiting_review"
@@ -327,7 +330,21 @@ export function TaskPanel({
                 <ArrowRight className="size-3.5" strokeWidth={1.5} />
               </CommandButton>
             </Link>
+            {jobId ? <JobIdControls jobId={jobId} /> : null}
+            {active && task.id ? (
+              <CommandButton
+                variant="quiet"
+                loading={unstick.isPending}
+                loadingLabel="Unsticking"
+                onClick={() => unstick.mutate(task.id!)}
+              >
+                Unstick task
+              </CommandButton>
+            ) : null}
           </div>
+          {unstick.error ? (
+            <p className="mt-2 text-[12px] leading-4 text-os-danger">{unstick.error.message}</p>
+          ) : null}
 
           {/* The completion proposal, which only appears once the work is in
               the repository. Shown as the exact line that would change. */}

@@ -108,12 +108,15 @@ import {
 } from "@shared/visual-verification-types";
 import {
   IntegrationBlockerSchema,
+  RerunPreviewSchema,
   WorkerDiffSchema,
   WorkerJobEventsResponseSchema,
   WorkerJobResponseSchema,
   WorkerJobsResponseSchema,
   WorkersResponseSchema,
   type IntegrationBlocker,
+  type RerunPreview,
+  type RetryJobInput,
   type WorkerDiff,
   type WorkerJob,
   type WorkerJobRequest,
@@ -2219,15 +2222,35 @@ export async function draftMilestoneReviewWithHermes(slug: string, id: string): 
   return payload.review;
 }
 
-/** A fresh run of a finished job; `worker` hands it to a different worker. */
-export function retryWorkerJob(id: string, worker?: string, acceptanceCriteria?: string[]): Promise<{ job: WorkerJob }> {
+/** A fresh run of a job; optional edits override the brief or worker. */
+export function retryWorkerJob(
+  id: string,
+  input?: string | RetryJobInput,
+): Promise<{ job: WorkerJob }> {
+  const body: RetryJobInput | undefined =
+    typeof input === "string" ? { worker: input as RetryJobInput["worker"] } : input;
+  const hasBody = Boolean(body && Object.values(body).some((value) => value !== undefined));
   return workerRequest(
     `/api/worker-jobs/${encodeURIComponent(id)}/retry`,
-    worker || acceptanceCriteria
-      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ worker, acceptanceCriteria }) }
+    hasBody
+      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
       : { method: "POST" },
     (value) => WorkerJobResponseSchema.safeParse(value),
   );
+}
+
+export function getRerunPreview(id: string): Promise<RerunPreview> {
+  return workerRequest(
+    `/api/worker-jobs/${encodeURIComponent(id)}/rerun-preview`,
+    { method: "GET" },
+    (value) => RerunPreviewSchema.safeParse(value),
+  );
+}
+
+export function unstickTaskJob(slug: string, taskId: string): Promise<{ ok: boolean; released: boolean; job?: WorkerJob }> {
+  return workerRequest(`/api/projects/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(taskId)}/unstick`, {
+    method: "POST",
+  });
 }
 
 export function getProjectDocuments(slug: string): Promise<ProjectDocuments> {

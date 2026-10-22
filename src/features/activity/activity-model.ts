@@ -92,6 +92,11 @@ export function linksFor(event: ActivityEvent): ActivityLink[] {
     });
   }
 
+  const jobId = event.metadata?.jobId;
+  if (typeof jobId === "string" && jobId.length > 0) {
+    links.push({ label: "Open job", to: `/workers/jobs/${jobId}` });
+  }
+
   return links;
 }
 

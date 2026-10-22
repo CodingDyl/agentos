@@ -80,6 +80,20 @@ export async function saveTaskLink(link: TaskJobLink): Promise<void> {
 
   links[taskKey(link.project, link.taskId)] = link;
 
+  await writeTaskLinks(links);
+}
+
+/** Drops a task's job link so it can be delegated again. */
+export async function deleteTaskLink(project: string, taskId: string): Promise<boolean> {
+  const links = await readTaskLinks();
+  const key = taskKey(project, taskId);
+  if (!(key in links)) return false;
+  delete links[key];
+  await writeTaskLinks(links);
+  return true;
+}
+
+async function writeTaskLinks(links: LinkFile): Promise<void> {
   await fs.mkdir(uiStateDir(), { recursive: true });
 
   const target = linksFile();

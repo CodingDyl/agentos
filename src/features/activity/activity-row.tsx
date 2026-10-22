@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { ActivityEvent } from "@shared/agentos-types";
 import { PAPER_FOCUS } from "@/components/paper";
 import { cn } from "@/lib/utils";
+import { JobIdControls } from "@/features/workers/job-run-controls";
 import {
   detailsFor,
   formatTime,
@@ -122,6 +123,11 @@ export function ActivityRow({ event, now }: ActivityRowProps) {
                   {link.label}
                 </Link>
               ))}
+            </div>
+          ) : null}
+          {typeof event.metadata?.jobId === "string" && event.metadata.jobId ? (
+            <div className="mt-4">
+              <JobIdControls jobId={event.metadata.jobId} />
             </div>
           ) : null}
         </div>
