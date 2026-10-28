@@ -22,6 +22,7 @@ import { useBriefCase, useDraftCase, useEmailLibrary, useReviseDraft, useSaveToL
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { EmailFinder } from "./traction-outreach-email";
+import { pathPatch } from "./traction-outreach-path";
 import { SenderManager } from "./traction-outreach-senders";
 import { RebuildLauncher } from "@/features/rebuild";
 
@@ -186,16 +187,7 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
   const write = useWriteCase();
   const hermesPath = entry.filledBy.path === "hermes" ? entry.path : undefined;
 
-  const choose = (path: OutreachPath) => {
-    const patch: OutreachCasePatch = { path };
-    // Your usual prices, from the company it is sent as, when nothing is set yet.
-    if (sender) {
-      if (path === "build_first" && !entry.monthlyPrice && sender.defaultMonthly) patch.monthlyPrice = sender.defaultMonthly;
-      if (path === "build_first" && !entry.setupPrice && sender.defaultSetup) patch.setupPrice = sender.defaultSetup;
-      if (path === "cold_pitch" && !entry.projectPrice && sender.defaultProject) patch.projectPrice = sender.defaultProject;
-    }
-    write.mutate({ prospectId: prospect.id, patch });
-  };
+  const choose = (path: OutreachPath) => write.mutate({ prospectId: prospect.id, patch: pathPatch(path, entry, sender) });
 
   return (
     <Card number={2} title="Decide how to help" done={Boolean(entry.path && entry.offer && (entry.path !== "build_first" || entry.previewUrl))}>

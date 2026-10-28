@@ -3,13 +3,14 @@ import { useState } from "react";
 import { OutreachCaseSchema } from "@shared/outreach-case";
 import { vettingOf, type Prospect, type TractionData } from "@shared/traction-types";
 import { PAPER_FOCUS, PaperButton, PaperCard, PaperEmpty, PaperPagination, PaperSection, Tag } from "@/components/paper";
-import { useOutreachCases } from "@/lib/agentos/outreach-cases";
+import { useOutreachCases, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
 import { Leads, SetupNote } from "./traction-crm-tab";
 import { TractionIcpCard } from "./traction-icp-card";
 import { KnowThem, ProspectOverview } from "./traction-outreach-case";
+import { pathPatch } from "./traction-outreach-path";
 import { TractionPlacesSearch } from "./traction-places-search";
 import { ProspectForm } from "./traction-prospect-form";
 
@@ -151,7 +152,22 @@ function VettingPanel({ prospect, onDone }: { prospect: Prospect; onDone: () => 
 
 function CanHelp({ prospects, onCompose }: { prospects: Prospect[]; onCompose: (prospectId: string) => void }) {
   const update = useUpdateProspect();
+  const cases = useOutreachCases();
+  const senders = useSenders();
+  const writeCase = useWriteCase();
   const pager = usePagination(prospects, "", 10);
+
+  /**
+   * Takes you to the rebuild for this business. "Build it first" is chosen for
+   * you only when no approach has been picked yet, with your usual prices; an
+   * approach you already chose is left as it is.
+   */
+  const buildTheirSite = (prospect: Prospect) => {
+    const entry = cases.data?.[prospect.id] ?? OutreachCaseSchema.parse({ prospectId: prospect.id });
+    if (entry.path) return onCompose(prospect.id);
+    const sender = senders.data?.find((candidate) => candidate.id === entry.senderId);
+    writeCase.mutate({ prospectId: prospect.id, patch: pathPatch("build_first", entry, sender) }, { onSuccess: () => onCompose(prospect.id) });
+  };
 
   return (
     <PaperSection label="I can help: ready to email" count={prospects.length}>
@@ -172,7 +188,10 @@ function CanHelp({ prospects, onCompose }: { prospects: Prospect[]; onCompose: (
                     <ExternalLink className="size-3" aria-hidden="true" />
                   </a>
                 ) : null}
-                <PaperButton variant="amber" onClick={() => onCompose(prospect.id)} aria-label={`Write the email to ${prospect.company}`}>
+                <PaperButton variant="amber" disabled={!cases.data || writeCase.isPending} onClick={() => buildTheirSite(prospect)} aria-label={`Build their site first for ${prospect.company}`}>
+                  Build their site first
+                </PaperButton>
+                <PaperButton onClick={() => onCompose(prospect.id)} aria-label={`Write the email to ${prospect.company}`}>
                   Write the email
                 </PaperButton>
                 <PaperButton disabled={update.isPending} onClick={() => update.mutate({ prospectId: prospect.id, patch: { vetting: "to_check" } })} aria-label={`Move ${prospect.company} back to check`}>
@@ -184,6 +203,11 @@ function CanHelp({ prospects, onCompose }: { prospects: Prospect[]; onCompose: (
         </ul>
       )}
       <PaperPagination pager={pager} label="Ready to email pages" />
+      {writeCase.error ? (
+        <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
+          {writeCase.error.message}
+        </p>
+      ) : null}
     </PaperSection>
   );
 }
