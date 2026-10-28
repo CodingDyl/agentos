@@ -1,4 +1,4 @@
-import type { PlaceCandidate, PlaceNiche } from "@shared/places-types";
+import type { PlaceCandidate, PlaceNiche, SiteCheck } from "@shared/places-types";
 import type { Prospect, ProspectInput } from "@shared/traction-types";
 
 /**
@@ -11,11 +11,26 @@ import type { Prospect, ProspectInput } from "@shared/traction-types";
  * and are gone when the page is.
  */
 
-const WEBSITE_ORDER = { none: 0, social: 1, own: 2 } as const;
+/** The checks of a search, found by website address. */
+export function checksByWebsite(checks: readonly SiteCheck[] | undefined): ReadonlyMap<string, SiteCheck> {
+  return new Map((checks ?? []).map((check) => [check.website, check]));
+}
 
-/** Leads with the weakest web presence first: no website, then a social page, then their own site. Nearest first within each. */
-export function orderCandidates(candidates: readonly PlaceCandidate[]): PlaceCandidate[] {
-  return [...candidates].sort((a, b) => WEBSITE_ORDER[a.websiteKind] - WEBSITE_ORDER[b.websiteKind] || a.distanceKm - b.distanceKm);
+/**
+ * How much there is to pitch, higher first: no website, then a social page,
+ * then their own site by how much its check found wrong. A site not checked
+ * yet goes last, so the list settles as the checks come in.
+ */
+function weakness(candidate: PlaceCandidate, checks: ReadonlyMap<string, SiteCheck>): number {
+  if (candidate.websiteKind === "none") return 100;
+  if (candidate.websiteKind === "social") return 99;
+  const check = candidate.website ? checks.get(candidate.website) : undefined;
+  return check ? check.score : -1;
+}
+
+/** Leads with the weakest web presence first. Nearest first among equals. */
+export function orderCandidates(candidates: readonly PlaceCandidate[], checks: ReadonlyMap<string, SiteCheck> = new Map()): PlaceCandidate[] {
+  return [...candidates].sort((a, b) => weakness(b, checks) - weakness(a, checks) || a.distanceKm - b.distanceKm);
 }
 
 export const WEBSITE_KIND_LABEL = {
@@ -47,18 +62,21 @@ export function alreadyListed(candidate: PlaceCandidate, prospects: readonly Pro
 }
 
 /** The prospect an import creates. It has no verdict, so it lands in "To check". */
-export function prospectFromCandidate(candidate: PlaceCandidate, niche: PlaceNiche, areaName: string): ProspectInput {
+export function prospectFromCandidate(candidate: PlaceCandidate, niche: PlaceNiche, areaName: string, check?: SiteCheck): ProspectInput {
   const reasons = [
     candidate.websiteKind === "none"
       ? "No website on Google Maps"
       : candidate.websiteKind === "social"
         ? "Only a social page on Google Maps, no website of their own"
-        : "Has a website: check it for what is out of date",
+        : "Has a website: read it for what is out of date",
     `${niche.label} near ${areaName}, ${candidate.distanceKm} km away`,
   ];
   if (candidate.rating !== undefined && candidate.ratingCount !== undefined) {
     reasons.push(`${candidate.rating} stars from ${candidate.ratingCount} Google reviews`);
   }
+  // What the site check found, worst first, as far as the six reasons a prospect holds allow. These are not the
+  // observation: that stays blank until you have read the site yourself, because outreach is never drafted without it.
+  if (check) reasons.push(...check.problems.slice(0, 6 - reasons.length));
 
   const notes = [
     "Found with Google Places.",

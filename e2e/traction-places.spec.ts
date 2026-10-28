@@ -46,6 +46,7 @@ async function stubPlaces(page: Page, overrides: { niches?: unknown } = {}) {
           requests: 2,
           candidates: [
             candidate("own", "E2E Own Site Attorneys", "own", 1.2, "https://www.e2e-own-attorneys.example/contact"),
+            candidate("dated", "E2E Dated Site Attorneys", "own", 2.4, "https://www.e2e-dated-attorneys.example/"),
             candidate("none", "E2E No Site Attorneys", "none", 6.5),
             candidate("social", "E2E Social Only Attorneys", "social", 3.1, "https://www.facebook.com/e2esocial"),
           ],
@@ -54,12 +55,30 @@ async function stubPlaces(page: Page, overrides: { niches?: unknown } = {}) {
       },
     });
   });
-  return searches;
+
+  const siteChecks: unknown[] = [];
+  await page.route("**/api/traction/places/check-sites", async (route) => {
+    siteChecks.push(route.request().postDataJSON());
+    await route.fulfill({
+      json: {
+        checks: [
+          { website: "https://www.e2e-own-attorneys.example/contact", reachable: true, problems: ["No contact form"], score: 1 },
+          {
+            website: "https://www.e2e-dated-attorneys.example/",
+            reachable: true,
+            problems: ["Not secure: the site has no HTTPS", "Not built for phones: no mobile viewport", "Looks abandoned: the footer says © 2014", "No contact form"],
+            score: 9,
+          },
+        ],
+      },
+    });
+  });
+  return { searches, siteChecks };
 }
 
 test.describe("Find by niche", () => {
   test("searches a niche and area, lists the weakest web presence first, and adds one to To check", async ({ page }) => {
-    const searches = await stubPlaces(page);
+    const { searches, siteChecks } = await stubPlaces(page);
     await page.goto("/traction?tab=find");
 
     await page.getByRole("button", { name: "Search Google Places" }).click();
@@ -75,7 +94,20 @@ test.describe("Find by niche", () => {
     expect(searches).toEqual([{ area: "Sandton", nicheId: "law_firms", radiusKm: 10 }]);
 
     const names = page.locator("h3").filter({ hasText: /^E2E / });
-    await expect(names).toHaveText(["E2E No Site Attorneys", "E2E Social Only Attorneys", "E2E Own Site Attorneys"]);
+    // Only their own sites are read, and the one with the most wrong comes first among them.
+    await expect(names).toHaveText(["E2E No Site Attorneys", "E2E Social Only Attorneys", "E2E Dated Site Attorneys", "E2E Own Site Attorneys"]);
+    expect(siteChecks).toEqual([{ websites: ["https://www.e2e-own-attorneys.example/contact", "https://www.e2e-dated-attorneys.example/"] }]);
+    const dated = page.getByRole("listitem").filter({ hasText: "E2E Dated Site Attorneys" }).first();
+    await expect(dated.getByText("9/10 to fix")).toBeVisible();
+    await expect(dated.getByText("Not secure: the site has no HTTPS · Not built for phones: no mobile viewport · Looks abandoned: the footer says © 2014")).toBeVisible();
+
+    // Adding it carries what was found into the prospect's reasons, and leaves the observation for you.
+    const created = page.waitForRequest((request) => request.url().endsWith("/api/traction/prospects") && request.method() === "POST");
+    await dated.getByRole("button", { name: "Add E2E Dated Site Attorneys to To check" }).click();
+    const body = (await created).postDataJSON() as { reasons: string[]; observation?: string };
+    expect(body.reasons).toContain("Not secure: the site has no HTTPS");
+    expect(body.observation).toBeUndefined();
+    await expect(dated.getByText("In your list")).toBeVisible();
 
     await page.getByRole("button", { name: "Add E2E No Site Attorneys to To check" }).click();
     const row = page.getByRole("listitem").filter({ hasText: "E2E No Site Attorneys" }).first();
