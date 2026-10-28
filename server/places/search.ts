@@ -1,6 +1,7 @@
+import type { PlacesBudget } from "../../shared/places-types";
 import { authorize } from "../connectors/policy";
 import { checkSearch, PlacesError, searchNiche, SEARCH_REQUESTS, type PlaceSearchResult, type SearchRequest } from "./client";
-import { placesBudget, reserveRequests, type PlacesBudget } from "./usage";
+import { placesBudget, reserveRequests } from "./usage";
 
 /**
  * A niche search, from a person pressing Search.

@@ -7,16 +7,9 @@
  * customer would type it.
  */
 
-export interface PlaceNiche {
-  id: string;
-  label: string;
-  /** The Places text query, without the area. */
-  query: string;
-  /** Why the niche is worth a pitch. Shown beside the dropdown. */
-  why: string;
-  /** Rules or habits that change how you may pitch them. Absent when none worth a line. */
-  caveat?: string;
-}
+import type { PlaceNiche } from "../../shared/places-types";
+
+export type { PlaceNiche };
 
 export const NICHES: readonly PlaceNiche[] = [
   {
