@@ -1,5 +1,5 @@
 import { siteDomain } from "../outreach/email-finder";
-import { nicheById } from "./niches";
+import { nicheById, type PlaceNiche } from "./niches";
 
 /**
  * Google Places (New), for finding businesses of one niche near an area.
@@ -33,7 +33,7 @@ export const RADIUS_MAX_KM = 15;
 export class PlacesError extends Error {
   constructor(
     message: string,
-    readonly reason: "not-configured" | "off" | "invalid" | "unauthorized" | "quota" | "bad-area" | "failed",
+    readonly reason: "not-configured" | "off" | "no-cap" | "invalid" | "unauthorized" | "quota" | "bad-area" | "failed",
   ) {
     super(message);
     this.name = "PlacesError";
@@ -154,8 +154,11 @@ export interface SearchRequest {
   radiusKm: number;
 }
 
-/** Operational businesses of one niche within the radius, nearest first. Two Places requests, at most 20 results. */
-export async function searchNiche(request: SearchRequest, fetcher: typeof fetch = fetch): Promise<PlaceSearchResult> {
+/**
+ * Everything wrong with a search that can be known without calling Google, as a thrown error.
+ * Run before the monthly cap is touched, so a bad request spends nothing.
+ */
+export function checkSearch(request: SearchRequest): { area: string; niche: PlaceNiche } {
   const area = request.area.trim();
   const niche = nicheById(request.nicheId);
   if (area.length < 2 || area.length > 80) throw new PlacesError("Type an area between 2 and 80 characters.", "invalid");
@@ -164,6 +167,12 @@ export async function searchNiche(request: SearchRequest, fetcher: typeof fetch 
     throw new PlacesError(`The radius must be between ${RADIUS_MIN_KM} and ${RADIUS_MAX_KM} km.`, "invalid");
   }
   key();
+  return { area, niche };
+}
+
+/** Operational businesses of one niche within the radius, nearest first. Two Places requests, at most 20 results. */
+export async function searchNiche(request: SearchRequest, fetcher: typeof fetch = fetch): Promise<PlaceSearchResult> {
+  const { area, niche } = checkSearch(request);
 
   const centre = await resolveArea(area, fetcher);
   const payload = await call(
