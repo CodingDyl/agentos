@@ -126,4 +126,28 @@ test.describe("Find by niche", () => {
     await expect(form.getByRole("alert")).toContainText("AGENTOS_PLACES_MONTHLY_REQUEST_CAP");
     await expect(form.getByRole("button", { name: "Search", exact: true })).toBeDisabled();
   });
+
+  test("takes a business you can help straight to the rebuild", async ({ page, request }) => {
+    const made = await request.post("/api/traction/prospects", {
+      data: {
+        company: "E2E Handoff Attorneys",
+        website: "https://www.e2e-handoff.example",
+        segment: "Law firms",
+        stage: "target",
+        source: "outbound",
+        vetting: "can_help",
+        observation: "No contact form on the mobile site",
+      },
+    });
+    expect(made.ok()).toBeTruthy();
+    const prospectId = ((await made.json()) as { prospect: { id: string } }).prospect.id;
+
+    await page.goto("/traction?tab=find");
+    await page.getByRole("button", { name: "Build their site first for E2E Handoff Attorneys" }).click();
+
+    await expect(page).toHaveURL(new RegExp(`tab=outreach&prospect=${prospectId}`));
+    await expect(page.getByRole("radio", { name: /Build it first/i })).toBeChecked();
+    await expect(page.getByRole("button", { name: "Start website rebuild" })).toBeVisible();
+  });
 });
+
