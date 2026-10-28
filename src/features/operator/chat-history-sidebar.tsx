@@ -1,4 +1,4 @@
-import { History, MessageSquarePlus, Trash2 } from "lucide-react";
+import { Code2, History, MessageSquarePlus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ChatSummary } from "@shared/chat-types";
@@ -100,6 +100,9 @@ export function ChatHistorySidebar({
                               <span className="size-2 shrink-0 rounded-full bg-paper-green motion-safe:animate-pulse" role="img" aria-label="Answering" />
                             ) : null}
                             <span className="min-w-0 flex-1 truncate">{chat.title}</span>
+                            {chat.mode === "coder" ? (
+                              <Code2 className="size-3.5 shrink-0 text-paper-sage" role="img" aria-label="Coder chat" />
+                            ) : null}
                           </Link>
                           <button
                             type="button"

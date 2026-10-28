@@ -75,6 +75,7 @@ export function summariseChat(chat: Chat): ChatSummary {
     title: chat.title,
     agent: chat.agent,
     model: chat.model,
+    mode: chat.mode ?? "coder",
     status: chat.status,
     createdAt: chat.createdAt,
     updatedAt: chat.updatedAt,

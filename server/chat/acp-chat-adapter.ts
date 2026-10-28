@@ -14,7 +14,7 @@ import type { ChatAgent, ChatAgentId, ChatModel, ChatToolPart } from "../../shar
 import { agentEnv, findAgentBinary, searchedFolders } from "./agent-environment";
 import { decideAcpToolCall, textOnlyVerdict } from "./chat-permission-policy";
 import { cachedModels, rememberModels } from "./chat-model-cache";
-import { appendText, clip, DEFAULT_MODEL, findTool, oneLine, settleRunningTools, startTool, type ChatAgentAdapter, type RunTurnInput, type TurnState } from "./chat-turn";
+import { appendText, clip, DEFAULT_MODEL, findTool, oneLine, promptWithSystem, settleRunningTools, startTool, type ChatAgentAdapter, type RunTurnInput, type TurnState } from "./chat-turn";
 
 /**
  * Any agent that speaks the Agent Client Protocol: Gemini CLI and Hermes today.
@@ -245,7 +245,7 @@ export function createAcpAgent(spec: AcpAgentSpec): ChatAgentAdapter {
       }
       state.message.model = input.model === DEFAULT_MODEL.id ? (models?.current ?? undefined) : input.model;
 
-      const result = await connection.prompt({ sessionId, prompt: [{ type: "text", text: input.prompt }] });
+      const result = await connection.prompt({ sessionId, prompt: [{ type: "text", text: promptWithSystem(input) }] });
       const error = STOP_ERRORS[result.stopReason];
       if (error) state.message.error = error;
       settleRunningTools(state, result.stopReason === "end_turn" ? "done" : "error");

@@ -11,6 +11,7 @@ import {
   DEFAULT_MODEL,
   findTool,
   oneLine,
+  promptWithSystem,
   settleRunningTools,
   startTool,
   type ChatAgentAdapter,
@@ -350,7 +351,7 @@ async function runCodexTurn(input: RunTurnInput): Promise<void> {
 
     const turn = await rpc.request<{ turn: { id: string } }>("turn/start", {
       threadId,
-      input: [{ type: "text", text: input.prompt, text_elements: [] }],
+      input: [{ type: "text", text: promptWithSystem(input), text_elements: [] }],
     });
     turnId = turn.turn.id;
 

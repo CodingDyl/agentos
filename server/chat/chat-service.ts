@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Chat, ChatAgent, ChatApprovalPart, ChatMessage, ChatStreamEvent, CreateChat, SendChatMessage, StartChatRun } from "../../shared/chat-types";
+import { CreateChatSchema, type Chat, type ChatAgent, type ChatApprovalPart, type ChatMessage, type ChatMode, type ChatStreamEvent, type CreateChat, type SendChatMessage, type StartChatRun } from "../../shared/chat-types";
 import type { ActiveWorkItem } from "../../shared/mission-control-types";
 import { createChatId, deleteChat, listChats, readChat, saveChat, titleFrom } from "./chat-store";
 import { geminiAgent, grokAgent, hermesAgent } from "./acp-chat-adapter";
@@ -11,6 +11,7 @@ import type { ApprovalRequest, ChatAgentAdapter, RunTurnInput, TurnState } from 
 import { claudeAgent } from "./claude-chat-adapter";
 import { codexAgent } from "./codex-chat-adapter";
 import { pickOfferedModel, resolveModelRoute } from "../model-routing/resolve";
+import { assistantHome, assistantSystemPrompt, readAboutMe } from "./assistant-home";
 
 /**
  * Chats: one conversation each, one turn running at a time per chat.
@@ -148,19 +149,34 @@ function checkModel(agent: ChatAgent, model: string): void {
   if (!agent.models.some((entry) => entry.id === model)) throw new ChatStateError(`${agent.name} has no model called ${model}.`);
 }
 
-async function launchChatModel(agent: ChatAgent, prompt: string, requested?: string): Promise<string> {
+/**
+ * The model a turn runs on. A picked model is kept; "default" is routed by
+ * what the message asks. In an assistant chat an everyday ask goes to Sonnet,
+ * not the cheapest tier the routing table gives one-shot jobs: a chat is the
+ * operator waiting on a good answer, and Haiku at low effort wasn't one.
+ */
+async function launchChatModel(agent: ChatAgent, prompt: string, requested?: string, mode: ChatMode = "coder"): Promise<string> {
   if (requested && requested !== "default" && agent.models.some((entry) => entry.id === requested)) {
     return requested;
   }
   if (requested && requested !== "default") return agent.defaultModel;
   const route = await resolveModelRoute({ objective: prompt });
-  return pickOfferedModel(agent.models, route.model, agent.defaultModel);
+  const preferred = mode === "assistant" && route.taskType === "normal" ? "sonnet" : route.model;
+  return pickOfferedModel(agent.models, preferred, agent.defaultModel);
 }
 
-export async function createChat(input: CreateChat): Promise<Chat> {
+/** Where a turn runs and what it is told, by the kind of chat. */
+async function chatSetup(mode: ChatMode): Promise<Pick<RunTurnInput, "policy" | "systemPrompt">> {
+  if (mode === "coder") return { policy: { projectRoot: PROJECT_ROOT, mode } };
+  const home = await assistantHome();
+  return { policy: { projectRoot: home, mode }, systemPrompt: assistantSystemPrompt({ home, aboutMe: await readAboutMe(home) }) };
+}
+
+export async function createChat(request: CreateChat): Promise<Chat> {
+  const input = CreateChatSchema.parse(request);
   checkModel(await agentFor(input.agent), input.model);
   const at = now();
-  return saveChat({ id: createChatId(), title: "New chat", agent: input.agent, model: input.model, messages: [], status: "idle", createdAt: at, updatedAt: at });
+  return saveChat({ id: createChatId(), title: "New chat", agent: input.agent, model: input.model, mode: input.mode, messages: [], status: "idle", createdAt: at, updatedAt: at });
 }
 
 export async function getChat(id: string): Promise<Chat> {
@@ -231,7 +247,9 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
     chat.model = agent.defaultModel;
   }
 
-  const launchModel = await launchChatModel(agent, input.text, input.model ?? (chat.model === "default" ? "default" : chat.model));
+  const mode = chat.mode ?? "coder";
+  const launchModel = await launchChatModel(agent, input.text, input.model ?? (chat.model === "default" ? "default" : chat.model), mode);
+  const setup = await chatSetup(mode);
   // Pin the first routed model so later turns do not hop family mid-session.
   if (!input.model && chat.model === "default" && launchModel !== "default") {
     chat.model = launchModel;
@@ -257,7 +275,7 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
     prompt: input.text,
     model: launchModel,
     resume: chat.agentSessionId,
-    policy: { projectRoot: PROJECT_ROOT },
+    ...setup,
     state,
     controller: turn.controller,
     onChange: () => scheduleFlush(turn, reply),

@@ -7,6 +7,7 @@ import {
   ChatStreamEventSchema,
   type Chat,
   type ChatAgentId,
+  type ChatMode,
   type ChatSummary,
 } from "@shared/chat-types";
 import { readSseStream } from "@/features/agent/sse";
@@ -92,7 +93,7 @@ export function useChat(id: string | undefined) {
 export function useCreateChat() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { agent: ChatAgentId; model: string }) => parseChat(await request("/api/chat/chats", json(input))),
+    mutationFn: async (input: { agent: ChatAgentId; model: string; mode: ChatMode }) => parseChat(await request("/api/chat/chats", json(input))),
     onSuccess: (chat) => {
       client.setQueryData(chatKey(chat.id), chat);
       void client.invalidateQueries({ queryKey: chatsKey() });

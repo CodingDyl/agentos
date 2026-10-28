@@ -16,6 +16,15 @@ export const MAX_CHAT_INPUT = 32_000;
 /** Which harness runs the chat. Each agent brings its own tools. */
 export const ChatAgentIdSchema = z.enum(["claude", "codex", "gemini", "hermes", "grok"]);
 
+/**
+ * What a chat is for. An assistant chat is everyday help: it works in its own
+ * folder with a light setup, so a quick question gets a quick answer. A coder
+ * chat works in the AgentOS repository with the operator's full Claude Code
+ * setup, for changing the system itself. Chats saved before modes existed
+ * were all coder chats.
+ */
+export const ChatModeSchema = z.enum(["assistant", "coder"]);
+
 export const ChatModelSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -94,6 +103,7 @@ export const ChatSchema = z.object({
   title: z.string(),
   agent: ChatAgentIdSchema,
   model: z.string(),
+  mode: ChatModeSchema.optional(),
   /** The agent's own session id, used to resume it on the next turn. */
   agentSessionId: z.string().optional(),
   messages: z.array(ChatMessageSchema),
@@ -108,6 +118,7 @@ export const ChatSummarySchema = ChatSchema.pick({
   title: true,
   agent: true,
   model: true,
+  mode: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -119,6 +130,7 @@ export const CreateChatSchema = z
   .object({
     agent: ChatAgentIdSchema,
     model: z.string().min(1).max(100),
+    mode: ChatModeSchema.default("assistant"),
   })
   .strict();
 
@@ -152,6 +164,7 @@ export const ChatStreamEventSchema = z.discriminatedUnion("type", [
 ]);
 
 export type ChatAgentId = z.infer<typeof ChatAgentIdSchema>;
+export type ChatMode = z.infer<typeof ChatModeSchema>;
 export type ChatModel = z.infer<typeof ChatModelSchema>;
 export type ChatAgent = z.infer<typeof ChatAgentSchema>;
 export type ChatTextPart = z.infer<typeof ChatTextPartSchema>;
@@ -164,6 +177,6 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatStatus = z.infer<typeof ChatStatusSchema>;
 export type Chat = z.infer<typeof ChatSchema>;
 export type ChatSummary = z.infer<typeof ChatSummarySchema>;
-export type CreateChat = z.infer<typeof CreateChatSchema>;
+export type CreateChat = z.input<typeof CreateChatSchema>;
 export type SendChatMessage = z.infer<typeof SendChatMessageSchema>;
 export type ChatStreamEvent = z.infer<typeof ChatStreamEventSchema>;

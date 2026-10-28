@@ -1,3 +1,4 @@
+import { promptWithSystem } from "../chat-turn";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { classifyBashCommand, decideAcpToolCall, decideChatToolUse, decideFileChanges, decideToolUse, isSecretPath, summariseToolInput, textOnlyVerdict } from "../chat-permission-policy";
@@ -174,3 +175,21 @@ describe("a text-only request", () => {
   });
 });
 
+describe("an assistant chat's folder", () => {
+  const assistant = { projectRoot: "/vault/assistant", mode: "assistant" as const };
+
+  it("writes freely in its own folder and asks, naming the folder, outside it", () => {
+    assert.equal(decideChatToolUse("Write", { file_path: "/vault/assistant/notes.md" }, assistant).decision, "allow");
+    const outside = decideChatToolUse("Write", { file_path: "/home/me/agentos/server/index.ts" }, assistant);
+    assert.equal(outside.decision, "ask");
+    assert.match((outside as { reason: string }).reason, /assistant's folder/);
+  });
+});
+
+describe("the prompt an agent without a system prompt is sent", () => {
+  it("puts an assistant chat's prompt ahead of the first message only", () => {
+    assert.equal(promptWithSystem({ prompt: "Hi" }), "Hi");
+    assert.match(promptWithSystem({ prompt: "Hi", systemPrompt: "Be brief." }), /^Be brief\.[\s\S]*Hi$/);
+    assert.equal(promptWithSystem({ prompt: "Hi", systemPrompt: "Be brief.", resume: "sess_a" }), "Hi");
+  });
+});

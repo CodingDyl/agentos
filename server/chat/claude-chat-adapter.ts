@@ -47,18 +47,38 @@ const CHAT_SYSTEM_PROMPT = `You are chatting with the operator inside AgentOS, t
 /** Told instead of the chat prompt when only text is wanted. */
 const TEXT_ONLY_SYSTEM_PROMPT = "You are answering one request from the operator inside AgentOS. Reply with text only. You have no tools: do not try to read files, run commands or browse. Follow the request's own instructions about the format of the answer.";
 
+/** How one Claude session is set up: what loads, and what it is told. */
+export interface ClaudeSessionSetup {
+  /** Built-in tools to offer; absent means all of them. */
+  tools?: string[];
+  /** Only the MCP servers passed in (none): the operator's own servers don't load. */
+  strictMcpConfig?: boolean;
+  settingSources: Array<"user" | "project">;
+  /** Added to Claude Code's own system prompt. */
+  appendPrompt?: string;
+  /** Replaces Claude Code's system prompt outright. */
+  systemPrompt?: string;
+}
+
 /**
- * How a Claude session is set up, which differs for a text-only request.
+ * How a Claude session is set up, by what the chat is for.
  *
- * A text-only session gets no built-in tools at all, ignores the operator's
- * Claude Code settings (their allow-rules would otherwise approve tools before
- * the chat policy is asked, and their MCP servers would add more), and loads
- * no MCP servers. The policy still refuses any tool call that gets through.
+ * - A coder chat gets the operator's whole Claude Code setup (CLAUDE.md,
+ *   skills, plugins, hooks, MCP servers) and the project's: it is their
+ *   coding agent, working on AgentOS.
+ * - An assistant chat gets none of it. That setup is built for coding (hooks
+ *   that gate every search, plugins that insist on a skill before any reply,
+ *   five MCP servers to start) and made a one-line question slow and
+ *   overwrought. It keeps the built-in tools, under its own short prompt.
+ * - A text-only request gets no tools at all, and ignores the operator's
+ *   settings too (their allow-rules would otherwise approve tools before the
+ *   chat policy is asked). The policy still refuses any tool call that gets
+ *   through.
  */
-export function claudeSessionOptions(textOnly: boolean) {
-  return textOnly
-    ? { tools: [] as string[], strictMcpConfig: true, settingSources: [] as Array<"user" | "project">, appendPrompt: TEXT_ONLY_SYSTEM_PROMPT }
-    : { settingSources: ["user", "project"] as Array<"user" | "project">, appendPrompt: CHAT_SYSTEM_PROMPT };
+export function claudeSessionOptions(kind: "text" | "assistant" | "coder", assistantPrompt = ""): ClaudeSessionSetup {
+  if (kind === "text") return { tools: [], strictMcpConfig: true, settingSources: [], appendPrompt: TEXT_ONLY_SYSTEM_PROMPT };
+  if (kind === "assistant") return { strictMcpConfig: true, settingSources: [], systemPrompt: assistantPrompt };
+  return { settingSources: ["user", "project"], appendPrompt: CHAT_SYSTEM_PROMPT };
 }
 
 function hasPlanLogin(): boolean {
@@ -306,7 +326,8 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
     return { behavior: "deny", message: "The operator declined this action. Carry on without it, and say what you would have done." };
   };
 
-  const session = claudeSessionOptions(input.policy.textOnly === true);
+  const kind = input.policy.textOnly ? "text" : input.policy.mode === "assistant" ? "assistant" : "coder";
+  const session = claudeSessionOptions(kind, input.systemPrompt);
   const messages = query({
     prompt: input.prompt,
     options: {
@@ -319,12 +340,11 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
       // Every call the allowlist doesn't cover comes to `canUseTool`.
       permissionMode: "default",
       canUseTool,
-      // The operator's own Claude Code setup (CLAUDE.md, skills, MCP servers)
-      // and the project's: this is their assistant, not a sandboxed worker.
-      // (A text-only request gets none of it: see `claudeSessionOptions`.)
+      // What loads depends on the kind of chat: see `claudeSessionOptions`.
       settingSources: session.settingSources,
-      ...(session.tools ? { tools: session.tools, strictMcpConfig: session.strictMcpConfig } : {}),
-      systemPrompt: { type: "preset", preset: "claude_code", append: session.appendPrompt },
+      ...(session.tools ? { tools: session.tools } : {}),
+      ...(session.strictMcpConfig ? { strictMcpConfig: true } : {}),
+      systemPrompt: session.systemPrompt ?? { type: "preset", preset: "claude_code", append: session.appendPrompt },
       env: { ...(await agentEnv(how.env)), CLAUDE_AGENT_SDK_CLIENT_APP: "agentos-chat/1.0" },
     },
   });

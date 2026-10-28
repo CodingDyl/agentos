@@ -1,11 +1,13 @@
 import { ArrowUp, Square } from "lucide-react";
 import { useEffect, useId, useRef, type FormEvent, type KeyboardEvent } from "react";
-import { MAX_CHAT_INPUT, type ChatAgent } from "@shared/chat-types";
-import { PaperButton } from "@/components/paper";
+import { MAX_CHAT_INPUT, type ChatAgent, type ChatMode } from "@shared/chat-types";
+import { PAPER_FOCUS, PaperButton } from "@/components/paper";
+import { cn } from "@/lib/utils";
 import type { ModelChoice } from "./chat-model";
 
 /**
- * Where you type, which agent and model answer, and the stop button.
+ * Where you type, what kind of chat it is, which agent and model answer, and
+ * the stop button.
  *
  * The model can change mid-chat: the next turn uses the new one and the
  * conversation carries on. Enter sends, Shift+Enter is a new line, as in any
@@ -25,6 +27,9 @@ export function ChatComposer({
   error,
   autoFocusKey,
   lockedAgent,
+  mode,
+  onModeChange,
+  modeLocked,
 }: {
   agents: readonly ChatAgent[];
   choice?: ModelChoice;
@@ -44,6 +49,10 @@ export function ChatComposer({
    * the conversation lives in that agent's session: another agent means a new chat.
    */
   lockedAgent?: ChatAgent["id"];
+  mode: ChatMode;
+  onModeChange: (mode: ChatMode) => void;
+  /** An existing chat keeps its mode: its session lives in that folder. */
+  modeLocked?: boolean;
 }) {
   const inputId = useId();
   const modelId = useId();
@@ -83,10 +92,13 @@ export function ChatComposer({
           maxLength={MAX_CHAT_INPUT}
           onChange={(event) => onValueChange(event.currentTarget.value)}
           onKeyDown={keys}
-          placeholder={agent ? `Message ${agent.name}, or /plan, /run or /ask for a planned run` : "Message"}
+          placeholder={
+            !agent ? "Message" : mode === "assistant" ? `Ask ${agent.name} anything` : `Message ${agent.name}, or /plan, /run or /ask for a planned run`
+          }
           className="block max-h-56 min-h-14 w-full resize-y bg-transparent px-4 py-3 text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash"
         />
         <div className="flex flex-wrap items-center gap-2 border-t border-paper-stone px-3 py-2">
+          <ModeSwitch mode={mode} onChange={onModeChange} locked={modeLocked || running} />
           <label htmlFor={modelId} className="sr-only">
             Agent and model
           </label>
@@ -150,6 +162,43 @@ export function ChatComposer({
       ) : null}
       <AgentAvailability agents={agents} />
     </form>
+  );
+}
+
+const MODES: ReadonlyArray<{ id: ChatMode; label: string; hint: string }> = [
+  { id: "assistant", label: "Assistant", hint: "Everyday help: quick answers, the web, your files. Light and fast." },
+  { id: "coder", label: "Coder", hint: "Works on the AgentOS code with your full Claude Code setup." },
+];
+
+/**
+ * Assistant or Coder, as two pressed/unpressed buttons drawn as one control. Locked on an
+ * existing chat, where the other choice says why it can't be picked.
+ */
+function ModeSwitch({ mode, onChange, locked }: { mode: ChatMode; onChange: (mode: ChatMode) => void; locked?: boolean }) {
+  return (
+    <div role="group" aria-label="Kind of chat" className="inline-flex min-h-8 border border-paper-mist">
+      {MODES.map((entry) => {
+        const selected = entry.id === mode;
+        const unavailable = locked && !selected;
+        return (
+          <button
+            key={entry.id}
+            type="button"
+            aria-pressed={selected}
+            disabled={unavailable}
+            title={unavailable ? `${entry.hint} Start a new chat to switch.` : entry.hint}
+            onClick={() => onChange(entry.id)}
+            className={cn(
+              "cursor-pointer px-2.5 font-paper-utility text-[12.5px] font-medium tracking-[0.06em] uppercase transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
+              PAPER_FOCUS,
+              selected ? "bg-paper-moss text-paper-white" : "bg-paper-white text-paper-char hover:bg-paper-cream hover:text-paper-moss",
+            )}
+          >
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

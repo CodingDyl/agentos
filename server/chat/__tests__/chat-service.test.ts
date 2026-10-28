@@ -20,8 +20,10 @@ const saved: Record<string, string | undefined> = {};
 before(async () => {
   process.env.AGENTOS_SKIP_MODEL_DISCOVERY = "1";
   directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-chat-"));
-  for (const key of ["AGENTOS_UI_DIR", "HOME", "ANTHROPIC_API_KEY"]) saved[key] = process.env[key];
+  for (const key of ["AGENTOS_UI_DIR", "AGENTOS_ROOT", "HOME", "ANTHROPIC_API_KEY"]) saved[key] = process.env[key];
   process.env.AGENTOS_UI_DIR = path.join(directory, "ui");
+  process.env.AGENTOS_ROOT = path.join(directory, "vault");
+  await fs.mkdir(process.env.AGENTOS_ROOT, { recursive: true });
   // No plan login here, and a key that is never used: the agent is a stand-in.
   process.env.HOME = path.join(directory, "home");
   process.env.ANTHROPIC_API_KEY = "sk-test-unused";
@@ -108,13 +110,13 @@ describe("a chat", () => {
 
   it("carries on with the default when a chat's saved model is no longer offered", async () => {
     service.setTurnRunnerForTests(agent());
-    const chat = await service.createChat({ agent: "claude", model: "default" });
+    const chat = await service.createChat({ agent: "claude", model: "default", mode: "coder" });
     // As saved before Claude's models came from Claude Code itself.
     await store.saveChat({ ...chat, model: "claude-fable-5-1" });
     await service.sendMessage(chat.id, { text: "Hi" });
     await service.turnSettled(chat.id);
 
-    // Free-form "Hi" is a normal request, so the router picks Haiku and pins
+    // In a coder chat free-form "Hi" is a normal request, so the router picks Haiku and pins
     // it so the next turn does not hop to another family.
     assert.equal(calls[0].model, "haiku");
     assert.equal((await store.readChat(chat.id))?.model, "haiku");
@@ -127,13 +129,44 @@ describe("a chat", () => {
     if (!grok?.available) assert.match(grok?.unavailableReason ?? "", /AGENTOS_GROK_BIN/);
   });
 
-  it("runs in the AgentOS project", async () => {
+  it("runs a coder chat in the AgentOS project", async () => {
     service.setTurnRunnerForTests(agent());
-    const chat = await service.createChat({ agent: "claude", model: "default" });
+    const chat = await service.createChat({ agent: "claude", model: "default", mode: "coder" });
     await service.sendMessage(chat.id, { text: "Hi" });
     await service.turnSettled(chat.id);
     assert.equal(calls[0].policy.projectRoot, service.PROJECT_ROOT);
+    assert.equal(calls[0].policy.mode, "coder");
+    assert.equal(calls[0].systemPrompt, undefined, "a coder chat keeps Claude Code's own prompt");
     await fs.access(path.join(service.PROJECT_ROOT, "package.json"));
+  });
+
+  it("runs a new chat as an assistant, in its own vault folder, told about the operator", async () => {
+    service.setTurnRunnerForTests(agent());
+    const chat = await service.createChat({ agent: "claude", model: "default" });
+    assert.equal(chat.mode, "assistant", "assistant is the default");
+    const home = path.join(process.env.AGENTOS_ROOT as string, "assistant");
+    await fs.mkdir(home, { recursive: true });
+    await fs.writeFile(path.join(home, "ABOUT-ME.md"), "# About me\n\nI like short answers.\n");
+
+    await service.sendMessage(chat.id, { text: "What's the capital of France?" });
+    await service.turnSettled(chat.id);
+
+    assert.equal(calls[0].policy.projectRoot, home);
+    assert.equal(calls[0].policy.mode, "assistant");
+    assert.match(calls[0].systemPrompt ?? "", /personal assistant/);
+    assert.match(calls[0].systemPrompt ?? "", /I like short answers/);
+    assert.equal(calls[0].model, "sonnet", "an everyday ask gets Sonnet, not the cheapest tier");
+  });
+
+  it("treats a chat saved before modes existed as a coder chat", async () => {
+    service.setTurnRunnerForTests(agent());
+    const chat = await service.createChat({ agent: "claude", model: "default" });
+    const legacy = (await store.readChat(chat.id))!;
+    delete legacy.mode;
+    await store.saveChat(legacy);
+    await service.sendMessage(chat.id, { text: "Hi" });
+    await service.turnSettled(chat.id);
+    assert.equal(calls[0].policy.projectRoot, service.PROJECT_ROOT);
   });
 
   it("refuses a second message while one is being answered", async () => {

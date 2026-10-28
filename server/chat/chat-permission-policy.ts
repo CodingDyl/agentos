@@ -17,8 +17,13 @@ import path from "node:path";
 export type PolicyDecision = { decision: "allow" } | { decision: "ask"; reason: string };
 
 export interface PolicyContext {
-  /** The AgentOS repository: edits inside it are routine. */
+  /**
+   * The chat's own folder, where edits are routine: the AgentOS repository
+   * for a coder chat, the assistant's folder for an assistant chat.
+   */
   projectRoot: string;
+  /** Which kind of chat this is; only changes how the folder is named to the operator. */
+  mode?: "assistant" | "coder";
   /**
    * A one-shot request for text (a rewrite, a summary): the agent may use no
    * tool at all. Every tool call is put to the operator's `requestApproval`,
@@ -174,7 +179,7 @@ export function decideToolUse(toolName: string, input: Record<string, unknown>, 
     // Relative paths are relative to the chat's working directory, the project.
     const file = path.resolve(context.projectRoot, named);
     if (isSecretPath(file)) return ask("Changes a file that holds credentials.");
-    if (!isInside(context.projectRoot, file)) return ask("Changes a file outside the AgentOS project.");
+    if (!isInside(context.projectRoot, file)) return ask(context.mode === "assistant" ? "Changes a file outside the assistant's folder." : "Changes a file outside the AgentOS project.");
     if (isInside(path.join(context.projectRoot, ".git"), file)) return ask("Changes git's own records directly.");
     return ALLOW;
   }

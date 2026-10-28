@@ -30,6 +30,12 @@ export interface RunTurnInput {
   /** The agent's own session to continue; absent on a chat's first turn. */
   resume?: string;
   policy: PolicyContext;
+  /**
+   * An assistant chat's whole system prompt (who the operator is, today's
+   * date, its folder). Agents that can replace their system prompt use it;
+   * the rest send it ahead of the first message.
+   */
+  systemPrompt?: string;
   state: TurnState;
   controller: AbortController;
   /** Called whenever the transcript changed. */
@@ -47,6 +53,16 @@ export interface ChatAgentAdapter {
 
 /** The model an agent uses when the operator hasn't picked one. */
 export const DEFAULT_MODEL = { id: "default", label: "Default", hint: "Whatever this agent is configured to use." } as const;
+
+/**
+ * The prompt to send, for an agent that can't replace its system prompt: an
+ * assistant chat's prompt goes ahead of the first message, and the agent's
+ * own session carries it from then on.
+ */
+export function promptWithSystem(input: Pick<RunTurnInput, "prompt" | "systemPrompt" | "resume">): string {
+  if (!input.systemPrompt || input.resume) return input.prompt;
+  return `${input.systemPrompt}\n\n---\n\n${input.prompt}`;
+}
 
 export function appendText(state: TurnState, text: string): void {
   if (!text) return;

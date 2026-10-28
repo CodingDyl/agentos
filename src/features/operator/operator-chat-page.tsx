@@ -1,7 +1,7 @@
 import { History, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { Chat, ChatAgent } from "@shared/chat-types";
+import type { Chat, ChatAgent, ChatMode } from "@shared/chat-types";
 import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
@@ -25,12 +25,13 @@ import { ChatThread } from "./chat-thread";
 import { useChatJarvis } from "./use-chat-jarvis";
 
 /**
- * Operator, as a chat: pick an agent and a model, and talk to it.
+ * Operator, as a chat: pick what kind of chat, an agent and a model, and talk to it.
  *
- * The agent works in the AgentOS project with its own tools. It reads freely
- * and edits the project freely; anything risky (deleting, pushing,
- * installing, credentials, writing outside the project) pauses in the
- * conversation for your OK. History is on the left, and "New chat" is a
+ * An Assistant chat is everyday help, in its own vault folder with a light
+ * setup. A Coder chat works in the AgentOS project with the operator's full
+ * Claude Code setup. Either reads freely and edits its own folder freely;
+ * anything risky (deleting, pushing, installing, credentials, writing outside
+ * its folder) pauses in the conversation for your OK. History is on the left, and "New chat" is a
  * clean slate that keeps the old conversation to come back to.
  *
  * `/operator` is a fresh chat; `/operator/chats/:chatId` is a saved one.
@@ -56,12 +57,45 @@ function remember(choice: ModelChoice): void {
   }
 }
 
-const SUGGESTIONS = [
-  "What changed in AgentOS in the last five commits?",
-  "Find why `npm run lint` fails and fix it",
-  "Explain how worker routing decides which agent runs a job",
-  "What's in my Downloads folder that I could delete?",
-];
+const REMEMBERED_MODE = "agentos.chat.mode";
+
+function rememberedMode(): ChatMode {
+  try {
+    return window.localStorage.getItem(REMEMBERED_MODE) === "coder" ? "coder" : "assistant";
+  } catch {
+    return "assistant";
+  }
+}
+
+function rememberMode(mode: ChatMode): void {
+  try {
+    window.localStorage.setItem(REMEMBERED_MODE, mode);
+  } catch {
+    // Private windows and blocked storage: a new chat starts as an assistant.
+  }
+}
+
+const SUGGESTIONS: Record<ChatMode, string[]> = {
+  assistant: [
+    "What's in my Downloads folder that I could delete?",
+    "Draft a friendly nudge to a client whose invoice is two weeks late",
+    "What happened in AI this week that I should know about?",
+    "Turn these notes into a short to-do list for tomorrow",
+  ],
+  coder: [
+    "What changed in AgentOS in the last five commits?",
+    "Find why `npm run lint` fails and fix it",
+    "Explain how worker routing decides which agent runs a job",
+    "Add a loading state to the Mail inbox",
+  ],
+};
+
+const EMPTY_COPY: Record<ChatMode, string> = {
+  assistant:
+    "Quick answers, drafts, the web and your files, from the agent and model you pick below. It works in its own folder in your vault, and asks before deleting, installing, touching credentials or changing anything outside it. Tell it about yourself in ABOUT-ME.md there.",
+  coder:
+    "Works on the AgentOS code with your full Claude Code setup: skills, hooks and MCP servers. It reads anything on this machine and edits the project freely; it asks before deleting, pushing, installing, touching credentials or changing files outside the project. Use /plan, /run or /ask for a planned Operator run.",
+};
 
 export function OperatorChatPage() {
   const navigationItems = useNavigationItems();
@@ -146,10 +180,13 @@ function ChatWorkspace({
 
   const [input, setInput] = useState("");
   const [override, setOverride] = useState<ModelChoice>();
+  const [pickedMode, setPickedMode] = useState<ChatMode>(rememberedMode);
 
   const current: Chat | undefined = chat.data;
   const choice: ModelChoice | undefined = override ?? (current ? chatModelChoice(agents, current) : initialModelChoice(agents, remembered()));
   const running = current?.status === "running";
+  // A saved chat keeps its own mode; one saved before modes existed was a coder chat.
+  const mode: ChatMode = current ? (current.mode ?? "coder") : pickedMode;
   const messages = current?.messages ?? [];
 
   // Follow the conversation as it grows, the way any chat does.
@@ -166,7 +203,8 @@ function ChatWorkspace({
     try {
       let id = chatId;
       if (!id) {
-        id = (await create.mutateAsync(choice)).id;
+        rememberMode(mode);
+        id = (await create.mutateAsync({ ...choice, mode })).id;
       }
       // `/run`, `/plan`, `/ask`: a planned Operator run, not a message to the agent.
       const slash = parseSlashRun(text);
@@ -238,7 +276,7 @@ function ChatWorkspace({
               {chat.error.message}
             </p>
           ) : messages.length === 0 ? (
-            <EmptyChat onPick={setInput} />
+            <EmptyChat mode={mode} onPick={setInput} />
           ) : (
             <ChatThread
               messages={messages}
@@ -269,6 +307,9 @@ function ChatWorkspace({
             error={error}
             autoFocusKey={chatId ?? "new"}
             lockedAgent={current?.agent}
+            mode={mode}
+            onModeChange={setPickedMode}
+            modeLocked={current !== undefined}
           />
         </div>
       </div>
@@ -276,15 +317,13 @@ function ChatWorkspace({
   );
 }
 
-function EmptyChat({ onPick }: { onPick: (text: string) => void }) {
+function EmptyChat({ mode, onPick }: { mode: ChatMode; onPick: (text: string) => void }) {
   return (
     <div className="pt-[8vh]">
       <h2 className="font-paper-display text-[26px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[32px]">What can I help with?</h2>
-      <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
-        Pick an agent and model below: Claude, Codex, Gemini or Hermes, each with its own tools. It works in the AgentOS project and can read anything on this machine; it asks before deleting, pushing, installing, touching credentials or changing files outside the project.
-      </p>
+      <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{EMPTY_COPY[mode]}</p>
       <ul className="mt-6 grid gap-2 sm:grid-cols-2" aria-label="Suggestions">
-        {SUGGESTIONS.map((suggestion) => (
+        {SUGGESTIONS[mode].map((suggestion) => (
           <li key={suggestion}>
             <button
               type="button"

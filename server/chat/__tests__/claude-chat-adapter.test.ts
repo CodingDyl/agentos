@@ -122,18 +122,26 @@ describe("Claude's models", () => {
 
 describe("how a Claude session is set up", () => {
   it("gives a text-only request no tools, no settings and no MCP servers", () => {
-    const options = claudeSessionOptions(true);
+    const options = claudeSessionOptions("text");
     assert.deepEqual(options.tools, [], "no built-in tool at all");
     assert.deepEqual(options.settingSources, [], "the operator's allow-rules and MCP servers are not loaded");
     assert.equal(options.strictMcpConfig, true);
-    assert.match(options.appendPrompt, /text only/i);
+    assert.match(options.appendPrompt ?? "", /text only/i);
   });
 
-  it("leaves an ordinary chat as it was: the operator's own setup, all tools", () => {
-    const options = claudeSessionOptions(false);
+  it("leaves a coder chat as it was: the operator's own setup, all tools", () => {
+    const options = claudeSessionOptions("coder");
     assert.deepEqual(options.settingSources, ["user", "project"]);
     assert.equal("tools" in options, false);
-    assert.match(options.appendPrompt, /operator inside AgentOS/);
+    assert.match(options.appendPrompt ?? "", /operator inside AgentOS/);
+  });
+
+  it("gives an assistant chat all tools but none of the coding setup, under its own prompt", () => {
+    const options = claudeSessionOptions("assistant", "You are the operator's personal assistant.");
+    assert.deepEqual(options.settingSources, [], "no hooks, plugins, skills or CLAUDE.md");
+    assert.equal(options.strictMcpConfig, true, "the operator's MCP servers don't start");
+    assert.equal("tools" in options, false, "built-in tools stay");
+    assert.equal(options.systemPrompt, "You are the operator's personal assistant.");
   });
 });
 
