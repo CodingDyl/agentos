@@ -241,6 +241,18 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     ],
   },
   {
+    id: "googleplaces",
+    name: "Google Places",
+    description: "Finds businesses of one niche near an area, for Traction > Find. Each search spends Places requests against a monthly cap.",
+    category: "business",
+    tier: 2,
+    icon: "search",
+    integrated: true,
+    capabilities: [
+      { action: "search_places", name: "Search a niche near an area (spends requests)", risk: "write-external", implementedBy: "server/places/search.ts" },
+    ],
+  },
+  {
     id: "virtec",
     name: "Virtec CRM",
     description: "Leads, clients, follow-ups and quotes.",

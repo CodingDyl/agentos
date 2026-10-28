@@ -28,6 +28,7 @@ import { CaseStudySiteError, readCaseStudyWebsite } from "./case-study-site";
 import { draftCaseStudy } from "./case-study-draft";
 import { magnetForLead } from "./lead-magnets";
 import { leadMagnetRouter } from "./lead-magnet-routes";
+import { placesRouter } from "../places/routes";
 import { fail, parse } from "./route-helpers";
 import { caseStudyFiles, exportFilename } from "./case-study-export";
 import { buildZip } from "./zip";
@@ -83,6 +84,7 @@ import { getTraction } from "./traction";
 export const tractionRouter = express.Router();
 
 tractionRouter.use("/lead-magnets", leadMagnetRouter);
+tractionRouter.use("/places", placesRouter);
 
 
 

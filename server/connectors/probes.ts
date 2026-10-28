@@ -24,6 +24,8 @@ import {
   outreachAddress,
 } from "../outreach/auth";
 import { isApolloConfigured, searchPeopleAtDomain } from "../outreach/apollo";
+import { isPlacesConfigured, resolveArea } from "../places/client";
+import { monthlyCap, placesBudget, reserveRequests } from "../places/usage";
 import { isFishConfigured, synthesise } from "../voice/fish";
 import { disconnectSpotify, isSpotifyConfigured, isSpotifyConnected, spotifyRedirectUri, testSpotify } from "../learning/spotify";
 import { fetchYouTubeMetadata } from "../learning/youtube";
@@ -91,6 +93,7 @@ export const NON_SECRET = new Set([
   "INVESTEC_CLIENT_ID",
   "GOOGLE_CLIENT_ID",
   "FISH_VOICE_ID",
+  "AGENTOS_PLACES_MONTHLY_REQUEST_CAP",
   "FISH_MODEL",
   "AGENTOS_GROK_BIN",
   "AGENTOS_HIGGSFIELD_BIN",
@@ -495,6 +498,34 @@ export const PROBES: Record<string, Probe> = {
         // A one-person search: it costs no credits, and proves the key works.
         await searchPeopleAtDomain("apollo.io", 1);
         return { ok: true, detail: "Apollo accepted the key. Searching is free; only revealing an email spends a credit." };
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  },
+
+  googleplaces: {
+    async local() {
+      const configured = isPlacesConfigured();
+      const capped = monthlyCap() > 0;
+      return {
+        configured: configured && capped,
+        detail: !configured ? "GOOGLE_PLACES_API_KEY is not set." : !capped ? "AGENTOS_PLACES_MONTHLY_REQUEST_CAP is not set, so searches are refused." : undefined,
+        setup: [
+          env("GOOGLE_PLACES_API_KEY"),
+          env("AGENTOS_PLACES_MONTHLY_REQUEST_CAP", { label: "Monthly request cap", placeholder: "200" }),
+        ],
+        connectHint:
+          "Paste a Google Cloud API key with the Places API (New) enabled and billing on. Set the cap to the most Places requests you will pay for in a month: a search makes 2 requests, and a failed one still counts.",
+      };
+    },
+    async test() {
+      try {
+        // One lookup, counted against the cap: it proves the key works for the cost of a single request.
+        reserveRequests(1);
+        await resolveArea("Johannesburg");
+        const budget = placesBudget();
+        return { ok: true, detail: `Google accepted the key. ${budget.used} of ${budget.cap} requests used this month.` };
       } catch (error) {
         return failure(error);
       }
