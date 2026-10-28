@@ -42,7 +42,7 @@ describe("orderCandidates", () => {
   });
 });
 
-const check = (website: string, score: number, problems: string[] = [`problem at ${score}`]): SiteCheck => ({ website, reachable: true, problems, score });
+const check = (website: string, score: number, problems: string[] = [`problem at ${score}`], leaks: string[] = []): SiteCheck => ({ website, reachable: true, problems, score, leaks, advertising: [] });
 
 describe("orderCandidates with site checks", () => {
   const own = (placeId: string, distanceKm: number) => candidate({ placeId, websiteKind: "own", website: `https://${placeId}.example`, distanceKm });
@@ -84,6 +84,13 @@ describe("alreadyListed", () => {
 });
 
 describe("prospectFromCandidate", () => {
+  it("puts the leaks and the ads they run ahead of what is out of date", () => {
+    const own = candidate({ websiteKind: "own", website: "https://smit.example/" });
+    const found = { ...check("https://smit.example/", 6, ["No search description"], ["No way to book online"]), advertising: ["Google Ads"] };
+    const reasons = prospectFromCandidate(own, niche, "Sandton", found).reasons ?? [];
+    assert.deepEqual(reasons.slice(2), ["Runs Google Ads tracking: they pay for this traffic", "No way to book online", "No search description"]);
+  });
+
   it("makes a valid prospect that has no verdict, so it lands in To check", () => {
     const input = prospectFromCandidate(candidate({ rating: 4.6, ratingCount: 31, phone: "011 555 0100", mapsUrl: "https://maps.google.com/?cid=1" }), niche, "Sandton");
     const parsed = ProspectInputSchema.parse(input);

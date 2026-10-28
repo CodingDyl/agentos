@@ -7,7 +7,7 @@ import { useCheckSites, usePlacesNiches, useSearchPlaces } from "@/lib/agentos/p
 import { useCreateProspect } from "@/lib/agentos/traction";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
-import { alreadyListed, checksByWebsite, orderCandidates, prospectFromCandidate, searchBlocker, WEBSITE_KIND_LABEL } from "./traction-places-model";
+import { alreadyListed, checksByWebsite, orderCandidates, prospectFromCandidate, reviewsByWebsite, searchBlocker, WEBSITE_KIND_LABEL } from "./traction-places-model";
 
 /**
  * Find by niche: pick a high-ticket niche, an area and a radius, and see the
@@ -156,8 +156,8 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
   useEffect(() => {
     if (websites.length === 0 || requested.current === websites) return;
     requested.current = websites;
-    readSites(websites);
-  }, [readSites, websites]);
+    readSites({ websites, reviews: reviewsByWebsite(result.candidates) });
+  }, [readSites, websites, result]);
   const checks = useMemo(() => checksByWebsite(read?.checks), [read]);
 
   const ordered = useMemo(() => orderCandidates(result.candidates, checks), [result, checks]);
@@ -183,7 +183,7 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
       ) : null}
       {checks.size > 0 ? (
         <p className="mb-2 max-w-[70ch] text-[12.5px] leading-5 text-paper-sage">
-          Websites are read from their HTML. A site built with scripts can show gaps a visitor would not see, so treat these as a reason to look, not a verdict.
+          Websites are read from their HTML. The bold lines are where a site loses visitors ready to buy; the rest is what is out of date. A site built with scripts can show gaps a visitor would not see, so treat these as a reason to look, not a verdict.
         </p>
       ) : null}
       {result.candidates.length === 0 ? (
@@ -200,14 +200,24 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
                   <p className="text-[12.5px] text-paper-sage">
                     {[candidate.address, `${candidate.distanceKm} km`, candidate.rating !== undefined ? `${candidate.rating} stars (${candidate.ratingCount ?? 0})` : undefined].filter(Boolean).join(" · ")}
                   </p>
+                  {siteCheck && siteCheck.leaks.length > 0 ? (
+                    <ul aria-label="Where the site loses customers" className="mt-1 max-w-[70ch] space-y-0.5 text-[12.5px] leading-5 font-medium text-paper-moss">
+                      {siteCheck.leaks.map((leak) => (
+                        <li key={leak}>{leak}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                   {siteCheck && siteCheck.problems.length > 0 ? (
                     <p className="mt-0.5 max-w-[70ch] text-[12.5px] leading-5 text-paper-char">{siteCheck.problems.slice(0, 3).join(" · ")}</p>
                   ) : null}
-                  {siteCheck && siteCheck.reachable && siteCheck.problems.length === 0 ? (
+                  {siteCheck && siteCheck.reachable && siteCheck.problems.length === 0 && siteCheck.leaks.length === 0 ? (
                     <p className="mt-0.5 text-[12.5px] text-paper-sage">Nothing obvious to fix on the site.</p>
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
+                  {siteCheck && siteCheck.advertising.length > 0 ? (
+                    <Tag tone="blue">Runs {siteCheck.advertising.join(" + ")}</Tag>
+                  ) : null}
                   {siteCheck ? <Tag tone={siteCheck.score >= 7 ? "green" : siteCheck.score >= 4 ? "marigold" : "muted"}>{siteCheck.reachable ? `${siteCheck.score}/10 to fix` : "Did not load"}</Tag> : null}
                   <Tag tone={candidate.websiteKind === "none" ? "green" : candidate.websiteKind === "social" ? "marigold" : "muted"}>{WEBSITE_KIND_LABEL[candidate.websiteKind]}</Tag>
                   {candidate.website ? (

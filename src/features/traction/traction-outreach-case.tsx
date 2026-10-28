@@ -4,6 +4,9 @@ import { Link } from "react-router-dom";
 import {
   CASE_FIELDS,
   draftGaps,
+  LEAK_FIELDS,
+  leakEstimate,
+  leakSentence,
   PATH_PLAY,
   PATHS,
   type CaseFieldKey,
@@ -166,6 +169,7 @@ export function KnowThem({ prospect, entry }: { prospect: Prospect; entry: Outre
       <div className="mt-4 grid gap-4">
         <CaseText entry={entry} field="about" rows={3} />
         <CaseText entry={entry} field="findings" rows={4} />
+        <LeakCost entry={entry} />
         <CaseText entry={entry} field="howWeHelp" rows={3} />
         <CaseText entry={entry} field="hook" rows={2} />
         {notesOpen ? (
@@ -177,6 +181,33 @@ export function KnowThem({ prospect, entry }: { prospect: Prospect; entry: Outre
         )}
       </div>
     </Card>
+  );
+}
+
+/**
+ * What the leak costs them, in rands: the owner feels money, not missing
+ * meta tags. Your estimate, never Hermes'; the draft may use it once, as a
+ * rough guess.
+ */
+function LeakCost({ entry }: { entry: OutreachCase }) {
+  const estimate = leakEstimate(entry);
+  return (
+    <fieldset className="border border-paper-mist bg-paper-linen p-4">
+      <legend className="px-1 font-paper-ui text-[13px] font-semibold text-paper-moss">What the leak costs them</legend>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
+        {LEAK_FIELDS.map((field) => (
+          <CaseLine key={field} entry={entry} field={field} />
+        ))}
+      </div>
+      <p aria-live="polite" className="mt-3 max-w-[72ch] text-[13.5px] leading-5 tabular-nums text-paper-moss">
+        {estimate ? (
+          <span className="font-semibold">{leakSentence(estimate)}</span>
+        ) : (
+          <span className="text-paper-sage">Fill in enquiries, cost per enquiry and the share lost to see what the site costs them a month. Add the average job and booking rate for the jobs it costs.</span>
+        )}
+      </p>
+      {estimate ? <p className="mt-1 text-[12.5px] text-paper-sage">Your estimate. The draft may use it once, as a rough guess, never as their real figures.</p> : null}
+    </fieldset>
   );
 }
 

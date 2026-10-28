@@ -11,6 +11,17 @@ import type { Prospect, ProspectInput } from "@shared/traction-types";
  * and are gone when the page is.
  */
 
+/** Google's rating for each website a search found, so the site check can tell when a site hides it. */
+export function reviewsByWebsite(candidates: readonly PlaceCandidate[]): Record<string, { rating: number; count: number }> {
+  return Object.fromEntries(
+    candidates.flatMap((candidate) =>
+      candidate.websiteKind === "own" && candidate.website && candidate.rating !== undefined && candidate.ratingCount !== undefined
+        ? [[candidate.website, { rating: candidate.rating, count: candidate.ratingCount }]]
+        : [],
+    ),
+  );
+}
+
 /** The checks of a search, found by website address. */
 export function checksByWebsite(checks: readonly SiteCheck[] | undefined): ReadonlyMap<string, SiteCheck> {
   return new Map((checks ?? []).map((check) => [check.website, check]));
@@ -74,9 +85,11 @@ export function prospectFromCandidate(candidate: PlaceCandidate, niche: PlaceNic
   if (candidate.rating !== undefined && candidate.ratingCount !== undefined) {
     reasons.push(`${candidate.rating} stars from ${candidate.ratingCount} Google reviews`);
   }
+  if (check && check.advertising.length > 0) reasons.push(`Runs ${check.advertising.join(" and ")} tracking: they pay for this traffic`);
   // What the site check found, worst first, as far as the six reasons a prospect holds allow. These are not the
   // observation: that stays blank until you have read the site yourself, because outreach is never drafted without it.
-  if (check) reasons.push(...check.problems.slice(0, 6 - reasons.length));
+  // Leaks lead: where the site loses visitors ready to buy is the pitch; the rest is what is out of date.
+  if (check) reasons.push(...[...check.leaks, ...check.problems].slice(0, 6 - reasons.length));
 
   const notes = [
     "Found with Google Places.",

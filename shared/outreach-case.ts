@@ -65,6 +65,15 @@ export const OutreachCaseSchema = z.object({
   setupPrice: Words(80).default(""),
   /** Custom build: a price or range, e.g. "from R25,000". */
   projectPrice: Words(80).default(""),
+  /**
+   * What the leak costs them, your estimate: written as you would say it
+   * ("100", "R129", "20%") and read by `leakEstimate`. Never filled by Hermes.
+   */
+  leadsPerMonth: Words(40).default(""),
+  costPerLead: Words(40).default(""),
+  leakPercent: Words(40).default(""),
+  jobValue: Words(40).default(""),
+  bookedPercent: Words(40).default(""),
   /** Which of your companies the email is from. */
   senderId: z.string().default(""),
   draft: CaseDraftSchema.optional(),
@@ -97,6 +106,11 @@ export const OutreachCasePatchSchema = z
     monthlyPrice: Words(80).nullable(),
     setupPrice: Words(80).nullable(),
     projectPrice: Words(80).nullable(),
+    leadsPerMonth: Words(40).nullable(),
+    costPerLead: Words(40).nullable(),
+    leakPercent: Words(40).nullable(),
+    jobValue: Words(40).nullable(),
+    bookedPercent: Words(40).nullable(),
     senderId: z.string().max(80).nullable(),
     draft: CaseDraftSchema.nullable(),
     notes: z.string().max(6000).nullable(),
@@ -130,6 +144,11 @@ export const CASE_FIELDS: readonly { key: CaseFieldKey; label: string; hint: str
   { key: "monthlyPrice", label: "Monthly price", hint: "e.g. R450 a month, hosting and updates included", hermes: false },
   { key: "setupPrice", label: "Set-up fee", hint: "Leave empty for no upfront cost", hermes: false },
   { key: "projectPrice", label: "Project price", hint: "e.g. from R25,000", hermes: false },
+  { key: "leadsPerMonth", label: "Enquiries a month", hint: "From their ads, e.g. 100", hermes: false },
+  { key: "costPerLead", label: "Cost per enquiry", hint: "e.g. R129", hermes: false },
+  { key: "leakPercent", label: "Lost on the site", hint: "Leave without calling, e.g. 20%", hermes: false },
+  { key: "jobValue", label: "Average job", hint: "e.g. R1,700", hermes: false },
+  { key: "bookedPercent", label: "Enquiries booked", hint: "Become a job, e.g. 40%", hermes: false },
   { key: "senderId", label: "Sent from", hint: "Which of your companies", hermes: false },
   { key: "notes", label: "Research notes", hint: "Anything else found about them. Hermes reads these when drafting.", hermes: false },
 ];
@@ -175,6 +194,62 @@ export type Sender = z.infer<typeof SenderSchema>;
 
 export const SenderInputSchema = SenderSchema.omit({ id: true, createdAt: true, updatedAt: true }).strict();
 export type SenderInput = z.infer<typeof SenderInputSchema>;
+
+// ─── What the leak costs ────────────────────────────────────────────────────
+
+/** The leak-cost fields, in the order the screen shows them. */
+export const LEAK_FIELDS = ["leadsPerMonth", "costPerLead", "leakPercent", "jobValue", "bookedPercent"] as const;
+
+export interface LeakEstimate {
+  /** Enquiries a month the site loses. */
+  lostEnquiries: number;
+  /** Ad spend a month that buys those lost enquiries. */
+  wastedSpend: number;
+  /** Booked jobs a month those enquiries would have become, and what they are worth. Absent without a job value and booking rate. */
+  lostJobs?: number;
+  lostRevenue?: number;
+}
+
+/** A number as people write one: "R1,714", "20%", "R 2 500", "1714.50". Undefined when there is none. */
+export function readAmount(text: string): number | undefined {
+  const cleaned = text.replace(/(?<=\d)[\s,](?=\d{3}\b)/g, "").replace(/[^\d.]/g, "");
+  if (!cleaned || !/\d/.test(cleaned)) return undefined;
+  const value = Number.parseFloat(cleaned);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * What the site's leak costs them a month, from your estimate. Needs the
+ * enquiries, the cost of each and the share lost; the jobs and their value
+ * are added when the job value and booking rate are known. Undefined until
+ * there is enough to say anything.
+ */
+export function leakEstimate(entry: Pick<OutreachCase, (typeof LEAK_FIELDS)[number]>): LeakEstimate | undefined {
+  const leads = readAmount(entry.leadsPerMonth);
+  const cost = readAmount(entry.costPerLead);
+  const percent = readAmount(entry.leakPercent);
+  if (!leads || cost === undefined || !percent || percent > 100) return undefined;
+  const lostEnquiries = (leads * percent) / 100;
+  const estimate: LeakEstimate = { lostEnquiries, wastedSpend: lostEnquiries * cost };
+  const job = readAmount(entry.jobValue);
+  const booked = readAmount(entry.bookedPercent);
+  if (job && booked && booked <= 100) {
+    estimate.lostJobs = (lostEnquiries * booked) / 100;
+    estimate.lostRevenue = estimate.lostJobs * job;
+  }
+  return estimate;
+}
+
+const rands = (value: number) => `R${Math.round(value).toLocaleString("en-ZA").replace(/\u00a0/g, " ")}`;
+const about = (value: number) => (value >= 10 ? String(Math.round(value)) : String(Math.round(value * 10) / 10));
+
+/** The estimate in one plain sentence, the same on the screen and in the draft. */
+export function leakSentence(estimate: LeakEstimate): string {
+  const head = `About ${about(estimate.lostEnquiries)} enquiries a month leave the site without calling: ${rands(estimate.wastedSpend)} of ad spend a month`;
+  return estimate.lostJobs !== undefined && estimate.lostRevenue !== undefined
+    ? `${head}, and about ${about(estimate.lostJobs)} ${estimate.lostJobs === 1 ? "job" : "jobs"} worth ${rands(estimate.lostRevenue)}.`
+    : `${head}.`;
+}
 
 /** Where a case has got to, for the list. */
 export type CaseStage = "new" | "briefed" | "decided" | "drafted" | "sent" | "replied";

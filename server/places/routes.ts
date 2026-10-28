@@ -80,7 +80,7 @@ placesRouter.post("/check-sites", async (request, response) => {
   }
 
   try {
-    response.json({ checks: await checkSites(parsed.data.websites) });
+    response.json({ checks: await checkSites(parsed.data.websites, undefined, undefined, parsed.data.reviews) });
   } catch (error) {
     fail(response, error);
   }

@@ -14,7 +14,7 @@ const MODERN = `<!doctype html><html><head><title>Smit Attorneys</title>
 <meta name="description" content="Family law in Sandton.">
 <meta property="og:title" content="Smit Attorneys">
 <script type="application/ld+json">{"@type":"LegalService"}</script></head>
-<body><h1>Smit Attorneys</h1><a href="tel:+27115550100">Call</a><form action="/contact"></form>
+<body><h1>Smit Attorneys</h1><a href="tel:+27115550100">Call</a><a href="/book">Book a consultation</a><form action="/contact"></form>
 <footer>© 2026 Smit Attorneys</footer></body></html>`;
 
 const DATED = `<html><head><title>Smit</title></head><body><h1>Welcome</h1><p>Copyright 2014 Smit &amp; Partners</p></body></html>`;
@@ -48,7 +48,9 @@ describe("assessSite", () => {
       "Not built for phones: no mobile viewport",
       "Looks abandoned: the footer says © 2014",
     ]);
-    assert.equal(result.problems.length, 8);
+    // The missing form is said once, by the booking leak, not again as a problem.
+    assert.equal(result.problems.length, 7);
+    assert.deepEqual(result.leaks, ["No way to book or ask for a quote online: a visitor ready to buy has to phone"]);
     assert.equal(result.score, 10);
   });
 
@@ -60,12 +62,26 @@ describe("assessSite", () => {
   });
 });
 
+describe("assessSite: conversion leaks", () => {
+  it("weighs a leak more than an out-of-date detail, and says which ads they run", () => {
+    const html = MODERN.replace('<a href="/book">Book a consultation</a>', "").replace("</head>", "<script async src=\"https://www.googletagmanager.com/gtag/js?id=AW-123456789\"></script><script>gtag('config', 'AW-123456789');</script></head>");
+    const result = assessSite(html, "https://smit.example/", NOW, { rating: 4.8, count: 210 });
+    assert.deepEqual(result.problems, []);
+    assert.deepEqual(result.leaks, [
+      "No Book or Get a quote button: visitors have to find the contact form themselves",
+      "Hides its 4.8-star rating from 210 Google reviews: the site never mentions them",
+    ]);
+    assert.equal(result.score, 4);
+    assert.deepEqual(result.advertising, ["Google Ads"]);
+  });
+});
+
 describe("checkSite", () => {
   it("scores a site that did not load as a lead, with the reason", async () => {
     const check = await checkSite("https://gone.example", async () => {
       throw new SafeFetchError("The website answered 503.");
     }, NOW);
-    assert.deepEqual(check, { website: "https://gone.example", reachable: false, problems: ["The site did not load: The website answered 503."], score: 8 });
+    assert.deepEqual(check, { website: "https://gone.example", reachable: false, problems: ["The site did not load: The website answered 503."], score: 8, leaks: [], advertising: [] });
   });
 
   it("does not leak the text of an unexpected failure", async () => {

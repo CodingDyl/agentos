@@ -57,11 +57,14 @@ Defined in `shared/outreach-case.ts` (`OutreachCaseSchema` and `CASE_FIELDS`).
 | `offer` | The offer as the email puts it | yes |
 | `previewUrl` | Build-first: the live link to the site you built | no |
 | `monthlyPrice`, `setupPrice`, `projectPrice` | Quoted exactly as written; prefilled from the company's usual prices | no |
+| `leadsPerMonth`, `costPerLead`, `leakPercent`, `jobValue`, `bookedPercent` | What the site's leak costs them, your estimate, written as you would say it (`100`, `R129`, `20%`). `leakEstimate` turns it into rands a month; the draft may use it once, as a rough guess | no |
 | `senderId` | Which company it is from | no |
 | `notes` | Free research notes; Hermes reads them for the brief and the draft | no |
 | `draft` | `{ subject, body }`, the email being edited | the draft endpoint |
 
 Hermes never sets prices. They come from you, or from your company's defaults.
+
+The brief's findings lead with **conversion leaks** (`server/web/conversion-leaks.ts`): no way to book, the first call or book button far down the page, a good Google rating the site never mentions. The Find tab's site check reports the same leaks, and which ad networks' tracking is on the page.
 
 ## Adding a field
 

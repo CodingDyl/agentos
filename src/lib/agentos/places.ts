@@ -66,18 +66,19 @@ export function useSearchPlaces() {
 }
 
 /**
- * Reads the websites of the businesses a search found. Free of Places requests,
+ * Reads the websites of the businesses a search found, with Google's rating
+ * for each so the check can say when a site hides it. Free of Places requests,
  * so the page runs it by itself when results arrive; the answers are held with
  * the results and gone with them.
  */
 export function useCheckSites() {
   return useMutation({
-    mutationFn: async (websites: string[]): Promise<SiteChecksReply> => {
+    mutationFn: async ({ websites, reviews }: { websites: string[]; reviews?: Record<string, { rating: number; count: number }> }): Promise<SiteChecksReply> => {
       const parsed = SiteChecksReplySchema.safeParse(
         await request("/api/traction/places/check-sites", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ websites }),
+          body: JSON.stringify(reviews && Object.keys(reviews).length > 0 ? { websites, reviews } : { websites }),
         }),
       );
       if (!parsed.success) throw new AgentOSRequestError("The site check came back in an unexpected shape.");

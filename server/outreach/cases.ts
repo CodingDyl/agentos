@@ -2,6 +2,8 @@ import {
   CASE_FIELDS,
   draftGaps,
   HermesBriefSchema,
+  leakEstimate,
+  leakSentence,
   OutreachCaseSchema,
   PATHS,
   type FilledBy,
@@ -16,6 +18,7 @@ import type { Icp, Prospect, SiteFacts } from "../../shared/traction-types";
 import { HermesError, sendToHermes } from "../hermes/client";
 import { extractJson } from "../hermes/worker-review";
 import { mutate, newId, readState, TractionNotFoundError } from "../traction/store";
+import { conversionLeaks } from "../web/conversion-leaks";
 import { extractPageFacts } from "../web/page-facts";
 import { fetchPage, SafeFetchError } from "../web/safe-fetch";
 import { MAX_TOUCHES } from "../../shared/outreach-plays";
@@ -235,7 +238,10 @@ export async function briefCase(
 
   const site = await readSite(prospect.website);
   const signals = signalsFrom(site.html && site.url ? { html: site.html, url: site.url } : undefined, site.facts);
-  const checks = markupObservations(signals, prospect.website).map((note) => note.text);
+  const markup = markupObservations(signals, prospect.website).map((note) => note.text);
+  // Where the site loses visitors who were ready to buy comes first: it is what costs them money.
+  const leaks = site.html ? conversionLeaks(site.html).leaks : [];
+  const checks = [...leaks, ...markup.filter((check) => !saysTheSame(check, leaks))];
 
   let reply: string;
   try {
@@ -282,12 +288,14 @@ export function saysTheSame(check: string, findings: readonly string[]): boolean
 export function caseFactLines(context: { prospect: Prospect; entry: OutreachCase; sender?: Sender }): (string | undefined)[] {
   const { prospect, entry, sender } = context;
   const path = entry.path ? PATHS[entry.path] : undefined;
+  const leak = leakEstimate(entry);
   return [
     `THEIR BUSINESS: ${prospect.company}${prospect.segment ? ` (${prospect.segment})` : ""}`,
     prospect.contact ? `THE PERSON: ${prospect.contact}` : undefined,
     entry.about ? `WHAT THEY DO: ${entry.about}` : undefined,
     entry.hook ? `OPENING LINE: ${entry.hook}` : undefined,
     entry.findings.length > 0 ? `WHAT I NOTICED:\n${entry.findings.map((line) => `- ${line}`).join("\n")}` : undefined,
+    leak ? `WHAT THE LEAK COSTS THEM (my rough estimate, not their figures): ${leakSentence(leak)}` : undefined,
     entry.howWeHelp ? `HOW I CAN HELP: ${entry.howWeHelp}` : undefined,
     path ? `MY APPROACH: ${path.name}. ${path.line}` : undefined,
     `THE OFFER: ${entry.offer}`,
@@ -331,6 +339,7 @@ export function buildCaseDraftPacket(context: {
     `- Under ${MAX_WORDS[touch]} words. Plain text. Three short paragraphs at most. Greet by first name if one is given, otherwise 'Hi'.`,
     "- Every claim must come from the facts below. Never invent numbers, clients, results or compliments.",
     "- Quote prices exactly as written below, or not at all if none are given.",
+    "- If a leak estimate is given, you may use it once, as a rough estimate in my words ('roughly', 'my guess is'), never as their real numbers.",
     entry.path === "build_first"
       ? "- I have already built their new site. Include the preview link exactly once, and make clear it is theirs to look at with no obligation."
       : "- Do not include any links.",

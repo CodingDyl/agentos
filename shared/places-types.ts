@@ -88,12 +88,22 @@ export const SiteCheckSchema = z.object({
   problems: z.array(z.string()),
   score: z.number().int().min(0).max(10),
   copyrightYear: z.number().int().optional(),
+  /**
+   * Where the page loses visitors who arrived ready to buy: no way to book,
+   * the call button far down, the Google rating hidden. Worst first. These
+   * are the money story; `problems` is the rest.
+   */
+  leaks: z.array(z.string()).default([]),
+  /** Ad networks whose tracking is on the page, e.g. "Google Ads": they pay for this traffic. */
+  advertising: z.array(z.string()).default([]),
 });
 export type SiteCheck = z.infer<typeof SiteCheckSchema>;
 
 /** `POST /api/traction/places/check-sites`. */
 export const SiteChecksRequestSchema = z.object({
   websites: z.array(z.string().max(300)).min(1).max(MAX_SITE_CHECKS),
+  /** Google's rating for a website's business, so the check can say when the site hides it. Optional. */
+  reviews: z.record(z.string().max(300), z.object({ rating: z.number().min(0).max(5), count: z.number().int().min(0) })).optional(),
 });
 export const SiteChecksReplySchema = z.object({ checks: z.array(SiteCheckSchema) });
 export type SiteChecksReply = z.infer<typeof SiteChecksReplySchema>;
