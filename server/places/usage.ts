@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { PlacesBudget } from "../../shared/places-types";
 import { uiStateDir } from "../agentos/session-store";
 import { PlacesError } from "./client";
 
@@ -19,14 +20,6 @@ import { PlacesError } from "./client";
 
 const CAP_ENV = "AGENTOS_PLACES_MONTHLY_REQUEST_CAP";
 const MAX_CAP = 5000;
-
-export interface PlacesBudget {
-  /** 0 means no cap is set, and searches are refused. */
-  cap: number;
-  used: number;
-  remaining: number;
-  month: string;
-}
 
 function usageFile(): string {
   return path.join(uiStateDir(), "places-usage.json");

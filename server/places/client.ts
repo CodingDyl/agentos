@@ -1,3 +1,4 @@
+import { PLACES_SEARCH_REQUESTS, type PlaceCandidate, type PlaceSearchResult } from "../../shared/places-types";
 import { siteDomain } from "../outreach/email-finder";
 import { nicheById, type PlaceNiche } from "./niches";
 
@@ -24,11 +25,12 @@ const BASE = "https://places.googleapis.com/v1";
 const TIMEOUT_MS = 20_000;
 const PAGE_SIZE = 20;
 
-/** Places requests one search makes: one to find the area, one to search it. */
-export const SEARCH_REQUESTS = 2;
+export const SEARCH_REQUESTS = PLACES_SEARCH_REQUESTS;
 
 export const RADIUS_MIN_KM = 5;
 export const RADIUS_MAX_KM = 15;
+
+export type { PlaceCandidate, PlaceSearchResult };
 
 export class PlacesError extends Error {
   constructor(
@@ -38,31 +40,6 @@ export class PlacesError extends Error {
     super(message);
     this.name = "PlacesError";
   }
-}
-
-export interface PlaceCandidate {
-  placeId: string;
-  name: string;
-  address: string;
-  website?: string;
-  /** `own` is their domain, `social` is a Facebook-type page, `none` is no website at all. */
-  websiteKind: "own" | "social" | "none";
-  phone?: string;
-  rating?: number;
-  ratingCount?: number;
-  lat: number;
-  lng: number;
-  distanceKm: number;
-  mapsUrl?: string;
-}
-
-export interface PlaceSearchResult {
-  area: { name: string; lat: number; lng: number };
-  nicheId: string;
-  radiusKm: number;
-  candidates: PlaceCandidate[];
-  /** Places requests a successful search makes. A search that fails part-way still spent some, so the monthly cap reserves `SEARCH_REQUESTS` before calling. */
-  requests: number;
 }
 
 export function isPlacesConfigured(): boolean {

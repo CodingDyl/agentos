@@ -10,13 +10,14 @@ import { cn } from "@/lib/utils";
 import { Leads, SetupNote } from "./traction-crm-tab";
 import { TractionIcpCard } from "./traction-icp-card";
 import { KnowThem, ProspectOverview } from "./traction-outreach-case";
+import { TractionPlacesSearch } from "./traction-places-search";
 import { ProspectForm } from "./traction-prospect-form";
 
 /**
  * Find: businesses that might become customers, from first sight to "I can help".
  *
- * 1. Find them: Virtec's local candidates (scored against the ICP), or add one
- *    by hand.
+ * 1. Find them: search a high-ticket niche near an area on Google Places,
+ *    Virtec's local candidates (scored against the ICP), or add one by hand.
  * 2. Check them: read their website, note the one specific thing you saw.
  * 3. Decide: "Can help" puts them in Outreach; "Not a fit" closes them.
  *
@@ -31,6 +32,7 @@ export function TractionFindTab({ data, selectedId, onSelect, onCompose }: { dat
 
   return (
     <div className="max-w-[64rem] space-y-12">
+      <TractionPlacesSearch prospects={data.prospects} />
       <ToCheck prospects={toCheck} selectedId={selectedId} onSelect={onSelect} adding={adding} onAdd={() => setAdding((open) => !open)} />
       {adding ? (
         <PaperCard className="p-5">
