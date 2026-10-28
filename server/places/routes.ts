@@ -1,8 +1,10 @@
 import express, { type Response } from "express";
 import { z } from "zod";
+import { SiteChecksRequestSchema } from "../../shared/places-types";
 import { isPlacesConfigured, PlacesError, RADIUS_MAX_KM, RADIUS_MIN_KM } from "./client";
 import { NICHES } from "./niches";
 import { runSearch } from "./search";
+import { checkSites } from "./site-check";
 import { placesBudget } from "./usage";
 
 /**
@@ -59,6 +61,26 @@ placesRouter.post("/search", async (request, response) => {
 
   try {
     response.json(await runSearch(parsed.data));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+/**
+ * Reads the websites of businesses a search found. Costs no Places requests:
+ * the pages are fetched through the guarded fetcher, a few at a time, and
+ * nothing is stored.
+ */
+placesRouter.post("/check-sites", async (request, response) => {
+  const parsed = SiteChecksRequestSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    response.status(400).json({ error: `Invalid site check${issue ? `: ${issue.path.join(".") || "body"}: ${issue.message}` : ""}` });
+    return;
+  }
+
+  try {
+    response.json({ checks: await checkSites(parsed.data.websites) });
   } catch (error) {
     fail(response, error);
   }

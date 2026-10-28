@@ -1,13 +1,13 @@
 import { ExternalLink } from "lucide-react";
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { PLACES_SEARCH_REQUESTS, type PlaceCandidate, type PlaceNiche, type PlacesSearchReply } from "@shared/places-types";
 import type { Prospect } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperEmpty, PaperPagination, PaperSection, Tag } from "@/components/paper";
-import { usePlacesNiches, useSearchPlaces } from "@/lib/agentos/places";
+import { useCheckSites, usePlacesNiches, useSearchPlaces } from "@/lib/agentos/places";
 import { useCreateProspect } from "@/lib/agentos/traction";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
-import { alreadyListed, orderCandidates, prospectFromCandidate, searchBlocker, WEBSITE_KIND_LABEL } from "./traction-places-model";
+import { alreadyListed, checksByWebsite, orderCandidates, prospectFromCandidate, searchBlocker, WEBSITE_KIND_LABEL } from "./traction-places-model";
 
 /**
  * Find by niche: pick a high-ticket niche, an area and a radius, and see the
@@ -147,11 +147,24 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
   const create = useCreateProspect();
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   const { result } = reply;
-  const ordered = orderCandidates(result.candidates);
-  const pager = usePagination(ordered, `${result.nicheId}|${result.area.name}|${result.radiusKm}`, 10);
+
+  // Their own sites are read as soon as the results arrive: it costs no Places requests, and it is what puts the sites that need the most work first.
+  const { mutate: readSites, data: read, isPending: reading, error: readError } = useCheckSites();
+  const websites = useMemo(() => result.candidates.flatMap((candidate) => (candidate.websiteKind === "own" && candidate.website ? [candidate.website] : [])), [result]);
+  // Once per set of results: development's double-run of effects must not read every site twice.
+  const requested = useRef<string[] | undefined>(undefined);
+  useEffect(() => {
+    if (websites.length === 0 || requested.current === websites) return;
+    requested.current = websites;
+    readSites(websites);
+  }, [readSites, websites]);
+  const checks = useMemo(() => checksByWebsite(read?.checks), [read]);
+
+  const ordered = useMemo(() => orderCandidates(result.candidates, checks), [result, checks]);
+  const pager = usePagination(ordered, `${result.nicheId}|${result.area.name}|${result.radiusKm}|${checks.size}`, 10);
 
   const add = (candidate: PlaceCandidate) =>
-    create.mutate(prospectFromCandidate(candidate, niche, result.area.name), {
+    create.mutate(prospectFromCandidate(candidate, niche, result.area.name, candidate.website ? checks.get(candidate.website) : undefined), {
       onSuccess: () => setAdded((current) => new Set(current).add(candidate.placeId)),
     });
 
@@ -161,13 +174,25 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
         {result.candidates.length === 0
           ? `Nothing found for ${niche.label.toLowerCase()} within ${result.radiusKm} km of ${result.area.name}.`
           : `${result.candidates.length} ${result.candidates.length === 1 ? "business" : "businesses"} within ${result.radiusKm} km of ${result.area.name}, weakest web presence first. Google returns at most 20 per search.`}
+        {reading ? ` Reading ${websites.length} ${websites.length === 1 ? "website" : "websites"}…` : ""}
       </p>
+      {readError ? (
+        <p role="alert" className="mb-2 text-[13px] text-paper-flame-deep">
+          The websites could not be read, so the list is ordered by what Google knows. {readError.message}
+        </p>
+      ) : null}
+      {checks.size > 0 ? (
+        <p className="mb-2 max-w-[70ch] text-[12.5px] leading-5 text-paper-sage">
+          Websites are read from their HTML. A site built with scripts can show gaps a visitor would not see, so treat these as a reason to look, not a verdict.
+        </p>
+      ) : null}
       {result.candidates.length === 0 ? (
         <PaperEmpty description="Try a wider radius or a different area." />
       ) : (
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
           {pager.pageItems.map((candidate) => {
             const listed = added.has(candidate.placeId) || alreadyListed(candidate, prospects);
+            const siteCheck = candidate.website ? checks.get(candidate.website) : undefined;
             return (
               <li key={candidate.placeId} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
@@ -175,8 +200,15 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
                   <p className="text-[12.5px] text-paper-sage">
                     {[candidate.address, `${candidate.distanceKm} km`, candidate.rating !== undefined ? `${candidate.rating} stars (${candidate.ratingCount ?? 0})` : undefined].filter(Boolean).join(" · ")}
                   </p>
+                  {siteCheck && siteCheck.problems.length > 0 ? (
+                    <p className="mt-0.5 max-w-[70ch] text-[12.5px] leading-5 text-paper-char">{siteCheck.problems.slice(0, 3).join(" · ")}</p>
+                  ) : null}
+                  {siteCheck && siteCheck.reachable && siteCheck.problems.length === 0 ? (
+                    <p className="mt-0.5 text-[12.5px] text-paper-sage">Nothing obvious to fix on the site.</p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
+                  {siteCheck ? <Tag tone={siteCheck.score >= 7 ? "green" : siteCheck.score >= 4 ? "marigold" : "muted"}>{siteCheck.reachable ? `${siteCheck.score}/10 to fix` : "Did not load"}</Tag> : null}
                   <Tag tone={candidate.websiteKind === "none" ? "green" : candidate.websiteKind === "social" ? "marigold" : "muted"}>{WEBSITE_KIND_LABEL[candidate.websiteKind]}</Tag>
                   {candidate.website ? (
                     <a href={candidate.website} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-1 px-2 text-[13px] text-paper-blue hover:underline", PAPER_FOCUS)}>

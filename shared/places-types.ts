@@ -71,3 +71,29 @@ export const PlacesSearchReplySchema = z.object({
   budget: PlacesBudgetSchema,
 });
 export type PlacesSearchReply = z.infer<typeof PlacesSearchReplySchema>;
+
+/** The most websites one check reads: a search returns at most 20 places. */
+export const MAX_SITE_CHECKS = 20;
+
+/**
+ * What reading one business's website found. `score` is how much there is to
+ * fix, 0 to 10, so the list can lead with the sites that need the most work.
+ * The findings come from the page's HTML, so a site built with scripts can
+ * show gaps that a visitor would not see; they are a reason to look, not a verdict.
+ */
+export const SiteCheckSchema = z.object({
+  website: z.string(),
+  reachable: z.boolean(),
+  /** What is wrong, in plain words, worst first. For an unreachable site: why it did not load. */
+  problems: z.array(z.string()),
+  score: z.number().int().min(0).max(10),
+  copyrightYear: z.number().int().optional(),
+});
+export type SiteCheck = z.infer<typeof SiteCheckSchema>;
+
+/** `POST /api/traction/places/check-sites`. */
+export const SiteChecksRequestSchema = z.object({
+  websites: z.array(z.string().max(300)).min(1).max(MAX_SITE_CHECKS),
+});
+export const SiteChecksReplySchema = z.object({ checks: z.array(SiteCheckSchema) });
+export type SiteChecksReply = z.infer<typeof SiteChecksReplySchema>;

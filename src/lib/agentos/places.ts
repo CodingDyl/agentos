@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlacesNichesReplySchema, PlacesSearchReplySchema, type PlacesNichesReply, type PlacesSearchReply } from "@shared/places-types";
+import { PlacesNichesReplySchema, PlacesSearchReplySchema, SiteChecksReplySchema, type PlacesNichesReply, type PlacesSearchReply, type SiteChecksReply } from "@shared/places-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -62,5 +62,26 @@ export function useSearchPlaces() {
     },
     // Even a failed search may have spent requests, so the budget is read again either way.
     onSettled: () => queryClient.invalidateQueries({ queryKey: placesKey() }),
+  });
+}
+
+/**
+ * Reads the websites of the businesses a search found. Free of Places requests,
+ * so the page runs it by itself when results arrive; the answers are held with
+ * the results and gone with them.
+ */
+export function useCheckSites() {
+  return useMutation({
+    mutationFn: async (websites: string[]): Promise<SiteChecksReply> => {
+      const parsed = SiteChecksReplySchema.safeParse(
+        await request("/api/traction/places/check-sites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ websites }),
+        }),
+      );
+      if (!parsed.success) throw new AgentOSRequestError("The site check came back in an unexpected shape.");
+      return parsed.data;
+    },
   });
 }

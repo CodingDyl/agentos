@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { PlaceCandidate, PlaceNiche } from "@shared/places-types";
+import type { PlaceCandidate, PlaceNiche, SiteCheck } from "@shared/places-types";
 import { ProspectInputSchema, type Prospect } from "@shared/traction-types";
-import { alreadyListed, orderCandidates, prospectFromCandidate, searchBlocker } from "../traction-places-model";
+import { alreadyListed, checksByWebsite, orderCandidates, prospectFromCandidate, searchBlocker } from "../traction-places-model";
 
 const niche: PlaceNiche = { id: "law_firms", label: "Law firms", query: "attorneys law firm", why: "Referral-heavy", caveat: "Advertising claims are limited." };
 
@@ -39,6 +39,29 @@ describe("orderCandidates", () => {
     const input = [candidate({ placeId: "a", websiteKind: "own" }), candidate({ placeId: "b", websiteKind: "none" })];
     orderCandidates(input);
     assert.deepEqual(input.map((c) => c.placeId), ["a", "b"]);
+  });
+});
+
+const check = (website: string, score: number, problems: string[] = [`problem at ${score}`]): SiteCheck => ({ website, reachable: true, problems, score });
+
+describe("orderCandidates with site checks", () => {
+  const own = (placeId: string, distanceKm: number) => candidate({ placeId, websiteKind: "own", website: `https://${placeId}.example`, distanceKm });
+
+  it("puts the site with the most wrong first, among their own sites, and an unchecked one last", () => {
+    const ordered = orderCandidates(
+      [own("fine", 1), own("unchecked", 2), own("dated", 3), candidate({ placeId: "none", websiteKind: "none", distanceKm: 9 })],
+      checksByWebsite([check("https://fine.example", 0), check("https://dated.example", 9)]),
+    );
+    assert.deepEqual(ordered.map((c) => c.placeId), ["none", "dated", "fine", "unchecked"]);
+  });
+
+  it("keeps a site that did not load above the ones that loaded fine", () => {
+    const ordered = orderCandidates([own("fine", 1), own("down", 5)], checksByWebsite([check("https://fine.example", 2), { ...check("https://down.example", 8), reachable: false }]));
+    assert.deepEqual(ordered.map((c) => c.placeId), ["down", "fine"]);
+  });
+
+  it("falls back to distance when nothing has been checked", () => {
+    assert.deepEqual(orderCandidates([own("far", 8), own("near", 1)]).map((c) => c.placeId), ["near", "far"]);
   });
 });
 
@@ -79,6 +102,24 @@ describe("prospectFromCandidate", () => {
       prospectFromCandidate(candidate({ websiteKind: "social", website: "https://www.facebook.com/smit" }), niche, "Sandton").website,
       "https://www.facebook.com/smit",
     );
+  });
+
+  it("adds what the site check found to the reasons, worst first, within the six a prospect holds", () => {
+    const problems = ["Not secure", "Not built for phones", "Looks abandoned", "No contact form", "No search description"];
+    const input = prospectFromCandidate(
+      candidate({ websiteKind: "own", website: "https://smit.example", rating: 4.2, ratingCount: 9 }),
+      niche,
+      "Sandton",
+      check("https://smit.example", 9, problems),
+    );
+    const parsed = ProspectInputSchema.parse(input);
+    assert.equal(parsed.reasons.length, 6);
+    assert.deepEqual(parsed.reasons.slice(3), problems.slice(0, 3));
+  });
+
+  it("leaves the observation blank, because that is for you to write after reading the site", () => {
+    const input = prospectFromCandidate(candidate({ websiteKind: "own", website: "https://smit.example" }), niche, "Sandton", check("https://smit.example", 9));
+    assert.equal(input.observation, undefined);
   });
 
   it("keeps long values inside the prospect's own limits", () => {
