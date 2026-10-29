@@ -146,7 +146,19 @@ export async function gitCommonDir(repoPath: string): Promise<string | undefined
 export async function isGitRoot(repoPath: string): Promise<boolean> {
   const toplevel = await gitToplevel(repoPath);
   if (!toplevel) return false;
-  return path.resolve(repoPath) === toplevel;
+  return samePath(repoPath, toplevel);
+}
+
+/**
+ * Whether two paths are the same folder once symlinks are followed.
+ *
+ * Git reports physical paths (`/private/var/...` on macOS) while a recorded
+ * project path may go through a symlink (`/var/...`). Comparing them as
+ * strings made a plain repository look nested in a parent.
+ */
+export async function samePath(a: string, b: string): Promise<boolean> {
+  const real = async (target: string) => fs.realpath(target).catch(() => path.resolve(target));
+  return (await real(a)) === (await real(b));
 }
 
 /** True when this folder has its own `.git`, rather than inheriting a parent's. */

@@ -44,6 +44,8 @@ const plan = (project: string, objective: string): DelegationPlan => ({
 });
 
 before(async () => {
+  // The real Grok Build may be installed on the machine running the tests; point at a missing binary so it never counts.
+  process.env.AGENTOS_GROK_BIN = path.join(os.tmpdir(), "agentos-test-no-grok");
   vault = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-vault-"));
   process.env.AGENTOS_ROOT = vault;
   process.env.AGENTOS_UI_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-ui-"));
