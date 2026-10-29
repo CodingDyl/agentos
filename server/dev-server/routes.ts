@@ -54,6 +54,11 @@ async function folderFor(slug: string): Promise<{ folder?: string; problem?: str
 
 async function stateFor(slug: string): Promise<DevServerState> {
   const { folder, problem } = await folderFor(slug);
+  return devServerState(slug, folder, problem);
+}
+
+/** The server for `slug`, plus what Start would run in `folder`. Ship reads the same state for its own folder. */
+export async function devServerState(slug: string, folder: string | undefined, problem?: string): Promise<DevServerState> {
   const snapshot = devServers.get(slug);
 
   const plan: DevServerPlan | undefined = problem
