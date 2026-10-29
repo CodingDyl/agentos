@@ -35,8 +35,10 @@ before(async () => {
   await fs.mkdir(path.join(directory, "bin"));
   await wrapper("gemini", "fake-acp-agent.ts");
   await wrapper("codex", "fake-codex-app-server.ts");
-  for (const key of ["PATH", "AGENTOS_UI_DIR", "OPENAI_API_KEY", "AGENTOS_CODEX_RETRY_LIMIT_MS"]) saved[key] = process.env[key];
+  for (const key of ["PATH", "AGENTOS_UI_DIR", "OPENAI_API_KEY", "AGENTOS_CODEX_RETRY_LIMIT_MS", "AGENTOS_HERMES_BIN"]) saved[key] = process.env[key];
   process.env.AGENTOS_CODEX_RETRY_LIMIT_MS = "400";
+  // Hermes may be installed on the machine running the tests; point at a missing binary so "not installed" is real.
+  process.env.AGENTOS_HERMES_BIN = path.join(directory, "bin", "no-hermes");
   process.env.PATH = `${path.join(directory, "bin")}${path.delimiter}${process.env.PATH ?? ""}`;
   process.env.AGENTOS_UI_DIR = path.join(directory, "ui");
   process.env.OPENAI_API_KEY = "sk-test-unused";

@@ -43,6 +43,8 @@ let cloudRuns = 0;
 let cloudSummary = "Cloud summary.";
 
 before(async () => {
+  // The real Grok Build may be installed on the machine running the tests; point at a missing binary so it never counts.
+  process.env.AGENTOS_GROK_BIN = path.join(os.tmpdir(), "agentos-test-no-grok");
   process.env.AGENTOS_UI_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-dispatch-"));
 
   server = http.createServer(async (req, res) => {
