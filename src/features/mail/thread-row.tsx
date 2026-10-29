@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useChatPageDetail } from "@/features/chat-panel/chat-panel-context";
 import { Archive, Reply, Trash2 } from "lucide-react";
 import type { MailBucket, MailThread } from "@shared/mail-types";
 import { Link } from "react-router-dom";
@@ -55,6 +56,8 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
   const bodyId = useId();
   const mailbox = thread.account === "titan" ? "Virtara" : "Gmail";
   const body = useMailThreadBody(thread.threadId, expanded);
+  // An open email is what "this" means in the ⌘J chat; its id lets the agent read it in full.
+  useChatPageDetail(expanded ? `Open email: "${thread.subject ?? "(no subject)"}" from ${thread.fromName ?? thread.fromEmail} (threadId ${thread.threadId})` : undefined);
   const correct = useCorrectMailThread();
   const clearCorrection = useClearMailCorrection();
   const setRead = useSetMailThreadRead();

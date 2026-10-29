@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CreateChatSchema, type Chat, type ChatAgent, type ChatApprovalPart, type ChatMessage, type ChatMode, type ChatStreamEvent, type CreateChat, type SendChatMessage, type StartChatRun } from "../../shared/chat-types";
+import { CreateChatSchema, type Chat, type ChatAgent, type ChatApprovalPart, type ChatMessage, type ChatMode, type ChatPageContext, type ChatStreamEvent, type CreateChat, type SendChatMessage, type StartChatRun } from "../../shared/chat-types";
 import type { ActiveWorkItem } from "../../shared/mission-control-types";
 import { createChatId, deleteChat, listChats, readChat, saveChat, titleFrom } from "./chat-store";
 import { geminiAgent, grokAgent, hermesAgent } from "./acp-chat-adapter";
@@ -165,6 +165,19 @@ async function launchChatModel(agent: ChatAgent, prompt: string, requested?: str
   return pickOfferedModel(agent.models, preferred, agent.defaultModel);
 }
 
+/**
+ * The message as the agent receives it: the operator's words, then where in
+ * AgentOS they were when they sent it, so "this email" or "this project"
+ * resolves. The transcript keeps only their words.
+ */
+export function withPageContext(text: string, context?: ChatPageContext): string {
+  if (!context) return text;
+  const lines = [`They sent this from the ${context.title} screen in AgentOS (${context.path}).`];
+  if (context.detail) lines.push(`On screen: ${context.detail}`);
+  if (context.selection) lines.push(`They had this selected:\n"""\n${context.selection}\n"""`);
+  return `${text}\n\n<agentos-context>\n${lines.join("\n")}\n</agentos-context>`;
+}
+
 /** Where a turn runs and what it is told, by the kind of chat. */
 async function chatSetup(mode: ChatMode): Promise<Pick<RunTurnInput, "policy" | "systemPrompt">> {
   if (mode === "coder") return { policy: { projectRoot: PROJECT_ROOT, mode } };
@@ -199,6 +212,7 @@ export async function renameChat(id: string, title: string): Promise<Chat> {
 
 export async function removeChat(id: string): Promise<void> {
   if (active.has(id)) stopChat(id);
+  for (const adapter of ADAPTERS) adapter.release?.(id);
   if (!(await deleteChat(id))) throw new ChatNotFoundError("That chat doesn't exist.");
 }
 
@@ -272,9 +286,10 @@ export async function sendMessage(id: string, input: SendChatMessage): Promise<C
   const runTurn = turnOverride ?? adapterFor(chat.agent).runTurn;
 
   turn.settled = runTurn({
-    prompt: input.text,
+    prompt: withPageContext(input.text, input.context),
     model: launchModel,
     resume: chat.agentSessionId,
+    sessionKey: chat.id,
     ...setup,
     state,
     controller: turn.controller,

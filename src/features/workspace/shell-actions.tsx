@@ -1,12 +1,13 @@
-import { PenLine, Plus, Search } from "lucide-react";
+import { MessageSquare, PenLine, Plus, Search } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { projectInContext } from "@/features/agent/command-catalog";
 import { useCommandPalette } from "@/features/agent/command-palette-context";
+import { useChatPanel } from "@/features/chat-panel/chat-panel-context";
 import { useQuickCreate } from "./quick-create-context";
 
 /**
- * The controls in every screen's top bar: capture, search, and create.
+ * The controls in every screen's top bar: capture, search, chat, and create.
  *
  * Capture comes first because it is the one that has to be instant — a
  * thought noticed on the way somewhere is gone by the time a menu opens.
@@ -17,7 +18,10 @@ import { useQuickCreate } from "./quick-create-context";
 export function ShellActions() {
   const palette = useCommandPalette();
   const quickCreate = useQuickCreate();
+  const chat = useChatPanel();
   const location = useLocation();
+  // Operator is the chat itself.
+  const onOperator = location.pathname.startsWith("/operator");
   const project = projectInContext(location.pathname, location.search);
 
   useEffect(() => {
@@ -56,6 +60,21 @@ export function ShellActions() {
         <span className="os-meta hidden sm:inline">Search</span>
         <kbd className="hidden sm:inline os-meta rounded-sm border border-os-border px-1 text-os-subtle">⌘K</kbd>
       </button>
+
+      {onOperator ? null : (
+        <button
+          type="button"
+          onClick={chat.toggle}
+          aria-pressed={chat.isOpen}
+          className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-os-border px-2.5 text-os-subtle transition-colors duration-150 hover:border-os-border-strong hover:text-foreground aria-pressed:border-os-border-strong aria-pressed:text-foreground"
+          aria-label="Chat"
+          title="Ask about this screen, or anything (⌘J)"
+        >
+          <MessageSquare className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+          <span className="os-meta hidden sm:inline">Chat</span>
+          <kbd className="hidden sm:inline os-meta rounded-sm border border-os-border px-1 text-os-subtle">⌘J</kbd>
+        </button>
+      )}
 
       <button
         type="button"

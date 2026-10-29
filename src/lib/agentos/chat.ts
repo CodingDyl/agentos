@@ -8,6 +8,7 @@ import {
   type Chat,
   type ChatAgentId,
   type ChatMode,
+  type ChatPageContext,
   type ChatSummary,
 } from "@shared/chat-types";
 import { readSseStream } from "@/features/agent/sse";
@@ -105,7 +106,7 @@ export function useCreateChat() {
 export function useSendChatMessage() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...input }: { id: string; text: string; model?: string }) => parseChat(await request(chatPath(id, "/messages"), json(input))),
+    mutationFn: async ({ id, ...input }: { id: string; text: string; model?: string; context?: ChatPageContext }) => parseChat(await request(chatPath(id, "/messages"), json(input))),
     onSuccess: (chat) => {
       client.setQueryData(chatKey(chat.id), chat);
       void client.invalidateQueries({ queryKey: chatsKey() });

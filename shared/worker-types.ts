@@ -217,6 +217,8 @@ export const WorkerJobRequestSchema = z.object({
    * these are the only ones it sees. `playwright` is a headless browser.
    */
   claudeMcpServers: z.array(z.enum(["playwright"])).max(4).optional(),
+  /** Claude Code only: absolute folders the job may read but never edit (e.g. a repo it assesses). */
+  claudeReadOnlyRoots: z.array(z.string().startsWith("/").max(500)).max(4).optional(),
   /** How long this job may run before AgentOS stops it. */
   timeoutMs: z.number().int().positive().max(28_800_000).optional(),
 });

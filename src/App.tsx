@@ -12,6 +12,7 @@ import { ConnectorDetailPage, ConnectorsPage } from "@/features/connectors";
 import { MailPage } from "@/features/mail";
 import { BusinessPage } from "@/features/business";
 import { OperatorChatPage, OperatorPage } from "@/features/operator";
+import { ChatPanel, ChatPanelProvider } from "@/features/chat-panel";
 import { TractionPage } from "@/features/traction";
 import { RebuildPage } from "@/features/rebuild";
 import { CompassPage } from "@/features/compass";
@@ -58,6 +59,8 @@ function App() {
         {/* The palette wraps every route: ⌘K works wherever the operator is, and
             the route it opens from is what makes its ranking context-aware. */}
         <CommandPaletteProvider>
+        {/* ⌘J: a chat over any screen, told which screen it is. */}
+        <ChatPanelProvider>
         <AppShellActionsContext.Provider value={<ShellActions />}>
         {/* Above the routes so a conversation survives navigating away. */}
         <JarvisProvider>
@@ -135,10 +138,12 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <JarvisPanel />
+        <ChatPanel />
         </AppShellMediaContext.Provider>
         </AppShellVoiceContext.Provider>
         </JarvisProvider>
         </AppShellActionsContext.Provider>
+        </ChatPanelProvider>
         </CommandPaletteProvider>
         </QuickCreateProvider>
       </DownloadToastProvider>

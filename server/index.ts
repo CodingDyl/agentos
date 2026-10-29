@@ -51,6 +51,8 @@ import { RepositoryActionSchema } from "../shared/repository-types";
 import { readGitGraph } from "./agentos/git-graph";
 import { reengineerRouter } from "./reengineer/routes";
 import { startReengineerIngest } from "./reengineer/runs";
+import { videoIdeasRouter } from "./video-ideas/routes";
+import { startVideoIdeaSweep } from "./video-ideas/pipeline";
 import {
   getProjectDocuments,
   listRecentDocuments,
@@ -105,6 +107,7 @@ import { databasesRouter } from "./supabase/routes";
 import { operatorRouter } from "./operator/routes";
 import { chatRouter } from "./chat/chat-routes";
 import { reconcileChats } from "./chat/chat-service";
+import { closeClaudeSessions } from "./chat/claude-chat-adapter";
 import { reconcileOperatorRuns } from "./operator/service";
 import { coderRouter, handleTerminalWebSocket } from "./coder/routes";
 import { killAllTerminals } from "./coder/pty-manager";
@@ -465,6 +468,7 @@ app.use("/api/workers/grok-bot", grokBotRouter);
 
 /** Motion studio: briefs in, Claude Code renders films, finished MP4s land in Creative. */
 app.use("/api/reengineer", reengineerRouter);
+app.use("/api/video-ideas", videoIdeasRouter);
 app.use("/api/designs/animate", animateRouter);
 app.use("/api/designs/motion", motionRouter);
 app.use("/api/designs/download", downloadRouter);
@@ -4788,6 +4792,8 @@ server.listen(PORT, HOST, () => {
   startStallWatch();
   // Teardowns are filed into the vault when their job ends. See server/reengineer/runs.ts.
   startReengineerIngest();
+  // Saved videos become notes, assessments and builds, one step at a time. See server/video-ideas/pipeline.ts.
+  startVideoIdeaSweep();
   startLiveReconcile();
   startOutreachSyncTimer();
   // Replies to outreach sent by hand from the Virtara (Titan) mailbox. See server/outreach/titan-replies.ts.
@@ -4812,6 +4818,8 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   // Dev servers are this process's children; none may outlive it.
   devServers.killAll();
+  // Nor may the Claude sessions chats keep open between messages.
+  closeClaudeSessions();
 
   try {
     killAllTerminals();

@@ -29,6 +29,11 @@ export interface RunTurnInput {
   model: string;
   /** The agent's own session to continue; absent on a chat's first turn. */
   resume?: string;
+  /**
+   * The chat this turn belongs to. An agent that can keep its session open
+   * between turns keeps one per key; absent for a one-off request.
+   */
+  sessionKey?: string;
   policy: PolicyContext;
   /**
    * An assistant chat's whole system prompt (who the operator is, today's
@@ -49,6 +54,8 @@ export interface ChatAgentAdapter {
   name: string;
   describe(): Promise<ChatAgent>;
   runTurn(input: RunTurnInput): Promise<void>;
+  /** Lets go of anything kept open for this chat (a live session). */
+  release?(sessionKey: string): void;
 }
 
 /** The model an agent uses when the operator hasn't picked one. */

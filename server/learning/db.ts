@@ -78,6 +78,16 @@ const MIGRATIONS: readonly string[] = [
     updated_at       TEXT NOT NULL
   );
   `,
+  // Video ideas (server/video-ideas): one per saved video, the record as JSON.
+  `
+  CREATE TABLE IF NOT EXISTS video_ideas (
+    id         TEXT PRIMARY KEY,
+    source_id  TEXT NOT NULL UNIQUE,
+    data       TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  `,
 ];
 
 /** Opens the database, creating and migrating it on first use. Cached for the life of the process. */
@@ -86,6 +96,8 @@ export function learningDatabase(): DatabaseSync {
 
   fs.mkdirSync(learningDir(), { recursive: true });
   const opened = new DatabaseSync(learningDatabaseFile());
+  // Another process writing (a test file, a second server) waits its turn instead of failing.
+  opened.exec("PRAGMA busy_timeout = 5000");
   opened.exec("PRAGMA journal_mode = WAL");
 
   const [{ user_version: version }] = opened.prepare("PRAGMA user_version").all() as unknown as { user_version: number }[];

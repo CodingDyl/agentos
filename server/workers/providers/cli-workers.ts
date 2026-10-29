@@ -95,9 +95,12 @@ export function claudeCodeArgs(input: {
   settingSources?: string;
   mcpServers?: readonly ClaudeMcpServerId[];
   writableRoots?: string[];
+  /** Folders the job may read but never change: added, then denied to Edit and Write. */
+  readOnlyRoots?: string[];
 }): string[] {
   const mcp = mcpArgs(input.mcpServers);
-  const extraDirs = (input.writableRoots ?? []).flatMap((root) => ["--add-dir", root]);
+  const readOnly = input.readOnlyRoots ?? [];
+  const extraDirs = [...(input.writableRoots ?? []), ...readOnly].flatMap((root) => ["--add-dir", root]);
   return [
     "-p",
     input.prompt,
@@ -122,6 +125,8 @@ export function claudeCodeArgs(input: {
     ...mcp.tools,
     "--disallowedTools",
     ...CLAUDE_DENIED,
+    // `//` marks an absolute path in a Claude Code permission rule.
+    ...readOnly.flatMap((root) => [`Edit(/${root}/**)`, `Write(/${root}/**)`, `NotebookEdit(/${root}/**)`]),
   ];
 }
 
@@ -207,6 +212,7 @@ export const claudeCodeWorker = createCliWorker({
       settingSources: job.claudeSettingSources,
       mcpServers: job.claudeMcpServers,
       writableRoots,
+      readOnlyRoots: job.claudeReadOnlyRoots,
     }),
   env: (base) => {
     // Without these removed, Claude Code would bill the API key AgentOS holds

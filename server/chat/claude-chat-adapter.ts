@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { query, type CanUseTool, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { query, type CanUseTool, type Options, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ChatAgent, ChatMessage, ChatModel, ChatToolPart } from "../../shared/chat-types";
 import { agentEnv } from "./agent-environment";
 import { AGENTOS_TOOL_SERVER, agentosToolServer, toolDisplayName } from "./agentos-tools";
 import { cachedModels, rememberModels } from "./chat-model-cache";
+import { LiveSessions, type LiveSession } from "./claude-live-session";
 import { decideChatToolUse, summariseToolInput } from "./chat-permission-policy";
 import { DEFAULT_MODEL, oneLine, type ChatAgentAdapter, type RunTurnInput } from "./chat-turn";
 
@@ -303,14 +304,27 @@ const RESULT_ERRORS: Record<string, string> = {
 /** Kept for callers that predate the shared contract. */
 export type RunClaudeTurnInput = RunTurnInput;
 
-export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
-  const how = billing();
-  if ("error" in how) throw new Error(how.error);
+/** The kind of session a turn needs. */
+function sessionKind(input: RunTurnInput): "text" | "assistant" | "coder" {
+  return input.policy.textOnly ? "text" : input.policy.mode === "assistant" ? "assistant" : "coder";
+}
 
-  // The stream bookkeeping is Claude's own; the reply and session id are shared.
-  const state = startTurn(input.state.message);
+/** The running turn, as a tool call mid-turn needs it. */
+interface ToolGateTurn {
+  input: RunTurnInput;
+  state: ClaudeTurnState;
+}
 
-  const canUseTool: CanUseTool = async (toolName, toolInput, options) => {
+/**
+ * Puts every tool call through the chat policy, asking the operator when it
+ * says to. `turn()` is the turn running now: in a live session one callback
+ * serves every turn, so it can't capture any single one.
+ */
+function toolGate(turn: () => ToolGateTurn | undefined): CanUseTool {
+  return async (toolName, toolInput, options) => {
+    const current = turn();
+    if (!current) return { behavior: "deny", message: "No turn is running." };
+    const { input, state } = current;
     const verdict = decideChatToolUse(toolName, toolInput, input.policy);
     if (verdict.decision === "allow") return { behavior: "allow", updatedInput: toolInput };
 
@@ -326,34 +340,87 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
     input.onChange();
     return { behavior: "deny", message: "The operator declined this action. Carry on without it, and say what you would have done." };
   };
+}
 
-  const kind = input.policy.textOnly ? "text" : input.policy.mode === "assistant" ? "assistant" : "coder";
+/** Everything a Claude session is started with, except its prompt. */
+async function queryOptions(input: RunTurnInput, env: NodeJS.ProcessEnv, canUseTool: CanUseTool, abortController: AbortController): Promise<Options> {
+  const kind = sessionKind(input);
   const session = claudeSessionOptions(kind, input.systemPrompt);
-  const messages = query({
-    prompt: input.prompt,
-    options: {
-      cwd: input.policy.projectRoot,
-      // "default" means Claude Code's own choice: no --model at all.
-      model: input.model === DEFAULT_MODEL.id ? undefined : input.model,
-      resume: input.resume,
-      abortController: input.controller,
-      includePartialMessages: true,
-      // Every call the allowlist doesn't cover comes to `canUseTool`.
-      permissionMode: "default",
-      canUseTool,
-      // What loads depends on the kind of chat: see `claudeSessionOptions`.
-      settingSources: session.settingSources,
-      ...(session.tools ? { tools: session.tools } : {}),
-      ...(session.strictMcpConfig ? { strictMcpConfig: true } : {}),
-      // AgentOS's own tools (the day, vault, projects, mail), in this process.
-      // A text-only request gets none: it has no tools at all.
-      ...(kind === "text" ? {} : { mcpServers: { [AGENTOS_TOOL_SERVER]: agentosToolServer() } }),
-      systemPrompt: session.systemPrompt ?? { type: "preset", preset: "claude_code", append: session.appendPrompt },
-      env: { ...(await agentEnv(how.env)), CLAUDE_AGENT_SDK_CLIENT_APP: "agentos-chat/1.0" },
-    },
-  });
+  return {
+    cwd: input.policy.projectRoot,
+    // "default" means Claude Code's own choice: no --model at all.
+    model: input.model === DEFAULT_MODEL.id ? undefined : input.model,
+    resume: input.resume,
+    abortController,
+    includePartialMessages: true,
+    // Every call the allowlist doesn't cover comes to `canUseTool`.
+    permissionMode: "default",
+    canUseTool,
+    // What loads depends on the kind of chat: see `claudeSessionOptions`.
+    settingSources: session.settingSources,
+    ...(session.tools ? { tools: session.tools } : {}),
+    ...(session.strictMcpConfig ? { strictMcpConfig: true } : {}),
+    // AgentOS's own tools (the day, vault, projects, mail), in this process.
+    // A text-only request gets none: it has no tools at all.
+    ...(kind === "text" ? {} : { mcpServers: { [AGENTOS_TOOL_SERVER]: agentosToolServer() } }),
+    systemPrompt: session.systemPrompt ?? { type: "preset", preset: "claude_code", append: session.appendPrompt },
+    env: { ...(await agentEnv(env)), CLAUDE_AGENT_SDK_CLIENT_APP: "agentos-chat/1.0" },
+  };
+}
 
-  for await (const message of messages) {
+/** Open Claude sessions, one per chat: see claude-live-session.ts. */
+const live = new LiveSessions<ToolGateTurn>();
+
+/** Closes a chat's open session, if it has one. */
+export function releaseClaudeSession(key: string): void {
+  live.close(key);
+}
+
+/** Closes every open session. For shutdown. */
+export function closeClaudeSessions(): void {
+  live.closeAll();
+}
+
+/** A session is reused only while it would be started the same way. */
+function fingerprint(input: RunTurnInput): string {
+  return JSON.stringify([sessionKind(input), input.policy.projectRoot, input.systemPrompt ?? ""]);
+}
+
+export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
+  const how = billing();
+  if ("error" in how) throw new Error(how.error);
+
+  // The stream bookkeeping is Claude's own; the reply and session id are shared.
+  const state = startTurn(input.state.message);
+
+  // A chat's turn goes to its live session; a one-off request starts and ends its own.
+  if (input.sessionKey && !input.policy.textOnly) {
+    const key = input.sessionKey;
+    const print = fingerprint(input);
+    let session = live.find(key, print);
+    if (!session) {
+      // The gate reads whichever turn the session is running when Claude
+      // asks; it is only ever called after `opened` exists.
+      const options = await queryOptions(input, how.env, toolGate(() => opened.current), new AbortController());
+      const opened: LiveSession<ToolGateTurn> = live.open(key, print, input.model, (prompt) => query({ prompt, options }));
+      session = opened;
+    }
+    const current = session;
+    await current.useModel(input.model);
+    return current.send(
+      input.prompt,
+      { input, state },
+      (message) => {
+        const changed = applyClaudeMessage(state, message);
+        if (state.sessionId) input.state.sessionId = state.sessionId;
+        if (changed) input.onChange();
+      },
+      input.controller.signal,
+    );
+  }
+
+  const options = await queryOptions(input, how.env, toolGate(() => ({ input, state })), input.controller);
+  for await (const message of query({ prompt: input.prompt, options })) {
     const changed = applyClaudeMessage(state, message);
     if (state.sessionId) input.state.sessionId = state.sessionId;
     if (changed) input.onChange();
@@ -365,4 +432,5 @@ export const claudeAgent: ChatAgentAdapter = {
   name: "Claude",
   describe: async () => describeClaudeAgent(),
   runTurn: runClaudeTurn,
+  release: releaseClaudeSession,
 };

@@ -35,6 +35,14 @@ describe("Claude Code", () => {
     assert.ok(args.indexOf("Bash(git push:*)") > args.indexOf("--disallowedTools"));
   });
 
+  it("lets a job read folders it may not change", () => {
+    const args = claudeCodeArgs({ prompt: "go", readOnlyRoots: ["/repo/agentos"] });
+    assert.equal(args[args.indexOf("--add-dir") + 1], "/repo/agentos");
+    const denied = args.slice(args.indexOf("--disallowedTools"));
+    assert.ok(denied.includes("Edit(//repo/agentos/**)"));
+    assert.ok(denied.includes("Write(//repo/agentos/**)"));
+  });
+
   it("can raise effort, allow extra tools, and load user skills for a Motion Design job", () => {
     const args = claudeCodeArgs({
       prompt: "/motion-site-studio",

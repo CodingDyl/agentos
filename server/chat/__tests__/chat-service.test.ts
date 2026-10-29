@@ -158,6 +158,31 @@ describe("a chat", () => {
     assert.equal(calls[0].model, "sonnet", "an everyday ask gets Sonnet, not the cheapest tier");
   });
 
+  it("tells the agent which screen a message came from, and keeps the transcript to the operator's words", async () => {
+    service.setTurnRunnerForTests(agent());
+    const chat = await service.createChat({ agent: "claude", model: "default" });
+    await service.sendMessage(chat.id, {
+      text: "Summarise this",
+      context: { path: "/inbox", title: "Inbox", detail: "Email from Sam: Quote", selection: "R12,000 excl. VAT" },
+    });
+    await service.turnSettled(chat.id);
+
+    assert.match(calls[0].prompt, /^Summarise this\n\n<agentos-context>/);
+    assert.match(calls[0].prompt, /Inbox screen in AgentOS \(\/inbox\)/);
+    assert.match(calls[0].prompt, /Email from Sam: Quote/);
+    assert.match(calls[0].prompt, /R12,000 excl\. VAT/);
+    const saved = await store.readChat(chat.id);
+    assert.deepEqual(saved?.messages[0].parts, [{ type: "text", text: "Summarise this" }]);
+  });
+
+  it("passes the chat id so the agent can keep its session open", async () => {
+    service.setTurnRunnerForTests(agent());
+    const chat = await service.createChat({ agent: "claude", model: "default" });
+    await service.sendMessage(chat.id, { text: "Hi" });
+    await service.turnSettled(chat.id);
+    assert.equal(calls[0].sessionKey, chat.id);
+  });
+
   it("treats a chat saved before modes existed as a coder chat", async () => {
     service.setTurnRunnerForTests(agent());
     const chat = await service.createChat({ agent: "claude", model: "default" });

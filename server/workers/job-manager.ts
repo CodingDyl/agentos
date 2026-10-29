@@ -883,6 +883,7 @@ export async function retryJob(jobId: string, options: RetryJobInput = {}): Prom
     referenceLinks: options.referenceLinks ?? previous.referenceLinks,
     claudeSettingSources: previous.claudeSettingSources,
     claudeMcpServers: previous.claudeMcpServers,
+    claudeReadOnlyRoots: previous.claudeReadOnlyRoots,
     timeoutMs: previous.timeoutMs,
   };
 

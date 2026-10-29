@@ -1,27 +1,17 @@
 import { History, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type { Chat, ChatAgent, ChatMode } from "@shared/chat-types";
+import type { ChatAgent, ChatMode } from "@shared/chat-types";
 import { AppShell, DedsecLoader } from "@/components/os";
 import { PAPER_FOCUS } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
-import {
-  useChat,
-  useChatAgents,
-  useChats,
-  useChatStream,
-  useCreateChat,
-  useDecideApproval,
-  useDeleteChat,
-  useSendChatMessage,
-  useStartChatRun,
-  useStopChat,
-} from "@/lib/agentos/chat";
+import { useChatAgents, useChats, useChatStream, useDeleteChat } from "@/lib/agentos/chat";
 import { cn } from "@/lib/utils";
 import { ChatComposer } from "./chat-composer";
 import { ChatHistorySidebar } from "./chat-history-sidebar";
-import { chatModelChoice, initialModelChoice, modelLabel, parseSlashRun, type ModelChoice } from "./chat-model";
+import { modelLabel } from "./chat-model";
 import { ChatThread } from "./chat-thread";
+import { useChatConversation } from "./use-chat-conversation";
 import { useChatJarvis } from "./use-chat-jarvis";
 
 /**
@@ -37,43 +27,6 @@ import { useChatJarvis } from "./use-chat-jarvis";
  * `/operator` is a fresh chat; `/operator/chats/:chatId` is a saved one.
  * Planned Operator runs keep their own view at `/operator/runs`.
  */
-
-const REMEMBERED = "agentos.chat.model";
-
-function remembered(): Partial<ModelChoice> | undefined {
-  try {
-    const raw = window.localStorage.getItem(REMEMBERED);
-    return raw ? (JSON.parse(raw) as Partial<ModelChoice>) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function remember(choice: ModelChoice): void {
-  try {
-    window.localStorage.setItem(REMEMBERED, JSON.stringify(choice));
-  } catch {
-    // Private windows and blocked storage: the default model is fine.
-  }
-}
-
-const REMEMBERED_MODE = "agentos.chat.mode";
-
-function rememberedMode(): ChatMode {
-  try {
-    return window.localStorage.getItem(REMEMBERED_MODE) === "coder" ? "coder" : "assistant";
-  } catch {
-    return "assistant";
-  }
-}
-
-function rememberMode(mode: ChatMode): void {
-  try {
-    window.localStorage.setItem(REMEMBERED_MODE, mode);
-  } catch {
-    // Private windows and blocked storage: a new chat starts as an assistant.
-  }
-}
 
 const SUGGESTIONS: Record<ChatMode, string[]> = {
   assistant: [
@@ -170,24 +123,10 @@ function ChatWorkspace({
   onOpenHistory: () => void;
 }) {
   const navigate = useNavigate();
-  const chat = useChat(chatId);
   const connection = useChatStream(chatId);
-  const create = useCreateChat();
-  const send = useSendChatMessage();
-  const startRun = useStartChatRun();
-  const stop = useStopChat(chatId);
-  const decide = useDecideApproval(chatId);
-
+  const conversation = useChatConversation({ chatId, agents, onCreated: (id) => navigate(`/operator/chats/${encodeURIComponent(id)}`) });
+  const { chat, current, messages, running, choice, mode, stop, decide } = conversation;
   const [input, setInput] = useState("");
-  const [override, setOverride] = useState<ModelChoice>();
-  const [pickedMode, setPickedMode] = useState<ChatMode>(rememberedMode);
-
-  const current: Chat | undefined = chat.data;
-  const choice: ModelChoice | undefined = override ?? (current ? chatModelChoice(agents, current) : initialModelChoice(agents, remembered()));
-  const running = current?.status === "running";
-  // A saved chat keeps its own mode; one saved before modes existed was a coder chat.
-  const mode: ChatMode = current ? (current.mode ?? "coder") : pickedMode;
-  const messages = current?.messages ?? [];
 
   // Follow the conversation as it grows, the way any chat does.
   const bottom = useRef<HTMLDivElement>(null);
@@ -198,23 +137,7 @@ function ChatWorkspace({
   }, [growth]);
 
   const submit = async (text: string) => {
-    if (!choice) return;
-    remember(choice);
-    try {
-      let id = chatId;
-      if (!id) {
-        rememberMode(mode);
-        id = (await create.mutateAsync({ ...choice, mode })).id;
-      }
-      // `/run`, `/plan`, `/ask`: a planned Operator run, not a message to the agent.
-      const slash = parseSlashRun(text);
-      if (slash) await startRun.mutateAsync({ id, ...slash });
-      else await send.mutateAsync({ id, text, model: current && choice.model !== current.model ? choice.model : undefined });
-      setInput("");
-      if (!chatId) navigate(`/operator/chats/${encodeURIComponent(id)}`);
-    } catch {
-      // Shown under the composer from the mutation's own error.
-    }
+    if (await conversation.submit(text)) setInput("");
   };
 
   const agentName = agents.find((agent) => agent.id === choice?.agent)?.name ?? "The agent";
@@ -228,7 +151,7 @@ function ChatWorkspace({
   });
   const voiceUsable = voice.jarvis.voice?.enabled === true && voice.jarvis.voice.configured === true;
 
-  const error = create.error?.message ?? send.error?.message ?? startRun.error?.message ?? stop.error?.message ?? decide.error?.message ?? agentsError;
+  const error = conversation.error ?? agentsError;
 
   return (
     <section aria-label="Chat" className="flex min-w-0 flex-1 flex-col">
@@ -296,11 +219,11 @@ function ChatWorkspace({
           <ChatComposer
             agents={agents}
             choice={choice}
-            onChoiceChange={setOverride}
+            onChoiceChange={conversation.setChoice}
             value={input}
             onValueChange={setInput}
             onSubmit={(text) => void submit(text)}
-            sending={create.isPending || send.isPending}
+            sending={conversation.sending}
             running={running}
             onStop={() => stop.mutate()}
             stopping={stop.isPending}
@@ -308,7 +231,7 @@ function ChatWorkspace({
             autoFocusKey={chatId ?? "new"}
             lockedAgent={current?.agent}
             mode={mode}
-            onModeChange={setPickedMode}
+            onModeChange={conversation.setMode}
             modeLocked={current !== undefined}
           />
         </div>

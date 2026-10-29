@@ -134,11 +134,28 @@ export const CreateChatSchema = z
   })
   .strict();
 
+/**
+ * Where in AgentOS a message was sent from, so "this" means something: the
+ * screen, and anything the operator had selected on it. Told to the agent
+ * with the message; not shown in the transcript.
+ */
+export const ChatPageContextSchema = z
+  .object({
+    path: z.string().max(500),
+    title: z.string().max(200),
+    /** The screen's own words about what is open (a project, an email). */
+    detail: z.string().max(2_000).optional(),
+    /** Text the operator had selected on the page. */
+    selection: z.string().max(4_000).optional(),
+  })
+  .strict();
+
 export const SendChatMessageSchema = z
   .object({
     text: z.string().trim().min(1, "Say something.").max(MAX_CHAT_INPUT),
     /** Switch model for this turn onward. */
     model: z.string().min(1).max(100).optional(),
+    context: ChatPageContextSchema.optional(),
   })
   .strict();
 
@@ -178,5 +195,6 @@ export type ChatStatus = z.infer<typeof ChatStatusSchema>;
 export type Chat = z.infer<typeof ChatSchema>;
 export type ChatSummary = z.infer<typeof ChatSummarySchema>;
 export type CreateChat = z.input<typeof CreateChatSchema>;
+export type ChatPageContext = z.infer<typeof ChatPageContextSchema>;
 export type SendChatMessage = z.infer<typeof SendChatMessageSchema>;
 export type ChatStreamEvent = z.infer<typeof ChatStreamEventSchema>;
