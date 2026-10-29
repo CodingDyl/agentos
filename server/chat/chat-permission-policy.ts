@@ -1,4 +1,5 @@
 import path from "node:path";
+import { describeGatedAction, gatedReason } from "./confirmed-actions";
 
 /** Matches `AGENTOS_TOOL_PREFIX` in agentos-tools.ts, kept here so the policy loads no SDK. */
 const AGENTOS_TOOL_PREFIX = "mcp__agentos__";
@@ -195,8 +196,13 @@ export function decideToolUse(toolName: string, input: Record<string, unknown>, 
   // Stops a background command this chat started: undoing its own work.
   if (toolName === "KillShell" || toolName === "KillBash" || toolName === "TaskStop") return ALLOW;
 
-  // AgentOS's own tools (agentos-tools.ts) read, add tasks and notes, save
-  // drafts and start Operator runs. None sends, deletes or spends, so none asks.
+  // AgentOS's own tools (agentos-tools.ts) that send or spend ask every time,
+  // and the tool checks the OK on the server (confirmed-actions.ts).
+  const gated = gatedReason(toolName);
+  if (gated) return ask(gated);
+
+  // The rest read, add tasks and notes, save drafts and start Operator runs.
+  // None sends, deletes or spends, so none asks.
   if (toolName.startsWith(AGENTOS_TOOL_PREFIX)) return ALLOW;
 
   if (toolName.startsWith("mcp__")) return ask("Uses an external connector, which can act outside this machine.");
@@ -211,6 +217,9 @@ export function decideChatToolUse(toolName: string, input: Record<string, unknow
 
 /** One line for the screen: the command, the file, or the query. */
 export function summariseToolInput(toolName: string, input: Record<string, unknown>): string {
+  const gated = describeGatedAction(toolName, input);
+  if (gated) return gated.summary.length > 160 ? `${gated.summary.slice(0, 157)}…` : gated.summary;
+
   const pick = (...keys: string[]) => {
     for (const key of keys) {
       const value = input[key];
