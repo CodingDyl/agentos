@@ -5,6 +5,7 @@ import {
   gitToplevel,
   hasOwnGit,
   isGitRoot,
+  samePath,
   isRepository,
 } from "../agentos/git";
 
@@ -135,7 +136,7 @@ export async function ensureProjectRepo(projectPath: string): Promise<ProjectRep
   }
 
   const parent = await gitToplevel(resolved);
-  const nested = Boolean(parent && path.resolve(parent) !== resolved);
+  const nested = Boolean(parent && !(await samePath(parent, resolved)));
 
   await writeGitignoreIfMissing(resolved);
   await git(resolved, ["init", "-q", "-b", "main"]);
@@ -184,7 +185,7 @@ export async function inspectProjectRepo(projectPath: string): Promise<{
   const toplevel = inside ? await gitToplevel(resolved) : undefined;
   const root = inside ? await isGitRoot(resolved) : false;
   const own = await hasOwnGit(resolved);
-  const nested = Boolean(toplevel && path.resolve(toplevel) !== resolved);
+  const nested = Boolean(toplevel && !(await samePath(toplevel, resolved)));
 
   return {
     exists: true,

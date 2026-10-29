@@ -27,7 +27,7 @@ describe("a project folder inside a parent repository", () => {
   let previousUi: string | undefined;
 
   before(async () => {
-    directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-nested-repo-"));
+    directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "agentos-nested-repo-")));
     previousUi = process.env.AGENTOS_UI_DIR;
     process.env.AGENTOS_UI_DIR = path.join(directory, "ui");
 
@@ -110,6 +110,30 @@ describe("a project folder inside a parent repository", () => {
           !root.startsWith(handle.path + path.sep),
         `${root} should be an extra writable root outside the worktree`,
       );
+    }
+  });
+});
+
+describe("a repository reached through a symlink", () => {
+  it("is still its own repository: no second git init, no extra commit", async () => {
+    const real = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "agentos-symlinked-repo-")));
+    const link = `${real}-link`;
+    try {
+      await fs.writeFile(path.join(real, "README.md"), "# Site\n", "utf8");
+      await run("git", ["init", "-q", "-b", "main", "."], { cwd: real });
+      await run("git", ["add", "-A"], { cwd: real });
+      await run("git", ["-c", "user.email=t@t", "-c", "user.name=T", "commit", "-qm", "site"], { cwd: real });
+      const head = (await run("git", ["rev-parse", "HEAD"], { cwd: real })).stdout.trim();
+      await fs.symlink(real, link);
+
+      assert.equal(await isGitRoot(link), true);
+      const repo = await ensureProjectRepo(link);
+      assert.equal(repo.initialized, false);
+      assert.equal(repo.nestedInParent, false);
+      assert.equal((await run("git", ["rev-parse", "HEAD"], { cwd: real })).stdout.trim(), head);
+    } finally {
+      await fs.rm(link, { force: true });
+      await fs.rm(real, { recursive: true, force: true });
     }
   });
 });

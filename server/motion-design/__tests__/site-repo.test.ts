@@ -9,7 +9,7 @@ const previousRoot = process.env.AGENTOS_ROOT;
 const previousProjects = process.env.AGENTOS_CLIENT_PROJECTS_ROOT;
 const previousSites = process.env.AGENTOS_CLIENT_SITES_DIR;
 
-const directory = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-motion-site-repo-"));
+const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "agentos-motion-site-repo-")));
 const vault = path.join(directory, "AgentOS-Memory");
 const clients = path.join(directory, "projects", "clients");
 
