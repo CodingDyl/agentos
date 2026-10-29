@@ -107,10 +107,12 @@ function endRun(idea: VideoIdea, status: string): VideoIdea["runs"] {
   return idea.runs.map((run) => (run.jobId && run.jobId === idea.jobId && !run.endedAt ? { ...run, endedAt: new Date().toISOString(), status } : run));
 }
 
-export async function fileAssessment(idea: VideoIdea, roots: readonly string[]): Promise<VideoIdea> {
+export async function fileAssessment(idea: VideoIdea, roots: readonly string[], close: typeof closeFiledJob = closeFiledJob): Promise<VideoIdea> {
   const dir = outputDir(roots, idea.id, "assessment.md");
   const verdict = dir ? parseVerdict(await fs.readFile(path.join(dir, "verdict.json"), "utf8").catch(() => "")) : undefined;
   if (!dir || !verdict) {
+    // The run is over either way: it never waits in the review queue.
+    await close(idea.jobId);
     return updateIdea(idea.id, {
       stage: "failed",
       failedAt: "assessing",
@@ -132,7 +134,7 @@ export async function fileAssessment(idea: VideoIdea, roots: readonly string[]):
       created: new Date().toISOString().slice(0, 10),
     }),
   );
-  await closeFiledJob(idea.jobId);
+  await close(idea.jobId);
 
   return updateIdea(idea.id, {
     stage: "awaiting_decision",

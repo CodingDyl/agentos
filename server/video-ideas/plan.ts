@@ -26,7 +26,8 @@ export async function decide(id: string, request: DecideRequest, launch: LaunchP
   if (request.decision === "decline") {
     return updateIdea(id, { stage: "declined", declineReason: request.reason || undefined });
   }
-  return launch(idea);
+  // Claimed before anything is awaited, so a second click finds it taken.
+  return launch(updateIdea(id, { stage: "planning", jobId: undefined }));
 }
 
 export function planPrompt(idea: VideoIdea, assessmentMarkdown: string): string {
@@ -97,10 +98,12 @@ function endRun(idea: VideoIdea, status: string): VideoIdea["runs"] {
   return idea.runs.map((run) => (run.jobId && run.jobId === idea.jobId && !run.endedAt ? { ...run, endedAt: new Date().toISOString(), status } : run));
 }
 
-export async function filePlan(idea: VideoIdea, roots: readonly string[]): Promise<VideoIdea> {
+export async function filePlan(idea: VideoIdea, roots: readonly string[], close: typeof closeFiledJob = closeFiledJob): Promise<VideoIdea> {
   const dir = outputDir(roots, idea.id, "plan.json");
   const plan = dir ? parsePlan(await fs.readFile(path.join(dir, "plan.json"), "utf8")) : { error: "The plan was not written." };
   if ("error" in plan) {
+    // The run is over either way: it never waits in the review queue.
+    await close(idea.jobId);
     return updateIdea(idea.id, { stage: "failed", failedAt: "planning", error: plan.error, runs: endRun(idea, "failed") });
   }
 
@@ -121,7 +124,7 @@ export async function filePlan(idea: VideoIdea, roots: readonly string[]): Promi
     ].join("\n");
     await writeAgentOSFile(idea.assessmentPath, `${current.split("\n## Plan\n")[0].trimEnd()}\n\n${section}`);
   }
-  await closeFiledJob(idea.jobId);
+  await close(idea.jobId);
 
   return updateIdea(idea.id, {
     stage: "building",

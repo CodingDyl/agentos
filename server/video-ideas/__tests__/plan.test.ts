@@ -6,6 +6,7 @@ import { after, before, describe, it } from "node:test";
 import { closeLearningDatabase } from "../../learning/db";
 import { decide, filePlan, parsePlan, planPrompt } from "../plan";
 import { createIdea, getIdea, updateIdea } from "../store";
+import type { VideoIdea } from "../../../shared/video-ideas-types";
 
 let root: string;
 let studio: string;
@@ -58,6 +59,31 @@ describe("deciding and planning", () => {
     });
     assert.equal(launched, idea.id);
     assert.equal(approved.stage, "planning");
+  });
+
+  it("takes one approval, however many clicks arrive", async () => {
+    const idea = waiting("ls-p6");
+    let launches = 0;
+    const slow = async (current: VideoIdea) => {
+      launches += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return updateIdea(current.id, { jobId: "job-p" });
+    };
+    const results = await Promise.allSettled([decide(idea.id, { decision: "approve" }, slow), decide(idea.id, { decision: "approve" }, slow)]);
+    assert.equal(launches, 1);
+    assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  });
+
+  it("closes the plan run even when the plan is refused", async () => {
+    const idea = updateIdea(waiting("ls-p7").id, { stage: "planning", jobId: "job-x" });
+    const out = path.join(studio, "ideas", idea.id);
+    await fs.mkdir(out, { recursive: true });
+    await fs.writeFile(path.join(out, "plan.json"), "{nope");
+    const closed: (string | undefined)[] = [];
+    await filePlan(idea, [studio], async (jobId) => {
+      closed.push(jobId);
+    });
+    assert.deepEqual(closed, ["job-x"]);
   });
 
   it("refuses a plan that is too big or unreadable", () => {

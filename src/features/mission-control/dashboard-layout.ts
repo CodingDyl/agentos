@@ -30,6 +30,7 @@ export function dashboardColumnCount(viewportWidth: number): number {
 export const DASHBOARD_CARDS = {
   revenue: { span: "full" },
   inbox: { span: 2 },
+  ideas: { span: 1 },
   yourThree: { span: 2 },
   todos: { span: 1 },
   scheduled: { span: 1 },

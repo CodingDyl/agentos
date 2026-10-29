@@ -14,7 +14,7 @@ import { getSource } from "../learning/library";
 import { slugify } from "../reengineer/library";
 import { writeTranscript } from "./note";
 import { decide } from "./plan";
-import { advanceIdea, retryIdea, writeNoteFor } from "./pipeline";
+import { advanceIdea, retryIdea } from "./pipeline";
 import { createIdea, getIdea, ideaForSource, listIdeas, updateIdea, VideoIdeaError } from "./store";
 import { fetchCaptions, linesFromPaste, transcriptText, ytDlpPath } from "./transcript";
 
@@ -142,10 +142,9 @@ videoIdeasRouter.post("/:id/transcript", async (request, response) => {
     const lines = linesFromPaste(body.text);
     if (lines.length === 0) throw new VideoIdeaError("That transcript is empty.");
     const transcriptPath = await writeTranscript(idea, lines);
+    // The note is written from the filed transcript, through the same step the sweep takes.
     const noting = updateIdea(idea.id, { stage: "noting", error: undefined, transcriptPath });
-    void writeNoteFor(noting, lines).catch((error: unknown) =>
-      updateIdea(idea.id, { stage: "failed", failedAt: "needs_transcript", error: error instanceof Error ? error.message : String(error) }),
-    );
+    kick(noting.id);
     response.json({ idea: noting });
   } catch (error) {
     fail(response, error, "Could not save the transcript");

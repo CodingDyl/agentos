@@ -1,4 +1,6 @@
+import matter from "gray-matter";
 import { WORKING_STAGES, type IdeaStage, type VideoIdea } from "../../shared/video-ideas-types";
+import { readOptionalFile } from "../agentos/filesystem";
 import { getSource } from "../learning/library";
 import { readJob } from "../workers/job-store";
 import { fileAssessment, launchAssessment } from "./assessment";
@@ -7,7 +9,7 @@ import { writeKnowledgeNote } from "./note";
 import { filePlan, launchPlan } from "./plan";
 import { getIdea, listIdeas, updateIdea, VideoIdeaError } from "./store";
 import { rootsOfJob } from "./studio";
-import { fetchCaptions, type TranscriptLine } from "./transcript";
+import { fetchCaptions, linesFromPaste, type TranscriptLine } from "./transcript";
 
 /**
  * Moves each video idea on by one step at a time, from wherever it was left.
@@ -20,6 +22,8 @@ import { fetchCaptions, type TranscriptLine } from "./transcript";
 
 export interface PipelineDeps {
   captions: (videoId: string) => Promise<TranscriptLine[] | undefined>;
+  /** A transcript already filed (pasted, or fetched before a restart). */
+  storedTranscript: (path: string) => Promise<TranscriptLine[] | undefined>;
   note: (idea: VideoIdea, lines: TranscriptLine[]) => Promise<VideoIdea>;
   assess: (idea: VideoIdea) => Promise<VideoIdea>;
   jobStatus: (jobId: string) => Promise<string | undefined>;
@@ -35,8 +39,16 @@ export async function writeNoteFor(idea: VideoIdea, lines: TranscriptLine[]): Pr
   return writeKnowledgeNote(idea, source, lines);
 }
 
+async function readStoredTranscript(path: string): Promise<TranscriptLine[] | undefined> {
+  const file = await readOptionalFile(path);
+  if (!file) return undefined;
+  const lines = linesFromPaste(matter(file).content.replace(/^# .*\n+/, ""));
+  return lines.length > 0 ? lines : undefined;
+}
+
 export const defaultPipelineDeps: PipelineDeps = {
   captions: (videoId) => fetchCaptions(videoId),
+  storedTranscript: readStoredTranscript,
   note: writeNoteFor,
   assess: launchAssessment,
   jobStatus: async (jobId) => (await readJob(jobId))?.status,
@@ -50,7 +62,12 @@ const FILED = new Set(["completed", "awaiting_review"]);
 const STOPPED = new Set(["failed", "cancelled", "rejected"]);
 
 /** Waits for a studio job, then files what it wrote. */
+/** How long a claimed step may wait for its job to be recorded before it counts as lost. */
+const LAUNCH_GRACE_MS = 2 * 60 * 1000;
+
 async function settleJob(idea: VideoIdea, stage: IdeaStage, deps: PipelineDeps, file: (idea: VideoIdea) => Promise<VideoIdea>): Promise<VideoIdea> {
+  // Approved or retried a moment ago: the job is still being started.
+  if (!idea.jobId && Date.now() - Date.parse(idea.updatedAt) < LAUNCH_GRACE_MS) return idea;
   const status = idea.jobId ? await deps.jobStatus(idea.jobId) : undefined;
   if (status && FILED.has(status)) return file(idea);
   if (!status || STOPPED.has(status)) {
@@ -63,7 +80,7 @@ async function step(idea: VideoIdea, deps: PipelineDeps): Promise<VideoIdea> {
   switch (idea.stage) {
     case "transcribing":
     case "noting": {
-      const lines = await deps.captions(idea.videoId);
+      const lines = (idea.transcriptPath ? await deps.storedTranscript(idea.transcriptPath) : undefined) ?? (await deps.captions(idea.videoId));
       if (!lines) return updateIdea(idea.id, { stage: "needs_transcript", error: "This video has no captions" });
       return deps.note(updateIdea(idea.id, { stage: "noting", error: undefined }), lines);
     }
@@ -100,6 +117,7 @@ export async function advanceIdea(idea: VideoIdea, deps: PipelineDeps = defaultP
 const RETRY_FROM: Partial<Record<IdeaStage, IdeaStage>> = {
   transcribing: "transcribing",
   noting: "transcribing",
+  needs_transcript: "transcribing",
   assessing: "noted",
   planning: "planning",
   building: "building",

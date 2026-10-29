@@ -1,14 +1,18 @@
-import { Archive, ArchiveRestore, BookmarkPlus, Check, Clock, ExternalLink, Link2, NotebookText, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, BookmarkPlus, Check, Clock, ExternalLink, FileDown, Link2, NotebookPen, NotebookText, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { formatTimestamp, LEARNING_SOURCE_LABELS, type LearningSource } from "@shared/learning-types";
 import { AppShell, DedsecLoader, FilterToolbar } from "@/components/os";
-import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperIndicator, PaperStage, PaperTabs, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import { useDeleteSource, useImportSource, useLearningLibrary, useUpdateSource } from "@/lib/agentos/learning";
 import { useProjects } from "@/lib/agentos/queries";
+import { transcriptDownloadUrl, useVideoIdeas } from "@/lib/agentos/video-ideas";
+import { ideaHref, ideaStatus } from "@/features/video-ideas/idea-model";
+import type { VideoIdea } from "@shared/video-ideas-types";
 import { cn } from "@/lib/utils";
+import { LearnChoice } from "./learn-choice";
 import { LearningCapture, type CaptureContext } from "./learning-capture";
 import { groupLibrary, isLearningTab, progressShare, resumeAt, tagsFromText, type LearningTab } from "./learning-model";
 import { NotebookLibrary } from "./notebook-library";
@@ -141,6 +145,8 @@ function ImportBar({ onOpened }: { onOpened: (source: LearningSource, at?: numbe
   const [url, setUrl] = useState("");
   const [later, setLater] = useState(false);
   const [message, setMessage] = useState<string>();
+  const [justSaved, setJustSaved] = useState<LearningSource>();
+  const ideas = useVideoIdeas();
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -151,6 +157,7 @@ function ImportBar({ onOpened }: { onOpened: (source: LearningSource, at?: numbe
       {
         onSuccess: (result) => {
           setUrl("");
+          setJustSaved(result.source.kind === "youtube" ? result.source : undefined);
           if (result.source.kind === "youtube" && !later) onOpened(result.source, result.startSeconds);
           else setMessage(`${result.created ? "Saved" : "Already saved"}: ${result.source.title}${later ? " · Watch later" : ""}`);
         },
@@ -182,6 +189,9 @@ function ImportBar({ onOpened }: { onOpened: (source: LearningSource, at?: numbe
         {importSource.error ? <span role="alert" className="text-paper-flame-deep">{importSource.error.message}</span> : null}
         {message ? <span role="status" className="truncate text-paper-sage">{message}</span> : null}
       </div>
+      {justSaved ? (
+        <LearnChoice source={justSaved} idea={ideas.data?.find((idea) => idea.sourceId === justSaved.id)} onDone={() => setJustSaved(undefined)} />
+      ) : null}
     </form>
   );
 }
@@ -447,6 +457,9 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
   const update = useUpdateSource();
   const remove = useDeleteSource();
   const groups = groupLibrary(sources);
+  const ideas = useVideoIdeas();
+  const ideaFor = useMemo(() => new Map((ideas.data ?? []).map((idea) => [idea.sourceId, idea])), [ideas.data]);
+  const [choosing, setChoosing] = useState<LearningSource>();
 
   const shown =
     filter === "archived"
@@ -473,12 +486,20 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
           },
         ]}
       />
+      {choosing ? (
+        <div className="max-w-[640px]">
+          <LearnChoice source={choosing} idea={ideaFor.get(choosing.id)} onDone={() => setChoosing(undefined)} />
+        </div>
+      ) : null}
       {shown.length === 0 ? <p className="mt-5 text-[14px] text-paper-sage">Nothing here.</p> : null}
       <ul className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {shown.map((source) => (
           <li key={source.id} className="group/card">
             {source.kind === "youtube" ? (
-              <VideoCard source={source} active={source.id === selectedId} onOpen={() => onOpen(source)} />
+              <>
+                <VideoCard source={source} active={source.id === selectedId} onOpen={() => onOpen(source)} />
+                {ideaFor.get(source.id) ? <IdeaLine idea={ideaFor.get(source.id)!} /> : null}
+              </>
             ) : (
               <a href={source.url} target="_blank" rel="noopener noreferrer" className="block">
                 <span className="block aspect-video overflow-hidden bg-paper-linen">
@@ -507,6 +528,28 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
               >
                 {source.archived ? <ArchiveRestore className="size-3.5" /> : <Archive className="size-3.5" />}
               </button>
+              {source.kind === "youtube" && (!ideaFor.get(source.id) || ideaFor.get(source.id)?.mode === "learn") ? (
+                <button
+                  type="button"
+                  title={ideaFor.get(source.id) ? "Check it against AgentOS" : "Learn from this video"}
+                  aria-label={ideaFor.get(source.id) ? `Check ${source.title} against AgentOS` : `Learn from ${source.title}`}
+                  onClick={() => setChoosing(source)}
+                  className="inline-flex size-7 cursor-pointer items-center justify-center text-paper-sage hover:bg-paper-linen hover:text-paper-moss"
+                >
+                  <NotebookPen className="size-3.5" />
+                </button>
+              ) : null}
+              {source.kind === "youtube" ? (
+                <a
+                  href={transcriptDownloadUrl(source.id)}
+                  download
+                  title="Download transcript"
+                  aria-label={`Download the transcript of ${source.title}`}
+                  className="inline-flex size-7 cursor-pointer items-center justify-center text-paper-sage hover:bg-paper-linen hover:text-paper-moss"
+                >
+                  <FileDown className="size-3.5" />
+                </a>
+              ) : null}
               {source.archived ? (
                 <button
                   type="button"
@@ -528,5 +571,15 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Where a video's note, assessment or build has got to. Opens the idea. */
+function IdeaLine({ idea }: { idea: VideoIdea }) {
+  const status = ideaStatus(idea);
+  return (
+    <Link to={ideaHref(idea)} className={cn("mt-1.5 block w-fit hover:underline", PAPER_FOCUS)}>
+      <PaperIndicator tone={status.tone} label={status.label} />
+    </Link>
   );
 }

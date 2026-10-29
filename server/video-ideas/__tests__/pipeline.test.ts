@@ -11,6 +11,7 @@ function fakes(overrides: Partial<PipelineDeps> = {}) {
   const calls: string[] = [];
   const deps: PipelineDeps = {
     captions: async () => [{ seconds: 1, text: "hello" }],
+    storedTranscript: async () => undefined,
     note: async (idea) => {
       calls.push("note");
       return updateIdea(idea.id, { stage: "noted", notePath: "knowledge/videos/x.md" });
@@ -112,6 +113,27 @@ describe("the video idea pipeline", () => {
     assert.equal(done.failedAt, "transcribing");
     assert.equal(done.error, "Claude did not answer");
     assert.equal((await retryIdea(done.id)).stage, "transcribing");
+  });
+
+  it("writes the note from a pasted transcript, never asking for captions again", async () => {
+    let fetched = false;
+    const { deps, calls } = fakes({
+      captions: async () => {
+        fetched = true;
+        return undefined;
+      },
+      storedTranscript: async (path) => (path === "knowledge/videos/p.transcript.md" ? [{ seconds: 0, text: "pasted" }] : undefined),
+    });
+    const idea = updateIdea(make("ls-w9", "learn").id, { stage: "noting", transcriptPath: "knowledge/videos/p.transcript.md" });
+    const done = await advanceIdea(idea, deps);
+    assert.equal(done.stage, "noted");
+    assert.deepEqual(calls, ["note"]);
+    assert.equal(fetched, false);
+  });
+
+  it("retries a note that failed after a pasted transcript", async () => {
+    const idea = updateIdea(make("ls-w10", "learn").id, { stage: "failed", failedAt: "needs_transcript", transcriptPath: "knowledge/videos/p.transcript.md" });
+    assert.equal((await retryIdea(idea.id)).stage, "transcribing");
   });
 
   it("only retries a failed idea", async () => {

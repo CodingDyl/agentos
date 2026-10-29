@@ -38,6 +38,7 @@ import { useCaptureTriage } from "@/lib/agentos/capture-triage";
 import { DayWrapUp, MorningPlan } from "./today-day";
 import { OverviewCalendar, TodayScheduledTasks } from "@/features/calendar/overview-calendar";
 import { TodayLink } from "./today-kit";
+import { IdeasToDecide } from "./ideas-to-decide";
 import { TodayNews, TodayTrending } from "./today-world";
 
 /**
@@ -166,6 +167,8 @@ function MissionControl({ data }: { data: MissionControlData }) {
           workers={data.workers}
           className={dashboardCardClass("inbox")}
         />
+        {/* Videos checked against AgentOS, waiting on Approve or Decline. */}
+        <IdeasToDecide className={dashboardCardClass("ideas")} />
         {focus.data ? (
           <YourThree today={focus.data} onCheckIn={() => setMorning("open")} className={dashboardCardClass("yourThree")} />
         ) : null}

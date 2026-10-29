@@ -34,6 +34,7 @@ import {
 } from "@/features/designs";
 import { KnowledgePage } from "@/features/knowledge";
 import { LibraryPage } from "@/features/reengineer";
+import { IdeaPage } from "@/features/video-ideas";
 import { MemoryPage } from "@/features/memory";
 import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
@@ -104,6 +105,7 @@ function App() {
           <Route path="/knowledge/library" element={<LibraryPage />} />
           <Route path="/memory" element={<MemoryPage />} />
           <Route path="/learning" element={<LearningPage />} />
+          <Route path="/learning/ideas/:id" element={<IdeaPage />} />
           <Route path="/hub" element={<Navigate to="/learning" replace />} />
           <Route path="/agent" element={<AgentPage />} />
           <Route path="/automations" element={<AutomationsPage />} />

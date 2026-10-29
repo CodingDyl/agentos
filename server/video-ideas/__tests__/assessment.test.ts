@@ -82,7 +82,11 @@ describe("assessment", () => {
     const out = path.join(studio, "ideas", idea.id);
     await fs.mkdir(out, { recursive: true });
     await fs.writeFile(path.join(out, "assessment.md"), "text");
-    const filed = await fileAssessment(idea, [studio]);
+    const closed: (string | undefined)[] = [];
+    const filed = await fileAssessment({ ...idea, jobId: "job-y" }, [studio], async (jobId) => {
+      closed.push(jobId);
+    });
+    assert.deepEqual(closed, ["job-y"]);
     assert.equal(filed.stage, "failed");
     assert.equal(filed.failedAt, "assessing");
   });
