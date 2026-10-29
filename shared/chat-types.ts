@@ -67,6 +67,8 @@ export const ChatApprovalPartSchema = z.object({
   id: z.string(),
   tool: z.string(),
   summary: z.string(),
+  /** The whole action when one line can't show it: an email's recipients, subject and body. */
+  detail: z.string().optional(),
   /** Why the policy stopped to ask. */
   reason: z.string(),
   status: z.enum(["pending", "allowed", "denied", "expired"]),

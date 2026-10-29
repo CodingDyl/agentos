@@ -28,6 +28,15 @@ after(async () => {
 const post = (url: string, body: unknown, headers = {}) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
 
 describe("business ledger API", () => {
+  it("answers overdue invoices across businesses, locally only", async () => {
+    const response = await fetch(`${base}/overdue-invoices`);
+    assert.equal(response.status, 200);
+    const body = await response.json() as { today: string; hasInvoices: boolean; invoices: unknown[] };
+    assert.match(body.today, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(typeof body.hasInvoices, "boolean");
+    assert.ok(Array.isArray(body.invoices));
+    assert.equal((await fetch(`${base}/overdue-invoices`, { headers: { Origin: "https://untrusted.example" } })).status, 403);
+  });
   it("validates business identity, origin, host, and request format", async () => {
     assert.equal((await fetch(`${base}/unknown`)).status, 404);
     assert.equal((await fetch(`${base}/virtec`, { headers: { Origin: "https://untrusted.example" } })).status, 403);
