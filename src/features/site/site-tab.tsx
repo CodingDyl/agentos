@@ -249,7 +249,7 @@ function ConnectorsLink() {
  * When a site blocks framing, show a panel with an "Open site" button that
  * opens the site in its own native window (Tauri) or new tab (browser).
  */
-function BlockedSitePanel({ url, projectId, projectName, reason }: { url: string; projectId: string; projectName: string; reason?: string }) {
+export function BlockedSitePanel({ url, projectId, projectName, reason }: { url: string; projectId: string; projectName: string; reason?: string }) {
   const [opening, setOpening] = useState(false);
 
   const openSite = async () => {

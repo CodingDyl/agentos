@@ -491,8 +491,8 @@ function WorkspaceGroup({
   const custom = modules.length > 0;
   const shown = custom ? modules : [...defaults];
   // Chosen tabs first, in their order; then the rest, in canonical order.
-  // Website rebuild is earned by a running rebuild, never chosen, so it is not offered here.
-  const ordered = [...shown, ...WORKSPACE_MODULES.filter((module) => !shown.includes(module))].filter((module) => module !== "rebuild");
+  // Website rebuild is earned by a running rebuild, never chosen, and every workspace always has Ship, so neither is offered here.
+  const ordered = [...shown, ...WORKSPACE_MODULES.filter((module) => !shown.includes(module))].filter((module) => module !== "rebuild" && module !== "ship");
 
   const toggle = (module: WorkspaceModule) => {
     const next = shown.includes(module) ? shown.filter((entry) => entry !== module) : [...shown, module];

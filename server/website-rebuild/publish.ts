@@ -294,6 +294,14 @@ export async function openPreviewsToLinkHolders(project: VercelProject, deps: Pu
   if (result.status !== 200) throw apiError("Vercel", result.status, result.data);
 }
 
+/** A project by id or name, with its Git link and production branch, or undefined when it does not exist. Read-only. */
+export async function readVercelProject(idOrName: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelProject | undefined> {
+  const result = await api<VercelProjectData>(deps, "vercel", `/v9/projects/${encodeURIComponent(idOrName)}`);
+  if (result.status === 404) return undefined;
+  if (result.status !== 200) throw apiError("Vercel", result.status, result.data);
+  return toProject(result.data);
+}
+
 /** What a cleanup needs to know about a Vercel project before deleting it. */
 export interface VercelProjectFacts {
   id: string;

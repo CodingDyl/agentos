@@ -63,6 +63,7 @@ describe("workspace tabs", () => {
     const tabs = resolveWorkspaceTabs({ type: "business" });
 
     assert.ok(tabs.primary.includes("clients"));
+    assert.ok(tabs.primary.includes("ship"));
     assert.ok(!tabs.primary.includes("repository"));
     assert.ok(!tabs.primary.includes("agents"));
     assert.ok(tabs.more.includes("repository"));
@@ -74,6 +75,7 @@ describe("workspace tabs", () => {
 
     assert.ok(tabs.primary.includes("repository"));
     assert.ok(tabs.primary.includes("agents"));
+    assert.ok(tabs.primary.includes("ship"));
   });
 
   it("gives a linked repository a tab without configuration", () => {
@@ -85,7 +87,8 @@ describe("workspace tabs", () => {
   it("uses configured modules wholesale, in order, and never loses a module", () => {
     const tabs = resolveWorkspaceTabs({ type: "software", configured: ["documents", "tasks"], hasRepository: true });
 
-    assert.deepEqual(tabs.primary, ["documents", "tasks"]);
+    // Ship is the one module a custom list cannot drop.
+    assert.deepEqual(tabs.primary, ["documents", "tasks", "ship"]);
     // Every module but Website rebuild, Motion Design and Startup, which only a workspace with those ever shows.
     assert.equal(tabs.primary.length + tabs.more.length, WORKSPACE_MODULES.length - 3);
     assert.ok(![...tabs.primary, ...tabs.more].includes("rebuild"));
@@ -105,6 +108,19 @@ describe("workspace tabs", () => {
     assert.equal(tabs.primary[0], "motion");
     assert.ok(!tabs.more.includes("motion"));
     assert.ok(!resolveWorkspaceTabs({ type: "product" }).primary.includes("motion"));
+    // The site a run builds is finished in Ship.
+    assert.ok(tabs.primary.includes("ship"));
+    assert.ok(!tabs.more.includes("ship"));
+  });
+
+  it("puts Ship on every workspace, even one with a custom module list", () => {
+    for (const type of ["product", "business", "client", "software", "personal", "research", "general"] as const) {
+      const tabs = resolveWorkspaceTabs({ type });
+      assert.ok(tabs.primary.includes("ship"), type);
+      assert.ok(!tabs.more.includes("ship"), type);
+    }
+    assert.ok(resolveWorkspaceTabs({ type: "personal", configured: ["tasks"] }).primary.includes("ship"));
+    assert.equal(resolveWorkspaceTabs({ type: "client", configured: ["tasks"], hasRebuild: true }).primary[1], "ship");
   });
 
   it("leads with Startup only for a workspace that graduated from a venture", () => {
@@ -125,7 +141,7 @@ describe("workspace tabs", () => {
   });
 
   it("parses a hand-written module list tolerantly", () => {
-    assert.deepEqual(parseModuleList("Tasks, designs; repo, nonsense, tasks"), ["tasks", "creative", "repository"]);
+    assert.deepEqual(parseModuleList("Tasks, designs; repo, nonsense, tasks, deploy"), ["tasks", "creative", "repository", "ship"]);
   });
 });
 
