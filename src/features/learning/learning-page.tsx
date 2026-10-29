@@ -3,13 +3,14 @@ import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { formatTimestamp, LEARNING_SOURCE_LABELS, type LearningSource } from "@shared/learning-types";
 import { AppShell, DedsecLoader, FilterToolbar } from "@/components/os";
-import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperIndicator, PaperStage, PaperTabs, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import { useDeleteSource, useImportSource, useLearningLibrary, useUpdateSource } from "@/lib/agentos/learning";
 import { useProjects } from "@/lib/agentos/queries";
 import { transcriptDownloadUrl, useVideoIdeas } from "@/lib/agentos/video-ideas";
-import { ideaHref, ideaStatus } from "@/features/video-ideas/idea-model";
+import { ideaHref } from "@/features/video-ideas/idea-model";
+import { IdeaProgress, IdeaProgressLine } from "@/features/video-ideas/idea-progress";
 import type { VideoIdea } from "@shared/video-ideas-types";
 import { cn } from "@/lib/utils";
 import { LearnChoice } from "./learn-choice";
@@ -264,6 +265,7 @@ function VideoStage({ source, requestedT, onClose, onSaved }: { source: Learning
         </div>
       </div>
       <div className="min-w-0">
+        <VideoIdeaPanel source={source} />
         {capture ? (
           <LearningCapture
             key={`${capture.sourceId}-${capture.timestampSeconds ?? ""}`}
@@ -574,12 +576,25 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
   );
 }
 
-/** Where a video's note, assessment or build has got to. Opens the idea. */
+/** Where a video's note, assessment or build has got to, live. Opens the idea. */
 function IdeaLine({ idea }: { idea: VideoIdea }) {
-  const status = ideaStatus(idea);
   return (
-    <Link to={ideaHref(idea)} className={cn("mt-1.5 block w-fit hover:underline", PAPER_FOCUS)}>
-      <PaperIndicator tone={status.tone} label={status.label} />
+    <Link to={ideaHref(idea)} className={cn("mt-1.5 block max-w-full hover:underline", PAPER_FOCUS)}>
+      <IdeaProgressLine idea={idea} />
     </Link>
+  );
+}
+
+/** Beside the playing video: the note's live progress, or the offer to make one. */
+function VideoIdeaPanel({ source }: { source: LearningSource }) {
+  const ideas = useVideoIdeas();
+  const [hidden, setHidden] = useState<string>();
+  const idea = ideas.data?.find((entry) => entry.sourceId === source.id);
+  if (hidden === source.id) return null;
+  if (idea) return <IdeaProgress idea={idea} className="mb-4" />;
+  return (
+    <div className="mb-4 [&>*]:mt-0">
+      <LearnChoice source={source} onDone={() => setHidden(source.id)} />
+    </div>
   );
 }

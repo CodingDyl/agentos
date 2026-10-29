@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import type { VideoIdea } from "../../../shared/video-ideas-types";
 import { closeLearningDatabase } from "../../learning/db";
-import { advanceIdea, retryIdea, type PipelineDeps } from "../pipeline";
+import { advanceIdea, retryIdea, sweepIdeas, type PipelineDeps } from "../pipeline";
+import { CaptionsRateLimited } from "../transcript";
 import { createIdea, getIdea, updateIdea } from "../store";
 
 after(() => closeLearningDatabase());
@@ -134,6 +135,45 @@ describe("the video idea pipeline", () => {
   it("retries a note that failed after a pasted transcript", async () => {
     const idea = updateIdea(make("ls-w10", "learn").id, { stage: "failed", failedAt: "needs_transcript", transcriptPath: "knowledge/videos/p.transcript.md" });
     assert.equal((await retryIdea(idea.id)).stage, "transcribing");
+  });
+
+  it("waits and tries again when YouTube limits caption downloads", async () => {
+    const { deps } = fakes({
+      captions: async () => {
+        throw new CaptionsRateLimited();
+      },
+    });
+    const limited = await advanceIdea(make("ls-w11", "learn"), deps);
+    assert.equal(limited.stage, "needs_transcript");
+    assert.equal(limited.captionAttempts, 1);
+    assert.ok(limited.retryAt && Date.parse(limited.retryAt) > Date.now());
+    assert.match(limited.error ?? "", /YouTube is limiting caption downloads/);
+
+    // Once the wait is over, the sweep takes it up again.
+    updateIdea(limited.id, { retryAt: new Date(Date.now() - 1000).toISOString() });
+    const { deps: working, calls } = fakes();
+    await sweepIdeas(working);
+    assert.equal(getIdea(limited.id)?.stage, "noted");
+    assert.ok(calls.includes("note"));
+  });
+
+  it("stops retrying on its own after three limits", async () => {
+    const { deps } = fakes({
+      captions: async () => {
+        throw new CaptionsRateLimited();
+      },
+    });
+    const idea = updateIdea(make("ls-w12", "learn").id, { captionAttempts: 3 });
+    const limited = await advanceIdea(idea, deps);
+    assert.equal(limited.stage, "needs_transcript");
+    assert.equal(limited.retryAt, undefined);
+  });
+
+  it("records when each stage started", async () => {
+    const idea = make("ls-w13", "learn");
+    assert.ok(idea.stageStartedAt);
+    const moved = updateIdea(idea.id, { stage: "noting" });
+    assert.ok(moved.stageStartedAt && moved.stageStartedAt >= idea.stageStartedAt!);
   });
 
   it("only retries a failed idea", async () => {

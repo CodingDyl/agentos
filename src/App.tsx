@@ -34,7 +34,7 @@ import {
 } from "@/features/designs";
 import { KnowledgePage } from "@/features/knowledge";
 import { LibraryPage } from "@/features/reengineer";
-import { IdeaPage } from "@/features/video-ideas";
+import { IdeaPage, IdeaTray } from "@/features/video-ideas";
 import { MemoryPage } from "@/features/memory";
 import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
@@ -141,6 +141,8 @@ function App() {
         </Routes>
         <JarvisPanel />
         <ChatPanel />
+        {/* Video ideas at work, on every screen, until dismissed. */}
+        <IdeaTray />
         </AppShellMediaContext.Provider>
         </AppShellVoiceContext.Provider>
         </JarvisProvider>

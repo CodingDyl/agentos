@@ -1,7 +1,6 @@
 import { X } from "lucide-react";
-import { Link } from "react-router-dom";
-import { PaperButton, PaperIndicator } from "@/components/paper";
-import { ideaHref, ideaStatus } from "@/features/video-ideas/idea-model";
+import { PaperButton } from "@/components/paper";
+import { IdeaProgress } from "@/features/video-ideas/idea-progress";
 import { useStartIdea, useVideoIdeaReadiness } from "@/lib/agentos/video-ideas";
 import type { LearningSource } from "@shared/learning-types";
 import type { IdeaMode, VideoIdea } from "@shared/video-ideas-types";
@@ -14,21 +13,23 @@ export function LearnChoice({ source, idea, onDone }: { source: LearningSource; 
   const start = useStartIdea();
   const readiness = useVideoIdeaReadiness();
   const missing = readiness.data?.missing ?? [];
-  const upgrading = idea?.mode === "learn";
+  // The started idea shows at once, before the list refetches it.
+  const current = idea ?? start.data?.idea;
+  // Only offered for a note that was already done when this opened, never for one just made here.
+  const upgrading = !start.isSuccess && current?.mode === "learn" && current.stage === "noted";
 
-  if (idea && !upgrading) {
+  if (current && !upgrading) {
     return (
-      <div className="mt-3 flex items-center gap-3 border border-paper-mist bg-paper-cream px-4 py-3">
-        <PaperIndicator {...ideaStatus(idea)} />
-        <Link to={ideaHref(idea)} className="text-[13px] font-medium text-paper-blue hover:underline">
-          Follow it
-        </Link>
-        <DismissButton onClick={onDone} />
+      <div className="relative mt-3">
+        <IdeaProgress idea={current} />
+        <div className="absolute top-2 right-2">
+          <DismissButton onClick={onDone} />
+        </div>
       </div>
     );
   }
 
-  const choose = (mode: IdeaMode) => start.mutate({ sourceId: source.id, mode }, { onSuccess: onDone });
+  const choose = (mode: IdeaMode) => start.mutate({ sourceId: source.id, mode });
 
   return (
     <div role="group" aria-label={`What to do with ${source.title}`} className="mt-3 border border-paper-mist bg-paper-cream px-4 py-3">
@@ -76,7 +77,7 @@ function DismissButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Close"
-      className="-mt-1 -mr-2 inline-flex size-7 shrink-0 cursor-pointer items-center justify-center text-paper-sage hover:bg-paper-linen hover:text-paper-moss"
+      className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center text-paper-sage hover:bg-paper-linen hover:text-paper-moss"
     >
       <X className="size-3.5" strokeWidth={1.75} />
     </button>

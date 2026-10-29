@@ -71,6 +71,7 @@ export function createIdea(source: { id: string; externalId: string; title: stri
     title: source.title,
     mode,
     stage: "transcribing",
+    stageStartedAt: now,
     taskIds: [],
     runs: [],
     createdAt: now,
@@ -81,7 +82,9 @@ export function createIdea(source: { id: string; externalId: string; title: stri
 export function updateIdea(id: string, changes: Partial<Omit<VideoIdea, "id" | "sourceId" | "createdAt">>): VideoIdea {
   const current = getIdea(id);
   if (!current) throw new VideoIdeaError("There is no video idea with that id.", 404);
-  return save({ ...current, ...changes, updatedAt: new Date().toISOString() });
+  const now = new Date().toISOString();
+  const moved = changes.stage !== undefined && changes.stage !== current.stage;
+  return save({ ...current, ...(moved ? { stageStartedAt: now } : {}), ...changes, updatedAt: now });
 }
 
 export interface PastDecision {

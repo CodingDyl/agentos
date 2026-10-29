@@ -18,6 +18,13 @@ export interface TranscriptLine {
   text: string;
 }
 
+/** YouTube said "Too Many Requests": the captions exist, just not right now. */
+export class CaptionsRateLimited extends Error {
+  constructor() {
+    super("YouTube is limiting caption downloads right now.");
+  }
+}
+
 export type RunYtDlp = (args: string[], cwd: string) => Promise<void>;
 
 const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
@@ -110,6 +117,7 @@ const defaultRun: RunYtDlp = async (args, cwd) => {
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0) resolve();
+      else if (/HTTP Error 429|Too Many Requests/i.test(stderr)) reject(new CaptionsRateLimited());
       else reject(new Error(`yt-dlp could not read the captions: ${stderr.trim().split("\n").pop() ?? `exit ${code}`}`));
     });
   });
@@ -120,7 +128,7 @@ export async function fetchCaptions(videoId: string, run: RunYtDlp = defaultRun)
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentos-captions-"));
   try {
     await run(
-      ["--skip-download", "--write-subs", "--write-auto-subs", "--sub-langs", "en.*,en", "--sub-format", "vtt", "-o", "%(id)s.%(ext)s", watchUrl(videoId)],
+      ["--skip-download", "--write-subs", "--write-auto-subs", "--sub-langs", "en,en-orig,en-US,en-GB", "--sub-format", "vtt", "-o", "%(id)s.%(ext)s", watchUrl(videoId)],
       dir,
     );
     const files = (await fs.readdir(dir)).filter((file) => file.startsWith(`${videoId}.`) && file.endsWith(".vtt"));

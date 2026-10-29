@@ -87,6 +87,11 @@ export const VideoIdeaSchema = z.object({
   /** Index into `taskIds` of the build task now running or next to run. */
   currentTask: z.number().int().nonnegative().optional(),
   declineReason: z.string().optional(),
+  /** When the current stage began, so a screen can say how long it has been going. */
+  stageStartedAt: z.string().optional(),
+  /** Captions were refused for now (YouTube's rate limit): when to try again, and how often it has. */
+  retryAt: z.string().optional(),
+  captionAttempts: z.number().int().nonnegative().optional(),
   runs: z.array(IdeaRunSchema),
   createdAt: z.string(),
   updatedAt: z.string(),

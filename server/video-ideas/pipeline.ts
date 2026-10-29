@@ -9,7 +9,7 @@ import { writeKnowledgeNote } from "./note";
 import { filePlan, launchPlan } from "./plan";
 import { getIdea, listIdeas, updateIdea, VideoIdeaError } from "./store";
 import { rootsOfJob } from "./studio";
-import { fetchCaptions, linesFromPaste, type TranscriptLine } from "./transcript";
+import { CaptionsRateLimited, fetchCaptions, linesFromPaste, type TranscriptLine } from "./transcript";
 
 /**
  * Moves each video idea on by one step at a time, from wherever it was left.
@@ -80,7 +80,13 @@ async function step(idea: VideoIdea, deps: PipelineDeps): Promise<VideoIdea> {
   switch (idea.stage) {
     case "transcribing":
     case "noting": {
-      const lines = (idea.transcriptPath ? await deps.storedTranscript(idea.transcriptPath) : undefined) ?? (await deps.captions(idea.videoId));
+      let lines: TranscriptLine[] | undefined;
+      try {
+        lines = (idea.transcriptPath ? await deps.storedTranscript(idea.transcriptPath) : undefined) ?? (await deps.captions(idea.videoId));
+      } catch (error) {
+        if (error instanceof CaptionsRateLimited) return rateLimited(idea);
+        throw error;
+      }
       if (!lines) return updateIdea(idea.id, { stage: "needs_transcript", error: "This video has no captions" });
       return deps.note(updateIdea(idea.id, { stage: "noting", error: undefined }), lines);
     }
@@ -95,6 +101,30 @@ async function step(idea: VideoIdea, deps: PipelineDeps): Promise<VideoIdea> {
     default:
       return idea;
   }
+}
+
+/** Tries again on its own a few times, waiting longer each time; the paste box is there meanwhile. */
+const CAPTION_RETRIES = 3;
+const CAPTION_WAIT_MS = 10 * 60 * 1000;
+
+function rateLimited(idea: VideoIdea): VideoIdea {
+  const attempts = (idea.captionAttempts ?? 0) + 1;
+  if (attempts > CAPTION_RETRIES) {
+    return updateIdea(idea.id, {
+      stage: "needs_transcript",
+      captionAttempts: attempts,
+      retryAt: undefined,
+      error: "YouTube is limiting caption downloads right now. Paste the transcript, or press Try again later.",
+    });
+  }
+  const retryAt = new Date(Date.now() + CAPTION_WAIT_MS * attempts);
+  const at = retryAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return updateIdea(idea.id, {
+    stage: "needs_transcript",
+    captionAttempts: attempts,
+    retryAt: retryAt.toISOString(),
+    error: `YouTube is limiting caption downloads right now. Trying again at ${at}, or paste the transcript.`,
+  });
 }
 
 /** Ideas a step is being taken for right now, so a sweep and a request never take the same one twice. */
@@ -126,15 +156,18 @@ const RETRY_FROM: Partial<Record<IdeaStage, IdeaStage>> = {
 export async function retryIdea(id: string, deps: PipelineDeps = defaultPipelineDeps): Promise<VideoIdea> {
   const idea = getIdea(id);
   if (!idea) throw new VideoIdeaError("There is no video idea with that id.", 404);
-  if (idea.stage !== "failed") throw new VideoIdeaError("Only a failed idea can be retried.", 409);
-  const back = RETRY_FROM[idea.failedAt ?? "transcribing"] ?? "transcribing";
+  if (idea.stage !== "failed" && idea.stage !== "needs_transcript") throw new VideoIdeaError("Only a stopped idea can be retried.", 409);
+  const back = idea.stage === "needs_transcript" ? "transcribing" : (RETRY_FROM[idea.failedAt ?? "transcribing"] ?? "transcribing");
   const reset = updateIdea(id, { stage: back, error: undefined, jobId: undefined });
   // A plan run is relaunched now; everything else is picked up by the next step.
   return back === "planning" ? deps.plan(reset) : reset;
 }
 
 export async function sweepIdeas(deps: PipelineDeps = defaultPipelineDeps): Promise<void> {
-  for (const idea of listIdeas()) {
+  for (let idea of listIdeas()) {
+    if (idea.stage === "needs_transcript" && idea.retryAt && Date.parse(idea.retryAt) <= Date.now()) {
+      idea = updateIdea(idea.id, { stage: "transcribing", retryAt: undefined, error: undefined });
+    }
     if (!WORKING_STAGES.includes(idea.stage) && !(idea.stage === "noted" && idea.mode === "assess")) continue;
     await advanceIdea(idea, deps);
   }

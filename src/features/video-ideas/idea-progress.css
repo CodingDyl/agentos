@@ -1,0 +1,9 @@
+/* The bar under a video idea while an AI is at work: slides across, eases at the ends. */
+@keyframes idea-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}

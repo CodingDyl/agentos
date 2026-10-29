@@ -23,12 +23,12 @@ import {
   useDecideIdea,
   useIdeaAssessment,
   usePasteTranscript,
-  useRetryIdea,
   useVideoIdea,
 } from "@/lib/agentos/video-ideas";
 import { cn } from "@/lib/utils";
 import { VERDICT_LABELS, type IdeaRun, type VideoIdea } from "@shared/video-ideas-types";
-import { ideaStatus, noteHref, runLength } from "./idea-model";
+import { noteHref, runLength } from "./idea-model";
+import { IdeaProgress } from "./idea-progress";
 
 /**
  * One video idea: its note, the assessment against AgentOS, the decision, and
@@ -54,7 +54,6 @@ export function IdeaPage() {
 const VERDICT_TAG = { adopt: "green", adapt: "marigold", skip: "muted" } as const;
 
 function IdeaBody({ idea }: { idea: VideoIdea }) {
-  const status = ideaStatus(idea);
   const assessment = useIdeaAssessment(idea.id, Boolean(idea.assessmentPath));
 
   return (
@@ -82,11 +81,10 @@ function IdeaBody({ idea }: { idea: VideoIdea }) {
           </>
         }
       />
-      <PaperIndicator tone={status.tone} label={status.label} className="mt-2" />
+      <IdeaProgress idea={idea} showOpen={false} className="mt-5 max-w-[880px]" />
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-14">
         <div className="min-w-0 space-y-10">
-          {idea.stage === "failed" ? <Stopped idea={idea} /> : null}
           {idea.stage === "needs_transcript" ? <PasteTranscript idea={idea} /> : null}
           {idea.stage === "awaiting_decision" ? <Decide idea={idea} /> : null}
           {idea.stage === "declined" ? (
@@ -174,21 +172,6 @@ function Decide({ idea }: { idea: VideoIdea }) {
   );
 }
 
-function Stopped({ idea }: { idea: VideoIdea }) {
-  const retry = useRetryIdea();
-  const resuming = idea.failedAt === "building";
-  return (
-    <PaperError
-      headingLevel="h2"
-      title={resuming ? "The build paused" : "This stopped"}
-      detail={idea.error}
-      hint={resuming ? "Fix or retry the task in Workers, then resume to carry on from it." : undefined}
-      onRetry={() => retry.mutate(idea.id)}
-      isRetrying={retry.isPending}
-    />
-  );
-}
-
 function PasteTranscript({ idea }: { idea: VideoIdea }) {
   const paste = usePasteTranscript();
   const [text, setText] = useState("");
@@ -201,8 +184,8 @@ function PasteTranscript({ idea }: { idea: VideoIdea }) {
         if (text.trim()) paste.mutate({ id: idea.id, text });
       }}
     >
-      <h2 className="font-paper-display text-[19px] font-bold tracking-[-0.01em] text-paper-moss">This video has no captions</h2>
-      <p className="mt-1.5 max-w-[64ch] text-[14px] leading-6 text-paper-char">Paste a transcript and the note is written from it. Lines starting with a time like 01:05 keep it.</p>
+      <h2 className="font-paper-display text-[19px] font-bold tracking-[-0.01em] text-paper-moss">{idea.captionAttempts ? "Or paste the transcript yourself" : "This video has no captions"}</h2>
+      <p className="mt-1.5 max-w-[64ch] text-[14px] leading-6 text-paper-char">Paste a transcript and the note is written from it straight away. Lines starting with a time like 01:05 keep it.</p>
       <textarea value={text} onChange={(event) => setText(event.target.value)} rows={8} aria-label="Transcript" className={cn(PAPER_INPUT, "mt-3 w-full py-2 font-mono text-[12.5px]")} />
       <PaperButton type="submit" variant="amber" className="mt-3" disabled={!text.trim() || paste.isPending}>
         {paste.isPending ? "Saving…" : "Write the note"}
