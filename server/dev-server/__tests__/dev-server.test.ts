@@ -106,6 +106,16 @@ describe("script detection", () => {
     assert.equal(commandFor(wrapped, 5123).env.PORT, "5123");
   });
 
+  it("builds an argument array for npm, never a shell string", async () => {
+    // A script name or body with shell syntax must stay inert data.
+    const hostile = await detectDevProject(await project({ dev: "next dev; touch pwned" }, {}, { dependencies: { next: "1" } }));
+    assert.ok(hostile.ok);
+    const spawned = commandFor(hostile, 4100);
+    assert.equal(spawned.file, "npm");
+    assert.deepEqual(spawned.args, ["run", "dev", "--", "--port", "4100", "--hostname", "127.0.0.1"]);
+    assert.ok(spawned.args.every((arg) => !/[;&|`$]/.test(arg)));
+  });
+
   it("reads the port out of coloured output", () => {
     assert.equal(portFromOutput("  \u001b[1m- Local:\u001b[22m   http://localhost:3004\n"), 3004);
     assert.equal(portFromOutput("Local: http://127.0.0.1:5173/"), 5173);
@@ -117,7 +127,7 @@ describe("dev server process", () => {
   it("installs first when asked, then starts, serves, and stops without leaving a process", async () => {
     const dir = await project({ dev: "node server.js" }, { "server.js": SERVER });
     const seen: string[] = [];
-    const manager = new DevServerManager({ installCommandFor: async () => "node -e \"console.log('installing')\"" });
+    const manager = new DevServerManager({ installCommandFor: async () => ["node", "-e", "console.log('installing')"] });
 
     const first = manager.start("demo", dir);
     seen.push(first.status);
@@ -188,7 +198,7 @@ describe("dev server process", () => {
 
   it("reports a failed install and does not start the server", async () => {
     const dir = await project({ dev: "node server.js" }, { "server.js": SERVER });
-    const manager = new DevServerManager({ installCommandFor: async () => "node -e \"process.exit(1)\"" });
+    const manager = new DevServerManager({ installCommandFor: async () => ["node", "-e", "process.exit(1)"] });
     manager.start("demo", dir);
     await until(() => manager.get("demo").status === "failed", "failed");
     assert.match(manager.get("demo").error ?? "", /failed/);
@@ -213,7 +223,7 @@ describe("dev server process", () => {
 
   it("stop during install cancels it and never starts the server", async () => {
     const dir = await project({ dev: "node server.js" }, { "server.js": SERVER });
-    const manager = new DevServerManager({ installCommandFor: async () => "node -e \"setTimeout(() => {}, 60000)\"" });
+    const manager = new DevServerManager({ installCommandFor: async () => ["node", "-e", "setTimeout(() => {}, 60000)"] });
     manager.start("demo", dir);
     await until(() => manager.get("demo").status === "installing", "installing");
     const stopped = await manager.stop("demo");

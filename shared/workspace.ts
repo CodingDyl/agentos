@@ -39,6 +39,7 @@ export const WorkspaceModuleSchema = z.enum([
   "motion",
   "dev",
   "startup",
+  "ship",
 ]);
 
 export type WorkspaceType = z.infer<typeof WorkspaceTypeSchema>;
@@ -74,13 +75,13 @@ export const WORKSPACE_TYPE_DESCRIPTIONS: Record<WorkspaceType, string> = {
  * reachable from More — a default hides a module, it never removes one.
  */
 export const DEFAULT_WORKSPACE_MODULES: Record<WorkspaceType, readonly WorkspaceModule[]> = {
-  product: ["tasks", "roadmap", "documents", "creative", "decisions", "activity"],
-  business: ["tasks", "roadmap", "documents", "clients", "creative", "decisions", "activity"],
-  client: ["tasks", "roadmap", "documents", "creative", "decisions", "activity"],
-  software: ["tasks", "roadmap", "documents", "repository", "decisions", "activity", "agents"],
-  personal: ["tasks", "documents", "decisions", "activity"],
-  research: ["tasks", "documents", "decisions", "activity"],
-  general: ["tasks", "roadmap", "documents", "creative", "decisions", "activity"],
+  product: ["tasks", "roadmap", "documents", "creative", "ship", "decisions", "activity"],
+  business: ["tasks", "roadmap", "documents", "clients", "creative", "ship", "decisions", "activity"],
+  client: ["tasks", "roadmap", "documents", "creative", "ship", "decisions", "activity"],
+  software: ["tasks", "roadmap", "documents", "repository", "ship", "decisions", "activity", "agents"],
+  personal: ["tasks", "documents", "ship", "decisions", "activity"],
+  research: ["tasks", "documents", "ship", "decisions", "activity"],
+  general: ["tasks", "roadmap", "documents", "creative", "ship", "decisions", "activity"],
 };
 
 export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
@@ -100,6 +101,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   motion: "Motion Design",
   dev: "Dev server",
   startup: "Startup",
+  ship: "Ship",
 };
 
 /** The label a module's tab carries in a workspace of this type. */
@@ -195,6 +197,14 @@ export function resolveWorkspaceTabs(input: {
   if (input.hasMotion && !primary.includes("motion")) primary.unshift("motion");
   // A workspace that graduated from a venture leads with where it came from.
   if (input.hasStartup && !primary.includes("startup")) primary.unshift("startup");
+  // Every workspace can finish a generated project here — a Motion Design
+  // site, a rebuild, a Coder clone — so Ship is never left under More or
+  // dropped by a custom module list. It follows the run that produced the code.
+  if (!primary.includes("ship")) {
+    const after = Math.max(primary.indexOf("motion"), primary.indexOf("rebuild"));
+    const decisions = primary.indexOf("decisions");
+    primary.splice(after >= 0 ? after + 1 : decisions === -1 ? primary.length : decisions, 0, "ship");
+  }
   // Without a rebuild or Motion Design run there is nothing to show, so those
   // tabs are not offered under More either.
   const withoutEmpty = primary.filter(
@@ -214,7 +224,7 @@ export function resolveWorkspaceTabs(input: {
 export function parseModuleList(value: string | undefined): WorkspaceModule[] {
   if (!value) return [];
 
-  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site", "motion-design": "motion", "dev-server": "dev", server: "dev" };
+  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site", "motion-design": "motion", "dev-server": "dev", server: "dev", publish: "ship", deploy: "ship" };
   const modules = value
     .split(/[,;]/)
     .map((word) => word.trim().toLowerCase())
