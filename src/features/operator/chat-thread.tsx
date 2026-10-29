@@ -211,10 +211,16 @@ function ApprovalCard({
       <p id={`${part.id}-reason`} className="mt-2 text-[14px] leading-6 text-paper-moss">
         {part.reason}
       </p>
-      <pre className="mt-2 max-h-40 overflow-auto bg-paper-white px-3 py-2 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
-        <span className="text-paper-sage">{part.tool} </span>
-        {part.summary}
-      </pre>
+      {part.detail ? (
+        <pre aria-label="What will be sent" className="mt-2 max-h-72 overflow-auto bg-paper-white px-3 py-2 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
+          {part.detail}
+        </pre>
+      ) : (
+        <pre className="mt-2 max-h-40 overflow-auto bg-paper-white px-3 py-2 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
+          <span className="text-paper-sage">{part.tool} </span>
+          {part.summary}
+        </pre>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         <PaperButton variant="amber" disabled={deciding} onClick={() => onDecide(part.id, "allow")}>
           Allow

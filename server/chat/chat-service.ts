@@ -225,7 +225,7 @@ function scheduleFlush(turn: ActiveTurn, message: ChatMessage): void {
 }
 
 function requestApproval(turn: ActiveTurn, message: ChatMessage, request: ApprovalRequest): Promise<boolean> {
-  const part: ChatApprovalPart = { type: "approval", id: `approval_${randomUUID()}`, tool: request.tool, summary: request.summary, reason: request.reason, status: "pending" };
+  const part: ChatApprovalPart = { type: "approval", id: `approval_${randomUUID()}`, tool: request.tool, summary: request.summary, ...(request.detail ? { detail: request.detail } : {}), reason: request.reason, status: "pending" };
   message.parts.push(part);
   emit(turn.chat.id, { type: "message", chatId: turn.chat.id, message });
   void saveChat(turn.chat);

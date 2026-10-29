@@ -39,6 +39,10 @@ describe("what Jarvis says", () => {
   it("reads back exactly what will run before 'confirm' lets it", () => {
     assert.equal(confirmPrompt(approval), "It will run git push origin main. Say confirm to go ahead.");
     assert.equal(confirmPrompt({ ...approval, tool: "Edit", summary: "/etc/hosts" }), "It will edit /etc/hosts. Say confirm to go ahead.");
+    assert.equal(
+      confirmPrompt({ ...approval, tool: "mcp__agentos__send_email", summary: 'email to sam@example.com, subject "Quote"' }),
+      'It will send email to sam@example.com, subject "Quote". Say confirm to go ahead.',
+    );
   });
 
   it("finds the approval waiting in a reply", () => {

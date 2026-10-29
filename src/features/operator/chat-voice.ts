@@ -61,6 +61,9 @@ export function confirmPrompt(part: ChatApprovalPart): string {
 function describeAction(part: ChatApprovalPart): string {
   const what = part.summary.length > 120 ? `${part.summary.slice(0, 117)}…` : part.summary;
   if (!what) return `use ${part.tool}`;
+  // AgentOS's own tools ("mcp__agentos__send_email") summarise as "email to …": say "send email to …".
+  const agentos = /^mcp__agentos__([a-z]+)_/.exec(part.tool);
+  if (agentos) return `${agentos[1]} ${what}`;
   return part.tool === "Bash" || part.tool === "Execute" ? `run ${what}` : `${part.tool.toLowerCase()} ${what}`;
 }
 

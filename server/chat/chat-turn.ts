@@ -19,6 +19,8 @@ export interface TurnState {
 export interface ApprovalRequest {
   tool: string;
   summary: string;
+  /** The whole action, when one line can't show it (an email's body). */
+  detail?: string;
   reason: string;
   signal: AbortSignal;
 }

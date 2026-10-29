@@ -8,6 +8,7 @@ import { AGENTOS_TOOL_SERVER, agentosToolServer, toolDisplayName } from "./agent
 import { cachedModels, rememberModels } from "./chat-model-cache";
 import { LiveSessions, type LiveSession } from "./claude-live-session";
 import { decideChatToolUse, summariseToolInput } from "./chat-permission-policy";
+import { describeGatedAction, grantAction, isGatedTool } from "./confirmed-actions";
 import { DEFAULT_MODEL, oneLine, type ChatAgentAdapter, type RunTurnInput } from "./chat-turn";
 
 /**
@@ -320,7 +321,7 @@ interface ToolGateTurn {
  * says to. `turn()` is the turn running now: in a live session one callback
  * serves every turn, so it can't capture any single one.
  */
-function toolGate(turn: () => ToolGateTurn | undefined): CanUseTool {
+export function toolGate(turn: () => ToolGateTurn | undefined): CanUseTool {
   return async (toolName, toolInput, options) => {
     const current = turn();
     if (!current) return { behavior: "deny", message: "No turn is running." };
@@ -329,10 +330,20 @@ function toolGate(turn: () => ToolGateTurn | undefined): CanUseTool {
     if (verdict.decision === "allow") return { behavior: "allow", updatedInput: toolInput };
 
     const allowed = await input
-      .requestApproval({ tool: toolName, summary: summariseToolInput(toolName, toolInput), reason: verdict.reason, signal: options.signal })
+      .requestApproval({
+        tool: toolName,
+        summary: summariseToolInput(toolName, toolInput),
+        detail: describeGatedAction(toolName, toolInput)?.detail,
+        reason: verdict.reason,
+        signal: options.signal,
+      })
       .catch(() => false);
 
-    if (allowed) return { behavior: "allow", updatedInput: toolInput };
+    if (allowed) {
+      // A tool that sends or spends checks for this on the server before acting.
+      if (isGatedTool(toolName)) grantAction(toolName, toolInput);
+      return { behavior: "allow", updatedInput: toolInput };
+    }
 
     // Mark the call itself, so the transcript says "you said no" rather than "it failed".
     const part = state.message.parts.findLast((entry): entry is ChatToolPart => entry.type === "tool" && entry.name === toolDisplayName(toolName) && entry.status === "running");

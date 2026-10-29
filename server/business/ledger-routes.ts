@@ -7,6 +7,7 @@ import express from "express";
 import { z } from "zod";
 import { getVirtecSnapshot } from "../virtec/snapshot";
 import { readBusinessState } from "./store";
+import { overdueInvoicesReport } from "./overdue";
 import {
   BusinessLedgerError, businessAuditBackup, prepareBusinessHistory, commitBusinessLedgerImport, exportBusinessLedger, getBusinessLedgerStatus,
   prepareBusinessLedgerRestore, prepareCrmLedgerImport, previousBusinessLedgerBackup,
@@ -46,6 +47,10 @@ function fail(response: express.Response, error: unknown) {
 }
 
 businessLedgerRouter.get("/print.js", (_request, response) => { response.type("application/javascript").send('document.getElementById("print").addEventListener("click",()=>window.print());'); });
+/** Every business's overdue invoices, read-only. Registered before `/:entityId` so it isn't read as a business id. */
+businessLedgerRouter.get("/overdue-invoices", async (_request, response) => {
+  try { response.json(await overdueInvoicesReport()); } catch (error) { fail(response, error); }
+});
 businessLedgerRouter.post("/:entityId/operate", async (request, response) => {
   const parsed = BusinessOperationSchema.safeParse(request.body);
   if (!parsed.success) { response.status(422).json({ error: "Check the record fields and try again." }); return; }
