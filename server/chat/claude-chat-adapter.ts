@@ -4,6 +4,7 @@ import path from "node:path";
 import { query, type CanUseTool, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ChatAgent, ChatMessage, ChatModel, ChatToolPart } from "../../shared/chat-types";
 import { agentEnv } from "./agent-environment";
+import { AGENTOS_TOOL_SERVER, agentosToolServer, toolDisplayName } from "./agentos-tools";
 import { cachedModels, rememberModels } from "./chat-model-cache";
 import { decideChatToolUse, summariseToolInput } from "./chat-permission-policy";
 import { DEFAULT_MODEL, oneLine, type ChatAgentAdapter, type RunTurnInput } from "./chat-turn";
@@ -241,7 +242,7 @@ export function applyClaudeMessage(state: ClaudeTurnState, message: SDKMessage):
         } else if (block.type === "tool_use") {
           const input = (block.input ?? {}) as Record<string, unknown>;
           if (!state.message.parts.some((part) => part.type === "tool" && part.id === block.id)) {
-            state.message.parts.push({ type: "tool", id: block.id, name: block.name, summary: summariseToolInput(block.name, input), status: "running" });
+            state.message.parts.push({ type: "tool", id: block.id, name: toolDisplayName(block.name), summary: summariseToolInput(block.name, input), status: "running" });
             changed = true;
           }
         }
@@ -320,7 +321,7 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
     if (allowed) return { behavior: "allow", updatedInput: toolInput };
 
     // Mark the call itself, so the transcript says "you said no" rather than "it failed".
-    const part = state.message.parts.findLast((entry): entry is ChatToolPart => entry.type === "tool" && entry.name === toolName && entry.status === "running");
+    const part = state.message.parts.findLast((entry): entry is ChatToolPart => entry.type === "tool" && entry.name === toolDisplayName(toolName) && entry.status === "running");
     if (part) part.status = "denied";
     input.onChange();
     return { behavior: "deny", message: "The operator declined this action. Carry on without it, and say what you would have done." };
@@ -344,6 +345,9 @@ export async function runClaudeTurn(input: RunTurnInput): Promise<void> {
       settingSources: session.settingSources,
       ...(session.tools ? { tools: session.tools } : {}),
       ...(session.strictMcpConfig ? { strictMcpConfig: true } : {}),
+      // AgentOS's own tools (the day, vault, projects, mail), in this process.
+      // A text-only request gets none: it has no tools at all.
+      ...(kind === "text" ? {} : { mcpServers: { [AGENTOS_TOOL_SERVER]: agentosToolServer() } }),
       systemPrompt: session.systemPrompt ?? { type: "preset", preset: "claude_code", append: session.appendPrompt },
       env: { ...(await agentEnv(how.env)), CLAUDE_AGENT_SDK_CLIENT_APP: "agentos-chat/1.0" },
     },

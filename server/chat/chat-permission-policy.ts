@@ -1,5 +1,8 @@
 import path from "node:path";
 
+/** Matches `AGENTOS_TOOL_PREFIX` in agentos-tools.ts, kept here so the policy loads no SDK. */
+const AGENTOS_TOOL_PREFIX = "mcp__agentos__";
+
 /**
  * What a chat may do without asking, and what it must stop and ask about.
  *
@@ -192,6 +195,10 @@ export function decideToolUse(toolName: string, input: Record<string, unknown>, 
   // Stops a background command this chat started: undoing its own work.
   if (toolName === "KillShell" || toolName === "KillBash" || toolName === "TaskStop") return ALLOW;
 
+  // AgentOS's own tools (agentos-tools.ts) read, add tasks and notes, save
+  // drafts and start Operator runs. None sends, deletes or spends, so none asks.
+  if (toolName.startsWith(AGENTOS_TOOL_PREFIX)) return ALLOW;
+
   if (toolName.startsWith("mcp__")) return ask("Uses an external connector, which can act outside this machine.");
 
   return ask(`Uses ${toolName}, which AgentOS doesn't recognise as safe.`);
@@ -215,7 +222,7 @@ export function summariseToolInput(toolName: string, input: Record<string, unkno
   const detail =
     toolName === "Bash"
       ? pick("command")
-      : pick("file_path", "notebook_path", "path", "pattern", "url", "query", "description", "prompt", "skill");
+      : pick("file_path", "notebook_path", "path", "pattern", "url", "query", "description", "prompt", "skill", "title", "note", "subject", "request", "threadId", "id", "project");
 
   const line = (detail ?? "").split("\n")[0] ?? "";
   return line.length > 160 ? `${line.slice(0, 157)}…` : line;
