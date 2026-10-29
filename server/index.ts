@@ -113,6 +113,7 @@ import { coderRouter, handleTerminalWebSocket } from "./coder/routes";
 import { killAllTerminals } from "./coder/pty-manager";
 import { devServerRouter } from "./dev-server/routes";
 import { devServers } from "./dev-server/manager";
+import { shipRouter } from "./ship/routes";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
 import {
   archiveTask,
@@ -411,6 +412,8 @@ app.disable("x-powered-by");
 app.use("/api/business/ledger", express.json({ limit: "16mb" }));
 // Attachments arrive base64-encoded: 18 MB of files is 24 MB of JSON.
 app.use("/api/mail/compose", express.json({ limit: "26mb" }));
+// A change can carry a screenshot, base64-encoded.
+app.use("/api/projects/:slug/ship", express.json({ limit: "8mb" }));
 app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
@@ -426,6 +429,8 @@ app.use("/api/rebuilds", rebuildRouter);
 app.use("/api/site-requests", siteRequestRouter);
 /** A workspace's Dev tab: run the project's own dev server from inside AgentOS. */
 app.use("/api/projects/:slug/dev-server", devServerRouter);
+/** A workspace's Ship tab: git, the dev server, deploys and a change list for coding agents. Its dev servers are the ones above. */
+app.use("/api/projects/:slug/ship", shipRouter);
 app.use("/api/skills", skillsRouter);
 app.use("/api/agents", agentsRouter);
 recoverRebuildsAtStartup();

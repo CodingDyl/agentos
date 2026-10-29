@@ -75,18 +75,23 @@ export async function detectDevProject(cwd: string): Promise<DevDetection> {
  * visibly the framework's own binary, because arguments after `--` go to
  * whatever the script ends with, and `concurrently a b -- --port 1` would hand
  * them to the wrong thing.
+ *
+ * `file` and `args` are what is spawned, with no shell: nothing in them is
+ * read from a request, and nothing is ever parsed by `sh`. `command` is the
+ * same thing joined up for people to read.
  */
-export function commandFor(project: DevProject, port: number): { command: string; env: Record<string, string> } {
-  const base = `npm run ${project.script}`;
+export function commandFor(project: DevProject, port: number): { command: string; file: string; args: string[]; env: Record<string, string> } {
+  const args = ["run", project.script];
   const env = { PORT: String(port), HOST: "127.0.0.1", BROWSER: "none" };
   const direct = (binary: string) => new RegExp(`^\\s*${binary}(\\s|$)`).test(project.body);
 
-  let flags = "";
-  if (project.framework === "next" && direct("next")) flags = `--port ${port} --hostname 127.0.0.1`;
-  if (project.framework === "vite" && direct("vite")) flags = `--port ${port} --host 127.0.0.1 --strictPort`;
-  if (project.framework === "astro" && direct("astro")) flags = `--port ${port} --host 127.0.0.1`;
+  let flags: string[] = [];
+  if (project.framework === "next" && direct("next")) flags = ["--port", String(port), "--hostname", "127.0.0.1"];
+  if (project.framework === "vite" && direct("vite")) flags = ["--port", String(port), "--host", "127.0.0.1", "--strictPort"];
+  if (project.framework === "astro" && direct("astro")) flags = ["--port", String(port), "--host", "127.0.0.1"];
+  if (flags.length > 0) args.push("--", ...flags);
 
-  return { command: flags ? `${base} -- ${flags}` : base, env };
+  return { command: ["npm", ...args].join(" "), file: "npm", args, env };
 }
 
 // eslint-disable-next-line no-control-regex

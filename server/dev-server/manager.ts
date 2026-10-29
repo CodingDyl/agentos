@@ -13,6 +13,9 @@ import { commandFor, detectDevProject, portFromOutput, stripAnsi } from "./detec
  * holding the port. Every group is also killed when AgentOS goes down, so a
  * restart of this server never leaves a Next.js process orphaned.
  *
+ * Nothing runs through a shell: every process is a file and an argument
+ * array, so no path, script name or port is ever parsed by `sh`.
+ *
  * The server only ever listens on localhost, and it is started with an
  * allow-listed environment: AgentOS's own `.env` (API tokens, mail passwords)
  * is not handed to a project's code, and nothing here reads the project's.
@@ -61,8 +64,8 @@ interface Entry {
 }
 
 export interface DevServerOptions {
-  /** Replaced in tests so no real install runs. */
-  installCommandFor?: (cwd: string) => Promise<string | undefined>;
+  /** The install to run first, as a file and its arguments. Replaced in tests so no real install runs. */
+  installCommandFor?: (cwd: string) => Promise<readonly string[] | undefined>;
   readyTimeoutMs?: number;
   killGraceMs?: number;
 }
@@ -127,7 +130,8 @@ export class DevServerManager {
 
   constructor(options: DevServerOptions = {}) {
     this.options = {
-      installCommandFor: options.installCommandFor ?? installCommandFor,
+      // `npm ci` or `npm install`: fixed words, split rather than handed to a shell.
+      installCommandFor: options.installCommandFor ?? (async (cwd) => (await installCommandFor(cwd))?.split(" ")),
       readyTimeoutMs: options.readyTimeoutMs ?? READY_TIMEOUT_MS,
       killGraceMs: options.killGraceMs ?? KILL_GRACE_MS,
     };
@@ -154,6 +158,12 @@ export class DevServerManager {
     const existing = this.entries.get(slug);
     if (existing && ["installing", "starting", "running"].includes(existing.status) && existing.cwd === cwd) {
       return this.get(slug);
+    }
+    // One server per project: a server still running from another folder
+    // (the Dev tab and Ship can name different ones) is stopped, not orphaned.
+    if (existing?.child && existing.status !== "stopped" && existing.status !== "failed") {
+      existing.stopping = true;
+      signalGroup(existing.child, "SIGTERM");
     }
 
     const entry: Entry = {
@@ -230,9 +240,10 @@ export class DevServerManager {
   }
 
   /** Runs a command to completion in its own group, streaming its output into the tail. */
-  private run(entry: Entry, command: string, env: NodeJS.ProcessEnv, timeoutMs?: number): Promise<number | null> {
+  private run(entry: Entry, file: string, args: readonly string[], env: NodeJS.ProcessEnv, timeoutMs?: number): Promise<number | null> {
+    const command = [file, ...args].join(" ");
     return new Promise((resolve) => {
-      const child = spawn(command, { cwd: entry.cwd, shell: true, detached: true, env, stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawn(file, [...args], { cwd: entry.cwd, shell: false, detached: true, env, stdio: ["ignore", "pipe", "pipe"] });
       entry.child = child;
       entry.exited = new Promise<void>((done) => child.once("close", () => done()));
 
@@ -267,14 +278,16 @@ export class DevServerManager {
     entry.framework = detection.framework;
 
     const install = await this.options.installCommandFor(entry.cwd);
-    if (install && current()) {
+    if (install?.length && current()) {
+      const [file, ...args] = install;
+      const shown = install.join(" ");
       entry.status = "installing";
-      entry.command = install;
-      this.append(entry, Buffer.from(`$ ${install}  (dependencies are not installed here yet)\n`));
+      entry.command = shown;
+      this.append(entry, Buffer.from(`$ ${shown}  (dependencies are not installed here yet)\n`));
 
-      const code = await this.run(entry, install, childEnv({}), INSTALL_TIMEOUT_MS);
+      const code = await this.run(entry, file, args, childEnv({}), INSTALL_TIMEOUT_MS);
       if (!current()) return;
-      if (code !== 0) return this.fail(entry, `\`${install}\` failed (exit ${code ?? "unknown"}), so the server was not started.`);
+      if (code !== 0) return this.fail(entry, `\`${shown}\` failed (exit ${code ?? "unknown"}), so the server was not started.`);
     }
 
     if (!current()) return;
@@ -285,7 +298,7 @@ export class DevServerManager {
 
     const port = await freePort();
     if (!current()) return;
-    const { command, env } = commandFor(detection, port);
+    const { command, file, args, env } = commandFor(detection, port);
 
     entry.status = "starting";
     entry.command = command;
@@ -293,7 +306,7 @@ export class DevServerManager {
     entry.child = undefined;
     this.append(entry, Buffer.from(`$ ${command}\n`));
 
-    const finished = this.run(entry, command, childEnv(env));
+    const finished = this.run(entry, file, args, childEnv(env));
     const deadline = Date.now() + this.options.readyTimeoutMs;
 
     // Watch for the port while the process runs; the process ending first is a result too.
