@@ -16,6 +16,7 @@ export const PlaySchema = z.enum([
   "quick_fixes",
   "refresh",
   "bookings",
+  "photo_sample",
   "own_offer",
 ]);
 export type Play = z.infer<typeof PlaySchema>;
@@ -124,6 +125,19 @@ export const PLAYS: readonly PlayDefinition[] = [
       { field: "price", label: "Price", hint: "e.g. R2,500 set-up" },
     ],
     defaultCta: "reply_question",
+  },
+  {
+    id: "photo_sample",
+    name: "Better photos, free",
+    bestFor: "Guesthouses, rentals, restaurants, estate agents and venues whose listing photos are weak.",
+    whyItWorks:
+      "Photos drive clicks and bookings, and an owner can judge 2-3 of their own photos, made better, in ten seconds.",
+    pitch: "I enhanced a few of their own listing photos, without adding anything that is not there; they are at the link to look at with no obligation.",
+    inputs: [
+      { field: "previewUrl", label: "Link to the sample photos", hint: "A gallery link, never attachments. 2 or 3 photos.", required: true },
+      { field: "price", label: "Price for the full set", hint: "e.g. R3,500 once-off for the full set" },
+    ],
+    defaultCta: "see_preview",
   },
   {
     id: "own_offer",

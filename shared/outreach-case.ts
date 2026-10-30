@@ -13,8 +13,8 @@ import { z } from "zod";
  * See docs/outreach/README.md.
  */
 
-/** The two ways to sell. */
-export const OutreachPathSchema = z.enum(["build_first", "cold_pitch"]);
+/** The three ways to sell. */
+export const OutreachPathSchema = z.enum(["build_first", "cold_pitch", "photo_sample"]);
 export type OutreachPath = z.infer<typeof OutreachPathSchema>;
 
 export const PATHS: Record<OutreachPath, { name: string; line: string; when: string }> = {
@@ -27,6 +27,11 @@ export const PATHS: Record<OutreachPath, { name: string; line: string; when: str
     name: "Pitch a custom build",
     line: "A standard cold email for a bigger website or system, quoted as a project.",
     when: "Established businesses that need more than a small site.",
+  },
+  photo_sample: {
+    name: "Better photos, free",
+    line: "Enhance 2-3 of their own photos, send them as a link, and charge once-off for the full set.",
+    when: "Guesthouses, holiday rentals, restaurants, estate agents and venues whose listing photos are weak.",
   },
 };
 
@@ -74,6 +79,10 @@ export const OutreachCaseSchema = z.object({
   leakPercent: Words(40).default(""),
   jobValue: Words(40).default(""),
   bookedPercent: Words(40).default(""),
+  /** Better photos: the link to a gallery of the enhanced photos. Always a link, never an attachment. */
+  samplesUrl: Words(300).default(""),
+  /** Better photos: you compared each enhanced photo with its original and it shows nothing that is not really there. */
+  samplesChecked: z.boolean().default(false),
   /** Which of your companies the email is from. */
   senderId: z.string().default(""),
   draft: CaseDraftSchema.optional(),
@@ -111,6 +120,8 @@ export const OutreachCasePatchSchema = z
     leakPercent: Words(40).nullable(),
     jobValue: Words(40).nullable(),
     bookedPercent: Words(40).nullable(),
+    samplesUrl: z.union([z.literal(""), z.string().trim().url().max(300).regex(/^https?:\/\//, "Must be a web address")]).nullable(),
+    samplesChecked: z.boolean().nullable(),
     senderId: z.string().max(80).nullable(),
     draft: CaseDraftSchema.nullable(),
     notes: z.string().max(6000).nullable(),
@@ -124,7 +135,7 @@ export const CaseWriteSchema = z
   .object({ patch: OutreachCasePatchSchema, by: FilledBySchema.default("you") })
   .strict();
 
-export type CaseFieldKey = Exclude<keyof OutreachCasePatch, "draft">;
+export type CaseFieldKey = Exclude<keyof OutreachCasePatch, "draft" | "samplesChecked">;
 
 /**
  * Every editable field, with what it is for. Read by the screen (labels,
@@ -141,6 +152,7 @@ export const CASE_FIELDS: readonly { key: CaseFieldKey; label: string; hint: str
   { key: "framing", label: "Ways to frame the offer", hint: "Hermes' ideas. Use one as the offer, or write your own.", hermes: true, list: true },
   { key: "offer", label: "The offer", hint: "One or two lines, as the email should put it.", hermes: true },
   { key: "previewUrl", label: "Preview link", hint: "The live site you built for them.", hermes: false },
+  { key: "samplesUrl", label: "Sample photos link", hint: "A gallery of the enhanced photos. A link, never attachments.", hermes: false },
   { key: "monthlyPrice", label: "Monthly price", hint: "e.g. R450 a month, hosting and updates included", hermes: false },
   { key: "setupPrice", label: "Set-up fee", hint: "Leave empty for no upfront cost", hermes: false },
   { key: "projectPrice", label: "Project price", hint: "e.g. from R25,000", hermes: false },
@@ -280,9 +292,13 @@ export function draftGaps(entry: OutreachCase, sender: Sender | undefined): stri
   if (!entry.path) gaps.push("an approach");
   if (!entry.offer.trim()) gaps.push("the offer");
   if (entry.path === "build_first" && !entry.previewUrl.trim()) gaps.push("the preview link");
+  if (entry.path === "photo_sample") {
+    if (!entry.samplesUrl.trim()) gaps.push("the sample photos link");
+    if (!entry.samplesChecked) gaps.push("your check that the photos invent nothing");
+  }
   if (!sender) gaps.push("which company it is from");
   return gaps;
 }
 
 /** The play an email is logged under, for "what works". */
-export const PATH_PLAY = { build_first: "website_preview", cold_pitch: "cold_pitch" } as const;
+export const PATH_PLAY = { build_first: "website_preview", cold_pitch: "cold_pitch", photo_sample: "photo_sample" } as const;

@@ -15,6 +15,11 @@ describe("pathPatch", () => {
     assert.deepEqual(pathPatch("cold_pitch", empty, sender), { path: "cold_pitch", projectPrice: "R25 000" });
   });
 
+  it("fills the once-off price for a photo sample only when it is empty", () => {
+    assert.deepEqual(pathPatch("photo_sample", empty, sender), { path: "photo_sample", projectPrice: "R25 000" });
+    assert.deepEqual(pathPatch("photo_sample", { ...empty, projectPrice: "R3,500" }, sender), { path: "photo_sample" });
+  });
+
   it("never overwrites a price you already set", () => {
     assert.deepEqual(pathPatch("build_first", { ...empty, monthlyPrice: "R900" }, sender), { path: "build_first", setupPrice: "R4 000" });
   });

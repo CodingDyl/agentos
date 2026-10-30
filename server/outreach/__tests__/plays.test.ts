@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { briefGaps, OutreachBriefSchema, recommendPlay } from "../../../shared/outreach-plays";
+import { briefGaps, OutreachBriefSchema, playById, PLAYS, recommendPlay } from "../../../shared/outreach-plays";
 import type { OutreachLogEntry, OutreachReply } from "../../../shared/outreach-types";
 import { sentInLastDay, sequenceRefusal } from "../../traction/store";
 import { buildEmailPacket, offerForBrief } from "../draft";
@@ -54,6 +54,18 @@ describe("plays", () => {
     assert.ok(briefGaps(brief).length > 0);
     const ready = OutreachBriefSchema.parse({ play: "website_preview", cta: "see_preview", previewUrl: "https://preview.example/glam" });
     assert.deepEqual(briefGaps(ready), []);
+  });
+
+  it("will not draft a photo sample email without the sample photos link", () => {
+    const brief = OutreachBriefSchema.parse({ play: "photo_sample", cta: "see_preview" });
+    assert.ok(briefGaps(brief).length > 0);
+    const ready = OutreachBriefSchema.parse({ play: "photo_sample", cta: "see_preview", previewUrl: "https://photos.example/gallery" });
+    assert.deepEqual(briefGaps(ready), []);
+  });
+
+  it("has the photo sample play, with own_offer still last", () => {
+    assert.equal(playById("photo_sample").name, "Better photos, free");
+    assert.equal(PLAYS[PLAYS.length - 1].id, "own_offer");
   });
 
   it("puts the link, the exact price and the call to action in what Hermes is told", () => {

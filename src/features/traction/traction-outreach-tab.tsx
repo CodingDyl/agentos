@@ -229,6 +229,8 @@ function blankCase(prospectId: string): OutreachCase {
     leakPercent: "",
     jobValue: "",
     bookedPercent: "",
+    samplesUrl: "",
+    samplesChecked: false,
     senderId: "",
     draftAt: "",
     notes: "",

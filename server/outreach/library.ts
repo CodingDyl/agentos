@@ -103,7 +103,7 @@ export async function saveToLibrary(service: MemoryService, input: SaveToLibrary
   const tags = [
     "email-library",
     `touch-${input.touch}`,
-    ...(input.path ? [input.path === "build_first" ? "build-first" : "cold-pitch"] : []),
+    ...(input.path ? [input.path === "build_first" ? "build-first" : input.path === "photo_sample" ? "photo-sample" : "cold-pitch"] : []),
     ...(input.gotReply ? ["got-a-reply"] : []),
   ];
   const note = redactForLibrary(input.note, input.facts).trim();
@@ -149,7 +149,7 @@ export function listLibrary(service: MemoryService): LibraryEmail[] {
       subject,
       body,
       touch: Number(touchTag.slice(-1)) as Touch,
-      path: tags.includes("build-first") ? "build_first" : tags.includes("cold-pitch") ? "cold_pitch" : undefined,
+      path: tags.includes("build-first") ? "build_first" : tags.includes("cold-pitch") ? "cold_pitch" : tags.includes("photo-sample") ? "photo_sample" : undefined,
       gotReply: tags.includes("got-a-reply"),
       note: section(record.parsed.body, "Notes"),
       savedAt: typeof created === "string" ? created : new Date(record.mtimeMs).toISOString(),

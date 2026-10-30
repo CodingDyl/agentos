@@ -77,7 +77,11 @@ export function buildEmailPacket(context: {
     `WHAT I AM OFFERING THEM: ${offer.name}: ${offer.offer}`,
     offer.problem ? `THE PROBLEM IT SOLVES: ${offer.problem}` : undefined,
     play && brief?.play !== "own_offer" ? `THE APPROACH: ${play.name}. ${play.whyItWorks}` : undefined,
-    brief?.previewUrl ? `THE PREVIEW I BUILT FOR THEM (include this exact link once): ${brief.previewUrl}` : undefined,
+    brief?.previewUrl
+      ? brief.play === "photo_sample"
+        ? `THE SAMPLE PHOTOS I ENHANCED FOR THEM (include this exact link once): ${brief.previewUrl}`
+        : `THE PREVIEW I BUILT FOR THEM (include this exact link once): ${brief.previewUrl}`
+      : undefined,
     brief && brief.fixes.length > 0 ? `THE FIXES TO NAME (as written):\n${brief.fixes.map((fix) => `- ${fix}`).join("\n")}` : undefined,
     brief?.price ? `PRICE TO QUOTE (exactly as written, never change it): ${brief.price}` : brief ? "PRICE: do not mention a price." : undefined,
     brief?.proof ? `SIMILAR WORK I HAVE DONE: ${brief.proof}` : undefined,

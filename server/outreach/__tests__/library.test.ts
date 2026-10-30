@@ -11,7 +11,7 @@ const { MemoryService } = await import("../../memory/service");
 const { exampleLines, listLibrary, LibraryError, pickExamples, redactForLibrary, saveToLibrary, stripSignature } = await import("../library");
 const { buildCaseDraftPacket } = await import("../cases");
 const { loadOutreachSkill } = await import("../style");
-const { OutreachCaseSchema } = await import("../../../shared/outreach-case");
+const { OutreachCaseSchema, draftGaps } =await import("../../../shared/outreach-case");
 
 const FACTS = { company: "Parkview Properties", contact: "Jane Dlamini", website: "https://www.parkview.example/home" };
 
@@ -188,6 +188,30 @@ describe("the draft packet", () => {
 
     const fifth = buildCaseDraftPacket({ prospect, entry, sender, followUp: true, touch: 5 });
     assert.match(fifth, /Under 60 words/, "never longer than the last follow-up");
+  });
+
+  it("blocks a photo sample draft until the link and the check are both set", () => {
+    const photo = OutreachCaseSchema.parse({ prospectId: "p1", hook: "Dark photos.", path: "photo_sample", offer: "Better photos" });
+    assert.deepEqual(draftGaps(photo, sender), ["the sample photos link", "your check that the photos invent nothing"]);
+    const ready = { ...photo, samplesUrl: "https://photos.example/g", samplesChecked: true };
+    assert.deepEqual(draftGaps(ready, sender), []);
+  });
+
+  it("tells Hermes to use the samples link once and claim nothing new", () => {
+    const photo = OutreachCaseSchema.parse({
+      prospectId: "p1",
+      hook: "Dark photos.",
+      path: "photo_sample",
+      offer: "Better photos",
+      samplesUrl: "https://photos.example/g",
+      samplesChecked: true,
+      projectPrice: "R3,500 once-off",
+    });
+    const packet = buildCaseDraftPacket({ prospect, entry: photo, sender, followUp: false });
+    assert.match(packet, /SAMPLE PHOTOS LINK: https:\/\/photos\.example\/g/);
+    assert.match(packet, /ONCE-OFF PRICE: R3,500 once-off/);
+    assert.match(packet, /THE PHOTOS ARE THEIR OWN, ENHANCED ONLY/);
+    assert.doesNotMatch(packet, /Do not include any links/);
   });
 
   it("still works with no skill and no examples", () => {

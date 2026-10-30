@@ -12,6 +12,6 @@ export function pathPatch(path: OutreachPath, entry: Pick<OutreachCase, "monthly
   if (!sender) return patch;
   if (path === "build_first" && !entry.monthlyPrice && sender.defaultMonthly) patch.monthlyPrice = sender.defaultMonthly;
   if (path === "build_first" && !entry.setupPrice && sender.defaultSetup) patch.setupPrice = sender.defaultSetup;
-  if (path === "cold_pitch" && !entry.projectPrice && sender.defaultProject) patch.projectPrice = sender.defaultProject;
+  if ((path === "cold_pitch" || path === "photo_sample") && !entry.projectPrice && sender.defaultProject) patch.projectPrice = sender.defaultProject;
   return patch;
 }

@@ -51,12 +51,14 @@ Defined in `shared/outreach-case.ts` (`OutreachCaseSchema` and `CASE_FIELDS`).
 | `findings` | Problems noticed, one per item, each checkable by the owner | yes (plus AgentOS's own website checks) |
 | `howWeHelp` | What you would do for them | yes |
 | `hook` | The email's opening line | yes |
-| `path` | `build_first` or `cold_pitch` | yes (a suggestion) |
+| `path` | `build_first`, `cold_pitch` or `photo_sample` | yes (a suggestion) |
 | `pathReason` | Why that path | yes |
 | `framing` | Ideas for framing the offer | yes |
 | `offer` | The offer as the email puts it | yes |
 | `previewUrl` | Build-first: the live link to the site you built | no |
-| `monthlyPrice`, `setupPrice`, `projectPrice` | Quoted exactly as written; prefilled from the company's usual prices | no |
+| `samplesUrl` | Better photos: a link to a gallery of 2-3 of their own photos, enhanced. Always a link, never attachments | no |
+| `samplesChecked` | Better photos: `true` once you compared each enhanced photo with its original and it shows nothing that is not really there. Blocks the draft until set. Not in the generic field list | no |
+| `monthlyPrice`, `setupPrice`, `projectPrice` | Quoted exactly as written; prefilled from the company's usual prices. Better photos quotes its once-off price in `projectPrice` | no |
 | `leadsPerMonth`, `costPerLead`, `leakPercent`, `jobValue`, `bookedPercent` | What the site's leak costs them, your estimate, written as you would say it (`100`, `R129`, `20%`). `leakEstimate` turns it into rands a month; the draft may use it once, as a rough guess | no |
 | `senderId` | Which company it is from | no |
 | `notes` | Free research notes; Hermes reads them for the brief and the draft | no |

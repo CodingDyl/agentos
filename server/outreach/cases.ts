@@ -163,9 +163,10 @@ export function buildBriefPacket(context: {
     "",
     "I build websites and online systems. Help me understand this business, what is costing them customers, and how to frame an offer.",
     "",
-    "My two approaches:",
+    "My three approaches:",
     `- build_first: ${PATHS.build_first.line} Best for: ${PATHS.build_first.when}`,
     `- cold_pitch: ${PATHS.cold_pitch.line} Best for: ${PATHS.cold_pitch.when}`,
+    `- photo_sample: ${PATHS.photo_sample.line} Best for: ${PATHS.photo_sample.when}`,
     senders.length > 0 ? `\nWHAT MY COMPANIES DO:\n${senders.map((sender) => `- ${sender.company}: ${sender.about || "websites and systems"}`).join("\n")}` : undefined,
     icp ? `WHO I SELL TO: ${icp.name}. ${icp.offer}` : undefined,
     "",
@@ -198,7 +199,7 @@ export function buildBriefPacket(context: {
     fields,
     "",
     "Reply with a single JSON object and nothing else:",
-    '{ "about": "", "findings": [""], "howWeHelp": "", "hook": "", "path": "build_first or cold_pitch", "pathReason": "", "framing": [""], "offer": "" }',
+    '{ "about": "", "findings": [""], "howWeHelp": "", "hook": "", "path": "build_first, cold_pitch or photo_sample", "pathReason": "", "framing": [""], "offer": "" }',
   ]
     .filter((line) => line !== undefined)
     .join("\n");
@@ -303,6 +304,9 @@ export function caseFactLines(context: { prospect: Prospect; entry: OutreachCase
     entry.path === "build_first" && entry.monthlyPrice ? `MONTHLY PRICE: ${entry.monthlyPrice}` : undefined,
     entry.path === "build_first" ? `SET-UP FEE: ${entry.setupPrice || "none: no upfront cost"}` : undefined,
     entry.path === "cold_pitch" && entry.projectPrice ? `PROJECT PRICE: ${entry.projectPrice}` : undefined,
+    entry.path === "photo_sample" && entry.samplesUrl ? `SAMPLE PHOTOS LINK: ${entry.samplesUrl}` : undefined,
+    entry.path === "photo_sample" && entry.projectPrice ? `ONCE-OFF PRICE: ${entry.projectPrice}` : undefined,
+    entry.path === "photo_sample" ? "THE PHOTOS ARE THEIR OWN, ENHANCED ONLY: nothing was added that is not really there." : undefined,
     sender?.about ? `ABOUT ${sender.company.toUpperCase()}: ${sender.about}` : undefined,
     entry.notes.trim() ? `MORE NOTES (facts only, use if useful):\n${entry.notes.trim().slice(0, 1500)}` : undefined,
   ];
@@ -342,7 +346,9 @@ export function buildCaseDraftPacket(context: {
     "- If a leak estimate is given, you may use it once, as a rough estimate in my words ('roughly', 'my guess is'), never as their real numbers.",
     entry.path === "build_first"
       ? "- I have already built their new site. Include the preview link exactly once, and make clear it is theirs to look at with no obligation."
-      : "- Do not include any links.",
+      : entry.path === "photo_sample"
+        ? "- I have already enhanced a few of their own photos. Include the sample photos link exactly once, and make clear the photos are theirs to keep and look at with no obligation. Never claim the photos show anything new, and never mention attachments: it is a link."
+        : "- Do not include any links.",
     '- No "I hope this finds you well", no "I came across your amazing business", no "just checking in".',
     "- Do not sign off with a name and do not add an opt-out line: both are added for me.",
     touch === 3
