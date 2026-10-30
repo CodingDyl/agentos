@@ -47,6 +47,21 @@ async function modelKind(model: string): Promise<"image" | "video"> {
 }
 
 /**
+ * The fixed rule for enhancing someone's own photos. It is not configurable:
+ * a sample that shows a pool the guesthouse does not have is a false promise.
+ */
+export const ENHANCE_ONLY_RULE =
+  "Enhance, don't invent: improve lighting, colour, sharpness and composition of the supplied photo only. Do not add, remove or change any object, person, furniture, view, building or feature. It must show exactly what is really there.";
+
+/** Server-side options that the browser-facing request schema does not carry. */
+export interface GenerateOptions {
+  /** Apply the fixed enhance-only rule to the rendered prompt. */
+  enhanceOnly?: boolean;
+  /** Library tags for every saved result. */
+  tags?: string[];
+}
+
+/**
  * Asks Hermes to write the prompt.
  *
  * It is given the project and what the operator asked for, and nothing else —
@@ -56,18 +71,28 @@ async function modelKind(model: string): Promise<"image" | "video"> {
  */
 export async function refinePrompt(
   request: DesignGenerationRequest,
+  options: GenerateOptions = {},
 ): Promise<{ prompt: string; by: "operator" | "hermes" }> {
-  if (!request.refinePrompt || !request.project) {
-    return { prompt: request.prompt, by: "operator" };
+  const enhanceOnly = options.enhanceOnly === true;
+
+  // The rule is part of the prompt that is rendered, not only of what Hermes is
+  // told: a refusal, a timeout or an over-long reply must not let the photo go
+  // to the model without it.
+  const withRule = (prompt: string) =>
+    enhanceOnly && !prompt.includes(ENHANCE_ONLY_RULE) ? `${prompt}\n\n${ENHANCE_ONLY_RULE}` : prompt;
+
+  if (!request.refinePrompt || (!request.project && !enhanceOnly)) {
+    return { prompt: withRule(request.prompt), by: "operator" };
   }
 
-  const context = await projectContext(request.project).catch(() => "");
+  const context = request.project
+    ? await projectContext(request.project).catch(() => "")
+    : "";
 
   const instruction = [
     "Write a single image-generation prompt.",
     "",
-    `Project: ${request.project}`,
-    "",
+    request.project ? `Project: ${request.project}\n` : "",
     "What the operator asked for:",
     request.prompt,
     "",
@@ -75,6 +100,7 @@ export async function refinePrompt(
     "Turn this into one concise visual prompt for an image model. Describe",
     "layout, mood, colour and typography in visual terms. Do not invent",
     "product features the project has not asked for.",
+    ...(enhanceOnly ? ["", "A fixed rule applies and must be kept:", ENHANCE_ONLY_RULE] : []),
     "",
     "Reply with the prompt itself and nothing else: no preamble, no quotes,",
     "no explanation.",
@@ -93,12 +119,12 @@ export async function refinePrompt(
     // A model that answers a request for one line with three paragraphs has
     // not written a prompt. The operator's own words are better than that.
     if (reply.length === 0 || reply.length > 1_200) {
-      return { prompt: request.prompt, by: "operator" };
+      return { prompt: withRule(request.prompt), by: "operator" };
     }
 
-    return { prompt: reply, by: "hermes" };
+    return { prompt: withRule(reply), by: "hermes" };
   } catch {
-    return { prompt: request.prompt, by: "operator" };
+    return { prompt: withRule(request.prompt), by: "operator" };
   }
 }
 
@@ -116,6 +142,7 @@ async function saveRendered(
   prompt: string,
   referenceAssetIds: string[],
   generationId: string,
+  tags: string[] = [],
 ): Promise<GeneratedDesign | undefined> {
   const controller = new AbortController();
   const expectsVideo = /\.(mp4|webm|mov)(\?|$)/i.test(url);
@@ -162,6 +189,7 @@ async function saveRendered(
       type: "generated",
       project: request.project,
       product: request.product,
+      tags,
       prompt,
       mediaType: video ? "video" : "image",
       durationSec: (stored as { durationSec?: number }).durationSec,
@@ -198,6 +226,7 @@ async function saveRendered(
  */
 export async function generate(
   request: DesignGenerationRequest,
+  options: GenerateOptions = {},
 ): Promise<DesignGeneration> {
   const capability = await generationCapability();
 
@@ -226,7 +255,7 @@ export async function generate(
   const referencePaths = references.map((reference) => reference.path);
   const referenceAssetIds = references.map((reference) => reference.assetId);
 
-  const { prompt, by } = await refinePrompt(request);
+  const { prompt, by } = await refinePrompt(request, options);
   const kind = await modelKind(request.model?.trim() || generationModel());
 
   generation.finalPrompt = prompt;
@@ -260,6 +289,7 @@ export async function generate(
           prompt,
           referenceAssetIds,
           generation.id,
+          options.tags,
         );
 
         if (saved) generation.results.push(saved);

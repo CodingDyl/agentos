@@ -282,6 +282,7 @@ import {
 } from "./designs/review-store";
 import { DesignGenerationRequestSchema, MAX_VARIATIONS } from "../shared/design-generation-types";
 import { generate } from "./designs/generation";
+import { EnhancePhotosRequestSchema, enhanceProspectPhotos, MAX_ENHANCE_PHOTOS } from "./designs/photo-enhance";
 import { generationCapability } from "./designs/renderer";
 import { listGenerations, readGeneration } from "./designs/generation-store";
 import {
@@ -1585,6 +1586,38 @@ app.post("/api/designs/generate", async (request, response) => {
   } catch (error) {
     console.error("[agentos] design generation failed:", error);
     response.status(500).json({ error: "Unable to generate concepts" });
+  }
+});
+
+/**
+ * Enhancing a prospect's own photos (the "Better photos, free" approach).
+ * Photos are named by library asset id; the enhance-only rule is fixed
+ * server-side and results are stored in Designs, tagged to the prospect.
+ */
+app.post("/api/designs/enhance-photos", async (request, response) => {
+  const parsed = EnhancePhotosRequestSchema.safeParse(request.body ?? {});
+
+  if (!parsed.success) {
+    response.status(400).json({
+      error: `Name the prospect and 1 to ${MAX_ENHANCE_PHOTOS} photos to enhance.`,
+    });
+    return;
+  }
+
+  try {
+    const generations = await enhanceProspectPhotos(parsed.data);
+    const failed = generations.find((generation) => generation.status === "failed");
+
+    if (failed && generations.every((generation) => generation.status === "failed")) {
+      response.status(409).json({ generations, error: failed.error });
+      return;
+    }
+
+    response.status(201).json({ generations });
+  } catch (error) {
+    response.status(409).json({
+      error: error instanceof Error ? error.message : "Unable to enhance photos",
+    });
   }
 });
 
