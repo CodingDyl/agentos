@@ -1030,6 +1030,12 @@ async function integrate(job: WorkerJob, aroundLocalChanges = false): Promise<Ac
 
   const integratedCommit = (await headCommit(source)) ?? commit;
 
+  // Written the moment the work is on the branch, before the minutes-long check
+  // below. A restart in that window (landing server files restarts a dev server
+  // that watches them) must still find a job that says it landed, so the sweep
+  // re-checks it instead of reporting work that is already live as failed.
+  const landed = await update(integrating, { integratedCommit });
+
   await record(job.id, "integration.completed", `Integrated as ${integratedCommit.slice(0, 8)}`);
   await recordActivity({
     type: "worker.integrated",
@@ -1045,7 +1051,7 @@ async function integrate(job: WorkerJob, aroundLocalChanges = false): Promise<Ac
     (command) => command.trim().length > 0,
   );
 
-  let sourceTests = integrating.result?.tests ?? [];
+  let sourceTests = landed.result?.tests ?? [];
   let sourcePassed = true;
 
   if (commands.length > 0) {
@@ -1074,13 +1080,13 @@ async function integrate(job: WorkerJob, aroundLocalChanges = false): Promise<Ac
   if (!sourcePassed) {
     // Integrated, but the branch is not well. Said plainly, and nothing is
     // cleaned up, because the operator now has a decision to make.
-    const failed = await update(integrating, {
+    const failed = await update(landed, {
       status: "failed",
       completedAt: new Date().toISOString(),
       integratedCommit,
       error:
         "The work was integrated, but validation failed in the source repository afterwards.",
-      result: { ...integrating.result!, tests: sourceTests },
+      result: { ...landed.result!, tests: sourceTests },
     });
 
     await recordActivity({
@@ -1094,12 +1100,12 @@ async function integrate(job: WorkerJob, aroundLocalChanges = false): Promise<Ac
   }
 
   // Only now — integrated and re-validated — is the job actually over.
-  const completed = await update(integrating, {
+  const completed = await update(landed, {
     status: "completed",
     completedAt: new Date().toISOString(),
     integratedCommit,
     error: undefined,
-    result: { ...integrating.result!, tests: sourceTests },
+    result: { ...landed.result!, tests: sourceTests },
   });
 
   await removeWorktree(source, job.id);

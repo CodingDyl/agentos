@@ -61,7 +61,7 @@ import { gitWritableRoots } from "./git-sandbox";
 import { preflightMessage, preflightWorkerLaunch } from "./preflight";
 import { ensureProjectRepo } from "./project-repo";
 import { prepareWorktreeDependencies } from "./worktree-deps";
-import { bringWorktreeUpToDate, changedFiles, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
+import { bringWorktreeUpToDate, changedSinceBranch, createWorktree, isRepository, projectDirIn, pulledBase, snapshotWorktree } from "./worktree";
 
 /**
  * Runs jobs.
@@ -571,7 +571,21 @@ const LIVE: readonly WorkerJobStatus[] = [
 
 function interruptionMessage(job: WorkerJob, reason: string): string {
   const last = job.lastEventAt ?? job.startedAt ?? job.createdAt;
+  if (job.integratedCommit) return landedInterruptionMessage(job, reason);
   return `Interrupted: ${reason} (last activity ${last}). The work cannot be resumed; retry to start a fresh run.`;
+}
+
+/**
+ * A job whose work already reached the branch before the process went away.
+ * Retrying would redo finished work, so it says so and points at the check.
+ */
+function landedInterruptionMessage(job: WorkerJob, reason: string): string {
+  return `The work landed as ${job.integratedCommit?.slice(0, 8)} on ${job.targetBranch ?? "the branch"}, but the check after landing was cut off (${reason}). Do not retry: re-run the check and the job completes.`;
+}
+
+/** Jobs a sweep marked interrupted whose work had already landed: their check can simply be run again. */
+export function landedAndInterrupted(jobs: readonly WorkerJob[]): WorkerJob[] {
+  return jobs.filter((job) => Boolean(job.integratedCommit && job.sourceRepoPath));
 }
 
 /**
@@ -1290,7 +1304,7 @@ async function run(
     // and read before validation runs, so a build's own output cannot be
     // mistaken for something the worker wrote.
     const changed = job.worktreePath
-      ? await changedFiles(job.worktreePath)
+      ? await changedSinceBranch(job.worktreePath, job.sourceRepoPath)
       : result.changedFiles;
 
     const honesty = judgeImplementationAttempt({
