@@ -203,3 +203,117 @@ export function enableWarning(
   }
   return undefined;
 }
+
+export interface BlockExplanation {
+  /** One plain sentence: what stopped the task. */
+  headline: string;
+  /** Why, in order of importance. */
+  causes: string[];
+  /** What the person can do about it, most useful first. */
+  fixes: string[];
+}
+
+const CAPABILITY_WORDS: Record<string, string> = {
+  vision: "look at images",
+  repository: "work in a repository",
+  tools: "use tools",
+  file_writes: "write files",
+  web: "browse the web",
+  structured_output: "return structured output",
+  text: "handle text",
+};
+
+const capabilityWords = (capability: string): string => CAPABILITY_WORDS[capability] ?? capability;
+
+/**
+ * Turns a blocked route into something a person can act on.
+ *
+ * The router's own finding is accurate but terse ("No execution option
+ * satisfies this task's requirements"). This reads the ruled-out list and says
+ * which requirement did the blocking and what, concretely, would unblock it.
+ * Never invents a cause: a rejection it cannot classify is passed through in
+ * the router's words.
+ */
+export function explainBlock(record: RoutePolicyRecord): BlockExplanation {
+  const reason = record.blockedReason ?? record.reason;
+
+  if (reason.startsWith("Override rejected")) {
+    return {
+      headline: "The worker you picked can't take this task.",
+      causes: [reason.replace(/^Override rejected:\s*/, "")],
+      fixes: ["Pick a different worker, or switch routing back to automatic."],
+    };
+  }
+
+  if (reason.startsWith("Task is local-only")) {
+    return {
+      headline: "This task may only run on this machine, and no local model can take it.",
+      causes: [reason],
+      fixes: record.retryable
+        ? ["Start Ollama (and mount the SSD if the model lives there), then check the route again."]
+        : [
+            "Enable a local model for this kind of task in Operations → AI Stack.",
+            "Or allow this task to use a cloud worker.",
+          ],
+    };
+  }
+
+  // Count what each ruled-out option lacked, so the shared blocker stands out.
+  const lacking = new Map<string, number>();
+  const switchedOff: string[] = [];
+  const notEnabled: string[] = [];
+  const other: string[] = [];
+  for (const entry of record.rejected) {
+    const missing = /^Lacks required capability: (.+?)\.?$/.exec(entry.reason);
+    if (missing) {
+      for (const capability of missing[1].split(/,\s*/)) {
+        lacking.set(capability, (lacking.get(capability) ?? 0) + 1);
+      }
+    } else if (/switched off/i.test(entry.reason)) {
+      switchedOff.push(entry.optionId);
+    } else if (/not enabled/i.test(entry.reason)) {
+      notEnabled.push(entry.optionId);
+    } else {
+      other.push(`${entry.optionId}: ${entry.reason}`);
+    }
+  }
+
+  const causes: string[] = [];
+  const fixes: string[] = [];
+  const total = record.rejected.length;
+
+  // A requirement nearly every option lacks is the real blocker.
+  const shared = [...lacking.entries()]
+    .filter(([, count]) => count >= Math.max(2, Math.ceil(total / 2)))
+    .sort((a, b) => b[1] - a[1]);
+  for (const [capability, count] of shared) {
+    causes.push(
+      `The task needs a worker that can ${capabilityWords(capability)}, and ${count} of ${total} options can't.`,
+    );
+    if (capability === "vision") {
+      fixes.push(
+        "If the task doesn't need a worker to look at pictures, reword it without photo, image or screenshot wherever it only means the files being handled.",
+      );
+    } else {
+      fixes.push(`Reword the task so it doesn't need a worker that can ${capabilityWords(capability)}.`);
+    }
+  }
+
+  if (switchedOff.length > 0) {
+    causes.push(`Switched off in Operations → AI Stack: ${switchedOff.join(", ")}.`);
+    fixes.push(`Switch on ${switchedOff.join(" or ")} in Operations → AI Stack if you want it considered.`);
+  }
+  if (notEnabled.length > 0) {
+    causes.push(`Installed but not enabled for routing: ${notEnabled.join(", ")}.`);
+    fixes.push(`Enable and configure ${notEnabled.join(" or ")} in Operations → AI Stack → Local models.`);
+  }
+  causes.push(...other);
+
+  if (causes.length === 0) causes.push(reason);
+
+  return {
+    headline: "No worker can take this task as it is written.",
+    causes,
+    fixes: fixes.length > 0 ? fixes : ["Edit the task's wording or requirements, then check the route again."],
+  };
+}

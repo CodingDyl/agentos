@@ -333,3 +333,28 @@ export async function pulledBase(worktreePath: string, baseCommit: string | unde
 export async function changedFiles(worktreePath: string): Promise<string[]> {
   return (await uncommittedFiles(worktreePath)).map((entry) => entry.path);
 }
+
+/**
+ * Files this checkout holds that the source branch does not: its uncommitted
+ * edits plus anything committed on its own branch since the two diverged.
+ *
+ * A retry that carries an earlier attempt's kept work starts with that work
+ * already committed, so "uncommitted" alone reads as "the worker changed
+ * nothing" and a finished feature is failed as an empty run.
+ */
+export async function changedSinceBranch(worktreePath: string, sourceRepoPath?: string): Promise<string[]> {
+  const files = new Set(await changedFiles(worktreePath));
+  const head = sourceRepoPath ? await headCommit(sourceRepoPath) : undefined;
+  if (head) {
+    try {
+      const base = (await git(worktreePath, ["merge-base", "HEAD", head])).stdout.trim();
+      if (base) {
+        const { stdout } = await git(worktreePath, ["diff", "--name-only", "-z", base, "HEAD"]);
+        for (const file of stdout.split("\0").filter(Boolean)) files.add(file);
+      }
+    } catch {
+      // No common ancestor or an unreadable branch: the uncommitted files stand.
+    }
+  }
+  return [...files];
+}

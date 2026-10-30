@@ -562,7 +562,7 @@ export function TaskPanel({
                           : (workers.find((entry) => entry.id === resolved)?.name ?? resolved)
                       }`
                     : policy?.status === "blocked"
-                      ? "Blocked"
+                      ? "Blocked: see why above"
                       : "Delegate"}
                 </CommandButton>
                 <CommandButton

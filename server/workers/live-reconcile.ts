@@ -1,6 +1,7 @@
 import { reconcileAnimateJobs } from "../designs/animate";
 import { reconcileMotionJobs } from "../designs/motion";
-import { reconcileInterruptedJobs } from "./job-manager";
+import { landedAndInterrupted, reconcileInterruptedJobs } from "./job-manager";
+import { validateJob } from "./review";
 
 /**
  * Keeps "what is running" honest after boot.
@@ -26,6 +27,13 @@ export async function reconcileDetachedRuns(): Promise<void> {
     }),
   ]);
   const interrupted = await reconcileInterruptedJobs("Nothing is executing this job");
+  // Work that had already landed is not lost or failed: run its check again
+  // and the job completes. Nothing to retry, and no one has to notice.
+  for (const job of landedAndInterrupted(interrupted)) {
+    void validateJob(job.id).catch((error: unknown) => {
+      console.error(`[agentos] re-checking landed job ${job.id} failed:`, error);
+    });
+  }
   if (interrupted.length > 0) {
     console.log(
       `[agentos] ${interrupted.length} worker job${interrupted.length === 1 ? "" : "s"} marked interrupted: ${interrupted.map((job) => job.id).join(", ")}`,

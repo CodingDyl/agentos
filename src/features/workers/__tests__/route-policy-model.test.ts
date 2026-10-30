@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { OllamaModelConfig } from "../../../../shared/route-policy-types";
+import type { OllamaModelConfig, RoutePolicyRecord } from "../../../../shared/route-policy-types";
 import {
   describeAttempt,
+  explainBlock,
   enableWarning,
   failureLabel,
   fellBack,
@@ -148,5 +149,67 @@ describe("probe status", () => {
     assert.equal(enableWarning(failing, { ...limits, enabled: false }), undefined);
     assert.equal(enableWarning(record(), { ...limits, enabled: true }), undefined);
     assert.equal(enableWarning(undefined, { ...limits, enabled: true }), undefined);
+  });
+});
+
+const blockedRecord = (over: Partial<RoutePolicyRecord> = {}): RoutePolicyRecord =>
+  ({
+    policyVersion: "route-policy/1",
+    mode: "auto",
+    profile: {} as RoutePolicyRecord["profile"],
+    rejected: [],
+    decidedAt: "2026-10-30T00:00:00.000Z",
+    status: "blocked",
+    reason: "No execution option satisfies this task's requirements.",
+    blockedReason: "No execution option satisfies this task's requirements.",
+    retryable: false,
+    fallbackPlan: [],
+    overriddenByOperator: false,
+    ...over,
+  }) as RoutePolicyRecord;
+
+describe("explainBlock", () => {
+  it("names the capability nearly every option lacks, and a way past it", () => {
+    const explanation = explainBlock(
+      blockedRecord({
+        rejected: [
+          { optionId: "claude", reason: "Lacks required capability: vision." },
+          { optionId: "codex", reason: "Lacks required capability: vision." },
+          { optionId: "gemini", reason: "Gemini CLI is switched off in Operations → AI Stack." },
+          { optionId: "ollama:qwen3:4b", reason: "Installed but not enabled for routing. Enable it first." },
+        ],
+      }),
+    );
+    assert.match(explanation.causes[0], /look at images, and 2 of 4 options can't/);
+    assert.ok(explanation.causes.some((cause) => /gemini/.test(cause)));
+    assert.ok(explanation.fixes.some((fix) => /photo, image or screenshot/.test(fix)));
+    assert.ok(explanation.fixes.some((fix) => /Switch on gemini/.test(fix)));
+  });
+
+  it("explains a rejected manual choice without suggesting the same choice", () => {
+    const explanation = explainBlock(
+      blockedRecord({ blockedReason: "Override rejected: Lacks required capability: vision.", mode: "manual" }),
+    );
+    assert.deepEqual(explanation.causes, ["Lacks required capability: vision."]);
+    assert.match(explanation.fixes[0], /different worker/);
+  });
+
+  it("separates a local-only task that can wait from one that can't", () => {
+    const waiting = explainBlock(
+      blockedRecord({ blockedReason: "Task is local-only and no local model is available right now. It was not sent to the cloud.", retryable: true }),
+    );
+    assert.match(waiting.fixes[0], /Start Ollama/);
+    const never = explainBlock(
+      blockedRecord({ blockedReason: "Task is local-only and no enabled local model can take it. It was not sent to the cloud." }),
+    );
+    assert.match(never.fixes[0], /Enable a local model/);
+  });
+
+  it("passes through a reason it cannot classify, in the router's words", () => {
+    const explanation = explainBlock(
+      blockedRecord({ rejected: [{ optionId: "grok", reason: "Configured cost $2.00 exceeds the $1.00 budget." }] }),
+    );
+    assert.deepEqual(explanation.causes, ["grok: Configured cost $2.00 exceeds the $1.00 budget."]);
+    assert.ok(explanation.fixes.length > 0);
   });
 });
