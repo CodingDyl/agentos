@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { PlaceCandidate, PlaceNiche, SiteCheck } from "@shared/places-types";
 import { ProspectInputSchema, type Prospect } from "@shared/traction-types";
-import { alreadyListed, checksByWebsite, orderCandidates, prospectFromCandidate, searchBlocker } from "../traction-places-model";
+import { alreadyListed, checksByWebsite, fewListingPhotos, orderCandidates, prospectFromCandidate, searchBlocker } from "../traction-places-model";
 
 const niche: PlaceNiche = { id: "law_firms", label: "Law firms", query: "attorneys law firm", why: "Referral-heavy", caveat: "Advertising claims are limited." };
 
@@ -147,5 +147,15 @@ describe("searchBlocker", () => {
     assert.match(searchBlocker({ ...ready, configured: false }, 2) ?? "", /GOOGLE_PLACES_API_KEY/);
     assert.match(searchBlocker({ configured: true, budget: { cap: 0, remaining: 0 } }, 2) ?? "", /AGENTOS_PLACES_MONTHLY_REQUEST_CAP/);
     assert.match(searchBlocker({ configured: true, budget: { cap: 10, remaining: 1 } }, 2) ?? "", /used up/);
+  });
+});
+
+describe("fewListingPhotos", () => {
+  it("is true below 5, false at 5 and above, and false when unknown", () => {
+    assert.equal(fewListingPhotos(candidate({ photoCount: 0 })), true);
+    assert.equal(fewListingPhotos(candidate({ photoCount: 4 })), true);
+    assert.equal(fewListingPhotos(candidate({ photoCount: 5 })), false);
+    assert.equal(fewListingPhotos(candidate({ photoCount: 10 })), false);
+    assert.equal(fewListingPhotos(candidate({})), false);
   });
 });

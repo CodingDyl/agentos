@@ -61,6 +61,34 @@ export const NICHES: readonly PlaceNiche[] = [
     why: "High value per patient.",
     caveat: "A practice manager often gatekeeps the decision.",
   },
+  {
+    id: "guesthouses",
+    label: "Guesthouses and holiday rentals",
+    query: "guest house",
+    why: "Photos sell the booking, and a weak photo set costs them guests every week.",
+    caveat: "Use their photos only as a private sample sent to the owner, never published, and do not take photos from Airbnb or booking sites.",
+  },
+  {
+    id: "restaurants",
+    label: "Restaurants",
+    query: "restaurant",
+    why: "Photos sell the booking, since diners choose by what the food and room look like.",
+    caveat: "Use their photos only as a private sample sent to the owner, never published, and do not take photos from Airbnb or booking sites.",
+  },
+  {
+    id: "estate_agents",
+    label: "Estate agents",
+    query: "estate agent",
+    why: "Photos sell the viewing, and listings with weak photos get skipped.",
+    caveat: "Use their photos only as a private sample sent to the owner, never published, and do not take photos from Airbnb or booking sites.",
+  },
+  {
+    id: "venues",
+    label: "Wedding and golf venues",
+    query: "wedding venue",
+    why: "Photos sell the booking, because couples and golfers decide on what they see first.",
+    caveat: "Use their photos only as a private sample sent to the owner, never published, and do not take photos from Airbnb or booking sites.",
+  },
 ];
 
 export function nicheById(id: string): PlaceNiche | undefined {

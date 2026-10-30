@@ -7,7 +7,7 @@ import { useCheckSites, usePlacesNiches, useSearchPlaces } from "@/lib/agentos/p
 import { useCreateProspect } from "@/lib/agentos/traction";
 import { usePagination } from "@/lib/use-pagination";
 import { cn } from "@/lib/utils";
-import { alreadyListed, checksByWebsite, orderCandidates, prospectFromCandidate, reviewsByWebsite, searchBlocker, WEBSITE_KIND_LABEL } from "./traction-places-model";
+import { alreadyListed, checksByWebsite, fewListingPhotos, orderCandidates, prospectFromCandidate, reviewsByWebsite, searchBlocker, WEBSITE_KIND_LABEL } from "./traction-places-model";
 
 /**
  * Find by niche: pick a high-ticket niche, an area and a radius, and see the
@@ -200,6 +200,11 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
                   <p className="text-[12.5px] text-paper-sage">
                     {[candidate.address, `${candidate.distanceKm} km`, candidate.rating !== undefined ? `${candidate.rating} stars (${candidate.ratingCount ?? 0})` : undefined].filter(Boolean).join(" · ")}
                   </p>
+                  {candidate.photoCount !== undefined ? (
+                    <p className={cn("text-[12.5px]", fewListingPhotos(candidate) ? "font-medium text-paper-moss" : "text-paper-sage")}>
+                      {candidate.photoCount} {candidate.photoCount === 1 ? "photo" : "photos"} on Google{fewListingPhotos(candidate) ? " · few photos" : ""}
+                    </p>
+                  ) : null}
                   {siteCheck && siteCheck.leaks.length > 0 ? (
                     <ul aria-label="Where the site loses customers" className="mt-1 max-w-[70ch] space-y-0.5 text-[12.5px] leading-5 font-medium text-paper-moss">
                       {siteCheck.leaks.map((leak) => (

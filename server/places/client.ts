@@ -92,6 +92,7 @@ interface RawPlace {
   location?: { latitude?: unknown; longitude?: unknown };
   googleMapsUri?: unknown;
   businessStatus?: unknown;
+  photos?: unknown;
 }
 
 const places = (payload: unknown): RawPlace[] => {
@@ -160,7 +161,10 @@ export async function searchNiche(request: SearchRequest, fetcher: typeof fetch 
       pageSize: PAGE_SIZE,
       locationBias: { circle: { center: { latitude: centre.lat, longitude: centre.lng }, radius: request.radiusKm * 1000 } },
     },
-    "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.location,places.googleMapsUri,places.businessStatus",
+    // `places.photos` is only asked for to count them. The mask already holds Enterprise-tier fields (website,
+    // phone, rating), so the photos field (Pro tier) does not move the request to a higher SKU. Either way a
+    // search is still SEARCH_REQUESTS requests, which `reserveRequests` in usage.ts counts once against the cap.
+    "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.location,places.googleMapsUri,places.businessStatus,places.photos",
     fetcher,
   );
 
@@ -192,6 +196,7 @@ export async function searchNiche(request: SearchRequest, fetcher: typeof fetch 
       lng,
       distanceKm: Math.round(distance * 10) / 10,
       mapsUrl: text(place.googleMapsUri) || undefined,
+      photoCount: Array.isArray(place.photos) ? place.photos.length : 0,
     });
   }
   candidates.sort((a, b) => a.distanceKm - b.distanceKm);

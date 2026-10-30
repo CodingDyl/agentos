@@ -11,6 +11,14 @@ import type { Prospect, ProspectInput } from "@shared/traction-types";
  * and are gone when the page is.
  */
 
+/** Fewer listing photos than this reads as a weak listing. Google reports at most 10. */
+export const FEW_PHOTOS_BELOW = 5;
+
+/** True when Google showed fewer than five photos. An unknown count is not flagged. */
+export function fewListingPhotos(candidate: Pick<PlaceCandidate, "photoCount">): boolean {
+  return candidate.photoCount !== undefined && candidate.photoCount < FEW_PHOTOS_BELOW;
+}
+
 /** Google's rating for each website a search found, so the site check can tell when a site hides it. */
 export function reviewsByWebsite(candidates: readonly PlaceCandidate[]): Record<string, { rating: number; count: number }> {
   return Object.fromEntries(

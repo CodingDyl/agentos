@@ -34,6 +34,8 @@ export const PlaceCandidateSchema = z.object({
   lng: z.number(),
   distanceKm: z.number(),
   mapsUrl: z.string().optional(),
+  /** Photos on the Google listing. Google returns at most 10 references, so this is capped at 10 and low means weak. Only the count is kept. */
+  photoCount: z.number().int().min(0).optional(),
 });
 export type PlaceCandidate = z.infer<typeof PlaceCandidateSchema>;
 

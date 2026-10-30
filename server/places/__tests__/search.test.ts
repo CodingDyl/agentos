@@ -141,7 +141,7 @@ describe("the routes", () => {
   it("lists the niches, the radius limits and the budget without spending anything", async () => {
     const { status, body } = await call("/niches");
     assert.equal(status, 200);
-    assert.equal(body.niches.length, 7);
+    assert.equal(body.niches.length, 11);
     assert.deepEqual(body.radius, { min: 5, max: 15 });
     assert.equal(body.configured, true);
     assert.equal(body.budget.cap, 10);

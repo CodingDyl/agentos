@@ -87,6 +87,24 @@ describe("searchNiche", () => {
     assert.equal(result.candidates[0].name, "Smile Dental");
   });
 
+  it("counts listing photos, keeps no photo names, and asks Google for the photos field", async () => {
+    process.env.GOOGLE_PLACES_API_KEY = "secret";
+    const { fetcher, calls } = fakeGoogle({
+      places: [place({ id: "p1", photos: [{ name: "places/p1/photos/a" }, { name: "b" }, { name: "c" }] }), place({ id: "p2" })],
+    });
+    const result = await searchNiche(request, fetcher);
+    const counts = Object.fromEntries(result.candidates.map((c) => [c.placeId, c.photoCount]));
+    assert.deepEqual(counts, { p1: 3, p2: 0 });
+    assert.ok(!JSON.stringify(result).includes("photos/"), "no photo names are kept");
+    assert.match(calls[1].headers["X-Goog-FieldMask"], /places\.photos/);
+  });
+
+  it("offers the photo-led niches with a private-sample caveat", () => {
+    for (const id of ["guesthouses", "restaurants", "estate_agents", "venues"]) {
+      assert.match(nicheById(id)?.caveat ?? "", /private sample.*Airbnb/, id);
+    }
+  });
+
   it("drops places outside the radius, closed ones and duplicates, and sorts nearest first", async () => {
     process.env.GOOGLE_PLACES_API_KEY = "k";
     const { fetcher } = fakeGoogle({
