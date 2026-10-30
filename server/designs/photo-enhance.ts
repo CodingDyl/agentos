@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { samplePhotoTag } from "../../shared/outreach-case";
 import type { HiggsfieldModel } from "../../shared/design-generation-types";
 import { generate, ENHANCE_ONLY_RULE } from "./generation";
 import { listModels } from "./higgsfield";
@@ -18,15 +19,7 @@ export const MAX_ENHANCE_PHOTOS = 6;
 
 const BASE_PROMPT = "Enhance this photo of a business's own premises for its listing.";
 
-export function prospectTag(prospect: string): string {
-  const slug = prospect
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50);
-  return `prospect:${slug}`;
-}
+export const prospectTag = samplePhotoTag;
 
 /**
  * Picks the image model from the live catalogue. Prefers the configured model

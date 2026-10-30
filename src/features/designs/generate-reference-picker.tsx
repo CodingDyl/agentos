@@ -23,9 +23,11 @@ export interface GenerateReferencePickerProps {
   onChange: Dispatch<SetStateAction<DesignAsset[]>>;
   /** The workspace the generation is for: uploads are filed under it. */
   project?: string;
+  /** A lower cap than a generation allows, e.g. a free sample. */
+  max?: number;
 }
 
-export function GenerateReferencePicker({ references, onChange, project }: GenerateReferencePickerProps) {
+export function GenerateReferencePicker({ references, onChange, project, max = MAX_REFERENCE_IMAGES }: GenerateReferencePickerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const upload = useUploadDesignAsset();
   const { data: library } = useDesignLibrary();
@@ -34,7 +36,7 @@ export function GenerateReferencePicker({ references, onChange, project }: Gener
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState<string>();
 
-  const room = MAX_REFERENCE_IMAGES - references.length;
+  const room = max -references.length;
   const chosen = new Set(references.map((asset) => asset.id));
 
   const add = (files: File[]) => {
@@ -42,13 +44,13 @@ export function GenerateReferencePicker({ references, onChange, project }: Gener
     const images = files.filter((file) => IMAGE_TYPES.includes(file.type));
     if (images.length < files.length) setNotice("Only PNG, JPEG, WebP, GIF and AVIF images can be references.");
     const accepted = images.slice(0, Math.max(0, room));
-    if (images.length > accepted.length) setNotice(`A generation takes at most ${MAX_REFERENCE_IMAGES} references.`);
+    if (images.length > accepted.length) setNotice(`A generation takes at most ${max} references.`);
     // mutateAsync, not mutate: with several files in flight, mutate only reports back for the last one.
     for (const file of accepted) {
       upload
         .mutateAsync({ file, options: { type: "reference", project: project || undefined } })
         // Uploads finish one at a time: each adds to whatever the list is by then.
-        .then((asset) => onChange((current) => (current.length < MAX_REFERENCE_IMAGES && !current.some((entry) => entry.id === asset.id) ? [...current, asset] : current)))
+        .then((asset) => onChange((current) => (current.length < max && !current.some((entry) => entry.id === asset.id) ? [...current, asset] : current)))
         .catch(() => undefined); // Shown through upload.error.
     }
   };
@@ -91,7 +93,7 @@ export function GenerateReferencePicker({ references, onChange, project }: Gener
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <FieldLabel>References</FieldLabel>
         <span className="text-[12px] text-paper-sage">
-          {references.length} of {MAX_REFERENCE_IMAGES} · drop, paste or add images the result should follow
+          {references.length} of {max} · drop, paste or add images the result should follow
         </span>
       </div>
 

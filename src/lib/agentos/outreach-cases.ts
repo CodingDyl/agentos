@@ -10,7 +10,9 @@ import {
 } from "@shared/outreach-case";
 import { LibraryEmailSchema, type LibraryEmail, type LibrarySaveRequest } from "@shared/outreach-library";
 import type { ReviseRequest, ReviseResult } from "@shared/outreach-revise";
+import { CostEstimateResponseSchema, type CostEstimate } from "@shared/design-generation-types";
 import { AgentOSRequestError } from "./client";
+import { agentosKeys } from "./queries";
 import { json, outreachKey, request } from "./outreach";
 import { tractionKey } from "./traction";
 
@@ -72,6 +74,36 @@ export const useDraftCase = () =>
   useCaseMutation(({ prospectId, exampleId }: { prospectId: string; exampleId?: string }) =>
     request(`/api/outreach/cases/${id(prospectId)}/draft`, json("POST", exampleId ? { exampleId } : {})),
   );
+
+/** What enhancing this many photos would cost in credits, asked before anything is spent. */
+export function usePhotoSampleCost() {
+  return useMutation({
+    mutationFn: async (input: { model: string; count: number }): Promise<CostEstimate> => {
+      const parsed = CostEstimateResponseSchema.safeParse(
+        await request("/api/designs/cost", json("POST", { model: input.model, prompt: "Enhance this photo", count: input.count })),
+      );
+      if (!parsed.success) throw new AgentOSRequestError("The price came back in an unexpected shape.");
+      return parsed.data.cost;
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Enhances the picked photos of one business. Paid, so it never retries on its own. */
+export function useMakePhotoSamples() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { prospect: string; photoAssetIds: string[] }) =>
+      request<{ generations: unknown[] }>("/api/designs/enhance-photos", json("POST", input)),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: agentosKeys.designs() });
+      void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[1] === "design-generations" });
+    },
+    networkMode: "always",
+    retry: 0,
+  });
+}
 
 /**
  * Rewrites the saved draft with the agent you choose, changing only what the

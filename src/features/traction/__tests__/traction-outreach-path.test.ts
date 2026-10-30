@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Sender } from "@shared/outreach-case";
-import { pathPatch } from "../traction-outreach-path";
+import { pathPatch, photoSampleReady } from "../traction-outreach-path";
 
 const sender = { id: "s1", defaultMonthly: "R1 500", defaultSetup: "R4 000", defaultProject: "R25 000" } as unknown as Sender;
 const empty = { monthlyPrice: "", setupPrice: "", projectPrice: "" };
@@ -26,5 +26,28 @@ describe("pathPatch", () => {
 
   it("sets only the approach when there is no sender to take prices from", () => {
     assert.deepEqual(pathPatch("build_first", empty, undefined), { path: "build_first" });
+  });
+});
+
+describe("photoSampleReady", () => {
+  const url = "https://example.com/samples";
+  const entry = { samplesUrl: url, samplesChecked: true };
+
+  it("is done only with a link and the honesty check", () => {
+    assert.equal(photoSampleReady({ samplesUrl: "", samplesChecked: true }).done, false);
+    assert.equal(photoSampleReady({ samplesUrl: url, samplesChecked: false }).done, false);
+    assert.equal(photoSampleReady(entry).done, true);
+  });
+
+  it("requires the link in the message", () => {
+    assert.equal(photoSampleReady(entry, `Look: ${url}`).checks[0].ok, true);
+    assert.equal(photoSampleReady(entry, "Look at the photos").checks[0].ok, false);
+    assert.equal(photoSampleReady({ samplesUrl: "", samplesChecked: true }, "anything").checks[0].ok, false);
+  });
+
+  it("flags attachment wording", () => {
+    assert.equal(photoSampleReady(entry, `See ${url}`).checks[1].ok, true);
+    assert.equal(photoSampleReady(entry, `Attached are three photos ${url}`).checks[1].ok, false);
+    assert.equal(photoSampleReady(entry, `See the attachment ${url}`).checks[1].ok, false);
   });
 });

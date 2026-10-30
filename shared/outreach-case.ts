@@ -35,6 +35,20 @@ export const PATHS: Record<OutreachPath, { name: string; line: string; when: str
   },
 };
 
+/** A free sample is this many of their own photos at most. */
+export const SAMPLE_PHOTO_LIMIT = 3;
+
+/** The library tag the enhanced photos for one business carry. Same slug rule as the server's `prospectTag`. */
+export function samplePhotoTag(business: string): string {
+  const slug = business
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 50);
+  return `prospect:${slug}`;
+}
+
 export const FilledBySchema = z.enum(["you", "hermes", "agent"]);
 export type FilledBy = z.infer<typeof FilledBySchema>;
 

@@ -1,5 +1,6 @@
 import { BookmarkPlus, Check, Copy, ExternalLink, RefreshCw, Sparkles, Undo2, Wand2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import type { DesignAsset } from "@shared/agentos-types";
 import { Link } from "react-router-dom";
 import {
   CASE_FIELDS,
@@ -9,6 +10,8 @@ import {
   leakSentence,
   PATH_PLAY,
   PATHS,
+  SAMPLE_PHOTO_LIMIT,
+  samplePhotoTag,
   type CaseFieldKey,
   type OutreachCase,
   type OutreachCasePatch,
@@ -21,11 +24,13 @@ import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, Tag } fro
 import { useCreateGmailDraft, useOutreachStats, useOutreachStatus, useRecordManualSend, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
 import { TOUCH_LABELS, type Touch } from "@shared/outreach-library";
 import { useChatAgents } from "@/lib/agentos/chat";
-import { useBriefCase, useDraftCase, useEmailLibrary, useReviseDraft, useSaveToLibrary, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
+import { useBriefCase, useDraftCase, useEmailLibrary, useMakePhotoSamples, usePhotoSampleCost, useReviseDraft, useSaveToLibrary, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { EmailFinder } from "./traction-outreach-email";
-import { pathPatch } from "./traction-outreach-path";
+import { pathPatch, photoSampleReady } from "./traction-outreach-path";
+import { GenerateReferencePicker } from "@/features/designs/generate-reference-picker";
+import { useDesignLibrary, useGenerationCapability } from "@/lib/agentos/queries";
 import { SenderManager } from "./traction-outreach-senders";
 import { RebuildLauncher } from "@/features/rebuild";
 
@@ -214,6 +219,118 @@ function LeakCost({ entry }: { entry: OutreachCase }) {
 
 // ─── 2. Decide ──────────────────────────────────────────────────────────────
 
+/**
+ * "Better photos, free": pick their own photos, price the enhancement, make
+ * the samples, compare each with its original, then link the gallery.
+ * Nothing is spent until the price has been shown.
+ */
+function PhotoSamples({ prospect, entry }: { prospect: Prospect; entry: OutreachCase }) {
+  const write = useWriteCase();
+  const capability = useGenerationCapability();
+  const library = useDesignLibrary();
+  const price = usePhotoSampleCost();
+  const make = useMakePhotoSamples();
+  const [picked, setPicked] = useState<DesignAsset[]>([]);
+  const [priced, setPriced] = useState(false);
+
+  const model = capability.data?.generation.model ?? "";
+  const cost = price.data;
+  // Shown, or told it cannot be priced: either way the choice to spend is informed.
+  const costSettled = priced && (Boolean(cost) || Boolean(price.error));
+
+  const tag = samplePhotoTag(prospect.company);
+  const enhanced = (library.data?.assets ?? [])
+    .filter((asset) => asset.tags.includes(tag) && asset.tags.includes("enhanced"))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  // Results are made in picked order, so the newest ones line up with the photos picked.
+  const latest = picked.length > 0 ? enhanced.slice(-picked.length) : enhanced;
+  const pairs = latest.map((asset, index) => ({ asset, original: picked.length > 0 ? picked[index + picked.length - latest.length] : undefined }));
+
+  const changePicked: typeof setPicked = (next) => {
+    setPicked(next);
+    setPriced(false);
+    price.reset();
+  };
+
+  const showPrice = () => {
+    setPriced(true);
+    if (!model) return;
+    price.mutate({ model, count: picked.length });
+  };
+
+  return (
+    <div className="mt-4 space-y-4">
+      <div>
+        <FieldLabel>Their photos (up to {SAMPLE_PHOTO_LIMIT})</FieldLabel>
+        <GenerateReferencePicker references={picked} onChange={changePicked} project={undefined} max={SAMPLE_PHOTO_LIMIT} />
+        <p className="mt-1 text-[12.5px] text-paper-sage">Their own photos only: from their Google listing or website, never Airbnb.</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <PaperButton variant="ghost" onClick={showPrice} disabled={picked.length === 0 || price.isPending}>
+          {price.isPending ? "Pricing…" : "Price it"}
+        </PaperButton>
+        <PaperButton variant="amber" onClick={() => make.mutate({ prospect: prospect.company, photoAssetIds: picked.map((asset) => asset.id) })} disabled={!costSettled || picked.length === 0 || make.isPending}>
+          {make.isPending ? "Making samples…" : "Make samples"}
+        </PaperButton>
+        <p role="status" className="text-[13px] text-paper-char">
+          {cost && !cost.unavailable ? `About ${cost.total} credits for ${picked.length} ${picked.length === 1 ? "photo" : "photos"}.` : null}
+          {priced && !price.isPending && (!model || cost?.unavailable || price.error) ? "No price available right now. You can still go ahead." : null}
+        </p>
+      </div>
+      {make.error ? (
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
+          {make.error.message}
+        </p>
+      ) : null}
+
+      {pairs.length > 0 ? (
+        <ul aria-label="Enhanced photos" className="grid gap-3 sm:grid-cols-3">
+          {pairs.map(({ asset, original }) => (
+            <li key={asset.id} className="bg-paper-linen p-2">
+              <div className="grid grid-cols-2 gap-1.5">
+                {original ? (
+                  <figure>
+                    <img src={original.thumbnailUrl} alt="Original photo" className="aspect-[4/3] w-full object-cover" />
+                    <figcaption className="mt-0.5 text-[12px] text-paper-sage">Original</figcaption>
+                  </figure>
+                ) : (
+                  <div className="flex aspect-[4/3] items-center justify-center bg-paper-cream px-1 text-center text-[12px] text-paper-sage">Original not picked here</div>
+                )}
+                <figure>
+                  <img src={asset.thumbnailUrl} alt="Enhanced photo" className="aspect-[4/3] w-full object-cover" />
+                  <figcaption className="mt-0.5 text-[12px] text-paper-sage">Enhanced</figcaption>
+                </figure>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <label className="flex max-w-[72ch] cursor-pointer items-start gap-2 text-[13px] leading-5 text-paper-char">
+        <input
+          type="checkbox"
+          checked={entry.samplesChecked}
+          disabled={write.isPending}
+          onChange={(event) => write.mutate({ prospectId: entry.prospectId, patch: { samplesChecked: event.target.checked } })}
+          className={cn("mt-0.5 size-4 shrink-0 accent-paper-blue", PAPER_FOCUS)}
+        />
+        <span>I compared each photo with the original: nothing is added, removed or changed that is not really there.</span>
+      </label>
+      {write.error ? (
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
+          {write.error.message}
+        </p>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <CaseLine entry={entry} field="samplesUrl" type="url" />
+        <CaseLine entry={entry} field="projectPrice" />
+      </div>
+    </div>
+  );
+}
+
 function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: OutreachCase; sender: Sender | undefined }) {
   const write = useWriteCase();
   const hermesPath = entry.filledBy.path === "hermes" ? entry.path : undefined;
@@ -221,7 +338,7 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
   const choose = (path: OutreachPath) => write.mutate({ prospectId: prospect.id, patch: pathPatch(path, entry, sender) });
 
   return (
-    <Card number={2} title="Decide how to help" done={Boolean(entry.path && entry.offer && (entry.path !== "build_first" || entry.previewUrl))}>
+    <Card number={2} title="Decide how to help" done={Boolean(entry.path && entry.offer && (entry.path !== "build_first" || entry.previewUrl) && (entry.path !== "photo_sample" || photoSampleReady(entry).done))}>
       {entry.path && entry.pathReason ? (
         <p className="mb-3 flex max-w-[72ch] items-start gap-2 text-[13px] leading-5 text-paper-char">
           <Sparkles className="mt-0.5 size-3.5 shrink-0 text-paper-blue" aria-hidden="true" />
@@ -273,6 +390,7 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
           <CaseLine entry={entry} field="projectPrice" />
         </div>
       ) : null}
+      {entry.path === "photo_sample" ? <PhotoSamples prospect={prospect} entry={entry} /> : null}
 
       {entry.framing.length > 0 ? (
         <div className="mt-5">
@@ -826,7 +944,10 @@ function Checklist({ subject, body, entry, sender }: { subject: string; body: st
     { ok: questions === 1, label: questions === 1 ? "One question to answer" : `${questions} questions: ask exactly one` },
     entry.path === "build_first"
       ? { ok: Boolean(entry.previewUrl) && message.includes(entry.previewUrl), label: "Includes the preview link" }
-      : { ok: links.length === 0, label: links.length === 0 ? "No links (better delivery)" : `${links.length} links: remove them` },
+      : entry.path === "photo_sample"
+        ? photoSampleReady(entry, message).checks[0]
+        : { ok: links.length === 0, label: links.length === 0 ? "No links (better delivery)" : `${links.length} links: remove them` },
+    ...(entry.path === "photo_sample" ? [photoSampleReady(entry, message).checks[1]] : []),
     ...prices.map((price) => ({ ok: message.includes(price), label: `Price as you set it: ${price}` })),
     { ok: !spammy, label: spammy ? "Wording that trips spam filters" : "No spam-filter wording" },
     { ok: Boolean(signature) && body.includes(signature), label: "Signature and opt-out line at the foot" },
