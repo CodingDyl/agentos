@@ -106,7 +106,11 @@ function decideCapabilities(
 
   if ((input.validationCommands?.length ?? 0) > 0) needs.add("tools");
   if (WEB_SIGNALS.test(input.objective)) needs.add("web");
-  if (VISION_SIGNALS.test(text) && /\b(image|screenshot|photo|picture)\b/i.test(text)) {
+  // A task that edits a repository is code that may be *about* photos; it does
+  // not need a worker that can look at one. Such a task can still demand vision
+  // explicitly through its metadata capabilities (added above).
+  const writesCode = needs.has("file_writes") || needs.has("repository");
+  if (!writesCode && VISION_SIGNALS.test(text) && /\b(image|screenshot|photo|picture)\b/i.test(text)) {
     needs.add("vision");
   }
 

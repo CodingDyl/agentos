@@ -1,15 +1,18 @@
 import type { ExecutionAttempt, RoutePolicyRecord } from "@shared/route-policy-types";
 import type { WorkerJob, WorkerSummary } from "@shared/worker-types";
+import { AlertTriangle } from "lucide-react";
 import { CommandButton, HairlineCard, SectionLabel } from "@/components/os";
 import { useApproveWorkerJob, useRejectWorkerJob } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import {
   describeAttempt,
+  explainBlock,
   LOCAL_COST_CAVEAT,
   optionLabel,
   providerChargeLabel,
   routeHeadline,
   shortDigest,
+  type BlockExplanation,
 } from "./route-policy-model";
 
 /**
@@ -30,6 +33,42 @@ function LocationTag({ location }: { location: "local" | "cloud" }) {
     >
       {location === "local" ? "Local" : "Cloud"}
     </span>
+  );
+}
+
+/**
+ * Why a task cannot start and what to do about it. The state is carried by the
+ * icon and the words, never by colour alone; the actions are plain sentences
+ * because most of them live on other screens.
+ */
+function BlockedExplanation({ explanation, className }: { explanation: BlockExplanation; className?: string }) {
+  return (
+    <div role="alert" className={cn("rounded-md border border-os-border bg-os-surface-raised p-4", className)}>
+      <p className="flex items-start gap-2.5 text-[15px] leading-6 text-foreground">
+        <AlertTriangle className="mt-1 size-4 shrink-0 text-os-danger" strokeWidth={1.5} aria-hidden="true" />
+        {explanation.headline}
+      </p>
+
+      <div className="mt-3 max-w-[62ch] pl-[26px]">
+        <SectionLabel>Why</SectionLabel>
+        <ul className="mt-2 space-y-1.5">
+          {explanation.causes.map((cause) => (
+            <li key={cause} className="text-[13px] leading-5 text-os-muted">
+              {cause}
+            </li>
+          ))}
+        </ul>
+
+        <SectionLabel className="mt-4">What you can do</SectionLabel>
+        <ul className="mt-2 space-y-1.5">
+          {explanation.fixes.map((fix) => (
+            <li key={fix} className="text-[13px] leading-5 text-foreground">
+              {fix}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -62,14 +101,11 @@ export function RoutePolicyPanel({ record, workers, className }: RoutePolicyPane
           ) : null}
         </div>
 
-        <p
-          className={cn(
-            "mt-3 max-w-[62ch] text-[13px] leading-5",
-            blocked ? "text-os-danger" : "text-os-muted",
-          )}
-        >
-          {routeHeadline(record)}
-        </p>
+        {blocked ? (
+          <BlockedExplanation className="mt-3" explanation={explainBlock(record)} />
+        ) : (
+          <p className="mt-3 max-w-[62ch] text-[13px] leading-5 text-os-muted">{routeHeadline(record)}</p>
+        )}
 
         {record.queued ? (
           <p className="mt-2 text-[13px] leading-5 text-os-subtle">
