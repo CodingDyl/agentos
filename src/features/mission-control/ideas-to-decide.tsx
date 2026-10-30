@@ -9,7 +9,7 @@ import { TodayLink } from "./today-kit";
 const VERDICT_TAG = { adopt: "green", adapt: "marigold", skip: "muted" } as const;
 
 /** Ideas waiting on Approve or Decline first, then the ones being planned, built or stopped. */
-export function selectIdeas(ideas: readonly VideoIdea[]): { deciding: VideoIdea[]; moving: VideoIdea[] } {
+function selectIdeas(ideas: readonly VideoIdea[]): { deciding: VideoIdea[]; moving: VideoIdea[] } {
   const assessed = ideas.filter((idea) => idea.mode === "assess");
   return {
     deciding: assessed.filter((idea) => idea.stage === "awaiting_decision"),

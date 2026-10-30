@@ -9,7 +9,7 @@ import "./idea-progress.css";
 import { elapsed, ideaHeadline, ideaHref, ideaSteps, isIdeaWorking, noteHref, typicalWait, type StepState } from "./idea-model";
 
 /** Re-renders every second while something is running, so the stopwatch moves. */
-export function useNow(active: boolean): number {
+function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!active) return;
