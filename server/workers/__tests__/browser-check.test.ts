@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import { pickServeScript, serveFlags } from "../../../scripts/browser-check-serve.mjs";
 import { BROWSER_CHECK_LABEL, defaultValidationFor, isWebProject } from "../browser-check";
 
 describe("AgentOS's own browser check", () => {
@@ -44,5 +45,19 @@ describe("AgentOS's own browser check", () => {
 
     assert.equal(await isWebProject(dir), false);
     assert.deepEqual(await defaultValidationFor(dir), []);
+  });
+
+  it("serves the front end alone when dev also starts a back end", () => {
+    const scripts = { dev: 'concurrently -k -n data,web "npm:dev:data" "npm:dev:web"', "dev:web": "vite", "dev:data": "tsx watch server/index.ts" };
+    assert.equal(pickServeScript(scripts), "dev:web");
+    assert.equal(serveFlags(scripts["dev:web"], 5173), " -- --port 5173 --host 127.0.0.1 --strictPort");
+  });
+
+  it("still serves dev or start for an ordinary project", () => {
+    assert.equal(pickServeScript({ dev: "next dev", start: "next start" }), "dev");
+    assert.equal(pickServeScript({ start: "node server.js" }), "start");
+    assert.equal(pickServeScript({ dev: "concurrently a b" }), "dev");
+    assert.equal(pickServeScript({ test: "x" }), undefined);
+    assert.equal(serveFlags("next dev", 3000), " -- --port 3000 --hostname 127.0.0.1");
   });
 });
