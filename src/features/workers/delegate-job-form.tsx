@@ -451,7 +451,7 @@ export function DelegateJobForm({
             >
               {policySelected
                 ? `Delegate to ${optionLabel(policySelected, workerName)}`
-                : "Blocked"}
+                : "Blocked: see why above"}
             </CommandButton>
           ) : mode === "manual" ? (
             <CommandButton

@@ -69,6 +69,29 @@ describe("profileTask", () => {
     assert.equal(profile.routingUncertain, true);
   });
 
+  it("does not ask a code-writing task for a worker that can look at images", () => {
+    const profile = profileTask({
+      objective: "Enhance a prospect's photos through Designs generation",
+      repoPath: "/repo",
+    });
+    assert.ok(profile.requiredCapabilities.includes("file_writes"));
+    assert.ok(!profile.requiredCapabilities.includes("vision"));
+  });
+
+  it("still asks for vision when a non-code task is about a screenshot", () => {
+    const profile = profileTask({ objective: "Describe what is in this screenshot" });
+    assert.ok(profile.requiredCapabilities.includes("vision"));
+  });
+
+  it("still asks for vision when a code task demands it explicitly", () => {
+    const profile = profileTask({
+      objective: "Fix the layout bug",
+      repoPath: "/repo",
+      metadata: { capabilities: ["vision"] },
+    });
+    assert.ok(profile.requiredCapabilities.includes("vision"));
+  });
+
   it("reads repository work as complex and tool-requiring", () => {
     const profile = profileTask({
       objective: "Implement authentication across this application and run its tests",
