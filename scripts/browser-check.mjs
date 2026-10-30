@@ -19,6 +19,7 @@ import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { chromium } from "playwright";
+import { pickServeScript, serveFlags } from "./browser-check-serve.mjs";
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((pairs, value, index, all) => (value.startsWith("--") ? [...pairs, [value.slice(2), all[index + 1]?.startsWith("--") ? "true" : all[index + 1]]] : pairs), []),
@@ -64,10 +65,9 @@ async function serveCommand(port) {
   if (args.static === "true" && (await exists(path.join(project, "index.html")))) return { static: true };
   const manifest = await readJson(path.join(project, "package.json"));
   const scripts = manifest?.scripts ?? {};
-  const script = ["dev", "start"].find((name) => typeof scripts[name] === "string");
+  const script = pickServeScript(scripts);
   if (script) {
-    const body = scripts[script];
-    const flags = /^\s*next(\s|$)/.test(body) ? ` -- --port ${port} --hostname 127.0.0.1` : /^\s*vite(\s|$)/.test(body) ? ` -- --port ${port} --host 127.0.0.1 --strictPort` : "";
+    const flags = serveFlags(scripts[script], port);
     return { command: `npm run ${script}${flags}`, needsInstall: !(await exists(path.join(project, "node_modules"))) };
   }
   if (await exists(path.join(project, "index.html"))) {
