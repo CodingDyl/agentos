@@ -6,6 +6,8 @@ import { followUpMailto, formatRand } from "@/features/business/business-model";
 import { useBusiness } from "@/lib/agentos/business";
 import { useMissionControl } from "@/lib/agentos/queries";
 import { useTraction } from "@/lib/agentos/traction";
+import { usePitches } from "@/lib/agentos/pitch";
+import { pitchesReady } from "@shared/pitch-types";
 import { cn } from "@/lib/utils";
 import { dashboardCardClass } from "./dashboard-layout";
 import { MRR_GOAL_RAND, selectRevenueStrip } from "./revenue-strip-model";
@@ -19,6 +21,7 @@ export function RevenueStrip({ className }: { className?: string }) {
   const traction = useTraction();
   const business = useBusiness();
   const mission = useMissionControl();
+  const pitches = usePitches();
   const [followOpen, setFollowOpen] = useState(false);
 
   const crm = traction.data?.crm;
@@ -30,6 +33,7 @@ export function RevenueStrip({ className }: { className?: string }) {
       ? crm.inbound.filter((lead) => lead.status === "new" || lead.status === "reviewing" || !lead.status).length
       : undefined,
     rebuildsWaiting: mission.data ? mission.data.attention.filter((item) => item.source === "rebuild").length : undefined,
+    pitchesReady: pitchesReady(pitches.data),
   });
 
   const mail =
@@ -143,6 +147,7 @@ function WaitingCell({ state }: { state: ReturnType<typeof selectRevenueStrip>["
   const parts = [
     state.leads !== undefined ? `${state.leads} ${state.leads === 1 ? "lead" : "leads"}` : undefined,
     state.rebuilds !== undefined ? `${state.rebuilds} ${state.rebuilds === 1 ? "rebuild" : "rebuilds"}` : undefined,
+    state.pitches ? `${state.pitches} ${state.pitches === 1 ? "pitch" : "pitches"} ready` : undefined,
   ].filter(Boolean);
   return (
     <div className="min-w-0">

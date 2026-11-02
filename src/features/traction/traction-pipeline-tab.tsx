@@ -1,5 +1,6 @@
 import { ProspectStageSchema, type TractionData } from "@shared/traction-types";
-import { PAPER_FOCUS, PAPER_INPUT, PaperSection } from "@/components/paper";
+import { PAPER_FOCUS, PAPER_INPUT, PaperSection, Tag } from "@/components/paper";
+import { usePitches } from "@/lib/agentos/pitch";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
 import { formatShortDate, PIPELINE_STAGES, stageLabel } from "./traction-model";
@@ -13,6 +14,7 @@ import { formatShortDate, PIPELINE_STAGES, stageLabel } from "./traction-model";
  */
 export function TractionPipelineTab({ data, onOpen }: { data: TractionData; onOpen: (prospectId: string) => void }) {
   const update = useUpdateProspect();
+  const pitches = new Map((usePitches().data ?? []).map((pitch) => [pitch.prospectId, pitch.status]));
 
   return (
     <PaperSection label="Pipeline" count={data.prospects.length - data.pipeline.lost}>
@@ -36,6 +38,11 @@ export function TractionPipelineTab({ data, onOpen }: { data: TractionData; onOp
                     >
                       {prospect.company}
                     </button>
+                    {pitches.get(prospect.id) === "pitched" ? (
+                      <Tag tone="blue" className="mt-1">Pitched with preview</Tag>
+                    ) : pitches.get(prospect.id) === "ready" ? (
+                      <Tag tone="green" className="mt-1">Pitch ready</Tag>
+                    ) : null}
                     {prospect.nextAction ? (
                       <p className="mt-0.5 text-[12.5px] leading-5 text-paper-sage">
                         {prospect.nextAction}

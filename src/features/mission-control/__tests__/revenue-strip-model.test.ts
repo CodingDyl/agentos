@@ -146,4 +146,11 @@ describe("revenue and pipeline strip", () => {
       assert.equal(none.followUp.sends, false);
     }
   });
+
+  it("counts pitches ready only when there are some", () => {
+    const strip = selectRevenueStrip({ rebuildsWaiting: 0, pitchesReady: 2 });
+    assert.deepEqual(strip.waiting, { kind: "ready", leads: undefined, rebuilds: 0, pitches: 2 });
+    const none = selectRevenueStrip({ rebuildsWaiting: 0, pitchesReady: 0 });
+    assert.equal(none.waiting.kind === "ready" && "pitches" in none.waiting, false);
+  });
 });
