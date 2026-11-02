@@ -8,11 +8,12 @@ import { projectInContext } from "@/features/agent/command-catalog";
 import { ChatComposer } from "@/features/operator/chat-composer";
 import { ChatThread } from "@/features/operator/chat-thread";
 import { useChatConversation } from "@/features/operator/use-chat-conversation";
+import { useChatJarvis } from "@/features/operator/use-chat-jarvis";
 import { useChatAgents, useChatStream } from "@/lib/agentos/chat";
 import { useProjects } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { CHAT_PANEL_ID, useChatPanel } from "./chat-panel-context";
-import { screenTitle } from "./chat-panel-model";
+import { jarvisChatTarget, screenTitle } from "./chat-panel-model";
 
 /**
  * The ⌘J chat, over whatever screen you are on.
@@ -68,6 +69,44 @@ function ChatPanelBody() {
   const conversation = useChatConversation({ chatId, agents: agents.data ?? [], onCreated: panel.setChatId, pageContext });
   const { chat, current, messages, running, stop, decide } = conversation;
 
+  // Jarvis talks through this chat while the panel is open, and hands it what
+  // it hears when no other screen has taken it over. Replies to what came
+  // from Jarvis are read back; typed messages stay quiet.
+  const agentList = agents.data;
+  const sendFromJarvis = async (text: string) => {
+    const target = jarvisChatTarget(agentList ?? [], current);
+    if (!target.continueCurrent && chatId) {
+      // Not a Claude chat, so no AgentOS tools: carry the request into a new Claude chat.
+      panel.setChatId(undefined);
+      panel.handOff(text);
+      return;
+    }
+    if (!(await conversation.submit(text, target.continueCurrent ? undefined : target))) {
+      voice.jarvis.announce("I couldn't send that to the chat. The reason is under the message box.");
+    }
+  };
+  const voice = useChatJarvis({
+    chat: current,
+    agentName: agentList?.find((agent) => agent.id === current?.agent)?.name ?? "Claude",
+    send: (text) => {
+      panel.setFromJarvis(true);
+      void sendFromJarvis(text);
+    },
+    stop: () => stop.mutate(),
+    decide: (approvalId, decision) => decide.mutate({ approvalId, decision }),
+    newChat: () => panel.setChatId(undefined),
+    narrate: panel.fromJarvis,
+  });
+
+  const handedOff = panel.handedOff;
+  const ready = agentList !== undefined && (!chatId || current !== undefined) && !running && !conversation.sending;
+  useEffect(() => {
+    if (!handedOff || !ready || !panel.takeHandOff(handedOff.id)) return;
+    void sendFromJarvis(handedOff.text);
+    // sendFromJarvis is rebuilt every render; the hand-off id is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handedOff?.id, ready]);
+
   // A remembered chat that has since been deleted: start a new one instead.
   const missing = chatId !== undefined && chat.isError;
   useEffect(() => {
@@ -90,6 +129,7 @@ function ChatPanelBody() {
   }, [growth]);
 
   const submit = async (text: string) => {
+    panel.setFromJarvis(false);
     if (await conversation.submit(text)) {
       setInput("");
       // The selection was about that message; the next one starts clean.

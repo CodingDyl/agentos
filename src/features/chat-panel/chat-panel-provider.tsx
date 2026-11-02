@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { CHAT_PANEL_ID, ChatPanelContext, type ChatPanelValue } from "./chat-panel-context";
 
@@ -29,6 +29,9 @@ export function ChatPanelProvider({ children }: { children: ReactNode }) {
   const [chatId, setChatIdState] = useState<string | undefined>(readRemembered);
   const [selection, setSelection] = useState<string>();
   const [detailMap, setDetailMap] = useState<Record<string, string>>({});
+  const [handedOff, setHandedOff] = useState<{ id: number; text: string }>();
+  const handOffs = useRef(0);
+  const [fromJarvis, setFromJarvis] = useState(false);
   const location = useLocation();
   // Operator is the chat already: the panel would be a second copy of it.
   const onOperator = location.pathname.startsWith("/operator");
@@ -52,6 +55,23 @@ export function ChatPanelProvider({ children }: { children: ReactNode }) {
     if (isOpen) setOpen(false);
     else open();
   }, [isOpen, open]);
+
+  const handOff = useCallback(
+    (text: string) => {
+      handOffs.current += 1;
+      setHandedOff({ id: handOffs.current, text });
+      setFromJarvis(true);
+      open();
+    },
+    [open],
+  );
+  const taken = useRef(0);
+  const takeHandOff = useCallback((id: number) => {
+    if (id <= taken.current) return false;
+    taken.current = id;
+    setHandedOff((previous) => (previous?.id === id ? undefined : previous));
+    return true;
+  }, []);
 
   const setDetail = useCallback((key: string, detail: string | undefined) => {
     setDetailMap((previous) => {
@@ -88,8 +108,14 @@ export function ChatPanelProvider({ children }: { children: ReactNode }) {
       clearSelection: () => setSelection(undefined),
       details: Object.values(detailMap),
       setDetail,
+      available: !onOperator,
+      handOff,
+      handedOff,
+      takeHandOff,
+      fromJarvis,
+      setFromJarvis,
     }),
-    [isOpen, onOperator, open, close, toggle, chatId, setChatId, selection, detailMap, setDetail],
+    [isOpen, onOperator, open, close, toggle, chatId, setChatId, selection, detailMap, setDetail, handOff, handedOff, takeHandOff, fromJarvis],
   );
 
   return <ChatPanelContext.Provider value={value}>{children}</ChatPanelContext.Provider>;

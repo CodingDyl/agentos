@@ -1,9 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import type { AgentRunStatus, ApprovalDecision } from "@shared/agentos-types";
 import { projectInContext } from "@/features/agent/command-catalog";
 import { useAgentRun } from "@/features/agent/hooks/use-agent-run";
+import { ChatPanelContext } from "@/features/chat-panel/chat-panel-context";
+import { jarvisChatRoute } from "@/features/chat-panel/chat-panel-model";
+import { useChatAgents } from "@/lib/agentos/chat";
 import { getAgentSessionMessages, reportActivity } from "@/lib/agentos/client";
 import { useAgentCapabilities, useAttentionCount, useProjects, useRefreshVault, useSendAgentMessage } from "@/lib/agentos/queries";
 import { fetchRunOutput, getVoiceStatus, setVoiceEnabled, speakText, transcribeAudio, VoiceRequestError } from "@/lib/agentos/voice";
@@ -51,6 +54,9 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const { data: projectsData } = useProjects();
   const { data: capabilities } = useAgentCapabilities();
   const sendMessage = useSendAgentMessage();
+  // The ⌘J chat, where Claude has AgentOS's tools. Absent outside its provider.
+  const chatPanel = useContext(ChatPanelContext);
+  const chatAgents = useChatAgents();
   const voiceQuery = useQuery({ queryKey: ["agentos", "voice", "status"], queryFn: getVoiceStatus, staleTime: 60_000, retry: 0 });
   const voice = voiceQuery.data;
   const voiceReady = voice?.enabled === true && voice.configured;
@@ -289,6 +295,26 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       }
       setAnnouncement(undefined);
 
+      // Nothing has taken Jarvis over: the ⌘J chat with Claude and its AgentOS
+      // tools answers, and reads the reply back. Hermes when Claude can't.
+      const route = jarvisChatRoute({ agents: chatAgents.data, panelAvailable: chatPanel?.available === true });
+      if (chatPanel && route.to === "chat") {
+        spoken.current = false;
+        queue.reset();
+        session.begin(text);
+        session.end();
+        run.reset();
+        setRecoveredReply("");
+        setFallbackReply("");
+        setAutoSendAt(undefined);
+        setError(undefined);
+        setAudioNote(undefined);
+        setTranscriptState(text);
+        setPhase("thinking");
+        chatPanel.handOff(text);
+        return;
+      }
+
       queue.reset();
       session.begin(text);
       setRecoveredReply("");
@@ -339,7 +365,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
         },
       );
     },
-    [announce, capabilities?.runs, pageProject, phase, projects, queue, refreshVault, run, say, sendMessage, session, timings, transcript, voiceReady, waiting],
+    [announce, capabilities?.runs, chatAgents.data, chatPanel, pageProject, phase, projects, queue, refreshVault, run, say, sendMessage, session, timings, transcript, voiceReady, waiting],
   );
 
   // A transcript sends itself unless you touch it. Send goes immediately.
