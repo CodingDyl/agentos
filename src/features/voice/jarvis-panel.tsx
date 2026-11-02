@@ -1,5 +1,5 @@
 import { Send, Square, Volume2, VolumeX, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { withoutEmDashes } from "@shared/plain-text";
 import { Markdown } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperSwitch } from "@/components/paper";
@@ -7,6 +7,8 @@ import { ApprovalCard } from "@/features/agent/approval-card";
 import { ProposalCard } from "@/features/agent/proposal-card";
 import { readProposal } from "@/features/agent/proposal";
 import { useProjects } from "@/lib/agentos/queries";
+import { ChatPanelContext } from "@/features/chat-panel/chat-panel-context";
+import { cn } from "@/lib/utils";
 import { useJarvis } from "./jarvis-store";
 import { JarvisOrb } from "./jarvis-orb";
 import { AUTO_SEND_MS, PHASE_LABEL } from "./voice-model";
@@ -18,6 +20,8 @@ import { describeTimings } from "./voice-timings";
  */
 export function JarvisPanel() {
   const jarvis = useJarvis();
+  // The ⌘J chat fills the right edge when Jarvis hands it a request: sit beside it, not on it.
+  const chatOpen = useContext(ChatPanelContext)?.isOpen === true;
   const { data: projectsData } = useProjects();
   const projectName = projectsData?.projects.find((entry) => entry.slug === jarvis.project)?.name;
   const proposal = useMemo(() => readProposal(jarvis.reply), [jarvis.reply]);
@@ -67,7 +71,7 @@ export function JarvisPanel() {
     <section
       role="dialog"
       aria-label="Jarvis"
-      className="fixed right-4 bottom-14 z-40 flex max-h-[min(84dvh,760px)] w-[min(94vw,440px)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-linen font-paper-ui text-paper-moss"
+      className={cn("fixed bottom-14 z-40 flex max-h-[min(84dvh,760px)] w-[min(94vw,440px)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-linen font-paper-ui text-paper-moss", chatOpen ? "right-4 lg:right-[476px]" : "right-4")}
     >
       <header className="flex items-center justify-between gap-3 px-4 pt-3">
         <div className="flex items-baseline gap-2">

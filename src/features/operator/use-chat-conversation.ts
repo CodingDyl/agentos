@@ -70,16 +70,17 @@ export function useChatConversation({
   const mode: ChatMode = current ? (current.mode ?? "coder") : pickedMode;
 
   /** Resolves true once sent, so the caller can clear the box. */
-  const submit = async (text: string): Promise<boolean> => {
-    if (!choice) return false;
-    remember(choice, mode);
+  const submit = async (text: string, start?: { choice: ModelChoice; mode: ChatMode }): Promise<boolean> => {
+    // `start` picks the agent for a new chat without changing the remembered choice (Jarvis wants Claude).
+    if (!choice && !start) return false;
+    if (!start && choice) remember(choice, mode);
     try {
       let id = chatId;
-      if (!id) id = (await create.mutateAsync({ ...choice, mode })).id;
+      if (!id) id = (await create.mutateAsync(start ? { ...start.choice, mode: start.mode } : { ...(choice as ModelChoice), mode })).id;
       // `/run`, `/plan`, `/ask`: a planned Operator run, not a message to the agent.
       const slash = parseSlashRun(text);
       if (slash) await startRun.mutateAsync({ id, ...slash });
-      else await send.mutateAsync({ id, text, model: current && choice.model !== current.model ? choice.model : undefined, context: pageContext?.() });
+      else await send.mutateAsync({ id, text, model: current && choice && choice.model !== current.model ? choice.model : undefined, context: pageContext?.() });
       if (!chatId) onCreated(id);
       return true;
     } catch {
