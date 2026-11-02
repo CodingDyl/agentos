@@ -30,6 +30,7 @@ export function useChatJarvis({
   stop,
   decide,
   newChat,
+  narrate,
 }: {
   chat: Chat | undefined;
   agentName: string;
@@ -37,9 +38,12 @@ export function useChatJarvis({
   stop: () => void;
   decide: (approvalId: string, decision: "allow" | "deny") => void;
   newChat: () => void;
+  /** Read replies aloud whatever the saved preference: the ⌘J chat does while Jarvis is talking through it. */
+  narrate?: boolean;
 }) {
   const jarvis = useJarvis();
-  const [narrating, setNarratingState] = useState(readNarrate);
+  const [narratingPreference, setNarratingState] = useState(readNarrate);
+  const narrating = narratingPreference || narrate === true;
   const pendingConfirm = useRef<{ approvalId: string; until: number } | undefined>(undefined);
 
   const setNarrating = (on: boolean) => {
@@ -142,9 +146,9 @@ export function useChatJarvis({
     const finished = wasRunning.current && !running;
     wasRunning.current = running;
     if (!narrating || !finished || last?.role !== "assistant") return;
-    const line = spokenSummary(last);
-    if (line) announce(line);
+    // Always say something: Jarvis waits on this to stop "thinking".
+    announce(spokenSummary(last) ?? "Done. It's in the chat.");
   }, [chat?.status, last, narrating, announce]);
 
-  return { narrating, setNarrating, jarvis };
+  return { narrating: narratingPreference, setNarrating, jarvis };
 }
