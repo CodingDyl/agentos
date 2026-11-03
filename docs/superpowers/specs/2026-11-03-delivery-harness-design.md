@@ -1,6 +1,6 @@
 # Delivery harness around the website rebuild
 
-Status: approved by the owner on 2026-11-03 (MVP shape). Phases 1 and 2 built.
+Status: approved by the owner on 2026-11-03 (MVP shape). Phases 1–3 built.
 
 ## Why
 
@@ -56,10 +56,18 @@ the whole delivery, start from scratch or resume, and optionally add motion.
    `prospectId: workspace:<slug>` and is linked to the workspace before its
    first stage, so a workspace never gets a second run. The brief form is
    shared with the Traction launcher (`brief-fields.tsx`).
-3. **Feature intake and journey tests.** A step before functions that collects
-   provider settings (stored server-side, pushed to the Vercel preview env),
-   articles and legacy URLs; AgentOS runs browser journeys (submit, JS off,
-   redirects) on the preview.
+3. **Feature intake and journey checks (built).** "What the features need"
+   on the functions stage collects RESEND_API_KEY (sealed with AES-256-GCM in
+   `runs.feature_settings`, key in `~/.agentos-ui/rebuild-secret.key`, never
+   returned), CONTACT_FROM/TO_EMAIL, BOOKING_URL and old addresses. The
+   functions brief names what is set (never values) and the old addresses;
+   the preview stage sets them as encrypted preview-only Vercel variables
+   (`vercel.set_env` capability) before pushing. Journey checks, run on the
+   built site at the functions stage and on the preview: the enquiry form is
+   an explicit POST (works without JavaScript, keeps data out of the URL),
+   delivery settings are present, the booking link goes to BOOKING_URL, old
+   addresses redirect to a 200, `/sitemap.xml` and `/robots.txt` serve.
+   Nothing is ever submitted; real delivery stays untested on purpose.
 4. **Optional motion pass.** After the baseline, run Motion Design on the
    same client repo, keeping its credit approval.
 5. **Later.** Manual Claude Design attachments; role and decision rules from

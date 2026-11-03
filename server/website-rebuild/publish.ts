@@ -294,6 +294,27 @@ export async function openPreviewsToLinkHolders(project: VercelProject, deps: Pu
   if (result.status !== 200) throw apiError("Vercel", result.status, result.data);
 }
 
+/**
+ * The feature settings as the project's preview environment, before the
+ * preview is built: Vercel bakes the environment into each deployment.
+ * Preview only, never production. Values are sent as encrypted variables and
+ * never appear in an error, a log or a report; only the names do.
+ */
+export async function setPreviewEnvironment(project: VercelProject, env: Record<string, string>, deps: PublishDeps = defaultPublishDeps): Promise<string[]> {
+  const names = Object.keys(env).filter((name) => env[name]);
+  if (names.length === 0) return [];
+  allow("vercel.set_env", `Set ${names.join(", ")} on the ${project.name} preview`);
+  const body = names.map((key) => ({ key, value: env[key], type: "encrypted", target: ["preview"] }));
+  let result: { status: number; data: unknown };
+  try {
+    result = await api<unknown>(deps, "vercel", `/v10/projects/${encodeURIComponent(project.id)}/env?upsert=true`, { method: "POST", body });
+  } catch (error) {
+    throw new PublishError(`Could not set ${names.join(", ")} on the ${project.name} preview: ${error instanceof Error ? error.message : "Vercel did not answer."}`);
+  }
+  if (result.status !== 200 && result.status !== 201) throw new PublishError(`Vercel refused the preview environment (${result.status}) for ${names.join(", ")}. Check the Vercel token can edit ${project.name}'s settings, then retry.`);
+  return names;
+}
+
 /** A project by id or name, with its Git link and production branch, or undefined when it does not exist. Read-only. */
 export async function readVercelProject(idOrName: string, deps: PublishDeps = defaultPublishDeps): Promise<VercelProject | undefined> {
   const result = await api<VercelProjectData>(deps, "vercel", `/v9/projects/${encodeURIComponent(idOrName)}`);

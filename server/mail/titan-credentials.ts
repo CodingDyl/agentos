@@ -1,8 +1,10 @@
-import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { TitanConnectRequest } from "../../shared/mail-account-types";
 import { uiStateDir } from "../agentos/session-store";
+import { openSecret, sealSecret, sealingKey, writePrivate, type SealedSecret } from "../agentos/sealed-secrets";
+
+export { openSecret, sealSecret };
 
 /**
  * The Virtara (Titan) mailbox login, kept on this machine only.
@@ -35,11 +37,6 @@ export interface TitanCredentials {
   imapLoginMethod?: "LOGIN";
 }
 
-interface SealedSecret {
-  iv: string;
-  tag: string;
-  data: string;
-}
 
 interface StoredTitanAccount extends Omit<TitanCredentials, "password"> {
   password: SealedSecret;
@@ -52,42 +49,8 @@ function accountFile(): string {
   return path.join(uiStateDir(), "titan-mail.json");
 }
 
-function keyFile(): string {
-  return path.join(uiStateDir(), "mail-secret.key");
-}
-
-async function writePrivate(target: string, contents: string): Promise<void> {
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  const temporary = `${target}.${process.pid}.tmp`;
-  await fs.writeFile(temporary, contents, { encoding: "utf8", mode: 0o600 });
-  await fs.rename(temporary, target);
-  await fs.chmod(target, 0o600);
-}
-
 async function secretKey(create: boolean): Promise<Buffer | undefined> {
-  try {
-    const key = Buffer.from((await fs.readFile(keyFile(), "utf8")).trim(), "base64");
-    if (key.length === 32) return key;
-  } catch {
-    // Not created yet.
-  }
-  if (!create) return undefined;
-  const key = crypto.randomBytes(32);
-  await writePrivate(keyFile(), `${key.toString("base64")}\n`);
-  return key;
-}
-
-export function sealSecret(value: string, key: Buffer): SealedSecret {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-  const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  return { iv: iv.toString("base64"), tag: cipher.getAuthTag().toString("base64"), data: data.toString("base64") };
-}
-
-export function openSecret(sealed: SealedSecret, key: Buffer): string {
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(sealed.iv, "base64"));
-  decipher.setAuthTag(Buffer.from(sealed.tag, "base64"));
-  return Buffer.concat([decipher.update(Buffer.from(sealed.data, "base64")), decipher.final()]).toString("utf8");
+  return sealingKey("mail-secret.key", create);
 }
 
 async function readStored(): Promise<StoredTitanAccount | undefined> {

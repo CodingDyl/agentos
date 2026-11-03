@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type BrandKitEdit, type PageNote, type PageNotesByRoute, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
 import { DeliveryOverviewSchema, type DeliveryStartInput } from "@shared/delivery-types";
+import { FeatureSettingsViewSchema, type FeatureSettingsInput } from "@shared/feature-settings-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -111,6 +112,25 @@ export function useDeliveryOverview() {
 /** Starts a workspace's delivery, or resumes the rebuild it already has. */
 export function useStartDelivery() {
   return useRunMutation((input: DeliveryStartInput) => call("/api/delivery/start", RebuildRunSchema, input));
+}
+
+/** What the run's features need: plain values, and whether each secret is set. */
+export function useFeatureSettings(runId: string) {
+  return useQuery({
+    queryKey: ["rebuild", runId, "feature-settings"] as const,
+    queryFn: () => call(`${base}/${encodeURIComponent(runId)}/feature-settings`, FeatureSettingsViewSchema),
+    networkMode: "always",
+  });
+}
+
+export function useSaveFeatureSettings(runId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: FeatureSettingsInput) => call(`${base}/${encodeURIComponent(runId)}/feature-settings`, FeatureSettingsViewSchema, input),
+    onSuccess: (view) => client.setQueryData(["rebuild", runId, "feature-settings"], view),
+    networkMode: "always",
+    retry: 0,
+  });
 }
 
 export function useStartRebuild() {

@@ -193,6 +193,9 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE revisions ADD COLUMN review TEXT;
   `,
+  `
+  ALTER TABLE runs ADD COLUMN feature_settings TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {

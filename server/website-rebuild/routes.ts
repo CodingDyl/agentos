@@ -25,6 +25,8 @@ import { readDimensions } from "../designs/media";
 import { BRAND_EXTENSION } from "./brand";
 import { MAX_BRAND_UPLOAD_BYTES, toSafeRaster } from "./capture";
 import { REPORT_DIR } from "./reports";
+import { featureSettingsView, saveFeatureSettings } from "./feature-settings";
+import { FeatureSettingsInputSchema } from "../../shared/feature-settings-types";
 import { STAGE_HANDLERS, advanceInBackground, currentSkillVersion } from "./runner";
 import { forcePreviewStage, markPreviewStage, recheckPreviewStage } from "./stages";
 import { isSkillEnabled } from "../skills/registry";
@@ -140,6 +142,28 @@ rebuildRouter.get("/:id/artifacts/:artifactId", (request, response) => {
 rebuildRouter.get("/:id", (request, response) => {
   try {
     response.json(readRun(request.params.id));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+/** What the features need: plain values, and only whether each secret is set. */
+rebuildRouter.get("/:id/feature-settings", (request, response) => {
+  try {
+    response.json(featureSettingsView(readRun(request.params.id).id));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+rebuildRouter.post("/:id/feature-settings", async (request, response) => {
+  const parsed = FeatureSettingsInputSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(422).json({ error: parsed.error.issues[0]?.message ?? "Check the settings." });
+    return;
+  }
+  try {
+    response.json(await saveFeatureSettings(readRun(request.params.id).id, parsed.data));
   } catch (error) {
     fail(response, error);
   }
