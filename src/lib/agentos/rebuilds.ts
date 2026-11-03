@@ -139,13 +139,14 @@ export function useStageWorkers(runId: string, stage: RebuildStageId, enabled: b
 }
 
 export function useDecideStage(runId: string) {
-  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string; conceptNotes?: Record<string, string>; pageNotes?: PageNotesByRoute }) =>
+  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string; conceptNotes?: Record<string, string>; pageNotes?: PageNotesByRoute; overrideReview?: boolean }) =>
     call(`${base}/${encodeURIComponent(runId)}/stages/${input.stage}/${input.decision}`, RebuildRunSchema, {
       revision: input.revision,
       ...(input.note ? { note: input.note } : {}),
       ...(input.choice ? { choice: input.choice } : {}),
       ...(input.conceptNotes && Object.keys(input.conceptNotes).length > 0 ? { conceptNotes: input.conceptNotes } : {}),
       ...(input.pageNotes && Object.keys(input.pageNotes).length > 0 ? { pageNotes: input.pageNotes } : {}),
+      ...(input.overrideReview ? { overrideReview: true } : {}),
     }),
   );
 }

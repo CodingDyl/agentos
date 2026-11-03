@@ -106,6 +106,15 @@ export const RebuildArtifactSchema = z.object({
   createdAt: z.string(),
 });
 
+/** What the second-opinion reviewer concluded about a revision, read from its review. */
+export const ReviewVerdictSchema = z.object({
+  /** null when the review gave no clear verdict. */
+  ready: z.boolean().nullable(),
+  blockers: z.number().int().nonnegative(),
+  majors: z.number().int().nonnegative(),
+  minors: z.number().int().nonnegative(),
+});
+
 export const RebuildRevisionSchema = z.object({
   stage: RebuildStageIdSchema,
   revision: z.number().int().positive(),
@@ -116,6 +125,8 @@ export const RebuildRevisionSchema = z.object({
   /** Which worker produced it, and the job that ran. */
   worker: z.string().optional(),
   jobId: z.string().optional(),
+  /** The reviewer's verdict, when a second opinion ran. Blockers make approving a deliberate override. */
+  review: ReviewVerdictSchema.optional(),
   createdAt: z.string(),
 });
 
@@ -334,6 +345,8 @@ export const RebuildDecisionInputSchema = z
     conceptNotes: z.partialRecord(z.enum(HERO_CONCEPT_IDS), z.string().trim().max(2000)).optional(),
     /** Notes keyed by page route. When left out, the notes already saved on this revision are used. */
     pageNotes: PageNotesByRouteSchema.optional(),
+    /** Approve although the reviewer found blockers. Without it such an approval is refused. */
+    overrideReview: z.boolean().optional(),
   })
   .strict();
 
@@ -393,6 +406,7 @@ export function changeRequestText(decision: Pick<z.infer<typeof RebuildDecisionS
 
 export type RebuildArtifact = z.infer<typeof RebuildArtifactSchema>;
 export type RebuildRevision = z.infer<typeof RebuildRevisionSchema>;
+export type ReviewVerdict = z.infer<typeof ReviewVerdictSchema>;
 export type RebuildDecision = z.infer<typeof RebuildDecisionSchema>;
 export type RebuildEvent = z.infer<typeof RebuildEventSchema>;
 export type RebuildStage = z.infer<typeof RebuildStageSchema>;

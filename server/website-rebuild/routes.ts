@@ -265,7 +265,7 @@ rebuildRouter.post("/:id/stages/:stage/approve", (request, response) => {
     return;
   }
   try {
-    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note, input.data.choice, input.data.conceptNotes, input.data.pageNotes);
+    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note, input.data.choice, input.data.conceptNotes, input.data.pageNotes, input.data.overrideReview);
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
   } catch (error) {

@@ -1,7 +1,7 @@
 ---
 name: agentos-website-to-preview
 description: Rebuild a prospect's website from research to a client-accessible Vercel preview, in seven stages with three approval checkpoints. Use when a lead on the "Build it first" path needs a new site.
-version: 1.4.0
+version: 1.5.0
 requires: [hermes, github, vercel]
 ---
 
@@ -55,7 +55,15 @@ checkpoints. Never move past a checkpoint on your own.
    sitemap, page copy and navigation. Stop for approval.
 6. **Functional components (checkpoint).** Only the functions the run asks for
    (contact form, blog, bookings, newsletter, shop). Test every journey end to
-   end and save `<slug>_functionality_test_report.md`. Stop for approval.
+   end and save `<slug>_functionality_test_report.md`. Forms work without
+   JavaScript and never put enquiry fields in a URL; the current site's URLs
+   keep working through redirects. Stop for approval.
+
+   At stages 5 and 6 a second model reviews each revision, starting with
+   `Verdict: Ready` or `Verdict: Not ready` and numbered Blocker, Major and
+   Minor findings. The next revision is briefed with the Blocker and Major
+   findings as well as the person's note. Approving a revision with open
+   blockers is an explicit "approve anyway".
 7. **Vercel preview.** Create (or reuse) a private GitHub repo on the
    token owner's account. `main` only ever gets the first commit; the
    approved revision is pushed to a `preview` branch, and Vercel's Git

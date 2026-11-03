@@ -256,7 +256,7 @@ async function runStage(runId: string, stage: RebuildStageId, owner: string, han
 
   try {
     const outcome = await handlers[stage](context, deps);
-    completeStage(runId, stage, owner, outcome.summary, outcome.artifactIds, { ref: outcome.ref, worker: outcome.worker, jobId: outcome.jobId });
+    completeStage(runId, stage, owner, outcome.summary, outcome.artifactIds, { ref: outcome.ref, worker: outcome.worker, jobId: outcome.jobId, review: outcome.review });
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : "The stage failed.";

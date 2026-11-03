@@ -45,9 +45,11 @@ import {
   reviewFile,
 } from "./prompts";
 import { REPORT_DIR, reportFile, wrapReport } from "./reports";
+import { describeVerdict, mustFixFindings, parseReviewVerdict, tallyFeatures } from "./review-verdict";
 import { routeList, routeName, routesFrom, screenshot, serveBuiltNextApp } from "./screens";
 import { libraryContextFor } from "../reengineer/library";
 import { StageBlocked, type StageContext, type StageHandler, type StageOutcome } from "./stage-kit";
+import type { ReviewVerdict } from "../../shared/website-rebuild-types";
 import { readRun, setRunField } from "./store";
 import { integrateJob, pickWorker, runJob, WorkerStageBlocked, type PickedWorker } from "./workers";
 
@@ -254,8 +256,29 @@ async function seedBrandKit(context: StageContext, deps: StageDeps, repo: string
   if (missing.length > 0) context.log(`${missing.length} brand image${missing.length === 1 ? " is" : "s are"} no longer in the workspace and ${missing.length === 1 ? "was" : "were"} left out: ${missing.join(", ")}.`, "warning");
 }
 
+interface SecondOpinion {
+  /** The review report's artifact id. */
+  id: string;
+  verdict: ReviewVerdict;
+  /** One sentence for the stage summary. */
+  said: string;
+}
+
+/**
+ * The Blocker and Major findings of the last revision's review, which the next
+ * revision must answer. Without this a worker sees only the person's note, and
+ * fixes that while the reviewer's findings stay as they were.
+ */
+async function lastReviewFindings(context: StageContext, deps: StageDeps, repo: string): Promise<string | undefined> {
+  if (context.revision < 2) return undefined;
+  const review = await deps.readRepoFile(repo, reviewFile(context.stage, context.revision - 1));
+  const findings = review ? mustFixFindings(review) : undefined;
+  if (findings) context.log(`The findings of the revision ${context.revision - 1} review are in this revision's brief.`);
+  return findings;
+}
+
 /** A second model reads the work. Optional: if no reviewer is free, or it fails, the person still reviews. */
-async function secondOpinion(context: StageContext, deps: StageDeps, repo: string): Promise<string | undefined> {
+async function secondOpinion(context: StageContext, deps: StageDeps, repo: string): Promise<SecondOpinion | undefined> {
   const candidates = context.run.workerPlan.review;
   if (candidates.length === 0) return undefined;
   let reviewer: PickedWorker;
@@ -277,7 +300,10 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
     );
     await deps.integrate(job, repo, `Review of ${context.stage} revision ${context.revision}`, `rebuild/${context.stage}-r${context.revision}-review`);
     const review = await deps.readRepoFile(repo, file);
-    return review ? context.writeReport(`${context.stage}_r${context.revision}_review`, `${reviewer.name} review of ${context.stage} r${context.revision}`, wrapReport(context.run, `review of ${context.stage} revision ${context.revision}`, review, { reviewer: reviewer.name, job: job.id })) : undefined;
+    if (!review) return undefined;
+    const id = await context.writeReport(`${context.stage}_r${context.revision}_review`, `${reviewer.name} review of ${context.stage} r${context.revision}`, wrapReport(context.run, `review of ${context.stage} revision ${context.revision}`, review, { reviewer: reviewer.name, job: job.id }));
+    const verdict = parseReviewVerdict(review);
+    return { id, verdict, said: describeVerdict(verdict, reviewer.name) };
   } catch (error) {
     context.log(`The second-opinion review did not finish: ${error instanceof Error ? error.message : "unknown error"}. You can still review this revision yourself.`, "warning");
     return undefined;
@@ -471,9 +497,10 @@ export const buildStage: StageHandler = async (context) => {
   // Again here, so a change to the kit after the concepts were approved reaches the build.
   await seedBrandKit(context, deps, repo);
   const patterns = await libraryContextFor(BUILD_KINDS);
+  const findings = await lastReviewFindings(context, deps, repo);
   const { job, worker } = await work(context, deps, run.workerPlan.build, () => ({
     project: run.workspaceSlug ?? "",
-    objective: withPatterns(buildBrief(run, run.heroChoice ?? "", context.changeRequest), patterns),
+    objective: withPatterns(buildBrief(run, run.heroChoice ?? "", context.changeRequest, findings), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: NEXT_VALIDATION,
@@ -486,15 +513,42 @@ export const buildStage: StageHandler = async (context) => {
   const strayed = strayedPages(context.run, context.revision, shots, context.changeRequest);
   if (strayed.length > 0) context.log(`Pages without notes also changed in this revision: ${strayed.join(", ")}.`, "warning");
   return {
-    summary: `${worker.name} built the site on ${run.heroChoice}; it builds and lints. ${shots.length > 0 ? `${shots.length / 2} page${shots.length === 2 ? "" : "s"} photographed.` : "No screenshots."}${strayed.length > 0 ? ` Also changed, without notes: ${strayed.join(", ")}.` : ""}${review ? " A second opinion is attached." : ""}`,
-    artifactIds: [...shots, ...(review ? [review] : [])],
+    summary: `${worker.name} built the site on ${run.heroChoice}; it builds and lints. ${shots.length > 0 ? `${shots.length / 2} page${shots.length === 2 ? "" : "s"} photographed.` : "No screenshots."}${strayed.length > 0 ? ` Also changed, without notes: ${strayed.join(", ")}.` : ""}${review ? ` ${review.said}` : ""}`,
+    artifactIds: [...shots, ...(review ? [review.id] : [])],
     ref: commit,
     worker: worker.name,
     jobId: job.id,
+    review: review?.verdict,
   };
 };
 
 // ------------------------------------------------------------------ stage 6
+
+/**
+ * What the functions revision really is: each feature as the worker's own
+ * table rates it, then the checks AgentOS ran, then the reviewer. A passing
+ * build says nothing about a feature that could not be tested.
+ */
+export function functionsSummary(
+  worker: string,
+  requested: number,
+  tally: { pass: number; fail: number; blocked: number },
+  checks: readonly { command: string; success: boolean }[],
+  reviewSaid?: string,
+): string {
+  const rated = tally.pass + tally.fail + tally.blocked;
+  const features =
+    rated === 0
+      ? `${worker} worked on ${requested} feature${requested === 1 ? "" : "s"}, but its report rates none of them.`
+      : `${worker} worked on ${requested} feature${requested === 1 ? "" : "s"}: ${[
+          tally.pass > 0 ? `${tally.pass} pass` : "",
+          tally.fail > 0 ? `${tally.fail} fail` : "",
+          tally.blocked > 0 ? `${tally.blocked} blocked` : "",
+        ].filter(Boolean).join(", ")}.`;
+  const failed = checks.filter((check) => !check.success).map((check) => `\`${check.command}\``);
+  const ran = checks.length === 0 ? "AgentOS recorded no checks." : failed.length > 0 ? `Failed checks: ${failed.join(", ")}.` : `All ${checks.length} checks AgentOS ran passed.`;
+  return [features, ran, reviewSaid ?? "", "Read the test report before approving."].filter(Boolean).join(" ");
+}
 
 export const functionsStage: StageHandler = async (context) => {
   const deps = stageDeps.current;
@@ -506,9 +560,10 @@ export const functionsStage: StageHandler = async (context) => {
 
   const repo = await repoFor(context, deps);
   const patterns = await libraryContextFor(FUNCTION_KINDS);
+  const findings = await lastReviewFindings(context, deps, repo);
   const { job, worker } = await work(context, deps, run.workerPlan.functions, () => ({
     project: run.workspaceSlug ?? "",
-    objective: withPatterns(functionsBrief(run, context.changeRequest), patterns),
+    objective: withPatterns(functionsBrief(run, context.changeRequest, findings), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: [...NEXT_VALIDATION, "npm test", `test -s ${functionalityFile(run)}`],
@@ -533,11 +588,12 @@ export const functionsStage: StageHandler = async (context) => {
   const reportId = await context.writeReport(FUNCTIONALITY_REPORT, "Functionality test report", wrapReport(run, "functionality test report", report, { worker: worker.name, job: job.id, commit }));
   const review = await secondOpinion(context, deps, repo);
   return {
-    summary: `${worker.name} added ${run.requiredFunctions.length} feature${run.requiredFunctions.length === 1 ? "" : "s"}; build, lint and tests pass. Read the test report before approving.`,
-    artifactIds: [reportId, ...shots, ...(review ? [review] : [])],
+    summary: functionsSummary(worker.name, run.requiredFunctions.length, tallyFeatures(workerReport), job.result?.tests ?? [], review?.said),
+    artifactIds: [reportId, ...shots, ...(review ? [review.id] : [])],
     ref: commit,
     worker: worker.name,
     jobId: job.id,
+    review: review?.verdict,
   };
 };
 
