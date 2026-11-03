@@ -29,6 +29,7 @@ import {
   type RebuildStageId,
   type RebuildStageStatus,
   type RebuildWorkerPlan,
+  type ReviewVerdict,
 } from "../../shared/website-rebuild-types";
 import { uiStateDir } from "../agentos/session-store";
 import { WorkerIdSchema } from "../../shared/worker-ids";
@@ -189,6 +190,9 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE decisions ADD COLUMN page_notes TEXT;
   ALTER TABLE artifacts ADD COLUMN digest TEXT;
   `,
+  `
+  ALTER TABLE revisions ADD COLUMN review TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -315,8 +319,8 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
         )
       : [],
     revisions: withDetail
-      ? (db.prepare("SELECT * FROM revisions WHERE run_id = ? ORDER BY created_at").all(row.id) as unknown as { stage: RebuildStageId; revision: number; summary: string; artifact_ids: string; ref: string | null; worker: string | null; job_id: string | null; created_at: string }[]).map(
-          (revision): RebuildRevision => ({ stage: revision.stage, revision: revision.revision, summary: revision.summary, artifactIds: parseJson<string[]>(revision.artifact_ids, []), ref: revision.ref ?? undefined, worker: revision.worker ?? undefined, jobId: revision.job_id ?? undefined, createdAt: revision.created_at }),
+      ? (db.prepare("SELECT * FROM revisions WHERE run_id = ? ORDER BY created_at").all(row.id) as unknown as { stage: RebuildStageId; revision: number; summary: string; artifact_ids: string; ref: string | null; worker: string | null; job_id: string | null; review: string | null; created_at: string }[]).map(
+          (revision): RebuildRevision => ({ stage: revision.stage, revision: revision.revision, summary: revision.summary, artifactIds: parseJson<string[]>(revision.artifact_ids, []), ref: revision.ref ?? undefined, worker: revision.worker ?? undefined, jobId: revision.job_id ?? undefined, review: revision.review ? parseJson<ReviewVerdict | undefined>(revision.review, undefined) : undefined, createdAt: revision.created_at }),
         )
       : [],
     decisions: withDetail
@@ -610,7 +614,7 @@ export function completeStage(
   owner: string,
   summary: string,
   artifactIds: readonly string[],
-  meta: { ref?: string; worker?: string; jobId?: string } = {},
+  meta: { ref?: string; worker?: string; jobId?: string; review?: ReviewVerdict } = {},
 ): number {
   requireLease(runId, stage, owner);
   const db = rebuildDatabase();
@@ -619,8 +623,8 @@ export function completeStage(
   try {
     const { revision } = db.prepare("SELECT revision FROM stages WHERE run_id = ? AND stage = ?").get(runId, stage) as { revision: number };
     const next = revision + 1;
-    db.prepare("INSERT INTO revisions (run_id, stage, revision, summary, artifact_ids, created_at, ref, worker, job_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-      runId, stage, next, summary.slice(0, 2000), JSON.stringify(artifactIds), iso(), meta.ref ?? null, meta.worker ?? null, meta.jobId ?? null,
+    db.prepare("INSERT INTO revisions (run_id, stage, revision, summary, artifact_ids, created_at, ref, worker, job_id, review) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      runId, stage, next, summary.slice(0, 2000), JSON.stringify(artifactIds), iso(), meta.ref ?? null, meta.worker ?? null, meta.jobId ?? null, meta.review ? JSON.stringify(meta.review) : null,
     );
     db.prepare(
       `UPDATE stages SET status = ?, revision = ?, approved_revision = CASE WHEN ? THEN approved_revision ELSE ? END,
@@ -680,7 +684,7 @@ export function resetForRetry(runId: string, stage: RebuildStageId, worker?: str
  * revision is the latest and is waiting for review, so an approval can never
  * land on a deliverable nobody looked at.
  */
-export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string, choice?: string, conceptNotes?: Record<string, string | undefined>, pageNotes?: PageNotesByRoute): void {
+export function decide(runId: string, stage: RebuildStageId, revision: number, decision: "approved" | "changes_requested", note?: string, choice?: string, conceptNotes?: Record<string, string | undefined>, pageNotes?: PageNotesByRoute, overrideReview = false): void {
   if (!GATED_STAGES.has(stage)) throw new RebuildError(`${stage} has no approval checkpoint.`, 422);
   const perConcept = Object.fromEntries(Object.entries(conceptNotes ?? {}).flatMap(([concept, text]) => (text?.trim() ? [[concept, text.trim()]] : [])));
   if (Object.keys(perConcept).length > 0 && stage !== "hero") throw new RebuildError("Only the hero concepts take per-concept notes.", 422);
@@ -700,6 +704,14 @@ export function decide(runId: string, stage: RebuildStageId, revision: number, d
       const desktop = shots.filter((shot) => shot.title.endsWith("(desktop)")).length;
       const mobile = shots.filter((shot) => shot.title.endsWith("(mobile)")).length;
       if (desktop === 0 || desktop !== mobile) throw new RebuildError("The baseline has no complete snapshots of every page yet. Retry to photograph it again.");
+    }
+    // A reviewer's blockers are a stop sign: approving past them is said out loud, never a slip.
+    if (decision === "approved" && !overrideReview) {
+      const reviewed = db.prepare("SELECT review FROM revisions WHERE run_id = ? AND stage = ? AND revision = ?").get(runId, stage, revision) as { review: string | null } | undefined;
+      const verdict = reviewed?.review ? parseJson<ReviewVerdict | undefined>(reviewed.review, undefined) : undefined;
+      if (verdict && verdict.blockers > 0) {
+        throw new RebuildError(`The reviewer found ${verdict.blockers} blocker${verdict.blockers === 1 ? "" : "s"} in revision ${revision}. Request changes, or approve anyway.`, 409);
+      }
     }
     // The build follows one concept, so approving the concepts means choosing one of them.
     if (stage === "hero" && decision === "approved" && !(HERO_CONCEPTS as readonly string[]).includes(choice ?? "")) {

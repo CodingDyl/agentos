@@ -31,6 +31,19 @@ function changeNote(note: string | undefined): string[] {
     : [];
 }
 
+/** The last review's Blocker and Major findings. The person's note says what they want; this says what is still wrong. */
+function reviewFindings(findings: string | undefined): string[] {
+  return findings
+    ? [
+        "",
+        "A reviewer read the previous revision and found these problems. Fix every one. If one cannot be fixed in code (it needs the client, a credential or a decision), leave it, and say so in your report with the reason:",
+        "<<<REVIEW",
+        findings,
+        "REVIEW>>>",
+      ]
+    : [];
+}
+
 function client(run: RebuildRun): string[] {
   return [
     `Client: ${run.company}`,
@@ -152,7 +165,7 @@ export function heroBrief(run: RebuildRun, note?: string): string {
   ].join("\n");
 }
 
-export function buildBrief(run: RebuildRun, concept: string, note?: string): string {
+export function buildBrief(run: RebuildRun, concept: string, note?: string, findings?: string): string {
   return [
     `Build ${run.company}'s new website as a Next.js app, using the approved design ${concept}.`,
     "",
@@ -171,6 +184,7 @@ export function buildBrief(run: RebuildRun, concept: string, note?: string): str
     "- Write sitemap.json at the repository root: a JSON array of the routes, e.g. [\"/\", \"/services\", \"/contact\"].",
     ...buildBrand(run),
     ...changeNote(note),
+    ...reviewFindings(findings),
     "",
     ...COMMON,
   ].join("\n");
@@ -185,11 +199,18 @@ function buildBrand(run: RebuildRun): string[] {
   ];
 }
 
-export function functionsBrief(run: RebuildRun, note?: string): string {
+export function functionsBrief(run: RebuildRun, note?: string, findings?: string): string {
   const needed = run.requiredFunctions.map((value) => `- ${REBUILD_FUNCTION_LABEL[value]}`);
   const featureInstructions: Record<RebuildFunction, string> = {
-    contact_form: "- Contact form: a Server Action or route handler with schema validation (zod), a honeypot field, clear success and error states, and sending through a provider configured by environment variables (document them in .env.example). Without the variables it must fail visibly, never pretend to send.",
-    blog: "- Blog: Markdown or MDX posts in content/blog, an index page and a post page with metadata. Any example post is marked draft and not listed in production.",
+    contact_form: [
+      "- Contact form: a Server Action or route handler with schema validation (zod), a honeypot field, clear success and error states, and sending through a provider configured by environment variables (document them in .env.example). Without the variables it must fail visibly, never pretend to send.",
+      "  - It works without JavaScript: the <form> has method=\"post\" and an action that accepts native form data, then shows the result. Enquiry fields must never reach a URL (no GET submission, not even before hydration). Test this.",
+      "  - Limit repeated submissions before the provider is called (per sender and in total), with a clear message to the visitor. Say in the report that hosting-level limits are still needed for a public launch.",
+    ].join("\n"),
+    blog: [
+      "- Blog: Markdown or MDX posts in content/blog, an index page and a post page with metadata. Any example post is marked draft and not listed in production.",
+      "  - Keep the current site's article URLs working: look in docs/current-site/ for its article or news pages, and add a permanent redirect from each old path (for example /articles/...) to its new one. Do not invent posts; an article the transcript does not contain is a TODO for the client.",
+    ].join("\n"),
     booking: "- Bookings: link to or embed an external scheduler whose URL comes from an environment variable. Do not build a booking engine.",
     newsletter: "- Newsletter sign-up: a form posting to a provider configured by environment variables, with consent wording.",
     ecommerce: "- Online shop: do not build. Write in the report that it needs a platform decision (for example Shopify or Snipcart) and mark it Blocked.",
@@ -207,8 +228,10 @@ export function functionsBrief(run: RebuildRun, note?: string): string {
     ...selectedInstructions,
     "- Add an `npm test` script (Vitest is fine) with tests for each feature's server-side logic: validation, honeypot, missing configuration and success paths.",
     `- Write ${functionalityFile(run)}: a table with one row per feature (Feature, Status: Pass, Fail or Blocked, Journey tested, Evidence), then the steps to configure each provider. Be honest: anything you could not test is Blocked, with the reason.`,
-    "- Update sitemap.json if you add routes.",
+    "- Update sitemap.json if you add routes, and serve the routes to crawlers too (app/sitemap.ts and app/robots.ts).",
+    "- Never write placeholder text (\"TBC\", \"[office hours]\") on a public page, and never promise what the captured site does not: leave an unconfirmed detail out and list it as a client TODO in the report.",
     ...changeNote(note),
+    ...reviewFindings(findings),
     "",
     ...COMMON,
   ].join("\n");
@@ -218,7 +241,7 @@ export function reviewBrief(run: RebuildRun, stage: string, revision: number, ta
   return [
     `Review the ${stage} work for ${run.company}'s website rebuild (git tag ${tag}). Do not change any application code.`,
     "",
-    `Write your review to ${reviewFile(stage, revision)}: a short verdict (ready for the client, or not yet), then findings ordered by severity (Blocker, Major, Minor), each with the file and what to change. Check: invented facts in the copy, accessibility (landmarks, headings, contrast, focus, alt text), responsive layout, metadata, security of any form handling, and anything that would embarrass us in front of the client.`,
+    `Write your review to ${reviewFile(stage, revision)}. Its first line is exactly \`Verdict: Ready\` or \`Verdict: Not ready\`, then one sentence why. Then the sections \`## Blocker\`, \`## Major\` and \`## Minor\`, each a numbered list of findings (or \`- None\`), each with the file and what to change. A Blocker is anything that must not reach the client: a security or privacy hole, a broken journey, an invented fact. Check: invented facts in the copy, accessibility (landmarks, headings, contrast, focus, alt text), responsive layout, metadata, security of any form handling, and anything that would embarrass us in front of the client.`,
     "Create only that file.",
     "",
     ...COMMON,
