@@ -1,6 +1,6 @@
 # Delivery harness around the website rebuild
 
-Status: approved by the owner on 2026-11-03 (MVP shape). Phase 1 built.
+Status: approved by the owner on 2026-11-03 (MVP shape). Phases 1 and 2 built.
 
 ## Why
 
@@ -48,9 +48,14 @@ the whole delivery, start from scratch or resume, and optionally add motion.
    The functions summary reports each feature's real Pass/Fail/Blocked.
    Recipes now require no-JavaScript POST forms, submission limits, redirects
    for old article URLs, served sitemap/robots and no public placeholders.
-2. **Top-level Delivery page (`/delivery`).** Pick a workspace; "Start" or
-   "Resume at <stage>" over the existing run. A queue of decisions waiting
-   across all workspaces. A surface over the rebuild, not a second pipeline.
+2. **Top-level Delivery page (built).** `/delivery` lists every workspace
+   with its rebuild's state and a "Needs you" queue (reviews and stopped
+   stages across all runs, with reviewer blockers). `/delivery/:slug` shows
+   the workspace's run live (`RebuildView`) or a brief to start one.
+   `POST /api/delivery/start` resumes an existing run; a new one carries
+   `prospectId: workspace:<slug>` and is linked to the workspace before its
+   first stage, so a workspace never gets a second run. The brief form is
+   shared with the Traction launcher (`brief-fields.tsx`).
 3. **Feature intake and journey tests.** A step before functions that collects
    provider settings (stored server-side, pushed to the Vercel preview env),
    articles and legacy URLs; AgentOS runs browser journeys (submit, JS off,

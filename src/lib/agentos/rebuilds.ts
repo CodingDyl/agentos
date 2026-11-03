@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { currentStage, RebuildRunSchema, StageWorkerOptionsSchema, type BrandKitEdit, type PageNote, type PageNotesByRoute, type RebuildRun, type RebuildStageId, type RebuildStartInput } from "@shared/website-rebuild-types";
+import { DeliveryOverviewSchema, type DeliveryStartInput } from "@shared/delivery-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -89,10 +90,27 @@ function useRunMutation<TInput>(request: (input: TInput) => Promise<RebuildRun>)
       client.setQueryData(prospectKey(run.prospectId), run);
       if (run.workspaceSlug) client.setQueryData(["rebuild", "workspace", run.workspaceSlug], run);
       void client.invalidateQueries({ queryKey: agentosKeys.missionControl() });
+      // Any decision or start changes what Delivery shows waiting.
+      void client.invalidateQueries({ queryKey: ["delivery"] });
     },
     networkMode: "always",
     retry: 0,
   });
+}
+
+/** Delivery: every workspace beside its rebuild, and what waits on you. Polls gently while work is running. */
+export function useDeliveryOverview() {
+  return useQuery({
+    queryKey: ["delivery"] as const,
+    queryFn: () => call("/api/delivery", DeliveryOverviewSchema),
+    refetchInterval: (query) => (query.state.data?.workspaces.some((row) => row.state === "running") ? 5_000 : 30_000),
+    networkMode: "always",
+  });
+}
+
+/** Starts a workspace's delivery, or resumes the rebuild it already has. */
+export function useStartDelivery() {
+  return useRunMutation((input: DeliveryStartInput) => call("/api/delivery/start", RebuildRunSchema, input));
 }
 
 export function useStartRebuild() {

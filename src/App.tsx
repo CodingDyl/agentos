@@ -15,6 +15,7 @@ import { OperatorChatPage, OperatorPage } from "@/features/operator";
 import { ChatPanel, ChatPanelProvider } from "@/features/chat-panel";
 import { TractionPage } from "@/features/traction";
 import { RebuildPage } from "@/features/rebuild";
+import { DeliveryPage, DeliveryWorkspacePage } from "@/features/delivery";
 import { CompassPage } from "@/features/compass";
 import { PersonasPage, StartupsPage, VenturePage } from "@/features/startups";
 import { FinancePage } from "@/features/finance";
@@ -82,6 +83,8 @@ function App() {
           {/* Getting customers, beside the work — not under it. */}
           <Route path="/traction" element={<TractionPage />} />
           <Route path="/rebuilds/:id" element={<RebuildPage />} />
+          <Route path="/delivery" element={<DeliveryPage />} />
+          <Route path="/delivery/:slug" element={<DeliveryWorkspacePage />} />
           <Route path="/business" element={<BusinessPage />} />
           <Route path="/growth" element={<Redirect to="/traction" />} />
           {/* Money: read-only from Investec, the arithmetic done here. */}
