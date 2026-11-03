@@ -19,6 +19,7 @@ import { findOnPath } from "../ai-stack/detect";
 import { git, isRepository } from "../agentos/git";
 import { readJob, startJob } from "../workers/job-manager";
 import { addEntry, normaliseKind, slugify, teardownRoot, TEARDOWN_DIR, listLibrary } from "./library";
+import { gitAuthorArgs } from "../agentos/git-author";
 
 /**
  * Reengineer runs: Claude Code with the REA skill, against one target.
@@ -43,8 +44,6 @@ export const isRunId = (id: string) => idPattern.test(id);
 
 const runsDir = () => path.join(uiStateDir(), "reengineer-runs");
 const studioDir = () => path.join(uiStateDir(), "reengineer-studio");
-const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"];
-
 /** What the REA skill is allowed to do in a worker run. */
 export const REENGINEER_TOOLS = [
   "Write",
@@ -142,7 +141,7 @@ async function ensureStudio(): Promise<string> {
     if (!(await isRepository(dir))) await git(dir, ["init", "-b", "main"]).catch(() => git(dir, ["init"]));
     await fs.writeFile(path.join(dir, "README.md"), "# Reengineer studio\n\nWorking folder for teardown runs. Output is filed in the vault by AgentOS.\n", { flag: "wx" }).catch(() => undefined);
     await git(dir, ["add", "-A"]);
-    await git(dir, [...AUTHOR, "commit", "--no-verify", "-m", "Start the reengineer studio"]);
+    await git(dir, [...gitAuthorArgs(), "commit", "--no-verify", "-m", "Start the reengineer studio"]);
   }
   return dir;
 }

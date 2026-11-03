@@ -11,6 +11,7 @@ import { ShipError } from "./error";
 import { assertPushAllowed, pushDeploysProduction } from "./production-gate";
 import { guardProjectFolder, requireKnownProject, requireShipRoot, resolveInside, resolveShipRoot } from "./root";
 import { rememberGithub } from "./store";
+import { gitAuthorArgs } from "../agentos/git-author";
 
 /**
  * Git for Ship: status, init, link, create-and-push, pull and push.
@@ -22,7 +23,6 @@ import { rememberGithub } from "./store";
  */
 
 const run = promisify(execFile);
-const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"] as const;
 const DEFAULT_GITIGNORE = ["node_modules/", ".next/", "out/", "dist/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", "._*", ".DS_Store", ""].join("\n");
 /** Never part of a first commit, whatever the project's own .gitignore says. */
 const SECRET_FILE = /(^|\/)\.env(\.(?!example$)[^/]*)?$/;
@@ -123,7 +123,7 @@ async function commitEverything(folder: string, message: string): Promise<void> 
   const staged = (await git(folder, ["diff", "--cached", "--name-only", "-z"])).stdout.split("\0").filter(Boolean);
   const secrets = staged.filter((file) => SECRET_FILE.test(file));
   if (secrets.length > 0) await git(folder, ["rm", "--cached", "--quiet", "--", ...secrets]);
-  if (staged.length > secrets.length) await git(folder, [...AUTHOR, "commit", "--no-verify", "-m", message]);
+  if (staged.length > secrets.length) await git(folder, [...gitAuthorArgs(), "commit", "--no-verify", "-m", message]);
 }
 
 /** Records the folder as the workspace's Local repository, so the Dev tab, workers and Ship agree on it. */
