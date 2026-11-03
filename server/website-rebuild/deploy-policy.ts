@@ -20,6 +20,8 @@ export interface CommitDeployment {
   target?: string | null;
   state: string;
   errorMessage?: string;
+  /** Vercel's reason for a BLOCKED deployment, e.g. COMMIT_AUTHOR_REQUIRED. */
+  blockCode?: string;
 }
 
 export type PreviewDeployStep = "wait" | "use-existing" | "request-preview" | "blocked";
@@ -34,7 +36,7 @@ export function commitShaMatches(deploymentSha: string | undefined, commit: stri
 
 function deployRank(state: string): number {
   if (state === "READY") return 0;
-  if (state === "ERROR" || state === "CANCELED") return 2;
+  if (state === "ERROR" || state === "CANCELED" || state === "BLOCKED") return 2;
   return 1;
 }
 
@@ -99,7 +101,16 @@ export function previewDeploymentBody(
   };
 }
 
-export function vercelBuildFailureMessage(deployment: { state: string; errorMessage?: string }): string {
+/** Vercel would not start the build at all, so there is no build log to read. */
+export function vercelBlockedMessage(blockCode?: string): string {
+  if (blockCode === "COMMIT_AUTHOR_REQUIRED") {
+    return "Vercel blocked this deploy: the commit's Git author is not a member of your Vercel team. AgentOS now commits as your git identity (AGENTOS_GIT_AUTHOR_EMAIL, or git config user.email), so new commits deploy. For this one, use Deploy now (force): it deploys as you.";
+  }
+  return `Vercel blocked this deploy${blockCode ? ` (${blockCode})` : ""} before it built. Open it in Vercel to see why, then use Deploy now (force) or retry.`;
+}
+
+export function vercelBuildFailureMessage(deployment: { state: string; errorMessage?: string; blockCode?: string }): string {
+  if (deployment.state === "BLOCKED") return vercelBlockedMessage(deployment.blockCode);
   const detail = (deployment.errorMessage ?? "").trim();
   if (isRateLimitText(detail)) return githubRateLimitMessage();
   const failed = deployment.state === "ERROR" ? "failed" : "was cancelled";

@@ -3,8 +3,8 @@ import path from "node:path";
 import { git, isRepository } from "../agentos/git";
 import { assertClientDrivePresent, resolveClientRepoPath } from "../website-rebuild/client-repo";
 import { motionSiteTemplate } from "./site-template";
+import { gitAuthorArgs } from "../agentos/git-author";
 
-const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"];
 const GITIGNORE = ["node_modules/", ".next/", "out/", ".vercel/", ".env", ".env.*", "!.env.example", "*.log", "._*", ".DS_Store", ""].join("\n");
 
 /** Default location for a new motion site: the shared client-projects root. */
@@ -39,7 +39,7 @@ export async function ensureMotionSiteRepo(slug: string, name: string, recorded?
     }
   }
   await git(repo, ["add", "-A"]);
-  await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", "Start the motion site"]);
+  await git(repo, [...gitAuthorArgs(), "commit", "--no-verify", "-m", "Start the motion site"]);
   return repo;
 }
 
@@ -53,7 +53,7 @@ export async function commitSiteFiles(repo: string, files: Record<string, string
   await git(repo, ["add", "-A"]);
   const staged = await git(repo, ["diff", "--cached", "--name-only"]);
   if (!staged.stdout.trim()) return;
-  await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", message]);
+  await git(repo, [...gitAuthorArgs(), "commit", "--no-verify", "-m", message]);
 }
 
 export async function writeApprovalFile(repo: string, approval: { conceptId: string; ceiling: number; plannedCredits: number; approvedAt: string }): Promise<void> {

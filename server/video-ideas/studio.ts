@@ -6,6 +6,7 @@ import { agentOSRoot } from "../agentos/filesystem";
 import { git, isRepository } from "../agentos/git";
 import { uiStateDir } from "../agentos/session-store";
 import { readJob, saveJob } from "../workers/job-store";
+import { gitAuthorArgs } from "../agentos/git-author";
 
 /**
  * The video-ideas studio: the folder assessment and plan workers write in.
@@ -17,8 +18,6 @@ import { readJob, saveJob } from "../workers/job-store";
 
 /** This checkout: the code an assessment reads and build tasks change. */
 export const AGENTOS_REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-
-const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"];
 
 /** What an assessment or plan worker may do, on top of the worker default. */
 export const READ_TOOLS = ["Read", "Grep", "Glob", "Write", "Bash(ls:*)", "Bash(mkdir:*)"];
@@ -34,7 +33,7 @@ export async function ensureVideoStudio(): Promise<string> {
     if (!(await isRepository(dir))) await git(dir, ["init", "-b", "main"]).catch(() => git(dir, ["init"]));
     await fs.writeFile(path.join(dir, "README.md"), "# Video ideas studio\n\nWorking folder for assessment and plan runs. Output is filed in the vault by AgentOS.\n", { flag: "wx" }).catch(() => undefined);
     await git(dir, ["add", "-A"]);
-    await git(dir, [...AUTHOR, "commit", "--no-verify", "-m", "Start the video ideas studio"]);
+    await git(dir, [...gitAuthorArgs(), "commit", "--no-verify", "-m", "Start the video ideas studio"]);
   }
   return dir;
 }

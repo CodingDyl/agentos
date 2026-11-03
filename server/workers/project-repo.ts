@@ -8,6 +8,7 @@ import {
   samePath,
   isRepository,
 } from "../agentos/git";
+import { gitAuthorArgs } from "../agentos/git-author";
 
 /**
  * A project's own git identity, as opposed to the vault it happens to sit in.
@@ -83,10 +84,7 @@ async function initialCommit(projectPath: string): Promise<void> {
   const status = (await git(projectPath, ["status", "--porcelain"])).stdout.trim();
   if (!status) {
     await git(projectPath, [
-      "-c",
-      "user.name=AgentOS",
-      "-c",
-      "user.email=agentos@localhost",
+      ...gitAuthorArgs(),
       "commit",
       "--allow-empty",
       "--no-verify",
@@ -97,10 +95,7 @@ async function initialCommit(projectPath: string): Promise<void> {
   }
 
   await git(projectPath, [
-    "-c",
-    "user.name=AgentOS",
-    "-c",
-    "user.email=agentos@localhost",
+    ...gitAuthorArgs(),
     "commit",
     "--no-verify",
     "-m",

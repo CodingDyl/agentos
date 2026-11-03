@@ -29,6 +29,7 @@ import {
   projectDirIn,
   removeWorktree,
 } from "./worktree";
+import { gitAuthorArgs } from "../agentos/git-author";
 
 /**
  * Review, approval, and integration.
@@ -250,7 +251,7 @@ async function mergeBranchHead(
   await commitWorktree(worktree, `AgentOS: work from ${job.id}, before bringing it up to date`);
 
   try {
-    await git(worktree, ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost", "merge", "--no-edit", head]);
+    await git(worktree, [...gitAuthorArgs(), "merge", "--no-edit", head]);
     return { status: "merged", head };
   } catch (error) {
     const { stdout } = await git(worktree, ["diff", "--name-only", "--diff-filter=U"]).catch(() => ({ stdout: "" }));

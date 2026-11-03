@@ -13,6 +13,7 @@ import {
   uncommittedFiles,
 } from "../agentos/git";
 import { uiStateDir } from "../agentos/session-store";
+import { gitAuthorArgs } from "../agentos/git-author";
 
 // Re-exported because these are repository questions rather than worktree
 // ones, and they now live in the git layer. Callers that already ask this
@@ -133,10 +134,7 @@ export async function commitWorktree(
   }
 
   await git(worktreePath, [
-      "-c",
-      "user.name=AgentOS",
-      "-c",
-      "user.email=agentos@localhost",
+      ...gitAuthorArgs(),
       "commit",
       "--no-verify",
       "-m",
@@ -187,10 +185,7 @@ export async function snapshotWorktree(
   if (staged.length === oversize.length) return (await headCommit(worktreePath)) ?? undefined;
 
   await git(worktreePath, [
-    "-c",
-    "user.name=AgentOS",
-    "-c",
-    "user.email=agentos@localhost",
+    ...gitAuthorArgs(),
     "commit",
     "--no-verify",
     "-m",

@@ -659,7 +659,7 @@ async function waitForReadyDeployment(
 ): Promise<VercelDeploymentState> {
   const deps = stageDeps.current;
   setRunField(context.run.id, "deployment_id", deployment.id);
-  for (let poll = 0; !["READY", "ERROR", "CANCELED"].includes(deployment.state); poll += 1) {
+  for (let poll = 0; !["READY", "ERROR", "CANCELED", "BLOCKED"].includes(deployment.state); poll += 1) {
     if (poll * DEPLOY_POLL_MS > deps.deployTimeoutMs) throw new StageBlocked(`Vercel has not finished building ${deployment.url} after ${Math.round(deps.deployTimeoutMs / 60000)} minutes. Check it in Vercel, then retry.`);
     context.activity(`Vercel is building the preview (${deployment.state.toLowerCase()})`);
     await deps.sleep(DEPLOY_POLL_MS);

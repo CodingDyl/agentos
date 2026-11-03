@@ -52,7 +52,9 @@ interface FakeApi {
   pushDeploysAs?: "preview" | "production";
   /** What a forceNew API deploy is labelled. Defaults to a preview. */
   forceDeploysAs?: "preview" | "production";
-  deployments: { uid: string; url: string; readyState: string; target: string | null; projectId?: string; meta: { githubCommitSha: string }; errorMessage?: string }[];
+  /** Vercel refuses to build the git-push deploy, with this block code (e.g. an unknown commit author). */
+  pushBlockedWith?: string;
+  deployments: { uid: string; url: string; readyState: string; target: string | null; projectId?: string; meta: { githubCommitSha: string }; errorMessage?: string; seatBlock?: { blockCode: string } }[];
 }
 
 function fakeFetch(api: FakeApi): typeof fetch {
@@ -95,7 +97,7 @@ function fakeFetch(api: FakeApi): typeof fetch {
     if (url.includes("/v13/deployments/")) {
       const idOrUrl = decodeURIComponent(url.split("/v13/deployments/")[1].split("?")[0]);
       const deployment = api.deployments.find((entry) => entry.uid === idOrUrl || entry.url === idOrUrl || entry.url.replace(/^https:\/\//, "") === idOrUrl);
-      if (deployment && deployment.readyState !== "ERROR" && deployment.readyState !== "CANCELED" && deployment.readyState !== "READY") {
+      if (deployment && deployment.readyState !== "ERROR" && deployment.readyState !== "CANCELED" && deployment.readyState !== "READY" && deployment.readyState !== "BLOCKED") {
         deployment.readyState = "READY";
       }
       return deployment ? json(200, { ...deployment, projectId: deployment.projectId ?? "prj_1", name: "total-electric" }) : json(404, {});
@@ -119,11 +121,12 @@ function publishDeps(api: FakeApi, pushes: { args: readonly string[]; env: Recor
           api.deployments.push({
             uid: `dpl_${sha.slice(0, 7)}`,
             url: "total-electric-git-preview-dylan.vercel.app",
-            readyState: asProduction ? "ERROR" : "QUEUED",
+            readyState: api.pushBlockedWith ? "BLOCKED" : asProduction ? "ERROR" : "QUEUED",
             target: asProduction ? "production" : null,
             projectId: "prj_1",
             meta: { githubCommitSha: sha },
-            errorMessage: asProduction ? "You have exceeded a secondary rate limit" : undefined,
+            errorMessage: asProduction && !api.pushBlockedWith ? "You have exceeded a secondary rate limit" : undefined,
+            ...(api.pushBlockedWith ? { seatBlock: { blockCode: api.pushBlockedWith } } : {}),
           });
         }
       }
@@ -523,6 +526,21 @@ describe("stage 7: Vercel preview", () => {
     assert.equal(created.length, 1);
     assert.match(created[0]?.url ?? "", /forceNew=1/);
     assert.equal(pushes.length, pushCount, "force deploy does not git-push");
+  });
+
+  it("stops at once when Vercel blocks the commit author, and Deploy now (force) deploys it as the token owner", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushBlockedWith: "COMMIT_AUTHOR_REQUIRED" };
+    const { run, handlers } = await runToPreview(api, []);
+    const preview = run.stages.find((stage) => stage.id === "preview");
+    assert.equal(preview?.status, "blocked", "BLOCKED is final, not a build still running");
+    assert.match(preview?.blocker ?? "", /not a member of your Vercel team/);
+    assert.match(preview?.blocker ?? "", /Deploy now \(force\)/);
+
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.forcePreviewStage }, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(after.deploymentId, "dpl_force");
   });
 
   it("Mark as deployed verifies a READY deployment of this project and completes the stage", async () => {
