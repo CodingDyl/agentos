@@ -1,2 +1,2 @@
-export { MotionDesignWizard } from "./wizard";
+export { MotionDesignWizard, type MotionWizardTarget } from "./wizard";
 export { WorkspaceMotionTab } from "./workspace-tab";

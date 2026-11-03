@@ -1,7 +1,8 @@
 import { useId, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, ArrowRight } from "lucide-react";
-import { REBUILD_STAGES, type RebuildFunction, type RebuildStageId } from "@shared/website-rebuild-types";
+import { AlertTriangle, ArrowRight, Film } from "lucide-react";
+import { MOTION_WIZARD_STEP_LABEL } from "@shared/motion-design-types";
+import { REBUILD_STAGES, currentStage, type RebuildFunction, type RebuildRun, type RebuildStageId } from "@shared/website-rebuild-types";
 import type { DeliveryDecision, DeliveryState, DeliveryWorkspace } from "@shared/delivery-types";
 import { AppShell } from "@/components/os";
 import { PaperBackLink, PaperButton, PaperEmpty, PaperError, PaperLoading, PaperPageHeader, PaperSection, PaperStage, Tag } from "@/components/paper";
@@ -11,6 +12,8 @@ import { useDeliveryOverview, useRebuildForWorkspace, useStartDelivery } from "@
 import { RebuildView } from "@/features/rebuild/rebuild-page";
 import { RebuildBriefFields } from "@/features/rebuild/brief-fields";
 import { readBrief } from "@/features/rebuild/brief-model";
+import { MotionDesignWizard } from "@/features/motion-design";
+import { useMotionForWorkspace } from "@/lib/agentos/motion-design";
 
 const stageTitle = (id: RebuildStageId | undefined) => REBUILD_STAGES.find((stage) => stage.id === id)?.title ?? "";
 
@@ -169,7 +172,10 @@ export function DeliveryWorkspacePage() {
         ) : rebuild.error ? (
           <PaperError title="The rebuild could not load" detail={rebuild.error.message} onRetry={() => void rebuild.refetch()} isRetrying={rebuild.isFetching} headingLevel="h2" />
         ) : rebuild.data ? (
-          <RebuildView run={rebuild.data} inWorkspace />
+          <>
+            {currentStage(rebuild.data.stages) ? null : <MotionPassCard run={rebuild.data} slug={slug} />}
+            <RebuildView run={rebuild.data} inWorkspace />
+          </>
         ) : overview.data && !workspace ? (
           <PaperEmpty title="No such workspace" description="It may have been renamed or archived. Pick another from Delivery." />
         ) : (
@@ -177,6 +183,47 @@ export function DeliveryWorkspacePage() {
         )}
       </div>
     </Shell>
+  );
+}
+
+/**
+ * The optional last step: motion added to the approved site by the existing
+ * Motion Design studio, with its own concepts and credit approval.
+ */
+function MotionPassCard({ run, slug }: { run: RebuildRun; slug: string }) {
+  const motion = useMotionForWorkspace(slug);
+  const [open, setOpen] = useState(false);
+  if (motion.isPending || motion.error) return null;
+  const existing = motion.data;
+
+  return (
+    <section aria-labelledby="motion-pass-title" className="flex flex-wrap items-center justify-between gap-4 border border-paper-mist bg-paper-white px-5 py-4">
+      <div className="min-w-0 max-w-[72ch]">
+        <h2 id="motion-pass-title" className="flex flex-wrap items-center gap-2 font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">
+          <Film className="size-4 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
+          Motion pass
+          {existing ? <Tag tone="blue">{MOTION_WIZARD_STEP_LABEL[existing.step]}</Tag> : <Tag>Optional</Tag>}
+        </h2>
+        <p className="mt-1 text-[13px] leading-5 text-paper-char">
+          {existing
+            ? "Motion Design is working on this site. Its concepts, credit approval and progress are in the workspace's Motion tab."
+            : "Make the approved site more interactive. Motion Design proposes two concepts with their Higgsfield cost and spends nothing until you approve one. Pages, copy and features stay as approved."}
+        </p>
+      </div>
+      {existing ? (
+        <Link to={`/workspaces/${encodeURIComponent(slug)}?tab=motion`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue hover:underline">
+          Open the motion pass <ArrowRight className="size-3.5" aria-hidden="true" />
+        </Link>
+      ) : (
+        <PaperButton onClick={() => setOpen(true)}>Add motion</PaperButton>
+      )}
+      {open ? (
+        <MotionDesignWizard
+          onClose={() => setOpen(false)}
+          target={{ slug, name: run.company, brief: { brandName: run.company, brandAudience: run.targetMarket, cta: run.conversionGoal } }}
+        />
+      ) : null}
+    </section>
   );
 }
 

@@ -1,6 +1,6 @@
 # Delivery harness around the website rebuild
 
-Status: approved by the owner on 2026-11-03 (MVP shape). Phases 1–3 built.
+Status: approved by the owner on 2026-11-03 (MVP shape). Phases 1–4 built.
 
 ## Why
 
@@ -68,8 +68,15 @@ the whole delivery, start from scratch or resume, and optionally add motion.
    delivery settings are present, the booking link goes to BOOKING_URL, old
    addresses redirect to a 200, `/sitemap.xml` and `/robots.txt` serve.
    Nothing is ever submitted; real delivery stays untested on purpose.
-4. **Optional motion pass.** After the baseline, run Motion Design on the
-   same client repo, keeping its credit approval.
+4. **Optional motion pass (built).** Once a workspace's rebuild is complete,
+   `/delivery/:slug` offers "Add motion": the existing Motion Design wizard,
+   prefilled from the rebuild, launched with `enhanceExisting` on the
+   workspace's own repo. The prompt adds "The existing site" rules (keep
+   pages, copy and features; reduced motion; no self-deploy; build and lint
+   pass), the build job validates `npm run build`, and the concepts and
+   Higgsfield credit approval are unchanged. One motion run per workspace;
+   refused before the rebuild is finished.
+   Not yet: publishing the motion branch to the Vercel preview.
 5. **Later.** Manual Claude Design attachments; role and decision rules from
    the owner's epic.
 
