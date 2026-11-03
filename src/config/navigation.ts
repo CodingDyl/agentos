@@ -12,6 +12,7 @@ import {
   Images,
   Inbox,
   LayoutGrid,
+  PackageCheck,
   Network,
   Plug,
   Sun,
@@ -28,7 +29,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  * ```text
  * Dashboard · Inbox
  * BUSINESS    Business · Traction · Finance
- * WORK        Workspaces · Coder · Creative · Operator
+ * WORK        Workspaces · Delivery · Coder · Creative · Operator
  * MEMORY      HUB · Memory · Knowledge
  * OPERATIONS  Operations · Agents · Career · Automations · Connectors · Activity
  *             Compass stays in the quiet footer
@@ -46,6 +47,7 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Traction", href: "/traction", icon: Target, section: "business" },
   { label: "Finance", href: "/finance", icon: Wallet, section: "business" },
   { label: "Workspaces", href: "/workspaces", icon: LayoutGrid, section: "work" },
+  { label: "Delivery", href: "/delivery", icon: PackageCheck, section: "work" },
   { label: "Startups", href: "/startups", icon: Rocket, section: "work" },
   { label: "Coder", href: "/coder", icon: Code, section: "work" },
   { label: "Creative", href: "/designs", icon: Images, section: "work" },
