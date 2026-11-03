@@ -303,6 +303,9 @@ export const RebuildRunSchema = z.object({
   repoPath: z.string().optional(),
   /** Why there is no captured site to work from (no website, a social page, blocked by robots.txt), when capture was skipped. */
   siteNote: z.string().optional(),
+  /** The motion pass a person chose to publish, and the approved commit it was built on. The preview uses it only while that commit is still the approved one. */
+  motionRef: z.string().optional(),
+  motionBase: z.string().optional(),
   /** The hero concept approved at checkpoint 1, which the build follows. */
   heroChoice: z.string().optional(),
   /** The client's branding from their current site, once capture has run. */
@@ -456,6 +459,26 @@ export function companyFileSlug(company: string): string {
 }
 
 /** The step the run is on: the first stage that is not complete. */
+/** The commit a person approved last: the features revision, or the build when no features were built. */
+export function approvedCommit(run: Pick<RebuildRun, "stages" | "revisions">): string | undefined {
+  for (const stage of ["functions", "build"] as const) {
+    const approved = run.stages.find((entry) => entry.id === stage)?.approvedRevision;
+    const ref = run.revisions.find((revision) => revision.stage === stage && revision.revision === approved)?.ref;
+    if (ref) return ref;
+  }
+  return undefined;
+}
+
+/**
+ * What the preview publishes: the motion pass when a person chose to publish
+ * one and it was built on the commit still approved, otherwise the approved
+ * commit. A newer approval drops a stale motion pass instead of shipping it.
+ */
+export function previewCommit(run: Pick<RebuildRun, "stages" | "revisions" | "motionRef" | "motionBase">): string | undefined {
+  const approved = approvedCommit(run);
+  return run.motionRef && approved && run.motionBase === approved ? run.motionRef : approved;
+}
+
 export function currentStage(stages: readonly RebuildStage[]): RebuildStage | undefined {
   return STAGE_ORDER.map((id) => stages.find((stage) => stage.id === id)).find((stage) => stage && stage.status !== "complete");
 }

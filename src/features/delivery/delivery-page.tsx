@@ -2,13 +2,13 @@ import { useId, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowRight, Film } from "lucide-react";
 import { MOTION_WIZARD_STEP_LABEL } from "@shared/motion-design-types";
-import { REBUILD_STAGES, currentStage, type RebuildFunction, type RebuildRun, type RebuildStageId } from "@shared/website-rebuild-types";
+import { REBUILD_STAGES, currentStage, previewCommit, type RebuildFunction, type RebuildRun, type RebuildStageId } from "@shared/website-rebuild-types";
 import type { DeliveryDecision, DeliveryState, DeliveryWorkspace } from "@shared/delivery-types";
 import { AppShell } from "@/components/os";
 import { PaperBackLink, PaperButton, PaperEmpty, PaperError, PaperLoading, PaperPageHeader, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
-import { useDeliveryOverview, useRebuildForWorkspace, useStartDelivery } from "@/lib/agentos/rebuilds";
+import { useDeliveryOverview, usePublishMotion, useRebuildForWorkspace, useStartDelivery } from "@/lib/agentos/rebuilds";
 import { RebuildView } from "@/features/rebuild/rebuild-page";
 import { RebuildBriefFields } from "@/features/rebuild/brief-fields";
 import { readBrief } from "@/features/rebuild/brief-model";
@@ -192,9 +192,14 @@ export function DeliveryWorkspacePage() {
  */
 function MotionPassCard({ run, slug }: { run: RebuildRun; slug: string }) {
   const motion = useMotionForWorkspace(slug);
+  const publish = usePublishMotion(run.id);
   const [open, setOpen] = useState(false);
   if (motion.isPending || motion.error) return null;
   const existing = motion.data;
+  // The preview carries the motion pass only while it was built on the commit still approved.
+  const published = Boolean(run.motionRef && previewCommit(run) === run.motionRef);
+  const publishable = Boolean(existing?.enhanceExisting && existing.job?.status === "awaiting_review");
+  const previewBusy = run.stages.find((stage) => stage.id === "preview")?.status === "in_progress" || run.stages.find((stage) => stage.id === "preview")?.status === "not_started";
 
   return (
     <section aria-labelledby="motion-pass-title" className="flex flex-wrap items-center justify-between gap-4 border border-paper-mist bg-paper-white px-5 py-4">
@@ -202,21 +207,39 @@ function MotionPassCard({ run, slug }: { run: RebuildRun; slug: string }) {
         <h2 id="motion-pass-title" className="flex flex-wrap items-center gap-2 font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">
           <Film className="size-4 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
           Motion pass
-          {existing ? <Tag tone="blue">{MOTION_WIZARD_STEP_LABEL[existing.step]}</Tag> : <Tag>Optional</Tag>}
+          {published && !previewBusy ? <Tag tone="green">On the preview</Tag> : existing ? <Tag tone="blue">{publishable ? "Ready to publish" : MOTION_WIZARD_STEP_LABEL[existing.step]}</Tag> : <Tag>Optional</Tag>}
         </h2>
         <p className="mt-1 text-[13px] leading-5 text-paper-char">
-          {existing
-            ? "Motion Design is working on this site. Its concepts, credit approval and progress are in the workspace's Motion tab."
-            : "Make the approved site more interactive. Motion Design proposes two concepts with their Higgsfield cost and spends nothing until you approve one. Pages, copy and features stay as approved."}
+          {published
+            ? previewBusy
+              ? "Publishing the site with its motion pass. The preview stage below shows progress and its visitor checks."
+              : "The preview shows the approved site with its motion pass, checked as a visitor would see it."
+            : publishable
+              ? "The motion pass finished and its build passed. Review it in the workspace's Motion tab, then publish it to the same preview link."
+              : existing
+                ? "Motion Design is working on this site. Its concepts, credit approval and progress are in the workspace's Motion tab."
+                : "Make the approved site more interactive. Motion Design proposes two concepts with their Higgsfield cost and spends nothing until you approve one. Pages, copy and features stay as approved."}
         </p>
+        {publish.error ? (
+          <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
+            {publish.error.message}
+          </p>
+        ) : null}
       </div>
-      {existing ? (
-        <Link to={`/workspaces/${encodeURIComponent(slug)}?tab=motion`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue hover:underline">
-          Open the motion pass <ArrowRight className="size-3.5" aria-hidden="true" />
-        </Link>
-      ) : (
-        <PaperButton onClick={() => setOpen(true)}>Add motion</PaperButton>
-      )}
+      <div className="flex flex-wrap items-center gap-3">
+        {existing ? (
+          <Link to={`/workspaces/${encodeURIComponent(slug)}?tab=motion`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue hover:underline">
+            Open the motion pass <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        ) : (
+          <PaperButton onClick={() => setOpen(true)}>Add motion</PaperButton>
+        )}
+        {publishable && !published ? (
+          <PaperButton variant="amber" disabled={publish.isPending || previewBusy} onClick={() => publish.mutate(undefined)}>
+            {publish.isPending ? "Publishing…" : "Publish with motion"}
+          </PaperButton>
+        ) : null}
+      </div>
       {open ? (
         <MotionDesignWizard
           onClose={() => setOpen(false)}

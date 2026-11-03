@@ -133,6 +133,11 @@ export function useSaveFeatureSettings(runId: string) {
   });
 }
 
+/** Brings the finished motion pass into the client repo and publishes it to the preview. */
+export function usePublishMotion(runId: string) {
+  return useRunMutation(() => call(`${base}/${encodeURIComponent(runId)}/stages/preview/publish-motion`, RebuildRunSchema, {}));
+}
+
 export function useStartRebuild() {
   return useRunMutation((input: RebuildStartInput) => call(base, RebuildRunSchema, input));
 }

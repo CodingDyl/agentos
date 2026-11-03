@@ -196,6 +196,10 @@ const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE runs ADD COLUMN feature_settings TEXT;
   `,
+  `
+  ALTER TABLE runs ADD COLUMN motion_ref TEXT;
+  ALTER TABLE runs ADD COLUMN motion_base TEXT;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -240,6 +244,8 @@ interface RunRow {
   hero_choice: string | null;
   brand_kit: string | null;
   site_note: string | null;
+  motion_ref: string | null;
+  motion_base: string | null;
   github_repo: string | null;
   vercel_project: string | null;
   deployment_id: string | null;
@@ -308,6 +314,8 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     repoPath: row.repo_path ?? undefined,
     heroChoice: row.hero_choice ?? undefined,
     siteNote: row.site_note ?? undefined,
+    motionRef: row.motion_ref ?? undefined,
+    motionBase: row.motion_base ?? undefined,
     brandKit: row.brand_kit ? BrandKitSchema.safeParse(parseJson(row.brand_kit, null)).data : undefined,
     githubRepo: row.github_repo ?? undefined,
     vercelProject: row.vercel_project ?? undefined,
@@ -474,7 +482,7 @@ function touch(runId: string): void {
 
 export function setRunField(
   runId: string,
-  field: "workspace_slug" | "preview_url" | "repo_path" | "github_repo" | "vercel_project" | "deployment_id" | "site_note",
+  field: "workspace_slug" | "preview_url" | "repo_path" | "github_repo" | "vercel_project" | "deployment_id" | "site_note" | "motion_ref" | "motion_base",
   value: string,
 ): void {
   rebuildDatabase().prepare(`UPDATE runs SET ${field} = ?, updated_at = ? WHERE id = ?`).run(value, iso(), runId);
@@ -668,6 +676,19 @@ export function blockStage(runId: string, stage: RebuildStageId, owner: string |
 }
 
 /** Puts a blocked stage back in the queue. Its reports and earlier revisions stay. */
+/**
+ * Opens a finished (or stopped) preview again so it publishes a new commit:
+ * the motion pass. Its earlier revisions and reports stay.
+ */
+export function reopenPreview(runId: string, reason: string): void {
+  const result = rebuildDatabase()
+    .prepare("UPDATE stages SET status = 'not_started', blocker = NULL, activity = NULL, job_id = NULL WHERE run_id = ? AND stage = 'preview' AND status IN ('complete', 'blocked')")
+    .run(runId);
+  if (Number(result.changes) !== 1) throw new RebuildError("The preview is still being published. Wait for it to finish.");
+  logEvent(runId, "preview", "info", reason);
+  touch(runId);
+}
+
 export function resetForRetry(runId: string, stage: RebuildStageId, worker?: string): void {
   // Choosing a worker forgets the job the stage was waiting on: the next attempt is a fresh one with that worker.
   const result = worker

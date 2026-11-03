@@ -26,6 +26,7 @@ import { BRAND_EXTENSION } from "./brand";
 import { MAX_BRAND_UPLOAD_BYTES, toSafeRaster } from "./capture";
 import { REPORT_DIR } from "./reports";
 import { featureSettingsView, saveFeatureSettings } from "./feature-settings";
+import { defaultMotionPublishDeps, publishMotionPass } from "./motion-publish";
 import { FeatureSettingsInputSchema } from "../../shared/feature-settings-types";
 import { STAGE_HANDLERS, advanceInBackground, currentSkillVersion } from "./runner";
 import { forcePreviewStage, markPreviewStage, recheckPreviewStage } from "./stages";
@@ -209,6 +210,17 @@ async function startBlockedPreviewOverride(runId: string, handler: (typeof STAGE
 rebuildRouter.post("/:id/stages/preview/deploy-now", async (request, response) => {
   try {
     response.json(await startBlockedPreviewOverride(request.params.id, forcePreviewStage));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+/** Brings the finished motion pass into the client repo and publishes it to the same preview. */
+rebuildRouter.post("/:id/stages/preview/publish-motion", async (request, response) => {
+  try {
+    const run = readRun(request.params.id);
+    if (!(await isSkillEnabled(run.skillId))) throw new RebuildError(`The ${run.skillId} skill is disabled in Connectors → Skills. Enable it before publishing.`);
+    response.json(await publishMotionPass(run.id, { ...defaultMotionPublishDeps, advance: (id) => advanceInBackground(id) }));
   } catch (error) {
     fail(response, error);
   }
