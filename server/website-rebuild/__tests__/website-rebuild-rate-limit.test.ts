@@ -151,6 +151,18 @@ describe("single preview deploy trigger", () => {
     assert.doesNotMatch(message, /features/);
   });
 
+  it("names an unknown commit author when Vercel blocks the deploy, and offers the force deploy", () => {
+    const message = vercelBuildFailureMessage({ state: "BLOCKED", blockCode: "COMMIT_AUTHOR_REQUIRED" });
+    assert.match(message, /not a member of your Vercel team/);
+    assert.match(message, /Deploy now \(force\)/);
+    assert.doesNotMatch(message, /cancelled/);
+  });
+
+  it("prefers a deploy still building over a BLOCKED one of the same commit", () => {
+    const blocked = { sha: commit, target: null, state: "BLOCKED" };
+    assert.equal(pickCommitDeployment([blocked, preview], commit), preview);
+  });
+
   it("still reports a genuine Vercel build failure without blaming a rate limit", () => {
     const message = vercelBuildFailureMessage({ state: "ERROR", errorMessage: "Type error in app/page.tsx" });
     assert.match(message, /Type error in app\/page\.tsx/);

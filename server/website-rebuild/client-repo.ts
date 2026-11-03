@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { gitAuthorArgs } from "../agentos/git-author";
 
 /**
  * Where a client's site code lives: its own git repository on the SSD,
@@ -62,8 +63,6 @@ export async function git(repo: string, args: readonly string[]): Promise<string
   return stdout.trim();
 }
 
-const AUTHOR = ["-c", "user.name=AgentOS", "-c", "user.email=agentos@localhost"];
-
 /** A repository folder name: the workspace slug, nothing that could climb out of the clients folder. */
 export function repoFolderName(slug: string): string {
   const clean = slug.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -114,7 +113,7 @@ export async function ensureClientRepo(slug: string, company: string, recorded?:
     { flag: "wx" },
   ).catch(() => undefined);
   await git(repo, ["add", "-A"]);
-  await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", "Start the website rebuild"]);
+  await git(repo, [...gitAuthorArgs(), "commit", "--no-verify", "-m", "Start the website rebuild"]);
   return repo;
 }
 
@@ -139,7 +138,7 @@ export async function commitFiles(repo: string, files: Record<string, string | B
   await git(repo, ["add", "-A", "--", ...paths]);
   const staged = await git(repo, ["diff", "--cached", "--name-only"]);
   if (!staged) return undefined;
-  await git(repo, [...AUTHOR, "commit", "--no-verify", "-m", message]);
+  await git(repo, [...gitAuthorArgs(), "commit", "--no-verify", "-m", message]);
   return git(repo, ["rev-parse", "HEAD"]);
 }
 

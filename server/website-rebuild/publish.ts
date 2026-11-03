@@ -334,6 +334,7 @@ export interface VercelDeploymentState {
   sha?: string;
   target?: string | null;
   errorMessage?: string;
+  blockCode?: string;
   projectId?: string;
   projectName?: string;
 }
@@ -350,6 +351,7 @@ interface DeploymentData {
   target?: string | null;
   meta?: { githubCommitSha?: string };
   errorMessage?: string;
+  seatBlock?: { blockCode?: string };
 }
 
 const toDeployment = (data: DeploymentData): VercelDeploymentState => ({
@@ -359,6 +361,7 @@ const toDeployment = (data: DeploymentData): VercelDeploymentState => ({
   sha: data.meta?.githubCommitSha,
   target: data.target,
   errorMessage: data.errorMessage,
+  blockCode: data.seatBlock?.blockCode,
   projectId: data.projectId,
   projectName: data.name ?? (typeof data.project === "string" ? data.project : undefined),
 });
