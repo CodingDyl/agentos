@@ -25,6 +25,9 @@ import { readDimensions } from "../designs/media";
 import { BRAND_EXTENSION } from "./brand";
 import { MAX_BRAND_UPLOAD_BYTES, toSafeRaster } from "./capture";
 import { REPORT_DIR } from "./reports";
+import { featureSettingsView, saveFeatureSettings } from "./feature-settings";
+import { defaultMotionPublishDeps, publishMotionPass } from "./motion-publish";
+import { FeatureSettingsInputSchema } from "../../shared/feature-settings-types";
 import { STAGE_HANDLERS, advanceInBackground, currentSkillVersion } from "./runner";
 import { forcePreviewStage, markPreviewStage, recheckPreviewStage } from "./stages";
 import { isSkillEnabled } from "../skills/registry";
@@ -145,6 +148,28 @@ rebuildRouter.get("/:id", (request, response) => {
   }
 });
 
+/** What the features need: plain values, and only whether each secret is set. */
+rebuildRouter.get("/:id/feature-settings", (request, response) => {
+  try {
+    response.json(featureSettingsView(readRun(request.params.id).id));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+rebuildRouter.post("/:id/feature-settings", async (request, response) => {
+  const parsed = FeatureSettingsInputSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(422).json({ error: parsed.error.issues[0]?.message ?? "Check the settings." });
+    return;
+  }
+  try {
+    response.json(await saveFeatureSettings(readRun(request.params.id).id, parsed.data));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
 /** Starts a rebuild, or returns the one this prospect already has. */
 rebuildRouter.post("/", async (request, response) => {
   const parsed = RebuildStartSchema.safeParse(request.body);
@@ -185,6 +210,17 @@ async function startBlockedPreviewOverride(runId: string, handler: (typeof STAGE
 rebuildRouter.post("/:id/stages/preview/deploy-now", async (request, response) => {
   try {
     response.json(await startBlockedPreviewOverride(request.params.id, forcePreviewStage));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+/** Brings the finished motion pass into the client repo and publishes it to the same preview. */
+rebuildRouter.post("/:id/stages/preview/publish-motion", async (request, response) => {
+  try {
+    const run = readRun(request.params.id);
+    if (!(await isSkillEnabled(run.skillId))) throw new RebuildError(`The ${run.skillId} skill is disabled in Connectors → Skills. Enable it before publishing.`);
+    response.json(await publishMotionPass(run.id, { ...defaultMotionPublishDeps, advance: (id) => advanceInBackground(id) }));
   } catch (error) {
     fail(response, error);
   }
@@ -265,7 +301,7 @@ rebuildRouter.post("/:id/stages/:stage/approve", (request, response) => {
     return;
   }
   try {
-    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note, input.data.choice, input.data.conceptNotes, input.data.pageNotes);
+    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "approved", input.data.note, input.data.choice, input.data.conceptNotes, input.data.pageNotes, input.data.overrideReview);
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
   } catch (error) {

@@ -1,16 +1,12 @@
 import { useId, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Hammer } from "lucide-react";
-import {
-  REBUILD_FUNCTION_LABEL,
-  REBUILD_STAGES,
-  RebuildFunctionSchema,
-  currentStage,
-  type RebuildFunction,
-} from "@shared/website-rebuild-types";
+import { REBUILD_STAGES, currentStage, type RebuildFunction } from "@shared/website-rebuild-types";
 import type { Prospect } from "@shared/traction-types";
-import { FieldLabel, PAPER_INPUT, PaperButton } from "@/components/paper";
+import { PaperButton } from "@/components/paper";
 import { useRebuildForProspect, useStartRebuild } from "@/lib/agentos/rebuilds";
+import { RebuildBriefFields } from "./brief-fields";
+import { companyOf, readBrief } from "./brief-model";
 import { StageStatusTag } from "./rebuild-status";
 
 /**
@@ -71,57 +67,15 @@ function RebuildStartForm({ prospect, onCancel }: { prospect: Prospect; onCancel
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const text = (name: string) => String(form.get(name) ?? "").trim();
-    start.mutate({
-      prospectId: prospect.id,
-      company: text("company"),
-      websiteUrl: text("websiteUrl"),
-      targetMarket: text("targetMarket"),
-      location: text("location"),
-      conversionGoal: text("conversionGoal"),
-      requiredFunctions: functions,
-      designTemplate: text("designTemplate") || "DESIGN.md",
-    });
+    start.mutate({ prospectId: prospect.id, company: companyOf(form), ...readBrief(form), requiredFunctions: functions });
   };
-
-  const field = (name: string, label: string, defaultValue: string, hint?: string, type = "text", required = true) => (
-    <label className="block" htmlFor={`${id}-${name}`}>
-      <FieldLabel>{label}</FieldLabel>
-      <input id={`${id}-${name}`} name={name} type={type} required={required} className={PAPER_INPUT} defaultValue={defaultValue} />
-      {hint ? <span className="mt-0.5 block text-[12.5px] text-paper-sage">{hint}</span> : null}
-    </label>
-  );
 
   return (
     <form onSubmit={submit} className="mt-4 grid gap-3 border border-paper-mist bg-paper-linen p-4" aria-labelledby={`${id}-title`}>
       <h4 id={`${id}-title`} className="font-semibold text-paper-moss">
         Start website rebuild
       </h4>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {field("company", "Company", prospect.company)}
-        {field("websiteUrl", "Current website (optional)", prospect.website ?? "", "Leave empty if they have none. A Facebook or other social page is fine: reading the site is skipped.", "url", false)}
-        {field("targetMarket", "Target market", prospect.segment ?? "", "Who they sell to, e.g. homeowners needing an electrician")}
-        {field("location", "Location", "", "Town or area they serve")}
-        {field("conversionGoal", "Main goal for visitors", "Get in touch", "What a visitor should do, e.g. book a call-out")}
-        {field("designTemplate", "DESIGN.md template", "DESIGN.md", "Path to the DESIGN.md whose structure the three concepts follow")}
-      </div>
-      <fieldset>
-        <legend>
-          <FieldLabel>Functions the site needs</FieldLabel>
-        </legend>
-        <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2 text-[13px]">
-          {RebuildFunctionSchema.options.map((value) => (
-            <label key={value} className="inline-flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={functions.includes(value)}
-                onChange={(event) => setFunctions((current) => (event.target.checked ? [...current, value] : current.filter((entry) => entry !== value)))}
-              />
-              {REBUILD_FUNCTION_LABEL[value]}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <RebuildBriefFields id={id} defaults={{ company: prospect.company, websiteUrl: prospect.website ?? "", targetMarket: prospect.segment ?? "" }} functions={functions} onFunctions={setFunctions} />
       {start.error ? (
         <p role="alert" className="border border-paper-flame-deep p-3 text-[13px] text-paper-flame-deep">
           {start.error.message}

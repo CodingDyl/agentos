@@ -19,7 +19,25 @@ import { withLibrary } from "../reengineer/library";
 import { ClientRepoUnavailable } from "../website-rebuild/client-repo";
 import { bundledSkillPath } from "./skill-install";
 import { commitSiteFiles, ensureMotionSiteRepo, writeApprovalFile } from "./site-repo";
-import { MotionDesignError, clearDraft, createMotionRunId, saveRun } from "./store";
+import { MotionDesignError, clearDraft, createMotionRunId, runForWorkspace, saveRun } from "./store";
+import { runForWorkspace as rebuildForWorkspace } from "../website-rebuild/store";
+import { currentStage } from "../../shared/website-rebuild-types";
+
+/** The build a motion pass must keep passing, checked by AgentOS before anyone reviews it. */
+const EXISTING_SITE_VALIDATION = ["npm install --no-audit --no-fund", "npm run build", "npm run lint --if-present"];
+
+/**
+ * Why a motion pass over this workspace's website cannot start yet: it needs
+ * a finished rebuild to add motion to, and one motion run per workspace.
+ */
+export async function motionPassBlocker(slug: string | undefined): Promise<string | undefined> {
+  if (!slug) return "Say which workspace's website gets the motion pass.";
+  const rebuild = rebuildForWorkspace(slug);
+  if (!rebuild) return "This workspace has no website rebuild to add motion to.";
+  if (currentStage(rebuild.stages)) return "Finish the website rebuild first: motion is added to the approved site, after its preview.";
+  if (await runForWorkspace(slug)) return "This workspace already has a Motion Design run. Open it from the workspace's Motion tab.";
+  return undefined;
+}
 
 export const MOTION_SITE_TOOLS = [...MOTION_SITE_ALLOWED_TOOLS];
 
@@ -61,6 +79,10 @@ function briefMarkdown(brief: MotionBrief, references: MotionReference[]): strin
 
 export async function launchMotionDesign(raw: MotionLaunchInput): Promise<MotionRun> {
   const input = MotionLaunchInputSchema.parse(raw);
+  if (input.enhanceExisting) {
+    const blocker = await motionPassBlocker(input.workspaceSlug?.trim());
+    if (blocker) throw new MotionDesignError(blocker, 409);
+  }
   const name = workspaceName(input);
   const slug = input.workspaceSlug?.trim() || toSlug(name);
   const existing = await readOptionalFile(`projects/${slug}/PROJECT.md`);
@@ -113,6 +135,7 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
       budgetCeiling: input.budgetCeiling,
       codeOnly: input.codeOnly,
       interviewAnswered: true,
+      enhanceExisting: input.enhanceExisting,
     }),
     SITE_MOTION_KINDS,
   );
@@ -162,6 +185,7 @@ export async function launchMotionDesign(raw: MotionLaunchInput): Promise<Motion
     model,
     effort,
     siteRepoPath: repo,
+    ...(input.enhanceExisting ? { enhanceExisting: true } : {}),
     proposalJobId: started.job.id,
     concepts: [],
     notes: [],
@@ -199,6 +223,7 @@ export async function approveMotionConcept(
       budgetCeiling: input.ceiling,
       codeOnly: false,
       interviewAnswered: true,
+      enhanceExisting: run.enhanceExisting,
     }),
     SITE_MOTION_KINDS,
     ),
@@ -230,6 +255,7 @@ export async function approveMotionConcept(
       `Do not exceed ${input.ceiling} Higgsfield credits, including pending charges in motion-credit-ledger.csv.`,
       "Read web references with WebFetch and check the site in the Playwright browser tools (mcp__playwright__*), never by driving Chrome from node.",
     ],
+    ...(run.enhanceExisting ? { validationCommands: EXISTING_SITE_VALIDATION } : {}),
   }, { retryOf: run.proposalJobId });
 
   if (!started.job) throw new MotionDesignError(started.error ?? "Claude Code could not be started for the build.", 409);

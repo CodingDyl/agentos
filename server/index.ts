@@ -97,6 +97,7 @@ import { startTitanReplyTimer } from "./outreach/titan-replies";
 import { cleanupRouter } from "./cleanup/routes";
 import { outreachRouter } from "./outreach/routes";
 import { rebuildRouter, recoverRebuildsAtStartup } from "./website-rebuild/routes";
+import { deliveryRouter } from "./delivery/routes";
 import { siteRequestRouter } from "./site-requests/routes";
 import { skillsRouter } from "./skills/routes";
 import { agentsRouter } from "./agents/routes";
@@ -427,6 +428,8 @@ app.use("/api/business", businessRouter);
 app.use("/api/outreach", outreachRouter);
 app.use("/api/cleanup", cleanupRouter);
 app.use("/api/rebuilds", rebuildRouter);
+/** Delivery: every workspace beside its rebuild, and what waits on you across them. */
+app.use("/api/delivery", deliveryRouter);
 app.use("/api/site-requests", siteRequestRouter);
 /** A workspace's Dev tab: run the project's own dev server from inside AgentOS. */
 app.use("/api/projects/:slug/dev-server", devServerRouter);

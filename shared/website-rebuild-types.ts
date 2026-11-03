@@ -106,6 +106,15 @@ export const RebuildArtifactSchema = z.object({
   createdAt: z.string(),
 });
 
+/** What the second-opinion reviewer concluded about a revision, read from its review. */
+export const ReviewVerdictSchema = z.object({
+  /** null when the review gave no clear verdict. */
+  ready: z.boolean().nullable(),
+  blockers: z.number().int().nonnegative(),
+  majors: z.number().int().nonnegative(),
+  minors: z.number().int().nonnegative(),
+});
+
 export const RebuildRevisionSchema = z.object({
   stage: RebuildStageIdSchema,
   revision: z.number().int().positive(),
@@ -116,6 +125,8 @@ export const RebuildRevisionSchema = z.object({
   /** Which worker produced it, and the job that ran. */
   worker: z.string().optional(),
   jobId: z.string().optional(),
+  /** The reviewer's verdict, when a second opinion ran. Blockers make approving a deliberate override. */
+  review: ReviewVerdictSchema.optional(),
   createdAt: z.string(),
 });
 
@@ -292,6 +303,9 @@ export const RebuildRunSchema = z.object({
   repoPath: z.string().optional(),
   /** Why there is no captured site to work from (no website, a social page, blocked by robots.txt), when capture was skipped. */
   siteNote: z.string().optional(),
+  /** The motion pass a person chose to publish, and the approved commit it was built on. The preview uses it only while that commit is still the approved one. */
+  motionRef: z.string().optional(),
+  motionBase: z.string().optional(),
   /** The hero concept approved at checkpoint 1, which the build follows. */
   heroChoice: z.string().optional(),
   /** The client's branding from their current site, once capture has run. */
@@ -334,6 +348,8 @@ export const RebuildDecisionInputSchema = z
     conceptNotes: z.partialRecord(z.enum(HERO_CONCEPT_IDS), z.string().trim().max(2000)).optional(),
     /** Notes keyed by page route. When left out, the notes already saved on this revision are used. */
     pageNotes: PageNotesByRouteSchema.optional(),
+    /** Approve although the reviewer found blockers. Without it such an approval is refused. */
+    overrideReview: z.boolean().optional(),
   })
   .strict();
 
@@ -393,6 +409,7 @@ export function changeRequestText(decision: Pick<z.infer<typeof RebuildDecisionS
 
 export type RebuildArtifact = z.infer<typeof RebuildArtifactSchema>;
 export type RebuildRevision = z.infer<typeof RebuildRevisionSchema>;
+export type ReviewVerdict = z.infer<typeof ReviewVerdictSchema>;
 export type RebuildDecision = z.infer<typeof RebuildDecisionSchema>;
 export type RebuildEvent = z.infer<typeof RebuildEventSchema>;
 export type RebuildStage = z.infer<typeof RebuildStageSchema>;
@@ -442,6 +459,26 @@ export function companyFileSlug(company: string): string {
 }
 
 /** The step the run is on: the first stage that is not complete. */
+/** The commit a person approved last: the features revision, or the build when no features were built. */
+export function approvedCommit(run: Pick<RebuildRun, "stages" | "revisions">): string | undefined {
+  for (const stage of ["functions", "build"] as const) {
+    const approved = run.stages.find((entry) => entry.id === stage)?.approvedRevision;
+    const ref = run.revisions.find((revision) => revision.stage === stage && revision.revision === approved)?.ref;
+    if (ref) return ref;
+  }
+  return undefined;
+}
+
+/**
+ * What the preview publishes: the motion pass when a person chose to publish
+ * one and it was built on the commit still approved, otherwise the approved
+ * commit. A newer approval drops a stale motion pass instead of shipping it.
+ */
+export function previewCommit(run: Pick<RebuildRun, "stages" | "revisions" | "motionRef" | "motionBase">): string | undefined {
+  const approved = approvedCommit(run);
+  return run.motionRef && approved && run.motionBase === approved ? run.motionRef : approved;
+}
+
 export function currentStage(stages: readonly RebuildStage[]): RebuildStage | undefined {
   return STAGE_ORDER.map((id) => stages.find((stage) => stage.id === id)).find((stage) => stage && stage.status !== "complete");
 }

@@ -20,9 +20,12 @@ import { useDecideStage, useRebuild, useRetryStage, useSaveConceptNote, useSkipC
 import { cn } from "@/lib/utils";
 import { BaselineReview } from "./baseline-review";
 import { BrandKitPanel } from "./brand-kit-panel";
+import { FeatureSettingsPanel } from "./feature-settings-panel";
 import { conceptLabel } from "./concept-label";
 import { ConceptViewer, type NoteState } from "./concept-viewer";
 import { PreviewPublishActions } from "./preview-publish-actions";
+import { ReviewVerdictGate } from "./review-verdict-gate";
+import { needsOverride, revisionVerdict } from "./review-verdict-model";
 import { StageStatusTag } from "./rebuild-status";
 
 /**
@@ -204,6 +207,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
         {/* The capture stage's images are the brand kit, shown in its own panel. */}
         {images.length > 0 && stage.id !== "hero" && stage.id !== "capture" && !(stage.id === BASELINE_STAGE && stage.status === "awaiting_approval") ? <ScreenshotGallery images={images} revision={shownRevision} /> : null}
         {stage.id === "capture" && run.brandKit ? <BrandKitPanel run={run} /> : null}
+        {stage.id === "functions" ? <FeatureSettingsPanel run={run} /> : null}
 
         {artifacts.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-2" aria-label={`${definition.title} reports`}>
@@ -346,6 +350,9 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
   const hasConceptNotes = Object.keys(written).length > 0;
   const designs = Object.fromEntries(HERO_CONCEPTS.map((concept) => [concept, run.artifacts.filter((artifact) => artifact.stage === "hero" && artifact.title === `${concept} DESIGN.md`).at(-1)]));
   const busy = decide.isPending;
+  const verdict = revisionVerdict(run, stage);
+  const [override, setOverride] = useState(false);
+  const held = needsOverride(verdict) && !override;
 
   return (
     <div className="mt-4 border-t border-paper-mist pt-4">
@@ -386,6 +393,7 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
         <FieldLabel>{needsChoice ? "Anything that applies to all three? (optional when a concept has notes)" : "What should change? (needed to request changes)"}</FieldLabel>
         <textarea id={`${id}-note`} className={cn(PAPER_INPUT, "min-h-20 w-full max-w-[75ch]")} value={note} onChange={(event) => setNote(event.target.value)} />
       </label>
+      <ReviewVerdictGate verdict={verdict} override={override} onOverride={setOverride} />
       {decide.error ? (
         <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
           {decide.error.message}
@@ -394,10 +402,10 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <PaperButton
           variant="amber"
-          disabled={busy || (needsChoice && !choice)}
-          onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined, choice, conceptNotes: hasConceptNotes ? written : undefined })}
+          disabled={busy || (needsChoice && !choice) || held}
+          onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined, choice, conceptNotes: hasConceptNotes ? written : undefined, overrideReview: override || undefined })}
         >
-          {needsChoice ? (choice ? `Approve and build ${conceptLabel(choice)}` : "Choose a concept to approve") : `Approve revision ${stage.revision}`}
+          {needsChoice ? (choice ? `Approve and build ${conceptLabel(choice)}` : "Choose a concept to approve") : override ? `Approve revision ${stage.revision} anyway` : `Approve revision ${stage.revision}`}
         </PaperButton>
         <PaperButton
           disabled={busy || (!note.trim() && !hasConceptNotes)}

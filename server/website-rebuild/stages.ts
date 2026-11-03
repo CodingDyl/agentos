@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { HERO_CONCEPTS, REBUILD_FUNCTION_LABEL, type RebuildRun } from "../../shared/website-rebuild-types";
+import { HERO_CONCEPTS, REBUILD_FUNCTION_LABEL, approvedCommit, previewCommit, type RebuildRun } from "../../shared/website-rebuild-types";
 import type { WorkerJob } from "../../shared/worker-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { patchProject } from "../agentos/mutations/projects";
@@ -24,11 +24,12 @@ import {
   readDeploymentByRef,
   requestForcedPreviewDeployment,
   requestPreviewDeployment,
+  setPreviewEnvironment,
   type GithubRepo,
   type VercelDeploymentState,
   type VercelProject,
 } from "./publish";
-import { checkPreview, qaTable } from "./qa";
+import { checkPreview, qaTable, type QaResult } from "./qa";
 import {
   FIVE_KEY_AREAS,
   FUNCTIONALITY_REPORT,
@@ -45,9 +46,12 @@ import {
   reviewFile,
 } from "./prompts";
 import { REPORT_DIR, reportFile, wrapReport } from "./reports";
+import { describeVerdict, mustFixFindings, parseReviewVerdict, tallyFeatures } from "./review-verdict";
+import { briefSettings, journeyInput, previewEnvironment } from "./feature-settings";
 import { routeList, routeName, routesFrom, screenshot, serveBuiltNextApp } from "./screens";
 import { libraryContextFor } from "../reengineer/library";
 import { StageBlocked, type StageContext, type StageHandler, type StageOutcome } from "./stage-kit";
+import type { ReviewVerdict } from "../../shared/website-rebuild-types";
 import { readRun, setRunField } from "./store";
 import { integrateJob, pickWorker, runJob, WorkerStageBlocked, type PickedWorker } from "./workers";
 
@@ -95,6 +99,7 @@ export interface StageDeps {
 }
 
 const publishCalls = {
+  setPreviewEnvironment,
   ensurePrivateRepo,
   pinGithubDefaultBranch,
   pushRef,
@@ -254,8 +259,29 @@ async function seedBrandKit(context: StageContext, deps: StageDeps, repo: string
   if (missing.length > 0) context.log(`${missing.length} brand image${missing.length === 1 ? " is" : "s are"} no longer in the workspace and ${missing.length === 1 ? "was" : "were"} left out: ${missing.join(", ")}.`, "warning");
 }
 
+interface SecondOpinion {
+  /** The review report's artifact id. */
+  id: string;
+  verdict: ReviewVerdict;
+  /** One sentence for the stage summary. */
+  said: string;
+}
+
+/**
+ * The Blocker and Major findings of the last revision's review, which the next
+ * revision must answer. Without this a worker sees only the person's note, and
+ * fixes that while the reviewer's findings stay as they were.
+ */
+async function lastReviewFindings(context: StageContext, deps: StageDeps, repo: string): Promise<string | undefined> {
+  if (context.revision < 2) return undefined;
+  const review = await deps.readRepoFile(repo, reviewFile(context.stage, context.revision - 1));
+  const findings = review ? mustFixFindings(review) : undefined;
+  if (findings) context.log(`The findings of the revision ${context.revision - 1} review are in this revision's brief.`);
+  return findings;
+}
+
 /** A second model reads the work. Optional: if no reviewer is free, or it fails, the person still reviews. */
-async function secondOpinion(context: StageContext, deps: StageDeps, repo: string): Promise<string | undefined> {
+async function secondOpinion(context: StageContext, deps: StageDeps, repo: string): Promise<SecondOpinion | undefined> {
   const candidates = context.run.workerPlan.review;
   if (candidates.length === 0) return undefined;
   let reviewer: PickedWorker;
@@ -277,7 +303,10 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
     );
     await deps.integrate(job, repo, `Review of ${context.stage} revision ${context.revision}`, `rebuild/${context.stage}-r${context.revision}-review`);
     const review = await deps.readRepoFile(repo, file);
-    return review ? context.writeReport(`${context.stage}_r${context.revision}_review`, `${reviewer.name} review of ${context.stage} r${context.revision}`, wrapReport(context.run, `review of ${context.stage} revision ${context.revision}`, review, { reviewer: reviewer.name, job: job.id })) : undefined;
+    if (!review) return undefined;
+    const id = await context.writeReport(`${context.stage}_r${context.revision}_review`, `${reviewer.name} review of ${context.stage} r${context.revision}`, wrapReport(context.run, `review of ${context.stage} revision ${context.revision}`, review, { reviewer: reviewer.name, job: job.id }));
+    const verdict = parseReviewVerdict(review);
+    return { id, verdict, said: describeVerdict(verdict, reviewer.name) };
   } catch (error) {
     context.log(`The second-opinion review did not finish: ${error instanceof Error ? error.message : "unknown error"}. You can still review this revision yourself.`, "warning");
     return undefined;
@@ -285,7 +314,12 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
 }
 
 /** Photographs a built Next.js app from the job's checkout, before its code moves into the repo. */
-async function photographSite(context: StageContext, deps: StageDeps, job: WorkerJob, options: { fullPage?: boolean; limit?: number } = {}): Promise<string[]> {
+async function photographSite(
+  context: StageContext,
+  deps: StageDeps,
+  job: WorkerJob,
+  options: { fullPage?: boolean; limit?: number; whileServing?: (url: string, routes: readonly string[]) => Promise<void> } = {},
+): Promise<string[]> {
   if (!job.worktreePath) return [];
   const sitemap = await deps.readRepoFile(job.worktreePath, "sitemap.json");
   const { routes, dropped } = routeList(sitemap, options.limit);
@@ -294,6 +328,10 @@ async function photographSite(context: StageContext, deps: StageDeps, job: Worke
   let server: { url: string; stop: () => void } | undefined;
   try {
     server = await deps.serveNext(job.worktreePath);
+    if (options.whileServing) {
+      const url = server.url;
+      await options.whileServing(url, routes).catch((error: unknown) => context.log(`The visitor journeys could not be checked: ${error instanceof Error ? error.message : "unknown error"}.`, "warning"));
+    }
     const shots = await deps.screenshot(routes.map((route) => ({ name: routeName(route), target: `${server?.url}${route}` })), await deps.scratchDir(context.stage), { fullPage: options.fullPage });
     const cropped = [...new Set(shots.filter((shot) => shot.cropped).map((shot) => shot.name))];
     if (cropped.length > 0) context.log(`${cropped.join(", ")} ${cropped.length === 1 ? "is" : "are"} taller than one image can hold, so the bottom of ${cropped.length === 1 ? "that page is" : "those pages are"} cut off in the snapshot.`, "warning");
@@ -471,9 +509,10 @@ export const buildStage: StageHandler = async (context) => {
   // Again here, so a change to the kit after the concepts were approved reaches the build.
   await seedBrandKit(context, deps, repo);
   const patterns = await libraryContextFor(BUILD_KINDS);
+  const findings = await lastReviewFindings(context, deps, repo);
   const { job, worker } = await work(context, deps, run.workerPlan.build, () => ({
     project: run.workspaceSlug ?? "",
-    objective: withPatterns(buildBrief(run, run.heroChoice ?? "", context.changeRequest), patterns),
+    objective: withPatterns(buildBrief(run, run.heroChoice ?? "", context.changeRequest, findings), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: NEXT_VALIDATION,
@@ -486,15 +525,44 @@ export const buildStage: StageHandler = async (context) => {
   const strayed = strayedPages(context.run, context.revision, shots, context.changeRequest);
   if (strayed.length > 0) context.log(`Pages without notes also changed in this revision: ${strayed.join(", ")}.`, "warning");
   return {
-    summary: `${worker.name} built the site on ${run.heroChoice}; it builds and lints. ${shots.length > 0 ? `${shots.length / 2} page${shots.length === 2 ? "" : "s"} photographed.` : "No screenshots."}${strayed.length > 0 ? ` Also changed, without notes: ${strayed.join(", ")}.` : ""}${review ? " A second opinion is attached." : ""}`,
-    artifactIds: [...shots, ...(review ? [review] : [])],
+    summary: `${worker.name} built the site on ${run.heroChoice}; it builds and lints. ${shots.length > 0 ? `${shots.length / 2} page${shots.length === 2 ? "" : "s"} photographed.` : "No screenshots."}${strayed.length > 0 ? ` Also changed, without notes: ${strayed.join(", ")}.` : ""}${review ? ` ${review.said}` : ""}`,
+    artifactIds: [...shots, ...(review ? [review.id] : [])],
     ref: commit,
     worker: worker.name,
     jobId: job.id,
+    review: review?.verdict,
   };
 };
 
 // ------------------------------------------------------------------ stage 6
+
+/**
+ * What the functions revision really is: each feature as the worker's own
+ * table rates it, then the checks AgentOS ran, then the reviewer. A passing
+ * build says nothing about a feature that could not be tested.
+ */
+export function functionsSummary(
+  worker: string,
+  requested: number,
+  tally: { pass: number; fail: number; blocked: number },
+  checks: readonly { command: string; success: boolean }[],
+  reviewSaid?: string,
+  journeyFails: readonly string[] = [],
+): string {
+  const rated = tally.pass + tally.fail + tally.blocked;
+  const features =
+    rated === 0
+      ? `${worker} worked on ${requested} feature${requested === 1 ? "" : "s"}, but its report rates none of them.`
+      : `${worker} worked on ${requested} feature${requested === 1 ? "" : "s"}: ${[
+          tally.pass > 0 ? `${tally.pass} pass` : "",
+          tally.fail > 0 ? `${tally.fail} fail` : "",
+          tally.blocked > 0 ? `${tally.blocked} blocked` : "",
+        ].filter(Boolean).join(", ")}.`;
+  const failed = checks.filter((check) => !check.success).map((check) => `\`${check.command}\``);
+  const ran = checks.length === 0 ? "AgentOS recorded no checks." : failed.length > 0 ? `Failed checks: ${failed.join(", ")}.` : `All ${checks.length} checks AgentOS ran passed.`;
+  const journeys = journeyFails.length > 0 ? `Visitor journeys failing: ${journeyFails.join(", ")}.` : "";
+  return [features, ran, journeys, reviewSaid ?? "", "Read the test report before approving."].filter(Boolean).join(" ");
+}
 
 export const functionsStage: StageHandler = async (context) => {
   const deps = stageDeps.current;
@@ -506,14 +574,22 @@ export const functionsStage: StageHandler = async (context) => {
 
   const repo = await repoFor(context, deps);
   const patterns = await libraryContextFor(FUNCTION_KINDS);
+  const findings = await lastReviewFindings(context, deps, repo);
   const { job, worker } = await work(context, deps, run.workerPlan.functions, () => ({
     project: run.workspaceSlug ?? "",
-    objective: withPatterns(functionsBrief(run, context.changeRequest), patterns),
+    objective: withPatterns(functionsBrief(run, context.changeRequest, findings, briefSettings(run.id)), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: [...NEXT_VALIDATION, "npm test", `test -s ${functionalityFile(run)}`],
   }));
-  const shots = await photographSite(context, deps, job);
+  // The same visitor journeys the preview gets, on the built site before anyone approves it. Nothing is submitted.
+  let journeys: QaResult | undefined;
+  const shots = await photographSite(context, deps, job, {
+    whileServing: async (url, routes) => {
+      context.activity("Checking the visitor journeys on the built site");
+      journeys = await deps.checkPreview(url, routes, run.requiredFunctions, fetch, journeyInput(run.id));
+    },
+  });
   const commit = await integrate(context, deps, job, repo, "functional components");
   context.rememberJob(null);
 
@@ -529,29 +605,26 @@ export const functionsStage: StageHandler = async (context) => {
     "|---|---|",
     ...(ran.length > 0 ? ran : ["| (none recorded) | Not run |"]),
     "",
+    "## Visitor journeys AgentOS checked on the built site",
+    "",
+    journeys ? qaTable(journeys) : "_Not checked: the built site could not be served._",
+    "",
   ].join("\n");
   const reportId = await context.writeReport(FUNCTIONALITY_REPORT, "Functionality test report", wrapReport(run, "functionality test report", report, { worker: worker.name, job: job.id, commit }));
   const review = await secondOpinion(context, deps, repo);
   return {
-    summary: `${worker.name} added ${run.requiredFunctions.length} feature${run.requiredFunctions.length === 1 ? "" : "s"}; build, lint and tests pass. Read the test report before approving.`,
-    artifactIds: [reportId, ...shots, ...(review ? [review] : [])],
+    summary: functionsSummary(worker.name, run.requiredFunctions.length, tallyFeatures(workerReport), job.result?.tests ?? [], review?.said, (journeys as QaResult | undefined)?.checks.filter((check) => check.status === "fail").map((check) => check.check) ?? []),
+    artifactIds: [reportId, ...shots, ...(review ? [review.id] : [])],
     ref: commit,
     worker: worker.name,
     jobId: job.id,
+    review: review?.verdict,
   };
 };
 
 // ------------------------------------------------------------------ stage 7
 
-/** The commit a person approved last: the features revision, or the build when no features were built. */
-export function approvedCommit(run: RebuildRun): string | undefined {
-  for (const stage of ["functions", "build"] as const) {
-    const approved = run.stages.find((entry) => entry.id === stage)?.approvedRevision;
-    const ref = run.revisions.find((revision) => revision.stage === stage && revision.revision === approved)?.ref;
-    if (ref) return ref;
-  }
-  return undefined;
-}
+export { approvedCommit, previewCommit };
 
 /** What to check before sharing a preview that uses the client's own images and fonts. Empty without a brand kit. */
 export function brandRightsNote(kit: RebuildRun["brandKit"]): string[] {
@@ -600,7 +673,7 @@ interface PreviewPublish {
 }
 
 function storedPreviewPublish(run: RebuildRun): Omit<PreviewPublish, "repoPath"> | undefined {
-  const commit = approvedCommit(run);
+  const commit = previewCommit(run);
   if (!commit || !run.vercelProject || !run.githubRepo) return undefined;
   const [owner, name] = run.githubRepo.split("/");
   if (!owner || !name) return undefined;
@@ -626,7 +699,7 @@ async function previewPublishFromStore(context: StageContext): Promise<PreviewPu
 async function preparePreviewPublish(context: StageContext): Promise<PreviewPublish> {
   const deps = stageDeps.current;
   const { run } = context;
-  const commit = approvedCommit(run);
+  const commit = previewCommit(run);
   if (!commit) throw new StageBlocked("There is no approved build to publish. Approve the copy and structure (and features) first.");
   const repoPath = await repoFor(context, deps);
   const name = repoFolderName(run.workspaceSlug ?? run.companySlug);
@@ -648,6 +721,10 @@ async function preparePreviewPublish(context: StageContext): Promise<PreviewPubl
   const { project } = await publishStep(() => deps.publish.ensureVercelProject(name, repo));
   setRunField(run.id, "vercel_project", project.id);
   await publishStep(() => deps.publish.openPreviewsToLinkHolders(project));
+  // Before the push: each deployment is built with the environment it starts with.
+  const env = await previewEnvironment(run.id);
+  const named = await publishStep(() => deps.publish.setPreviewEnvironment(project, env));
+  if (named.length > 0) context.log(`Set ${named.join(", ")} in the preview environment.`);
   return { commit, repo, project, repoPath };
 }
 
@@ -689,7 +766,7 @@ async function handoffReadyPreview(
     ? { passed: true, checks: [{ check: "Marked as deployed", status: "pass" as const, detail: options.operatorNote ?? "The operator confirmed a READY Vercel deployment." }] }
     : await (async () => {
         context.activity("Checking the preview as a visitor with no login");
-        return deps.checkPreview(deployment.url, routes, run.requiredFunctions);
+        return deps.checkPreview(deployment.url, routes, run.requiredFunctions, fetch, journeyInput(run.id));
       })();
 
   const artifactIds: string[] = [];
@@ -706,7 +783,7 @@ async function handoffReadyPreview(
     "## Preview",
     "",
     `- Link: ${deployment.url}`,
-    `- Commit: ${commit} (approved revision, pushed to the \`preview\` branch of ${repo.fullName})`,
+    `- Commit: ${commit} (${commit === run.motionRef ? "the approved revision with its motion pass" : "approved revision"}, pushed to the \`preview\` branch of ${repo.fullName})`,
     `- Vercel deployment: ${deployment.id}`,
     "- Access: anyone with the link, no login. Not promoted to production; no domain or DNS changes.",
     `- Checked: ${new Date().toISOString()}`,

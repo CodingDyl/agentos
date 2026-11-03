@@ -1,4 +1,4 @@
-import type { RebuildRun, RebuildStage, RebuildStageId } from "../../shared/website-rebuild-types";
+import type { RebuildRun, RebuildStage, RebuildStageId, ReviewVerdict } from "../../shared/website-rebuild-types";
 import type { CaptureResult } from "./capture";
 
 /** The shared vocabulary of the runner and the stage handlers, kept apart so neither imports the other. */
@@ -31,6 +31,8 @@ export interface StageOutcome {
   ref?: string;
   worker?: string;
   jobId?: string;
+  /** The second-opinion reviewer's verdict on this revision. */
+  review?: ReviewVerdict;
 }
 
 export interface RunnerDeps {

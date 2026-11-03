@@ -52,6 +52,11 @@ function wizardEffort(effort: string): MotionDraft["effort"] {
   return effort === "low" || effort === "medium" || effort === "high" ? effort : "high";
 }
 
+function targetDraft(target: MotionWizardTarget, motion = DEFAULT_MODEL_ROUTING.motion): MotionDraft {
+  const base = emptyDraft(motion);
+  return { ...base, brief: { ...base.brief, ...target.brief }, workspaceName: target.name };
+}
+
 function emptyDraft(motion = DEFAULT_MODEL_ROUTING.motion): MotionDraft {
   return {
     step: "setup",
@@ -66,7 +71,14 @@ function emptyDraft(motion = DEFAULT_MODEL_ROUTING.motion): MotionDraft {
   };
 }
 
-export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
+/** A motion pass over a workspace's finished website rebuild, instead of a new motion site. */
+export interface MotionWizardTarget {
+  slug: string;
+  name: string;
+  brief: Partial<MotionBrief>;
+}
+
+export function MotionDesignWizard({ onClose, target }: { onClose: () => void; target?: MotionWizardTarget }) {
   const navigate = useNavigate();
   const setup = useMotionSetup();
   const stored = useMotionDraft();
@@ -75,7 +87,8 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
   const launch = useLaunchMotionDesign();
   const stack = useAiStack();
   const motionRoute = stack.data?.modelRouting?.motion ?? DEFAULT_MODEL_ROUTING.motion;
-  const storedDraft = stored.data?.draft;
+  // A motion pass starts from the rebuild's brief and never touches the saved draft of a new motion site.
+  const storedDraft = target ? targetDraft(target, motionRoute) : stored.data?.draft;
   const [edited, setEdited] = useState<MotionDraft | undefined>();
   const draft = edited ?? storedDraft ?? emptyDraft(motionRoute);
   const [link, setLink] = useState("");
@@ -85,10 +98,10 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
 
   const persist = save.mutate;
   useEffect(() => {
-    if (!edited) return;
+    if (!edited || target) return;
     const timer = window.setTimeout(() => persist(edited), 600);
     return () => window.clearTimeout(timer);
-  }, [edited, persist]);
+  }, [edited, persist, target]);
 
   const setDraft = (next: MotionDraft | ((current: MotionDraft) => MotionDraft)) => {
     setEdited((current) => {
@@ -124,6 +137,7 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
         model: draft.model,
         effort: draft.effort,
         workspaceName: draft.workspaceName.trim() || draft.brief.brandName.trim() || undefined,
+        ...(target ? { workspaceSlug: target.slug, enhanceExisting: true } : {}),
       });
       onClose();
       navigate(`/workspaces/${encodeURIComponent(run.workspaceSlug)}?tab=motion`);
@@ -160,13 +174,15 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
       <div className="mb-8 w-full max-w-3xl border border-paper-mist bg-paper-white p-6 shadow-[0_24px_60px_rgba(20,24,20,0.18)] sm:p-8">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-sage uppercase">Workspaces</p>
+            <p className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-sage uppercase">{target ? "Delivery" : "Workspaces"}</p>
             <h2 id="motion-design-title" className="mt-1 flex items-center gap-2 font-paper-display text-[28px] font-extrabold tracking-[-0.02em] text-paper-moss">
               <Film className="size-6" strokeWidth={1.75} aria-hidden="true" />
               Motion Design
             </h2>
             <p className="mt-1 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
-              Builds a cinematic site in a new workspace with your local Claude Code worker and the motion-site-studio skill.
+              {target
+                ? `Adds motion to ${target.name}'s approved website with your local Claude Code worker and the motion-site-studio skill. Pages, copy and features stay as approved.`
+                : "Builds a cinematic site in a new workspace with your local Claude Code worker and the motion-site-studio skill."}
             </p>
           </div>
           <PaperButton variant="ghost" onClick={onClose} aria-label="Close Motion Design">
@@ -248,6 +264,7 @@ export function MotionDesignWizard({ onClose }: { onClose: () => void }) {
               codeOnly={codeOnly}
               onChange={setDraft}
               error={launch.error instanceof Error ? launch.error.message : undefined}
+              target={target}
             />
           ) : null}
         </div>
@@ -591,7 +608,9 @@ function LaunchStep({
   codeOnly,
   onChange,
   error,
+  target,
 }: {
+  target?: MotionWizardTarget;
   draft: MotionDraft;
   codeOnly: boolean;
   onChange: (draft: MotionDraft) => void;
@@ -601,13 +620,16 @@ function LaunchStep({
   return (
     <form className="grid gap-4" onSubmit={(event) => event.preventDefault()}>
       <p className="text-[13.5px] leading-5 text-paper-char">
-        Creates a workspace, writes the brief into its site folder, and starts a Claude Code worker job with{" "}
+        {target ? `Writes the brief into ${target.name}'s site repository and starts a Claude Code worker job with ` : "Creates a workspace, writes the brief into its site folder, and starts a Claude Code worker job with "}
         <span className="font-mono text-[12.5px]">/motion-site-studio</span>. The skill will stop with two concepts before any Higgsfield spend.
+        {target ? " The approved pages, copy and features stay as they are, and the build must keep passing." : ""}
       </p>
-      <label>
-        <FieldLabel>Workspace name</FieldLabel>
-        <input className={cn(PAPER_INPUT, "w-full")} value={draft.workspaceName} onChange={(event) => onChange({ ...draft, workspaceName: event.target.value })} placeholder={draft.brief.brandName || "Motion site"} />
-      </label>
+      {target ? null : (
+        <label>
+          <FieldLabel>Workspace name</FieldLabel>
+          <input className={cn(PAPER_INPUT, "w-full")} value={draft.workspaceName} onChange={(event) => onChange({ ...draft, workspaceName: event.target.value })} placeholder={draft.brief.brandName || "Motion site"} />
+        </label>
+      )}
       <label>
         <FieldLabel>Claude Code model</FieldLabel>
         <input className={cn(PAPER_INPUT, "w-full")} value={draft.model} onChange={(event) => onChange({ ...draft, model: event.target.value })} />

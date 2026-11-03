@@ -6,6 +6,8 @@ import { useDecideStage, useSavePageNotes } from "@/lib/agentos/rebuilds";
 import { cn } from "@/lib/utils";
 
 import type { NoteState } from "./concept-viewer";
+import { ReviewVerdictGate } from "./review-verdict-gate";
+import { needsOverride, revisionVerdict } from "./review-verdict-model";
 import { Storyboard } from "./storyboard";
 import { comparePages, noteTotal, pagesOf, snapshotsComplete, writtenNotes } from "./storyboard-model";
 
@@ -18,6 +20,9 @@ export function BaselineReview({ run, stage }: { run: RebuildRun; stage: Rebuild
   const decide = useDecideStage(run.id);
   const saveNotes = useSavePageNotes(run.id);
   const [note, setNote] = useState("");
+  const verdict = revisionVerdict(run, stage);
+  const [override, setOverride] = useState(false);
+  const held = needsOverride(verdict) && !override;
 
   const images = useMemo(() => run.artifacts.filter((artifact) => artifact.stage === stage.id && artifact.media === "image"), [run.artifacts, stage.id]);
   const pages = useMemo(() => pagesOf(images.filter((image) => image.revision === stage.revision)), [images, stage.revision]);
@@ -97,14 +102,15 @@ export function BaselineReview({ run, stage }: { run: RebuildRun; stage: Rebuild
         <FieldLabel>Anything that applies to the whole site? (optional when pages have notes)</FieldLabel>
         <textarea id={`${id}-note`} className={cn(PAPER_INPUT, "min-h-20 w-full max-w-[75ch]")} value={note} onChange={(event) => setNote(event.target.value)} />
       </label>
+      <ReviewVerdictGate verdict={verdict} override={override} onOverride={setOverride} />
       {decide.error ? (
         <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
           {decide.error.message}
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <PaperButton variant="amber" disabled={busy || !complete} onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined })}>
-          Approve baseline
+        <PaperButton variant="amber" disabled={busy || !complete || held} onClick={() => decide.mutate({ stage: stage.id, revision: stage.revision, decision: "approve", note: note.trim() || undefined, overrideReview: override || undefined })}>
+          {override ? "Approve baseline anyway" : "Approve baseline"}
         </PaperButton>
         <PaperButton
           disabled={busy || (!note.trim() && noteCount === 0)}
