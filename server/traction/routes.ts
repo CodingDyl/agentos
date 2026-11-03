@@ -29,6 +29,7 @@ import { draftCaseStudy } from "./case-study-draft";
 import { magnetForLead } from "./lead-magnets";
 import { leadMagnetRouter } from "./lead-magnet-routes";
 import { placesRouter } from "../places/routes";
+import { pitchRouter } from "./pitch-routes";
 import { fail, parse } from "./route-helpers";
 import { caseStudyFiles, exportFilename } from "./case-study-export";
 import { buildZip } from "./zip";
@@ -85,6 +86,7 @@ export const tractionRouter = express.Router();
 
 tractionRouter.use("/lead-magnets", leadMagnetRouter);
 tractionRouter.use("/places", placesRouter);
+tractionRouter.use("/pitch", pitchRouter);
 
 
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { after, beforeEach, describe, it } from "node:test";
+import { after, before, beforeEach, describe, it, mock } from "node:test";
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-alerts-"));
 process.env.AGENTOS_UI_DIR = directory;
@@ -14,7 +14,13 @@ const { closeFinanceDatabase, financeDatabase } = await import("../db");
 const store = await import("../store");
 const { getFinance } = await import("../finance");
 
+// The sample ledger fills each month up to today, so on the first days of a
+// month it has too little to raise alerts. Mid-month makes these tests mean
+// the same thing whatever day they run.
+before(() => mock.timers.enable({ apis: ["Date"], now: new Date(2026, 9, 20, 12) }));
+
 after(() => {
+  mock.timers.reset();
   closeFinanceDatabase();
   fs.rmSync(directory, { recursive: true, force: true });
 });

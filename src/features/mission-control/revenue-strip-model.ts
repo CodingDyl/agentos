@@ -22,7 +22,7 @@ export type OverdueState =
 
 export type WaitingState =
   | ConnectState
-  | { kind: "ready"; leads?: number; rebuilds?: number };
+  | { kind: "ready"; leads?: number; rebuilds?: number; pitches?: number };
 
 export type FollowUpAction =
   | {
@@ -56,6 +56,8 @@ export type RevenueStripInput = {
   followUps?: readonly FollowUpSeed[];
   inboundWaiting?: number;
   rebuildsWaiting?: number;
+  /** Prospects whose rebuild preview is live and not yet pitched. */
+  pitchesReady?: number;
 };
 
 export type RevenueStrip = {
@@ -106,12 +108,15 @@ export function selectRevenueStrip(input: RevenueStripInput): RevenueStrip {
 
   const hasLeads = crm && input.inboundWaiting !== undefined;
   const hasRebuilds = input.rebuildsWaiting !== undefined;
+  // A pitch waiting is only worth a word when there is one.
+  const pitches = input.pitchesReady ? input.pitchesReady : undefined;
   const waiting: WaitingState =
     hasLeads || hasRebuilds
       ? {
           kind: "ready",
           leads: hasLeads ? input.inboundWaiting : undefined,
           rebuilds: hasRebuilds ? input.rebuildsWaiting : undefined,
+          ...(pitches ? { pitches } : {}),
         }
       : { kind: "connect", href: "/traction?tab=crm", label: "Connect Virtec" };
 

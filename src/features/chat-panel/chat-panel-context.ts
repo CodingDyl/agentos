@@ -26,6 +26,23 @@ export interface ChatPanelValue {
   /** What screens say is open on them right now. */
   details: string[];
   setDetail: (key: string, detail: string | undefined) => void;
+  /** False on screens where the panel doesn't open (Operator is the chat already). */
+  available: boolean;
+  /**
+   * Something said to Jarvis, for the panel's chat: opens the panel, which
+   * sends it once it is ready and lets Jarvis read the reply.
+   */
+  handOff: (text: string) => void;
+  /** What Jarvis handed over and the panel hasn't sent yet. */
+  handedOff?: { id: number; text: string };
+  /**
+   * Claims the handed-over text by its id. True once only, so a remount or a
+   * second run of an effect can't send it twice.
+   */
+  takeHandOff: (id: number) => boolean;
+  /** The last message came from Jarvis, so its reply is read back. Typing clears it. */
+  fromJarvis: boolean;
+  setFromJarvis: (on: boolean) => void;
 }
 
 export const ChatPanelContext = createContext<ChatPanelValue | undefined>(undefined);

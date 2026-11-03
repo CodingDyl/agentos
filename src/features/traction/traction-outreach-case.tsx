@@ -33,6 +33,7 @@ import { GenerateReferencePicker } from "@/features/designs/generate-reference-p
 import { useDesignLibrary, useGenerationCapability } from "@/lib/agentos/queries";
 import { SenderManager } from "./traction-outreach-senders";
 import { RebuildLauncher } from "@/features/rebuild";
+import { PitchReadyCard } from "./traction-pitch-card";
 
 /**
  * One business, from "who are they" to a sent email.
@@ -51,6 +52,7 @@ export function OutreachCaseView({ prospect, entry }: { prospect: Prospect; entr
       <ProspectOverview prospect={prospect} />
       <KnowThem prospect={prospect} entry={entry} />
       <Decide prospect={prospect} entry={entry} sender={sender} />
+      <PitchReadyCard prospect={prospect} entry={entry} />
       <WriteEmail prospect={prospect} entry={entry} senders={senders.data ?? []} sender={sender} />
     </div>
   );
