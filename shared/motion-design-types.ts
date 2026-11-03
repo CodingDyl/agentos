@@ -296,6 +296,8 @@ export const MotionLaunchInputSchema = z.object({
   effort: MotionDesignEffortSchema.default(DEFAULT_MOTION_EFFORT),
   workspaceName: z.string().trim().min(1).max(80).optional(),
   workspaceSlug: z.string().trim().max(64).optional(),
+  /** Add motion to the workspace's finished website rebuild instead of building a new site. Needs `workspaceSlug`. */
+  enhanceExisting: z.boolean().default(false),
 });
 export type MotionLaunchInput = z.input<typeof MotionLaunchInputSchema>;
 
@@ -326,6 +328,8 @@ export const MotionRunSchema = z.object({
   model: z.string(),
   effort: MotionDesignEffortSchema,
   siteRepoPath: z.string().optional(),
+  /** A motion pass over an approved rebuild: the site stays as approved, motion is added to it. */
+  enhanceExisting: z.boolean().optional(),
   proposalJobId: z.string().optional(),
   buildJobId: z.string().optional(),
   concepts: z.array(MotionConceptSchema).default([]),
@@ -505,12 +509,29 @@ Show two concepts and a verified itemized budget before spending.
 Generate the images and video with Higgsfield if available, build the site,
 and iterate against the reference rules and my feedback.`;
 
+/**
+ * A motion pass over a site AgentOS already rebuilt and the person approved:
+ * motion is added to it, and nothing that was approved changes.
+ */
+export function existingSiteRules(company: string): string[] {
+  return [
+    "## The existing site",
+    `This repository is ${company.trim() || "the client"}'s approved website (Next.js), built and approved stage by stage in AgentOS. Add motion to it. Do not rebuild it, restyle it or replace its pages.`,
+    "- Keep every page, route, heading, line of copy, image, form and feature as it is. Change layout only where the motion needs it, and say where in the review log.",
+    "- Do not touch the features: route handlers and server actions, the contact form, bookings, the blog, redirects in next.config, sitemap and robots.",
+    "- Every animation has a still equivalent under prefers-reduced-motion, and every page stays readable and usable with JavaScript off.",
+    "- Keep `npm run build` and `npm run lint` passing.",
+    "- Do not deploy, and do not write motion-studio/preview-url.txt: AgentOS publishes the preview after review.",
+  ];
+}
+
 export function assembleMotionPrompt(input: {
   brief: MotionBrief;
   references: MotionReference[];
   budgetCeiling?: number;
   codeOnly: boolean;
   interviewAnswered: boolean;
+  enhanceExisting?: boolean;
 }): string {
   const { brief, references, budgetCeiling, codeOnly, interviewAnswered } = input;
   const brandBits = [brief.brandName, brief.brandSells, brief.brandAudience].map((part) => part.trim()).filter(Boolean);
@@ -573,6 +594,7 @@ export function assembleMotionPrompt(input: {
     "",
     "## References",
     ...referenceLines,
+    ...(input.enhanceExisting ? ["", ...existingSiteRules(brief.brandName)] : []),
   ];
 
   return parts.filter((part) => part !== undefined).join("\n");
