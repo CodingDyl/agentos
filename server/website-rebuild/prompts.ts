@@ -199,11 +199,28 @@ function buildBrand(run: RebuildRun): string[] {
   ];
 }
 
-export function functionsBrief(run: RebuildRun, note?: string, findings?: string): string {
+/** What the person has set up for the features, by name only: values reach the site through its environment, never the code. */
+export interface FeatureBriefSettings {
+  set: readonly string[];
+  legacyUrls: readonly string[];
+}
+
+function featureSetup(settings: FeatureBriefSettings | undefined): string[] {
+  if (!settings) return [];
+  const lines = ["", "What is set up for the preview (AgentOS puts these in the Vercel preview environment; read them from process.env, never hard-code a value):"];
+  lines.push(settings.set.length > 0 ? `- Set: ${settings.set.join(", ")}.` : "- Nothing is set yet. Each feature must still build, and say plainly on the page and in the report that it is not configured.");
+  if (settings.legacyUrls.length > 0) {
+    lines.push("- Old addresses that must keep working. Add a permanent redirect in next.config for each one that moves, and keep each one in a redirect or a page:");
+    for (const url of settings.legacyUrls.slice(0, 100)) lines.push(`  - ${url}`);
+  }
+  return lines;
+}
+
+export function functionsBrief(run: RebuildRun, note?: string, findings?: string, settings?: FeatureBriefSettings): string {
   const needed = run.requiredFunctions.map((value) => `- ${REBUILD_FUNCTION_LABEL[value]}`);
   const featureInstructions: Record<RebuildFunction, string> = {
     contact_form: [
-      "- Contact form: a Server Action or route handler with schema validation (zod), a honeypot field, clear success and error states, and sending through a provider configured by environment variables (document them in .env.example). Without the variables it must fail visibly, never pretend to send.",
+      "- Contact form: a Server Action or route handler with schema validation (zod), a honeypot field, clear success and error states, and sending through Resend's REST API with exactly these environment variables: RESEND_API_KEY, CONTACT_FROM_EMAIL, CONTACT_TO_EMAIL (document them in .env.example). Without them it must fail visibly, never pretend to send.",
       "  - It works without JavaScript: the <form> has method=\"post\" and an action that accepts native form data, then shows the result. Enquiry fields must never reach a URL (no GET submission, not even before hydration). Test this.",
       "  - Limit repeated submissions before the provider is called (per sender and in total), with a clear message to the visitor. Say in the report that hosting-level limits are still needed for a public launch.",
     ].join("\n"),
@@ -211,7 +228,7 @@ export function functionsBrief(run: RebuildRun, note?: string, findings?: string
       "- Blog: Markdown or MDX posts in content/blog, an index page and a post page with metadata. Any example post is marked draft and not listed in production.",
       "  - Keep the current site's article URLs working: look in docs/current-site/ for its article or news pages, and add a permanent redirect from each old path (for example /articles/...) to its new one. Do not invent posts; an article the transcript does not contain is a TODO for the client.",
     ].join("\n"),
-    booking: "- Bookings: link to or embed an external scheduler whose URL comes from an environment variable. Do not build a booking engine.",
+    booking: "- Bookings: link to or embed an external scheduler whose URL comes from the BOOKING_URL environment variable, read on the server. Do not build a booking engine.",
     newsletter: "- Newsletter sign-up: a form posting to a provider configured by environment variables, with consent wording.",
     ecommerce: "- Online shop: do not build. Write in the report that it needs a platform decision (for example Shopify or Snipcart) and mark it Blocked.",
   };
@@ -231,6 +248,7 @@ export function functionsBrief(run: RebuildRun, note?: string, findings?: string
     "- Update sitemap.json if you add routes, and serve the routes to crawlers too (app/sitemap.ts and app/robots.ts).",
     "- Never write placeholder text (\"TBC\", \"[office hours]\") on a public page, and never promise what the captured site does not: leave an unconfirmed detail out and list it as a client TODO in the report.",
     ...changeNote(note),
+    ...featureSetup(settings),
     ...reviewFindings(findings),
     "",
     ...COMMON,

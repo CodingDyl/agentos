@@ -24,11 +24,12 @@ import {
   readDeploymentByRef,
   requestForcedPreviewDeployment,
   requestPreviewDeployment,
+  setPreviewEnvironment,
   type GithubRepo,
   type VercelDeploymentState,
   type VercelProject,
 } from "./publish";
-import { checkPreview, qaTable } from "./qa";
+import { checkPreview, qaTable, type QaResult } from "./qa";
 import {
   FIVE_KEY_AREAS,
   FUNCTIONALITY_REPORT,
@@ -46,6 +47,7 @@ import {
 } from "./prompts";
 import { REPORT_DIR, reportFile, wrapReport } from "./reports";
 import { describeVerdict, mustFixFindings, parseReviewVerdict, tallyFeatures } from "./review-verdict";
+import { briefSettings, journeyInput, previewEnvironment } from "./feature-settings";
 import { routeList, routeName, routesFrom, screenshot, serveBuiltNextApp } from "./screens";
 import { libraryContextFor } from "../reengineer/library";
 import { StageBlocked, type StageContext, type StageHandler, type StageOutcome } from "./stage-kit";
@@ -97,6 +99,7 @@ export interface StageDeps {
 }
 
 const publishCalls = {
+  setPreviewEnvironment,
   ensurePrivateRepo,
   pinGithubDefaultBranch,
   pushRef,
@@ -311,7 +314,12 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
 }
 
 /** Photographs a built Next.js app from the job's checkout, before its code moves into the repo. */
-async function photographSite(context: StageContext, deps: StageDeps, job: WorkerJob, options: { fullPage?: boolean; limit?: number } = {}): Promise<string[]> {
+async function photographSite(
+  context: StageContext,
+  deps: StageDeps,
+  job: WorkerJob,
+  options: { fullPage?: boolean; limit?: number; whileServing?: (url: string, routes: readonly string[]) => Promise<void> } = {},
+): Promise<string[]> {
   if (!job.worktreePath) return [];
   const sitemap = await deps.readRepoFile(job.worktreePath, "sitemap.json");
   const { routes, dropped } = routeList(sitemap, options.limit);
@@ -320,6 +328,10 @@ async function photographSite(context: StageContext, deps: StageDeps, job: Worke
   let server: { url: string; stop: () => void } | undefined;
   try {
     server = await deps.serveNext(job.worktreePath);
+    if (options.whileServing) {
+      const url = server.url;
+      await options.whileServing(url, routes).catch((error: unknown) => context.log(`The visitor journeys could not be checked: ${error instanceof Error ? error.message : "unknown error"}.`, "warning"));
+    }
     const shots = await deps.screenshot(routes.map((route) => ({ name: routeName(route), target: `${server?.url}${route}` })), await deps.scratchDir(context.stage), { fullPage: options.fullPage });
     const cropped = [...new Set(shots.filter((shot) => shot.cropped).map((shot) => shot.name))];
     if (cropped.length > 0) context.log(`${cropped.join(", ")} ${cropped.length === 1 ? "is" : "are"} taller than one image can hold, so the bottom of ${cropped.length === 1 ? "that page is" : "those pages are"} cut off in the snapshot.`, "warning");
@@ -535,6 +547,7 @@ export function functionsSummary(
   tally: { pass: number; fail: number; blocked: number },
   checks: readonly { command: string; success: boolean }[],
   reviewSaid?: string,
+  journeyFails: readonly string[] = [],
 ): string {
   const rated = tally.pass + tally.fail + tally.blocked;
   const features =
@@ -547,7 +560,8 @@ export function functionsSummary(
         ].filter(Boolean).join(", ")}.`;
   const failed = checks.filter((check) => !check.success).map((check) => `\`${check.command}\``);
   const ran = checks.length === 0 ? "AgentOS recorded no checks." : failed.length > 0 ? `Failed checks: ${failed.join(", ")}.` : `All ${checks.length} checks AgentOS ran passed.`;
-  return [features, ran, reviewSaid ?? "", "Read the test report before approving."].filter(Boolean).join(" ");
+  const journeys = journeyFails.length > 0 ? `Visitor journeys failing: ${journeyFails.join(", ")}.` : "";
+  return [features, ran, journeys, reviewSaid ?? "", "Read the test report before approving."].filter(Boolean).join(" ");
 }
 
 export const functionsStage: StageHandler = async (context) => {
@@ -563,12 +577,19 @@ export const functionsStage: StageHandler = async (context) => {
   const findings = await lastReviewFindings(context, deps, repo);
   const { job, worker } = await work(context, deps, run.workerPlan.functions, () => ({
     project: run.workspaceSlug ?? "",
-    objective: withPatterns(functionsBrief(run, context.changeRequest, findings), patterns),
+    objective: withPatterns(functionsBrief(run, context.changeRequest, findings, briefSettings(run.id)), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: [...NEXT_VALIDATION, "npm test", `test -s ${functionalityFile(run)}`],
   }));
-  const shots = await photographSite(context, deps, job);
+  // The same visitor journeys the preview gets, on the built site before anyone approves it. Nothing is submitted.
+  let journeys: QaResult | undefined;
+  const shots = await photographSite(context, deps, job, {
+    whileServing: async (url, routes) => {
+      context.activity("Checking the visitor journeys on the built site");
+      journeys = await deps.checkPreview(url, routes, run.requiredFunctions, fetch, journeyInput(run.id));
+    },
+  });
   const commit = await integrate(context, deps, job, repo, "functional components");
   context.rememberJob(null);
 
@@ -584,11 +605,15 @@ export const functionsStage: StageHandler = async (context) => {
     "|---|---|",
     ...(ran.length > 0 ? ran : ["| (none recorded) | Not run |"]),
     "",
+    "## Visitor journeys AgentOS checked on the built site",
+    "",
+    journeys ? qaTable(journeys) : "_Not checked: the built site could not be served._",
+    "",
   ].join("\n");
   const reportId = await context.writeReport(FUNCTIONALITY_REPORT, "Functionality test report", wrapReport(run, "functionality test report", report, { worker: worker.name, job: job.id, commit }));
   const review = await secondOpinion(context, deps, repo);
   return {
-    summary: functionsSummary(worker.name, run.requiredFunctions.length, tallyFeatures(workerReport), job.result?.tests ?? [], review?.said),
+    summary: functionsSummary(worker.name, run.requiredFunctions.length, tallyFeatures(workerReport), job.result?.tests ?? [], review?.said, (journeys as QaResult | undefined)?.checks.filter((check) => check.status === "fail").map((check) => check.check) ?? []),
     artifactIds: [reportId, ...shots, ...(review ? [review.id] : [])],
     ref: commit,
     worker: worker.name,
@@ -704,6 +729,10 @@ async function preparePreviewPublish(context: StageContext): Promise<PreviewPubl
   const { project } = await publishStep(() => deps.publish.ensureVercelProject(name, repo));
   setRunField(run.id, "vercel_project", project.id);
   await publishStep(() => deps.publish.openPreviewsToLinkHolders(project));
+  // Before the push: each deployment is built with the environment it starts with.
+  const env = await previewEnvironment(run.id);
+  const named = await publishStep(() => deps.publish.setPreviewEnvironment(project, env));
+  if (named.length > 0) context.log(`Set ${named.join(", ")} in the preview environment.`);
   return { commit, repo, project, repoPath };
 }
 
@@ -745,7 +774,7 @@ async function handoffReadyPreview(
     ? { passed: true, checks: [{ check: "Marked as deployed", status: "pass" as const, detail: options.operatorNote ?? "The operator confirmed a READY Vercel deployment." }] }
     : await (async () => {
         context.activity("Checking the preview as a visitor with no login");
-        return deps.checkPreview(deployment.url, routes, run.requiredFunctions);
+        return deps.checkPreview(deployment.url, routes, run.requiredFunctions, fetch, journeyInput(run.id));
       })();
 
   const artifactIds: string[] = [];

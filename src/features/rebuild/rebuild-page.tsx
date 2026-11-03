@@ -20,6 +20,7 @@ import { useDecideStage, useRebuild, useRetryStage, useSaveConceptNote, useSkipC
 import { cn } from "@/lib/utils";
 import { BaselineReview } from "./baseline-review";
 import { BrandKitPanel } from "./brand-kit-panel";
+import { FeatureSettingsPanel } from "./feature-settings-panel";
 import { conceptLabel } from "./concept-label";
 import { ConceptViewer, type NoteState } from "./concept-viewer";
 import { PreviewPublishActions } from "./preview-publish-actions";
@@ -206,6 +207,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
         {/* The capture stage's images are the brand kit, shown in its own panel. */}
         {images.length > 0 && stage.id !== "hero" && stage.id !== "capture" && !(stage.id === BASELINE_STAGE && stage.status === "awaiting_approval") ? <ScreenshotGallery images={images} revision={shownRevision} /> : null}
         {stage.id === "capture" && run.brandKit ? <BrandKitPanel run={run} /> : null}
+        {stage.id === "functions" ? <FeatureSettingsPanel run={run} /> : null}
 
         {artifacts.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-2" aria-label={`${definition.title} reports`}>

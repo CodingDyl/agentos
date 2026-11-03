@@ -347,6 +347,7 @@ async function runToPreview(api: FakeApi, pushes: { args: readonly string[]; env
       pushRef: (local, repo, commit, branch, force) => publish.pushRef(local, repo, commit, branch, force, deps),
       ensureVercelProject: (name, repo) => publish.ensureVercelProject(name, repo, deps),
       openPreviewsToLinkHolders: (project) => publish.openPreviewsToLinkHolders(project, deps),
+      setPreviewEnvironment: (project, env) => publish.setPreviewEnvironment(project, env, deps),
       listCommitDeployments: (project, commit) => publish.listCommitDeployments(project, commit, deps),
       requestPreviewDeployment: (project, repo, branch, commit) => publish.requestPreviewDeployment(project, repo, branch, commit, deps),
       requestForcedPreviewDeployment: (project, repo, branch, commit) => publish.requestForcedPreviewDeployment(project, repo, branch, commit, deps),

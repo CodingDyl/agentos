@@ -6,7 +6,8 @@ import type { RebuildFunction } from "../../shared/website-rebuild-types";
  * a preview, however green the build was.
  *
  * Feature checks look for the feature on the page. They never submit a form:
- * a real enquiry from AgentOS would land in the client's inbox.
+ * a real enquiry from AgentOS would land in the client's inbox. Journey checks
+ * read what a submission would do from the served HTML instead.
  */
 
 export type CheckStatus = "pass" | "fail" | "blocked";
@@ -80,8 +81,90 @@ const FEATURE_CHECKS: Record<RebuildFunction, { label: string; test: (pages: Map
   },
 };
 
+/** What the journeys are checked against: the old addresses to keep, and which settings the preview was given. */
+export interface JourneyInput {
+  legacyUrls: readonly string[];
+  settingsSet: readonly string[];
+  /** The scheduler page, when set: the booking link must go there. Not a secret. */
+  bookingUrl?: string;
+}
+
+/** The opening tag of every form that asks for an email or a message. */
+export function enquiryForms(html: string): string[] {
+  return [...html.matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form>/gi)].filter((match) => /type="email"|name="email"|<textarea/i.test(match[2])).map((match) => match[1]);
+}
+
+const attribute = (tag: string, name: string) => new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i").exec(tag)?.[1];
+
+/**
+ * Whether the form still works, and keeps the enquiry out of the address bar,
+ * when JavaScript has not run: an explicit POST to a real action. Read from
+ * the served HTML, so nothing is ever submitted.
+ */
+export function formWorksWithoutJavaScript(tag: string): { ok: boolean; detail: string } {
+  const method = attribute(tag, "method")?.toLowerCase();
+  const action = attribute(tag, "action");
+  if (method !== "post") return { ok: false, detail: method ? `The form's method is ${method}: without JavaScript the enquiry would go into the URL.` : "The form has no method, so without JavaScript (or before the page hydrates) the browser sends the enquiry in the URL with GET." };
+  if (action !== undefined && /^javascript:/i.test(action.trim())) return { ok: false, detail: "The form's action only works once JavaScript runs." };
+  return { ok: true, detail: `POST${action ? ` to ${action || "this page"}` : ""}, so it works before JavaScript runs and keeps the enquiry out of the URL.` };
+}
+
+const CONTACT_SETTINGS = ["RESEND_API_KEY", "CONTACT_FROM_EMAIL", "CONTACT_TO_EMAIL"];
+
+/**
+ * Journeys a visitor takes, checked without sending anything: the enquiry
+ * form's no-JavaScript path, old addresses that must still land somewhere,
+ * the files crawlers ask for, and whether the providers were configured.
+ */
+export async function journeyChecks(base: string, pages: Map<string, Page>, functions: readonly RebuildFunction[], journeys: JourneyInput, fetcher: typeof fetch): Promise<QaCheck[]> {
+  const checks: QaCheck[] = [];
+  if (functions.includes("contact_form")) {
+    const forms = [...pages].flatMap(([route, page]) => enquiryForms(page.html).map((tag) => ({ route, tag })));
+    if (forms.length === 0) checks.push({ check: "Enquiry form works without JavaScript", status: "fail", detail: "No enquiry form on any checked page." });
+    else {
+      const broken = forms.map((form) => ({ ...form, ...formWorksWithoutJavaScript(form.tag) })).find((form) => !form.ok);
+      checks.push(broken ? { check: "Enquiry form works without JavaScript", status: "fail", detail: `${broken.route}: ${broken.detail}` } : { check: "Enquiry form works without JavaScript", status: "pass", detail: `${forms[0].route}: ${formWorksWithoutJavaScript(forms[0].tag).detail} Not submitted.` });
+    }
+    const missing = CONTACT_SETTINGS.filter((name) => !journeys.settingsSet.includes(name));
+    checks.push(
+      missing.length > 0
+        ? { check: "Enquiries delivered", status: "blocked", detail: `Not configured: ${missing.join(", ")}. Add them in What the features need.` }
+        : { check: "Enquiries delivered", status: "blocked", detail: "Configured in the preview environment. Delivery is not tested: AgentOS never sends a test enquiry on its own." },
+    );
+  }
+  if (functions.includes("booking")) {
+    checks.push(
+      journeys.settingsSet.includes("BOOKING_URL")
+        ? [...pages].find(([, page]) => (journeys.bookingUrl ? page.html.includes(`href="${journeys.bookingUrl.replace(/&/g, "&amp;")}"`) : /href="https:\/\/[^"]*(calendly|cal\.com|book|schedul)/i.test(page.html)))
+          ? { check: "Booking link goes to the scheduler", status: "pass", detail: "A page links to the scheduler page that is set." }
+          : { check: "Booking link goes to the scheduler", status: "fail", detail: "BOOKING_URL is set, but no checked page links to it." }
+        : { check: "Booking link goes to the scheduler", status: "blocked", detail: "BOOKING_URL is not set. Add it in What the features need." },
+    );
+  }
+  for (const legacy of journeys.legacyUrls.slice(0, 30)) {
+    const first = await load(fetcher, `${base}${legacy}`);
+    if (first.status === 200) {
+      checks.push({ check: `Old address ${legacy}`, status: "pass", detail: "Still served (200)." });
+      continue;
+    }
+    if (first.status >= 300 && first.status < 400 && first.location) {
+      const target = new URL(first.location, `${base}/`);
+      const landed = await load(fetcher, target.href);
+      const where = target.origin === new URL(`${base}/`).origin ? target.pathname : target.href;
+      checks.push(landed.status === 200 ? { check: `Old address ${legacy}`, status: "pass", detail: `Redirects (${first.status}) to ${where}, which answers 200.` } : { check: `Old address ${legacy}`, status: "fail", detail: `Redirects (${first.status}) to ${where}, which answered ${landed.status || "nothing"}.` });
+      continue;
+    }
+    checks.push({ check: `Old address ${legacy}`, status: "fail", detail: `Answered ${first.status || "nothing"}: a visitor or search result using it lands nowhere.` });
+  }
+  for (const file of ["/sitemap.xml", "/robots.txt"]) {
+    const answer = await load(fetcher, `${base}${file}`);
+    checks.push({ check: `Serves ${file}`, status: answer.status === 200 ? "pass" : "fail", detail: `Answered ${answer.status || "nothing"}.` });
+  }
+  return checks;
+}
+
 /** Loads the preview as a signed-out visitor and checks pages, assets and the requested features. */
-export async function checkPreview(baseUrl: string, routes: readonly string[], functions: readonly RebuildFunction[], fetcher: typeof fetch = fetch): Promise<QaResult> {
+export async function checkPreview(baseUrl: string, routes: readonly string[], functions: readonly RebuildFunction[], fetcher: typeof fetch = fetch, journeys?: JourneyInput): Promise<QaResult> {
   const base = baseUrl.replace(/\/+$/, "");
   const checks: QaCheck[] = [];
   const pages = new Map<string, Page>();
@@ -121,6 +204,7 @@ export async function checkPreview(baseUrl: string, routes: readonly string[], f
     const { label, test } = FEATURE_CHECKS[feature];
     checks.push({ check: label, ...test(pages) });
   }
+  if (journeys) checks.push(...(await journeyChecks(base, pages, functions, journeys, fetcher)));
 
   return { checks, passed: checks.every((check) => check.status !== "fail") };
 }
