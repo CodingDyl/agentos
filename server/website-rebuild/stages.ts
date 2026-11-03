@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { HERO_CONCEPTS, REBUILD_FUNCTION_LABEL, type RebuildRun } from "../../shared/website-rebuild-types";
+import { HERO_CONCEPTS, REBUILD_FUNCTION_LABEL, approvedCommit, previewCommit, type RebuildRun } from "../../shared/website-rebuild-types";
 import type { WorkerJob } from "../../shared/worker-types";
 import { agentOSRoot, readOptionalFile } from "../agentos/filesystem";
 import { patchProject } from "../agentos/mutations/projects";
@@ -624,15 +624,7 @@ export const functionsStage: StageHandler = async (context) => {
 
 // ------------------------------------------------------------------ stage 7
 
-/** The commit a person approved last: the features revision, or the build when no features were built. */
-export function approvedCommit(run: RebuildRun): string | undefined {
-  for (const stage of ["functions", "build"] as const) {
-    const approved = run.stages.find((entry) => entry.id === stage)?.approvedRevision;
-    const ref = run.revisions.find((revision) => revision.stage === stage && revision.revision === approved)?.ref;
-    if (ref) return ref;
-  }
-  return undefined;
-}
+export { approvedCommit, previewCommit };
 
 /** What to check before sharing a preview that uses the client's own images and fonts. Empty without a brand kit. */
 export function brandRightsNote(kit: RebuildRun["brandKit"]): string[] {
@@ -681,7 +673,7 @@ interface PreviewPublish {
 }
 
 function storedPreviewPublish(run: RebuildRun): Omit<PreviewPublish, "repoPath"> | undefined {
-  const commit = approvedCommit(run);
+  const commit = previewCommit(run);
   if (!commit || !run.vercelProject || !run.githubRepo) return undefined;
   const [owner, name] = run.githubRepo.split("/");
   if (!owner || !name) return undefined;
@@ -707,7 +699,7 @@ async function previewPublishFromStore(context: StageContext): Promise<PreviewPu
 async function preparePreviewPublish(context: StageContext): Promise<PreviewPublish> {
   const deps = stageDeps.current;
   const { run } = context;
-  const commit = approvedCommit(run);
+  const commit = previewCommit(run);
   if (!commit) throw new StageBlocked("There is no approved build to publish. Approve the copy and structure (and features) first.");
   const repoPath = await repoFor(context, deps);
   const name = repoFolderName(run.workspaceSlug ?? run.companySlug);
@@ -791,7 +783,7 @@ async function handoffReadyPreview(
     "## Preview",
     "",
     `- Link: ${deployment.url}`,
-    `- Commit: ${commit} (approved revision, pushed to the \`preview\` branch of ${repo.fullName})`,
+    `- Commit: ${commit} (${commit === run.motionRef ? "the approved revision with its motion pass" : "approved revision"}, pushed to the \`preview\` branch of ${repo.fullName})`,
     `- Vercel deployment: ${deployment.id}`,
     "- Access: anyone with the link, no login. Not promoted to production; no domain or DNS changes.",
     `- Checked: ${new Date().toISOString()}`,

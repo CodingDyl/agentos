@@ -76,7 +76,12 @@ the whole delivery, start from scratch or resume, and optionally add motion.
    pass), the build job validates `npm run build`, and the concepts and
    Higgsfield credit approval are unchanged. One motion run per workspace;
    refused before the rebuild is finished.
-   Not yet: publishing the motion branch to the Vercel preview.
+   Publishing it: once the motion build job is awaiting review with its
+   checks passed, "Publish with motion" integrates it into the client repo
+   (`rebuild/motion-<job>` tag, `integrateJob`), refuses unless it descends
+   from the approved commit, records `runs.motion_ref`/`motion_base`, and
+   reopens the preview stage. `previewCommit` publishes the motion commit
+   only while `motion_base` is still the approved commit.
 5. **Later.** Manual Claude Design attachments; role and decision rules from
    the owner's epic.
 
