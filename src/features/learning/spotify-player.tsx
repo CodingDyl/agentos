@@ -1,11 +1,12 @@
-import { BookmarkPlus, Laptop, Music, Pause, Play, Plug, SkipBack, SkipForward, Volume2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { BookmarkPlus, Laptop, Music, Plug, SkipBack, SkipForward, Volume2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatTimestamp, type SpotifyTrack } from "@shared/learning-types";
+import type { SpotifyTrack } from "@shared/learning-types";
+import { catalogueCode } from "@/components/cassette/model";
+import { CassettePlayer } from "@/components/CassettePlayer";
 import { PageLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
 import { useImportSource, useSpotifyDevices, useSpotifyMusicLibrary, useSpotifyPlaylists } from "@/lib/agentos/learning";
-import { cn } from "@/lib/utils";
 import { LearningCapture } from "./learning-capture";
 import { interpolatedProgress } from "./learning-model";
 import { useSpotify } from "./spotify-context-value";
@@ -82,6 +83,23 @@ function NowPlaying() {
   const track = playback?.track;
   const position = playback ? interpolatedProgress(playback, now) : 0;
   const shownVolume = volume ?? playback?.device?.volumePercent;
+  const audible = useRef(60);
+  useEffect(() => {
+    if (shownVolume !== undefined && shownVolume > 0) audible.current = shownVolume;
+  }, [shownVolume]);
+
+  const toggleMute = () => {
+    if (shownVolume === undefined) return;
+    if (shownVolume === 0) {
+      const restore = audible.current || 60;
+      setVolume(restore);
+      spotify.command({ kind: "volume", percent: restore });
+      return;
+    }
+    audible.current = shownVolume;
+    setVolume(0);
+    spotify.command({ kind: "volume", percent: 0 });
+  };
 
   return (
     <section aria-label="Now playing" className="border border-paper-mist bg-paper-white p-5">
@@ -93,42 +111,31 @@ function NowPlaying() {
         </div>
       </div>
 
-      {track ? (
-        <div className="mt-4 flex flex-wrap items-center gap-5">
-          {track.imageUrl ? <img src={track.imageUrl} alt="" className="size-24 object-cover" referrerPolicy="no-referrer" /> : <Music className="size-12 text-paper-sage" strokeWidth={1.5} />}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[24px] leading-tight font-semibold">{track.name}</p>
-            <p className="truncate text-[14px] text-paper-char">{[track.artists.join(", "), track.album].filter(Boolean).join(" · ")}</p>
-            <div className="mt-3 flex items-center gap-3">
-              <span className="w-12 text-right font-mono text-[12px] text-paper-sage tabular-nums">{formatTimestamp(position / 1000)}</span>
-              <input
-                type="range"
-                min={0}
-                max={track.durationMs || 1}
-                value={Math.min(position, track.durationMs || 1)}
-                onChange={(event) => spotify.command({ kind: "seek", positionMs: Number(event.target.value) })}
-                aria-label="Position"
-                className="flex-1 accent-[var(--paper-blue)]"
-              />
-              <span className="w-12 font-mono text-[12px] text-paper-sage tabular-nums">{formatTimestamp(track.durationMs / 1000)}</span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <p className="mt-4 text-[14px] text-paper-sage">Nothing is playing. Start a playlist below, or press play on any Spotify device.</p>
-      )}
+      <div className="mx-auto mt-4 w-full max-w-[530px]">
+        <CassettePlayer
+          archiveLabel={track ? track.artists.join(", ") || "Spotify" : "Spotify"}
+          catalogueNumber={track?.album ? catalogueCode(track.album) : undefined}
+          currentTime={position / 1000}
+          disabled={!track}
+          duration={(track?.durationMs ?? 0) / 1000}
+          isPlaying={Boolean(playback?.isPlaying)}
+          muted={shownVolume === 0}
+          onSeek={(seconds) => spotify.command({ kind: "seek", positionMs: Math.round(seconds * 1000) })}
+          onToggleMute={shownVolume === undefined ? undefined : toggleMute}
+          onTogglePlay={() =>
+            playback?.isPlaying
+              ? spotify.command({ kind: "pause" })
+              : spotify.command({ kind: "play", request: { deviceId: spotify.inApp.deviceId } })
+          }
+          sideLabel={track?.type === "episode" ? "Episode" : "Side A"}
+          trackTitle={track?.name ?? "Nothing playing"}
+        />
+      </div>
+      {track ? null : <p className="mt-4 text-[14px] text-paper-sage">Nothing is playing. Start a playlist below, or press play on any Spotify device.</p>}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" className={ICON_BUTTON} aria-label="Previous" onClick={() => spotify.command({ kind: "previous" })} disabled={!track}>
           <SkipBack className="size-5" strokeWidth={1.75} />
-        </button>
-        <button
-          type="button"
-          className={cn(ICON_BUTTON, "bg-paper-linen text-paper-moss hover:bg-paper-stone")}
-          aria-label={playback?.isPlaying ? "Pause" : "Play"}
-          onClick={() => (playback?.isPlaying ? spotify.command({ kind: "pause" }) : spotify.command({ kind: "play", request: { deviceId: spotify.inApp.deviceId } }))}
-        >
-          {playback?.isPlaying ? <Pause className="size-5" strokeWidth={1.75} /> : <Play className="size-5" strokeWidth={1.75} />}
         </button>
         <button type="button" className={ICON_BUTTON} aria-label="Next" onClick={() => spotify.command({ kind: "next" })} disabled={!track}>
           <SkipForward className="size-5" strokeWidth={1.75} />
