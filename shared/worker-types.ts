@@ -123,6 +123,11 @@ export const WorkerJobRequestSchema = z.object({
    * never changes a job that already started.
    */
   skillId: z.string().max(64).optional(),
+  /**
+   * The reply is the deliverable: the worker reads and reports. Passing needs
+   * no diff, changing files fails the job, and approval lands nothing.
+   */
+  reportOnly: z.boolean().optional(),
   /** Absolute path to the repository the work happens in. */
   repoPath: z.string().optional(),
   /** Commit-ish the isolated copy branches from. Defaults to the checkout. */

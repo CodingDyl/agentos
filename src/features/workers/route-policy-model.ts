@@ -39,6 +39,7 @@ export function optionLabel(
 
 /** A policy-routed job that produced text rather than a checkout. */
 export function isTextResultJob(job: WorkerJob): boolean {
+  if (job.reportOnly && job.result) return true;
   return !job.worktreePath && (Boolean(job.routing?.policy) || Boolean(job.bridge)) && Boolean(job.result);
 }
 

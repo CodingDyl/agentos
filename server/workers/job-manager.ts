@@ -886,6 +886,7 @@ export async function retryJob(jobId: string, options: RetryJobInput = {}): Prom
     validationCommands: previous.validationCommands,
     visualAcceptance: previous.visualAcceptance,
     skillId: previous.skillId,
+    reportOnly: previous.reportOnly,
     // Task type is kept so current routing still knows what kind of work this is.
     // Model, effort and agent are resolved fresh unless the operator set them.
     modelRouteType: previous.modelRouteType,
@@ -1312,6 +1313,7 @@ async function run(
       worktreePath: job.worktreePath,
       changedFiles: changed ?? [],
       implementsCode: worker.capabilities.includes("code"),
+      reportOnly: job.reportOnly,
     });
 
     // The worker has had its say. Whether the work stands is decided here, by
@@ -1342,7 +1344,7 @@ async function run(
         (type, message, metadata) => emit(job.id, type, message, metadata),
         controller.signal,
       );
-    } else if (honesty.skipValidation && commands.length > 0) {
+    } else if (honesty.skipValidation && commands.length > 0 && !job.reportOnly) {
       validation = { results: commands.map(baselineValidation), passed: false };
       emit(job.id, "job.progress", "Skipped build checks: the worker made no file changes (baseline only)");
     }

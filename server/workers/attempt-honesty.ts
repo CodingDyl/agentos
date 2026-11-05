@@ -28,9 +28,23 @@ export interface AttemptHonestyInput {
   changedFiles: readonly string[];
   /** Whether this worker is expected to change code. */
   implementsCode: boolean;
+  /** The job asked for a report, so its reply is the work and a diff is the failure. */
+  reportOnly?: boolean;
 }
 
 export function judgeImplementationAttempt(input: AttemptHonestyInput): AttemptJudgement {
+  if (input.reportOnly) {
+    const count = input.changedFiles.length;
+    return count > 0
+      ? {
+          failed: true,
+          skipValidation: true,
+          detail: `The worker changed ${count} file${count === 1 ? "" : "s"} on a report-only job.`,
+          blocker: `This job was report-only, but the worker changed: ${input.changedFiles.join(", ")}. Nothing was landed.`,
+        }
+      : { failed: false, skipValidation: true, detail: "Report only: the worker changed nothing, and its reply is the deliverable." };
+  }
+
   if (input.simulated || !input.worktreePath || !input.implementsCode) {
     return {
       failed: false,

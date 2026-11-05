@@ -22,6 +22,11 @@ function job(overrides: Partial<WorkerJob> = {}): WorkerJob {
 }
 
 describe("the handoff", () => {
+  it("tells a report-only job its reply is the work, and says nothing to other jobs", () => {
+    assert.match(buildContextPacket(job({ reportOnly: true })), /Report only:[\s\S]*Do not create, edit or delete any file/);
+    assert.doesNotMatch(buildContextPacket(job()), /Report only:/);
+  });
+
   it("states the project and the objective", () => {
     const packet = buildContextPacket(job());
 

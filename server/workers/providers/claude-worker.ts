@@ -154,11 +154,12 @@ export function validationRules(
 
 /** Everything Claude is allowed to do on this job. */
 export function allowedTools(job: WorkerJob): string[] {
-  return [...BASE_TOOLS, ...validationRules(job.validationCommands), ...(job.extraAllowedTools ?? [])];
+  const base = job.reportOnly ? BASE_TOOLS.filter((tool) => tool !== "Edit" && tool !== "Write") : BASE_TOOLS;
+  return [...base, ...validationRules(job.validationCommands), ...(job.extraAllowedTools ?? [])];
 }
 
-export function deniedTools(): string[] {
-  return [...DENIED_TOOLS];
+export function deniedTools(job?: Pick<WorkerJob, "reportOnly">): string[] {
+  return [...DENIED_TOOLS, ...(job?.reportOnly ? ["Edit", "Write", "NotebookEdit"] : [])];
 }
 
 function model(job?: { modelOverride?: string }): string {
@@ -303,7 +304,7 @@ export function buildQueryOptions(
     // nobody there to answer it.
     permissionMode: "dontAsk",
     allowedTools: allowedTools(job),
-    disallowedTools: deniedTools(),
+    disallowedTools: deniedTools(job),
 
     // The four sources of inherited context, each turned off explicitly.
     // Every one is loaded by default, and every one would be the operator's

@@ -35,6 +35,24 @@ describe("sandbox flags for git metadata outside the worktree", () => {
   });
 });
 
+describe("report-only attempts", () => {
+  const report = { worktreePath: "/tmp/wt", implementsCode: true, reportOnly: true };
+
+  it("passes with no diff and skips build checks", () => {
+    const judged = judgeImplementationAttempt({ ...report, changedFiles: [] });
+    assert.equal(judged.failed, false);
+    assert.equal(judged.skipValidation, true);
+    assert.equal(judged.blocker, undefined);
+  });
+
+  it("fails when the worker changed files, and names them", () => {
+    const judged = judgeImplementationAttempt({ ...report, changedFiles: ["src/a.ts", "src/b.ts"] });
+    assert.equal(judged.failed, true);
+    assert.match(judged.detail, /2 files/);
+    assert.match(judged.blocker ?? "", /src\/a\.ts, src\/b\.ts/);
+  });
+});
+
 describe("implementation attempts that changed nothing", () => {
   it("fails a coding job with an empty diff and skips build checks", () => {
     const judged = judgeImplementationAttempt({
