@@ -122,7 +122,7 @@ function tally(counts: Map<string, number>, key: string, by = 1): void {
  */
 function subsystemName(raw: string | undefined, folder: string, id: number, members: readonly Node[]): string {
   const name = raw?.trim();
-  const namedAfterPackage = members.some((member) => member.external && member.label === name);
+  const namedAfterPackage = members.some((member) => member.label === name && (member.external || member.id.startsWith("ref_")));
   if (name && !namedAfterPackage && !name.startsWith("ref_") && !/^Community \d+$/.test(name)) return name;
   return folder === "(project root)" ? `Subsystem ${id}` : folder;
 }
