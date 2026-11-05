@@ -7,7 +7,6 @@ import { AppShellActionsContext } from "./app-shell-actions-context";
 import { AppShellMediaContext } from "./app-shell-media-context";
 import { AppShellVoiceContext } from "./app-shell-voice-context";
 import { ActiveWorkIndicator } from "./active-work-indicator";
-import { SidebarCodePanel } from "./sidebar-code-panel";
 import {
   COLLAPSIBLE_SECTIONS,
   SECTION_LABELS,
@@ -250,7 +249,6 @@ export function AppShell({
               );
             })}
           </nav>
-          <SidebarCodePanel />
           {media}
           {voiceLauncher ? <div className="border-t border-os-border p-3">{voiceLauncher}</div> : null}
           <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-os-border px-6 py-3">
