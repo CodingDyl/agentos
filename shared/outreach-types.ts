@@ -58,6 +58,8 @@ export const OutreachStatusSchema = z.object({
   usesInbox: z.boolean().default(false),
   /** The inbox's address, when it is connected, so it can be offered as the sender. */
   inboxAddress: z.string().optional(),
+  /** The linked Virtara (Titan) mailbox, when Inbox has one. An alternative send-from. */
+  virtaraAddress: z.string().optional(),
   signature: z.string(),
   /** When the outreach mailbox was last read for replies. */
   lastSyncAt: z.string().optional(),

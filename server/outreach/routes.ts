@@ -1,4 +1,4 @@
-import express, { type Response } from "express";
+import express, { type Request, type Response } from "express";
 import {
   DEFAULT_DAILY_CAP,
   GmailDraftRequestSchema,
@@ -57,8 +57,10 @@ import {
   OutreachGmailError,
   sendMessage,
 } from "./gmail";
+import { TitanError } from "../mail/titan-client";
 import { buildMessage, isPlainAddress, MimeError } from "./mime";
 import { syncOutreachInbox } from "./sync";
+import { buildVirtaraRaw, sendViaVirtara, virtaraSender } from "./virtara";
 
 /**
  * `/api/outreach`: the separate mailbox, and writing to prospects from it.
@@ -103,6 +105,12 @@ function fail(response: Response, error: unknown, what: string): void {
       .json({ error: error.message });
     return;
   }
+  if (error instanceof TitanError) {
+    response
+      .status(error.reason === "unauthorized" || error.reason === "not-connected" ? 409 : 502)
+      .json({ error: error.message });
+    return;
+  }
   tractionFail(response, error, what);
 }
 
@@ -110,12 +118,14 @@ outreachRouter.get("/status", async (_request, response) => {
   try {
     const state = await readState();
     const address = await outreachAddress();
+    const virtara = await virtaraSender();
     const status: OutreachStatus = {
       configured: isOutreachConfigured(),
       connected: address !== undefined,
       address,
       usesInbox: await outreachUsesInbox(),
       inboxAddress: await inboxAddressForOutreach(),
+      virtaraAddress: virtara?.address,
       signature: state.outreach.signature,
       lastSyncAt: state.outreachSync.lastSyncAt,
       sentToday: sentInLastDay(state),
@@ -360,16 +370,30 @@ outreachRouter.post("/prospects/:id/gmail-draft", async (request, response) => {
   }
 });
 
+type ProspectRequest = Request<{ id: string }>;
+type SendVia = "gmail" | "virtara";
+
 /**
  * Sends one email, now, to one prospect. The body of the request is exactly
  * what the person saw in the preview, plus `confirm: true`. There is no
  * recipient in it, and no way to send to more than one prospect per call.
+ *
+ * Gmail (`/send`) and Virtara (`/send-virtara`) share every guardrail:
+ * recipient check, signature plus opt-out, follow-up schedule, daily cap
+ * reservation/settle, malformed-email check before reserving a slot.
  *
  * Refused (429) when the address is on the do-not-contact list, was emailed
  * too recently for the follow-up schedule, or the daily cap is reached. A cold email must carry
  * the signature and its opt-out line.
  */
 outreachRouter.post("/prospects/:id/send", async (request, response) => {
+  await handleSend(request, response, "gmail");
+});
+outreachRouter.post("/prospects/:id/send-virtara", async (request, response) => {
+  await handleSend(request, response, "virtara");
+});
+
+async function handleSend(request: ProspectRequest, response: Response, via: SendVia): Promise<void> {
   const content = parse(SendRequestSchema, request.body, response, "email");
   if (!content) return;
 
@@ -381,8 +405,16 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
     );
     if (!prospect)
       throw new TractionNotFoundError(`No prospect ${request.params.id}`);
-    const mailbox = await outreachAddress();
-    if (!mailbox) {
+
+    const virtara = via === "virtara" ? await virtaraSender() : undefined;
+    if (via === "virtara" && !virtara) {
+      response
+        .status(409)
+        .json({ error: "The Virtara mailbox is not linked. Link it under Inbox → Accounts." });
+      return;
+    }
+    const mailbox = via === "gmail" ? await outreachAddress() : virtara?.address;
+    if (via === "gmail" && !mailbox) {
       response
         .status(409)
         .json({ error: "Connect the outreach mailbox first." });
@@ -425,20 +457,59 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
       });
       return;
     }
-    const message = {
-      to,
-      subject: content.subject,
-      body: content.body,
-      inReplyTo: replyTo?.messageIdHeader,
-      from: sender ? { name: sender.fromName, address: mailbox } : undefined,
-    };
+
+    const fromAddress = via === "virtara" ? virtara!.address : mailbox!;
+    const fromName = sender?.fromName ?? (via === "virtara" ? virtara?.name : undefined);
+    const inReplyTo = replyTo?.messageIdHeader;
     // Refuse a malformed email before a slot is reserved for it.
-    buildMessage(message);
+    if (via === "virtara") {
+      buildVirtaraRaw({
+        to,
+        subject: content.subject,
+        body: content.body,
+        inReplyTo,
+        from: { address: fromAddress, name: fromName },
+      });
+    } else {
+      buildMessage({
+        to,
+        subject: content.subject,
+        body: content.body,
+        inReplyTo,
+        from: sender ? { name: sender.fromName, address: fromAddress } : undefined,
+      });
+    }
 
     reservationId = (
       await reserveSend({ prospectId: prospect.id, subject: content.subject, dailyCap: dailyCap(), isReply: Boolean(replyTo), play: content.play })
     ).id;
-    const sent = await sendMessage(message, replyTo?.threadId);
+
+    if (via === "virtara") {
+      // SMTP either accepted (we have a Message-ID) or threw. A failed Sent
+      // copy is swallowed inside sendViaVirtara: the email has gone, so the
+      // slot must stay reserved. Gmail's "unconfirmed" path does not apply.
+      const sent = await sendViaVirtara({
+        to,
+        subject: content.subject,
+        body: content.body,
+        inReplyTo,
+        from: { address: fromAddress, name: fromName },
+      });
+      await settleSend(reservationId, { kind: "sent", gmailMessageId: sent.messageId });
+      response.status(201).json({ sent: true, to, messageId: sent.messageId });
+      return;
+    }
+
+    const sent = await sendMessage(
+      {
+        to,
+        subject: content.subject,
+        body: content.body,
+        inReplyTo,
+        from: sender ? { name: sender.fromName, address: fromAddress } : undefined,
+      },
+      replyTo?.threadId,
+    );
     await settleSend(reservationId, {
       kind: "sent",
       gmailMessageId: sent.messageId,
@@ -448,6 +519,7 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
   } catch (error) {
     if (reservationId) {
       const maybeSent =
+        via === "gmail" &&
         error instanceof OutreachGmailError &&
         (error.reason === "offline" || error.reason === "unreadable");
       await settleSend(reservationId, {
@@ -465,7 +537,7 @@ outreachRouter.post("/prospects/:id/send", async (request, response) => {
     }
     fail(response, error, "send the email");
   }
-});
+}
 
 /**
  * "I sent it": the person copied the email out of AgentOS and sent it from
