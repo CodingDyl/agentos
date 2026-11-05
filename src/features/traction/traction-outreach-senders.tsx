@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils";
  * from, a signature with the opt-out line, a line about what it does (for
  * Hermes), and your usual prices, copied into a case when you choose an
  * approach.
+ *
+ * `onAdded` hears about a new company, for a screen that was waiting on one.
  */
-export function SenderManager() {
+export function SenderManager({ onAdded }: { onAdded?: (sender: Sender) => void }) {
   const senders = useSenders();
   const [editing, setEditing] = useState<string | "new" | undefined>(undefined);
   const list = senders.data ?? [];
@@ -43,7 +45,7 @@ export function SenderManager() {
       ) : null}
       {open === "new" ? (
         <div className="mt-2">
-          <SenderForm onDone={() => setEditing(undefined)} canCancel={list.length > 0} />
+          <SenderForm onDone={() => setEditing(undefined)} onAdded={onAdded} canCancel={list.length > 0} />
         </div>
       ) : (
         <PaperButton variant="ghost" className="mt-2" onClick={() => setEditing("new")}>
@@ -56,7 +58,7 @@ export function SenderManager() {
 
 const EMPTY: SenderInput = { company: "", fromName: "", about: "", website: "", signature: "", defaultMonthly: "", defaultSetup: "", defaultProject: "" };
 
-function SenderForm({ sender, onDone, canCancel = true }: { sender?: Sender; onDone: () => void; canCancel?: boolean }) {
+function SenderForm({ sender, onDone, onAdded, canCancel = true }: { sender?: Sender; onDone: () => void; onAdded?: (sender: Sender) => void; canCancel?: boolean }) {
   const status = useOutreachStatus();
   const save = useSaveSender();
   const remove = useDeleteSender();
@@ -73,7 +75,15 @@ function SenderForm({ sender, onDone, canCancel = true }: { sender?: Sender; onD
       onSubmit={(event) => {
         event.preventDefault();
         if (!ready) return;
-        save.mutate({ input: form, senderId: sender?.id }, { onSuccess: onDone });
+        save.mutate(
+          { input: form, senderId: sender?.id },
+          {
+            onSuccess: (saved) => {
+              onDone();
+              if (!sender) onAdded?.(saved.sender);
+            },
+          },
+        );
       }}
     >
       <div className="grid gap-3 sm:grid-cols-2">
