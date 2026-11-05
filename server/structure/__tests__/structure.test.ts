@@ -113,8 +113,12 @@ describe("the overview", () => {
 
   it("does the same for a name that is only an outside package", () => {
     const graph = sampleGraph();
-    const renamed = graph.nodes.map((row) => ("community" in row && row.community === 1 ?{ ...row, community_name: "react" } : row));
-    const parsed = parseGraph(JSON.stringify({ ...graph, nodes: renamed }));
+    const renamed = graph.nodes
+      .filter((row) => row.id !== "react")
+      .map((row) => ("community" in row && row.community === 1 ? { ...row, community_name: "react" } : row));
+    // As the real file has it: a dependency from package.json, with no `external` flag.
+    const dependency = { id: "ref_react", label: "react", community: 1, community_name: "react", file_type: "concept", source_file: "package.json" };
+    const parsed = parseGraph(JSON.stringify({ ...graph, nodes: [...renamed, dependency] }));
     assert.ok(parsed.ok);
     assert.equal(overviewOf(parsed.index).subsystems.find((entry) => entry.id === 1)?.name, "src/features/jobs");
   });
