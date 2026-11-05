@@ -28,6 +28,7 @@ import {
   correctMailThread,
   disconnectMail,
   linkTitanMailbox,
+  testTitanMailbox,
   unlinkTitanMailbox,
   updateTitanSenderName,
   getMail,
@@ -443,6 +444,15 @@ export function useLinkTitanMailbox() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentosKeys.mailStatus() });
     },
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Tests the mailbox's IMAP and SMTP login without saving it or sending anything. */
+export function useTestTitanMailbox() {
+  return useMutation({
+    mutationFn: testTitanMailbox,
     networkMode: "always",
     retry: 0,
   });

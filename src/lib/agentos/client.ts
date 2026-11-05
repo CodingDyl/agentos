@@ -16,6 +16,7 @@ import {
   type GrokBotTestResult,
 } from "@shared/grok-bot-types";
 import { z } from "zod";
+import { MailProviderIdSchema, type MailProviderId } from "@shared/mail-account-types";
 import {
   RepositoryActionResultSchema,
   RepositoryGraphSchema,
@@ -447,9 +448,40 @@ export function disconnectMail(): Promise<unknown> {
   return workerRequest("/api/mail/disconnect", { method: "POST" });
 }
 
-/** Links the Virtara (Titan) mailbox. The server tries the login before saving it. */
-export function linkTitanMailbox(request: { address: string; password: string; senderName?: string; imapHost?: string; smtpHost?: string }): Promise<unknown> {
+/** What the connect form sends. Presets need only `provider`; Custom names all four servers. */
+export interface MailConnectInput {
+  address: string;
+  password: string;
+  senderName?: string;
+  provider: MailProviderId;
+  imapHost?: string;
+  imapPort?: number;
+  smtpHost?: string;
+  smtpPort?: number;
+  confirmServers?: boolean;
+}
+
+const MailCheckResultSchema = z.object({ ok: z.boolean(), message: z.string() });
+const MailConnectionTestResponseSchema = z.object({ ok: z.boolean(), imap: MailCheckResultSchema, smtp: MailCheckResultSchema });
+export type MailConnectionTestResponse = z.infer<typeof MailConnectionTestResponseSchema>;
+
+/** Links the Virtara mailbox. The server tests IMAP and SMTP and saves only when both pass. */
+export function linkTitanMailbox(request: MailConnectInput): Promise<unknown> {
   return workerRequest("/api/mail/accounts/titan", postJson(request));
+}
+
+/** Tests IMAP and SMTP without saving or sending anything. */
+export function testTitanMailbox(request: MailConnectInput): Promise<MailConnectionTestResponse> {
+  return workerRequest("/api/mail/accounts/titan/test", postJson(request), (value) => MailConnectionTestResponseSchema.safeParse(value));
+}
+
+const MailProviderDetectionSchema = z.object({ domain: z.string(), provider: MailProviderIdSchema.exclude(["custom"]).optional(), mx: z.string().optional() });
+
+/** Where an address's mail is hosted, from its domain's MX record. */
+export function detectMailProvider(address: string): Promise<z.infer<typeof MailProviderDetectionSchema>> {
+  return workerRequest(`/api/mail/accounts/titan/detect?address=${encodeURIComponent(address)}`, { method: "GET" }, (value) =>
+    MailProviderDetectionSchema.safeParse(value),
+  );
 }
 
 export function updateTitanSenderName(senderName: string): Promise<unknown> {

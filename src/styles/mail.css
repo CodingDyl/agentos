@@ -1604,3 +1604,36 @@ section[aria-label="Sent and drafts"] > .mail-filters {
   color: var(--mail-deep-moss);
   background: var(--mail-paper-white);
 }
+
+.mail-account-servers {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.mail-port {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.mail-account-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mail-account-checks {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mail-account-check-ok {
+  color: var(--mail-deep-moss);
+}
+
+.mail-account-actions .mail-btn-ghost {
+  margin-right: 8px;
+}

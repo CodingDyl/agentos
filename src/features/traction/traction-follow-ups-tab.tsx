@@ -354,7 +354,7 @@ function ReplyWatchBar({ now }: { now: number }) {
       <p className="text-[13px] leading-5 text-paper-sage">
         Replies to emails you send from your own mailbox are not noticed yet.{" "}
         <a href="/inbox" className={cn("text-paper-blue hover:underline", PAPER_FOCUS)}>
-          Connect your Virtara (Titan) mailbox in Inbox
+          Connect your Virtara mailbox in Inbox
         </a>{" "}
         and AgentOS checks it for replies every 15 minutes, without marking anything read.
       </p>
