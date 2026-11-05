@@ -349,6 +349,7 @@ export const MotionRunViewSchema = MotionRunSchema.extend({
       id: z.string(),
       status: z.string(),
       error: z.string().optional(),
+      integratedCommit: z.string().optional(),
       summary: z.string().optional(),
       href: z.string(),
     })

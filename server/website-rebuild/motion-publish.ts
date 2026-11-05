@@ -49,7 +49,8 @@ export async function publishableMotion(run: RebuildRun, deps: Pick<MotionPublis
   if (!motion?.enhanceExisting) throw new RebuildError("This workspace has no motion pass to publish.", 404);
   const job = await deps.latestJob(motion);
   if (!job) throw new RebuildError("The motion pass has not started a build yet.");
-  if (job.integratedCommit) return { motion, job };
+  if (job.integratedCommit && job.status === "completed") return { motion, job };
+  if (job.integratedCommit && job.status === "failed") throw new RebuildError("The motion pass landed, but its check after landing failed. Re-run the check on its worker job, then publish.");
   if (job.status !== "awaiting_review") throw new RebuildError(`The motion pass is ${job.status.replace(/_/g, " ")}. Publish it once its build has finished.`);
   const failed = (job.result?.tests ?? []).filter((test) => !test.success).map((test) => test.command);
   if (failed.length > 0) throw new RebuildError(`The motion pass did not pass ${failed.join(", ")}. Send it notes to fix that first.`);
