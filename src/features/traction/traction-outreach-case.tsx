@@ -21,7 +21,16 @@ import {
 import { MAX_EMAIL_BODY } from "@shared/outreach-types";
 import type { Prospect } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, Tag } from "@/components/paper";
-import { useCreateGmailDraft, useOutreachStats, useOutreachStatus, useRecordManualSend, useSendOutreachEmail, useUseInboxForOutreach, type GmailDraftResult } from "@/lib/agentos/outreach";
+import {
+  useCreateGmailDraft,
+  useOutreachStats,
+  useOutreachStatus,
+  useRecordManualSend,
+  useSendOutreachEmail,
+  useUseInboxForOutreach,
+  type GmailDraftResult,
+  type OutreachSendVia,
+} from "@/lib/agentos/outreach";
 import { TOUCH_LABELS, type Touch } from "@shared/outreach-library";
 import { useChatAgents } from "@/lib/agentos/chat";
 import { useBriefCase, useDraftCase, useEmailLibrary, useMakePhotoSamples, usePhotoSampleCost, useReviseDraft, useSaveToLibrary, useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
@@ -478,6 +487,22 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
         {mailbox?.connected ? (
           <>
             Goes out from <span className="font-semibold text-paper-char">{mailbox.address}</span>
+            {mailbox.virtaraAddress ? (
+              <>
+                {" "}
+                or <span className="font-semibold text-paper-char">{mailbox.virtaraAddress}</span> (Virtara)
+              </>
+            ) : null}
+            {sender ? (
+              <>
+                {" "}
+                as <span className="font-semibold text-paper-char">{sender.fromName}</span>, with {sender.company}&apos;s signature.
+              </>
+            ) : null}
+          </>
+        ) : mailbox?.virtaraAddress ? (
+          <>
+            Goes out from <span className="font-semibold text-paper-char">{mailbox.virtaraAddress}</span> (Virtara)
             {sender ? (
               <>
                 {" "}
@@ -493,7 +518,7 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
             </button>
           </>
         ) : (
-          "No outreach mailbox is connected. Connect Gmail in Connectors first."
+          "No outreach mailbox is connected. Connect Gmail in Connectors first, or link Virtara under Inbox → Accounts."
         )}
       </p>
 
@@ -702,6 +727,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
   const [reviewing, setReviewing] = useState(false);
   const [sentTo, setSentTo] = useState<string>();
   const [created, setCreated] = useState<GmailDraftResult>();
+  const [chosenVia, setChosenVia] = useState<OutreachSendVia>("gmail");
 
   const changed = subject !== (entry.draft?.subject ?? "") || body !== (entry.draft?.body ?? "");
   const saveDraft = () => {
@@ -709,7 +735,12 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
   };
   const hasContent = subject.trim().length > 0 && body.trim().length > 0;
   const mailbox = status.data;
-  const blocker = !mailbox?.connected
+  const canGmail = Boolean(mailbox?.connected);
+  const canVirtara = Boolean(mailbox?.virtaraAddress);
+  const sendVia: OutreachSendVia = chosenVia === "virtara" && canVirtara ? "virtara" : canGmail ? "gmail" : canVirtara ? "virtara" : "gmail";
+  const fromAddress = sendVia === "virtara" ? mailbox?.virtaraAddress : mailbox?.address;
+  const mailboxReady = sendVia === "virtara" ? canVirtara : canGmail;
+  const blocker = !mailboxReady
     ? "Connect the outreach mailbox first."
     : !sender
       ? "Choose which company it is from."
@@ -766,13 +797,27 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
 
       {hasContent ? (
         <div className="mt-4 space-y-2">
+          {canVirtara ? (
+            <label className="block max-w-sm">
+              <FieldLabel>Send from</FieldLabel>
+              <select
+                value={sendVia}
+                onChange={(event) => setChosenVia(event.target.value as OutreachSendVia)}
+                className={cn(PAPER_INPUT, "w-full")}
+                aria-label="Send from mailbox"
+              >
+                {canGmail ? <option value="gmail">Gmail ({mailbox?.address})</option> : null}
+                <option value="virtara">Virtara ({mailbox?.virtaraAddress})</option>
+              </select>
+            </label>
+          ) : null}
           {reviewing ? (
             <div role="group" aria-label="Review before sending" className="rounded-md border border-paper-ash bg-paper-white px-4 py-3 text-[13px] leading-5 text-paper-char">
               <p className="text-[13px] font-semibold">Review before sending</p>
               <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                 <dt className="text-paper-sage">From</dt>
                 <dd>
-                  {sender?.fromName} &lt;{mailbox?.address}&gt;
+                  {sender?.fromName} &lt;{fromAddress}&gt;
                 </dd>
                 <dt className="text-paper-sage">To</dt>
                 <dd className="font-semibold">{prospect.email}</dd>
@@ -781,7 +826,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
               </dl>
               <pre className="mt-3 max-h-72 overflow-auto border-t border-paper-mist pt-3 font-sans whitespace-pre-wrap">{body}</pre>
               <p className="mt-2 text-paper-sage">
-                Sent now, to this one address. {mailbox?.sentToday ?? 0} of {mailbox?.dailyCap ?? 0} sent in the last 24 hours. It cannot be recalled.
+                Sent now from {sendVia === "virtara" ? "Virtara" : "Gmail"}, to this one address. {mailbox?.sentToday ?? 0} of {mailbox?.dailyCap ?? 0} sent in the last 24 hours. It cannot be recalled.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <PaperButton
@@ -790,7 +835,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
                   onClick={() => {
                     saveDraft();
                     send.mutate(
-                      { prospectId: prospect.id, content: { subject, body }, play, senderId: sender?.id },
+                      { prospectId: prospect.id, content: { subject, body }, play, senderId: sender?.id, via: sendVia },
                       {
                         onSuccess: (result) => {
                           setSentAsTouch((current) => current ?? nextTouch);
@@ -815,7 +860,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
               </PaperButton>
               <PaperButton
                 variant="ghost"
-                disabled={Boolean(blocker) || create.isPending || Boolean(sentTo)}
+                disabled={Boolean(blocker) || !canGmail || create.isPending || Boolean(sentTo)}
                 onClick={() => {
                   saveDraft();
                   create.mutate({ prospectId: prospect.id, content: { subject, body }, play, senderId: sender?.id }, { onSuccess: setCreated });

@@ -24,6 +24,8 @@ const {
   withSignature,
 } = await import("../draft");
 const { outreachRouter } = await import("../routes");
+const virtara = await import("../virtara");
+const { TitanError } = await import("../../mail/titan-client");
 const {
   COMPOSE_SCOPE,
   READ_SCOPE,
@@ -277,6 +279,7 @@ beforeEach(async () => {
   fs.rmSync(path.join(directory, "traction"), { recursive: true, force: true });
   await disconnectOutreach();
   resetOutreachTokenCache();
+  virtara.setVirtaraForTests(undefined);
   googleCalls.length = 0;
   sendCalls.length = 0;
   sendBodies.length = 0;
@@ -727,6 +730,147 @@ describe("sending", () => {
       400,
     );
     assert.equal((await store.readState()).outreachLog.length, 0);
+  });
+});
+
+describe("sending from Virtara", () => {
+  const body = `Hi Jane,\n\nOne thing.\n\n--\n${SIGNATURE}`;
+  const send = (
+    id: string,
+    extra: Record<string, unknown> = {},
+    content = { subject: "Your listing pages", body },
+  ) =>
+    api(`/prospects/${id}/send-virtara`, {
+      method: "POST",
+      body: JSON.stringify({ ...content, confirm: true, ...extra }),
+    });
+
+  const titanSends: { raw: string; from: string; to: readonly string[] }[] = [];
+  const titanAppends: string[] = [];
+
+  function linkVirtara(options: { sendFails?: "failed" | "unauthorized"; appendFails?: boolean } = {}) {
+    titanSends.length = 0;
+    titanAppends.length = 0;
+    virtara.setVirtaraForTests({
+      account: async () => ({ address: "dylan@virtara.co.za", senderName: "Dylan Petzer" }),
+      send: async (raw, envelope) => {
+        if (options.sendFails === "failed") throw new TitanError("Titan would not send that email (SMTP 550).", "failed");
+        if (options.sendFails === "unauthorized") throw new TitanError("Titan refused the login for sending.", "unauthorized");
+        titanSends.push({ raw, from: envelope.from, to: envelope.to });
+      },
+      appendSent: async (raw) => {
+        if (options.appendFails) throw new Error("NO [OVERQUOTA]");
+        titanAppends.push(raw);
+      },
+      now: () => new Date("2026-11-05T10:00:00Z"),
+    });
+  }
+
+  it("refuses when the Virtara mailbox is not linked", async () => {
+    const made = await seed();
+    const { status, body: result } = await send(made.id);
+    assert.equal(status, 409);
+    assert.match(String(result.error), /not linked/);
+    assert.equal(titanSends.length, 0);
+    assert.equal((await store.readState()).outreachLog.length, 0);
+  });
+
+  it("keeps the signature on a cold email", async () => {
+    const made = await seed();
+    linkVirtara();
+    assert.equal((await send(made.id, {}, { subject: "s", body: "no opt-out" })).status, 422);
+    assert.equal(titanSends.length, 0);
+    assert.equal((await store.readState()).outreachLog.length, 0);
+  });
+
+  it("sends from the Virtara address, files Sent, logs the Message-ID, and counts as first contact", async () => {
+    const made = await seed();
+    linkVirtara();
+    const { status, body: result } = await send(made.id);
+
+    assert.equal(status, 201);
+    assert.equal(result.to, "jane@parkview.example");
+    assert.equal(sendCalls.length, 0, "Gmail is not used");
+    assert.equal(titanSends.length, 1);
+    assert.equal(titanSends[0].from, "dylan@virtara.co.za");
+    assert.deepEqual(titanSends[0].to, ["jane@parkview.example"]);
+    assert.match(titanSends[0].raw, /^From: "Dylan Petzer" <dylan@virtara\.co\.za>\r\n/);
+    assert.equal(titanAppends.length, 1);
+
+    const state = await store.readState();
+    assert.equal(state.outreachLog[0].kind, "sent");
+    assert.equal(state.outreachLog[0].gmailMessageId, result.messageId);
+    assert.equal(state.prospects[0].stage, "contacted");
+    assert.equal((await api("/status")).body.virtaraAddress, "dylan@virtara.co.za");
+    assert.equal((await api("/status")).body.sentToday, 1);
+  });
+
+  it("stops at the daily cap and shares it with Gmail", async () => {
+    process.env.OUTREACH_DAILY_CAP = "1";
+    try {
+      linkVirtara();
+      const first = await seed({ email: "a@one.example", company: "One" });
+      const second = await seed({ email: "b@two.example", company: "Two" });
+      assert.equal((await send(first.id)).status, 201);
+      const capped = await send(second.id);
+      assert.equal(capped.status, 429);
+      assert.match(String(capped.body.error), /Daily limit reached \(1/);
+      assert.equal(titanSends.length, 1);
+
+      await completeOutreachConnection("code");
+      const gmail = await api(`/prospects/${second.id}/send`, {
+        method: "POST",
+        body: JSON.stringify({ subject: "Your listing pages", body, confirm: true }),
+      });
+      assert.equal(gmail.status, 429, "Gmail send counts the same cap");
+    } finally {
+      delete process.env.OUTREACH_DAILY_CAP;
+    }
+  });
+
+  it("will not follow up before the follow-up is due", async () => {
+    const made = await seed();
+    linkVirtara();
+    assert.equal((await send(made.id)).status, 201);
+    const again = await send(made.id);
+    assert.equal(again.status, 429);
+    assert.match(String(again.body.error), /next follow-up is due/);
+    assert.equal(titanSends.length, 1);
+  });
+
+  it("frees the slot when SMTP refuses, and maps unauthorized to 409", async () => {
+    const made = await seed();
+    linkVirtara({ sendFails: "failed" });
+    assert.equal((await send(made.id)).status, 502);
+    let state = await store.readState();
+    assert.equal(state.outreachLog.length, 0, "released");
+    assert.equal(state.prospects[0].stage, "target");
+    assert.equal(titanAppends.length, 0);
+
+    linkVirtara({ sendFails: "unauthorized" });
+    assert.equal((await send(made.id)).status, 409);
+    state = await store.readState();
+    assert.equal(state.outreachLog.length, 0);
+  });
+
+  it("settles as sent when SMTP accepted even if the Sent copy fails", async () => {
+    const made = await seed();
+    linkVirtara({ appendFails: true });
+    assert.equal((await send(made.id)).status, 201);
+    const state = await store.readState();
+    assert.equal(state.outreachLog[0].kind, "sent");
+    assert.equal(state.prospects[0].stage, "contacted");
+  });
+
+  it("rejects a header-injecting subject before reserving anything", async () => {
+    const made = await seed();
+    linkVirtara();
+    assert.equal(
+      (await send(made.id, {}, { subject: "Hi\r\nBcc: x@evil.co", body })).status,
+      400,
+    );
+    assert.equal((await store.readState()).outreachLog.length, 0);
+    assert.equal(titanSends.length, 0);
   });
 });
 

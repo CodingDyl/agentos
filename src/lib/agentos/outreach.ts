@@ -302,6 +302,8 @@ export interface SendResult {
   messageId: string;
 }
 
+export type OutreachSendVia = "gmail" | "virtara";
+
 /** Sends the previewed email now. The server picks the recipient and enforces every guardrail. */
 export function useSendOutreachEmail() {
   const queryClient = useQueryClient();
@@ -312,15 +314,17 @@ export function useSendOutreachEmail() {
       replyToId,
       play,
       senderId,
+      via,
     }: {
       prospectId: string;
       content: EmailContent;
       replyToId?: string;
       play?: Play;
       senderId?: string;
+      via?: OutreachSendVia;
     }) =>
       request<SendResult>(
-        `/api/outreach/prospects/${id(prospectId)}/send`,
+        `/api/outreach/prospects/${id(prospectId)}/${via === "virtara" ? "send-virtara" : "send"}`,
         json("POST", {
           ...content,
           confirm: true,

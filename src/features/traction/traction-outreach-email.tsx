@@ -28,6 +28,7 @@ import {
   useSendOutreachEmail,
   useSuppressions,
   type GmailDraftResult,
+  type OutreachSendVia,
 } from "@/lib/agentos/outreach";
 import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
@@ -144,27 +145,33 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
         </div>
       ) : null}
 
-      {status.data?.connected ? (
+      {status.data?.connected || status.data?.virtaraAddress ? (
         <>
-          <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-[13px] text-paper-char">
-            Sending as{" "}
-            <span className="font-semibold">{status.data.address}</span>
-            {status.data.usesInbox ? (
-              <span className="text-paper-sage">(your inbox account)</span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => disconnect.mutate()}
-              disabled={disconnect.isPending}
-              className={cn(
-                "cursor-pointer rounded-sm text-paper-sage hover:text-paper-moss hover:underline",
-                PAPER_FOCUS,
-              )}
-            >
-              Disconnect
-            </button>
-          </p>
-          <CheckReplies lastSyncAt={status.data.lastSyncAt} />
+          {status.data.connected ? (
+            <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-[13px] text-paper-char">
+              Sending as{" "}
+              <span className="font-semibold">{status.data.address}</span>
+              {status.data.usesInbox ? (
+                <span className="text-paper-sage">(your inbox account)</span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => disconnect.mutate()}
+                disabled={disconnect.isPending}
+                className={cn(
+                  "cursor-pointer rounded-sm text-paper-sage hover:text-paper-moss hover:underline",
+                  PAPER_FOCUS,
+                )}
+              >
+                Disconnect
+              </button>
+            </p>
+          ) : (
+            <p className="mt-2 text-[13px] text-paper-char">
+              Sending from <span className="font-semibold">{status.data.virtaraAddress}</span> (Virtara)
+            </p>
+          )}
+          {status.data.connected ? <CheckReplies lastSyncAt={status.data.lastSyncAt} /> : null}
           <SignatureEditor
             key={status.data.signature}
             saved={status.data.signature}
@@ -174,6 +181,8 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
             signature={status.data.signature}
             sentToday={status.data.sentToday}
             dailyCap={status.data.dailyCap}
+            gmailAddress={status.data.address}
+            virtaraAddress={status.data.virtaraAddress}
           />
         </>
       ) : null}
@@ -224,11 +233,15 @@ function Composer({
   signature,
   sentToday,
   dailyCap,
+  gmailAddress,
+  virtaraAddress,
 }: {
   prospect: Prospect;
   signature: string;
   sentToday: number;
   dailyCap: number;
+  gmailAddress?: string;
+  virtaraAddress?: string;
 }) {
   const draft = useDraftOutreachEmail();
   const create = useCreateGmailDraft();
@@ -241,6 +254,10 @@ function Composer({
   const [replyToId, setReplyToId] = useState<string>();
   const [previewing, setPreviewing] = useState(false);
   const [sentTo, setSentTo] = useState<string>();
+  const [chosenVia, setChosenVia] = useState<OutreachSendVia>("gmail");
+  const canGmail = Boolean(gmailAddress);
+  const canVirtara = Boolean(virtaraAddress);
+  const sendVia: OutreachSendVia = chosenVia === "virtara" && canVirtara ? "virtara" : canGmail ? "gmail" : canVirtara ? "virtara" : "gmail";
   const suppressed = prospect.email
     ? suppressions.data?.find(
         (entry) => entry.address === prospect.email?.toLowerCase(),
@@ -415,7 +432,7 @@ function Composer({
           <div className="flex flex-wrap items-center gap-3">
             <PaperButton
               variant="amber"
-              disabled={Boolean(blocker) || !hasContent || create.isPending || Boolean(replyToId)}
+              disabled={Boolean(blocker) || !hasContent || !canGmail || create.isPending || Boolean(replyToId)}
               onClick={() =>
                 create.mutate(
                   { prospectId: prospect.id, content: { subject, body } },
@@ -433,6 +450,20 @@ function Composer({
             <p role="alert" className="text-[13px] text-paper-flame-deep">
               {create.error.message}
             </p>
+          ) : null}
+          {canVirtara ? (
+            <label className="block max-w-sm">
+              <FieldLabel>Send from</FieldLabel>
+              <select
+                value={sendVia}
+                onChange={(event) => setChosenVia(event.target.value as OutreachSendVia)}
+                className={cn(PAPER_INPUT, "w-full")}
+                aria-label="Send from mailbox"
+              >
+                {canGmail ? <option value="gmail">Gmail ({gmailAddress})</option> : null}
+                <option value="virtara">Virtara ({virtaraAddress})</option>
+              </select>
+            </label>
           ) : null}
           {previewing ? (
             <div
@@ -453,7 +484,7 @@ function Composer({
                 {body}
               </pre>
               <p className="mt-2 text-paper-sage">
-                {replyToId ? "A reply in their thread, sent now" : "Sent now"} from the outreach mailbox, to this one address.{" "}
+                {replyToId ? "A reply in their thread, sent now" : "Sent now"} from {sendVia === "virtara" ? "Virtara" : "the outreach mailbox"}, to this one address.{" "}
                 {sentToday} of {dailyCap} sent in the last 24 hours. It cannot
                 be recalled.
               </p>
@@ -463,7 +494,7 @@ function Composer({
                   disabled={send.isPending || !hasContent}
                   onClick={() =>
                     send.mutate(
-                      { prospectId: prospect.id, content: { subject, body }, replyToId },
+                      { prospectId: prospect.id, content: { subject, body }, replyToId, via: sendVia },
                       {
                         onSuccess: (result) => {
                           setSentTo(result.to);
