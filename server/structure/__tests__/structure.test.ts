@@ -111,6 +111,14 @@ describe("the overview", () => {
     assert.equal(overviewOf(index()).subsystems.find((entry) => entry.id === 1)?.name, "src/features/jobs");
   });
 
+  it("does the same for a name that is only an outside package", () => {
+    const graph = sampleGraph();
+    const renamed = graph.nodes.map((row) => ("community" in row && row.community === 1 ?{ ...row, community_name: "react" } : row));
+    const parsed = parseGraph(JSON.stringify({ ...graph, nodes: renamed }));
+    assert.ok(parsed.ok);
+    assert.equal(overviewOf(parsed.index).subsystems.find((entry) => entry.id === 1)?.name, "src/features/jobs");
+  });
+
   it("puts code on the map and leaves docs and config in the list", () => {
     const { subsystems } = overviewOf(index());
     assert.equal(subsystems.find((entry) => entry.id === 2)?.kind, "docs");

@@ -115,10 +115,15 @@ function tally(counts: Map<string, number>, key: string, by = 1): void {
   counts.set(key, (counts.get(key) ?? 0) + by);
 }
 
-/** Graphify names a community after its hub. A hub that is only a reference says nothing, so fall back to where it lives. */
-function subsystemName(raw: string | undefined, folder: string, id: number): string {
+/**
+ * Graphify names a community after its hub. A hub that is only a reference or
+ * an outside package (`react`) says nothing about this project's code, so fall
+ * back to where the subsystem lives.
+ */
+function subsystemName(raw: string | undefined, folder: string, id: number, members: readonly Node[]): string {
   const name = raw?.trim();
-  if (name && !name.startsWith("ref_") && !/^Community \d+$/.test(name)) return name;
+  const namedAfterPackage = members.some((member) => member.external && member.label === name);
+  if (name && !namedAfterPackage && !name.startsWith("ref_") && !/^Community \d+$/.test(name)) return name;
   return folder === "(project root)" ? `Subsystem ${id}` : folder;
 }
 
@@ -239,7 +244,7 @@ export class StructureIndex {
       const folder = mostCommon(folders) ?? "(project root)";
       return {
         id,
-        name: subsystemName(names.get(id), folder, id),
+        name: subsystemName(names.get(id), folder, id, members),
         folder,
         area: folder === "(project root)" ? folder : folder.split("/")[0],
         kind: kindOf(members),
