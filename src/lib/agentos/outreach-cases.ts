@@ -53,6 +53,8 @@ function useCaseMutation<V>(fn: (variables: V) => Promise<unknown>) {
     onSuccess: (saved) => {
       queryClient.setQueryData<Record<string, OutreachCase>>(casesKey(), (current) => ({ ...(current ?? {}), [saved.prospectId]: saved }));
       void queryClient.invalidateQueries({ queryKey: tractionKey() });
+      // The Pitch ready card reads the case's prices and company defaults through the pitch.
+      void queryClient.invalidateQueries({ queryKey: [...outreachKey(), "pitch"] });
     },
     networkMode: "always",
     retry: 0,

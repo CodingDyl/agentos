@@ -1,20 +1,27 @@
 import { Camera, Check, ExternalLink, FileText, Mail, Wand2 } from "lucide-react";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { PATH_PLAY, type OutreachCase } from "@shared/outreach-case";
+import { PATH_PLAY, type OutreachCase, type Sender } from "@shared/outreach-case";
 import type { PitchPack, PitchShot } from "@shared/pitch-types";
 import type { Prospect } from "@shared/traction-types";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, Tag } from "@/components/paper";
 import { formatRand } from "@/features/business/business-model";
 import { useRecordManualSend } from "@/lib/agentos/outreach";
+import { useSenders, useWriteCase } from "@/lib/agentos/outreach-cases";
 import { useCapturePitchShots, useCreatePitchQuote, useDraftPitch, usePitch } from "@/lib/agentos/pitch";
+import { useUpdateProspect } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
+import { SenderManager } from "./traction-outreach-senders";
+import { planPitchDraft, writeEmailAnchor, type PitchDraftPlan } from "./traction-pitch-model";
 
 /**
  * Pitch ready: a "build it first" prospect whose rebuild has a live preview,
  * with what is needed to sell it: the before and after, two or three
  * findings and what the leak costs, the preview link, the prices, and the
  * three actions (draft the email, make the quote, mark it sent).
+ *
+ * What the draft still needs (the company above all) is asked for right here,
+ * before you press anything, and pressing draft saves it and carries on.
  *
  * Nothing here sends. The draft lands in "Write the email" below for you to
  * read and send through the usual mail flow.
@@ -31,9 +38,57 @@ export function PitchPackView({ prospect, entry, pack }: { prospect: Prospect; e
   const shots = useCapturePitchShots();
   const draft = useDraftPitch();
   const manual = useRecordManualSend();
+  const write = useWriteCase();
+  const senders = useSenders();
+  const [chosenSenderId, setChosenSenderId] = useState<string>();
+  const [hook, setHook] = useState("");
+  const [offer, setOffer] = useState(entry.framing[0] ?? "");
+  const [addingCompany, setAddingCompany] = useState(false);
+  // You pressed draft before everything was there: the draft starts as soon as the company is chosen.
+  const [waitingToDraft, setWaitingToDraft] = useState(false);
+  const senderRef = useRef<HTMLSelectElement>(null);
+  const hookRef = useRef<HTMLInputElement>(null);
+  const offerRef = useRef<HTMLInputElement>(null);
+
   const pitched = pack.status === "pitched";
   const previewUrl = pack.rebuild?.previewUrl;
   const closed = prospect.stage === "won" || prospect.stage === "lost";
+  const companies = senders.data ?? [];
+  const planWith = (senderId: string | undefined, list: readonly Sender[] = companies) =>
+    planPitchDraft({ entry, senders: list, previewUrl, findings: pack.findings, quoteCompany: pack.quote?.entityName, chosenSenderId: senderId, hook, offer });
+  const plan = planWith(chosenSenderId);
+  const busy = write.isPending || draft.isPending;
+  const hasEmail = Boolean(entry.draft?.subject.trim() && entry.draft?.body.trim());
+  const quoteElsewhere = pack.quote && plan.sender && pack.quote.entityName.trim().toLowerCase() !== plan.sender.company.trim().toLowerCase() ? pack.quote.entityName : undefined;
+
+  const startDraft = async (next: PitchDraftPlan) => {
+    setWaitingToDraft(false);
+    try {
+      if (Object.keys(next.patch).length > 0) await write.mutateAsync({ prospectId: prospect.id, patch: next.patch });
+      await draft.mutateAsync(prospect.id);
+    } catch {
+      // Both hooks hold the error, and the card shows it.
+    }
+  };
+
+  const pressDraft = () => {
+    if (plan.ready) {
+      void startDraft(plan);
+      return;
+    }
+    setWaitingToDraft(true);
+    if (plan.needsSender && companies.length === 0) setAddingCompany(true);
+    else if (plan.needsSender) senderRef.current?.focus();
+    else if (plan.gaps.length > 0 && plan.asksHook && !hook.trim()) hookRef.current?.focus();
+    else offerRef.current?.focus();
+  };
+
+  const chooseSender = (senderId: string, list: readonly Sender[] = companies) => {
+    setChosenSenderId(senderId);
+    const next = planWith(senderId, list);
+    if (waitingToDraft && next.ready) void startDraft(next);
+    else write.mutate({ prospectId: prospect.id, patch: { senderId } });
+  };
 
   return (
     <PaperCard className="border-paper-ash p-5" aria-labelledby={`pitch-${prospect.id}`} data-testid="pitch-ready">
@@ -83,31 +138,171 @@ export function PitchPackView({ prospect, entry, pack }: { prospect: Prospect; e
         <PricesAndQuote prospect={prospect} pack={pack} />
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-paper-mist pt-4">
-        <PaperButton variant="amber" disabled={draft.isPending || closed} onClick={() => draft.mutate(prospect.id)}>
-          <Wand2 className="size-3.5" aria-hidden="true" /> {draft.isPending ? "Drafting…" : pack.draftReady ? "Redraft the pitch" : "Draft the pitch email"}
-        </PaperButton>
-        <PaperButton
-          variant="ghost"
-          disabled={!entry.draft?.body.trim() || manual.isPending || pitched || closed}
-          onClick={() => entry.draft && manual.mutate({ prospectId: prospect.id, content: { subject: entry.draft.subject, body: entry.draft.body }, play: PATH_PLAY.build_first })}
-        >
-          <Check className="size-3.5" aria-hidden="true" /> {pitched ? "Pitch sent" : manual.isPending ? "Saving…" : "Mark pitch sent"}
-        </PaperButton>
-        <span className="text-[13px] text-paper-sage">
-          {draft.isSuccess
-            ? "Draft saved in “Write the email” below. Read it, then send it there."
-            : pitched
-              ? "Follow-ups and reply checks now track this prospect."
-              : "Drafts only. You read and send it from “Write the email” below, or mark it sent if you sent it yourself."}
-        </span>
+      <div className="mt-5 space-y-4 border-t border-paper-mist pt-4">
+        {!closed && (!pitched || !plan.ready) ? (
+          <section aria-label="What the pitch email needs" className="space-y-3">
+            <div className="flex flex-wrap items-end gap-2">
+              {companies.length > 0 ? (
+                <label className="block min-w-[240px] max-w-sm">
+                  <FieldLabel>
+                    Send as
+                    {plan.needsSender ? (
+                      <Tag tone="marigold" className="ml-2 align-middle">
+                        Needed first
+                      </Tag>
+                    ) : null}
+                  </FieldLabel>
+                  <select ref={senderRef} value={plan.sender?.id ?? ""} disabled={busy} onChange={(event) => chooseSender(event.target.value)} className={cn(PAPER_INPUT, "w-full")}>
+                    {!plan.sender ? <option value="">Choose a company…</option> : null}
+                    {companies.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.company} ({candidate.fromName})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {!senders.isPending ? (
+                <PaperButton variant="quiet" aria-expanded={addingCompany} onClick={() => setAddingCompany((open) => !open)}>
+                  {addingCompany ? "Close" : companies.length === 0 ? "Add the company it is from" : "Add a company"}
+                </PaperButton>
+              ) : null}
+            </div>
+            {plan.needsSender && !senders.isPending ? (
+              <p className="max-w-[72ch] text-[13px] leading-5 text-paper-char">
+                {waitingToDraft ? (companies.length === 0 ? "Add the company and the draft starts." : "Choose the company and the draft starts.") : companies.length === 0 ? "The email needs a company to come from, for its name and signature. You have none yet." : "Choose which company this email is from. It sets the name and the signature."}
+                {pack.quote && companies.length > 0 ? ` The quote is in ${pack.quote.entityName}, which is not one of these companies.` : ""}
+              </p>
+            ) : null}
+            {quoteElsewhere ? <p className="max-w-[72ch] text-[13px] leading-5 text-paper-char">The quote is in {quoteElsewhere}, and this email would come from {plan.sender?.company}. Check that is what you want.</p> : null}
+            {senders.error ? (
+              <p role="alert" className="text-[13px] text-paper-flame-deep">
+                Your companies could not be loaded: {senders.error.message}
+              </p>
+            ) : null}
+            {addingCompany ? (
+              <SenderManager
+                onAdded={(added) => {
+                  setAddingCompany(false);
+                  chooseSender(added.id, [...companies, added]);
+                }}
+              />
+            ) : null}
+            {plan.asksHook ? (
+              <label className="block max-w-[72ch]">
+                <FieldLabel>
+                  An opening line or something you noticed
+                  <Tag tone="marigold" className="ml-2 align-middle">
+                    Needed first
+                  </Tag>
+                </FieldLabel>
+                <input ref={hookRef} value={hook} disabled={busy} onChange={(event) => setHook(event.target.value)} placeholder="e.g. No way to book a call-out on a phone." className={cn(PAPER_INPUT, "w-full")} />
+              </label>
+            ) : null}
+            {plan.asksOffer ? (
+              <label className="block max-w-[72ch]">
+                <FieldLabel>
+                  The offer
+                  <Tag tone="marigold" className="ml-2 align-middle">
+                    Needed first
+                  </Tag>
+                </FieldLabel>
+                <input ref={offerRef} value={offer} disabled={busy} onChange={(event) => setOffer(event.target.value)} placeholder="e.g. A new site with a booking button, ready to look at now." className={cn(PAPER_INPUT, "w-full")} />
+              </label>
+            ) : null}
+            {!prospect.email ? <TheirEmail key={prospect.id} prospect={prospect} /> : null}
+          </section>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <PaperButton variant="amber" disabled={busy || closed || senders.isPending} onClick={pressDraft}>
+            <Wand2 className="size-3.5" aria-hidden="true" /> {draft.isPending ? "Drafting…" : write.isPending ? "Saving…" : pack.draftReady ? "Redraft the pitch" : "Draft the pitch email"}
+          </PaperButton>
+          <PaperButton
+            variant="ghost"
+            disabled={!hasEmail || manual.isPending || pitched || closed}
+            onClick={() => entry.draft && manual.mutate({ prospectId: prospect.id, content: { subject: entry.draft.subject, body: entry.draft.body }, play: PATH_PLAY.build_first })}
+          >
+            <Check className="size-3.5" aria-hidden="true" /> {pitched ? "Pitch sent" : manual.isPending ? "Saving…" : "Mark pitch sent"}
+          </PaperButton>
+          <span className="max-w-[72ch] basis-full text-[13px] leading-5 text-paper-sage">
+            {closed ? (
+              <>
+                This prospect is {prospect.stage}, so the pitch is locked. Change its stage in{" "}
+                <Link to={`/traction?tab=prospects&prospect=${encodeURIComponent(prospect.id)}`} className={cn("text-paper-blue hover:underline", PAPER_FOCUS)}>
+                  Prospects
+                </Link>{" "}
+                to reopen it.
+              </>
+            ) : draft.isSuccess ? (
+              <>
+                Draft saved in <WriteEmailLink prospectId={prospect.id} /> below. Read it, then send it there. Nothing has been sent.
+              </>
+            ) : pitched ? (
+              "Follow-ups and reply checks now track this prospect."
+            ) : hasEmail ? (
+              <>
+                Nothing is sent from here. Read it and send it from <WriteEmailLink prospectId={prospect.id} /> below, or mark it sent if you sent it yourself.
+              </>
+            ) : (
+              <>
+                Drafts only: nothing is sent from here. Mark pitch sent opens once there is an email to record, so draft one, or put what you already sent in <WriteEmailLink prospectId={prospect.id} /> below.
+              </>
+            )}
+          </span>
+        </div>
       </div>
-      {draft.error || manual.error ? (
+      {write.error || draft.error || manual.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
-          {(draft.error ?? manual.error)?.message}
+          {(write.error ?? draft.error ?? manual.error)?.message}
         </p>
       ) : null}
     </PaperCard>
+  );
+}
+
+/** Takes you to the "Write the email" card, the place the draft lands and goes out from. */
+function WriteEmailLink({ prospectId }: { prospectId: string }) {
+  return (
+    <button
+      type="button"
+      className={cn("cursor-pointer text-paper-blue hover:underline", PAPER_FOCUS)}
+      onClick={() => {
+        const target = document.getElementById(writeEmailAnchor(prospectId));
+        if (!target) return;
+        const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        target.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+        target.focus({ preventScroll: true });
+      }}
+    >
+      “Write the email”
+    </button>
+  );
+}
+
+/** Not needed to draft, but the email cannot go out without it, so it is asked for here rather than at the send button. */
+function TheirEmail({ prospect }: { prospect: Prospect }) {
+  const update = useUpdateProspect();
+  const [value, setValue] = useState("");
+  return (
+    <label className="block max-w-sm">
+      <FieldLabel>Their email address</FieldLabel>
+      <input
+        type="email"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => {
+          if (value.trim()) update.mutate({ prospectId: prospect.id, patch: { email: value.trim() } });
+        }}
+        className={cn(PAPER_INPUT, "w-full")}
+      />
+      <span className="mt-0.5 block text-[13px] text-paper-sage">You can draft without it, but it cannot be sent from AgentOS until it is here.</span>
+      {update.error ? (
+        <span role="alert" className="mt-0.5 block text-[13px] text-paper-flame-deep">
+          {update.error.message}
+        </span>
+      ) : null}
+    </label>
   );
 }
 
@@ -161,7 +356,7 @@ function PricesAndQuote({ prospect, pack }: { prospect: Prospect; pack: PitchPac
           </Link>
         </p>
       ) : asking || !priced ? (
-        <form aria-labelledby={`${formId}-title`} className="mt-3 space-y-2" onSubmit={submit}>
+        <form key={`${pack.prices.defaultSetup}\u0000${pack.prices.defaultMonthly}`} aria-labelledby={`${formId}-title`} className="mt-3 space-y-2" onSubmit={submit}>
           <p id={`${formId}-title`} className="text-[13px] text-paper-sage">
             {priced ? "Change the prices for the quote." : "Set the prices for the quote. Filled from your company's defaults."}
           </p>

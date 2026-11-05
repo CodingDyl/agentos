@@ -43,6 +43,7 @@ import { useDesignLibrary, useGenerationCapability } from "@/lib/agentos/queries
 import { SenderManager } from "./traction-outreach-senders";
 import { RebuildLauncher } from "@/features/rebuild";
 import { PitchReadyCard } from "./traction-pitch-card";
+import { writeEmailAnchor } from "./traction-pitch-model";
 
 /**
  * One business, from "who are they" to a sent email.
@@ -456,7 +457,7 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
   const mailbox = status.data;
 
   return (
-    <Card number={3} title="Write the email" done={Boolean(entry.draft?.body.trim())}>
+    <Card id={writeEmailAnchor(prospect.id)} number={3} title="Write the email" done={Boolean(entry.draft?.body.trim())}>
       <div className="flex flex-wrap items-end gap-3">
         <label className="block min-w-[220px]">
           <FieldLabel>Send as</FieldLabel>
@@ -743,7 +744,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
   const blocker = !mailboxReady
     ? "Connect the outreach mailbox first."
     : !sender
-      ? "Choose which company it is from."
+      ? "Choose which company it is from, under Send as above."
       : !prospect.email
         ? "Add their email address at the top."
         : undefined;
@@ -1093,9 +1094,9 @@ function CaseLineInner({ entry, field, type, serverValue }: { entry: OutreachCas
   );
 }
 
-function Card({ number, title, done, children }: { number: number; title: string; done: boolean; children: ReactNode }) {
+function Card({ id, number, title, done, children }: { id?: string; number: number; title: string; done: boolean; children: ReactNode }) {
   return (
-    <PaperCard className="p-5" aria-label={title}>
+    <PaperCard id={id} tabIndex={id ? -1 : undefined} className="scroll-mt-4 p-5 outline-none" aria-label={title}>
       <h3 className="mb-4 flex items-center gap-2.5 text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">
         <span
           className={cn("inline-flex size-6 items-center justify-center rounded-md text-[13px] tabular-nums", done ? "bg-paper-green text-paper-white" : "bg-selected text-paper-moss")}
