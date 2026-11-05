@@ -236,13 +236,8 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
         </button>
       </header>
 
-      <form
-        className="mail-composer-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit("send");
-        }}
-      >
+      {/* Sending takes the Send button. A submit event never sends, so Enter in a field can't. */}
+      <form className="mail-composer-form" onSubmit={(event) => event.preventDefault()}>
         {titan ? (
           <div className="mail-composer-row">
             <label htmlFor={`${titleId}-from`}>From</label>
@@ -391,7 +386,7 @@ export function MailComposer({ target, onClose, onDone }: MailComposerProps) {
             <button type="button" className="mail-btn-ghost" onClick={() => submit("draft")} disabled={busy}>
               {compose.isPending && compose.variables?.mode === "draft" ? "Saving…" : "Save draft"}
             </button>
-            <button type="submit" className="mail-btn-amber" disabled={busy}>
+            <button type="button" className="mail-btn-amber" onClick={() => submit("send")} disabled={busy}>
               {compose.isPending && compose.variables?.mode === "send" ? "Sending…" : "Send"}
             </button>
           </div>
