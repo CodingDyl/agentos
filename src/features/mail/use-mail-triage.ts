@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { MailBucket } from "@shared/mail-types";
 import { useCorrectMailThread, useMailBulkAction, useSetMailThreadRead } from "@/lib/agentos/queries";
+import { watchThreadLeaving } from "./mail-model";
 import type { ThreadRowActions } from "./thread-row";
 
 const STATUS_KEYS: Record<string, MailBucket> = { "1": "needs_you", "2": "fyi", "3": "low_priority" };
@@ -76,18 +77,10 @@ export function useMailTriage(canModify: boolean) {
     setGone((current) => new Set(current).add(threadId));
     if (wasFocused) focusThread(next);
 
-    const verb = action === "archive" ? "archive" : "move to Trash";
-    bulk.mutate(
-      { action, threadIds: [threadId] },
-      {
-        onSuccess: (result) => {
-          if (result && typeof result === "object" && "failed" in result && Number(result.failed) > 0) {
-            restore(threadId, `Gmail wouldn't ${verb} that thread. It's back in the list.`);
-          }
-        },
-        onError: (failure) =>
-          restore(threadId, failure instanceof Error ? failure.message : `Couldn't ${verb} that thread.`),
-      },
+    // mutateAsync, not mutate's callbacks: those only fire for the latest call,
+    // and a run of `e e e` must hear about every thread.
+    void watchThreadLeaving(bulk.mutateAsync({ action, threadIds: [threadId] }), action, (message) =>
+      restore(threadId, message),
     );
   };
 
@@ -96,10 +89,9 @@ export function useMailTriage(canModify: boolean) {
     trash: (threadId) => leave(threadId, "trash"),
     setBucket: (threadId, bucket) => {
       setError(undefined);
-      correct.mutate(
-        { threadId, correction: { bucket } },
-        { onError: (failure) => setError(failure instanceof Error ? failure.message : "Couldn't move that thread.") },
-      );
+      correct
+        .mutateAsync({ threadId, correction: { bucket } })
+        .catch((failure: unknown) => setError(failure instanceof Error ? failure.message : "Couldn't move that thread."));
     },
   };
 
