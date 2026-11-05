@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import type { ProjectDetail } from "@shared/agentos-types";
 import {
   CommandButton,
-  DedsecLoader,
+  PageLoader,
   EmptyState,
   HairlineCard,
   Section,
@@ -59,7 +59,7 @@ export function ProjectAgents({
           }
         >
           {roster.isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : linked.length === 0 ? (
             <EmptyState variant="inline" description="No specialist is linked to this workspace yet. Link one from Agents." />
           ) : (
@@ -72,7 +72,7 @@ export function ProjectAgents({
                       className="os-focus-ring flex cursor-pointer items-start justify-between gap-4 px-5 py-3.5 transition-colors duration-150 hover:bg-os-surface-raised"
                     >
                       <span className="min-w-0">
-                        <span className="block text-[15px] leading-6 text-foreground">
+                        <span className="block text-[14px] leading-6 text-foreground">
                           {agent.avatar} {agent.name}
                         </span>
                         <span className="mt-0.5 block truncate text-[13px] text-os-subtle">{agent.role}</span>
@@ -99,14 +99,14 @@ export function ProjectAgents({
               />
             </div>
             {hermes.data?.model ? (
-              <p className="mt-3 font-mono text-[12px] tracking-[0.04em] text-os-subtle">{hermes.data.model}</p>
+              <p className="mt-3 font-mono text-[12px] text-os-subtle">{hermes.data.model}</p>
             ) : null}
           </HairlineCard>
         </Section>
 
         <Section label="Workers">
           {workers.isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : workers.error || !workers.data ? (
             <EmptyState variant="inline" description="Workers could not be read." />
           ) : (
@@ -118,7 +118,7 @@ export function ProjectAgents({
                     <li key={worker.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2.5">
-                          <span className="text-[15px] leading-6 text-foreground">{worker.name}</span>
+                          <span className="text-[14px] leading-6 text-foreground">{worker.name}</span>
                           {preferred ? <span className="os-meta text-os-amber">Preferred</span> : null}
                         </div>
                         <p className="mt-0.5 truncate text-[13px] leading-5 text-os-subtle">
@@ -179,7 +179,7 @@ export function ProjectAgents({
         }
       >
         {jobs.isPending ? (
-          <DedsecLoader variant="compact" />
+          <PageLoader variant="compact" />
         ) : mine.length === 0 ? (
           <EmptyState
             variant="inline"
@@ -197,7 +197,7 @@ export function ProjectAgents({
                     )}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] leading-6 text-foreground">{job.objective}</p>
+                      <p className="truncate text-[14px] leading-6 text-foreground">{job.objective}</p>
                       <p className="mt-0.5 os-meta text-os-subtle">
                         {job.agentId ? (
                           <>

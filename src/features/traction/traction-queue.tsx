@@ -125,10 +125,10 @@ export function TractionQueue({ data, limit }: { data: TractionData; limit?: num
 
           return (
             <li key={item.id} className="grid gap-3 py-4 sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-start">
-              <span className="hidden font-paper-display text-[15px] font-bold text-paper-ash tabular-nums sm:block">{pager.from + index}.</span>
+              <span className="hidden text-[14px] font-semibold text-paper-ash tabular-nums sm:block">{pager.from + index}.</span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] leading-6 font-semibold text-paper-moss">{item.title}</h3>
+                  <h3 className="text-[14px] leading-6 font-semibold text-paper-moss">{item.title}</h3>
                   <Tag tone={KIND_TONE[item.kind]}>{KIND_LABEL[item.kind]}</Tag>
                 </div>
                 <p className="mt-0.5 text-[13px] leading-5 text-paper-sage">{item.detail.join(" · ")}</p>
@@ -252,7 +252,7 @@ function QueueLink({ to, label, title, children }: { to: string; label: string; 
       aria-label={label}
       title={title}
       className={cn(
-        "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+        "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md px-3 text-[14px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
         PAPER_FOCUS,
       )}
     >

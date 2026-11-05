@@ -37,7 +37,7 @@ export function PersonaEditor({
 
   return (
     <PaperCard className="p-6">
-      {notice ? <p className="mb-5 bg-paper-linen px-4 py-3 text-[13.5px] leading-6 text-paper-char">{notice}</p> : null}
+      {notice ? <p className="mb-5 bg-paper-linen px-4 py-3 text-[14px] leading-6 text-paper-char">{notice}</p> : null}
       <StageFields fields={PERSONA_FIELDS} value={value as unknown as Record<string, unknown>} onChange={(next) => setValue(next as unknown as Persona)} />
       <div className="mt-6 flex flex-wrap gap-2">
         <PaperButton variant="amber" disabled={saving || !(value.name.trim() || value.role.trim())} onClick={() => onSave(value)}>

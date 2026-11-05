@@ -2,7 +2,7 @@ import { ChevronRight, Square } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { OperatorRun } from "@shared/operator-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { Markdown } from "@/components/os/markdown";
 import { PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import { useApproveOperatorRun, useOperatorRun, useStopOperatorRun } from "@/lib/agentos/operator";
@@ -33,7 +33,7 @@ export function RunMessage({ runId, onOpen, onRunAgain }: { runId: string; onOpe
         {error.message}
       </p>
     ) : (
-      <DedsecLoader variant="compact" className="min-h-24 w-2/3" />
+      <PageLoader variant="compact" className="min-h-24 w-2/3" />
     );
   }
 
@@ -57,7 +57,7 @@ export function RunReply({ runId, onOpen, onRunAgain }: { runId: string; onOpen:
         {error.message}
       </p>
     ) : (
-      <DedsecLoader variant="compact" className="min-h-24 w-2/3" />
+      <PageLoader variant="compact" className="min-h-24 w-2/3" />
     );
   }
   return <JarvisBubble run={run} onOpen={() => onOpen(run.id)} onRunAgain={onRunAgain} />;
@@ -67,9 +67,9 @@ function UserBubble({ run }: { run: OperatorRun }) {
   return (
     <div className="flex justify-end">
       <div className="max-w-[min(85%,620px)]">
-        <p className="bg-paper-blue px-4 py-3 text-[15px] leading-6 whitespace-pre-line text-paper-white">{run.input}</p>
-        <p className="mt-1 text-right text-[12px] text-paper-sage tabular-nums">
-          <span className="font-paper-utility tracking-[0.1em] uppercase">{run.mode}</span> · {formatTime(run.startedAt)}
+        <p className="rounded-lg bg-paper-linen px-4 py-3 text-[14px] leading-6 whitespace-pre-line text-paper-moss">{run.input}</p>
+        <p className="mt-1 text-right text-[13px] text-paper-sage tabular-nums">
+          <span className="">{run.mode}</span> · {formatTime(run.startedAt)}
         </p>
       </div>
     </div>
@@ -89,7 +89,7 @@ function Typing() {
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="mt-3">
-      <p className="font-paper-utility text-[12px] font-medium tracking-[0.12em] text-paper-sage uppercase">{label}</p>
+      <p className="text-[13px] font-medium text-paper-sage">{label}</p>
       <div className="mt-1">{children}</div>
     </div>
   );
@@ -105,7 +105,7 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
 
   return (
     <div className="flex items-start gap-3">
-      <span aria-hidden="true" className="mt-1 inline-flex size-8 shrink-0 items-center justify-center bg-paper-moss font-paper-display text-[14px] font-extrabold text-paper-white">
+      <span aria-hidden="true" className="mt-1 inline-flex size-8 shrink-0 items-center justify-center bg-paper-moss text-[14px] font-semibold text-paper-moss">
         J
       </span>
       <div className="min-w-0 max-w-[min(90%,680px)] flex-1">
@@ -114,11 +114,11 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
           onClick={onOpen}
           className={cn(
             "cursor-pointer border bg-paper-white px-4 py-3 transition-colors duration-150 hover:bg-paper-cream",
-            digest.phase === "needs-you" ? "border-[1.5px] border-paper-blue" : digest.phase === "problem" ? "border-paper-flame-deep/60" : "border-paper-mist",
+            digest.phase === "needs-you" ? "border border-paper-ash" : digest.phase === "problem" ? "border-paper-flame-deep/60" : "border-paper-mist",
           )}
         >
           {digest.headline ? (
-            <p className={cn("text-[14.5px] leading-6", digest.phase === "problem" ? "text-paper-flame-deep" : "text-paper-moss")} aria-live="polite">
+            <p className={cn("text-[14px] leading-6", digest.phase === "problem" ? "text-paper-flame-deep" : "text-paper-moss")} aria-live="polite">
               {digest.phase === "working" ? (
                 <>
                   <Typing /> <span className="ml-1">{digest.headline}</span>
@@ -131,7 +131,7 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
 
           {/* While working: what has happened so far, then what is happening now. */}
           {digest.phase === "working" && (digest.done.length > 0 || digest.current) ? (
-            <ul className="mt-2 space-y-0.5 text-[13.5px]">
+            <ul className="mt-2 space-y-0.5 text-[14px]">
               {digest.done.map((title) => (
                 <li key={title} className="text-paper-char">
                   <span className="text-paper-blue" aria-hidden="true">
@@ -157,7 +157,7 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
             <>
               {external.length > 0 ? (
                 <Section label="Outside this machine">
-                  <ul className="list-disc pl-5 text-[13.5px] leading-6 text-paper-char">
+                  <ul className="list-disc pl-5 text-[14px] leading-6 text-paper-char">
                     {external.map((step) => (
                       <li key={step.id}>{step.title}</li>
                     ))}
@@ -166,7 +166,7 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
               ) : null}
               {local.length > 0 ? (
                 <Section label="On this machine">
-                  <ul className="list-disc pl-5 text-[13.5px] leading-6 text-paper-char">
+                  <ul className="list-disc pl-5 text-[14px] leading-6 text-paper-char">
                     {local.map((step) => (
                       <li key={step.id}>{step.title}</li>
                     ))}
@@ -187,7 +187,7 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
 
           {digest.wouldRun.length > 0 && run.status === "completed" ? (
             <Section label="Would run">
-              <ol className="list-decimal pl-5 text-[13.5px] leading-6 text-paper-char">
+              <ol className="list-decimal pl-5 text-[14px] leading-6 text-paper-char">
                 {digest.wouldRun.map((title) => (
                   <li key={title}>{title}</li>
                 ))}
@@ -199,7 +199,7 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
           {digest.phase !== "working" && digest.phase !== "needs-you" && run.mode === "run" ? (
             digest.changes.length > 0 ? (
               <Section label="What changed">
-                <ul className="space-y-0.5 text-[13.5px] leading-6 text-paper-char">
+                <ul className="space-y-0.5 text-[14px] leading-6 text-paper-char">
                   {digest.changes.map((change) => (
                     <li key={`${change.at}:${change.description}`}>
                       <span className="text-paper-blue" aria-hidden="true">
@@ -221,13 +221,13 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
 
           {digest.phase !== "working" && digest.nextAction && run.mode !== "ask" ? (
             <Section label="Next">
-              <p className="text-[13.5px] leading-6 text-paper-moss">{digest.nextAction}</p>
+              <p className="text-[14px] leading-6 text-paper-moss">{digest.nextAction}</p>
             </Section>
           ) : null}
 
           {digest.phase !== "working" && fixes.length > 0 ? (
             <Section label="To unblock">
-              <ul className="space-y-0.5 text-[13.5px] leading-6 text-paper-char">
+              <ul className="space-y-0.5 text-[14px] leading-6 text-paper-char">
                 {fixes.map((step) => (
                   <li key={step.id}>
                     {step.title}:{" "}
@@ -275,9 +275,9 @@ function JarvisBubble({ run, onOpen, onRunAgain }: { run: OperatorRun; onOpen: (
           ) : null}
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-paper-sage">
-          <span className="font-paper-utility tracking-[0.1em] uppercase">Jarvis · Operator</span>
-          <Tag tone={runStatusTone(run.status)} className="text-[12px] leading-4">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-paper-sage">
+          <span className="">Jarvis · Operator</span>
+          <Tag tone={runStatusTone(run.status)} className="text-[13px] leading-4">
             {runStatusLabel(run.status)}
           </Tag>
           {isStoppable(run.status) ? null : <span className="tabular-nums">{formatTime(run.completedAt)}</span>}

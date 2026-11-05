@@ -71,12 +71,12 @@ export function JarvisPanel() {
     <section
       role="dialog"
       aria-label="Jarvis"
-      className={cn("fixed bottom-14 z-40 flex max-h-[min(84dvh,760px)] w-[min(94vw,440px)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-linen font-paper-ui text-paper-moss", chatOpen ? "right-4 lg:right-[476px]" : "right-4")}
+      className={cn("fixed bottom-14 z-40 flex max-h-[min(84dvh,760px)] w-[min(94vw,440px)] flex-col overflow-hidden rounded-md border border-paper-ash bg-paper-linen text-paper-moss", chatOpen ? "right-4 lg:right-[476px]" : "right-4")}
     >
       <header className="flex items-center justify-between gap-3 px-4 pt-3">
         <div className="flex items-baseline gap-2">
-          <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em]">Jarvis</h2>
-          <span className="text-[12.5px] text-paper-sage" role="status" aria-live="polite">
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em]">Jarvis</h2>
+          <span className="text-[13px] text-paper-sage" role="status" aria-live="polite">
             {PHASE_LABEL[jarvis.phase]}
             {jarvis.target ? ` · for ${jarvis.target}` : ""}
           </span>
@@ -87,7 +87,7 @@ export function JarvisPanel() {
             onClick={jarvis.testVoice}
             disabled={!voiceUsable || working}
             title="Speak a test line, without Hermes or the microphone"
-            className={`inline-flex min-h-9 cursor-pointer items-center rounded-none px-2 text-[12.5px] text-paper-char hover:bg-paper-stone disabled:cursor-not-allowed disabled:opacity-40 ${PAPER_FOCUS}`}
+            className={`inline-flex min-h-9 cursor-pointer items-center rounded-md px-2 text-[13px] text-paper-char hover:bg-paper-stone disabled:cursor-not-allowed disabled:opacity-40 ${PAPER_FOCUS}`}
           >
             Test voice
           </button>
@@ -97,7 +97,7 @@ export function JarvisPanel() {
             aria-pressed={voiceOn}
             aria-label={voiceOn ? "Turn voice off" : "Turn voice on"}
             title={voiceOn ? "Voice on" : "Voice off (text only)"}
-            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-none text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
+            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
           >
             {voiceOn ? <Volume2 className="size-4" aria-hidden="true" /> : <VolumeX className="size-4" aria-hidden="true" />}
           </button>
@@ -105,7 +105,7 @@ export function JarvisPanel() {
             type="button"
             onClick={jarvis.close}
             aria-label="Close Jarvis"
-            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-none text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
+            className={`inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-paper-char hover:bg-paper-stone ${PAPER_FOCUS}`}
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -130,7 +130,7 @@ export function JarvisPanel() {
           <button
             type="button"
             onClick={() => setTyping(true)}
-            className={`mx-auto block cursor-pointer rounded-none px-2 py-1 text-[13px] text-paper-sage underline-offset-2 hover:text-paper-moss hover:underline ${PAPER_FOCUS}`}
+            className={`mx-auto block cursor-pointer rounded-md px-2 py-1 text-[13px] text-paper-sage underline-offset-2 hover:text-paper-moss hover:underline ${PAPER_FOCUS}`}
           >
             Type instead
           </button>
@@ -138,7 +138,7 @@ export function JarvisPanel() {
 
         {showComposer ? (
         <div>
-          <label htmlFor="jarvis-transcript" className="text-[12.5px] font-medium text-paper-char">
+          <label htmlFor="jarvis-transcript" className="text-[13px] font-medium text-paper-char">
             {jarvis.phase === "confirming" ? "Heard. Edit to stop it sending." : "Your message"}
           </label>
           <textarea
@@ -154,7 +154,7 @@ export function JarvisPanel() {
             rows={2}
             disabled={working || listening || jarvis.phase === "transcribing"}
             placeholder={jarvis.target === "Operator" ? "Plan a landing page for Virtara" : "Give me my morning brief"}
-            className={`mt-1.5 w-full resize-none rounded-none border border-paper-mist bg-paper-white p-3 text-[15px] leading-6 text-paper-moss placeholder:text-paper-sage ${PAPER_FOCUS}`}
+            className={`mt-1.5 w-full resize-none rounded-md border border-paper-mist bg-paper-white p-3 text-[14px] leading-6 text-paper-moss placeholder:text-paper-sage ${PAPER_FOCUS}`}
           />
           {jarvis.phase === "confirming" && jarvis.autoSendAt ? <SendCountdown key={jarvis.autoSendAt} /> : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -165,7 +165,7 @@ export function JarvisPanel() {
             <PaperButton variant="quiet" onClick={jarvis.cancelTranscript} disabled={!jarvis.transcript && jarvis.phase === "idle"}>
               Cancel
             </PaperButton>
-            {projectName ? <span className="ml-auto text-[12.5px] text-paper-sage">Project: {projectName}</span> : null}
+            {projectName ? <span className="ml-auto text-[13px] text-paper-sage">Project: {projectName}</span> : null}
           </div>
         </div>
         ) : null}
@@ -219,7 +219,7 @@ export function JarvisPanel() {
           </p>
         ) : null}
 
-        {timingLine ? <p className="text-[12.5px] leading-5 text-paper-sage">Last exchange: {timingLine}.</p> : null}
+        {timingLine ? <p className="text-[13px] leading-5 text-paper-sage">Last exchange: {timingLine}.</p> : null}
 
         <label className="flex items-center justify-between gap-3 border-t border-paper-mist pt-3 text-[13px] text-paper-char">
           <span>

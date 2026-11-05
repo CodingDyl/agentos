@@ -33,13 +33,13 @@ export function TractionTabs({ tab, onTab, badges = {} }: { tab: TractionTab; on
               aria-controls={`panel-${option.value}`}
               onClick={() => onTab(option.value)}
               className={cn(
-                "inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-t-[6px] border-b-2 px-3.5 py-2.5 text-[13.5px] font-medium transition-colors duration-150",
+                "inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-t-md border-b-2 px-3.5 py-2.5 text-[14px] font-medium transition-colors duration-150",
                 PAPER_FOCUS,
-                selected ? "border-paper-blue bg-paper-white text-paper-blue" : "border-transparent text-paper-sage hover:bg-paper-linen hover:text-paper-moss",
+                selected ? "border-paper-ash bg-paper-white text-paper-blue" : "border-transparent text-paper-sage hover:bg-paper-linen hover:text-paper-moss",
               )}
             >
               {option.label}
-              {badge ? <span className="rounded-full bg-paper-stone px-1.5 text-[12px] leading-[17px] text-paper-char tabular-nums">{badge}</span> : null}
+              {badge ? <span className="rounded-full bg-paper-stone px-1.5 text-[13px] leading-[17px] text-paper-char tabular-nums">{badge}</span> : null}
             </button>
           );
         })}
@@ -78,7 +78,7 @@ function MoreMenu({ items, onSelect }: { items: readonly { value: TractionTab; l
         aria-expanded={open}
         aria-label="More sections"
         onClick={() => setOpen((current) => !current)}
-        className={cn("inline-flex cursor-pointer items-center gap-1 rounded-[4px] px-2.5 py-1.5 text-[13.5px] font-medium text-paper-sage hover:bg-paper-linen hover:text-paper-moss", PAPER_FOCUS)}
+        className={cn("inline-flex cursor-pointer items-center gap-1 rounded-sm px-2.5 py-1.5 text-[14px] font-medium text-paper-sage hover:bg-paper-linen hover:text-paper-moss", PAPER_FOCUS)}
       >
         More
         <ChevronDown className="size-3.5" strokeWidth={2} aria-hidden="true" />
@@ -94,7 +94,7 @@ function MoreMenu({ items, onSelect }: { items: readonly { value: TractionTab; l
                 setOpen(false);
                 onSelect(item.value);
               }}
-              className={cn("block w-full cursor-pointer px-3.5 py-2 text-left text-[13.5px] text-paper-char hover:bg-paper-linen hover:text-paper-moss", PAPER_FOCUS)}
+              className={cn("block w-full cursor-pointer px-3.5 py-2 text-left text-[14px] text-paper-char hover:bg-paper-linen hover:text-paper-moss", PAPER_FOCUS)}
             >
               {item.label}
             </button>

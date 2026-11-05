@@ -37,7 +37,7 @@ export function TractionFindTab({ data, selectedId, onSelect, onCompose }: { dat
       <ToCheck prospects={toCheck} selectedId={selectedId} onSelect={onSelect} adding={adding} onAdd={() => setAdding((open) => !open)} />
       {adding ? (
         <PaperCard className="p-5">
-          <h2 className="mb-4 font-paper-display text-[17px] font-bold text-paper-moss">Add a business</h2>
+          <h2 className="mb-4 text-[16px] font-semibold text-paper-moss">Add a business</h2>
           <ProspectForm
             data={data}
             onDone={(prospectId) => {
@@ -83,8 +83,8 @@ function ToCheck({ prospects, selectedId, onSelect, adding, onAdd }: { prospects
               <li key={prospect.id} className="py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-[15px] font-semibold text-paper-moss">{prospect.company}</h3>
-                    <p className="text-[12.5px] text-paper-sage">
+                    <h3 className="text-[14px] font-semibold text-paper-moss">{prospect.company}</h3>
+                    <p className="text-[13px] text-paper-sage">
                       {[prospect.segment, prospect.website ? prospect.website.replace(/^https?:\/\/(www\.)?/, "") : "no website on file"].filter(Boolean).join(" · ")}
                     </p>
                   </div>
@@ -122,7 +122,7 @@ function VettingPanel({ prospect, onDone }: { prospect: Prospect; onDone: () => 
   const noticed = prospect.observation?.trim();
 
   return (
-    <div className="mt-4 space-y-5 border-l-2 border-paper-blue pl-4">
+    <div className="mt-4 space-y-5 border-l-2 border-paper-ash pl-4">
       <ProspectOverview prospect={prospect} />
       <KnowThem prospect={prospect} entry={entry} />
       {/* Stays in view while you read down the page, so the decision is never a scroll away. */}
@@ -178,7 +178,7 @@ function CanHelp({ prospects, onCompose }: { prospects: Prospect[]; onCompose: (
           {pager.pageItems.map((prospect) => (
             <li key={prospect.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold text-paper-moss">{prospect.company}</h3>
+                <h3 className="text-[14px] font-semibold text-paper-moss">{prospect.company}</h3>
                 <p className="max-w-[70ch] text-[13px] leading-5 text-paper-char">{prospect.observation}</p>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">

@@ -22,34 +22,34 @@ export function Terminal({ terminalId, token, onExit }: TerminalProps) {
 
     const terminal = new XTerm({
       theme: {
-        background: "#0a0a0a",
-        foreground: "#e0e0e0",
-        cursor: "#00ffcc",
-        cursorAccent: "#0a0a0a",
-        selectionBackground: "#00ffcc33",
-        selectionForeground: "#e0e0e0",
-        black: "#0a0a0a",
-        red: "#ff0066",
-        green: "#00ffcc",
-        yellow: "#ffff00",
-        blue: "#00ccff",
-        magenta: "#ff00ff",
-        cyan: "#00ffcc",
-        white: "#e0e0e0",
-        brightBlack: "#6a9fb5",
-        brightRed: "#ff3388",
-        brightGreen: "#33ffdd",
-        brightYellow: "#ffff66",
-        brightBlue: "#66ddff",
-        brightMagenta: "#ff66ff",
-        brightCyan: "#66ffdd",
-        brightWhite: "#ffffff",
+        background: "#111315",
+        foreground: "#EEF1F4",
+        cursor: "#9DDBBD",
+        cursorAccent: "#111315",
+        selectionBackground: "#273B34",
+        selectionForeground: "#EEF1F4",
+        black: "#22272D",
+        red: "#F4A3A8",
+        green: "#9DDBBD",
+        yellow: "#E8C58A",
+        blue: "#B0D6FF",
+        magenta: "#D3C4F0",
+        cyan: "#A9DDE0",
+        white: "#ACB5BF",
+        brightBlack: "#65717D",
+        brightRed: "#F8BCC0",
+        brightGreen: "#B4E6CE",
+        brightYellow: "#F0D5A6",
+        brightBlue: "#CBE4FF",
+        brightMagenta: "#E2D8F6",
+        brightCyan: "#C3E8EA",
+        brightWhite: "#EEF1F4",
       },
-      fontFamily: "'IBM Plex Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+      fontFamily: "'Geist Mono Variable', 'JetBrains Mono', Menlo, monospace",
       fontSize: 14,
       lineHeight: 1.2,
-      cursorBlink: true,
-      cursorStyle: "block",
+      cursorBlink: false,
+      cursorStyle: "bar",
       scrollback: 10000,
       allowProposedApi: true,
     });
@@ -135,7 +135,7 @@ export function Terminal({ terminalId, token, onExit }: TerminalProps) {
   return (
     <div
       ref={containerRef}
-      className="h-full w-full bg-[#0a0a0a]"
+      className="h-full w-full bg-[var(--bg-canvas)]"
       style={{
         padding: "8px",
       }}

@@ -98,7 +98,6 @@ export function BoardDetailPage() {
       pageId="design-board"
       activeHref="/designs"
       contextLabel={board ? `Board / ${board.name}` : undefined}
-      modelLabel="Model / AgentOS V1"
     >
       <PaperStage>
         {isPending ? (
@@ -124,10 +123,10 @@ export function BoardDetailPage() {
                 {board.project ? (
                   <p className="text-[13px] font-medium text-paper-sage">{board.project}</p>
                 ) : null}
-                <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">
+                <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">
                   {board.name}
                 </h1>
-                <p className="mt-1 text-[13.5px] text-paper-sage">
+                <p className="mt-1 text-[14px] text-paper-sage">
                   {assets.length}{" "}
                   {assets.length === 1 ? "reference" : "references"}
                 </p>
@@ -159,7 +158,7 @@ export function BoardDetailPage() {
 
             {/* Deleting a board never deletes what it collected. */}
             {confirmingDelete ? (
-              <p className="mt-4 text-[13.5px] leading-5 text-paper-char">
+              <p className="mt-4 text-[14px] leading-5 text-paper-char">
                 The {assets.length} images on this board stay in the library.
               </p>
             ) : null}
@@ -172,7 +171,7 @@ export function BoardDetailPage() {
                   action={
                     <Link
                       to="/designs"
-                      className={cn("inline-flex min-h-8 cursor-pointer items-center rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+                      className={cn("inline-flex min-h-8 cursor-pointer items-center rounded-md border border-paper-gold px-3 text-[14px] font-semibold text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                     >
                       Browse the library
                     </Link>
@@ -201,7 +200,7 @@ export function BoardDetailPage() {
             </div>
 
             <section aria-label="Notes" className="mt-12 max-w-[72ch] border-t border-paper-mist pt-8 pb-4">
-              <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Notes</h2>
+              <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Notes</h2>
               <textarea
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}

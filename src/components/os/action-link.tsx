@@ -8,7 +8,7 @@ export type ActionLinkTone = "quiet" | "strong";
 export type ActionLinkVariant = "inline" | "block";
 
 const sizeClasses: Record<ActionLinkSize, string> = {
-  md: "text-[15px] leading-6",
+  md: "text-[14px] leading-6",
   lg: "text-[clamp(1.125rem,1.6vw,1.375rem)] leading-[1.35]",
 };
 
@@ -63,7 +63,7 @@ export function ActionLink({
       <span className="block">
         {children}
         <ArrowRight
-          className="ml-[0.4em] inline-block size-[0.8em] translate-y-[0.06em] text-os-subtle transition-[transform,color] duration-150 group-hover:translate-x-1 group-hover:text-os-amber motion-reduce:group-hover:translate-x-0"
+          className="ml-[0.4em] inline-block size-[0.8em] translate-y-[0.06em] text-os-subtle transition-[transform,color] duration-150 group-hover:text-os-amber motion-reduce:group-hover:translate-x-0"
           strokeWidth={1.5}
           aria-hidden="true"
         />

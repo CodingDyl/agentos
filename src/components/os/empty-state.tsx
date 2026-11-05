@@ -14,7 +14,7 @@ export interface EmptyStateProps extends HTMLAttributes<HTMLDivElement> {
 
 const variantClasses: Record<EmptyStateVariant, string> = {
   framed:
-    "min-h-48 justify-end rounded-lg border border-dashed border-os-border p-5 md:p-6",
+    "rounded-lg bg-os-surface p-6",
   inline: "justify-start",
 };
 
@@ -36,8 +36,8 @@ export function EmptyState({
       {...props}
     >
       {label ? <SectionLabel className="mb-3">{label}</SectionLabel> : null}
-      <p className="text-[15px] leading-6 text-os-muted">{description}</p>
-      {action ? <div className="mt-5">{action}</div> : null}
+      <p className="text-[14px] leading-6 text-os-muted">{description}</p>
+      {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
 }

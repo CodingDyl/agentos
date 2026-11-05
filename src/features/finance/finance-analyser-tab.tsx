@@ -133,7 +133,7 @@ function FindingCard({ finding, rank, open, onToggle }: { finding: Finding; rank
       {finding.evidence.length > 0 ? (
         <ul className="space-y-1">
           {finding.evidence.map((line) => (
-            <li key={line} className="text-[13.5px] leading-6 text-paper-char">
+            <li key={line} className="text-[14px] leading-6 text-paper-char">
               {line}
             </li>
           ))}
@@ -145,7 +145,7 @@ function FindingCard({ finding, rank, open, onToggle }: { finding: Finding; rank
           {finding.action}
         </p>
       ) : (
-        <p className="text-[13.5px] leading-6 text-paper-sage">Nothing to do here.</p>
+        <p className="text-[14px] leading-6 text-paper-sage">Nothing to do here.</p>
       )}
     </FoldCard>
   );
@@ -172,12 +172,12 @@ function DebtCard({ debt, freeCashFlow, open, onToggle }: { debt: Debt; freeCash
       }
       figure={
         <>
-          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(debt.owed)}</span>
-          <span className="block text-[12px] text-paper-sage">owed</span>
+          <span className="block text-[16px] leading-6 font-semibold tracking-[-0.02em] text-paper-moss tabular-nums">{money(debt.owed)}</span>
+          <span className="block text-[13px] text-paper-sage">owed</span>
         </>
       }
     >
-      {debt.interestRate === undefined ? <p className="mb-3 text-[13.5px] leading-6 font-semibold text-paper-flame-deep">No interest rate set, so the cost below is understated.</p> : null}
+      {debt.interestRate === undefined ? <p className="mb-3 text-[14px] leading-6 font-semibold text-paper-flame-deep">No interest rate set, so the cost below is understated.</p> : null}
 
       {debt.utilisation !== undefined && debt.creditLimit ? <UtilisationBar value={debt.utilisation} label={`Limit used (${money(debt.creditLimit)})`} /> : null}
 
@@ -192,11 +192,11 @@ function DebtCard({ debt, freeCashFlow, open, onToggle }: { debt: Debt; freeCash
         ) : null}
       </dl>
 
-      {!debt.hasStatement ? <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Import this card's statement (Cash flow → Accounts → Manage) and Finance can show whether you have paid into it this month.</p> : null}
+      {!debt.hasStatement ? <p className="mt-3 text-[13px] leading-5 text-paper-sage">Import this card's statement (Cash flow → Accounts → Manage) and Finance can show whether you have paid into it this month.</p> : null}
 
-      <div className="mt-4 overflow-x-auto rounded-none border border-paper-mist">
+      <div className="mt-4 overflow-x-auto rounded-md border border-paper-mist">
         <table className="w-full min-w-[22rem] text-left text-[14px]">
-          <thead className="bg-paper-linen text-[12.5px] text-paper-char">
+          <thead className="bg-paper-linen text-[13px] text-paper-char">
             <tr>
               <th scope="col" className="px-4 py-2 font-medium">To clear it in</th>
               <th scope="col" className="px-4 py-2 text-right font-medium">Pay each month</th>
@@ -214,7 +214,7 @@ function DebtCard({ debt, freeCashFlow, open, onToggle }: { debt: Debt; freeCash
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">
+      <p className="mt-3 text-[13px] leading-5 text-paper-sage">
         An estimate: interest is worked out monthly at the rate you entered. Real cards work it out daily and may add fees, so the true cost is a little higher. Set the rate and limit under Cash flow → Accounts → Manage.
       </p>
     </FoldCard>
@@ -236,15 +236,15 @@ function HermesPanel({ data }: { data: FinanceData }) {
 
       {narrative ? (
         <div className="mt-4">
-          <p className="text-[14.5px] leading-7 whitespace-pre-line text-paper-moss">{narrative}</p>
-          {narrativeAt ? <p className="mt-2 text-[12.5px] text-paper-sage">Written {new Date(narrativeAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} from the checks on the left.</p> : null}
+          <p className="text-[14px] leading-7 whitespace-pre-line text-paper-moss">{narrative}</p>
+          {narrativeAt ? <p className="mt-2 text-[13px] text-paper-sage">Written {new Date(narrativeAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} from the checks on the left.</p> : null}
         </div>
       ) : null}
 
       <PaperButton variant="amber" className="mt-4" disabled={analyse.isPending || sample} onClick={() => analyse.mutate()}>
         {analyse.isPending ? "Asking Hermes…" : narrative ? "Analyse again" : "Analyse with Hermes"}
       </PaperButton>
-      {sample ? <p className="mt-2 text-[12.5px] text-paper-sage">Not available on sample data.</p> : null}
+      {sample ? <p className="mt-2 text-[13px] text-paper-sage">Not available on sample data.</p> : null}
       <MutationError error={analyse.error} />
 
       <form
@@ -255,7 +255,7 @@ function HermesPanel({ data }: { data: FinanceData }) {
         }}
       >
         <label className="block">
-          <span className="mb-1.5 block text-[12.5px] font-medium text-paper-char">Ask a question about your money</span>
+          <span className="mb-1.5 block text-[13px] font-medium text-paper-char">Ask a question about your money</span>
           <textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
@@ -271,12 +271,12 @@ function HermesPanel({ data }: { data: FinanceData }) {
         <MutationError error={ask.error} />
       </form>
       {ask.data ? (
-        <div className="mt-4 rounded-none bg-paper-cream p-4" role="status">
-          <p className="text-[14.5px] leading-7 whitespace-pre-line text-paper-moss">{ask.data.answer}</p>
+        <div className="mt-4 rounded-md bg-paper-cream p-4" role="status">
+          <p className="text-[14px] leading-7 whitespace-pre-line text-paper-moss">{ask.data.answer}</p>
         </div>
       ) : null}
 
-      <div role="note" className="mt-8 rounded-none bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
+      <div role="note" className="mt-8 rounded-md bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
         <p className="font-semibold text-paper-moss">What Hermes sees</p>
         <p className="mt-1">Income, spending and saving totals, category totals, subscription counts, goal progress, and each debt's size (rounded to the nearest R100), rate and limit use. Debts are called Card A, Card B.</p>
         <p className="mt-2 font-semibold text-paper-moss">What it never sees</p>

@@ -1,3 +1,4 @@
+import { TriangleAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { CapturedItem, ProjectSummary } from "@shared/agentos-types";
 import { WORKSPACE_TYPE_LABELS } from "@shared/workspace";
@@ -7,20 +8,23 @@ import { cn } from "@/lib/utils";
 import { TodayLink } from "./today-kit";
 
 /**
- * The top of Today: the shape of the day in four plain sentences, each a link
- * to where the thing actually is. Sentences, not metrics: "3 tasks planned"
- * is something a person reads and nods at; a big number with a small label is
+ * The top of the Dashboard: the shape of the day in four short phrases, each a
+ * link to where the thing actually is. Phrases, not metrics: "3 tasks" is
+ * something a person reads and nods at; a big number with a small label is
  * something they learn to skip.
  */
 export function TodayStrip({
   projects,
   attention,
+  cleared,
   running,
   captures,
   className,
 }: {
   projects: readonly ProjectSummary[];
   attention: number;
+  /** Approvals cleared from the Dashboard but still current. */
+  cleared: number;
   running: number;
   captures: readonly CapturedItem[];
   className?: string;
@@ -29,70 +33,52 @@ export function TodayStrip({
   const planned = live.reduce((sum, project) => sum + (project.nowCount ?? 0), 0);
   const withPlans = live.filter((project) => (project.nowCount ?? 0) > 0).length;
 
-  const cells: { key: string; label: string; text: string; href: string; loud?: boolean }[] = [
+  const taskWord = planned === 1 ? "task" : "tasks";
+  const cells: { key: string; text: string; href: string; warn?: boolean }[] = [
     {
       key: "planned",
-      label: "Planned",
-      text:
-        planned === 0
-          ? "Nothing in Now"
-          : `${planned} ${planned === 1 ? "task" : "tasks"}${withPlans > 1 ? ` across ${withPlans} workspaces` : ""}`,
+      text: planned === 0 ? "Nothing in Now" : `${planned} ${taskWord}${withPlans > 1 ? ` / ${withPlans} workspaces` : ""}`,
       href: "/workspaces",
     },
     {
       key: "attention",
-      label: "Approvals",
-      text: attention === 0 ? "Nothing waiting" : `${attention} ${attention === 1 ? "thing" : "things"} waiting`,
-      href: "#needs-you",
-      loud: attention > 0,
+      text: attention === 0 ? "No approvals waiting" : `${attention} ${attention === 1 ? "approval" : "approvals"} waiting`,
+      // With nothing waiting or cleared there is no queue to jump to, so this
+      // goes where a finished decision can be checked instead.
+      href: attention > 0 || cleared > 0 ? "#needs-you" : "/activity",
+      warn: attention > 0,
     },
     {
       key: "running",
-      label: "Agents",
-      text: running === 0 ? "None working" : `${running} working now`,
+      text: running === 0 ? "Agents idle" : `${running} ${running === 1 ? "agent" : "agents"} working`,
       href: "#active-work",
     },
     {
       key: "captured",
-      label: "Captured",
       text: captures.length === 0 ? "Nothing to file" : `${captures.length} ${captures.length === 1 ? "note" : "notes"} to file`,
       href: "#captured",
     },
   ];
 
   return (
-    <ul
-      className={cn(
-        "collective-summary grid grid-cols-2 gap-px rounded-none border border-paper-mist bg-paper-mist xl:grid-cols-4",
-        className,
-      )}
-    >
+    <ul aria-label="Today at a glance" className={cn("qt-summary", className)}>
       {cells.map((cell) => {
         const body = (
           <>
-            <span className="block text-[12.5px] font-medium text-paper-sage">{cell.label}</span>
-            <span
-              className={cn(
-                "mt-1 block text-[15.5px] leading-6 font-semibold",
-                cell.loud ? "text-paper-marigold" : "text-paper-moss",
-              )}
-            >
+            <span className={cn("flex items-center gap-1.5 text-[14px] leading-[22px] font-medium tabular-nums", cell.warn ? "text-paper-marigold" : "text-paper-moss")}>
+              {cell.warn ? <TriangleAlert className="size-4 shrink-0" strokeWidth={1.5} aria-hidden="true" /> : null}
               {cell.text}
             </span>
           </>
         );
-        const classes = cn(
-          "block h-full bg-paper-white px-4 py-3.5 transition-colors duration-150 hover:bg-paper-cream focus-visible:relative",
-          PAPER_FOCUS,
-        );
         return (
           <li key={cell.key} className="min-w-0">
             {cell.href.startsWith("#") ? (
-              <a href={cell.href} className={classes}>
+              <a href={cell.href} className={PAPER_FOCUS}>
                 {body}
               </a>
             ) : (
-              <Link to={cell.href} className={classes}>
+              <Link to={cell.href} className={PAPER_FOCUS}>
                 {body}
               </Link>
             )}
@@ -136,18 +122,18 @@ export function TodayWorkspaces({
                 <Link
                   to={`/workspaces/${project.slug}`}
                   className={cn(
-                    "block h-full rounded-none border border-paper-mist px-4 py-3.5 transition-colors duration-150 hover:bg-paper-cream",
+                    "block h-full rounded-md bg-paper-linen px-4 py-3 transition-colors duration-150 hover:bg-paper-stone",
                     PAPER_FOCUS,
                   )}
                 >
                   <span className="flex min-w-0 items-center justify-between gap-3">
-                    <span className="truncate font-paper-display text-[15.5px] font-bold text-paper-moss">{project.name}</span>
+                    <span className="truncate text-[14px] font-semibold text-paper-moss">{project.name}</span>
                     {trouble ? (
                       <Tag tone="flame">
                         {project.state === "blocked" ? "Blocked" : HEALTH_LABELS[project.health ?? "at_risk"]}
                       </Tag>
                     ) : (
-                      <span className="shrink-0 text-[12px] text-paper-sage">
+                      <span className="shrink-0 text-[13px] text-paper-sage">
                         {WORKSPACE_TYPE_LABELS[project.workspaceType ?? "general"]}
                       </span>
                     )}
@@ -155,7 +141,7 @@ export function TodayWorkspaces({
 
                   {project.milestone ? (
                     <span className="mt-3 block">
-                      <span className="flex items-baseline justify-between gap-3 text-[12.5px]">
+                      <span className="flex items-baseline justify-between gap-3 text-[13px]">
                         <span className="truncate text-paper-char">{project.milestone.title}</span>
                         <span className="shrink-0 text-paper-sage tabular-nums">{project.milestone.progress.percent}%</span>
                       </span>

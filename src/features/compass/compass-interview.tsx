@@ -27,7 +27,7 @@ export function CompassInterview({ onDraft }: { onDraft: (compass: Compass) => v
   if (!questions.data) {
     return (
       <PaperCard className="max-w-[760px] bg-paper-cream p-6">
-        <p className="font-paper-display text-[19px] font-bold text-paper-moss">Set up your Compass</p>
+        <p className="text-[16px] font-semibold text-paper-moss">Set up your Compass</p>
         <p className="mt-2 max-w-[64ch] text-[14px] leading-6 text-paper-char">
           Hermes reads your profile, goals, current focus and workspaces first, then asks you 6 to 10 questions about what is missing: numbers and dates for your goals, which projects matter most, how each part of your life is really going. It then drafts your Compass for you to edit. About ten minutes.
         </p>
@@ -49,7 +49,7 @@ export function CompassInterview({ onDraft }: { onDraft: (compass: Compass) => v
       {questions.data.understood.length > 0 && index === 0 ? (
         <div className="mb-5 bg-paper-linen px-4 py-3">
           <FieldLabel>What Hermes already understood</FieldLabel>
-          <ul className="mt-1 list-disc pl-5 text-[13.5px] leading-6 text-paper-char">
+          <ul className="mt-1 list-disc pl-5 text-[14px] leading-6 text-paper-char">
             {questions.data.understood.map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -57,11 +57,11 @@ export function CompassInterview({ onDraft }: { onDraft: (compass: Compass) => v
         </div>
       ) : null}
 
-      <p className="text-[12.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase tabular-nums">
+      <p className="text-[13px] font-semibold text-paper-sage tabular-nums">
         Question {index + 1} of {list.length}
       </p>
       <label className="mt-2 block">
-        <span className="block font-paper-display text-[18px] leading-7 font-bold text-paper-moss">{list[index]}</span>
+        <span className="block text-[16px] leading-7 font-semibold text-paper-moss">{list[index]}</span>
         <textarea
           key={index}
           rows={4}

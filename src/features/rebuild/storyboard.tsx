@@ -67,7 +67,7 @@ export function Storyboard({ pages, notes, noteState, onNotesChange, changes, pr
                   className={cn("block w-full cursor-pointer border border-paper-mist bg-paper-white text-left transition-colors hover:bg-paper-linen", PAPER_FOCUS)}
                 >
                   <span className="block h-[150px] overflow-hidden border-b border-paper-mist bg-paper-linen">
-                    {page.desktop ? <img src={page.desktop.href} alt="" loading="lazy" className="w-full object-cover object-top" /> : <span className="block p-3 text-[12px] text-paper-sage">No desktop snapshot</span>}
+                    {page.desktop ? <img src={page.desktop.href} alt="" loading="lazy" className="w-full object-cover object-top" /> : <span className="block p-3 text-[13px] text-paper-sage">No desktop snapshot</span>}
                   </span>
                   <span className="flex flex-wrap items-center justify-between gap-1.5 px-2.5 py-2">
                     <span className="truncate text-[13px] font-semibold text-paper-moss">{routeLabel(page.route)}</span>
@@ -140,15 +140,15 @@ function BeforeAfter({ change, viewport, revision }: { change: PageChange; viewp
       </h4>
       <div className="grid gap-3 md:grid-cols-2">
         <figure className="min-w-0">
-          <figcaption className="mb-1 text-[12px] text-paper-sage">Before, revision {revision - 1}</figcaption>
+          <figcaption className="mb-1 text-[13px] text-paper-sage">Before, revision {revision - 1}</figcaption>
           <div ref={left} onScroll={() => follow(left.current, right.current)} tabIndex={0} aria-label={`${routeLabel(change.route)} before`} className={cn(frame, PAPER_FOCUS)}>
-            {before ? <img src={before.href} alt={`${routeLabel(change.route)} before, ${viewport} width`} className="w-full" loading="lazy" /> : <p className="p-3 text-[12px] text-paper-sage">This page did not exist.</p>}
+            {before ? <img src={before.href} alt={`${routeLabel(change.route)} before, ${viewport} width`} className="w-full" loading="lazy" /> : <p className="p-3 text-[13px] text-paper-sage">This page did not exist.</p>}
           </div>
         </figure>
         <figure className="min-w-0">
-          <figcaption className="mb-1 text-[12px] text-paper-sage">After, revision {revision}</figcaption>
+          <figcaption className="mb-1 text-[13px] text-paper-sage">After, revision {revision}</figcaption>
           <div ref={right} onScroll={() => follow(right.current, left.current)} tabIndex={0} aria-label={`${routeLabel(change.route)} after`} className={cn(frame, PAPER_FOCUS)}>
-            {after ? <img src={after.href} alt={`${routeLabel(change.route)} after, ${viewport} width`} className="w-full" loading="lazy" /> : <p className="p-3 text-[12px] text-paper-sage">No snapshot.</p>}
+            {after ? <img src={after.href} alt={`${routeLabel(change.route)} after, ${viewport} width`} className="w-full" loading="lazy" /> : <p className="p-3 text-[13px] text-paper-sage">No snapshot.</p>}
           </div>
         </figure>
       </div>
@@ -219,8 +219,8 @@ function PageViewer({ pages, route, onRouteChange, onClose, notes, noteState, on
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-mist px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="font-paper-display text-[18px] font-bold text-paper-moss">{routeLabel(route)}</h3>
-          <span className="text-[12px] text-paper-sage">
+          <h3 className="text-[16px] font-semibold text-paper-moss">{routeLabel(route)}</h3>
+          <span className="text-[13px] text-paper-sage">
             Page {index + 1} of {pages.length}
           </span>
           <SegmentedControl label="Width" value={viewport} onChange={(next) => { setViewport(next); setPinning(false); }} options={VIEWPORTS} />
@@ -261,7 +261,7 @@ function PageViewer({ pages, route, onRouteChange, onClose, notes, noteState, on
                     onClick={() => document.getElementById(`note-${note.id}`)?.focus()}
                     aria-label={`Note ${position + 1}`}
                     style={{ left: `${note.x}%`, top: `${note.y}%` }}
-                    className={cn("absolute inline-flex size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-paper-white bg-paper-blue text-[12px] font-bold text-paper-white shadow-[0_1px_4px_rgba(0,0,0,0.35)]", PAPER_FOCUS)}
+                    className={cn("absolute inline-flex size-7 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-paper-white bg-paper-blue text-[13px] font-semibold text-paper-white shadow-[var(--shadow-overlay)]", PAPER_FOCUS)}
                   >
                     {position + 1}
                   </button>
@@ -283,7 +283,7 @@ function PageViewer({ pages, route, onRouteChange, onClose, notes, noteState, on
             </PaperButton>
           </div>
           {pinning ? (
-            <p role="status" className="text-[12.5px] text-paper-sage">
+            <p role="status" className="text-[13px] text-paper-sage">
               Click the spot on the {viewport === "mobile" ? "phone" : "desktop"} snapshot this note is about.
             </p>
           ) : null}
@@ -322,7 +322,7 @@ function PageViewer({ pages, route, onRouteChange, onClose, notes, noteState, on
               </li>
             ))}
           </ol>
-          <span role="status" className={cn("block min-h-4 text-[12px]", state === "error" ? "text-paper-flame-deep" : "text-paper-sage")}>
+          <span role="status" className={cn("block min-h-4 text-[13px]", state === "error" ? "text-paper-flame-deep" : "text-paper-sage")}>
             {state === "saving" ? "Saving…" : state === "saved" ? "Saved with this revision" : state === "error" ? "Could not save. Edit again to retry." : ""}
           </span>
         </div>

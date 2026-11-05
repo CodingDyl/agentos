@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RoadmapMilestone, RoadmapTask } from "@shared/agentos-types";
 import {
   CommandButton,
-  DedsecLoader,
+  PageLoader,
   EmptyState,
   HairlineCard,
   ProgressBar,
@@ -87,7 +87,7 @@ export function ProjectRoadmap({ slug, onAsk }: { slug: string; onAsk: () => voi
       { replace: true },
     );
 
-  if (isPending) return <DedsecLoader variant="compact" />;
+  if (isPending) return <PageLoader variant="compact" />;
   if (error || !data) return <EmptyState label="Roadmap unavailable" description={error?.message ?? "Could not read the roadmap."} />;
 
   const groups = groupMilestones(data.milestones);
@@ -345,7 +345,7 @@ function MilestoneDetail({
           <div className="space-y-8">
             <div>
               <SectionLabel>Outcome</SectionLabel>
-              <p className="mt-3 max-w-[60ch] text-[15px] leading-6 text-foreground">
+              <p className="mt-3 max-w-[60ch] text-[14px] leading-6 text-foreground">
                 {milestone.outcome ?? <span className="text-os-subtle">No outcome written. What would make this milestone a success?</span>}
               </p>
             </div>
@@ -378,7 +378,7 @@ function MilestoneDetail({
                         ) : (
                           <Square className="mt-1 size-4 shrink-0 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
                         )}
-                        <span className={cn("text-[15px] leading-6", entry.done ? "text-os-muted" : "text-foreground")}>{entry.text}</span>
+                        <span className={cn("text-[14px] leading-6", entry.done ? "text-os-muted" : "text-foreground")}>{entry.text}</span>
                       </button>
                     </li>
                   ))}
@@ -411,7 +411,7 @@ function MilestoneDetail({
             <div>
               <SectionLabel>Agent work</SectionLabel>
               {detail.isPending ? (
-                <DedsecLoader variant="compact" className="mt-3" />
+                <PageLoader variant="compact" className="mt-3" />
               ) : detail.data && detail.data.agentWork.length > 0 ? (
                 <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-[14px] leading-5">
                   {detail.data.agentWork.map((entry) => (
@@ -425,7 +425,7 @@ function MilestoneDetail({
 
             <div>
               <SectionLabel>AI cost</SectionLabel>
-              <p className="mt-3 text-[22px] leading-7 tabular-nums text-foreground">
+              <p className="mt-3 text-[16px] leading-7 tabular-nums text-foreground">
                 {detail.data?.usage.costUsd !== undefined ? `$${detail.data.usage.costUsd.toFixed(2)}` : "-"}
               </p>
               <p className="mt-1 text-[13px] leading-5 text-os-subtle">
@@ -694,7 +694,7 @@ function MilestoneForm({
           <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Chef Experience" className={INPUT} />
         </Field>
         <Field label="Target">
-          <input type="date" value={target} onChange={(event) => setTarget(event.target.value)} className={`${INPUT} font-mono text-[13px]`} />
+          <input type="date" value={target} onChange={(event) => setTarget(event.target.value)} className={`${INPUT} font-mono text-[12px]`} />
         </Field>
       </div>
 
@@ -788,7 +788,7 @@ function UnplannedTasks({
 }
 
 const INPUT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle";
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (

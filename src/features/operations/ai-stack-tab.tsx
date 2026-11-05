@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { EVIDENCE_LABELS, monthlyPrice, STATUS_LABELS, subscriptionsFor, summarise } from "./ai-stack-model";
 import { Figure } from "./figures";
 import { formatCost, formatTokens } from "./operations-model";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PAPER_INPUT, PaperCard, PaperSection, PaperSwitch, Tag } from "@/components/paper";
 
 /**
@@ -61,7 +61,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
   const saveRouting = useSaveModelRouting();
 
   if (stack.isPending) {
-    return <DedsecLoader variant="compact" />;
+    return <PageLoader variant="compact" />;
   }
 
   if (!stack.data) {
@@ -138,7 +138,7 @@ export function AiStackTab({ data }: { data: OperationsData }) {
         </PaperSection>
       ) : null}
 
-      <p className="max-w-[80ch] border-t border-paper-stone pt-5 text-[12.5px] leading-5 text-paper-sage">
+      <p className="max-w-[80ch] border-t border-paper-stone pt-5 text-[13px] leading-5 text-paper-sage">
         Detection only looks: CLIs on the PATH, apps in /Applications, config folders, key names in .env (never their values), and local model servers on
         127.0.0.1. Local usage is read from Claude Code and Codex logs: token counts and model names only, never conversation content.
       </p>
@@ -170,8 +170,8 @@ function AiCard({
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <h3 className="font-paper-display text-[19px] leading-7 font-bold tracking-[-0.02em] text-paper-moss">{entry.name}</h3>
-            <span className="text-[12.5px] text-paper-sage">{entry.vendor}</span>
+            <h3 className="text-[16px] leading-7 font-semibold tracking-[-0.02em] text-paper-moss">{entry.name}</h3>
+            <span className="text-[13px] text-paper-sage">{entry.vendor}</span>
           </div>
 
           <p className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] leading-5">
@@ -206,7 +206,7 @@ function AiCard({
         </p>
       ) : null}
 
-      <dl className="mt-4 space-y-2 border-t border-paper-stone pt-3.5 text-[13.5px] leading-5">
+      <dl className="mt-4 space-y-2 border-t border-paper-stone pt-3.5 text-[14px] leading-5">
         {entry.configurableModel && onModel ? (
           <ModelField key={entry.model ?? ""} entry={entry} saving={savingModel} onSave={onModel} />
         ) : null}
@@ -240,7 +240,7 @@ function AiCard({
             <Sep />
             {local.sessions} {local.sessions === 1 ? "session" : "sessions"}
             {local.byModel[0] ? (
-              <span className="block text-[12.5px] text-paper-sage">
+              <span className="block text-[13px] text-paper-sage">
                 Mostly {local.byModel[0].model} · {local.source}
               </span>
             ) : null}
@@ -268,7 +268,7 @@ function AiCard({
             <li
               key={`${evidence.kind}-${evidence.label}`}
               title={evidence.detail}
-              className="inline-flex items-center gap-1.5 rounded-full bg-paper-linen px-2 py-px text-[12px] leading-[18px] text-paper-char"
+              className="inline-flex items-center gap-1.5 rounded-full bg-paper-linen px-2 py-px text-[13px] leading-[18px] text-paper-char"
             >
               <span className="font-medium text-paper-moss">{EVIDENCE_LABELS[evidence.kind]}</span>
               {evidence.kind === "config" ? evidence.detail : evidence.label.replace(/ (CLI|app)$/, "")}
@@ -276,7 +276,7 @@ function AiCard({
           ))}
         </ul>
       ) : (
-        <p className="mt-auto pt-4 text-[12.5px] leading-5 text-paper-sage">Not found on this machine.</p>
+        <p className="mt-auto pt-4 text-[13px] leading-5 text-paper-sage">Not found on this machine.</p>
       )}
     </PaperCard>
   );
@@ -299,7 +299,7 @@ function ModelField({ entry, saving, onSave }: { entry: AiStackEntry; saving: bo
   return (
     <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-x-4">
       <dt>
-        <label htmlFor={id} className="block pt-1.5 text-[12.5px] font-medium text-paper-sage">
+        <label htmlFor={id} className="block pt-1.5 text-[13px] font-medium text-paper-sage">
           Model
         </label>
       </dt>
@@ -321,9 +321,9 @@ function ModelField({ entry, saving, onSave }: { entry: AiStackEntry; saving: bo
               event.currentTarget.blur();
             }
           }}
-          className={cn(PAPER_INPUT, "w-full max-w-[22rem] font-mono text-[13px]")}
+          className={cn(PAPER_INPUT, "w-full max-w-[22rem] font-mono text-[12px]")}
         />
-        <p id={`${id}-hint`} aria-live="polite" className="mt-1 text-[12px] leading-4 text-paper-sage">
+        <p id={`${id}-hint`} aria-live="polite" className="mt-1 text-[13px] leading-4 text-paper-sage">
           {saving ? "Saving…" : dirty ? "Enter to save · Esc to undo" : saved ? "Used for every job this worker runs" : "Empty uses the tool's own default"}
         </p>
       </dd>
@@ -334,7 +334,7 @@ function ModelField({ entry, saving, onSave }: { entry: AiStackEntry; saving: bo
 function Readout({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4" title={title}>
-      <dt className="text-[12.5px] font-medium text-paper-sage">{label}</dt>
+      <dt className="text-[13px] font-medium text-paper-sage">{label}</dt>
       <dd className="min-w-0 text-paper-moss tabular-nums">{children}</dd>
     </div>
   );
@@ -371,18 +371,18 @@ function ModelRoutingPanel({
       <div className="grid gap-3 lg:grid-cols-2">
         {MODEL_ROUTE_TASK_TYPES.map((type) => (
           <PaperCard key={type} className="space-y-3">
-            <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">{MODEL_ROUTE_TASK_LABEL[type]}</h3>
+            <h3 className="text-[16px] font-semibold text-paper-moss">{MODEL_ROUTE_TASK_LABEL[type]}</h3>
             <label className="block">
-              <span className="text-[12.5px] font-medium text-paper-sage">Model</span>
+              <span className="text-[13px] font-medium text-paper-sage">Model</span>
               <input
-                className={cn(PAPER_INPUT, "mt-1 w-full font-mono text-[13px]")}
+                className={cn(PAPER_INPUT, "mt-1 w-full font-mono text-[12px]")}
                 value={draft[type].model}
                 spellCheck={false}
                 onChange={(event) => change(type, { model: event.target.value })}
               />
             </label>
             <fieldset>
-              <legend className="text-[12.5px] font-medium text-paper-sage">Effort</legend>
+              <legend className="text-[13px] font-medium text-paper-sage">Effort</legend>
               <div className="mt-1 flex gap-2">
                 {EFFORTS.map((effort) => (
                   <button
@@ -390,8 +390,8 @@ function ModelRoutingPanel({
                     type="button"
                     onClick={() => change(type, { effort })}
                     className={cn(
-                      "border px-3 py-1.5 font-mono text-[13px]",
-                      draft[type].effort === effort ? "border-paper-blue text-paper-blue" : "border-paper-mist text-paper-char",
+                      "border px-3 py-1.5 font-mono text-[12px]",
+                      draft[type].effort === effort ? "border-paper-ash text-paper-blue" : "border-paper-mist text-paper-char",
                     )}
                   >
                     {effort}
@@ -407,7 +407,7 @@ function ModelRoutingPanel({
           type="button"
           disabled={saving}
           onClick={() => onSave(draft)}
-          className="border border-paper-blue px-3 py-1.5 text-[13px] text-paper-blue"
+          className="border border-paper-ash px-3 py-1.5 text-[13px] text-paper-blue"
         >
           {saving ? "Saving…" : "Save routing table"}
         </button>

@@ -39,7 +39,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   CommandButton,
-  DedsecLoader,
+  PageLoader,
   EmptyState,
   HairlineCard,
   Section,
@@ -370,7 +370,7 @@ export function TaskBoard({ project, startAdding, onAddingHandled }: TaskBoardPr
   };
 
   if (isPending) {
-    return <DedsecLoader variant="compact" />;
+    return <PageLoader variant="compact" />;
   }
 
   const openCount = OPEN_SECTIONS.reduce((sum, { key }) => sum + board[key].length, 0);
@@ -567,7 +567,7 @@ function DragGhost({ task }: { task: TaskRecord }) {
     <div className="flex items-center gap-3 rounded-lg border border-os-border-strong bg-os-surface-raised px-4 py-3">
       <GripVertical className="size-3.5 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
       {task.id ? <span className="os-meta text-os-subtle">{task.id}</span> : null}
-      <span className="text-[15px] leading-6 text-foreground">{task.title}</span>
+      <span className="text-[14px] leading-6 text-foreground">{task.title}</span>
     </div>
   );
 }
@@ -634,7 +634,7 @@ function AddTask({
             if (event.key === "Escape") onDone();
           }}
           placeholder="What needs doing"
-          className="os-focus-ring min-w-0 flex-1 rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+          className="os-focus-ring min-w-0 flex-1 rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
         />
 
         <CommandButton type="submit" variant="primary" loading={create.isPending} loadingLabel="Adding">
@@ -648,7 +648,7 @@ function AddTask({
       <button
         type="button"
         onClick={() => setDetails((open) => !open)}
-        className="os-focus-ring mt-2 cursor-pointer text-[12px] leading-5 text-os-muted hover:text-foreground"
+        className="os-focus-ring mt-2 cursor-pointer text-[13px] leading-5 text-os-muted hover:text-foreground"
       >
         {details ? "Hide extra detail" : "Add outcome, steps, references"}
       </button>
@@ -657,7 +657,7 @@ function AddTask({
 
       {create.isPending && details ? (
         <div className="mt-3 flex items-center gap-3">
-          <DedsecLoader variant="compact" delayMs={0} className="h-14 w-14" />
+          <PageLoader variant="compact" delayMs={0} className="h-14 w-14" />
           <p className="text-[13px] leading-5 text-os-muted">Saving the task and its references…</p>
         </div>
       ) : null}
@@ -850,7 +850,7 @@ function TaskRow({
                     setEditing(false);
                   }
                 }}
-                className="os-focus-ring min-w-0 flex-1 rounded-md border border-os-border bg-transparent px-2.5 py-1.5 text-[15px] leading-6 text-foreground"
+                className="os-focus-ring min-w-0 flex-1 rounded-md border border-os-border bg-transparent px-2.5 py-1.5 text-[14px] leading-6 text-foreground"
               />
               <CommandButton type="submit" variant="secondary" className="min-h-8">
                 Save
@@ -866,7 +866,7 @@ function TaskRow({
               {task.id ? <span className="os-meta shrink-0 text-os-subtle">{task.id}</span> : null}
               <span
                 className={cn(
-                  "min-w-0 text-[15px] leading-6",
+                  "min-w-0 text-[14px] leading-6",
                   task.completed ? "text-os-subtle line-through decoration-os-border" : "text-foreground",
                 )}
               >
@@ -989,7 +989,7 @@ function TaskRow({
                     onChange={(event) => setAfterDraft(event.target.value)}
                     placeholder="PP-021, PP-022"
                     aria-label={`Tasks ${task.id} waits on`}
-                    className="os-focus-ring w-40 rounded-md border border-os-border bg-transparent px-2 py-1 font-mono text-[12px] uppercase tracking-[0.06em] text-foreground placeholder:text-os-subtle"
+                    className="os-focus-ring w-40 rounded-md border border-os-border bg-transparent px-2 py-1 font-mono text-[12px] text-foreground placeholder:text-os-subtle"
                   />
                   <button type="submit" disabled={busy} className="os-focus-ring os-meta cursor-pointer rounded-md px-1.5 py-1 text-os-muted hover:text-foreground disabled:opacity-30">
                     Set
@@ -1126,7 +1126,7 @@ function ArchivedSection({
               <li key={task.id ?? `archived-${index}`} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
                   {task.id ? <span className="os-meta shrink-0 text-os-subtle">{task.id}</span> : null}
-                  <span className="min-w-0 text-[15px] leading-6 text-os-muted">{task.title}</span>
+                  <span className="min-w-0 text-[14px] leading-6 text-os-muted">{task.title}</span>
                 </div>
 
                 {task.id ? (

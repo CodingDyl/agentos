@@ -49,7 +49,7 @@ export function UploadDropzone({ onFiles, children }: UploadDropzoneProps) {
 
   return (
     <div
-      className="relative min-h-full bg-paper-white"
+      className="relative min-h-full"
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       // Without preventing the default here, the browser opens the file itself.
@@ -61,8 +61,8 @@ export function UploadDropzone({ onFiles, children }: UploadDropzoneProps) {
       {children}
 
       {isDragging ? (
-        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-paper-white/90 font-paper-ui">
-          <div className="flex flex-col items-center gap-3 rounded-none border-2 border-dashed border-paper-gold bg-paper-white px-12 py-10">
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-paper-white/90">
+          <div className="flex flex-col items-center gap-3 rounded-md border-2 border-dashed border-paper-gold bg-paper-white px-12 py-10">
             <ImagePlus
               className="size-6 text-paper-char"
               strokeWidth={1.75}

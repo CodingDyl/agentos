@@ -53,7 +53,7 @@ export function PaperInlineEdit({
   return (
     <section>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-paper-display text-[15px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">{label}</h2>
+        <h2 className="text-[14px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">{label}</h2>
         {!editing ? (
           <button
             type="button"
@@ -63,7 +63,7 @@ export function PaperInlineEdit({
               setEditing(true);
             }}
             className={cn(
-              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss disabled:cursor-not-allowed disabled:opacity-50",
+              "inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss disabled:cursor-not-allowed disabled:opacity-50",
               PAPER_FOCUS,
             )}
           >
@@ -104,14 +104,14 @@ export function PaperInlineEdit({
             <PaperButton variant="quiet" onClick={() => setEditing(false)}>
               Cancel
             </PaperButton>
-            <span className="ml-1 text-[12px] text-paper-sage">⌘↵ to save</span>
+            <span className="ml-1 text-[13px] text-paper-sage">⌘↵ to save</span>
           </div>
         </form>
       ) : (
         <p
           className={cn(
             "mt-1.5 max-w-[68ch] whitespace-pre-wrap",
-            emphasis ? "font-paper-display text-[19px] leading-[1.45] font-medium tracking-[-0.005em]" : "text-[15px] leading-6",
+            emphasis ? "text-[16px] leading-[1.45] font-medium tracking-[-0.005em]" : "text-[14px] leading-6",
             value ? "text-paper-char" : "text-paper-sage",
           )}
         >

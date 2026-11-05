@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { DedsecLoader, EmptyState, HairlineCard, Section } from "@/components/os";
+import { PageLoader, EmptyState, HairlineCard, Section } from "@/components/os";
 import { useDesignLibrary } from "@/lib/agentos/queries";
 
 /**
@@ -25,7 +25,7 @@ export function ProjectDesigns({ slug, designBoard }: { slug: string; designBoar
   const workspace = `/designs?project=${encodeURIComponent(slug)}`;
 
   if (isPending) {
-    return <DedsecLoader variant="compact" />;
+    return <PageLoader variant="compact" />;
   }
 
   if (isError) {
@@ -40,7 +40,7 @@ export function ProjectDesigns({ slug, designBoard }: { slug: string; designBoar
         action={
           <Link
             to={workspace}
-            className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-os-border px-4 text-[15px] text-foreground transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised"
+            className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-os-border px-4 text-[14px] text-foreground transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised"
           >
             Open design workspace
             <ArrowRight className="size-4 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
@@ -90,7 +90,7 @@ export function ProjectDesigns({ slug, designBoard }: { slug: string; designBoar
                     )}
                   </div>
                   <div className="mt-4 flex items-baseline justify-between gap-4">
-                    <h3 className="truncate text-[15px] leading-6">{board.name}</h3>
+                    <h3 className="truncate text-[14px] leading-6">{board.name}</h3>
                     <span className="os-meta shrink-0 text-os-subtle">
                       {isDefault ? "Default" : `${board.assetIds.length}`}
                     </span>
@@ -118,7 +118,7 @@ export function ProjectDesigns({ slug, designBoard }: { slug: string; designBoar
 
       <Link
         to={workspace}
-        className="os-focus-ring group inline-flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-os-border px-4 text-[15px] text-foreground transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised"
+        className="os-focus-ring group inline-flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-os-border px-4 text-[14px] text-foreground transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised"
       >
         Open design workspace
         <ArrowRight className="size-4 text-os-subtle transition-colors duration-150 group-hover:text-os-amber" strokeWidth={1.5} aria-hidden="true" />

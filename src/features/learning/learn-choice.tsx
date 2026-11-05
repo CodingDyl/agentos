@@ -34,7 +34,7 @@ export function LearnChoice({ source, idea, onDone }: { source: LearningSource; 
   return (
     <div role="group" aria-label={`What to do with ${source.title}`} className="mt-3 border border-paper-mist bg-paper-cream px-4 py-3">
       <div className="flex items-start gap-3">
-        <p className="min-w-0 flex-1 text-[13.5px] leading-6 text-paper-char">
+        <p className="min-w-0 flex-1 text-[14px] leading-6 text-paper-char">
           {upgrading ? (
             <>
               <span className="font-medium text-paper-moss">You have a note for this one.</span> Check it against AgentOS too?
@@ -61,9 +61,9 @@ export function LearnChoice({ source, idea, onDone }: { source: LearningSource; 
           Not now
         </PaperButton>
       </div>
-      {missing.length > 0 ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{missing.join(" ")}</p> : null}
+      {missing.length > 0 ? <p className="mt-2 text-[13px] text-paper-flame-deep">{missing.join(" ")}</p> : null}
       {start.error ? (
-        <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
           {start.error.message}
         </p>
       ) : null}

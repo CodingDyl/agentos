@@ -55,7 +55,6 @@ export function DashboardPage() {
           ? `Context / ${data.mainFocus.project}`
           : undefined
       }
-      modelLabel="Model / AgentOS V1"
     >
       {isLoading ? (
         <DashboardLoading />

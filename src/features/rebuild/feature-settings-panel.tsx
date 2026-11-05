@@ -73,7 +73,7 @@ export function FeatureSettingsPanel({ run }: { run: RebuildRun }) {
           defaultValue={definition.secret ? "" : (view.values[definition.key] ?? "")}
           className={cn(PAPER_INPUT, "w-full")}
         />
-        <span className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[12.5px] text-paper-sage">
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[13px] text-paper-sage">
           <span>{definition.hint}</span>
           {definition.secret && isSet ? (
             <button
@@ -97,7 +97,7 @@ export function FeatureSettingsPanel({ run }: { run: RebuildRun }) {
         <h4 id={`${id}-title`} className="flex flex-wrap items-center gap-2 font-semibold text-paper-moss">
           <KeyRound className="size-4 text-paper-sage" aria-hidden="true" />
           What the features need
-          <span className="text-[12.5px] font-normal text-paper-sage tabular-nums">
+          <span className="text-[13px] font-normal text-paper-sage tabular-nums">
             {configured} of {fields.length} set{wantsUrls ? ` · ${view.legacyUrls.length} old address${view.legacyUrls.length === 1 ? "" : "es"}` : ""}
           </span>
         </h4>
@@ -115,13 +115,13 @@ export function FeatureSettingsPanel({ run }: { run: RebuildRun }) {
             spellCheck={false}
             defaultValue={view.legacyUrls.join("\n")}
             placeholder={"/articles/\n/articles/antenuptial-contracts/"}
-            className={cn(PAPER_INPUT, "min-h-20 w-full max-w-[75ch] font-mono text-[12.5px]")}
+            className={cn(PAPER_INPUT, "min-h-20 w-full max-w-[75ch] font-mono text-[12px]")}
           />
-          <span className="mt-0.5 block text-[12.5px] text-paper-sage">One path per line, from the current site. Each must redirect to its new page or still be served.</span>
+          <span className="mt-0.5 block text-[13px] text-paper-sage">One path per line, from the current site. Each must redirect to its new page or still be served.</span>
         </label>
       ) : null}
       {save.error ? (
-        <p role="alert" className="text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
           {save.error.message}
         </p>
       ) : null}
@@ -130,7 +130,7 @@ export function FeatureSettingsPanel({ run }: { run: RebuildRun }) {
           {save.isPending ? "Saving…" : "Save settings"}
         </PaperButton>
         {saved && !save.isPending ? (
-          <span role="status" className="inline-flex items-center gap-1 text-[12.5px] text-paper-green">
+          <span role="status" className="inline-flex items-center gap-1 text-[13px] text-paper-green">
             <CheckCircle2 className="size-3.5" aria-hidden="true" /> Saved. The next functions revision and preview use these.
           </span>
         ) : null}

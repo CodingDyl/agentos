@@ -2,7 +2,7 @@ import { History, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ChatAgent, ChatMode } from "@shared/chat-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PAPER_FOCUS } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useChatAgents, useChats, useChatStream, useDeleteChat } from "@/lib/agentos/chat";
@@ -83,13 +83,13 @@ export function OperatorChatPage() {
   );
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="operator" activeHref="/operator" modelLabel="Model / AgentOS V1">
-      <div className="flex h-full min-h-0 bg-background font-paper-ui text-paper-moss">
+    <AppShell navigationItems={navigationItems} pageId="operator" activeHref="/operator">
+      <div className="flex h-full min-h-0 bg-background text-paper-moss">
         <aside className="hidden w-64 shrink-0 border-r border-paper-mist bg-paper-white md:block">{sidebar()}</aside>
 
         {drawerOpen ? (
           <div className="fixed inset-0 z-40 md:hidden">
-            <button type="button" aria-label="Close chat history" className="absolute inset-0 cursor-default bg-paper-moss/30" onClick={() => setDrawerOpen(false)} />
+            <button type="button" aria-label="Close chat history" className="absolute inset-0 cursor-default bg-[var(--scrim)]" onClick={() => setDrawerOpen(false)} />
             <div role="dialog" aria-modal="true" aria-label="Chat history" className="absolute inset-y-0 left-0 w-[min(85vw,300px)] border-r border-paper-mist bg-paper-white">
               <button
                 type="button"
@@ -165,17 +165,17 @@ function ChatWorkspace({
           <History className="size-4" aria-hidden="true" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="font-paper-utility text-[11.5px] font-medium tracking-[0.14em] text-paper-sage uppercase">Operator</p>
+          <p className="text-[13px] font-medium text-paper-sage">Operator</p>
           <h1 data-heading="compact" className="truncate text-paper-moss">{current?.title ?? "New chat"}</h1>
         </div>
-        {choice ? <span className="hidden shrink-0 text-[12.5px] text-paper-sage sm:inline">{modelLabel(agents, choice.agent, choice.model)}</span> : null}
+        {choice ? <span className="hidden shrink-0 text-[13px] text-paper-sage sm:inline">{modelLabel(agents, choice.agent, choice.model)}</span> : null}
         <button
           type="button"
           onClick={() => voice.setNarrating(!voice.narrating)}
           aria-pressed={voice.narrating}
           title={voiceUsable ? "Hold Ctrl to talk. Say allow, don't allow, stop or new chat." : "Jarvis reads replies here; add a voice to hear them."}
           className={cn(
-            "inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 text-[12.5px] transition-colors hover:bg-paper-stone",
+            "inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 text-[13px] transition-colors hover:bg-paper-stone",
             PAPER_FOCUS,
             voice.narrating ? "text-paper-moss" : "text-paper-sage",
           )}
@@ -184,7 +184,7 @@ function ChatWorkspace({
           <span className="hidden lg:inline">{voice.narrating ? "Jarvis reads replies" : "Jarvis quiet"}</span>
         </button>
         {chatId && connection === "reconnecting" ? (
-          <span role="status" className="shrink-0 text-[12px] text-paper-marigold">
+          <span role="status" className="shrink-0 text-[13px] text-paper-marigold">
             Reconnecting…
           </span>
         ) : null}
@@ -193,7 +193,7 @@ function ChatWorkspace({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-8">
         <div className="mx-auto w-full max-w-[820px] py-8">
           {chatId && chat.isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : chatId && chat.error ? (
             <p role="alert" className="text-[14px] text-paper-flame-deep">
               {chat.error.message}
@@ -243,7 +243,7 @@ function ChatWorkspace({
 function EmptyChat({ mode, onPick }: { mode: ChatMode; onPick: (text: string) => void }) {
   return (
     <div className="pt-[8vh]">
-      <h2 className="font-paper-display text-[26px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[32px]">What can I help with?</h2>
+      <h2 className="text-[24px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[24px]">What can I help with?</h2>
       <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{EMPTY_COPY[mode]}</p>
       <ul className="mt-6 grid gap-2 sm:grid-cols-2" aria-label="Suggestions">
         {SUGGESTIONS[mode].map((suggestion) => (
@@ -251,7 +251,7 @@ function EmptyChat({ mode, onPick }: { mode: ChatMode; onPick: (text: string) =>
             <button
               type="button"
               onClick={() => onPick(suggestion)}
-              className={cn("w-full cursor-pointer border border-paper-mist bg-paper-white px-4 py-3 text-left text-[13.5px] leading-5 text-paper-char transition-colors hover:bg-paper-cream hover:text-paper-moss", PAPER_FOCUS)}
+              className={cn("w-full cursor-pointer border border-paper-mist bg-paper-white px-4 py-3 text-left text-[14px] leading-5 text-paper-char transition-colors hover:bg-paper-cream hover:text-paper-moss", PAPER_FOCUS)}
             >
               {suggestion}
             </button>

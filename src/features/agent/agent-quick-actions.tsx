@@ -45,7 +45,7 @@ export function AgentQuickActions({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <FieldLabel>Quick commands</FieldLabel>
         {/* Said plainly rather than implied: Hermes named none of these. */}
-        {discovered ? null : <span className="mb-1.5 text-[12.5px] text-paper-sage">Baseline commands</span>}
+        {discovered ? null : <span className="mb-1.5 text-[13px] text-paper-sage">Baseline commands</span>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

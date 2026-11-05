@@ -100,7 +100,7 @@ export function MilestoneRun({
         <header className="flex items-start justify-between gap-4 border-b border-os-border px-5 py-4">
           <div>
             <SectionLabel>Run milestone</SectionLabel>
-            <h2 className="mt-2 text-[20px] leading-7 text-foreground">{milestone.title}</h2>
+            <h2 className="mt-2 text-[16px] leading-7 text-foreground">{milestone.title}</h2>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="os-focus-ring -mr-2 cursor-pointer rounded-md p-2 text-os-subtle hover:text-foreground">
             <X className="size-4" strokeWidth={1.5} aria-hidden="true" />
@@ -172,13 +172,13 @@ export function MilestoneRun({
                               <Square className="mt-0.5 size-4 shrink-0 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
                             )}
                             <span className="min-w-0">
-                              <span className="block text-[14.5px] leading-6 text-foreground">
+                              <span className="block text-[14px] leading-6 text-foreground">
                                 <span className="font-mono text-os-subtle">{entry.taskId}</span> {entry.taskTitle}
                               </span>
                               <span className="mt-0.5 block truncate text-[13px] leading-5 text-os-subtle">
                                 {entry.preview?.plan.objective}
                               </span>
-                              <span className="mt-0.5 block text-[12px] leading-5 text-os-subtle">
+                              <span className="mt-0.5 block text-[13px] leading-5 text-os-subtle">
                                 {entry.preview?.policy?.selected
                                   ? `${optionLabel(entry.preview.policy.selected, workerName)} · ${entry.preview.policy.reason}`
                                   : entry.preview?.routing

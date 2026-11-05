@@ -19,8 +19,8 @@ const DONE: Record<AutomationControl, string> = {
 function Fact({ label, value, tone = "char" }: { label: string; value: string; tone?: "char" | "flame" }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[12px] text-paper-sage">{label}</dt>
-      <dd className={cn("mt-0.5 text-[13.5px] leading-5", tone === "flame" ? "text-paper-flame-deep" : "text-paper-char")}>
+      <dt className="text-[13px] text-paper-sage">{label}</dt>
+      <dd className={cn("mt-0.5 text-[14px] leading-5", tone === "flame" ? "text-paper-flame-deep" : "text-paper-char")}>
         {value}
       </dd>
     </div>
@@ -68,7 +68,7 @@ export function AutomationRow({ automation, now }: AutomationRowProps) {
           <Link
             to={`/automations/${automation.id}`}
             className={cn(
-              "rounded-[2px] font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss underline-offset-4 hover:underline",
+              "rounded-sm text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss underline-offset-4 hover:underline",
               PAPER_FOCUS,
             )}
           >
@@ -79,9 +79,9 @@ export function AutomationRow({ automation, now }: AutomationRowProps) {
         <p className="mt-1 text-[14px] text-paper-char">{formatSchedule(automation.schedule)}</p>
 
         {recipe?.prompt ? (
-          <p className="mt-3 line-clamp-2 max-w-[80ch] text-[13.5px] leading-[1.55] text-paper-sage">{recipe.prompt}</p>
+          <p className="mt-3 line-clamp-2 max-w-[80ch] text-[14px] leading-[1.55] text-paper-sage">{recipe.prompt}</p>
         ) : recipe?.script ? (
-          <p className="mt-3 truncate font-mono text-[12.5px] text-paper-sage">{recipe.script}</p>
+          <p className="mt-3 truncate font-mono text-[12px] text-paper-sage">{recipe.script}</p>
         ) : null}
 
         {automation.skills.length > 0 ? (
@@ -93,7 +93,7 @@ export function AutomationRow({ automation, now }: AutomationRowProps) {
         ) : null}
 
         {lastRun?.status === "failed" && lastRun.detail ? (
-          <p className="mt-3 max-w-[80ch] font-mono text-[12.5px] leading-5 break-words text-paper-flame-deep">
+          <p className="mt-3 max-w-[80ch] font-mono text-[12px] leading-5 break-words text-paper-flame-deep">
             {lastRun.detail}
           </p>
         ) : null}
@@ -137,7 +137,7 @@ export function AutomationRow({ automation, now }: AutomationRowProps) {
           <Link
             to={`/automations/${automation.id}`}
             className={cn(
-              "inline-flex min-h-8 items-center gap-1 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+              "inline-flex min-h-8 items-center gap-1 rounded-md px-3 text-[14px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
               PAPER_FOCUS,
             )}
           >
@@ -147,7 +147,7 @@ export function AutomationRow({ automation, now }: AutomationRowProps) {
         </div>
         <p
           className={cn(
-            "min-h-5 max-w-[34ch] text-[12.5px] lg:text-right",
+            "min-h-5 max-w-[34ch] text-[13px] lg:text-right",
             control.isError ? "text-paper-flame-deep" : "text-paper-sage",
           )}
           role="status"

@@ -54,7 +54,6 @@ export function ActivityPage() {
       navigationItems={navigationItems}
       pageId="activity"
       activeHref="/activity"
-      modelLabel="Model / AgentOS V1"
     >
       <PaperStage>
         {isPending ? (
@@ -107,7 +106,7 @@ export function ActivityPage() {
               <div className="mt-10 space-y-10 pb-4">
                 {days.map((day) => (
                   <PaperSection key={day.key} label={day.label}>
-                    <ul className="divide-y divide-paper-mist overflow-hidden rounded-none border border-paper-mist">
+                    <ul className="divide-y divide-paper-mist overflow-hidden rounded-md border border-paper-mist">
                       {day.events.map((event) => (
                         <ActivityRow key={event.id} event={event} />
                       ))}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PaperButton, PaperCard, PaperPagination } from "@/components/paper";
 import { useFinanceBusinessExpenses, useImportFinanceExpenses } from "@/lib/agentos/business-ledger";
 import { money } from "./business-billing-format";
@@ -58,7 +58,7 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
           <h3 id={`finance-import-${entityId}`} className="font-semibold">
             Import business expenses from Finance
           </h3>
-          <p className="mt-1 max-w-[75ch] text-sm text-paper-sage">
+          <p className="mt-1 max-w-[75ch] text-[14px] text-paper-sage">
             Money out that Finance files under Business, or from a merchant you marked as business. Each one is added to {entityName} as a
             paid expense and can only be imported once, into one business.
           </p>
@@ -69,21 +69,21 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
       </div>
 
       {finance.isPending ? (
-        <DedsecLoader variant="compact" className="mt-4" />
+        <PageLoader variant="compact" className="mt-4" />
       ) : finance.error ? (
         <p role="alert" className="mt-4 border border-paper-flame-deep p-3 text-paper-flame-deep">
           {finance.error.message}
         </p>
       ) : !finance.data?.available ? (
-        <p className="mt-4 text-sm">{finance.data?.reason}</p>
+        <p className="mt-4 text-[14px]">{finance.data?.reason}</p>
       ) : candidates.length === 0 ? (
-        <p className="mt-4 text-sm">
+        <p className="mt-4 text-[14px]">
           Finance has no transactions marked as business. In Finance, move a payment's merchant into the Business category, then come
           back.
         </p>
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[14px]">
             {open.length > 0 ? (
               <label className="inline-flex cursor-pointer items-center gap-2">
                 <input type="checkbox" checked={allTicked} onChange={toggleAll} />
@@ -104,7 +104,7 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
               return (
                 <li key={candidate.transactionId}>
                   <label
-                    className={`flex flex-wrap items-center gap-x-4 gap-y-1 border border-paper-mist px-3 py-2 text-sm ${done ? "opacity-60" : "cursor-pointer"}`}
+                    className={`flex flex-wrap items-center gap-x-4 gap-y-1 border border-paper-mist px-3 py-2 text-[14px] ${done ? "opacity-60" : "cursor-pointer"}`}
                   >
                     <input
                       type="checkbox"
@@ -117,12 +117,12 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
                     </time>
                     <span className="min-w-0 flex-1">
                       <span className="font-medium">{candidate.merchant}</span>
-                      <span className="block truncate text-xs text-paper-sage">
+                      <span className="block truncate text-[13px] text-paper-sage">
                         {candidate.category}
                         {candidate.description && candidate.description !== candidate.merchant ? ` · ${candidate.description}` : ""}
                       </span>
                     </span>
-                    {done ? <span className="text-xs text-paper-sage">Imported {where}</span> : null}
+                    {done ? <span className="text-[13px] text-paper-sage">Imported {where}</span> : null}
                     <strong className="tabular-nums">{money(candidate.amountMinor)}</strong>
                   </label>
                 </li>
@@ -141,7 +141,7 @@ export function FinanceExpenseImport({ entityId, entityName, entityNames, revisi
             <PaperButton variant="amber" disabled={chosen.length === 0 || revision === undefined || importExpenses.isPending} onClick={submit}>
               {importExpenses.isPending ? "Importing…" : `Import ${chosen.length} expense${chosen.length === 1 ? "" : "s"}`}
             </PaperButton>
-            <p className="text-xs text-paper-sage">
+            <p className="text-[13px] text-paper-sage">
               Imported expenses are posted records: void one with a reason if it should not be here.
             </p>
           </div>

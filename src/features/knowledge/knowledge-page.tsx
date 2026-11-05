@@ -2,7 +2,7 @@ import { FileText, GraduationCap, Microscope, Scale, Search } from "lucide-react
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ArtifactSource, KnowledgeItem } from "@shared/agentos-types";
-import { AppShell, DedsecLoader, FilterToolbar, type FilterGroup } from "@/components/os";
+import { AppShell, PageLoader, FilterToolbar, type FilterGroup } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { SOURCE_LABELS } from "@/features/projects/documents-model";
@@ -78,11 +78,11 @@ export function KnowledgePage() {
     filters.query !== "" || filters.workspace !== "all" || filters.type !== "all" || filters.creator !== "all" || filters.when !== "any";
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="knowledge" activeHref="/knowledge" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="knowledge" activeHref="/knowledge">
       <PaperStage>
         <header>
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <h1 className="font-paper-display text-[34px] leading-[1.1] font-extrabold tracking-[-0.015em] text-paper-moss">Knowledge</h1>
+            <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.015em] text-paper-moss">Knowledge</h1>
             <Link to="/knowledge/library" className={cn("inline-flex min-h-11 items-center gap-2 border border-paper-mist px-4 text-[13px] font-medium text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}>
               <Microscope className="size-3.5" aria-hidden="true" />
               Library: take a site apart
@@ -104,7 +104,7 @@ export function KnowledgePage() {
               onChange={(event) => setFilter("q", event.target.value, "")}
               placeholder="Search everything…"
               aria-label="Search knowledge"
-              className={cn(PAPER_INPUT, "min-h-11 w-full pl-10 text-[15.5px]")}
+              className={cn(PAPER_INPUT, "min-h-11 w-full pl-10 text-[14px]")}
             />
           </label>
         </div>
@@ -121,25 +121,25 @@ export function KnowledgePage() {
 
         <div className="mt-8">
           {isPending ? (
-            <DedsecLoader variant="page" />
+            <PageLoader variant="page" />
           ) : !data ? (
             <div>
-              <h2 className="font-paper-display text-[21px] font-bold">Knowledge could not be read.</h2>
+              <h2 className="text-[16px] font-semibold">Knowledge could not be read.</h2>
               <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "The data adapter did not answer."}</p>
               <PaperButton variant="ghost" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
                 {isFetching ? "Trying again…" : "Try again"}
               </PaperButton>
             </div>
           ) : items.length === 0 ? (
-            <p className="max-w-[60ch] text-[15px] leading-6 text-paper-char">
-              Nothing written down yet. Documents appear here as soon as a workspace has a <span className="font-mono text-[13px]">docs/</span> file,
+            <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">
+              Nothing written down yet. Documents appear here as soon as a workspace has a <span className="font-mono text-[12px]">docs/</span> file,
               an agent writes an artifact, or a decision is recorded.
             </p>
           ) : visible.length === 0 ? (
-            <p className="text-[15px] text-paper-sage">Nothing matches those filters.</p>
+            <p className="text-[14px] text-paper-sage">Nothing matches those filters.</p>
           ) : (
             <>
-              <h2 className="mb-2 font-paper-display text-[15px] font-bold">{filtered ? `${visible.length} found` : "Recent"}</h2>
+              <h2 className="mb-2 text-[14px] font-semibold">{filtered ? `${visible.length} found` : "Recent"}</h2>
               <ul className="divide-y divide-paper-stone border-y border-paper-mist">
                 {visible.map((item) => (
                   <KnowledgeRow key={item.id} item={item} />
@@ -232,13 +232,13 @@ function KnowledgeRow({ item }: { item: KnowledgeItem }) {
         <Icon className="mt-1 size-4 shrink-0 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <span className="text-[15.5px] leading-6 font-medium text-paper-moss group-hover:text-paper-blue">{item.title}</span>
+            <span className="text-[14px] leading-6 font-medium text-paper-moss group-hover:text-paper-blue">{item.title}</span>
             {item.origin === "repo" ? <Tag tone="muted">Repo</Tag> : null}
           </span>
           {item.kind === "decision" && item.detail ? (
-            <span className="mt-0.5 line-clamp-1 block max-w-[80ch] text-[13.5px] leading-5 text-paper-char">{item.detail}</span>
+            <span className="mt-0.5 line-clamp-1 block max-w-[80ch] text-[14px] leading-5 text-paper-char">{item.detail}</span>
           ) : null}
-          <span className="mt-1 flex flex-wrap items-center gap-x-2 text-[12.5px] text-paper-sage">
+          <span className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-paper-sage">
             <span className="font-medium text-paper-char">{item.projectName}</span>
             <span aria-hidden="true">·</span>
             <span>{KNOWLEDGE_TYPE_LABEL(item.type)}</span>

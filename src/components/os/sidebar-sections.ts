@@ -69,6 +69,58 @@ export function sectionForPath(path: string, items: readonly SectionedLink[]): C
   return section && isCollapsibleSection(section) ? section : undefined;
 }
 
+export interface BreadcrumbItem {
+  label: string;
+  href?: string;
+}
+
+/**
+ * The top bar's trail for a path: group, then destination, then anything open
+ * inside it. `/workspaces/pantry-pilot` is `Work / Workspaces / pantry-pilot`.
+ * The last entry is the page; earlier ones link back when there is somewhere to
+ * go. A path no navigation item claims falls back to its own first segment, so
+ * the bar is never blank on a screen reached only from another screen.
+ */
+export function breadcrumbForPath(
+  path: string,
+  items: readonly (SectionedLink & { label: string })[],
+): BreadcrumbItem[] {
+  const pathname = path.split(/[?#]/)[0] || "/";
+  let best: (SectionedLink & { label: string }) | undefined;
+
+  for (const item of items) {
+    const href = item.href.split(/[?#]/)[0] || "/";
+    const matches = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+    if (matches && (!best || href.length > best.href.length)) best = item;
+  }
+
+  const humanize = (segment: string) => {
+    let decoded = segment;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      // A malformed segment is shown as it arrived.
+    }
+    return decoded;
+  };
+  const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1).replace(/-/g, " ");
+
+  if (!best) {
+    const [first, ...rest] = pathname.split("/").filter(Boolean);
+    if (!first) return [{ label: "Dashboard" }];
+    return [{ label: capitalize(first), href: `/${first}` }, ...rest.map((segment) => ({ label: humanize(segment) }))];
+  }
+
+  const trail: BreadcrumbItem[] = [];
+  if (best.section && isCollapsibleSection(best.section) && SECTION_LABELS[best.section] !== best.label) {
+    trail.push({ label: SECTION_LABELS[best.section] });
+  }
+  trail.push({ label: best.label, href: best.href });
+  const inside = pathname.slice(best.href.length).split("/").filter(Boolean);
+  for (const segment of inside) trail.push({ label: humanize(segment) });
+  return trail;
+}
+
 export function expandActiveSection(
   collapsed: Set<CollapsibleSection>,
   path: string,

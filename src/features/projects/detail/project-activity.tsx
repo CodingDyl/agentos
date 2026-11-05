@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { WorkSessionSummary } from "@shared/agentos-types";
-import { DedsecLoader, EmptyState, HairlineCard, Section, SectionLabel } from "@/components/os";
+import { PageLoader, EmptyState, HairlineCard, Section, SectionLabel } from "@/components/os";
 import { ActivityRow, groupByDay } from "@/features/activity";
 import { useActivity } from "@/lib/agentos/queries";
 import { ProjectSessions } from "./project-sessions";
@@ -33,7 +33,7 @@ export function ProjectActivity({ slug, sessions }: { slug: string; sessions: Wo
         }
       >
         {isPending ? (
-          <DedsecLoader variant="compact" />
+          <PageLoader variant="compact" />
         ) : error ? (
           <EmptyState variant="inline" description={error.message} />
         ) : days.length === 0 ? (

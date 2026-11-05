@@ -74,8 +74,8 @@ function SetUp({ month }: { month: string }) {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="font-paper-display text-[19px] font-bold tracking-[-0.01em] text-paper-moss">Split costs with someone</h2>
-      <p className="mt-2 text-[14.5px] leading-7 text-paper-char">
+      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Split costs with someone</h2>
+      <p className="mt-2 text-[14px] leading-7 text-paper-char">
         If you pay for something and a partner sends back her share, tell Finance who she is. Her payments then count as money coming back, not as income, and you can see what she still owes you.
       </p>
       <form
@@ -97,7 +97,7 @@ function SetUp({ month }: { month: string }) {
           <FieldLabel>Start counting from</FieldLabel>
           <input required type="month" value={since} onChange={(event) => setSince(event.target.value)} className={`${PAPER_INPUT} w-full`} />
         </label>
-        <p className="text-[12.5px] leading-5 text-paper-sage sm:col-span-2">
+        <p className="text-[13px] leading-5 text-paper-sage sm:col-span-2">
           Finance looks for that word in money arriving in your accounts. Use what your bank shows, such as her name or her reference. Months before the start are ignored, so an old balance is not swept in.
         </p>
         <div className="sm:col-span-2">
@@ -115,7 +115,7 @@ function AddRuleHeader({ onClose }: { onClose: () => void }) {
   useDismiss(onClose);
   return (
     <div className="flex items-center justify-between gap-3 sm:col-span-2">
-      <h3 className="font-paper-display text-[16px] font-bold text-paper-moss">Add a shared cost</h3>
+      <h3 className="text-[16px] font-semibold text-paper-moss">Add a shared cost</h3>
       <CloseButton label="Close the shared cost form" onClick={onClose} showLabel />
     </div>
   );
@@ -139,12 +139,12 @@ function RulesSection({ data }: { data: FinanceData }) {
       {shared.rules.length === 0 ? (
         <p className="mb-4 max-w-[60ch] text-[14px] leading-6 text-paper-char">Add each cost she shares. For rent: a payment containing “rent”, her share 50%. For groceries: the Groceries category, 50%. Anything without a rule, like the wifi, is yours alone.</p>
       ) : (
-        <ul className="mb-4 divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="mb-4 divide-y divide-paper-stone rounded-md border border-paper-mist">
           {shared.rules.map((rule) => (
             <li key={rule.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
-              <p className="min-w-0 text-[14.5px] text-paper-moss">
+              <p className="min-w-0 text-[14px] text-paper-moss">
                 {rule.label}
-                <span className="ml-2 text-[12.5px] text-paper-sage">
+                <span className="ml-2 text-[13px] text-paper-sage">
                   {rule.kind === "category" ? `everything in ${rule.value}` : `payments containing “${rule.value}”`} · she pays {Math.round(rule.share * 100)}%
                 </span>
               </p>
@@ -159,7 +159,7 @@ function RulesSection({ data }: { data: FinanceData }) {
 
       {adding ? (
         <form
-          className="grid gap-4 rounded-none bg-paper-cream p-4 sm:grid-cols-2"
+          className="grid gap-4 rounded-md bg-paper-cream p-4 sm:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault();
             if (valid) create.mutate({ label: label.trim(), kind, value: value.trim(), share: sharePct / 100 }, { onSuccess: () => { setLabel(""); setValue(""); setShare("50"); setAdding(false); } });
@@ -242,12 +242,12 @@ function MonthsSection({ data }: { data: FinanceData }) {
                 title={
                   <>
                     {formatMonthShort(entry.month)}
-                    {entry.month === data.month ? <span className="ml-2 font-paper-ui text-[12.5px] font-normal text-paper-sage">so far</span> : null}
+                    {entry.month === data.month ? <span className="ml-2 text-[13px] font-normal text-paper-sage">so far</span> : null}
                   </>
                 }
                 meta={<PayBadge state={entry.balance > 0 ? "due" : "paid"}>{entry.balance > 0 ? "Still owed" : entry.balance < 0 ? "Paid ahead" : "Settled"}</PayBadge>}
                 figure={
-                  <span className={cn("block text-[15px] font-semibold tabular-nums", entry.balance > 0 ? "text-paper-moss" : "text-paper-char")}>
+                  <span className={cn("block text-[14px] font-semibold tabular-nums", entry.balance > 0 ? "text-paper-moss" : "text-paper-char")}>
                     {entry.balance > 0 ? `${money(entry.balance)} owed` : entry.balance < 0 ? `${money(-entry.balance)} ahead` : "Settled"}
                   </span>
                 }
@@ -283,12 +283,12 @@ function SettleSection({ data }: { data: FinanceData }) {
           No payments from {shared.partner?.name} found yet. Finance looks for “{shared.partner?.match}” in money arriving. If her payments show differently, change the name Finance looks for below, or record them by hand.
         </p>
       ) : (
-        <ul className="mb-4 divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="mb-4 divide-y divide-paper-stone rounded-md border border-paper-mist">
           {shared.payments.map((payment) => (
             <li key={`${payment.date}-${payment.description}-${payment.amount}`} className="flex items-baseline justify-between gap-4 px-4 py-2.5 text-[14px]">
               <span className="min-w-0 truncate text-paper-moss">
                 {payment.description}
-                <span className="ml-2 text-[12.5px] text-paper-sage">{formatDay(payment.date)}</span>
+                <span className="ml-2 text-[13px] text-paper-sage">{formatDay(payment.date)}</span>
               </span>
               <span className="shrink-0 tabular-nums text-paper-char">{money(payment.amount)}</span>
             </li>
@@ -297,12 +297,12 @@ function SettleSection({ data }: { data: FinanceData }) {
       )}
 
       {shared.settlements.length > 0 ? (
-        <ul className="mb-4 divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="mb-4 divide-y divide-paper-stone rounded-md border border-paper-mist">
           {shared.settlements.map((entry) => (
             <li key={entry.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14px]">
               <span className="min-w-0 truncate text-paper-moss">
                 Recorded by you: {money(entry.amount)}
-                <span className="ml-2 text-[12.5px] text-paper-sage">{formatMonthShort(entry.month)}{entry.note ? ` · ${entry.note}` : ""}</span>
+                <span className="ml-2 text-[13px] text-paper-sage">{formatMonthShort(entry.month)}{entry.note ? ` · ${entry.note}` : ""}</span>
               </span>
               <PaperButton disabled={remove.isPending} onClick={() => remove.mutate(entry.id)} aria-label="Remove this recorded payment">
                 Remove
@@ -366,7 +366,7 @@ function SettingsSection({ data }: { data: FinanceData }) {
         </PaperButton>
       </form>
       <MutationError error={save.error} />
-      <p className="mt-3 max-w-[60ch] text-[12.5px] leading-5 text-paper-sage">
+      <p className="mt-3 max-w-[60ch] text-[13px] leading-5 text-paper-sage">
         A payment she sends for something else can be moved out of this: change its category on the Spending tab. Only money arriving that matches her, or that you filed as a Reimbursement, counts.
       </p>
       <div className="mt-5 border-t border-paper-stone pt-4">

@@ -44,7 +44,7 @@ function LocationTag({ location }: { location: "local" | "cloud" }) {
 function BlockedExplanation({ explanation, className }: { explanation: BlockExplanation; className?: string }) {
   return (
     <div role="alert" className={cn("rounded-md border border-os-border bg-os-surface-raised p-4", className)}>
-      <p className="flex items-start gap-2.5 text-[15px] leading-6 text-foreground">
+      <p className="flex items-start gap-2.5 text-[14px] leading-6 text-foreground">
         <AlertTriangle className="mt-1 size-4 shrink-0 text-os-danger" strokeWidth={1.5} aria-hidden="true" />
         {explanation.headline}
       </p>
@@ -90,7 +90,7 @@ export function RoutePolicyPanel({ record, workers, className }: RoutePolicyPane
           <div className="min-w-0">
             <SectionLabel>{blocked ? "Route blocked" : "Route"}</SectionLabel>
             {record.selected ? (
-              <p className="mt-2 flex flex-wrap items-center gap-2 text-[17px] leading-6 text-foreground">
+              <p className="mt-2 flex flex-wrap items-center gap-2 text-[16px] leading-6 text-foreground">
                 {optionLabel(record.selected, workerName)}
                 <LocationTag location={record.selected.location} />
               </p>
@@ -231,7 +231,7 @@ export function TextResultStation({ job }: { job: WorkerJob }) {
     <section aria-label="Review" className="mt-10 rounded-lg border border-os-border bg-os-border/5">
       <div className="p-5 md:p-6">
         <SectionLabel>Result</SectionLabel>
-        <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-os-border p-4 font-mono text-[13px] leading-5 text-foreground">
+        <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-os-border p-4 font-mono text-[12px] leading-5 text-foreground">
           {job.result?.summary}
         </pre>
 

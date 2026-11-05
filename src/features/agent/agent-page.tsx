@@ -370,7 +370,7 @@ export function AgentPage() {
       contextLabel={project ? `Context / ${project.name}` : undefined}
       modelLabel={`Model / ${agentStatus?.model ?? "Hermes"}`}
     >
-      <div className="h-full bg-paper-white font-paper-ui text-paper-moss">
+      <div className="h-full bg-background text-paper-moss">
       <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
         <PaperPageHeader
           title="Agent"
@@ -398,7 +398,7 @@ export function AgentPage() {
         <div className="mt-6 min-h-64 flex-1 overflow-y-auto">
           {showResumePrompt ? (
             <PaperCard className="max-w-[62ch] p-5">
-              <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">{project.name}</h2>
+              <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">{project.name}</h2>
               <p className="mt-2 text-[14px] leading-6 text-paper-char">
                 Ready to resume this workspace.
               </p>
@@ -439,7 +439,7 @@ export function AgentPage() {
                   ) : run.state.output ? (
                     <Markdown tone="paper" content={withoutEmDashes(run.state.output)} className="mt-5" />
                   ) : run.isRunning ? (
-                    <p className="mt-5 text-[15px] leading-6 text-paper-sage">
+                    <p className="mt-5 text-[14px] leading-6 text-paper-sage">
                       Working on your request…
                     </p>
                   ) : null}

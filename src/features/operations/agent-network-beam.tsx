@@ -113,20 +113,20 @@ function HubNode({
       <div
         ref={hubRef}
         className={cn(
-          "relative flex size-16 items-center justify-center border-[1.5px] bg-paper-white sm:size-20",
-          working && "border-paper-blue ring-4 ring-paper-blue/20",
+          "relative flex size-16 items-center justify-center border bg-paper-white sm:size-20",
+          working && "border-paper-ash ring-4 ring-paper-ash/20",
           unconfirmed && "border-paper-amber ring-4 ring-paper-amber/20",
-          !working && !unconfirmed && "border-paper-blue",
+          !working && !unconfirmed && "border-paper-ash",
         )}
       >
         <img src="/agentos-mark.svg" alt="" className="size-9 sm:size-11" />
         {working ? <WorkingDot /> : null}
         {tasks.length > 0 ? <JobCountBadge count={tasks.length} tone={working ? "running" : "uncertain"} /> : null}
       </div>
-      <span className="font-paper-utility text-[11px] font-medium tracking-[0.12em] text-paper-moss uppercase">Hermes</span>
+      <span className="text-[13px] font-medium text-paper-moss">Hermes</span>
       <span
         className={cn(
-          "max-w-[10rem] truncate text-[11.5px]",
+          "max-w-[10rem] truncate text-[13px]",
           working ? "text-paper-green" : unconfirmed ? "text-paper-amber-deep" : "text-paper-sage",
         )}
       >
@@ -139,7 +139,7 @@ function HubNode({
           : "Orchestrator"}
       </span>
       {unconfirmed && task ? (
-        <span className="max-w-[10rem] truncate text-[10.5px] text-paper-sage tabular-nums">
+        <span className="max-w-[10rem] truncate text-[12px] text-paper-sage tabular-nums">
           Last seen {elapsed(lastSeenAt(task), now) || "unknown"} ago
         </span>
       ) : null}
@@ -148,7 +148,7 @@ function HubNode({
 
   if (tasks.length === 0) {
     return (
-      <div role="img" aria-label="Hermes, the orchestrator every worker reports to. Nothing running." className="group flex flex-col items-center gap-2 rounded-none">
+      <div role="img" aria-label="Hermes, the orchestrator every worker reports to. Nothing running." className="group flex flex-col items-center gap-2 rounded-md">
         {mark}
       </div>
     );
@@ -232,10 +232,10 @@ function WorkerNode({
       <span
         ref={tileRef}
         className={cn(
-          "relative flex size-12 items-center justify-center border bg-paper-white font-paper-utility text-[13px] font-semibold tracking-[0.08em] uppercase transition-colors duration-150",
-          isRunning && "border-[1.5px] border-paper-blue text-paper-blue ring-2 ring-paper-blue/25",
-          isUnconfirmed && "border-[1.5px] border-paper-amber text-paper-amber-deep",
-          state === "ready" && "border-paper-ash text-paper-moss group-hover:border-paper-blue",
+          "relative flex size-12 items-center justify-center border bg-paper-white text-[13px] font-semibold transition-colors duration-150",
+          isRunning && "border border-paper-ash text-paper-blue ring-2 ring-paper-ash/25",
+          isUnconfirmed && "border border-paper-amber text-paper-amber-deep",
+          state === "ready" && "border-paper-ash text-paper-moss group-hover:border-paper-ash",
           isOffline && "border-dashed border-paper-ash text-paper-sage",
         )}
         aria-hidden="true"
@@ -245,17 +245,17 @@ function WorkerNode({
         {tasks.length > 0 ? <JobCountBadge count={tasks.length} tone={isRunning ? "running" : "uncertain"} /> : null}
       </span>
       <span className="flex w-full flex-col items-center text-center" aria-hidden="true">
-        <span className="w-full truncate text-[12.5px] font-medium text-paper-moss group-hover:text-paper-blue">{agent.label}</span>
+        <span className="w-full truncate text-[13px] font-medium text-paper-moss group-hover:text-paper-blue">{agent.label}</span>
         <span
           className={cn(
-            "w-full truncate text-[11.5px]",
+            "w-full truncate text-[13px]",
             isRunning ? "text-paper-green" : isUnconfirmed ? "text-paper-amber-deep" : "text-paper-sage",
           )}
         >
           {STATE_WORD[state]}
         </span>
         {isUnconfirmed && seen ? (
-          <span className="w-full truncate text-[10.5px] text-paper-sage tabular-nums">Last seen {seen} ago</span>
+          <span className="w-full truncate text-[12px] text-paper-sage tabular-nums">Last seen {seen} ago</span>
         ) : null}
       </span>
     </>
@@ -265,7 +265,7 @@ function WorkerNode({
     <>
       <BeamNode className="w-full">
         {tasks.length === 0 ? (
-          <Link to={agentHref} aria-label={description} title={description} className={cn("group flex w-full flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}>
+          <Link to={agentHref} aria-label={description} title={description} className={cn("group flex w-full flex-col items-center gap-2 rounded-md", PAPER_FOCUS)}>
             {tile}
           </Link>
         ) : (
@@ -319,7 +319,7 @@ function NodeTrigger({
         to={task.href}
         aria-label={label}
         title={task.title}
-        className={cn("group flex w-full flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}
+        className={cn("group flex w-full flex-col items-center gap-2 rounded-md", PAPER_FOCUS)}
       >
         {children}
       </Link>
@@ -335,7 +335,7 @@ function NodeTrigger({
         aria-haspopup="menu"
         title={label}
         onClick={(event) => setAnchor((current) => (current ? null : event.currentTarget))}
-        className={cn("group flex w-full cursor-pointer flex-col items-center gap-2 rounded-none", PAPER_FOCUS)}
+        className={cn("group flex w-full cursor-pointer flex-col items-center gap-2 rounded-md", PAPER_FOCUS)}
       >
         {children}
       </button>
@@ -406,7 +406,7 @@ function JobMenu({
           onClick={onClose}
           className={cn("block px-3 py-2 text-left hover:bg-paper-cream", PAPER_FOCUS)}
         >
-          <span className="block truncate text-[11.5px] font-medium tracking-[0.06em] text-paper-sage uppercase">
+          <span className="block truncate text-[13px] font-medium text-paper-sage">
             {item.actor}
             {item.uncertain ? " · unconfirmed" : ""}
           </span>
@@ -417,7 +417,7 @@ function JobMenu({
         role="menuitem"
         to={fallbackHref}
         onClick={onClose}
-        className={cn("block border-t border-paper-stone px-3 py-2 text-[12.5px] text-paper-sage hover:bg-paper-cream hover:text-paper-moss", PAPER_FOCUS)}
+        className={cn("block border-t border-paper-stone px-3 py-2 text-[13px] text-paper-sage hover:bg-paper-cream hover:text-paper-moss", PAPER_FOCUS)}
       >
         {fallbackLabel}
       </Link>
@@ -429,8 +429,8 @@ function JobCountBadge({ count, tone }: { count: number; tone: "running" | "unce
   return (
     <span
       className={cn(
-        "absolute -right-1 -bottom-1 flex min-w-4 items-center justify-center border bg-paper-white px-1 font-paper-utility text-[9px] font-semibold tabular-nums",
-        tone === "running" ? "border-paper-blue text-paper-blue" : "border-paper-amber text-paper-amber-deep",
+        "absolute -right-1 -bottom-1 flex min-w-4 items-center justify-center border bg-paper-white px-1 text-[12px] font-semibold tabular-nums",
+        tone === "running" ? "border-paper-ash text-paper-blue" : "border-paper-amber text-paper-amber-deep",
       )}
     >
       {count}
@@ -441,7 +441,6 @@ function JobCountBadge({ count, tone }: { count: number; tone: "running" | "unce
 function WorkingDot() {
   return (
     <span className="absolute -top-1 -right-1 flex size-2.5" aria-hidden="true">
-      <span className="absolute inline-flex size-full rounded-full bg-paper-green opacity-60 motion-safe:animate-ping" />
       <span className="relative inline-flex size-2.5 rounded-full bg-paper-green" />
     </span>
   );

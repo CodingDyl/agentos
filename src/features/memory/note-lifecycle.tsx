@@ -1,7 +1,7 @@
 import { Archive, ArchiveRestore, History, Pencil, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { MEMORY_TYPE_LABELS, type MemoryHistoryEntry, type MemoryNoteDetail, type MemoryProvenance } from "@shared/memory-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
 import { useArchiveMemoryNote, useMemoryHistory, useRestoreMemoryNote, useUndoMemoryChange } from "@/lib/agentos/memory";
@@ -108,11 +108,11 @@ export function NoteProvenance({ provenance }: { provenance: MemoryProvenance })
 
   return (
     <section aria-label="Provenance" className="border-t border-paper-mist py-3">
-      <h3 className="px-5 pb-1.5 font-paper-utility text-[12px] font-semibold tracking-[0.1em] text-paper-char uppercase">Provenance</h3>
+      <h3 className="px-5 pb-1.5 text-[13px] font-semibold text-paper-char">Provenance</h3>
       {rows.length === 0 ? (
-        <p className="px-5 py-1 text-[13.5px] text-paper-sage">Not recorded — this note was written outside AgentOS.</p>
+        <p className="px-5 py-1 text-[14px] text-paper-sage">Not recorded — this note was written outside AgentOS.</p>
       ) : (
-        <dl className="grid grid-cols-[minmax(0,9rem)_1fr] gap-x-3 gap-y-1 px-5 text-[13.5px]">
+        <dl className="grid grid-cols-[minmax(0,9rem)_1fr] gap-x-3 gap-y-1 px-5 text-[14px]">
           {rows.map((row) => (
             <div key={row.key} className="contents">
               <dt className="text-paper-sage">{row.label}</dt>
@@ -152,23 +152,23 @@ export function NoteHistory({ noteId }: { noteId: string }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full cursor-pointer items-center gap-2 px-5 pb-1.5 text-left font-paper-utility text-[12px] font-semibold tracking-[0.1em] text-paper-char uppercase hover:text-paper-blue"
+        className="flex w-full cursor-pointer items-center gap-2 px-5 pb-1.5 text-left text-[13px] font-semibold text-paper-char hover:text-paper-blue"
       >
         <History className="size-3.5" strokeWidth={2} aria-hidden="true" /> History {open ? "−" : "+"}
       </button>
       {open ? (
         history.isPending ? (
-          <DedsecLoader variant="compact" className="px-5 py-1 min-h-24" />
+          <PageLoader variant="compact" className="px-5 py-1 min-h-24" />
         ) : entries.length === 0 ? (
-          <p className="px-5 py-1 text-[13.5px] text-paper-sage">No changes made through AgentOS yet. Edits made in Obsidian are not listed here.</p>
+          <p className="px-5 py-1 text-[14px] text-paper-sage">No changes made through AgentOS yet. Edits made in Obsidian are not listed here.</p>
         ) : (
           <ol className="px-5">
             {entries.map((entry) => (
-              <li key={entry.id} className="flex items-baseline gap-3 border-b border-paper-mist/60 py-2 text-[13.5px] last:border-b-0">
+              <li key={entry.id} className="flex items-baseline gap-3 border-b border-paper-mist/60 py-2 text-[14px] last:border-b-0">
                 <span className="min-w-0 flex-1">
                   <span className={entry.undoneAt ? "text-paper-sage line-through" : "font-medium text-paper-moss"}>{ACTION_LABELS[entry.action]}</span>
                   <span className="text-paper-char"> — {entry.summary}</span>
-                  <span className="block text-[12px] text-paper-sage">
+                  <span className="block text-[13px] text-paper-sage">
                     {who(entry.by) ?? entry.by} · {formatRelativeTime(entry.at)}
                     {entry.sourceTask ? ` · ${entry.sourceTask}` : ""}
                   </span>

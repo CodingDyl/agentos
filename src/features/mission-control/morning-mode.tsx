@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ENERGY_LABEL, TIME_LABEL, type Energy, type FocusToday, type TimeAvailable } from "@shared/focus-types";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton } from "@/components/paper";
@@ -29,7 +28,7 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
   }, []);
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="morning-title" className="fixed inset-0 z-50 overflow-y-auto bg-paper-cream">
+    <div role="dialog" aria-modal="true" aria-labelledby="morning-title" data-surface="canvas" className="fixed inset-0 z-50 overflow-y-auto">
       <div className="mx-auto flex min-h-full max-w-[640px] flex-col justify-center px-6 py-12">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[13px] font-medium text-paper-sage">{new Date(`${today.day.date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</p>
@@ -47,27 +46,27 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
 
         {planned ? (
           <>
-            <h1 id="morning-title" className="mt-3 font-paper-display text-[32px] leading-[1.1] font-extrabold tracking-[-0.02em] text-paper-moss">
+            <h1 id="morning-title" className="mt-3 text-[28px] leading-9 font-semibold tracking-[-0.02em] text-paper-moss">
               Your three for today
             </h1>
             {planned.pickNote ? <p className="mt-2 text-[13px] text-paper-sage">{planned.pickNote}</p> : null}
             <ol className="mt-6 space-y-4">
               {planned.picks.map((entry, index) => (
                 <li key={entry.candidate.id} className="flex gap-4">
-                  <span className="font-paper-display text-[28px] leading-8 font-extrabold text-paper-blue tabular-nums">{index + 1}</span>
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-sm border border-paper-ash text-[13px] leading-5 font-medium text-paper-char tabular-nums">{index + 1}</span>
                   <span className="min-w-0">
-                    <span className="block text-[17px] leading-6 font-semibold text-paper-moss">{entry.candidate.title}</span>
-                    <span className="block text-[13.5px] leading-5 text-paper-char">{entry.why}</span>
-                    <span className="block text-[12.5px] text-paper-sage">{entry.candidate.source}</span>
+                    <span className="block text-[16px] leading-6 font-semibold text-paper-moss">{entry.candidate.title}</span>
+                    <span className="block text-[14px] leading-5 text-paper-char">{entry.why}</span>
+                    <span className="block text-[13px] text-paper-sage">{entry.candidate.source}</span>
                   </span>
                 </li>
               ))}
             </ol>
-            {planned.picks.length === 0 ? <p className="mt-6 text-[15px] text-paper-char">Nothing on the list today. Capture what is on your mind, or add tasks to a workspace.</p> : null}
+            {planned.picks.length === 0 ? <p className="mt-6 text-[14px] text-paper-char">Nothing on the list today. Capture what is on your mind, or add tasks to a workspace.</p> : null}
             {planned.todos.some((todo) => !todo.done) ? (
               <div className="mt-8">
-                <h2 className="text-[15px] font-semibold text-paper-moss">Also on today's list</h2>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-[15px] leading-6 text-paper-char">
+                <h2 className="text-[14px] font-semibold text-paper-moss">Also on today's list</h2>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6 text-paper-char">
                   {planned.todos
                     .filter((todo) => !todo.done)
                     .map((todo) => (
@@ -82,7 +81,7 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
           </>
         ) : (
           <>
-            <h1 id="morning-title" className="mt-3 font-paper-display text-[32px] leading-[1.1] font-extrabold tracking-[-0.02em] text-paper-moss">
+            <h1 id="morning-title" className="mt-3 text-[28px] leading-9 font-semibold tracking-[-0.02em] text-paper-moss">
               {greeting()}, Dylan
             </h1>
             <p className="mt-2 text-[14px] text-paper-char">Three quick answers, then your plan for the day.</p>
@@ -104,7 +103,7 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
             </Question>
 
             <label className="mt-7 block">
-              <span className="block text-[15px] font-semibold text-paper-moss">3. Anything on your mind? <span className="font-normal text-paper-sage">Optional</span></span>
+              <span className="block text-[14px] font-semibold text-paper-moss">3. Anything on your mind? <span className="font-normal text-paper-sage">Optional</span></span>
               <span className="mt-0.5 block text-[13px] text-paper-sage">One per line. Each goes on today's to-do list, and Hermes weighs them when it picks your three.</span>
               <textarea
                 value={mind}
@@ -112,7 +111,7 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
                 rows={3}
                 onChange={(event) => setMind(event.target.value)}
                 placeholder={"e.g. Client call at 2\nFinish the outreach flow"}
-                className={cn(PAPER_INPUT, "mt-2 w-full py-2 text-[15px] leading-6")}
+                className={cn(PAPER_INPUT, "mt-2 w-full py-2 text-[14px] leading-6")}
               />
             </label>
 
@@ -127,8 +126,7 @@ export function MorningMode({ today, onClose, onStart }: { today: FocusToday; on
                 checkIn.mutate({ energy, time, mind });
               }}
             >
-              <Sparkles className="size-3.5" aria-hidden="true" />
-              {checkIn.isPending ? "Hermes is picking your three… (usually under a minute)" : "Plan my day"}
+                            {checkIn.isPending ? "Hermes is picking your three… (usually under a minute)" : "Plan my day"}
             </PaperButton>
             {checkIn.error ?? skip.error ? (
               <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
@@ -149,7 +147,7 @@ function greeting(hour = new Date().getHours()): string {
 function Question({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <fieldset className="mt-7">
-      <legend className="text-[15px] font-semibold text-paper-moss">{label}</legend>
+      <legend className="text-[14px] font-semibold text-paper-moss">{label}</legend>
       <div className="mt-2 flex flex-wrap gap-2">{children}</div>
     </fieldset>
   );
@@ -163,8 +161,8 @@ function Choice({ selected, onClick, children, buttonRef }: { selected: boolean;
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "min-h-11 cursor-pointer rounded-none border-[1.5px] px-5 text-[15px] font-semibold transition-colors duration-150",
-        selected ? "border-paper-blue bg-paper-blue text-paper-white" : "border-paper-mist bg-paper-white text-paper-moss hover:border-paper-blue",
+        "min-h-11 cursor-pointer rounded-md border px-4 text-[14px] leading-5 font-medium transition-colors duration-150",
+        selected ? "border-paper-ash bg-selected text-paper-moss" : "border-paper-mist bg-paper-linen text-paper-moss hover:bg-paper-stone",
         PAPER_FOCUS,
       )}
     >

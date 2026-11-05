@@ -2,7 +2,7 @@ import { ArrowRight, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ConnectorRecommendation, ConnectorSummary } from "@shared/connector-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, PaperSwitch, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useConnectors, useSetConnectorEnabled } from "@/lib/agentos/connectors";
@@ -29,11 +29,11 @@ export function ConnectorsPage() {
   const connected = groups.setUp.filter((connector) => connector.status === "connected").length;
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="connectors" activeHref="/connectors" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="connectors" activeHref="/connectors">
       <PaperStage>
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">
+            <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">
               Connectors
             </h1>
             <p className="mt-1 text-[13px] text-paper-sage" aria-live="polite">
@@ -49,11 +49,11 @@ export function ConnectorsPage() {
         </header>
 
         {isPending ? (
-          <DedsecLoader variant="page" className="mt-10" />
+          <PageLoader variant="page" className="mt-10" />
         ) : !data ? (
-          <div role="alert" className="mt-10 rounded-none border border-paper-mist px-5 py-4">
+          <div role="alert" className="mt-10 rounded-md border border-paper-mist px-5 py-4">
             <p className="font-semibold text-paper-moss">Connectors couldn't be read.</p>
-            <p className="mt-1 max-w-[72ch] text-[13.5px] leading-6 text-paper-char">{error?.message}</p>
+            <p className="mt-1 max-w-[72ch] text-[14px] leading-6 text-paper-char">{error?.message}</p>
             <PaperButton variant="amber" className="mt-4" disabled={isFetching} onClick={() => void refetch()}>
               {isFetching ? "Trying again…" : "Try again"}
             </PaperButton>
@@ -64,7 +64,7 @@ export function ConnectorsPage() {
               {groups.setUp.length === 0 ? (
                 <p className="text-[14px] text-paper-sage">Nothing is set up yet. Start with a core connector below.</p>
               ) : (
-                <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {groups.setUp.map((connector) => (
                     <li key={connector.id}>
                       <ConnectorCard connector={connector} />
@@ -76,7 +76,7 @@ export function ConnectorsPage() {
 
             {data.recommendations.length > 0 ? (
               <PaperSection label="Recommended" count={data.recommendations.length} className="mt-12">
-                <ul className="grid gap-4 lg:grid-cols-2">
+                <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {data.recommendations.map((recommendation) => (
                     <li key={`${recommendation.connectorId}:${recommendation.projectSlug ?? ""}`}>
                       <RecommendationCard recommendation={recommendation} />
@@ -87,7 +87,7 @@ export function ConnectorsPage() {
             ) : null}
 
             <PaperSection label="Available" count={groups.available.length} className="mt-12">
-              <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+              <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
                 {groups.available.map((connector) => (
                   <AvailableRow key={connector.id} connector={connector} />
                 ))}
@@ -130,15 +130,15 @@ function ConnectorCard({ connector }: { connector: ConnectorSummary }) {
       </div>
 
       <div className="min-w-0">
-        <h3 className="font-paper-display text-[16px] font-bold tracking-[-0.01em] text-paper-moss">
+        <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">
           <Link
             to={`/connectors/${encodeURIComponent(connector.id)}`}
-            className={cn("rounded-[2px] after:absolute after:inset-0 after:content-['']", PAPER_FOCUS)}
+            className={cn("rounded-sm after:absolute after:inset-0 after:content-['']", PAPER_FOCUS)}
           >
             {connector.name}
           </Link>
         </h3>
-        <p className="mt-0.5 truncate text-[12.5px] text-paper-sage">
+        <p className="mt-0.5 truncate text-[13px] text-paper-sage">
           {connector.status === "error" ? (connector.statusDetail ?? "The last test failed.") : (connector.account ?? connector.description)}
         </p>
       </div>
@@ -158,11 +158,11 @@ function ConnectorCard({ connector }: { connector: ConnectorSummary }) {
           </span>
         )}
       </div>
-      <p className="text-[12px] text-paper-sage tabular-nums">
+      <p className="text-[13px] text-paper-sage tabular-nums">
         {connector.implementedCount} of {connector.capabilityCount} capabilities built · used {formatWhen(connector.lastUsed).toLowerCase()}
       </p>
       {setEnabled.isError && setEnabled.variables?.id === connector.id ? (
-        <p role="alert" className="text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
           {setEnabled.error.message}
         </p>
       ) : null}
@@ -177,23 +177,23 @@ function RecommendationCard({ recommendation }: { recommendation: ConnectorRecom
         <ConnectorIcon icon={recommendation.icon} size="sm" />
         <div className="min-w-0">
           {recommendation.projectName ? (
-            <p className="font-paper-utility text-[12px] font-medium tracking-[0.1em] text-paper-sage uppercase">
+            <p className="text-[13px] font-medium text-paper-sage">
               For {recommendation.projectName}
             </p>
           ) : null}
-          <h3 className="font-paper-display text-[15.5px] font-bold tracking-[-0.01em] text-paper-moss">{recommendation.connectorName}</h3>
+          <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-paper-moss">{recommendation.connectorName}</h3>
         </div>
       </div>
-      <div className="text-[13.5px] leading-[1.55] text-paper-char">
-        <p className="text-[12px] font-semibold text-paper-moss">Why</p>
+      <div className="text-[14px] leading-[1.55] text-paper-char">
+        <p className="text-[13px] font-semibold text-paper-moss">Why</p>
         <p className="mt-0.5">{recommendation.why}</p>
       </div>
       <div className="mt-auto flex items-center justify-between gap-3">
-        {recommendation.status === "unavailable" ? <span className="text-[12px] text-paper-sage">No adapter yet</span> : <span />}
+        {recommendation.status === "unavailable" ? <span className="text-[13px] text-paper-sage">No adapter yet</span> : <span />}
         <Link
           to={`/connectors/${encodeURIComponent(recommendation.connectorId)}`}
           className={cn(
-            "inline-flex min-h-8 items-center gap-1.5 rounded-none border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase transition-colors duration-150 hover:bg-paper-linen",
+            "inline-flex min-h-8 items-center gap-1.5 rounded-md border border-paper-ash px-3.5 text-[13px] font-medium text-paper-blue transition-colors duration-150 hover:bg-paper-linen",
             PAPER_FOCUS,
           )}
           aria-label={`Connect ${recommendation.connectorName}${recommendation.projectName ? ` for ${recommendation.projectName}` : ""}`}
@@ -213,9 +213,9 @@ function AvailableRow({ connector }: { connector: ConnectorSummary }) {
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-paper-moss">
           {connector.name}
-          <span className="font-paper-utility text-[12px] font-medium tracking-[0.1em] text-paper-sage uppercase">{TIER_LABEL[connector.tier]}</span>
+          <span className="text-[13px] font-medium text-paper-sage">{TIER_LABEL[connector.tier]}</span>
         </p>
-        <p className="truncate text-[12.5px] text-paper-sage">
+        <p className="truncate text-[13px] text-paper-sage">
           {connector.status === "disconnected" ? (connector.statusDetail ?? connector.description) : connector.description}
         </p>
       </div>
@@ -223,7 +223,7 @@ function AvailableRow({ connector }: { connector: ConnectorSummary }) {
       <Link
         to={`/connectors/${encodeURIComponent(connector.id)}`}
         className={cn(
-          "inline-flex min-h-8 items-center rounded-none px-3 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen",
+          "inline-flex min-h-8 items-center rounded-md px-3 text-[13px] font-medium text-paper-blue hover:bg-paper-linen",
           PAPER_FOCUS,
         )}
         aria-label={`${connector.status === "unavailable" ? "View" : "Connect"} ${connector.name}`}

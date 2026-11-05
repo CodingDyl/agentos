@@ -45,13 +45,13 @@ export function MoneyTab({ data }: { data: OperationsData }) {
 function CostColumn({ title, rows, empty }: { title: string; rows: CostSummary["recurring"]; empty: string }) {
   return (
     <div>
-      <h3 className="text-[13.5px] font-semibold text-paper-moss">{title}</h3>
+      <h3 className="text-[14px] font-semibold text-paper-moss">{title}</h3>
       {rows.length === 0 ? (
         <p className="mt-2 text-[14px] leading-6 text-paper-sage">{empty}</p>
       ) : (
         <ul className="mt-2 divide-y divide-paper-stone">
           {rows.map((row) => (
-            <li key={row.key} className="flex items-baseline justify-between gap-4 py-2 text-[14.5px] leading-6">
+            <li key={row.key} className="flex items-baseline justify-between gap-4 py-2 text-[14px] leading-6">
               <span className="min-w-0 truncate text-paper-char">{row.label}</span>
               <span className="shrink-0 text-paper-moss tabular-nums">{formatCost(row.total.costUsd)}</span>
             </li>
@@ -72,8 +72,8 @@ function CostBreakdown({ cost, month }: { cost: CostSummary; month: string }) {
         </div>
 
         <div className="mt-6 flex flex-wrap items-baseline justify-between gap-4 border-t border-paper-mist pt-4">
-          <span className="text-[13.5px] font-semibold text-paper-moss">Total</span>
-          <span className="font-paper-display text-[26px] leading-none font-extrabold tracking-[-0.03em] text-paper-moss tabular-nums">
+          <span className="text-[14px] font-semibold text-paper-moss">Total</span>
+          <span className="text-[24px] leading-none font-semibold tracking-[-0.03em] text-paper-moss tabular-nums">
             {formatCost(cost.totalUsd)}
           </span>
         </div>
@@ -121,7 +121,7 @@ function Budgets({ budgets }: { budgets: readonly BudgetState[] }) {
           <div>
             <div className="flex flex-wrap items-baseline justify-between gap-4">
               <span className="text-[14px] text-paper-char">{budgetLabel(global.budget)}</span>
-              <span className="font-paper-display text-[20px] font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">
+              <span className="text-[16px] font-semibold tracking-[-0.02em] text-paper-moss tabular-nums">
                 {formatCost(global.spentUsd)} <span className="text-[14px] font-medium text-paper-sage">of {formatCost(global.budget.monthlyUsd)}</span>
               </span>
             </div>
@@ -130,7 +130,7 @@ function Budgets({ budgets }: { budgets: readonly BudgetState[] }) {
               <Meter value={global.fraction} label="Share of the monthly budget spent" tone={BUDGET_TONE[global.state]} size="md" />
             </div>
 
-            <p className="mt-2.5 text-[12.5px] leading-5 text-paper-sage">
+            <p className="mt-2.5 text-[13px] leading-5 text-paper-sage">
               {formatPercent(global.fraction)} used · warns at {global.budget.warningPercent}% · never stops a running job
             </p>
           </div>
@@ -214,11 +214,11 @@ function Subscriptions({ subscriptions }: { subscriptions: readonly Subscription
           the inside.
         </p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
           {subscriptions.map((subscription) => (
             <li key={subscription.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="truncate text-[14.5px] font-medium text-paper-moss">{subscription.name}</span>
+                <span className="truncate text-[14px] font-medium text-paper-moss">{subscription.name}</span>
                 <Tag tone={subscription.active ? "green" : "muted"}>{subscription.active ? "Active" : "Inactive"}</Tag>
               </div>
 
@@ -239,7 +239,7 @@ function Subscriptions({ subscriptions }: { subscriptions: readonly Subscription
                   disabled={remove.isPending}
                   onClick={() => remove.mutate(subscription.id)}
                   className={cn(
-                    "grid size-8 cursor-pointer place-items-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-flame disabled:cursor-not-allowed",
+                    "grid size-8 cursor-pointer place-items-center rounded-md text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-flame disabled:cursor-not-allowed",
                     PAPER_FOCUS,
                   )}
                 >
@@ -356,24 +356,24 @@ function Higgsfield() {
         ) : (
           <div className="grid gap-x-12 gap-y-6 lg:grid-cols-2">
             <div>
-              <h3 className="text-[13.5px] font-semibold text-paper-moss">Plan</h3>
-              <p className="mt-1 text-[14.5px] text-paper-moss capitalize">{account.plan ?? "connected"}</p>
-              <p className="text-[12.5px] text-paper-sage">{account.email}</p>
+              <h3 className="text-[14px] font-semibold text-paper-moss">Plan</h3>
+              <p className="mt-1 text-[14px] text-paper-moss capitalize">{account.plan ?? "connected"}</p>
+              <p className="text-[13px] text-paper-sage">{account.email}</p>
 
-              <h3 className="mt-5 text-[13.5px] font-semibold text-paper-moss">Credits remaining</h3>
-              <p className="mt-1 font-paper-display text-[28px] leading-8 font-extrabold tracking-[-0.03em] text-paper-moss tabular-nums">{account.credits ?? "-"}</p>
+              <h3 className="mt-5 text-[14px] font-semibold text-paper-moss">Credits remaining</h3>
+              <p className="mt-1 text-[24px] leading-8 font-semibold tracking-[-0.03em] text-paper-moss tabular-nums">{account.credits ?? "-"}</p>
             </div>
 
             <div>
-              <h3 className="text-[13.5px] font-semibold text-paper-moss">Generated visuals</h3>
+              <h3 className="text-[14px] font-semibold text-paper-moss">Generated visuals</h3>
               {byProject.length === 0 ? (
                 <p className="mt-2 text-[14px] leading-6 text-paper-sage">Nothing has been generated through AgentOS yet.</p>
               ) : (
                 <ul className="mt-2 divide-y divide-paper-stone">
                   {byProject.map(([project, count]) => (
                     <li key={project} className="flex items-baseline justify-between gap-6 py-2">
-                      <span className="text-[14.5px] text-paper-char">{project}</span>
-                      <span className="text-[13.5px] text-paper-moss tabular-nums">{count}</span>
+                      <span className="text-[14px] text-paper-char">{project}</span>
+                      <span className="text-[14px] text-paper-moss tabular-nums">{count}</span>
                     </li>
                   ))}
                 </ul>

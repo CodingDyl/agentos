@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Check, EyeOff, RotateCcw } from "lucide-react";
 import { pageNameForRoute, type FrictionTier, type RankedFrictionItem } from "@shared/friction-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
 import { useFriction, useUpdateFriction } from "@/lib/agentos/friction";
 import { formatRelativeTime } from "@/lib/format";
@@ -27,7 +27,7 @@ export function FrictionTab() {
   const friction = useFriction();
   const update = useUpdateFriction();
 
-  if (friction.isPending) return <DedsecLoader variant="compact" />;
+  if (friction.isPending) return <PageLoader variant="compact" />;
   if (friction.error || !friction.data) {
     return <p className="text-[14px] text-paper-flame-deep">{friction.error?.message ?? "Friction could not be read."}</p>;
   }
@@ -49,7 +49,7 @@ export function FrictionTab() {
           if (items.length === 0) return null;
           return (
             <section key={tier} aria-label={label} className="mt-8">
-              <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">{label}</h2>
+              <h2 className="text-[13px] font-semibold text-paper-char">{label}</h2>
               <ul className="mt-2 divide-y divide-paper-mist border-y border-paper-mist">
                 {items.map((item) => (
                   <FrictionRow key={item.id} item={item}>
@@ -68,14 +68,14 @@ export function FrictionTab() {
       )}
 
       {update.error ? (
-        <p role="alert" className="mt-4 text-[13.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-4 text-[14px] text-paper-flame-deep">
           {update.error.message}
         </p>
       ) : null}
 
       {closed.length > 0 ? (
         <details className="mt-10">
-          <summary className="cursor-pointer font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-sage uppercase">
+          <summary className="cursor-pointer text-[13px] font-semibold text-paper-sage">
             Fixed and ignored ({closed.length})
           </summary>
           <ul className="mt-2 divide-y divide-paper-mist border-y border-paper-mist">
@@ -98,8 +98,8 @@ function FrictionRow({ item, children }: { item: RankedFrictionItem; children: R
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
       <div className="min-w-0 flex-1">
-        <p className={item.status === "open" ? "text-[15px] font-medium text-paper-moss" : "text-[15px] text-paper-sage line-through"}>{item.description}</p>
-        <p className="mt-0.5 text-[12.5px] text-paper-sage">
+        <p className={item.status === "open" ? "text-[14px] font-medium text-paper-moss" : "text-[14px] text-paper-sage line-through"}>{item.description}</p>
+        <p className="mt-0.5 text-[13px] text-paper-sage">
           {capitalise(item.frequency)} · {capitalise(item.severity)}
           {page ? ` · ${page}` : ""} · {formatRelativeTime(item.createdAt)}
         </p>

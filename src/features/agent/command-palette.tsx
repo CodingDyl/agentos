@@ -2,6 +2,7 @@ import { CornerDownLeft, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { AgentSkill, ProjectSummary, SearchHit } from "@shared/agentos-types";
 import { useSearch } from "@/lib/agentos/queries";
+import { useRestoreFocus } from "@/lib/use-restore-focus";
 import { cn } from "@/lib/utils";
 import {
   buildCommands,
@@ -120,10 +121,7 @@ export function CommandPalette({
 
   // Where focus was before the palette opened, so closing returns the operator
   // there rather than to the top of the document.
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    return () => previous?.focus?.();
-  }, []);
+  useRestoreFocus();
 
   const commands = useMemo(() => buildCommands(skills, project), [skills, project]);
 
@@ -226,6 +224,13 @@ export function CommandPalette({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // The list is navigated from the input, so focus has nowhere to go but out
+    // of the dialog: hold it here.
+    if (event.key === "Tab") {
+      event.preventDefault();
+      return;
+    }
+
     if (event.key === "ArrowDown") {
       event.preventDefault();
       move(1);
@@ -266,13 +271,13 @@ export function CommandPalette({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh] pb-8">
-      <button type="button" aria-label="Close command palette" onClick={onClose} className="absolute inset-0 cursor-default bg-paper-moss/45" />
+      <button type="button" tabIndex={-1} aria-label="Close command palette" onClick={onClose} className="absolute inset-0 cursor-default bg-[var(--scrim)]" />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={mode === "create" ? "Quick create" : "Commands and search"}
-        className="relative flex max-h-full w-[min(92vw,42rem)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-white font-paper-ui text-paper-moss"
+        className="relative flex max-h-full w-[min(92vw,42rem)] flex-col overflow-hidden text-paper-moss"
       >
         <div className="flex items-center gap-3 border-b border-paper-mist px-4 py-3">
           <Search className={cn("size-4 shrink-0 text-paper-char", isSearching && "motion-safe:animate-pulse")} strokeWidth={1.75} aria-hidden="true" />
@@ -300,13 +305,13 @@ export function CommandPalette({
             aria-activedescendant={rows.length > 0 ? rowId(active) : undefined}
             autoComplete="off"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-sage"
+            className="min-h-10 min-w-0 flex-1 rounded-md bg-transparent px-2 text-[14px] leading-6 text-paper-moss placeholder:text-paper-sage"
           />
-          <kbd className="hidden shrink-0 rounded-none border border-paper-mist px-1.5 font-mono text-[12px] text-paper-sage sm:inline">Esc</kbd>
+          <kbd className="os-mono hidden shrink-0 rounded-sm border border-paper-mist px-1.5 text-paper-sage sm:inline">Esc</kbd>
         </div>
 
         {contextProject && stage.kind === "commands" ? (
-          <div className="border-b border-paper-mist px-4 py-2 text-[12.5px] text-paper-sage">
+          <div className="border-b border-paper-mist px-4 py-2 text-[13px] text-paper-sage">
             Context: <span className="font-medium text-paper-char">{contextProject.name}</span>
           </div>
         ) : null}
@@ -325,7 +330,7 @@ export function CommandPalette({
           ) : (
             groups.map((group) => (
               <div key={group.label} className="mb-2 last:mb-0">
-                <div className="px-3 py-2 text-[12px] font-semibold text-paper-sage">{group.label}</div>
+                <div className="px-3 py-2 text-[13px] font-semibold text-paper-sage">{group.label}</div>
                 {group.rows.map((row) => {
                   const index = indexOfRow.get(row) ?? 0;
                   const isSelected = index === active;
@@ -339,22 +344,22 @@ export function CommandPalette({
                       onClick={row.onSelect}
                       onMouseMove={() => setSelected(index)}
                       className={cn(
-                        "relative flex min-h-10 cursor-pointer items-center justify-between gap-4 rounded-none px-3 transition-colors duration-150",
+                        "relative flex min-h-10 cursor-pointer items-center justify-between gap-4 rounded-md px-3 transition-colors duration-150",
                         isSelected && "bg-paper-linen",
                       )}
                     >
-                      {isSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-paper-blue" aria-hidden="true" /> : null}
+                      {isSelected ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-sm bg-paper-blue" aria-hidden="true" /> : null}
                       <span
                         className={cn(
                           "min-w-0 flex-1 truncate",
-                          row.mono ? "font-mono text-[12.5px]" : "text-[14px]",
+                          row.mono ? "font-mono text-[12px]" : "text-[14px]",
                           isSelected ? "font-medium text-paper-moss" : "text-paper-char",
                         )}
                       >
                         {row.primary}
                       </span>
                       {row.secondary ? (
-                        <span className="max-w-[45%] shrink-0 truncate text-right text-[12.5px] text-paper-sage">{row.secondary}</span>
+                        <span className="max-w-[45%] shrink-0 truncate text-right text-[13px] text-paper-sage">{row.secondary}</span>
                       ) : null}
                     </div>
                   );
@@ -364,7 +369,7 @@ export function CommandPalette({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-paper-mist px-4 py-2 text-[12.5px] text-paper-sage">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-paper-mist px-4 py-2 text-[13px] text-paper-sage">
           <span className="flex items-center gap-1.5">
             <CornerDownLeft className="size-3" aria-hidden="true" />
             {stage.kind === "project" ? "Run on workspace" : "Open"}

@@ -53,7 +53,7 @@ export function ActivityRow({ event, now }: ActivityRowProps) {
           PAPER_FOCUS,
         )}
       >
-        <span className="w-11 shrink-0 pt-0.5 text-[12.5px] text-paper-sage tabular-nums">
+        <span className="w-11 shrink-0 pt-0.5 text-[13px] text-paper-sage tabular-nums">
           {formatTime(event.timestamp)}
         </span>
 
@@ -63,14 +63,14 @@ export function ActivityRow({ event, now }: ActivityRowProps) {
               className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[tone])}
               aria-hidden="true"
             />
-            <span className="text-[12.5px] font-medium text-paper-sage">
+            <span className="text-[13px] font-medium text-paper-sage">
               {sourceLabel(event.source)}
             </span>
           </span>
 
           <span
             className={cn(
-              "mt-1.5 block text-[15px] leading-6",
+              "mt-1.5 block text-[14px] leading-6",
               tone === "danger" ? "text-paper-flame-deep" : "text-paper-moss",
             )}
           >
@@ -78,7 +78,7 @@ export function ActivityRow({ event, now }: ActivityRowProps) {
           </span>
 
           {event.description ? (
-            <span className="mt-1 block max-w-[72ch] truncate text-[13.5px] leading-5 text-paper-char">
+            <span className="mt-1 block max-w-[72ch] truncate text-[14px] leading-5 text-paper-char">
               {event.description}
             </span>
           ) : null}
@@ -104,8 +104,8 @@ export function ActivityRow({ event, now }: ActivityRowProps) {
           <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:max-w-2xl">
             {details.map((detail) => (
               <div key={detail.label} className="min-w-0">
-                <dt className="text-[12px] text-paper-sage">{detail.label}</dt>
-                <dd className="mt-1 truncate font-mono text-[12.5px] leading-5 text-paper-char">
+                <dt className="text-[13px] text-paper-sage">{detail.label}</dt>
+                <dd className="mt-1 truncate font-mono text-[12px] leading-5 text-paper-char">
                   {detail.value}
                 </dd>
               </div>
@@ -118,7 +118,7 @@ export function ActivityRow({ event, now }: ActivityRowProps) {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={cn("inline-flex min-h-8 cursor-pointer items-center rounded-none border-[1.5px] border-paper-gold px-3 text-[13px] font-semibold text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+                  className={cn("inline-flex min-h-8 cursor-pointer items-center rounded-md border border-paper-gold px-3 text-[13px] font-semibold text-paper-moss transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                 >
                   {link.label}
                 </Link>

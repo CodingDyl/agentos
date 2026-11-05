@@ -115,7 +115,7 @@ function Film({ job, films }: { job: MotionJobDetail; films: DesignAsset[] }) {
       />
 
       {job.error ? (
-        <p role="alert" className="mt-6 max-w-[80ch] border border-paper-flame-deep px-4 py-3 text-[13.5px] leading-6 text-paper-flame-deep">
+        <p role="alert" className="mt-6 max-w-[80ch] border border-paper-flame-deep px-4 py-3 text-[14px] leading-6 text-paper-flame-deep">
           {job.error}
           {stopped ? " Resume carries on in the same session, with everything it has made so far." : ""}
         </p>
@@ -140,7 +140,7 @@ function Film({ job, films }: { job: MotionJobDetail; films: DesignAsset[] }) {
                 ))}
               </div>
             ) : (
-              <p className="max-w-[60ch] text-[13.5px] leading-6 text-paper-sage">
+              <p className="max-w-[60ch] text-[14px] leading-6 text-paper-sage">
                 {live
                   ? "Claude is building the film. The first contact sheet, one frame per beat, appears here as soon as it is rendered, with the scores Claude gives it."
                   : "No contact sheets were saved for this film."}
@@ -161,7 +161,7 @@ function Film({ job, films }: { job: MotionJobDetail; films: DesignAsset[] }) {
             <summary className={cn("cursor-pointer text-[13px] font-medium text-paper-char hover:text-paper-moss", PAPER_FOCUS)}>
               What Claude was told
             </summary>
-            <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">
+            <p className="mt-3 text-[13px] leading-5 text-paper-sage">
               Template: {sourceLabel(job.promptSources.template)} · Rules: {sourceLabel(job.promptSources.rules)}
             </p>
             <div className="mt-3">
@@ -208,7 +208,7 @@ export function Films({ films }: { films: DesignAsset[] }) {
               className={cn(
                 "min-h-8 cursor-pointer px-3 text-[13px] font-medium tabular-nums transition-colors duration-150",
                 PAPER_FOCUS,
-                index === active ? "bg-paper-blue text-paper-white" : "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+                index === active ? "bg-selected text-paper-moss" : "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
               )}
             >
               {format(asset)}
@@ -240,7 +240,7 @@ function Revise({ job }: { job: MotionJobDetail }) {
       {job.revisions.length > 0 ? (
         <ol className="mb-5 space-y-2">
           {job.revisions.map((revision) => (
-            <li key={revision.at} className="text-[13.5px] leading-6 text-paper-char">
+            <li key={revision.at} className="text-[14px] leading-6 text-paper-char">
               <span className="text-paper-sage tabular-nums">{formatRelativeTime(revision.at)} · </span>
               {revision.note}
             </li>
@@ -267,7 +267,7 @@ function Revise({ job }: { job: MotionJobDetail }) {
           <PaperButton type="submit" variant="ghost" disabled={!note.trim() || resume.isPending}>
             {resume.isPending ? "Sending…" : "Revise the film"}
           </PaperButton>
-          <span className="text-[12.5px] text-paper-sage">
+          <span className="text-[13px] text-paper-sage">
             Claude picks up the same session, runs the review loop again and re-renders. The new cut is filed beside this one.
           </span>
         </div>
@@ -283,8 +283,8 @@ function Round({ round, latest }: { round: MotionRound; latest: boolean }) {
   return (
     <li>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="font-paper-display text-[15px] font-bold tracking-[-0.01em] text-paper-moss">Round {round.round}</h3>
-        <span className="text-[12.5px] text-paper-sage">
+        <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-paper-moss">Round {round.round}</h3>
+        <span className="text-[13px] text-paper-sage">
           {passed ? "Every score 8 or better" : latest ? "Latest" : `${entries.filter(([, score]) => score < PASS).length} below 8`}
         </span>
       </div>
@@ -293,10 +293,10 @@ function Round({ round, latest }: { round: MotionRound; latest: boolean }) {
         <dl className="mb-4 grid grid-cols-3 border-t border-l border-paper-mist sm:grid-cols-6">
           {entries.map(([key, score]) => (
             <div key={key} className="border-r border-b border-paper-mist px-3 py-2.5">
-              <dt className="text-[12px] text-paper-sage">{criterionLabel(key)}</dt>
+              <dt className="text-[13px] text-paper-sage">{criterionLabel(key)}</dt>
               <dd
                 className={cn(
-                  "font-paper-display text-[26px] leading-8 font-extrabold tabular-nums",
+                  "text-[24px] leading-8 font-semibold tabular-nums",
                   score >= PASS ? "text-paper-moss" : "text-paper-flame-deep",
                 )}
               >
@@ -312,10 +312,10 @@ function Round({ round, latest }: { round: MotionRound; latest: boolean }) {
 
       {round.fixes.length > 0 ? (
         <div className="mt-4">
-          <p className="text-[12.5px] font-medium text-paper-char">Fixed next</p>
+          <p className="text-[13px] font-medium text-paper-char">Fixed next</p>
           <ul className="mt-1.5 space-y-1">
             {round.fixes.map((fix) => (
-              <li key={fix} className="max-w-[72ch] text-[13.5px] leading-6 text-paper-moss">
+              <li key={fix} className="max-w-[72ch] text-[14px] leading-6 text-paper-moss">
                 {fix}
               </li>
             ))}
@@ -350,7 +350,7 @@ export function StudioLog({ entries, live }: { entries: MotionLogEntry[]; live: 
   }, [entries.length]);
 
   return (
-    <PaperSection label="Studio log" action={live ? <span className="text-[12.5px] text-paper-sage">Live</span> : undefined}>
+    <PaperSection label="Studio log" action={live ? <span className="text-[13px] text-paper-sage">Live</span> : undefined}>
       <ol
         ref={scroller}
         onScroll={(event) => {
@@ -361,7 +361,7 @@ export function StudioLog({ entries, live }: { entries: MotionLogEntry[]; live: 
         aria-live="off"
       >
         {entries.map((entry, index) => (
-          <li key={`${entry.at}-${index}`} className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 text-[12.5px] leading-5">
+          <li key={`${entry.at}-${index}`} className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 text-[13px] leading-5">
             <time className="text-paper-sage tabular-nums" dateTime={entry.at}>
               {new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}
             </time>

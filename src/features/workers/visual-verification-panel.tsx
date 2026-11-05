@@ -84,7 +84,7 @@ export function VisualVerificationPanel({
       <SectionLabel>Visual verification</SectionLabel>
 
       {!current ? (
-        <p className="mt-3 max-w-[62ch] text-[15px] leading-6 text-os-muted">
+        <p className="mt-3 max-w-[62ch] text-[14px] leading-6 text-os-muted">
           This job asked to be checked against its design, and has not been yet.
           Nothing can be approved until it has been.
         </p>
@@ -209,7 +209,7 @@ function VisualVerdict({
         ) : null}
       </div>
 
-      <p className="mt-4 max-w-[62ch] text-[15px] leading-6 text-os-muted">
+      <p className="mt-4 max-w-[62ch] text-[14px] leading-6 text-os-muted">
         {result.summary}
       </p>
 

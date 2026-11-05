@@ -94,7 +94,7 @@ export function QuoteCalculator({ clientName, onClose }: { clientName?: string; 
   return (
     <PaperCard className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-paper-display text-[19px] font-bold">New quote{clientName ? ` · ${clientName}` : ""}</h2>
+        <h2 className="text-[16px] font-semibold">New quote{clientName ? ` · ${clientName}` : ""}</h2>
         <SegmentedControl
           label="Quote type"
           value={kind}
@@ -138,13 +138,13 @@ export function QuoteCalculator({ clientName, onClose }: { clientName?: string; 
               </div>
 
               <fieldset>
-                <legend className="mb-2 text-[12.5px] font-medium text-paper-char">Features that change the price</legend>
+                <legend className="mb-2 text-[13px] font-medium text-paper-char">Features that change the price</legend>
                 <div className="grid gap-1 sm:grid-cols-2">
                   {PRICED_FEATURES.map((feature) => (
                     <label key={feature.name} className="flex min-h-8 cursor-pointer items-center gap-2 text-[14px]">
                       <input type="checkbox" checked={features.includes(feature.name)} onChange={() => toggle(feature.name)} />
                       {feature.name}
-                      <span className="text-[12.5px] text-paper-sage">×{feature.multiplier}</span>
+                      <span className="text-[13px] text-paper-sage">×{feature.multiplier}</span>
                     </label>
                   ))}
                 </div>
@@ -154,7 +154,7 @@ export function QuoteCalculator({ clientName, onClose }: { clientName?: string; 
                 <summary className="cursor-pointer text-[13px] text-paper-blue">Included features (listed, not priced)</summary>
                 <div className="mt-2 grid gap-1 sm:grid-cols-3">
                   {STANDARD_FEATURES.map((name) => (
-                    <label key={name} className="flex min-h-8 cursor-pointer items-center gap-2 text-[13.5px]">
+                    <label key={name} className="flex min-h-8 cursor-pointer items-center gap-2 text-[14px]">
                       <input type="checkbox" checked={features.includes(name)} onChange={() => toggle(name)} />
                       {name}
                     </label>
@@ -220,7 +220,7 @@ export function QuoteCalculator({ clientName, onClose }: { clientName?: string; 
         <aside aria-label="Price breakdown" className="grid content-start gap-3 border border-paper-mist bg-paper-cream p-4">
           {price ? (
             <>
-              <ul className="grid gap-1.5 text-[13.5px]">
+              <ul className="grid gap-1.5 text-[14px]">
                 {price.lines.map((line) => (
                   <li key={line.label} className="flex justify-between gap-3">
                     <span className="text-paper-char">{line.label}</span>
@@ -229,13 +229,13 @@ export function QuoteCalculator({ clientName, onClose }: { clientName?: string; 
                 ))}
               </ul>
               <p className="border-t border-paper-mist pt-3">
-                <span className="block text-[12.5px] text-paper-sage">{kind === "project" ? "Total" : `Per ${CYCLE[frequency]}`}</span>
-                <span className="font-paper-display text-[28px] font-bold">{formatRand(price.total)}</span>
-                {kind === "maintenance" && price.monthly !== undefined ? <span className="block text-[12.5px] text-paper-sage">{formatRand(price.monthly)} a month</span> : null}
+                <span className="block text-[13px] text-paper-sage">{kind === "project" ? "Total" : `Per ${CYCLE[frequency]}`}</span>
+                <span className="text-[24px] font-semibold">{formatRand(price.total)}</span>
+                {kind === "maintenance" && price.monthly !== undefined ? <span className="block text-[13px] text-paper-sage">{formatRand(price.monthly)} a month</span> : null}
               </p>
             </>
           ) : (
-            <p className="text-[13.5px] text-paper-char">{input.success ? "" : input.error.issues[0]?.message}</p>
+            <p className="text-[14px] text-paper-char">{input.success ? "" : input.error.issues[0]?.message}</p>
           )}
           <div className="flex flex-wrap gap-2">
             <PaperButton variant="amber" disabled={!price} onClick={() => void copy()}>

@@ -46,7 +46,7 @@ export function CareerLinkedInTab({ data }: { data: CareerData }) {
           <ErrorLine error={add.error} />
           {learned.length > 0 ? (
             <div className="mt-4">
-              <p className="text-[12.5px] text-paper-sage">From your work log</p>
+              <p className="text-[13px] text-paper-sage">From your work log</p>
               <ul className="mt-1 space-y-1">
                 {learned.map((item, index) => (
                   <li key={`${item.id}-${index}`}>
@@ -66,7 +66,7 @@ export function CareerLinkedInTab({ data }: { data: CareerData }) {
 
         <PaperSection label="Posts" count={linkedin.posts.length}>
           {linkedin.posts.length === 0 ? (
-            <p className="text-[15px] text-paper-char">No ideas yet.</p>
+            <p className="text-[14px] text-paper-char">No ideas yet.</p>
           ) : (
             <ul className="space-y-4">
               {linkedin.posts.map((post) => (
@@ -80,10 +80,10 @@ export function CareerLinkedInTab({ data }: { data: CareerData }) {
       <div className="min-w-0 space-y-10">
         <PaperSection label="LinkedIn">
           <div className="flex flex-col gap-2">
-            <a href={linkedin.profileUrl} target="_blank" rel="noopener noreferrer" className="text-[15px] text-paper-blue underline-offset-4 hover:underline">
+            <a href={linkedin.profileUrl} target="_blank" rel="noopener noreferrer" className="text-[14px] text-paper-blue underline-offset-4 hover:underline">
               Open profile ↗
             </a>
-            <a href={linkedin.messagesUrl} target="_blank" rel="noopener noreferrer" className="text-[15px] text-paper-blue underline-offset-4 hover:underline">
+            <a href={linkedin.messagesUrl} target="_blank" rel="noopener noreferrer" className="text-[14px] text-paper-blue underline-offset-4 hover:underline">
               Open messages ↗
             </a>
           </div>
@@ -91,7 +91,7 @@ export function CareerLinkedInTab({ data }: { data: CareerData }) {
             Messages open on LinkedIn: its messaging API is limited to approved partners, and AgentOS does not scrape it.
           </p>
           {!linkedin.canPublish ? (
-            <p className="mt-3 text-[13.5px] leading-6 text-paper-flame-deep">
+            <p className="mt-3 text-[14px] leading-6 text-paper-flame-deep">
               {linkedin.publishDetail}{" "}
               <Link to="/connectors/linkedin" className="underline underline-offset-4">
                 Set up
@@ -127,13 +127,13 @@ function PostCard({ post, canPublish }: { post: LinkedInPost; canPublish: boolea
     <li>
       <PaperCard>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="min-w-0 text-[15px] font-medium">{post.idea}</p>
+          <p className="min-w-0 text-[14px] font-medium">{post.idea}</p>
           <Tag tone={STATUS_TONE[post.status]}>{post.status}</Tag>
         </div>
 
         {published ? (
           <>
-            <p className="mt-3 text-[14.5px] leading-6 whitespace-pre-line text-paper-char">{post.draft}</p>
+            <p className="mt-3 text-[14px] leading-6 whitespace-pre-line text-paper-char">{post.draft}</p>
             <p className="mt-3 text-[13px] text-paper-green">
               Published {post.publishedAt ? formatTimestamp(post.publishedAt) : ""}
               {post.url ? (
@@ -158,7 +158,7 @@ function PostCard({ post, canPublish }: { post: LinkedInPost; canPublish: boolea
                 onChange={(event) => setDraft(event.target.value)}
               />
             </label>
-            <p className="text-right text-[12px] text-paper-sage tabular-nums">
+            <p className="text-right text-[13px] text-paper-sage tabular-nums">
               {draft.length} / {LIMIT}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">

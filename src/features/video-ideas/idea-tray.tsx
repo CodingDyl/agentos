@@ -65,7 +65,7 @@ export function IdeaTray() {
   return (
     <aside
       aria-label="Video ideas in progress"
-      className="fixed right-4 bottom-10 z-40 w-[340px] max-w-[calc(100vw-2rem)] border border-paper-ash bg-paper-cream font-paper-ui text-paper-moss shadow-[0_8px_24px_-8px_rgb(0_0_0/0.35)]"
+      className="fixed right-4 bottom-10 z-40 w-[340px] max-w-[calc(100vw-2rem)] border border-paper-ash bg-paper-cream text-paper-moss shadow-[var(--shadow-overlay)]"
     >
       <button
         type="button"

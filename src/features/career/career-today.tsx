@@ -20,7 +20,7 @@ export function CareerToday({ className }: { className?: string }) {
       action={
         <Link
           to="/career"
-          className="text-[12.5px] -mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-paper-sage transition-colors duration-150 hover:text-paper-moss"
+          className="text-[13px] -mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-paper-sage transition-colors duration-150 hover:text-paper-moss"
         >
           Open Career →
         </Link>
@@ -32,7 +32,7 @@ export function CareerToday({ className }: { className?: string }) {
             <span className="size-1.5 shrink-0 translate-y-[-0.15em] rounded-full border border-paper-amber-deep" aria-hidden="true" />
             <Link to={item.href} className="min-w-0 rounded-sm text-[16px] leading-7 text-paper-char transition-colors duration-150 hover:text-paper-moss">
               {item.title}
-              {item.detail ? <span className="text-[12.5px] ml-2 text-paper-sage">{item.detail}</span> : null}
+              {item.detail ? <span className="text-[13px] ml-2 text-paper-sage">{item.detail}</span> : null}
             </Link>
           </li>
         ))}

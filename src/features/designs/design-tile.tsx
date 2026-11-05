@@ -64,13 +64,13 @@ export function DesignTile({
           }
           aria-pressed={selecting ? selected : undefined}
           className={cn(
-            "block w-full cursor-pointer overflow-hidden rounded-none bg-paper-linen",
+            "block w-full cursor-pointer overflow-hidden rounded-md bg-paper-linen",
             "ring-1 transition-[box-shadow] duration-150",
             PAPER_FOCUS,
             // Selection is carried by the ring rather than an overlay, so the
             // image — the only thing worth looking at here — stays unobscured.
             selected
-              ? "ring-2 ring-paper-blue"
+              ? "ring-2 ring-paper-ash"
               : "ring-paper-mist hover:ring-paper-sage",
           )}
           style={{ aspectRatio: aspectRatio(asset) }}
@@ -101,7 +101,7 @@ export function DesignTile({
 
         {video ? (
           <span
-            className="pointer-events-none absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-none bg-paper-moss/85 px-1.5 py-0.5 font-paper-utility text-[12px] font-medium tracking-[0.06em] text-paper-white tabular-nums transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+            className="pointer-events-none absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-md bg-[var(--scrim)] px-1.5 py-0.5 text-[13px] font-medium text-paper-white tabular-nums transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
           >
             <Play className="size-3 fill-current" strokeWidth={0} aria-hidden="true" />
             {formatDuration(asset.durationSec) || "Video"}
@@ -113,7 +113,7 @@ export function DesignTile({
             className={cn(
               "pointer-events-none absolute top-2.5 left-2.5 grid size-5 place-items-center rounded-full border text-[12px] font-mono",
               selected
-                ? "border-paper-blue bg-paper-blue text-paper-white"
+                ? "border-paper-ash bg-selected text-paper-moss"
                 : "border-paper-sage bg-paper-white/85 text-transparent",
             )}
             aria-hidden="true"
@@ -173,7 +173,7 @@ export function DesignTile({
 
       <figcaption className="mt-2 min-w-0 px-0.5">
         {asset.project ? (
-          <span className="block truncate text-[12px] font-medium text-paper-sage">
+          <span className="block truncate text-[13px] font-medium text-paper-sage">
             {asset.project}
           </span>
         ) : null}
@@ -207,7 +207,7 @@ function TileAction({
       title={label}
       onClick={onClick}
       className={cn(
-        "pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-none border border-paper-mist",
+        "pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-paper-mist",
         "bg-paper-white/90 transition-colors duration-150 hover:bg-paper-white",
         PAPER_FOCUS,
         active ? "text-paper-amber-deep" : "text-paper-char hover:text-paper-moss",

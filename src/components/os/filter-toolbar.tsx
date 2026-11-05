@@ -153,7 +153,7 @@ export function FilterToolbar({
           aria-controls={panelId}
           onClick={() => setOpen(!isOpen)}
           className={cn(
-            "os-focus-ring inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[2px] border px-2.5 text-[13px] font-medium transition-colors duration-150",
+            "os-focus-ring inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-sm border px-2.5 text-[13px] font-medium transition-colors duration-150",
             isOpen || count > 0
               ? "border-os-border-strong bg-os-surface-raised text-foreground"
               : "border-os-border bg-os-surface text-foreground hover:border-os-border-strong hover:bg-os-surface-raised",
@@ -164,7 +164,7 @@ export function FilterToolbar({
           {count > 0 ? (
             <span
               data-filter-count={count}
-              className="inline-flex min-w-4 items-center justify-center rounded-[2px] bg-primary px-1 text-[10px] leading-4 font-bold text-primary-foreground tabular-nums"
+              className="inline-flex min-w-4 items-center justify-center rounded-sm bg-paper-stone px-1 text-[12px] leading-4 font-semibold text-paper-moss tabular-nums"
             >
               {count}
             </span>
@@ -177,7 +177,7 @@ export function FilterToolbar({
             role="dialog"
             aria-label="Filters"
             onPointerDown={(event) => event.stopPropagation()}
-            className="absolute top-full left-0 z-50 mt-1.5 w-[min(22rem,calc(100vw-2rem))] max-h-[28rem] overflow-y-auto rounded-[2px] border border-os-border bg-popover p-2 shadow-[var(--shadow-overlay)]"
+            className="absolute top-full left-0 z-50 mt-1.5 w-[min(22rem,calc(100vw-2rem))] max-h-[28rem] overflow-y-auto rounded-sm border border-os-border bg-popover p-2 shadow-[var(--shadow-overlay)]"
           >
             {groups.map((group, index) => {
               const searchable = groupIsSearchable(group);
@@ -196,14 +196,14 @@ export function FilterToolbar({
                           setQueries((current) => ({ ...current, [group.id]: event.target.value }))
                         }
                         placeholder={`Search ${group.label.toLowerCase()}s`}
-                        className="h-8 w-full rounded-[2px] border border-os-border bg-os-surface px-2 text-[13px] text-foreground placeholder:text-os-subtle"
+                        className="h-8 w-full rounded-sm border border-os-border bg-os-surface px-2 text-[13px] text-foreground placeholder:text-os-subtle"
                         style={{ minHeight: 32 }}
                       />
                     </label>
                   ) : null}
                   <div className="grid gap-px">
                     {visible.length === 0 ? (
-                      <p className="px-1.5 py-2 text-[12px] text-os-subtle">No matches.</p>
+                      <p className="px-1.5 py-2 text-[13px] text-os-subtle">No matches.</p>
                     ) : (
                       visible.map((option) => {
                         const checked = isChecked(group, option.value);
@@ -213,7 +213,7 @@ export function FilterToolbar({
                             key={option.value}
                             htmlFor={optionId}
                             className={cn(
-                              "flex min-h-8 cursor-pointer items-center gap-2 rounded-[2px] px-1.5 text-[13px] hover:bg-os-surface-active",
+                              "flex min-h-8 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-[13px] hover:bg-os-surface-active",
                               checked ? "text-foreground" : "text-os-muted",
                             )}
                           >
@@ -245,7 +245,7 @@ export function FilterToolbar({
           {chips.map((chip) => (
             <span
               key={`${chip.groupId}:${chip.value}`}
-              className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-[2px] border border-os-border bg-os-surface-raised pl-2 text-[12px] text-foreground"
+              className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-sm border border-os-border bg-os-surface-raised pl-2 text-[13px] text-foreground"
             >
               {chip.text}
               <button
@@ -261,7 +261,7 @@ export function FilterToolbar({
           <button
             type="button"
             onClick={() => groups.forEach(clearGroup)}
-            className="os-focus-ring shrink-0 cursor-pointer px-1.5 text-[12px] text-os-muted hover:text-primary hover:underline"
+            className="os-focus-ring shrink-0 cursor-pointer px-1.5 text-[13px] text-os-muted hover:text-primary hover:underline"
           >
             Clear all
           </button>

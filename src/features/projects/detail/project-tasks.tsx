@@ -137,7 +137,7 @@ function TaskRow({
 
           <span
             className={cn(
-              "min-w-0 text-[15px] leading-6",
+              "min-w-0 text-[14px] leading-6",
               task.completed ? "text-os-subtle line-through" : "text-os-muted",
             )}
           >

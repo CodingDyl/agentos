@@ -2,7 +2,7 @@ import { Check, Plus, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import type { DatabaseSetup } from "@shared/database-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, Tag } from "@/components/paper";
 import {
   useAddDatabaseSetup,
@@ -30,13 +30,13 @@ export function DatabaseSetups() {
   return (
     <div className="space-y-4">
       {setups.isPending ? (
-        <DedsecLoader variant="compact" />
+        <PageLoader variant="compact" />
       ) : setups.isError ? (
         <p role="alert" className="text-[14px] text-paper-flame-deep">{setups.error.message}</p>
       ) : setups.data.length === 0 && !adding ? (
         <p className="text-[14px] text-paper-sage">No databases yet. Add one per Supabase project and environment.</p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
           {setups.data.map((setup) => (
             <SetupRow key={setup.id} setup={setup} />
           ))}
@@ -62,7 +62,7 @@ function WorkspacePicker({ selected, onChange }: { selected: string[]; onChange:
 
   return (
     <fieldset>
-      <legend className="mb-1.5 text-[12.5px] font-medium text-paper-char">Linked workspaces</legend>
+      <legend className="mb-1.5 text-[13px] font-medium text-paper-char">Linked workspaces</legend>
       <div className="flex flex-wrap gap-2">
         {projects.map((project) => {
           const on = selected.includes(project.slug);
@@ -70,8 +70,8 @@ function WorkspacePicker({ selected, onChange }: { selected: string[]; onChange:
             <label
               key={project.slug}
               className={cn(
-                "inline-flex cursor-pointer items-center gap-1.5 rounded-none border px-2.5 py-1 text-[13px] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-paper-blue",
-                on ? "border-paper-blue bg-paper-blue text-paper-white" : "border-paper-mist text-paper-moss hover:bg-paper-linen",
+                "inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-[13px] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus)]",
+                on ? "border-paper-ash bg-selected text-paper-moss" : "border-paper-mist text-paper-moss hover:bg-paper-linen",
               )}
             >
               <input
@@ -110,7 +110,7 @@ function SetupForm({ setup, onDone }: { setup?: DatabaseSetup; onDone: () => voi
   };
 
   return (
-    <form onSubmit={submit} aria-label={setup ? `Edit ${setup.name}` : "Add database"} autoComplete="off" className="space-y-4 rounded-none border border-paper-mist bg-paper-cream p-5">
+    <form onSubmit={submit} aria-label={setup ? `Edit ${setup.name}` : "Add database"} autoComplete="off" className="space-y-4 rounded-md border border-paper-mist bg-paper-cream p-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <FieldLabel>Name</FieldLabel>
@@ -122,12 +122,12 @@ function SetupForm({ setup, onDone }: { setup?: DatabaseSetup; onDone: () => voi
         </label>
         <label className="block sm:col-span-2">
           <FieldLabel>Project URL</FieldLabel>
-          <input className={cn(PAPER_INPUT, "w-full font-mono text-[13px]")} name="url" required type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://abcd1234.supabase.co" />
+          <input className={cn(PAPER_INPUT, "w-full font-mono text-[12px]")} name="url" required type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://abcd1234.supabase.co" />
         </label>
         <label className="block sm:col-span-2">
           <FieldLabel>Secret key (service_role or sb_secret_…)</FieldLabel>
           <input
-            className={cn(PAPER_INPUT, "w-full font-mono text-[13px]")}
+            className={cn(PAPER_INPUT, "w-full font-mono text-[12px]")}
             name="key"
             type="password"
             autoComplete="new-password"
@@ -141,7 +141,7 @@ function SetupForm({ setup, onDone }: { setup?: DatabaseSetup; onDone: () => voi
 
       <WorkspacePicker selected={projects} onChange={setProjects} />
 
-      <p className="text-[12.5px] leading-5 text-paper-sage">
+      <p className="text-[13px] leading-5 text-paper-sage">
         The key is saved to <code className="font-mono">.env</code> as <code className="font-mono">{setup?.keyEnvName ?? `SUPABASE_KEY__${id.toUpperCase().replace(/-/g, "_")}`}</code> and
         never shown again. It bypasses row-level security, so AgentOS reads with it and writes only one row at a time, by primary key.
       </p>
@@ -183,7 +183,7 @@ function SetupRow({ setup }: { setup: DatabaseSetup }) {
   return (
     <li className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-start">
       <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-[14.5px] font-semibold text-paper-moss">
+        <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-paper-moss">
           {setup.name}
           {setup.environment ? <Tag tone="muted">{setup.environment}</Tag> : null}
           {!setup.keySet ? (
@@ -196,11 +196,11 @@ function SetupRow({ setup }: { setup: DatabaseSetup }) {
         </p>
         <p className="mt-0.5 truncate font-mono text-[12px] text-paper-sage">{setup.url}</p>
         {setup.lastTest ? (
-          <p className={cn("mt-1 text-[12.5px]", setup.lastTest.ok ? "text-paper-char" : "text-paper-flame-deep")}>
+          <p className={cn("mt-1 text-[13px]", setup.lastTest.ok ? "text-paper-char" : "text-paper-flame-deep")}>
             {setup.lastTest.detail} · {formatWhen(setup.lastTest.checkedAt)}
           </p>
         ) : null}
-        <p className="mt-2 flex flex-wrap gap-1.5 text-[12.5px]">
+        <p className="mt-2 flex flex-wrap gap-1.5 text-[13px]">
           {setup.projectSlugs.length === 0 ? (
             <span className="text-paper-sage">Not linked to a workspace</span>
           ) : (
@@ -208,7 +208,7 @@ function SetupRow({ setup }: { setup: DatabaseSetup }) {
               <Link
                 key={slug}
                 to={`/workspaces/${encodeURIComponent(slug)}?tab=database`}
-                className={cn("rounded-none bg-paper-linen px-2 py-0.5 text-paper-moss hover:bg-paper-stone", PAPER_FOCUS)}
+                className={cn("rounded-md bg-paper-linen px-2 py-0.5 text-paper-moss hover:bg-paper-stone", PAPER_FOCUS)}
               >
                 {names.get(slug) ?? slug}
               </Link>
@@ -216,14 +216,14 @@ function SetupRow({ setup }: { setup: DatabaseSetup }) {
           )}
         </p>
         {error ? (
-          <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">{error.message}</p>
+          <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">{error.message}</p>
         ) : null}
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {confirming ? (
           <>
-            <span className="text-[12.5px] text-paper-char">Remove {setup.name} and its key?</span>
+            <span className="text-[13px] text-paper-char">Remove {setup.name} and its key?</span>
             <PaperButton variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(setup.id)}>
               {remove.isPending ? "Removing…" : "Remove"}
             </PaperButton>

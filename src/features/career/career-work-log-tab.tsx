@@ -18,7 +18,7 @@ export function CareerWorkLogTab({ data }: { data: CareerData }) {
         <CaptureForm defaultClient={data.workLog[0]?.client ?? data.currentWork.project} />
         <PaperSection label="Entries" count={data.workLog.length}>
           {data.workLog.length === 0 ? (
-            <p className="text-[15px] text-paper-char">Nothing logged yet.</p>
+            <p className="text-[14px] text-paper-char">Nothing logged yet.</p>
           ) : (
             <ul className="space-y-4">
               {data.workLog.slice(0, 30).map((entry) => (
@@ -54,7 +54,7 @@ export function CareerWorkLogTab({ data }: { data: CareerData }) {
 
       <PaperSection label="Weekly summaries">
         {data.weeks.length === 0 ? (
-          <p className="text-[15px] text-paper-char">Weeks appear here as you log.</p>
+          <p className="text-[14px] text-paper-char">Weeks appear here as you log.</p>
         ) : (
           <ul className="space-y-6">
             {data.weeks.map((week) => (
@@ -71,8 +71,8 @@ function LogLines({ label, lines }: { label: string; lines: string[] }) {
   if (lines.length === 0) return null;
   return (
     <div className="mt-2">
-      <p className="text-[12px] font-medium tracking-[0.08em] text-paper-sage uppercase">{label}</p>
-      <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[14.5px] leading-6 text-paper-char">
+      <p className="text-[13px] font-medium text-paper-sage">{label}</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[14px] leading-6 text-paper-char">
         {lines.map((line, index) => (
           <li key={index}>{line}</li>
         ))}
@@ -167,7 +167,7 @@ function WeekSummary({ week }: { week: WorkLogWeek }) {
       <div className="flex items-baseline justify-between gap-3">
         <p className="font-medium">
           Week of {formatDay(week.weekStart)}
-          <span className="ml-2 text-[12.5px] font-normal text-paper-sage">
+          <span className="ml-2 text-[13px] font-normal text-paper-sage">
             {week.days} {week.days === 1 ? "day" : "days"}
             {week.clients.length ? ` · ${week.clients.join(", ")}` : ""}
           </span>

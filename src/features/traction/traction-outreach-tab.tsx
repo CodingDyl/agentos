@@ -170,7 +170,7 @@ function WriteView({
                   >
                     <span className="min-w-0">
                       <span className={cn("block truncate text-[14px] text-paper-moss", active && "font-semibold")}>{prospect.company}</span>
-                      <span className="block truncate text-[12.5px] text-paper-sage">{CASE_STAGE_LABEL[stage]}{prospect.segment ? ` · ${prospect.segment}` : ""}</span>
+                      <span className="block truncate text-[13px] text-paper-sage">{CASE_STAGE_LABEL[stage]}{prospect.segment ? ` · ${prospect.segment}` : ""}</span>
                     </span>
                     {prospect.fit ? <Tag tone={prospect.fit === "high" ? "green" : prospect.fit === "medium" ? "marigold" : "muted"}>{prospect.fit}</Tag> : null}
                   </button>
@@ -181,7 +181,7 @@ function WriteView({
         )}
         <PaperPagination pager={pager} label="Business pages" />
         {awaitingCheck > 0 ? (
-          <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">
+          <p className="mt-3 text-[13px] leading-5 text-paper-sage">
             {awaitingCheck} more {awaitingCheck === 1 ? "business is" : "businesses are"} waiting to be checked.{" "}
             <Link to="/traction?tab=find" className={cn("text-paper-blue hover:underline", PAPER_FOCUS)}>
               Open Find
@@ -195,7 +195,7 @@ function WriteView({
           <OutreachCaseView key={selected.id} prospect={selected} entry={entry} />
         ) : (
           <PaperCard className="bg-paper-cream p-6">
-            <p className="font-paper-display text-[18px] font-bold text-paper-moss">Choose a business to start.</p>
+            <p className="text-[16px] font-semibold text-paper-moss">Choose a business to start.</p>
             <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-[14px] leading-6 text-paper-char">
               <li>Get to know them: Hermes reads their website and briefs you.</li>
               <li>Decide: build their site first and charge monthly, or pitch a custom build.</li>
@@ -256,7 +256,7 @@ function Headline({ stats }: { stats: OutreachStats }) {
         />
       </dl>
       {rate.bounced + rate.optedOut > 0 ? (
-        <p className="mt-2 text-[12.5px] text-paper-sage">
+        <p className="mt-2 text-[13px] text-paper-sage">
           {rate.bounced} bounced · {rate.optedOut} asked not to be contacted. Both are on the do-not-contact list.
         </p>
       ) : null}
@@ -267,9 +267,9 @@ function Headline({ stats }: { stats: OutreachStats }) {
 function Figure({ label, value, note }: { label: string; value: string; note: string }) {
   return (
     <div className="bg-paper-cream px-4 py-4">
-      <dt className="text-[12px] font-semibold tracking-[0.08em] text-paper-sage uppercase">{label}</dt>
-      <dd className="mt-1 font-paper-display text-[28px] leading-8 font-bold tracking-[-0.02em] text-paper-moss tabular-nums">{value}</dd>
-      <dd className="mt-1 text-[12.5px] leading-5 text-paper-char">{note}</dd>
+      <dt className="text-[13px] font-semibold text-paper-sage">{label}</dt>
+      <dd className="mt-1 text-[24px] leading-8 font-semibold tracking-[-0.02em] text-paper-moss tabular-nums">{value}</dd>
+      <dd className="mt-1 text-[13px] leading-5 text-paper-char">{note}</dd>
     </div>
   );
 }
@@ -278,7 +278,7 @@ function Figure({ label, value, note }: { label: string; value: string; note: st
 function FollowUpsPointer({ due }: { due: number }) {
   return (
     <PaperSection label="Follow-ups due" count={due}>
-      <p className="text-[13.5px] leading-6 text-paper-sage">
+      <p className="text-[14px] leading-6 text-paper-sage">
         {due === 0 ? "Nothing is due. " : ""}Each unanswered email gets a follow-up after 3 days, then one more after 4.{" "}
         <Link to={followUpsHref()} className={cn("font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
           Open Follow-ups
@@ -304,9 +304,9 @@ function SentList({ emails, onOpen }: { emails: SentEmail[]; onOpen: (prospectId
         <PaperEmpty description="Nothing sent yet. Emails sent or saved as Gmail drafts from AgentOS show here, with whether they were answered." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-[13.5px]">
+          <table className="w-full min-w-[560px] text-left text-[14px]">
             <thead>
-              <tr className="border-b border-paper-moss text-[12px] tracking-[0.06em] text-paper-sage uppercase">
+              <tr className="border-b border-paper-ash text-[13px] text-paper-sage">
                 <th scope="col" className="py-2 pr-3 font-semibold">Sent</th>
                 <th scope="col" className="py-2 pr-3 font-semibold">To</th>
                 <th scope="col" className="py-2 pr-3 font-semibold">Play</th>
@@ -321,7 +321,7 @@ function SentList({ emails, onOpen }: { emails: SentEmail[]; onOpen: (prospectId
                     <button type="button" onClick={() => onOpen(email.prospectId)} className={cn("cursor-pointer text-left font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
                       {email.company}
                     </button>
-                    <span className="block max-w-[38ch] truncate text-[12.5px] text-paper-sage" title={email.subject}>
+                    <span className="block max-w-[38ch] truncate text-[13px] text-paper-sage" title={email.subject}>
                       {email.touch > 1 ? `Follow-up ${email.touch - 1} · ` : ""}
                       {email.subject}
                     </span>
@@ -353,14 +353,14 @@ function WhatWorks({ stats }: { stats: OutreachStats }) {
   return (
     <PaperSection label="What works">
       {rows.length === 0 && !unlabelled ? (
-        <p className="text-[13.5px] leading-6 text-paper-sage">
+        <p className="text-[14px] leading-6 text-paper-sage">
           Reply rates per play appear here once emails are sent from the composer. Compare plays after about {EARLY} emails each; before that, a single reply swings the rate.
         </p>
       ) : (
         <ul className="space-y-4">
           {[...rows, ...(unlabelled ? [{ name: "Written by hand", rate: unlabelled }] : [])].map((row) => (
             <li key={row.name}>
-              <div className="flex items-baseline justify-between gap-3 text-[13.5px]">
+              <div className="flex items-baseline justify-between gap-3 text-[14px]">
                 <span className="font-semibold text-paper-moss">{row.name}</span>
                 <span className="text-paper-char tabular-nums">
                   {percent(row.rate.replyRate)} · {row.rate.replied}/{row.rate.contacted}
@@ -369,12 +369,12 @@ function WhatWorks({ stats }: { stats: OutreachStats }) {
               <div className="mt-1.5">
                 <Meter value={row.rate.replyRate} label={`${row.name} reply rate`} tone={row.rate.replyRate !== undefined && row.rate.replyRate >= 0.1 ? "green" : "ink"} />
               </div>
-              {row.rate.contacted < EARLY ? <p className="mt-1 text-[12px] text-paper-sage">Early: {row.rate.contacted} sent so far.</p> : null}
+              {row.rate.contacted < EARLY ? <p className="mt-1 text-[13px] text-paper-sage">Early: {row.rate.contacted} sent so far.</p> : null}
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-4 text-[12px] leading-5 text-paper-sage">
+      <p className="mt-4 text-[13px] leading-5 text-paper-sage">
         A rough guide: cold email to small businesses commonly gets low single-digit reply rates; specific, personal emails like these should beat that.
       </p>
     </PaperSection>
@@ -392,11 +392,11 @@ function FieldRules() {
   ];
   return (
     <PaperCard className="bg-paper-cream p-5">
-      <p className="text-[12px] font-semibold tracking-[0.08em] text-paper-sage uppercase">How cold email gets answered</p>
+      <p className="text-[13px] font-semibold text-paper-sage">How cold email gets answered</p>
       <dl className="mt-3 space-y-2.5">
         {rules.map(([title, line]) => (
           <div key={title}>
-            <dt className="text-[13.5px] font-semibold text-paper-moss">{title}</dt>
+            <dt className="text-[14px] font-semibold text-paper-moss">{title}</dt>
             <dd className="text-[13px] leading-5 text-paper-char">{line}</dd>
           </div>
         ))}

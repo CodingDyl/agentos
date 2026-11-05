@@ -1,7 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import {
   CommandButton,
-  DedsecLoader,
+  PageLoader,
   HairlineCard,
   SectionLabel,
 } from "@/components/os";
@@ -12,7 +12,7 @@ import {
  */
 
 export function DashboardLoading() {
-  return <DedsecLoader variant="page" />;
+  return <PageLoader variant="page" />;
 }
 
 export interface DashboardErrorProps {

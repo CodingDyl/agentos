@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import type { CareerData } from "@shared/career-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PaperButton, PaperStage, PaperTabs } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useCareer } from "@/lib/agentos/career";
@@ -40,13 +40,13 @@ export function CareerPage() {
     );
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="career" activeHref="/career" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="career" activeHref="/career" agentState="idle" agentLabel="Agents idle">
       <PaperStage>
         {isPending ? (
-          <DedsecLoader variant="page" />
+          <PageLoader variant="page" />
         ) : !data ? (
           <div className="py-4">
-            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Career could not be read.</h1>
+            <h1 className="text-[16px] font-semibold tracking-[-0.02em]">Career could not be read.</h1>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "The adapter did not answer."}</p>
             <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
               {isFetching ? "Trying again…" : "Try again"}
@@ -65,14 +65,14 @@ function Career({ data, tab, onTab }: { data: CareerData; tab: CareerTab; onTab:
     <div className="[color-scheme:light]">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">Career</h1>
+          <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">Career</h1>
           <p className="mt-1 text-[13px] text-paper-sage">
             {data.growth.role}
             {data.currentWork.project ? ` · ${data.currentWork.project}` : ""}
           </p>
         </div>
         {data.todayItems.length > 0 ? (
-          <p className="text-[12.5px] font-semibold tracking-[0.1em] text-paper-flame-deep uppercase">{data.todayItems.length} due today</p>
+          <p className="text-[13px] font-semibold text-paper-flame-deep">{data.todayItems.length} due today</p>
         ) : null}
       </header>
 

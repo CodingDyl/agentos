@@ -36,7 +36,7 @@ export function CriteriaRerun({ job }: { job: WorkerJob }) {
           rows={Math.min(10, Math.max(4, criteria.length + 1))}
           value={text}
           onChange={(event) => setText(event.target.value)}
-          className={cn("os-focus-ring mt-2 w-full rounded-md border border-os-border bg-os-border/5 px-3 py-2 text-[13.5px] leading-6 text-foreground")}
+          className={cn("os-focus-ring mt-2 w-full rounded-md border border-os-border bg-os-border/5 px-3 py-2 text-[14px] leading-6 text-foreground")}
         />
       </label>
       <div className="mt-3 flex flex-wrap items-center gap-2">

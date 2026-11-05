@@ -22,7 +22,7 @@ export function PreviewPublishActions({ runId, stage, busy }: { runId: string; s
 
   return (
     <div className="basis-full grid gap-3 border-t border-paper-flame/30 pt-3">
-      <p className="text-[12.5px] text-paper-sage">If a later Vercel deploy of this commit already succeeded, re-check it. Or force one new deploy, or paste a READY deployment id.</p>
+      <p className="text-[13px] text-paper-sage">If a later Vercel deploy of this commit already succeeded, re-check it. Or force one new deploy, or paste a READY deployment id.</p>
       <div className="flex flex-wrap items-center gap-2">
         <PaperButton variant="amber" disabled={pending} onClick={() => force.mutate()}>
           {force.isPending ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Rocket className="size-3.5" aria-hidden="true" />}
@@ -64,7 +64,7 @@ export function PreviewPublishActions({ runId, stage, busy }: { runId: string; s
         </form>
       ) : null}
       {error ? (
-        <p role="alert" className="text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
           {error.message}
         </p>
       ) : null}

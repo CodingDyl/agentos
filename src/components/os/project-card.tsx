@@ -33,7 +33,7 @@ export function ProjectCard({
         </SectionLabel>
         <div className="mt-8 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-base leading-5 font-medium">{name}</h3>
+            <h3 className="truncate text-[16px] leading-5 font-medium">{name}</h3>
             <p className="mt-2 text-[13px] leading-5 text-os-muted">{summary}</p>
           </div>
           <StatusPill status={status} />

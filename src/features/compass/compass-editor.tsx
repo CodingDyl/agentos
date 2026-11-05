@@ -31,17 +31,17 @@ export function CompassEditor({ read, notice, onDiscard }: { read: CompassRead; 
 
   return (
     <div className="max-w-[980px] space-y-10 pb-24">
-      {notice ? <p className="border-l-[3px] border-paper-blue bg-paper-white px-4 py-3 text-[14px] text-paper-char">{notice}</p> : null}
+      {notice ? <p className="border-l-[3px] border-paper-ash bg-paper-white px-4 py-3 text-[14px] text-paper-char">{notice}</p> : null}
 
       {read.problems.length > 0 ? (
-        <div role="status" className="border-l-[3px] border-paper-flame bg-paper-white px-4 py-3 text-[13.5px] leading-6 text-paper-char">
+        <div role="status" className="border-l-[3px] border-paper-flame bg-paper-white px-4 py-3 text-[14px] leading-6 text-paper-char">
           <p className="font-semibold text-paper-moss">Some lines in me/COMPASS.md could not be read. They are kept in the file as they are; fix them there or add them again here.</p>
           <ul className="mt-1 space-y-0.5">
             {read.problems.map((problem) => (
               <li key={`${problem.line}-${problem.text}`}>
                 {problem.line > 0 ? <span className="text-paper-sage tabular-nums">Line {problem.line}: </span> : null}
                 <code className="text-paper-moss">{problem.text}</code>
-                <span className="block text-[12.5px] text-paper-sage">{problem.reason}</span>
+                <span className="block text-[13px] text-paper-sage">{problem.reason}</span>
               </li>
             ))}
           </ul>
@@ -55,7 +55,7 @@ export function CompassEditor({ read, notice, onDiscard }: { read: CompassRead; 
           value={compass.direction}
           onChange={(event) => set("direction", event.target.value)}
           placeholder="Where your life is heading, in a sentence or two."
-          className={cn(PAPER_INPUT, "w-full text-[15px]")}
+          className={cn(PAPER_INPUT, "w-full text-[14px]")}
         />
       </PaperSection>
 
@@ -82,13 +82,13 @@ export function CompassEditor({ read, notice, onDiscard }: { read: CompassRead; 
                     role="radio"
                     aria-checked={area.status === status}
                     onClick={() => set("areas", replace(compass.areas, index, { ...area, status }))}
-                    className={cn("cursor-pointer rounded-none", PAPER_FOCUS)}
+                    className={cn("cursor-pointer rounded-md", PAPER_FOCUS)}
                   >
                     {area.status === status ? (
                       <Tag tone={STATUS_TONE[status]}>{status}</Tag>
                     ) : (
                       // Unchosen statuses are outlines, so the chosen one is the only colour in the row.
-                      <span className="inline-flex items-center border border-paper-mist px-2 py-px font-paper-utility text-[12px] leading-[16px] font-medium tracking-[0.08em] text-paper-sage uppercase hover:border-paper-sage hover:text-paper-moss">
+                      <span className="inline-flex items-center border border-paper-mist px-2 py-px text-[13px] leading-[16px] font-medium text-paper-sage hover:border-paper-sage hover:text-paper-moss">
                         {status}
                       </span>
                     )}
@@ -190,8 +190,8 @@ export function CompassEditor({ read, notice, onDiscard }: { read: CompassRead; 
                         title={goal.title}
                         onClick={() => update({ serves: on ? project.serves.filter((id) => id !== goal.id) : [...project.serves, goal.id] })}
                         className={cn(
-                          "cursor-pointer rounded-none border px-2 py-0.5 text-[12.5px] transition-colors duration-150",
-                          on ? "border-paper-blue bg-paper-blue text-paper-white" : "border-paper-mist text-paper-char hover:border-paper-sage",
+                          "cursor-pointer rounded-md border px-2 py-0.5 text-[13px] transition-colors duration-150",
+                          on ? "border-paper-ash bg-selected text-paper-moss" : "border-paper-mist text-paper-char hover:border-paper-sage",
                           PAPER_FOCUS,
                         )}
                       >
@@ -199,7 +199,7 @@ export function CompassEditor({ read, notice, onDiscard }: { read: CompassRead; 
                       </button>
                     );
                   })}
-                  {project.serves.length === 0 && compass.goals.length > 0 ? <span className="text-[12.5px] text-paper-flame-deep">Serves no goal</span> : null}
+                  {project.serves.length === 0 && compass.goals.length > 0 ? <span className="text-[13px] text-paper-flame-deep">Serves no goal</span> : null}
                 </div>
                 <select aria-label="Status" value={project.status} onChange={(event) => update({ status: event.target.value as ProjectStatus })} className={PAPER_INPUT}>
                   {PROJECT_STATUSES.map((status) => (
@@ -226,8 +226,8 @@ export function CompassEditor({ read, notice, onDiscard }: { read: CompassRead; 
       {/* Visible whenever there is something to save, so a change is never lost by scrolling away. */}
       {dirty ? (
         <div className="fixed inset-x-0 bottom-10 z-20 flex justify-center px-4">
-          <div className="flex flex-wrap items-center gap-3 border-[1.5px] border-paper-blue bg-paper-white px-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-            <span className="text-[13.5px] text-paper-char">{read.exists ? "Unsaved changes" : "Not saved yet"}</span>
+          <div className="flex flex-wrap items-center gap-3 border border-paper-ash bg-paper-white px-4 py-2.5 shadow-[var(--shadow-overlay)]">
+            <span className="text-[14px] text-paper-char">{read.exists ? "Unsaved changes" : "Not saved yet"}</span>
             <PaperButton
               variant="amber"
               disabled={save.isPending || hasBlanks(compass)}
@@ -283,7 +283,7 @@ function ListInput({ values, onChange, placeholder, max, numbered = false }: { v
       <AddButton disabled={values.length >= max} onClick={() => onChange([...values, ""])}>
         Add
       </AddButton>
-      {values.length === 0 ? <p className="mt-1 text-[12.5px] text-paper-sage">{placeholder}</p> : null}
+      {values.length === 0 ? <p className="mt-1 text-[13px] text-paper-sage">{placeholder}</p> : null}
     </div>
   );
 }

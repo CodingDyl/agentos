@@ -2,7 +2,7 @@ import { Code2, History, MessageSquarePlus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ChatSummary } from "@shared/chat-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton } from "@/components/paper";
 import { cn } from "@/lib/utils";
 import { groupChats } from "./chat-model";
@@ -47,7 +47,7 @@ export function ChatHistorySidebar({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {loading ? (
-          <DedsecLoader variant="compact" className="min-h-32" />
+          <PageLoader variant="compact" className="min-h-32" />
         ) : error ? (
           <p role="alert" className="p-2 text-[13px] text-paper-flame-deep">
             {error}
@@ -60,7 +60,7 @@ export function ChatHistorySidebar({
         ) : (
           groups.map((group) => (
             <section key={group.label} aria-label={group.label} className="mb-3">
-              <h3 className="px-2 pt-2 pb-1 font-paper-utility text-[11px] font-medium tracking-[0.12em] text-paper-sage uppercase">{group.label}</h3>
+              <h3 className="px-2 pt-2 pb-1 text-[13px] font-medium text-paper-sage">{group.label}</h3>
               <ul className="space-y-px">
                 {group.chats.map((chat) => {
                   const active = chat.id === activeId;
@@ -71,7 +71,7 @@ export function ChatHistorySidebar({
                           <span className="min-w-0 flex-1 truncate text-[13px] text-paper-moss">Delete this chat?</span>
                           <PaperButton
                             variant="danger"
-                            className="min-h-7 px-2 text-[12.5px]"
+                            className="min-h-7 px-2 text-[13px]"
                             disabled={deletingId === chat.id}
                             onClick={() => {
                               onDelete(chat.id);
@@ -80,7 +80,7 @@ export function ChatHistorySidebar({
                           >
                             Delete
                           </PaperButton>
-                          <PaperButton variant="quiet" className="min-h-7 px-2 text-[12.5px]" onClick={() => setConfirming(undefined)}>
+                          <PaperButton variant="quiet" className="min-h-7 px-2 text-[13px]" onClick={() => setConfirming(undefined)}>
                             Keep
                           </PaperButton>
                         </div>
@@ -91,7 +91,7 @@ export function ChatHistorySidebar({
                             onClick={onNavigate}
                             aria-current={active ? "page" : undefined}
                             className={cn(
-                              "flex min-h-9 items-center gap-2 py-1.5 pr-9 pl-2 text-[13.5px] leading-5 transition-colors duration-150",
+                              "flex min-h-9 items-center gap-2 py-1.5 pr-9 pl-2 text-[14px] leading-5 transition-colors duration-150",
                               PAPER_FOCUS,
                               active ? "bg-paper-stone text-paper-moss" : "text-paper-char hover:bg-paper-cream hover:text-paper-moss",
                             )}
@@ -128,7 +128,7 @@ export function ChatHistorySidebar({
       </div>
 
       <div className="border-t border-paper-stone p-3">
-        <Link to="/operator/runs" onClick={onNavigate} className={cn("text-[12.5px] text-paper-sage underline-offset-[3px] hover:text-paper-moss hover:underline", PAPER_FOCUS)}>
+        <Link to="/operator/runs" onClick={onNavigate} className={cn("text-[13px] text-paper-sage underline-offset-[3px] hover:text-paper-moss hover:underline", PAPER_FOCUS)}>
           Planned runs and their audit trail
         </Link>
       </div>

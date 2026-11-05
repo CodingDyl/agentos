@@ -80,12 +80,12 @@ export function PromoteDialog({ note, onClose }: { note: LearningNote; onClose: 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onKeyDown={onKeyDown}>
-      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#04051a]/55" />
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="relative flex max-h-[90vh] w-[min(94vw,560px)] flex-col bg-paper-white font-paper-ui text-paper-moss shadow-[0_30px_80px_rgb(2_2_16/0.5)]">
+      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[var(--bg-canvas)]/55" />
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="relative flex max-h-[90vh] w-[min(94vw,560px)] flex-col bg-paper-white text-paper-moss shadow-[var(--shadow-overlay)]">
         <header className="flex items-start justify-between gap-4 border-b border-paper-mist px-6 py-4">
           <div className="flex items-center gap-2.5">
             <Brain className="size-5 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
-            <h2 id={titleId} data-heading="compact" className="font-paper-display text-[22px] leading-none font-extrabold tracking-[-0.015em]">
+            <h2 id={titleId} data-heading="compact" className="text-[16px] leading-none font-semibold tracking-[-0.015em]">
               Memory proposal
             </h2>
           </div>
@@ -96,8 +96,8 @@ export function PromoteDialog({ note, onClose }: { note: LearningNote; onClose: 
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {saved ? (
-            <p role="status" className="text-[15px] text-paper-moss">
-              Saved to memory: <span className="font-mono text-[13px]">{saved}</span>
+            <p role="status" className="text-[14px] text-paper-moss">
+              Saved to memory: <span className="font-mono text-[12px]">{saved}</span>
             </p>
           ) : stage.kind === "edit" ? (
             <>
@@ -139,21 +139,21 @@ export function PromoteDialog({ note, onClose }: { note: LearningNote; onClose: 
                   {note.sourceTitle ? ` — ${note.sourceTitle}` : ""}
                 </p>
               </div>
-              <p className="text-[12.5px] leading-5 text-paper-sage">
+              <p className="text-[13px] leading-5 text-paper-sage">
                 Memory is what agents are told in future work. Keep it to what is durable — a pattern, a lesson, a rule — not everything the video said.
               </p>
             </>
           ) : (
             <div>
-              <p className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Possible existing memory</p>
+              <p className="text-[13px] font-semibold text-paper-char">Possible existing memory</p>
               <ul className="mt-3 space-y-3">
                 {stage.matches.map((match) => {
                   // A decision updates a decision; anything else updates a note.
                   const updatable = (type === "decision") === (match.kind === "decision");
                   return (
                     <li key={`${match.kind}:${match.id}`} className="border border-paper-mist p-3">
-                      <p className="text-[15px] font-medium">{match.title}</p>
-                      <p className="mt-0.5 text-[12.5px] text-paper-sage">
+                      <p className="text-[14px] font-medium">{match.title}</p>
+                      <p className="mt-0.5 text-[13px] text-paper-sage">
                         {match.kind === "decision" ? "DECISIONS.md" : match.id}
                         {match.createdAt ? ` · added ${new Date(match.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : ""}
                         {match.archived ? " · archived" : ""}
@@ -177,7 +177,7 @@ export function PromoteDialog({ note, onClose }: { note: LearningNote; onClose: 
           )}
 
           {error ? (
-            <p role="alert" className="text-[13.5px] text-paper-flame-deep">
+            <p role="alert" className="text-[14px] text-paper-flame-deep">
               {error}
             </p>
           ) : null}

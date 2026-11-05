@@ -2,7 +2,7 @@ import { ArrowLeft, Pause, Play, SquareTerminal } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Automation, AutomationControl } from "@shared/agentos-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { reportActivity } from "@/lib/agentos/client";
@@ -20,7 +20,7 @@ const DONE: Record<AutomationControl, string> = {
 function Fact({ label, children, tone = "char" }: { label: string; children: ReactNode; tone?: "char" | "flame" }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[12.5px] text-paper-sage">{label}</dt>
+      <dt className="text-[13px] text-paper-sage">{label}</dt>
       <dd className={cn("mt-1 text-[14px] leading-6 break-words", tone === "flame" ? "text-paper-flame-deep" : "text-paper-char")}>
         {children}
       </dd>
@@ -39,13 +39,12 @@ export function AutomationDetailPage() {
       pageId="automation"
       activeHref="/automations"
       contextLabel={data ? `Automation / ${data.automation.name}` : undefined}
-      modelLabel="Model / AgentOS V1"
     >
       <PaperStage>
         <Link
           to="/automations"
           className={cn(
-            "-mx-2 inline-flex min-h-8 items-center gap-1.5 rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+            "-mx-2 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
             PAPER_FOCUS,
           )}
         >
@@ -54,10 +53,10 @@ export function AutomationDetailPage() {
         </Link>
 
         {isPending ? (
-          <DedsecLoader variant="page" className="mt-6" />
+          <PageLoader variant="page" className="mt-6" />
         ) : !data ? (
           <div className="mt-6">
-            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.015em]">This job couldn't be read.</h1>
+            <h1 className="text-[16px] font-semibold tracking-[-0.015em]">This job couldn't be read.</h1>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
               {error?.message} Hermes may have removed it, or the CLI couldn't be reached.
             </p>
@@ -112,12 +111,12 @@ function AutomationDetail({ automation, children }: { automation: Automation; ch
       <header className="mt-5 flex flex-col gap-6 border-b border-paper-stone pb-8 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-balance text-paper-moss sm:text-[34px]">
+            <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-balance text-paper-moss sm:text-[28px]">
               {automation.name}
             </h1>
             <Tag tone={tag.tone}>{tag.label}</Tag>
           </div>
-          <p className="mt-2 text-[15px] text-paper-char">{formatSchedule(automation.schedule)}</p>
+          <p className="mt-2 text-[14px] text-paper-char">{formatSchedule(automation.schedule)}</p>
         </div>
 
         <div className="flex shrink-0 flex-col items-start gap-2 md:items-end">
@@ -147,7 +146,7 @@ function AutomationDetail({ automation, children }: { automation: Automation; ch
             ) : null}
           </div>
           <p
-            className={cn("min-h-5 max-w-[46ch] text-[12.5px] md:text-right", control.isError ? "text-paper-flame-deep" : "text-paper-sage")}
+            className={cn("min-h-5 max-w-[46ch] text-[13px] md:text-right", control.isError ? "text-paper-flame-deep" : "text-paper-sage")}
             role="status"
             aria-live="polite"
           >
@@ -157,13 +156,13 @@ function AutomationDetail({ automation, children }: { automation: Automation; ch
       </header>
 
       {lastRun?.detail || automation.warnings.length > 0 ? (
-        <div role="alert" className="mt-8 max-w-[80ch] rounded-none border border-paper-flame-deep px-5 py-4">
+        <div role="alert" className="mt-8 max-w-[80ch] rounded-md border border-paper-flame-deep px-5 py-4">
           <p className="text-[13px] font-semibold text-paper-flame-deep">Reported by Hermes</p>
           {lastRun?.detail ? (
-            <p className="mt-2 font-mono text-[12.5px] leading-5 break-words text-paper-flame-deep">{lastRun.detail}</p>
+            <p className="mt-2 font-mono text-[12px] leading-5 break-words text-paper-flame-deep">{lastRun.detail}</p>
           ) : null}
           {automation.warnings.map((warning) => (
-            <p key={warning} className="mt-2 text-[13.5px] leading-5 text-paper-char">
+            <p key={warning} className="mt-2 text-[14px] leading-5 text-paper-char">
               {warning}
             </p>
           ))}
@@ -174,12 +173,12 @@ function AutomationDetail({ automation, children }: { automation: Automation; ch
         <div className="min-w-0">
           <PaperSection label="What it does">
             {recipe?.prompt || recipe?.script ? (
-              <div className="rounded-none border border-paper-mist bg-paper-cream px-5 py-4">
+              <div className="rounded-md border border-paper-mist bg-paper-cream px-5 py-4">
                 {recipe.prompt ? (
-                  <p className="max-w-[72ch] text-[15px] leading-[1.65] whitespace-pre-wrap text-paper-moss">{recipe.prompt}</p>
+                  <p className="max-w-[72ch] text-[14px] leading-[1.65] whitespace-pre-wrap text-paper-moss">{recipe.prompt}</p>
                 ) : null}
                 {recipe.script ? (
-                  <p className={cn("font-mono text-[12.5px] break-words text-paper-char", recipe.prompt && "mt-3")}>
+                  <p className={cn("font-mono text-[12px] break-words text-paper-char", recipe.prompt && "mt-3")}>
                     Script: {recipe.script}
                   </p>
                 ) : null}
@@ -206,7 +205,7 @@ function AutomationDetail({ automation, children }: { automation: Automation; ch
               </Fact>
               <Fact label="Tools">{recipe && recipe.toolsets.length > 0 ? recipe.toolsets.join(", ") : "Hermes' defaults"}</Fact>
               <Fact label="Working folder">
-                {recipe?.workdir ? <span className="font-mono text-[12.5px]">{recipe.workdir}</span> : "-"}
+                {recipe?.workdir ? <span className="font-mono text-[12px]">{recipe.workdir}</span> : "-"}
               </Fact>
               {recipe?.noAgent ? <Fact label="Model calls">None (script only)</Fact> : null}
             </dl>

@@ -28,7 +28,7 @@ export function SpecimenSection({
       <SectionLabel className="self-start lg:pt-1">{label}</SectionLabel>
       <div className="min-w-0">
         <div className="max-w-2xl">
-          <h2 className="text-[22px] leading-[1.15] font-normal tracking-[-0.02em]">
+          <h2 className="text-[16px] leading-[1.15] font-normal tracking-[-0.02em]">
             {title}
           </h2>
           {description ? (

@@ -26,7 +26,7 @@ export function MotionStatus({ job, rounds, className }: { job: MotionJob; round
 export function PromptBlock({ label, text }: { label: string; text: string }) {
   return (
     <div>
-      <p className="mb-1.5 text-[12.5px] font-medium text-paper-char">{label}</p>
+      <p className="mb-1.5 text-[13px] font-medium text-paper-char">{label}</p>
       <pre className="max-h-72 overflow-auto border border-paper-mist bg-paper-linen p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap text-paper-moss">
         {text}
       </pre>

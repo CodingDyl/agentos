@@ -12,9 +12,9 @@ import {
 } from "./open-workspace";
 
 const inputClass =
-  "mt-2 w-full rounded border border-[#00ffcc33] bg-[#0a0a0a] px-4 py-2 text-sm text-[#e0e0e0] placeholder-[#6a9fb5] outline-none focus:border-[#00ffcc] disabled:opacity-50";
+  "mt-2 w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-4 py-2 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--border-control)] disabled:opacity-50";
 const buttonClass =
-  "flex w-full items-center justify-center gap-2 rounded border border-[#00ffcc] bg-[#00ffcc0d] p-3 font-medium text-[#00ffcc] transition-colors hover:bg-[#00ffcc1a] disabled:opacity-50";
+  "flex w-full items-center justify-center gap-2 rounded border border-[var(--border-control)] bg-[var(--bg-raised)] p-3 font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-raised)] disabled:opacity-50";
 
 interface FolderOpenControlProps {
   label: string;
@@ -81,7 +81,7 @@ export function FolderOpenControl({ label, onPickPath, disabled }: FolderOpenCon
       }}
       className="space-y-2"
     >
-      <label className="block text-xs uppercase tracking-wider text-[#6a9fb5]">
+      <label className="block text-[13px] text-[var(--text-muted)]">
         Local folder path
         <input
           type="text"
@@ -112,7 +112,7 @@ export function FolderOpenControl({ label, onPickPath, disabled }: FolderOpenCon
           {busy ? "Waiting for picker…" : label}
         </button>
       )}
-      {error ? <p className="text-sm text-[#ff0066]">{error}</p> : null}
+      {error ? <p className="text-[14px] text-[var(--status-error)]">{error}</p> : null}
     </div>
   );
 }

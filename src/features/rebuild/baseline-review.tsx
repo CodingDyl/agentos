@@ -81,7 +81,7 @@ export function BaselineReview({ run, stage }: { run: RebuildRun; stage: Rebuild
   return (
     <div className="mt-4 border-t border-paper-mist pt-4">
       <p className="text-[13px] font-semibold text-paper-moss">Review the baseline, revision {stage.revision}</p>
-      <p role="status" className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-paper-sage">
+      <p role="status" className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-paper-sage">
         <MessageSquareText className="size-3.5" aria-hidden="true" />
         {complete
           ? noteCount === 0
@@ -104,7 +104,7 @@ export function BaselineReview({ run, stage }: { run: RebuildRun; stage: Rebuild
       </label>
       <ReviewVerdictGate verdict={verdict} override={override} onOverride={setOverride} />
       {decide.error ? (
-        <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
           {decide.error.message}
         </p>
       ) : null}
@@ -123,7 +123,7 @@ export function BaselineReview({ run, stage }: { run: RebuildRun; stage: Rebuild
         >
           Send changes{noteCount > 0 ? ` (${noteCount} note${noteCount === 1 ? "" : "s"} on ${pageCount} page${pageCount === 1 ? "" : "s"})` : ""}
         </PaperButton>
-        {noteCount > 0 ? <span className="text-[12.5px] text-paper-sage">Approving does not send your notes.</span> : null}
+        {noteCount > 0 ? <span className="text-[13px] text-paper-sage">Approving does not send your notes.</span> : null}
       </div>
     </div>
   );

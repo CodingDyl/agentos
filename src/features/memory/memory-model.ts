@@ -8,16 +8,16 @@ import type { MemoryGraphNode } from "@shared/memory-types";
 export type ColorBy = "random" | "folder" | "tag";
 
 /**
- * Group colours, drawn on the Hermes Blue field. Paper and yellow first — the
- * two the brand actually uses — then tints that stay light enough to read on
- * blue (every one ≥ 4.5:1 against #0000f2). Groups past the palette share the
- * last, quietest colour and the legend says "other".
+ * Group colours, drawn on the graphite canvas: the status and text tints from
+ * DESIGN.md plus two quiet companions, each at least 4.5:1 against the field.
+ * Groups past the palette share the last, quietest colour and the legend says
+ * "other".
  */
-export const GROUP_COLORS = ["#f2f2f2", "#f2f200", "#7fe6ff", "#ffa8dc", "#ffc27a", "#9dffb8", "#d6ccff"] as const;
-export const OTHER_COLOR = "#a9a9f2";
-/** The graph's field: near-black with a trace of Hermes Blue, so light reads as light. */
-export const FIELD = "#04051a";
-export const INK = "#000091";
+export const GROUP_COLORS = ["#EEF1F4", "#9DDBBD", "#B0D6FF", "#E8C58A", "#F4A3A8", "#D3C4F0", "#A9DDE0"] as const;
+export const OTHER_COLOR = "#8E99A5";
+/** The graph's field is the canvas itself; INK is the dark text a light node carries. */
+export const FIELD = "#111315";
+export const INK = "#12231B";
 
 /**
  * A note's own colour: "random", but seeded from its path, so a note keeps
@@ -32,8 +32,8 @@ export function noteColor(id: string): string {
   }
   const unsigned = hash >>> 0;
   const hue = unsigned % 360;
-  const saturation = 78 + ((unsigned >>> 9) % 18);
-  const lightness = (hue > 200 && hue < 290 ? 70 : 62) + ((unsigned >>> 17) % 6);
+  const saturation = 32 + ((unsigned >>> 9) % 18);
+  const lightness = (hue > 200 && hue < 290 ? 76 : 70) + ((unsigned >>> 17) % 6);
   return `hsl(${hue} ${saturation}% ${lightness}%)`;
 }
 

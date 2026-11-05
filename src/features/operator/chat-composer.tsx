@@ -80,7 +80,7 @@ export function ChatComposer({
 
   return (
     <form onSubmit={submit} aria-label="Message" className="sticky bottom-0 z-10 bg-paper-white pt-3 pb-3">
-      <div className="border border-paper-mist bg-paper-white focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-paper-blue">
+      <div className="rounded-md border border-paper-ash bg-paper-white">
         <label htmlFor={inputId} className="sr-only">
           Message
         </label>
@@ -95,7 +95,7 @@ export function ChatComposer({
           placeholder={
             !agent ? "Message" : mode === "assistant" ? `Ask ${agent.name} anything` : `Message ${agent.name}, or /plan, /run or /ask for a planned run`
           }
-          className="block max-h-56 min-h-14 w-full resize-y bg-transparent px-4 py-3 text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash"
+          className="block max-h-56 min-h-14 w-full resize-y bg-transparent px-4 py-3 text-[14px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash"
         />
         <div className="flex flex-wrap items-center gap-2 border-t border-paper-stone px-3 py-2">
           <ModeSwitch mode={mode} onChange={onModeChange} locked={modeLocked || running} />
@@ -110,7 +110,7 @@ export function ChatComposer({
               onChoiceChange({ agent: nextAgent as ModelChoice["agent"], model: rest.join(":") });
             }}
             disabled={agents.length === 0 || running}
-            className="min-h-8 max-w-[60vw] cursor-pointer border border-paper-mist bg-paper-white px-2 font-paper-utility text-[12.5px] font-medium tracking-[0.06em] text-paper-moss uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-8 max-w-[60vw] cursor-pointer border border-paper-mist bg-paper-white px-2 text-[13px] font-medium text-paper-moss disabled:cursor-not-allowed disabled:opacity-60"
           >
             {agents.length === 0 ? <option value="">Loading models…</option> : null}
             {agents.map((entry) => (
@@ -138,7 +138,7 @@ export function ChatComposer({
             ))}
           </select>
 
-          <p className="hidden min-w-0 flex-1 truncate text-[12px] text-paper-sage md:block">
+          <p className="hidden min-w-0 flex-1 truncate text-[13px] text-paper-sage md:block">
             {agent?.models.find((model) => model.id === choice?.model)?.hint}
           </p>
 
@@ -189,7 +189,7 @@ function ModeSwitch({ mode, onChange, locked }: { mode: ChatMode; onChange: (mod
             title={unavailable ? `${entry.hint} Start a new chat to switch.` : entry.hint}
             onClick={() => onChange(entry.id)}
             className={cn(
-              "cursor-pointer px-2.5 font-paper-utility text-[12.5px] font-medium tracking-[0.06em] uppercase transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
+              "cursor-pointer px-2.5 text-[13px] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
               PAPER_FOCUS,
               selected ? "bg-paper-moss text-paper-white" : "bg-paper-white text-paper-char hover:bg-paper-cream hover:text-paper-moss",
             )}
@@ -211,7 +211,7 @@ function AgentAvailability({ agents }: { agents: readonly ChatAgent[] }) {
   const missing = agents.filter((agent) => !agent.available);
   if (missing.length === 0) return null;
   return (
-    <details className="mt-2 text-[12.5px] text-paper-sage">
+    <details className="mt-2 text-[13px] text-paper-sage">
       <summary className="cursor-pointer select-none hover:text-paper-moss">
         {missing.length === 1 ? `${missing[0].name} is unavailable` : `${missing.length} agents are unavailable`}: why?
       </summary>

@@ -1,7 +1,7 @@
 import { CheckCircle2, ExternalLink, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import type { SeoFinding } from "@shared/seo-types";
-import { CommandButton, DedsecLoader, EmptyState, Section, SectionLabel } from "@/components/os";
+import { CommandButton, PageLoader, EmptyState, Section, SectionLabel } from "@/components/os";
 import { useFileSeoFindingTask, useProjectSeo, useProjectVercelInfo, useRunSeoAudit } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, groupBySeverity, SEVERITY_DOT, SEVERITY_LABELS, SEVERITY_TEXT } from "../seo-model";
@@ -46,13 +46,13 @@ export function ProjectSeo({
 
           {vercelProjectId ? (
             vercel.isPending ? (
-              <DedsecLoader variant="compact" className="mt-2" />
+              <PageLoader variant="compact" className="mt-2" />
             ) : liveUrl ? (
               <a
                 href={liveUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="os-focus-ring mt-2 inline-flex items-center gap-1.5 text-[15px] leading-6 text-foreground hover:text-os-amber"
+                className="os-focus-ring mt-2 inline-flex items-center gap-1.5 text-[14px] leading-6 text-foreground hover:text-os-amber"
               >
                 {liveUrl.replace(/^https?:\/\//, "")}
                 <ExternalLink className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
@@ -97,7 +97,7 @@ export function ProjectSeo({
       {runAudit.error ? <p className="text-[13px] leading-5 text-os-danger">{runAudit.error.message}</p> : null}
 
       {seo.isPending ? (
-        <DedsecLoader variant="compact" />
+        <PageLoader variant="compact" />
       ) : !latest ? (
         <EmptyState
           label="No audits yet"
@@ -169,7 +169,7 @@ function FindingRow({
           <span className={cn("size-1.5 rounded-full", SEVERITY_DOT[finding.severity])} aria-hidden="true" />
           <span className="os-meta text-os-subtle">{CATEGORY_LABELS[finding.category]}</span>
         </div>
-        <p className="mt-1.5 text-[14.5px] leading-6 font-medium text-foreground">{finding.title}</p>
+        <p className="mt-1.5 text-[14px] leading-6 font-medium text-foreground">{finding.title}</p>
         <p className="mt-1 text-[13px] leading-5 text-os-muted">{finding.description}</p>
       </div>
 

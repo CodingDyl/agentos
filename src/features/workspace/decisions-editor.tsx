@@ -2,7 +2,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
   CommandButton,
-  DedsecLoader,
+  PageLoader,
   EmptyState,
   HairlineCard,
   SectionLabel,
@@ -43,7 +43,7 @@ export function DecisionsEditor({ project }: { project: string }) {
   const revision = data?.revision;
 
   if (isPending) {
-    return <DedsecLoader variant="compact" />;
+    return <PageLoader variant="compact" />;
   }
 
   return (
@@ -168,7 +168,7 @@ function NewDecision({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Worker routing"
-            className="os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+            className="os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
           />
         </label>
 
@@ -179,7 +179,7 @@ function NewDecision({
             value={body}
             onChange={(event) => setBody(event.target.value)}
             placeholder="Use Grok as the implementation worker. Hermes remains the orchestrator."
-            className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+            className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
           />
         </label>
 

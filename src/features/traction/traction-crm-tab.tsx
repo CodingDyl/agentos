@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { daysBetween, isoDate } from "@shared/traction-dates";
 import type { CrmView, TractionData } from "@shared/traction-types";
 import { formatRand, inboundOrigin, type VirtecSource } from "@shared/virtec-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { FieldLabel, Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, SegmentedControl, Tag } from "@/components/paper";
 import { useImportCrm, useLeadNotAFit, useProfileLeads, useRefreshCrm, useScanCandidates, useScanInfo, useSetCrmFollowUp, useSetInboundLead } from "@/lib/agentos/traction";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,7 @@ export function TractionCrmTab({ data }: { data: TractionData }) {
   if (!crm.configured) return <SetupNote problem={crm.problem} />;
 
   if (crm.pending) {
-    return <DedsecLoader variant="compact" />;
+    return <PageLoader variant="compact" />;
   }
 
   return (
@@ -58,12 +58,12 @@ export function TractionCrmTab({ data }: { data: TractionData }) {
 export function SetupNote({ problem }: { problem?: string }) {
   return (
     <PaperCard className="max-w-2xl bg-paper-cream p-5">
-      <h2 className="font-paper-display text-[17px] font-bold text-paper-moss">Connect Virtec</h2>
+      <h2 className="text-[16px] font-semibold text-paper-moss">Connect Virtec</h2>
       <p className="mt-2 text-[14px] leading-6 text-paper-char">
-        {problem ?? "Virtec is not configured."} Add these to AgentOS's <code className="rounded-[2px] bg-paper-stone px-1">.env</code> and restart the
+        {problem ?? "Virtec is not configured."} Add these to AgentOS's <code className="rounded-sm bg-paper-stone px-1">.env</code> and restart the
         server:
       </p>
-      <pre className="mt-3 overflow-x-auto rounded-none bg-paper-stone px-3 py-2 text-[13px] text-paper-moss">
+      <pre className="mt-3 overflow-x-auto rounded-md bg-paper-stone px-3 py-2 text-[13px] text-paper-moss">
         {"VIRTEC_BASE_URL=https://your-virtec-deployment\nVIRTEC_API_KEY=<the value Virtec holds as AGENTOS_API_KEY>"}
       </pre>
       <p className="mt-3 text-[13px] leading-5 text-paper-sage">
@@ -130,8 +130,8 @@ function Money({ crm }: { crm: CrmView }) {
       <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
         {figures.map((figure) => (
           <div key={figure.label}>
-            <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{figure.label}</dt>
-            <dd className={cn("mt-1 font-paper-display text-[20px] font-bold tabular-nums", figure.loud ? "text-paper-flame-deep" : "text-paper-moss")}>
+            <dt className="text-[13px] font-semibold text-paper-sage">{figure.label}</dt>
+            <dd className={cn("mt-1 text-[16px] font-semibold tabular-nums", figure.loud ? "text-paper-flame-deep" : "text-paper-moss")}>
               {figure.value}
             </dd>
           </div>
@@ -162,7 +162,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
                       {followUp.amount !== undefined ? <span className="ml-2 text-paper-sage tabular-nums">{formatRand(followUp.amount)}</span> : null}
                     </p>
                     {followUp.reason ? <p className="text-[13px] leading-5 text-paper-char">{followUp.reason}</p> : null}
-                    <p className={cn("text-[12.5px]", overdue ? "font-semibold text-paper-amber-deep" : "text-paper-sage")}>
+                    <p className={cn("text-[13px]", overdue ? "font-semibold text-paper-amber-deep" : "text-paper-sage")}>
                       {due ? `${overdue ? "Was due" : "Due"} ${formatShortDate(due)}` : "No due date"}
                       {followUp.type ? ` · ${followUp.type.replace(/_/g, " ")}` : ""}
                     </p>
@@ -171,7 +171,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
                     <Link
                       to={hermesHref(crmFollowUpPrompt(followUp))}
                       className={cn(
-                        "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-[14px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                       aria-label={`Draft a follow-up to ${followUp.companyName ?? followUp.customerName ?? "this client"}`}
@@ -207,7 +207,7 @@ function FollowUps({ crm, today }: { crm: CrmView; today: string }) {
         </ul>
       )}
       <PaperPagination pager={pager} label="Follow-up pages" />
-      {crm.writable ? null : <p className="mt-2 text-[12px] text-paper-sage">Mark follow-ups as sent in Virtec; write-back is off.</p>}
+      {crm.writable ? null : <p className="mt-2 text-[13px] text-paper-sage">Mark follow-ups as sent in Virtec; write-back is off.</p>}
       {setFollowUp.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
           {setFollowUp.error.message}
@@ -224,9 +224,9 @@ function Quotes({ crm, today }: { crm: CrmView; today: string }) {
       {crm.quotes.length === 0 ? (
         <Empty>No quotes waiting on an answer.</Empty>
       ) : (
-        <table className="w-full border-collapse text-[13.5px]">
+        <table className="w-full border-collapse text-[14px]">
           <thead>
-            <tr className="border-b border-paper-mist text-[12px] tracking-[0.06em] text-paper-sage uppercase">
+            <tr className="border-b border-paper-mist text-[13px] text-paper-sage">
               <th scope="col" className="py-2 text-left font-semibold">Client</th>
               <th scope="col" className="py-2 text-right font-semibold">Amount</th>
               <th scope="col" className="py-2 text-right font-semibold">Waiting</th>
@@ -239,7 +239,7 @@ function Quotes({ crm, today }: { crm: CrmView; today: string }) {
                 <tr key={quote.id} className="border-b border-paper-stone">
                   <th scope="row" className="py-2 text-left font-normal text-paper-moss">
                     {quote.clientName ?? "Unknown client"}
-                    {quote.projectType ? <span className="block text-[12px] text-paper-sage">{quote.projectType}</span> : null}
+                    {quote.projectType ? <span className="block text-[13px] text-paper-sage">{quote.projectType}</span> : null}
                   </th>
                   <td className="py-2 text-right tabular-nums">{formatRand(quote.totalAmount) ?? "-"}</td>
                   <td className={cn("py-2 text-right tabular-nums", age !== undefined && age >= 7 ? "font-semibold text-paper-amber-deep" : "text-paper-char")}>
@@ -270,12 +270,12 @@ function Projects({ crm }: { crm: CrmView }) {
                 <p className="min-w-0 text-[14px] font-medium text-paper-moss">{project.clientName ?? "Client"}</p>
                 {project.agreementStatus && project.agreementStatus !== "signed" ? <Tag tone="marigold">Agreement {project.agreementStatus}</Tag> : null}
               </div>
-              <p className="text-[12.5px] text-paper-sage">
+              <p className="text-[13px] text-paper-sage">
                 {[project.projectType, formatRand(project.amount), project.status].filter(Boolean).join(" · ")}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <Meter value={project.completion === undefined ? undefined : project.completion / 100} label={`${project.clientName ?? "Project"} completion`} />
-                <span className="shrink-0 text-[12.5px] text-paper-char tabular-nums">{project.completion === undefined ? "-" : `${Math.round(project.completion)}%`}</span>
+                <span className="shrink-0 text-[13px] text-paper-char tabular-nums">{project.completion === undefined ? "-" : `${Math.round(project.completion)}%`}</span>
               </div>
             </PaperCard>
           </li>
@@ -315,11 +315,11 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
                 <PaperCard className="h-full p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="text-[15px] leading-6 font-semibold text-paper-moss">
+                      <h3 className="text-[14px] leading-6 font-semibold text-paper-moss">
                         {lead.name}
                         {lead.company ? <span className="font-normal text-paper-sage"> · {lead.company}</span> : null}
                       </h3>
-                      <p className="text-[12.5px] text-paper-sage">
+                      <p className="text-[13px] text-paper-sage">
                         {inboundOrigin(lead)}
                         {lead.createdAt ? ` · ${formatShortDate(isoDate(new Date(lead.createdAt)))}` : ""}
                       </p>
@@ -343,7 +343,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
                   </p>
 
                   {Object.keys(lead.details).length > 0 ? (
-                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[12.5px]">
+                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[13px]">
                       {Object.entries(lead.details).map(([key, value]) => (
                         <div key={key} className="contents">
                           <dt className="text-paper-sage">{key}</dt>
@@ -352,13 +352,13 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
                       ))}
                     </dl>
                   ) : null}
-                  {lead.message ? <p className="mt-2 line-clamp-4 text-[13.5px] leading-5 whitespace-pre-wrap text-paper-char">{lead.message}</p> : null}
+                  {lead.message ? <p className="mt-2 line-clamp-4 text-[14px] leading-5 whitespace-pre-wrap text-paper-char">{lead.message}</p> : null}
 
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     <Link
                       to={hermesHref(inboundReplyPrompt(lead))}
                       className={cn(
-                        "inline-flex min-h-8 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 items-center gap-1.5 rounded-md px-3 text-[14px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                       aria-label={`Ask Hermes to draft a reply to ${lead.name}`}
@@ -369,7 +369,7 @@ function WebsiteLeads({ crm }: { crm: CrmView }) {
                     {lead.prospectId ? (
                       <Link
                         to={prospectHref(lead.prospectId)}
-                        className={cn("inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
+                        className={cn("inline-flex min-h-8 items-center rounded-md px-3 text-[14px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
                       >
                         Open prospect
                       </Link>
@@ -447,12 +447,12 @@ function FindCandidates({ track, writable }: { track: Track; writable: boolean }
         {open ? "Close" : "Find more candidates"}
       </PaperButton>
       {open ? (
-        <div className="mt-3 max-w-2xl rounded-none border border-paper-mist bg-paper-cream p-4">
+        <div className="mt-3 max-w-2xl rounded-md border border-paper-mist bg-paper-cream p-4">
           <p className="text-[13px] leading-5 text-paper-sage">
             Scans one area of Google Places for {site === "jurivo" ? "law firms" : "businesses"} and adds what it finds to this list. It costs money: each Places
             type searched is one request, and Virtec stops at your monthly limit.
           </p>
-          {info.isPending ? <DedsecLoader variant="compact" className="mt-3" /> : null}
+          {info.isPending ? <PageLoader variant="compact" className="mt-3" /> : null}
           {info.error ? (
             <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
               {info.error.message}
@@ -472,10 +472,10 @@ function FindCandidates({ track, writable }: { track: Track; writable: boolean }
                 </select>
               </label>
               <fieldset className="mt-3">
-                <legend className="mb-1.5 text-[12.5px] font-medium text-paper-char">Categories ({site === "jurivo" ? "Jurivo" : "Virtara"})</legend>
+                <legend className="mb-1.5 text-[13px] font-medium text-paper-char">Categories ({site === "jurivo" ? "Jurivo" : "Virtara"})</legend>
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                   {categories.map((name) => (
-                    <label key={name} className="flex cursor-pointer items-center gap-1.5 text-[13.5px] text-paper-char">
+                    <label key={name} className="flex cursor-pointer items-center gap-1.5 text-[14px] text-paper-char">
                       <input
                         type="checkbox"
                         checked={chosen.includes(name)}
@@ -486,7 +486,7 @@ function FindCandidates({ track, writable }: { track: Track; writable: boolean }
                   ))}
                 </div>
               </fieldset>
-              <p className="mt-3 text-[12.5px] text-paper-sage" role="status">
+              <p className="mt-3 text-[13px] text-paper-sage" role="status">
                 {budget?.cap === null
                   ? `${budget.used} requests used this month, no limit set.`
                   : budget
@@ -507,7 +507,7 @@ function FindCandidates({ track, writable }: { track: Track; writable: boolean }
                 >
                   {scan.isPending ? "Scanning… (up to a minute)" : "Scan"}
                 </PaperButton>
-                {reason ? <span className="text-[12.5px] text-paper-sage">{reason}</span> : null}
+                {reason ? <span className="text-[13px] text-paper-sage">{reason}</span> : null}
               </div>
             </>
           ) : null}
@@ -577,7 +577,7 @@ export function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
           {profile.isPending ? "Scoring with Jev…" : unscored === 0 ? "All scored" : `Score ${Math.min(unscored, 15)} against the ICP`}
         </PaperButton>
         {result ? (
-          <span className="text-[12.5px] text-paper-sage" role="status">
+          <span className="text-[13px] text-paper-sage" role="status">
             Scored {result.profiled}
             {result.failed > 0 ? `, ${result.failed} failed` : ""}. {result.left > 0 ? `${result.left} left; ` : ""}
             {result.remainingToday} more allowed today.
@@ -594,9 +594,9 @@ export function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
         <Empty>No leads to import.</Empty>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[40rem] border-collapse text-[13.5px]">
+          <table className="w-full min-w-[40rem] border-collapse text-[14px]">
             <thead>
-              <tr className="border-b border-paper-mist text-[12px] tracking-[0.06em] text-paper-sage uppercase">
+              <tr className="border-b border-paper-mist text-[13px] text-paper-sage">
                 <th scope="col" className="py-2 text-left font-semibold">Business</th>
                 <th scope="col" className="py-2 text-right font-semibold">Fit</th>
                 <th scope="col" className="py-2 text-right font-semibold">Score</th>
@@ -613,7 +613,7 @@ export function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
                   <tr key={lead.id} className="border-b border-paper-stone align-top">
                     <th scope="row" className="py-2.5 text-left font-normal">
                       <span className="font-medium text-paper-moss">{lead.name}</span>
-                      <span className="block text-[12px] text-paper-sage">
+                      <span className="block text-[13px] text-paper-sage">
                         {[lead.category, lead.area, lead.websiteSignal ? `website: ${lead.websiteSignal}` : undefined].filter(Boolean).join(" · ")}
                       </span>
                     </th>
@@ -628,7 +628,7 @@ export function Leads({ crm, icpName }: { crm: CrmView; icpName?: string }) {
                         <span className="text-paper-ash">-</span>
                       )}
                     </td>
-                    <td className="py-2.5 text-right font-paper-display font-bold text-paper-moss tabular-nums">{lead.score ?? "-"}</td>
+                    <td className="py-2.5 text-right font-semibold text-paper-moss tabular-nums">{lead.score ?? "-"}</td>
                     <td className="py-2.5 pl-4 text-paper-char">{lead.scoreReasons.slice(0, 2).join(" · ") || "-"}</td>
                     <td className="py-2.5 text-right">
                       <span className="inline-flex gap-1">
@@ -688,7 +688,7 @@ function Clients({ crm }: { crm: CrmView }) {
               <li key={client.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                 <span className="min-w-0">
                   <span className="block text-[14px] font-medium text-paper-moss">{client.companyName ?? client.name}</span>
-                  <span className="block text-[12.5px] text-paper-sage">
+                  <span className="block text-[13px] text-paper-sage">
                     {[client.companyName ? client.name : undefined, formatRand(client.totalSpent), client.maintenance ? "on maintenance" : undefined]
                       .filter(Boolean)
                       .join(" · ")}

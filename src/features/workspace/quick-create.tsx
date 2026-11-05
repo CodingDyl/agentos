@@ -1,8 +1,9 @@
+import { useRestoreFocus } from "@/lib/use-restore-focus";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ArtifactType, ProjectTaskSection } from "@shared/agentos-types";
-import { CommandButton, DedsecLoader, SectionLabel } from "@/components/os";
+import { CommandButton, PageLoader, SectionLabel } from "@/components/os";
 import { TYPE_LABELS } from "@/features/projects/documents-model";
 import {
   useCaptureNote,
@@ -179,7 +180,7 @@ function QuickTask({ project, onClose }: { project?: string; onClose: () => void
 
         {create.isPending && details ? (
           <div className="mt-5 flex items-center gap-3">
-            <DedsecLoader variant="compact" delayMs={0} className="h-16 w-16" />
+            <PageLoader variant="compact" delayMs={0} className="h-16 w-16" />
             <p className="text-[13px] leading-5 text-os-muted">Saving the task and its references…</p>
           </div>
         ) : null}
@@ -497,7 +498,7 @@ function QuickDocument({ project, onClose }: { project?: string; onClose: () => 
         </div>
 
         <Field label="Body">
-          <textarea rows={5} value={content} onChange={(event) => setContent(event.target.value)} placeholder="Markdown. Can be left empty and written later." className={`${INPUT} resize-y font-mono text-[13px]`} />
+          <textarea rows={5} value={content} onChange={(event) => setContent(event.target.value)} placeholder="Markdown. Can be left empty and written later." className={`${INPUT} resize-y font-mono text-[12px]`} />
         </Field>
 
         {create.error ? <p className="mt-5 text-[13px] leading-5 text-os-danger">{create.error.message}</p> : null}
@@ -536,10 +537,7 @@ function QuickDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    return () => previous?.focus?.();
-  }, []);
+  useRestoreFocus();
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh] pb-8">
@@ -569,10 +567,10 @@ function QuickDialog({
 }
 
 const INPUT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle";
 
 const SELECT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[15px] leading-6 text-foreground";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[14px] leading-6 text-foreground";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

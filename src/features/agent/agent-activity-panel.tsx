@@ -27,7 +27,7 @@ function ActivityLine({ label, state, nested = false }: ActivityLineProps) {
   const Icon = STEP_ICON[state] ?? Circle;
 
   return (
-    <li className={cn("flex min-h-8 items-center gap-3 text-[13.5px] leading-5", nested && "ps-5")}>
+    <li className={cn("flex min-h-8 items-center gap-3 text-[14px] leading-5", nested && "ps-5")}>
       {nested ? (
         <span className="font-mono text-paper-sage" aria-hidden="true">
           └
@@ -41,7 +41,7 @@ function ActivityLine({ label, state, nested = false }: ActivityLineProps) {
       <span className={cn("min-w-0 flex-1 truncate", state === "running" ? "font-medium text-paper-moss" : "text-paper-char")}>
         {label}
       </span>
-      <span className="shrink-0 text-[12.5px] text-paper-sage">{state}</span>
+      <span className="shrink-0 text-[13px] text-paper-sage">{state}</span>
     </li>
   );
 }
@@ -74,18 +74,18 @@ export function AgentActivityPanel({ state, isRunning, showUnrecognised = false,
   if (total === 0) return null;
 
   return (
-    <section aria-label="Activity" className={cn("min-w-0 rounded-none border border-paper-mist", className)}>
+    <section aria-label="Activity" className={cn("min-w-0 rounded-md border border-paper-mist", className)}>
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         className={cn(
-          "flex w-full cursor-pointer items-center justify-between gap-4 rounded-none px-4 py-2.5 transition-colors duration-150 hover:bg-paper-cream",
+          "flex w-full cursor-pointer items-center justify-between gap-4 rounded-md px-4 py-2.5 transition-colors duration-150 hover:bg-paper-cream",
           PAPER_FOCUS,
         )}
       >
-        <span className="text-[13.5px] font-semibold text-paper-moss">Activity</span>
-        <span className="flex shrink-0 items-center gap-2 text-[12.5px] text-paper-sage">
+        <span className="text-[14px] font-semibold text-paper-moss">Activity</span>
+        <span className="flex shrink-0 items-center gap-2 text-[13px] text-paper-sage">
           {total} {total === 1 ? "event" : "events"}
           <ChevronDown className={cn("size-3.5 transition-transform duration-150", isOpen && "rotate-180")} aria-hidden="true" />
         </span>
@@ -101,7 +101,7 @@ export function AgentActivityPanel({ state, isRunning, showUnrecognised = false,
           ))}
 
           {showUnrecognised && state.unrecognised.length > 0 ? (
-            <li className="pt-3 text-[12.5px] text-paper-sage">
+            <li className="pt-3 text-[13px] text-paper-sage">
               {state.unrecognised.length} unrecognised {state.unrecognised.length === 1 ? "event" : "events"}:{" "}
               {[...new Set(state.unrecognised.map((event) => event.type))].join(", ")}
             </li>

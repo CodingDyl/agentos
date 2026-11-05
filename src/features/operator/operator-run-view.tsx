@@ -2,7 +2,7 @@ import { ExternalLink, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { OperatorRun, OperatorStep, StepOutput } from "@shared/operator-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { Markdown } from "@/components/os/markdown";
 import { Meter, PAPER_FOCUS, PaperButton, Tag } from "@/components/paper";
 import {
@@ -41,12 +41,12 @@ import {
 export function OperatorRunView({ runId, onRunAgain }: { runId: string; onRunAgain: (input: string) => void }) {
   const { data: run, error, isPending } = useOperatorRun(runId);
 
-  if (isPending) return <DedsecLoader variant="page" className="mt-10" />;
+  if (isPending) return <PageLoader variant="page" className="mt-10" />;
   if (!run) {
     return (
       <div role="alert" className="mt-10 border border-paper-mist px-5 py-4">
         <p className="font-semibold text-paper-moss">This run couldn't be read.</p>
-        <p className="mt-1 text-[13.5px] text-paper-char">{error?.message}</p>
+        <p className="mt-1 text-[14px] text-paper-char">{error?.message}</p>
       </div>
     );
   }
@@ -55,7 +55,7 @@ export function OperatorRunView({ runId, onRunAgain }: { runId: string; onRunAga
     <article aria-label={`Run: ${run.intent?.workspace?.name ?? run.input.slice(0, 60)}`} className="mt-4">
       <RunHeader run={run} />
 
-      <blockquote className="mt-5 border-l-2 border-paper-mist pl-4 text-[14.5px] leading-6 text-paper-char">{run.input}</blockquote>
+      <blockquote className="mt-5 border-l-2 border-paper-mist pl-4 text-[14px] leading-6 text-paper-char">{run.input}</blockquote>
 
       {run.status === "planning" && run.plan.length === 0 ? (
         <p className="mt-8 text-[14px] text-paper-sage" aria-live="polite">
@@ -68,7 +68,7 @@ export function OperatorRunView({ runId, onRunAgain }: { runId: string; onRunAga
       <Approval run={run} />
       {run.mode === "plan" && run.status === "completed" && stepCounts(run.plan).runnable > 0 ? (
         <div className="mt-6 flex flex-wrap items-center gap-3 border border-paper-mist bg-paper-cream px-5 py-4">
-          <p className="flex-1 text-[13.5px] text-paper-char">This was a plan. Running it re-plans against Connectors as they are now, and asks before it writes.</p>
+          <p className="flex-1 text-[14px] text-paper-char">This was a plan. Running it re-plans against Connectors as they are now, and asks before it writes.</p>
           <PaperButton variant="ghost" onClick={() => onRunAgain(run.input)}>
             Run this plan
           </PaperButton>
@@ -89,11 +89,11 @@ function RunHeader({ run }: { run: OperatorRun }) {
   return (
     <div className={cn("flex flex-wrap items-center justify-between gap-3 bg-paper-white py-2", stoppable && "sticky top-0 z-20 border-b border-paper-stone")}>
       <div className="flex min-w-0 items-center gap-3">
-        <h2 className="truncate font-paper-display text-[20px] font-extrabold tracking-[-0.01em] text-paper-moss uppercase">
+        <h2 className="truncate text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">
           {run.intent?.workspace?.name ?? run.intent?.interpretedAs ?? "New run"}
         </h2>
         <Tag tone={runStatusTone(run.status)}>{runStatusLabel(run.status)}</Tag>
-        <span className="font-paper-utility text-[12px] tracking-[0.1em] text-paper-sage uppercase">{run.mode}</span>
+        <span className="text-[13px] text-paper-sage">{run.mode}</span>
       </div>
       {stoppable ? (
         <PaperButton variant="danger" disabled={stop.isPending} onClick={() => stop.mutate(run.id)} aria-describedby="stop-note">
@@ -117,7 +117,7 @@ function RunHeader({ run }: { run: OperatorRun }) {
 }
 
 function Label({ children }: { children: ReactNode }) {
-  return <p className="font-paper-utility text-[12px] font-medium tracking-[0.14em] text-paper-sage uppercase">{children}</p>;
+  return <p className="text-[13px] font-medium text-paper-sage">{children}</p>;
 }
 
 function Decisions({ run }: { run: OperatorRun }) {
@@ -134,7 +134,7 @@ function Decisions({ run }: { run: OperatorRun }) {
               <dt>
                 <Label>{row.label}</Label>
               </dt>
-              <dd className="mt-0.5 truncate text-[14.5px] font-semibold text-paper-moss" title={row.value}>
+              <dd className="mt-0.5 truncate text-[14px] font-semibold text-paper-moss" title={row.value}>
                 {row.value}
               </dd>
             </div>
@@ -195,7 +195,7 @@ function StepRow({ step, index }: { step: OperatorStep; index: number }) {
   const muted = step.status === "blocked" || step.status === "skipped" || step.status === "stopped";
   return (
     <li className="grid grid-cols-[2rem_1.25rem_minmax(0,1fr)] gap-x-2 px-4 py-3 sm:grid-cols-[2.25rem_1.5rem_minmax(0,1fr)_auto]">
-      <span className="font-mono text-[12.5px] text-paper-sage tabular-nums">{stepNumber(index)}</span>
+      <span className="font-mono text-[12px] text-paper-sage tabular-nums">{stepNumber(index)}</span>
       <span
         aria-hidden="true"
         className={cn(
@@ -210,12 +210,12 @@ function StepRow({ step, index }: { step: OperatorStep; index: number }) {
         {stepGlyph(step.status)}
       </span>
       <div className="min-w-0">
-        <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-[14.5px] font-semibold", muted ? "text-paper-sage" : "text-paper-moss")}>
+        <p className={cn("flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] font-semibold", muted ? "text-paper-sage" : "text-paper-moss")}>
           {step.title}
           <span className="sr-only">: {stepStatusLabel(step.status)}</span>
           {step.external ? <Tag tone="marigold">External</Tag> : null}
         </p>
-        <p className="mt-0.5 text-[12.5px] text-paper-sage">
+        <p className="mt-0.5 text-[13px] text-paper-sage">
           {step.actor}
           {step.detail ? ` · ${step.detail}` : ""}
         </p>
@@ -236,7 +236,7 @@ function StepRow({ step, index }: { step: OperatorStep; index: number }) {
           </p>
         ) : null}
       </div>
-      <span className="col-start-3 mt-1 text-[12px] text-paper-sage sm:col-start-4 sm:mt-0 sm:text-right" aria-hidden="true">
+      <span className="col-start-3 mt-1 text-[13px] text-paper-sage sm:col-start-4 sm:mt-0 sm:text-right" aria-hidden="true">
         {stepStatusLabel(step.status)}
       </span>
     </li>
@@ -248,8 +248,8 @@ function Plan({ run }: { run: OperatorRun }) {
   return (
     <section aria-label="Plan" className="mt-8">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">Plan</h3>
-        <p className="text-[12.5px] text-paper-sage tabular-nums" aria-live="polite">
+        <h3 className="text-[16px] font-semibold text-paper-moss">Plan</h3>
+        <p className="text-[13px] text-paper-sage tabular-nums" aria-live="polite">
           {counts.done} done · {counts.runnable} to run · {counts.blocked} can't run here
         </p>
       </div>
@@ -269,8 +269,8 @@ function Approval({ run }: { run: OperatorRun }) {
   const local = run.plan.filter((step) => step.status === "pending" && !step.external && step.risk !== "read");
 
   return (
-    <section aria-label="Approval" className="mt-6 border-[1.5px] border-paper-blue p-5">
-      <h3 className="font-paper-display text-[16px] font-bold text-paper-moss">Nothing has run yet</h3>
+    <section aria-label="Approval" className="mt-6 border border-paper-ash p-5">
+      <h3 className="text-[16px] font-semibold text-paper-moss">Nothing has run yet</h3>
       {external.length > 0 ? (
         <div className="mt-3">
           <Label>External changes</Label>
@@ -281,7 +281,7 @@ function Approval({ run }: { run: OperatorRun }) {
           </ul>
         </div>
       ) : (
-        <p className="mt-2 text-[13.5px] text-paper-char">No external changes: everything that runs stays on this machine.</p>
+        <p className="mt-2 text-[14px] text-paper-char">No external changes: everything that runs stays on this machine.</p>
       )}
       {local.length > 0 ? (
         <div className="mt-3">
@@ -296,7 +296,7 @@ function Approval({ run }: { run: OperatorRun }) {
       {run.risks.length > 0 ? (
         <div className="mt-3">
           <Label>Risks</Label>
-          <ul className="mt-1 list-disc pl-5 text-[13.5px] leading-6 text-paper-char">
+          <ul className="mt-1 list-disc pl-5 text-[14px] leading-6 text-paper-char">
             {run.risks.map((risk) => (
               <li key={risk}>{risk}</li>
             ))}
@@ -304,7 +304,7 @@ function Approval({ run }: { run: OperatorRun }) {
         </div>
       ) : null}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[12.5px] text-paper-sage">
+        <p className="text-[13px] text-paper-sage">
           {run.usage.estimate} · agents: {run.agents.join(", ") || "none"} · connectors: {run.connectors.join(", ") || "none"}
         </p>
         <PaperButton variant="amber" className="min-h-10 px-5" disabled={approve.isPending} onClick={() => approve.mutate(run.id)}>
@@ -326,7 +326,7 @@ function Report({ run }: { run: OperatorRun }) {
 
   return (
     <section aria-label="Result" className="mt-8">
-      <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">Result</h3>
+      <h3 className="text-[16px] font-semibold text-paper-moss">Result</h3>
       {report.summary ? <p className="mt-1 text-[14px] text-paper-char">{report.summary}</p> : null}
       {report.answer ? (
         <div className="mt-4 border border-paper-mist p-5">
@@ -344,7 +344,7 @@ function Report({ run }: { run: OperatorRun }) {
         </div>
       ) : null}
       {report.nextAction ? (
-        <div className="mt-4 border-l-2 border-paper-blue pl-4">
+        <div className="mt-4 border-l-2 border-paper-ash pl-4">
           <Label>Next action</Label>
           <p className="mt-0.5 text-[14px] text-paper-moss">{report.nextAction}</p>
         </div>
@@ -368,7 +368,7 @@ function TaskProposals({ run }: { run: OperatorRun }) {
 
   return (
     <section aria-label="Proposed tasks" className="mt-8">
-      <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">Proposed tasks</h3>
+      <h3 className="text-[16px] font-semibold text-paper-moss">Proposed tasks</h3>
       <ul className="mt-3 divide-y divide-paper-stone border border-paper-mist">
         {run.taskProposals.map((proposal) => (
           <li key={proposal.id} className="flex items-start gap-3 px-4 py-3">
@@ -392,7 +392,7 @@ function TaskProposals({ run }: { run: OperatorRun }) {
             )}
             <label htmlFor={proposal.taskId || !creatable ? undefined : `proposal-${proposal.id}`} className="min-w-0 flex-1">
               <span className="block text-[14px] font-semibold text-paper-moss">{proposal.title}</span>
-              <span className="block text-[12.5px] text-paper-sage">
+              <span className="block text-[13px] text-paper-sage">
                 {proposal.section} · {proposal.workspaceSlug}
                 {proposal.taskId ? ` · added as ${proposal.taskId}` : ""}
                 {proposal.why ? ` · ${proposal.why}` : ""}
@@ -426,13 +426,13 @@ function MemoryProposals({ run }: { run: OperatorRun }) {
 
   return (
     <section aria-label="Proposed memory" className="mt-8">
-      <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">Proposed memory</h3>
+      <h3 className="text-[16px] font-semibold text-paper-moss">Proposed memory</h3>
       <p className="mt-1 text-[13px] text-paper-sage">Interpretations, not facts: they become decisions in the workspace only if you accept them.</p>
       <ul className="mt-3 space-y-3">
         {run.memoryProposals.map((proposal) => (
           <li key={proposal.id} className="border border-paper-mist p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[14.5px] font-semibold text-paper-moss">{proposal.title}</p>
+              <p className="text-[14px] font-semibold text-paper-moss">{proposal.title}</p>
               {proposal.status === "proposed" ? (
                 <span className="flex gap-2">
                   <PaperButton variant="quiet" disabled={decide.isPending} onClick={() => decide.mutate({ id: run.id, proposalId: proposal.id, decision: "dismiss" })}>
@@ -446,7 +446,7 @@ function MemoryProposals({ run }: { run: OperatorRun }) {
                 <Tag tone={proposal.status === "accepted" ? "blue" : "muted"}>{proposal.status}</Tag>
               )}
             </div>
-            <p className="mt-1 text-[13.5px] leading-6 whitespace-pre-line text-paper-char">{proposal.body}</p>
+            <p className="mt-1 text-[14px] leading-6 whitespace-pre-line text-paper-char">{proposal.body}</p>
           </li>
         ))}
       </ul>
@@ -476,17 +476,17 @@ function Audit({ run }: { run: OperatorRun }) {
 
   return (
     <section aria-label="Audit" className="mt-10 border-t border-paper-stone pt-6">
-      <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">What changed</h3>
+      <h3 className="text-[16px] font-semibold text-paper-moss">What changed</h3>
       {run.changes.length === 0 ? (
-        <p className="mt-2 text-[13.5px] text-paper-sage">Nothing. No file, task or service was changed by this run.</p>
+        <p className="mt-2 text-[14px] text-paper-sage">Nothing. No file, task or service was changed by this run.</p>
       ) : (
         <ul className="mt-2 divide-y divide-paper-stone border border-paper-mist">
           {run.changes.map((change) => (
             <li key={`${change.at}:${change.description}`} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5">
-              <span className="text-[13.5px] text-paper-moss">
+              <span className="text-[14px] text-paper-moss">
                 {change.href ? <OutputLink output={{ label: change.description, href: change.href }} /> : change.description}
               </span>
-              <span className="text-[12px] text-paper-sage tabular-nums">
+              <span className="text-[13px] text-paper-sage tabular-nums">
                 {change.kind === "external" ? "External · " : ""}
                 {formatTime(change.at)}
               </span>
@@ -512,7 +512,7 @@ function Audit({ run }: { run: OperatorRun }) {
             <dt>
               <Label>{fact.label}</Label>
             </dt>
-            <dd className="mt-0.5 truncate text-[13.5px] text-paper-moss" title={fact.value}>
+            <dd className="mt-0.5 truncate text-[14px] text-paper-moss" title={fact.value}>
               {fact.value}
             </dd>
           </div>

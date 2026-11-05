@@ -20,8 +20,8 @@ export function GatedCommand({ request, className }: { request: ApprovalRequest;
   }
 
   return (
-    <pre className={cn("overflow-x-auto rounded-none border border-paper-mist bg-paper-linen p-4", className)}>
-      <code className="font-mono text-[13px] leading-5 text-paper-moss">{request.command}</code>
+    <pre className={cn("overflow-x-auto rounded-md border border-paper-mist bg-paper-linen p-4", className)}>
+      <code className="font-mono text-[12px] leading-5 text-paper-moss">{request.command}</code>
     </pre>
   );
 }
@@ -32,7 +32,7 @@ export function ApprovalOutcome({ request, className }: { request: ApprovalReque
   const Icon = denied ? X : Check;
 
   return (
-    <p className={cn("flex items-center gap-2 text-[13.5px] font-semibold", denied ? "text-paper-flame-deep" : "text-paper-char", className)}>
+    <p className={cn("flex items-center gap-2 text-[14px] font-semibold", denied ? "text-paper-flame-deep" : "text-paper-char", className)}>
       <Icon className="size-3.5" aria-hidden="true" />
       {denied ? "Denied. Nothing was changed" : "Approved"}
     </p>
@@ -62,13 +62,13 @@ export function ApprovalCard({ request, onRespond, isResponding = false, error, 
       role="alertdialog"
       aria-label="System approval required"
     >
-      <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">System approval</h2>
+      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">System approval</h2>
 
       <p className="mt-3 text-[14px] leading-6 text-paper-char">Hermes wants to execute:</p>
 
       <GatedCommand request={request} className="mt-2" />
 
-      {request.description ? <p className="mt-3 text-[13.5px] leading-5 text-paper-sage">{request.description}</p> : null}
+      {request.description ? <p className="mt-3 text-[14px] leading-5 text-paper-sage">{request.description}</p> : null}
 
       {isPending ? (
         <>
@@ -88,7 +88,7 @@ export function ApprovalCard({ request, onRespond, isResponding = false, error, 
               aria-label="More approval options"
               onClick={() => setShowMore((open) => !open)}
               className={cn(
-                "inline-flex size-9 cursor-pointer items-center justify-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                "inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                 PAPER_FOCUS,
               )}
             >
@@ -111,7 +111,7 @@ export function ApprovalCard({ request, onRespond, isResponding = false, error, 
         <ApprovalOutcome request={request} className="mt-5" />
       )}
 
-      {error ? <p className="mt-4 text-[13.5px] leading-5 text-paper-flame-deep">{error} The request is still waiting.</p> : null}
+      {error ? <p className="mt-4 text-[14px] leading-5 text-paper-flame-deep">{error} The request is still waiting.</p> : null}
     </PaperCard>
   );
 }

@@ -63,8 +63,8 @@ export function IdeaProgress({ idea, showOpen = true, className }: { idea: Video
       <div className="flex items-start gap-3" aria-live="polite">
         <IdeaGlyph idea={idea} className="mt-0.5 size-5" />
         <div className="min-w-0 flex-1">
-          <p className="text-[14.5px] leading-6 font-medium text-paper-moss">{ideaHeadline(idea)}</p>
-          <p className="text-[12.5px] leading-5 text-paper-sage">
+          <p className="text-[14px] leading-6 font-medium text-paper-moss">{ideaHeadline(idea)}</p>
+          <p className="text-[13px] leading-5 text-paper-sage">
             {working ? (
               <>
                 <span className="font-mono tabular-nums text-paper-char">{elapsed(since, now)}</span>
@@ -88,7 +88,7 @@ export function IdeaProgress({ idea, showOpen = true, className }: { idea: Video
                 <span className={cn("ml-1.5 hidden h-0.5 flex-1 sm:block", step.state === "done" ? "bg-paper-green" : "bg-paper-mist")} aria-hidden="true" />
               ) : null}
             </div>
-            <span className={cn("pr-2 text-[12.5px] leading-4", step.state === "waiting" ? "text-paper-sage" : "font-medium text-paper-moss")}>
+            <span className={cn("pr-2 text-[13px] leading-4", step.state === "waiting" ? "text-paper-sage" : "font-medium text-paper-moss")}>
               {step.label}
               <span className="sr-only">: {STATE_WORDS[step.state]}</span>
             </span>
@@ -98,12 +98,12 @@ export function IdeaProgress({ idea, showOpen = true, className }: { idea: Video
 
       <div className="mt-4 flex flex-wrap items-center gap-2 empty:hidden">
         {idea.notePath && (done || idea.mode === "assess") ? (
-          <Link to={noteHref(idea.notePath)} className={cn("inline-flex min-h-[var(--control-height)] items-center px-3.5 text-[14px] font-medium", done ? "bg-primary text-primary-foreground hover:bg-[var(--color-accent-hover)]" : "border border-paper-ash bg-paper-linen text-paper-moss hover:bg-paper-stone", PAPER_FOCUS)}>
+          <Link to={noteHref(idea.notePath)} className={cn("inline-flex min-h-[var(--control-height)] items-center px-3.5 text-[14px] font-medium", done ? "bg-primary text-primary-foreground hover:bg-[var(--accent-hover)]" : "border border-paper-ash bg-paper-linen text-paper-moss hover:bg-paper-stone", PAPER_FOCUS)}>
             Open the note
           </Link>
         ) : null}
         {showOpen && (idea.stage === "awaiting_decision" || idea.stage === "needs_transcript" || working || idea.mode === "assess") ? (
-          <Link to={ideaHref(idea)} className={cn("inline-flex min-h-[var(--control-height)] items-center px-3.5 text-[14px] font-medium", idea.stage === "awaiting_decision" ? "bg-primary text-primary-foreground hover:bg-[var(--color-accent-hover)]" : "text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}>
+          <Link to={ideaHref(idea)} className={cn("inline-flex min-h-[var(--control-height)] items-center px-3.5 text-[14px] font-medium", idea.stage === "awaiting_decision" ? "bg-primary text-primary-foreground hover:bg-[var(--accent-hover)]" : "text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}>
             {idea.stage === "awaiting_decision" ? "Read and decide" : idea.stage === "needs_transcript" ? "Paste a transcript" : "Details"}
           </Link>
         ) : null}
@@ -113,7 +113,7 @@ export function IdeaProgress({ idea, showOpen = true, className }: { idea: Video
           </PaperButton>
         ) : null}
       </div>
-      {retry.error ? <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">{retry.error.message}</p> : null}
+      {retry.error ? <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">{retry.error.message}</p> : null}
 
       {/* The one moving thing: a thin bar along the bottom while an AI is at work. */}
       {working ? (
@@ -130,7 +130,7 @@ export function IdeaProgressLine({ idea, className }: { idea: VideoIdea; classNa
   const working = isIdeaWorking(idea);
   const now = useNow(working);
   return (
-    <span className={cn("flex min-w-0 items-center gap-1.5 text-[12.5px] leading-5", className)}>
+    <span className={cn("flex min-w-0 items-center gap-1.5 text-[13px] leading-5", className)}>
       <IdeaGlyph idea={idea} className="size-3.5" />
       <span className={cn("min-w-0 truncate", idea.stage === "failed" ? "text-paper-flame-deep" : "text-paper-char")}>{ideaHeadline(idea)}</span>
       {working ? <span className="shrink-0 font-mono tabular-nums text-paper-sage">{elapsed(idea.stageStartedAt ?? idea.updatedAt, now)}</span> : null}

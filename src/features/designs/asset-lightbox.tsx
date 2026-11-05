@@ -14,9 +14,9 @@ import { formatAdded, typeLabel } from "./designs-model";
 
 /** Toggle chip for choices inside a panel — not a list filter. */
 const CHIP =
-  "inline-flex min-h-8 cursor-pointer items-center rounded-none border px-3 text-[13px] font-medium transition-colors duration-150 " +
+  "inline-flex min-h-8 cursor-pointer items-center rounded-md border px-3 text-[13px] font-medium transition-colors duration-150 " +
   PAPER_FOCUS;
-const CHIP_ON = "border-paper-moss bg-paper-moss text-paper-white";
+const CHIP_ON = "border-paper-ash bg-paper-moss text-paper-white";
 const CHIP_OFF = "border-paper-mist text-paper-char hover:bg-paper-linen hover:text-paper-moss";
 
 const TYPES: readonly DesignAssetType[] = [
@@ -106,14 +106,14 @@ export function AssetLightbox({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-paper-moss/60"
+        className="absolute inset-0 cursor-default bg-[var(--scrim)]"
       />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={asset.filename}
-        className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-none border border-paper-moss bg-paper-white font-paper-ui text-paper-moss lg:flex-row"
+        className="relative flex max-h-full w-[min(96vw,80rem)] flex-col overflow-hidden rounded-md border border-paper-ash bg-paper-white text-paper-moss lg:flex-row"
       >
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 bg-paper-linen p-4 md:p-8">
           {asset.mediaType === "video" ? (
@@ -141,10 +141,10 @@ export function AssetLightbox({
         <div className="flex w-full shrink-0 flex-col gap-8 overflow-y-auto border-t border-paper-mist p-5 md:p-6 lg:w-96 lg:border-t-0 lg:border-l">
           <header className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="truncate font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
+              <h2 className="truncate text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">
                 {asset.filename}
               </h2>
-              <p className="mt-1 text-[12.5px] text-paper-sage">
+              <p className="mt-1 text-[13px] text-paper-sage">
                 Added {formatAdded(asset.createdAt)}
                 {asset.width && asset.height
                   ? ` · ${asset.width}×${asset.height}`
@@ -222,7 +222,7 @@ export function AssetLightbox({
 
           <Field label="Boards">
             {boards.length === 0 ? (
-              <p className="text-[13.5px] leading-5 text-paper-sage">
+              <p className="text-[14px] leading-5 text-paper-sage">
                 No boards yet. Create one from the Boards screen.
               </p>
             ) : (
@@ -259,7 +259,7 @@ export function AssetLightbox({
                   : ""}
               </p>
               {asset.prompt ? (
-                <p className="mt-2 max-w-[48ch] text-[13.5px] leading-5 text-paper-char">{asset.prompt}</p>
+                <p className="mt-2 max-w-[48ch] text-[14px] leading-5 text-paper-char">{asset.prompt}</p>
               ) : null}
             </Field>
           ) : null}
@@ -296,7 +296,7 @@ export function AssetLightbox({
               <PenLine className="size-3.5" aria-hidden="true" />
               Review with Hermes
             </PaperButton>
-            <p className="text-[12.5px] text-paper-sage">Coming in a later step</p>
+            <p className="text-[13px] text-paper-sage">Coming in a later step</p>
 
             {confirmingDelete ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -384,7 +384,7 @@ function IconButton({
       title={label}
       onClick={onClick}
       className={cn(
-        "inline-flex size-9 cursor-pointer items-center justify-center rounded-none transition-colors duration-150 hover:bg-paper-stone",
+        "inline-flex size-9 cursor-pointer items-center justify-center rounded-md transition-colors duration-150 hover:bg-paper-stone",
         PAPER_FOCUS,
         active ? "text-paper-amber-deep" : "text-paper-sage hover:text-paper-moss",
       )}

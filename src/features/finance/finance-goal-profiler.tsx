@@ -117,11 +117,11 @@ export function GoalProfiler({
   const horizon = years >= 2 ? `${years.toFixed(years % 1 === 0 ? 0 : 1)} years` : `${months} ${months === 1 ? "month" : "months"}`;
 
   return (
-    <div className="rounded-none border border-paper-mist bg-paper-cream p-5">
+    <div className="rounded-md border border-paper-mist bg-paper-cream p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-paper-display text-[18px] font-bold tracking-[-0.01em] text-paper-moss">Goal profiler</h3>
-          <p className="mt-1 max-w-[62ch] text-[13.5px] leading-6 text-paper-char">
+          <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Goal profiler</h3>
+          <p className="mt-1 max-w-[62ch] text-[14px] leading-6 text-paper-char">
             Work out how much to put aside each month, and how the money could be held to get there. Returns are assumptions you can change, not forecasts.
           </p>
         </div>
@@ -155,10 +155,10 @@ export function GoalProfiler({
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <fieldset>
-          <legend className="mb-1.5 text-[12.5px] font-medium text-paper-char">If the money fell 20% a year before you needed it, you would</legend>
+          <legend className="mb-1.5 text-[13px] font-medium text-paper-char">If the money fell 20% a year before you needed it, you would</legend>
           <div className="flex flex-wrap gap-2">
             {REACTIONS.map((option) => (
-              <label key={option.value} className={cn("cursor-pointer rounded-none border px-3 py-1.5 text-[13.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper-blue", reaction === option.value ? "border-paper-moss bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
+              <label key={option.value} className={cn("cursor-pointer rounded-md border px-3 py-1.5 text-[14px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)]", reaction === option.value ? "border-paper-ash bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
                 <input type="radio" name="reaction" value={option.value} checked={reaction === option.value} onChange={() => setReaction(option.value)} className="sr-only" />
                 {option.label}
               </label>
@@ -166,10 +166,10 @@ export function GoalProfiler({
           </div>
         </fieldset>
         <fieldset>
-          <legend className="mb-1.5 text-[12.5px] font-medium text-paper-char">The date</legend>
+          <legend className="mb-1.5 text-[13px] font-medium text-paper-char">The date</legend>
           <div className="flex flex-wrap gap-2">
             {(["firm", "flexible"] as const).map((option) => (
-              <label key={option} className={cn("cursor-pointer rounded-none border px-3 py-1.5 text-[13.5px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper-blue", firm === option ? "border-paper-moss bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
+              <label key={option} className={cn("cursor-pointer rounded-md border px-3 py-1.5 text-[14px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)]", firm === option ? "border-paper-ash bg-paper-white font-semibold text-paper-moss" : "border-paper-mist text-paper-char hover:bg-paper-white")}>
                 <input type="radio" name="firmness" value={option} checked={firm === option} onChange={() => setFirm(option)} className="sr-only" />
                 {option === "firm" ? "Cannot move" : "Can wait a year or two"}
               </label>
@@ -178,24 +178,24 @@ export function GoalProfiler({
         </fieldset>
       </div>
 
-      <label className="mt-4 flex cursor-pointer items-center gap-2 text-[13.5px] text-paper-char">
+      <label className="mt-4 flex cursor-pointer items-center gap-2 text-[14px] text-paper-char">
         <input type="checkbox" checked={inflation} onChange={(event) => setInflation(event.target.checked)} className="size-4" />
         Treat the target as today's money and adjust it for {pct(ASSUMED_INFLATION)} a year inflation
         {valid && inflation ? <span className="text-paper-sage"> (target becomes {money(effectiveTarget)})</span> : null}
       </label>
 
       {!valid ? (
-        <p className="mt-6 text-[13.5px] leading-6 text-paper-char">Enter a target and a date in the future to see what each way of holding the money would ask of you.</p>
+        <p className="mt-6 text-[14px] leading-6 text-paper-char">Enter a target and a date in the future to see what each way of holding the money would ask of you.</p>
       ) : (
         <>
           {recommendation ? (
-            <div className="mt-6 rounded-none bg-paper-white p-4">
-              <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Suggested for {horizon}</p>
-              <p className="mt-1 font-paper-display text-[20px] font-bold text-paper-moss">{RISK_PROFILE_INFO[recommendation.profile].label}</p>
-              <p className="text-[13.5px] text-paper-char">{RISK_PROFILE_INFO[recommendation.profile].holds}</p>
+            <div className="mt-6 rounded-md bg-paper-white p-4">
+              <p className="text-[13px] font-semibold text-paper-sage">Suggested for {horizon}</p>
+              <p className="mt-1 text-[16px] font-semibold text-paper-moss">{RISK_PROFILE_INFO[recommendation.profile].label}</p>
+              <p className="text-[14px] text-paper-char">{RISK_PROFILE_INFO[recommendation.profile].holds}</p>
               <ul className="mt-2 space-y-1">
                 {recommendation.reasons.map((reason) => (
-                  <li key={reason} className="text-[13.5px] leading-6 text-paper-char">
+                  <li key={reason} className="text-[14px] leading-6 text-paper-char">
                     {reason}
                   </li>
                 ))}
@@ -203,9 +203,9 @@ export function GoalProfiler({
             </div>
           ) : null}
 
-          <div className="mt-6 overflow-x-auto rounded-none border border-paper-mist bg-paper-white">
+          <div className="mt-6 overflow-x-auto rounded-md border border-paper-mist bg-paper-white">
             <table className="w-full min-w-[40rem] text-left text-[14px]">
-              <thead className="bg-paper-linen text-[12.5px] text-paper-char">
+              <thead className="bg-paper-linen text-[13px] text-paper-char">
                 <tr>
                   <th scope="col" className="px-4 py-2.5 font-medium">Held as</th>
                   <th scope="col" className="px-4 py-2.5 text-right font-medium">Assumed return</th>
@@ -221,14 +221,14 @@ export function GoalProfiler({
                   return (
                     <tr key={row.profile} className={cn(selected && "bg-paper-cream")}>
                       <th scope="row" className="px-4 py-3 align-top">
-                        <label className="flex cursor-pointer items-start gap-2.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper-blue">
+                        <label className="flex cursor-pointer items-start gap-2.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)]">
                           <input type="radio" name="profile" checked={selected} onChange={() => { setPicked(row.profile); setReturnDraft(""); }} className="mt-1 size-4" />
                           <span>
                             <span className="flex flex-wrap items-center gap-2 font-semibold text-paper-moss">
                               {info.label}
                               {recommendation?.profile === row.profile ? <Tag tone="green">Suggested</Tag> : null}
                             </span>
-                            <span className="block text-[12.5px] font-normal text-paper-sage">{info.swings}</span>
+                            <span className="block text-[13px] font-normal text-paper-sage">{info.swings}</span>
                           </span>
                         </label>
                       </th>
@@ -237,7 +237,7 @@ export function GoalProfiler({
                       <td className="px-4 py-3 text-right align-top text-paper-char">{money(row.monthlyIfLower)}</td>
                       <td className="px-4 py-3 text-right align-top text-paper-char">
                         {money(row.totalPaidIn)}
-                        <span className="block text-[12.5px] text-paper-sage">{Math.round(row.growthShare * 100)}% from growth</span>
+                        <span className="block text-[13px] text-paper-sage">{Math.round(row.growthShare * 100)}% from growth</span>
                       </td>
                     </tr>
                   );
@@ -262,7 +262,7 @@ export function GoalProfiler({
             </div>
           ) : null}
 
-          <ul className="mt-5 max-w-[80ch] space-y-1.5 text-[12.5px] leading-5 text-paper-sage">
+          <ul className="mt-5 max-w-[80ch] space-y-1.5 text-[13px] leading-5 text-paper-sage">
             <li>The returns are illustrative assumptions, not forecasts, and real returns can be lower, or negative in a bad year. "If returns disappoint" shows the monthly amount if the return comes in {`${Math.round(RISK_PROFILE_INFO[chosen ?? "balanced"].downside * 100)}`} points lower.</li>
             <li>This describes how money could be held. It does not name a fund, a share or a product, and it is not financial advice. Which one suits you depends on your other savings, tax and needs.</li>
             <li>Nothing here can buy or move money. Contributions are amounts to put aside, and you make the transfer yourself.</li>

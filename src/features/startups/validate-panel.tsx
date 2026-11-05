@@ -51,9 +51,9 @@ export function ValidatePanel({ detail }: { detail: VentureDetail }) {
 function Heading({ step, title, children }: { step: number; title: string; children?: ReactNode }) {
   return (
     <div className="mb-4">
-      <p className="text-[12.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase tabular-nums">Step {step}</p>
-      <h3 className="font-paper-display text-[18px] font-bold text-paper-moss">{title}</h3>
-      {children ? <p className="mt-1 max-w-[66ch] text-[13.5px] leading-6 text-paper-char">{children}</p> : null}
+      <p className="text-[13px] font-semibold text-paper-sage tabular-nums">Step {step}</p>
+      <h3 className="text-[16px] font-semibold text-paper-moss">{title}</h3>
+      {children ? <p className="mt-1 max-w-[66ch] text-[14px] leading-6 text-paper-char">{children}</p> : null}
     </div>
   );
 }
@@ -261,7 +261,7 @@ function ReviewCard({ persona, review, running, disabled, onRun }: { persona: Pe
           </div>
         </div>
         {review ? (
-          <span className="font-paper-display text-[22px] font-extrabold text-paper-moss tabular-nums" aria-label={`Fit ${review.fitScore} out of 10`}>
+          <span className="text-[16px] font-semibold text-paper-moss tabular-nums" aria-label={`Fit ${review.fitScore} out of 10`}>
             {review.fitScore}
             <span className="text-[13px] font-medium text-paper-sage">/10</span>
           </span>
@@ -269,7 +269,7 @@ function ReviewCard({ persona, review, running, disabled, onRun }: { persona: Pe
       </div>
 
       {review ? (
-        <div className="mt-3 space-y-2 text-[13.5px] leading-6 text-paper-char">
+        <div className="mt-3 space-y-2 text-[14px] leading-6 text-paper-char">
           <div className="flex flex-wrap gap-2">
             <Tag tone="blue">Simulated</Tag>
             <Tag tone={review.wouldPay === "yes" ? "green" : review.wouldPay === "no" ? "flame" : "marigold"}>Would pay: {review.wouldPay}{review.price ? ` · ${review.price}` : ""}</Tag>
@@ -279,7 +279,7 @@ function ReviewCard({ persona, review, running, disabled, onRun }: { persona: Pe
           <ReviewList label="Missing" tone="text-paper-moss" items={review.missing} />
         </div>
       ) : (
-        <p className="mt-3 text-[13.5px] text-paper-sage">Not reviewed yet.</p>
+        <p className="mt-3 text-[14px] text-paper-sage">Not reviewed yet.</p>
       )}
 
       <PaperButton className="mt-4" variant={review ? "quiet" : "ghost"} disabled={disabled} onClick={onRun}>
@@ -325,7 +325,7 @@ function Conversations({ detail, validation }: { detail: VentureDetail; validati
         {validation.conversations.length > 0 ? (
           <ul className="mb-4 grid gap-2">
             {validation.conversations.map((conversation, index) => (
-              <li key={`${conversation.who}-${index}`} className="bg-paper-linen px-4 py-3 text-[13.5px] leading-6 text-paper-char">
+              <li key={`${conversation.who}-${index}`} className="bg-paper-linen px-4 py-3 text-[14px] leading-6 text-paper-char">
                 <span className="font-medium text-paper-moss">{conversation.who || "Someone"}</span>
                 {conversation.role ? `, ${conversation.role}` : ""} · pain {conversation.pain}/5 · would pay: {conversation.wouldPay}
                 {conversation.quotes[0] ? <span className="block italic">“{conversation.quotes[0]}”</span> : null}
@@ -411,9 +411,9 @@ function Score({ detail }: { detail: VentureDetail }) {
         {current ? (
           <div>
             <div className="flex flex-wrap items-end gap-4">
-              <p className="font-paper-display text-[44px] leading-none font-extrabold text-paper-moss tabular-nums">
+              <p className="text-[24px] leading-none font-semibold text-paper-moss tabular-nums">
                 {current.total}
-                <span className="text-[18px] font-bold text-paper-sage">/10</span>
+                <span className="text-[16px] font-semibold text-paper-sage">/10</span>
               </p>
               <Tag tone={current.passed ? "green" : "flame"}>{current.passed ? "Passed" : `Below ${VALIDITY_THRESHOLD}`}</Tag>
               <span className="text-[13px] text-paper-sage">
@@ -424,13 +424,13 @@ function Score({ detail }: { detail: VentureDetail }) {
             <ul className="mt-5 grid gap-3">
               {current.dimensions.map((dimension) => (
                 <li key={dimension.key} className="grid gap-1 sm:grid-cols-[14rem_1fr_3rem] sm:items-center sm:gap-4">
-                  <span className="text-[13.5px] text-paper-char">
+                  <span className="text-[14px] text-paper-char">
                     {dimension.label} <span className="text-paper-sage tabular-nums">({Math.round(dimension.weight * 100)}%)</span>
                   </span>
                   <div title={dimension.evidence.join("\n")}>
                     <Meter value={dimension.score / 10} label={`${dimension.label}: ${dimension.score} out of 10`} tone={dimension.score >= 8 ? "green" : dimension.score >= 5 ? "amber" : "flame"} size="md" />
                   </div>
-                  <span className="text-right text-[13.5px] font-medium text-paper-moss tabular-nums">{dimension.score}</span>
+                  <span className="text-right text-[14px] font-medium text-paper-moss tabular-nums">{dimension.score}</span>
                 </li>
               ))}
             </ul>
@@ -451,7 +451,7 @@ function Score({ detail }: { detail: VentureDetail }) {
             {canPivot ? (
               <>
                 <FieldLabel>Pivot once, aimed at the weakest scores</FieldLabel>
-                <p className="max-w-[66ch] text-[13.5px] leading-6 text-paper-char">
+                <p className="max-w-[66ch] text-[14px] leading-6 text-paper-char">
                   Hermes revises the idea to fix what scored lowest. Then review value, run the personas again and re-score. If the pivot also scores below {VALIDITY_THRESHOLD}, the venture stops.
                 </p>
                 <textarea rows={2} value={direction} onChange={(event) => setDirection(event.target.value)} placeholder="Optional: your direction for the pivot" className={cn(PAPER_INPUT, "mt-3 w-full py-2 leading-6")} />

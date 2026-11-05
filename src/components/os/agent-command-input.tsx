@@ -89,7 +89,7 @@ export function AgentCommandInput({
         </div>
       ) : null}
       <div className="flex items-start gap-3 px-4 py-3">
-        <span className="mt-1.5 font-mono text-sm text-os-amber" aria-hidden="true">
+        <span className="mt-1.5 font-mono text-[14px] text-os-amber" aria-hidden="true">
           &gt;
         </span>
         <label htmlFor={inputId} className="sr-only">
@@ -105,7 +105,7 @@ export function AgentCommandInput({
           aria-describedby={helpId}
           onChange={(event) => updateValue(event.currentTarget.value)}
           onKeyDown={handleKeyboardShortcut}
-          className="min-h-14 flex-1 resize-none bg-transparent py-1 text-base leading-6 text-foreground outline-none placeholder:text-os-subtle disabled:cursor-not-allowed"
+          className="min-h-14 flex-1 resize-none bg-transparent py-1 text-[16px] leading-6 text-foreground outline-none placeholder:text-os-subtle disabled:cursor-not-allowed"
         />
         <CommandButton
           type="submit"
@@ -140,10 +140,10 @@ export function AgentCommandInput({
               onClick={() => selectSuggestion(suggestion.command)}
               className="os-focus-ring flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-sm px-3 text-left transition-colors duration-150 hover:bg-os-surface-raised disabled:cursor-not-allowed disabled:opacity-45"
             >
-              <span className="font-mono text-xs text-foreground">
+              <span className="font-mono text-[12px] text-foreground">
                 {suggestion.command}
               </span>
-              <span className="text-xs text-os-subtle">
+              <span className="text-[13px] text-os-subtle">
                 {suggestion.description}
               </span>
             </button>

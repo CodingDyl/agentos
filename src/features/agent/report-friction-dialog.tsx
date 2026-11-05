@@ -63,18 +63,18 @@ export function ReportFrictionDialog({ route, onClose }: { route: string; onClos
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onKeyDown={onKeyDown}>
-      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[#04051a]/55" />
+      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[var(--bg-canvas)]/55" />
       <form
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onSubmit={submit}
-        className="relative w-[min(94vw,520px)] bg-paper-white font-paper-ui text-paper-moss shadow-[0_30px_80px_rgb(2_2_16/0.5)]"
+        className="relative w-[min(94vw,520px)] bg-paper-white text-paper-moss shadow-[var(--shadow-overlay)]"
       >
         <header className="flex items-start justify-between gap-4 border-b border-paper-mist px-6 py-4">
           <div className="flex items-center gap-2.5">
             <MessageSquareWarning className="size-5 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
-            <h2 id={titleId} data-heading="compact" className="font-paper-display text-[22px] leading-none font-extrabold tracking-[-0.015em]">
+            <h2 id={titleId} data-heading="compact" className="text-[16px] leading-none font-semibold tracking-[-0.015em]">
               Report friction
             </h2>
           </div>
@@ -93,7 +93,7 @@ export function ReportFrictionDialog({ route, onClose }: { route: string; onClos
               rows={3}
               maxLength={1000}
               placeholder="I can't edit existing memory."
-              className={cn(PAPER_INPUT, "w-full resize-y py-2 text-[15px] leading-6")}
+              className={cn(PAPER_INPUT, "w-full resize-y py-2 text-[14px] leading-6")}
             />
           </label>
 
@@ -116,14 +116,14 @@ export function ReportFrictionDialog({ route, onClose }: { route: string; onClos
           </div>
 
           {report.error ? (
-            <p role="alert" className="text-[13.5px] text-paper-flame-deep">
+            <p role="alert" className="text-[14px] text-paper-flame-deep">
               {report.error.message}
             </p>
           ) : null}
         </div>
 
         <footer className="flex items-center justify-between gap-3 border-t border-paper-mist px-6 py-4">
-          <span className="text-[12.5px] text-paper-sage" role="status">
+          <span className="text-[13px] text-paper-sage" role="status">
             {saved ? "Saved. Review it under Operations → Friction." : "⌘↵ to save"}
           </span>
           <PaperButton type="submit" variant="amber" disabled={description.trim().length < 3 || report.isPending || saved}>

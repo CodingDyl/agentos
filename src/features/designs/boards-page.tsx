@@ -56,7 +56,6 @@ export function BoardsPage() {
       navigationItems={navigationItems}
       pageId="design-boards"
       activeHref="/designs"
-      modelLabel="Model / AgentOS V1"
     >
       <PaperStage>
         {isPending ? (
@@ -152,9 +151,9 @@ function BoardCard({
   return (
     <Link
       to={`/designs/boards/${board.id}`}
-      className={cn("group block cursor-pointer rounded-none border border-paper-mist p-3 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
+      className={cn("group block cursor-pointer rounded-md border border-paper-mist p-3 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
     >
-      <div className="grid aspect-[4/3] grid-cols-2 gap-1.5 overflow-hidden rounded-none bg-paper-linen">
+      <div className="grid aspect-[4/3] grid-cols-2 gap-1.5 overflow-hidden rounded-md bg-paper-linen">
         {cover.length === 0 ? (
           <span className="col-span-2 flex items-center justify-center text-[13px] text-paper-sage">
             Empty board
@@ -180,7 +179,7 @@ function BoardCard({
       </div>
 
       <div className="mt-4 flex items-baseline justify-between gap-4">
-        <h2 className="truncate font-paper-display text-[16px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
+        <h2 className="truncate text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">
           {board.name}
         </h2>
         <span className="shrink-0 text-[13px] text-paper-sage tabular-nums">
@@ -188,7 +187,7 @@ function BoardCard({
         </span>
       </div>
       {board.project ? (
-        <p className="mt-1 text-[12.5px] text-paper-sage">{board.project}</p>
+        <p className="mt-1 text-[13px] text-paper-sage">{board.project}</p>
       ) : null}
     </Link>
   );
