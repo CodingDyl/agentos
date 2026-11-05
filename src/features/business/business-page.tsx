@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { BusinessClient, BusinessData, BusinessEntitySummary } from "@shared/business-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperPagination, PaperSection, PaperStage, PaperTabs, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useBusiness, useLinkClientWorkspace, useRefreshBusiness, useSetEntityWorkspaces } from "@/lib/agentos/business";
@@ -46,13 +46,13 @@ export function BusinessPage() {
     );
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="business" activeHref="/business" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="business" activeHref="/business" agentState="idle" agentLabel="Agents idle">
       <PaperStage>
         {isPending ? (
-          <DedsecLoader variant="page" />
+          <PageLoader variant="page" />
         ) : !data ? (
           <div className="py-4">
-            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Business could not be read.</h1>
+            <h1 className="text-[16px] font-semibold tracking-[-0.02em]">Business could not be read.</h1>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "The adapter did not answer."} Check that the AgentOS server is running.</p>
             <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
               {isFetching ? "Trying again…" : "Try again"}
@@ -101,7 +101,7 @@ function Business({
     <div>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">Business</h1>
+          <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">Business</h1>
           <p className="mt-1 text-[13px] text-paper-sage">
             {entity.kind === "agency" ? "Agency" : "Product"} · {entity.name}
           </p>
@@ -179,7 +179,7 @@ function CrmView({ entity, label, children }: { entity: BusinessEntitySummary; l
   if (entity.source !== "virtec") return null;
   return (
     <section aria-label={label} className="border-t border-paper-mist pt-6">
-      <h2 className="mb-1 text-[15px] font-semibold">{label}</h2>
+      <h2 className="mb-1 text-[14px] font-semibold">{label}</h2>
       <p className="mb-4 text-[13px] text-paper-sage">Read from the CRM. Import them in Setup &amp; import to manage them here.</p>
       {children}
     </section>
@@ -203,21 +203,21 @@ function QuoteCalculatorToggle() {
 function VirtecNotice({ data, entity }: { data: BusinessData; entity: BusinessEntitySummary }) {
   if (entity.source !== "virtec") {
     return (
-      <p className="mt-4 max-w-[70ch] text-[13.5px] leading-6 text-paper-char">
+      <p className="mt-4 max-w-[70ch] text-[14px] leading-6 text-paper-char">
         {entity.name} has no CRM. Its clients, projects, quotes and services are kept in AgentOS; nothing from Virtec is shown against it.
       </p>
     );
   }
   if (!data.virtecConfigured) {
     return (
-      <p role="status" className="mt-4 max-w-[70ch] border border-paper-mist bg-paper-cream p-3 text-[13.5px] leading-6 text-paper-char">
+      <p role="status" className="mt-4 max-w-[70ch] border border-paper-mist bg-paper-cream p-3 text-[14px] leading-6 text-paper-char">
         Virtec is not connected. Set <code>VIRTEC_BASE_URL</code> and <code>VIRTEC_API_KEY</code> for the AgentOS server to read clients.
       </p>
     );
   }
   if (data.virtecProblem) {
     return (
-      <p role="status" className="mt-4 max-w-[70ch] border border-paper-mist bg-paper-cream p-3 text-[13.5px] leading-6 text-paper-char">
+      <p role="status" className="mt-4 max-w-[70ch] border border-paper-mist bg-paper-cream p-3 text-[14px] leading-6 text-paper-char">
         {data.virtecProblem} Figures below may be incomplete.
       </p>
     );
@@ -228,8 +228,8 @@ function VirtecNotice({ data, entity }: { data: BusinessData; entity: BusinessEn
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[12.5px] text-paper-sage">{label}</dt>
-      <dd className="mt-0.5 font-paper-display text-[24px] font-bold tracking-[-0.01em]">{value}</dd>
+      <dt className="text-[13px] text-paper-sage">{label}</dt>
+      <dd className="mt-0.5 text-[24px] font-semibold tracking-[-0.01em]">{value}</dd>
     </div>
   );
 }
@@ -243,8 +243,8 @@ function Pipeline({ pipeline }: { pipeline: NonNullable<BusinessData["pipeline"]
       <dl className="grid grid-cols-3 gap-4 sm:grid-cols-6">
         {STAGE_ORDER.map((stage) => (
           <div key={stage}>
-            <dt className="text-[12.5px] capitalize text-paper-sage">{stage}</dt>
-            <dd className="font-paper-display text-[20px] font-bold">{pipeline.stages[stage] ?? 0}</dd>
+            <dt className="text-[13px] capitalize text-paper-sage">{stage}</dt>
+            <dd className="text-[16px] font-semibold">{pipeline.stages[stage] ?? 0}</dd>
           </div>
         ))}
       </dl>
@@ -258,7 +258,7 @@ function Pipeline({ pipeline }: { pipeline: NonNullable<BusinessData["pipeline"]
                 <Link to={`/traction?tab=prospects&prospect=${encodeURIComponent(proposal.id)}`} className="font-semibold hover:underline">
                   {proposal.company}
                 </Link>
-                <span className="text-[12.5px] text-paper-sage">
+                <span className="text-[13px] text-paper-sage">
                   {proposal.nextAction ?? "No next action"}
                   {proposal.nextActionDate ? ` · ${proposal.nextActionDate}` : ""}
                 </span>
@@ -294,7 +294,7 @@ function Overview({ entity, clients, pipeline, onOpenClient }: { entity: Busines
           <ul className="divide-y divide-paper-mist border-y border-paper-mist">
             {waiting.map((client) => (
               <li key={client.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <button type="button" onClick={() => onOpenClient(client.id)} className={cn("cursor-pointer text-left text-[15px] font-semibold text-paper-moss hover:underline", PAPER_FOCUS)}>
+                <button type="button" onClick={() => onOpenClient(client.id)} className={cn("cursor-pointer text-left text-[14px] font-semibold text-paper-moss hover:underline", PAPER_FOCUS)}>
                   {client.companyName ?? client.name}
                 </button>
                 <span className="flex gap-2">
@@ -334,16 +334,16 @@ function EntityWorkspaces({ entity }: { entity: BusinessEntitySummary }) {
             <li key={project.slug}>
               <Link to={`/workspaces/${project.slug}`} className={cn("block h-full border border-paper-mist p-3 hover:bg-paper-cream", PAPER_FOCUS)}>
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-[14.5px] font-semibold">{project.name}</span>
+                  <span className="truncate text-[14px] font-semibold">{project.name}</span>
                   <Tag tone={project.state === "blocked" ? "flame" : project.state === "active" ? "green" : "muted"}>{project.state}</Tag>
                 </span>
                 {project.milestone ? (
-                  <span className="mt-1 block truncate text-[12.5px] text-paper-sage">
+                  <span className="mt-1 block truncate text-[13px] text-paper-sage">
                     {project.milestone.title} · {project.milestone.progress.percent}%{project.milestone.targetDate ? ` by ${project.milestone.targetDate}` : ""}
                   </span>
                 ) : null}
                 <span className="mt-1 block truncate text-[13px] text-paper-char">{project.nextAction ?? "No next action set"}</span>
-                {project.nowCount ? <span className="mt-1 block text-[12.5px] text-paper-sage">{project.nowCount} task{project.nowCount === 1 ? "" : "s"} in progress</span> : null}
+                {project.nowCount ? <span className="mt-1 block text-[13px] text-paper-sage">{project.nowCount} task{project.nowCount === 1 ? "" : "s"} in progress</span> : null}
               </Link>
             </li>
           ))}
@@ -362,7 +362,7 @@ function EntityWorkspaces({ entity }: { entity: BusinessEntitySummary }) {
                   <input type="checkbox" checked={checked} disabled={save.isPending} onChange={() => toggle(project.slug)} />
                   <span className="min-w-0 truncate">{project.name}</span>
                   {checked ? (
-                    <Link to={`/workspaces/${project.slug}`} className="ml-auto text-[12.5px] text-paper-blue hover:underline">
+                    <Link to={`/workspaces/${project.slug}`} className="ml-auto text-[13px] text-paper-blue hover:underline">
                       Open
                     </Link>
                   ) : null}
@@ -405,8 +405,8 @@ function Clients({ entity, clients, clientId, onClient }: { entity: BusinessEnti
                 className={cn("flex w-full cursor-pointer items-center justify-between gap-3 px-2 py-3 text-left", PAPER_FOCUS, client.id === selected?.id ? "bg-paper-linen" : "hover:bg-paper-cream")}
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[14.5px] font-semibold">{client.companyName ?? client.name}</span>
-                  {client.companyName ? <span className="block truncate text-[12.5px] text-paper-sage">{client.name}</span> : null}
+                  <span className="block truncate text-[14px] font-semibold">{client.companyName ?? client.name}</span>
+                  {client.companyName ? <span className="block truncate text-[13px] text-paper-sage">{client.name}</span> : null}
                 </span>
                 {!client.active ? <Tag>Inactive</Tag> : client.maintenance ? <Tag tone="green">Retainer</Tag> : null}
               </button>
@@ -432,8 +432,8 @@ function ClientDetail({ client }: { client: BusinessClient }) {
   return (
     <article aria-label={client.companyName ?? client.name} className="grid gap-6">
       <header>
-        <h2 className="font-paper-display text-[22px] font-bold tracking-[-0.015em]">{client.companyName ?? client.name}</h2>
-        <p className="mt-1 text-[13.5px] text-paper-sage">
+        <h2 className="text-[16px] font-semibold tracking-[-0.015em]">{client.companyName ?? client.name}</h2>
+        <p className="mt-1 text-[14px] text-paper-sage">
           {client.name}
           {client.email ? <> · <a href={`mailto:${client.email}`} className="text-paper-blue hover:underline">{client.email}</a></> : null}
         </p>
@@ -483,7 +483,7 @@ function ClientDetail({ client }: { client: BusinessClient }) {
             </select>
           </label>
           {workspace ? (
-            <Link to={`/workspaces/${workspace.slug}`} className="text-[13.5px] text-paper-blue hover:underline">
+            <Link to={`/workspaces/${workspace.slug}`} className="text-[14px] text-paper-blue hover:underline">
               Open workspace
             </Link>
           ) : null}
@@ -500,18 +500,18 @@ function ClientDetail({ client }: { client: BusinessClient }) {
               <li key={thread.threadId} className="grid gap-0.5 py-3">
                 <span className="flex flex-wrap items-center justify-between gap-2">
                   <span className={cn("min-w-0 truncate text-[14px]", thread.unread && "font-semibold")}>{thread.subject}</span>
-                  <span className="flex items-center gap-2 text-[12.5px] text-paper-sage">
+                  <span className="flex items-center gap-2 text-[13px] text-paper-sage">
                     {thread.needsYou ? <Tag tone="flame">Needs you</Tag> : null}
                     <time dateTime={thread.messageDate}>{new Date(thread.messageDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</time>
                   </span>
                 </span>
-                <span className="truncate text-[12.5px] text-paper-sage">{thread.snippet}</span>
+                <span className="truncate text-[13px] text-paper-sage">{thread.snippet}</span>
                 {replyingTo === thread.threadId ? (
                   <div className="mt-2">
                     <ClientDraftForm request={{ clientId: client.id, threadId: thread.threadId }} showSubject={false} onClose={() => setReplyingTo(undefined)} />
                   </div>
                 ) : (
-                  <button type="button" onClick={() => setReplyingTo(thread.threadId)} className={cn("mt-1 w-fit cursor-pointer text-[12.5px] text-paper-blue hover:underline", PAPER_FOCUS)}>
+                  <button type="button" onClick={() => setReplyingTo(thread.threadId)} className={cn("mt-1 w-fit cursor-pointer text-[13px] text-paper-blue hover:underline", PAPER_FOCUS)}>
                     Draft reply
                   </button>
                 )}

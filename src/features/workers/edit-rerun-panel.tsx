@@ -2,7 +2,7 @@ import { RotateCcw } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { RetryJobInput, WorkerJob } from "@shared/worker-types";
-import { CommandButton, DedsecLoader, SectionLabel } from "@/components/os";
+import { CommandButton, PageLoader, SectionLabel } from "@/components/os";
 import { useRerunPreview, useRetryWorkerJob, useWorkers } from "@/lib/agentos/queries";
 
 /**
@@ -63,7 +63,7 @@ export function EditRerunPanel({ job, onClose }: { job: WorkerJob; onClose: () =
 
       {preview.isPending ? (
         <div className="mt-4">
-          <DedsecLoader variant="compact" />
+          <PageLoader variant="compact" />
         </div>
       ) : null}
 
@@ -176,7 +176,7 @@ export function EditRerunPanel({ job, onClose }: { job: WorkerJob; onClose: () =
 }
 
 const fieldClass =
-  "os-focus-ring mt-2 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2 text-[13.5px] leading-6 text-foreground";
+  "os-focus-ring mt-2 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2 text-[14px] leading-6 text-foreground";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

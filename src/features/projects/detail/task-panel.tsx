@@ -294,7 +294,7 @@ export function TaskPanel({
         ) : null}
       </div>
 
-      <p className="mt-3 max-w-[62ch] text-[15px] leading-6 text-foreground">
+      <p className="mt-3 max-w-[62ch] text-[14px] leading-6 text-foreground">
         {task.title}
       </p>
 
@@ -343,7 +343,7 @@ export function TaskPanel({
             ) : null}
           </div>
           {unstick.error ? (
-            <p className="mt-2 text-[12px] leading-4 text-os-danger">{unstick.error.message}</p>
+            <p className="mt-2 text-[13px] leading-4 text-os-danger">{unstick.error.message}</p>
           ) : null}
 
           {/* The completion proposal, which only appears once the work is in

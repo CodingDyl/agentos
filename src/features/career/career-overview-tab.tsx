@@ -17,7 +17,7 @@ export function CareerOverviewTab({ data, onTab }: { data: CareerData; onTab: (t
       <div className="min-w-0 space-y-12">
         <PaperSection label="Today" count={data.todayItems.length}>
           {data.todayItems.length === 0 ? (
-            <p className="text-[15px] leading-6 text-paper-char">Nothing due. Career admin is up to date.</p>
+            <p className="text-[14px] leading-6 text-paper-char">Nothing due. Career admin is up to date.</p>
           ) : (
             <ul className="space-y-2.5">
               {data.todayItems.map((item) => (
@@ -25,7 +25,7 @@ export function CareerOverviewTab({ data, onTab }: { data: CareerData; onTab: (t
                   <span className="size-1.5 shrink-0 translate-y-[-0.15em] rounded-full border border-paper-amber-deep" aria-hidden="true" />
                   <Link to={item.href} className="min-w-0 rounded-sm text-[16px] leading-7 text-paper-char hover:text-paper-moss">
                     {item.title}
-                    {item.detail ? <span className="ml-2 text-[12.5px] text-paper-sage">{item.detail}</span> : null}
+                    {item.detail ? <span className="ml-2 text-[13px] text-paper-sage">{item.detail}</span> : null}
                   </Link>
                 </li>
               ))}
@@ -43,22 +43,22 @@ export function CareerOverviewTab({ data, onTab }: { data: CareerData; onTab: (t
             </PaperButton>
           }
         >
-          <dl className="grid gap-4 text-[15px] leading-6 sm:grid-cols-3">
+          <dl className="grid gap-4 text-[14px] leading-6 sm:grid-cols-3">
             <div>
-              <dt className="text-[12.5px] text-paper-sage">Growth focus</dt>
+              <dt className="text-[13px] text-paper-sage">Growth focus</dt>
               <dd className="text-paper-char">{data.growth.growthAreas[0] ?? "Not set"}</dd>
             </div>
             <div>
-              <dt className="text-[12.5px] text-paper-sage">Skills in progress</dt>
+              <dt className="text-[13px] text-paper-sage">Skills in progress</dt>
               <dd className="text-paper-char">{data.growth.growthAreas.slice(1, 4).join(", ") || "—"}</dd>
             </div>
             <div>
-              <dt className="text-[12.5px] text-paper-sage">Next milestone</dt>
+              <dt className="text-[13px] text-paper-sage">Next milestone</dt>
               <dd className="text-paper-char">{data.growth.nextMilestone || "Not set"}</dd>
             </div>
           </dl>
           {activeGoals.length > 0 ? (
-            <ul className="mt-4 list-disc space-y-1 pl-5 text-[14.5px] leading-6 text-paper-char">
+            <ul className="mt-4 list-disc space-y-1 pl-5 text-[14px] leading-6 text-paper-char">
               {activeGoals.slice(0, 4).map((goal) => (
                 <li key={goal.id}>{goal.text}</li>
               ))}
@@ -71,18 +71,18 @@ export function CareerOverviewTab({ data, onTab }: { data: CareerData; onTab: (t
         <PaperSection label="Routines">
           <ul className="space-y-2">
             {data.routines.map((routine) => (
-              <li key={routine.id} className="flex items-baseline justify-between gap-3 text-[15px] leading-6">
+              <li key={routine.id} className="flex items-baseline justify-between gap-3 text-[14px] leading-6">
                 <span className={cn(routine.doneThisCycle ? "text-paper-green" : routine.due ? "text-paper-flame-deep" : "text-paper-char")}>
                   <span aria-hidden="true">{routine.doneThisCycle ? "✓ " : "○ "}</span>
                   {routine.name}
                   <span className="sr-only">{routine.doneThisCycle ? " (done)" : routine.due ? " (due)" : ""}</span>
                 </span>
-                <span className="text-[12.5px] text-paper-sage">{routine.enabled ? formatDay(routine.dueOn) : "off"}</span>
+                <span className="text-[13px] text-paper-sage">{routine.enabled ? formatDay(routine.dueOn) : "off"}</span>
               </li>
             ))}
           </ul>
           {data.timesheet.lastSubmittedAt ? (
-            <p className="mt-3 text-[12.5px] text-paper-sage">Last timesheet submitted {formatTimestamp(data.timesheet.lastSubmittedAt)}</p>
+            <p className="mt-3 text-[13px] text-paper-sage">Last timesheet submitted {formatTimestamp(data.timesheet.lastSubmittedAt)}</p>
           ) : null}
           <PaperButton variant="ghost" className="mt-4" onClick={() => onTab("routines")}>
             Prepare my timesheet
@@ -144,13 +144,13 @@ function CurrentWorkSection({ data }: { data: CareerData }) {
           <ErrorLine error={save.error} />
         </form>
       ) : work.project || work.objective ? (
-        <div className="space-y-2 text-[15px] leading-6 text-paper-char">
+        <div className="space-y-2 text-[14px] leading-6 text-paper-char">
           <p className="font-medium text-paper-moss">{work.project}</p>
           {work.objective ? <p>{work.objective}</p> : null}
           {work.progress ? <p className="whitespace-pre-line text-paper-sage">{work.progress}</p> : null}
         </div>
       ) : (
-        <p className="text-[15px] leading-6 text-paper-char">Say what you're working on, so Today and the weekly summary can use it.</p>
+        <p className="text-[14px] leading-6 text-paper-char">Say what you're working on, so Today and the weekly summary can use it.</p>
       )}
     </PaperSection>
   );
@@ -171,7 +171,7 @@ function ResourcesSection({ data }: { data: CareerData }) {
               setError(null);
               openCareerResource(resource.id).catch(setError);
             }}
-            className="flex w-full cursor-pointer items-center justify-between rounded-none px-2 py-2 text-left text-[14.5px] text-paper-char hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-2 text-left text-[14px] text-paper-char hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-50"
           >
             {resource.label}
             <span aria-hidden="true" className="text-paper-sage">
@@ -182,7 +182,7 @@ function ResourcesSection({ data }: { data: CareerData }) {
         ))}
       </PaperCard>
       <ErrorLine error={error} />
-      <p className="mt-2 text-[12.5px] text-paper-sage">
+      <p className="mt-2 text-[13px] text-paper-sage">
         Each link is a capability in <Link to="/connectors" className="underline-offset-4 hover:underline">Connectors</Link>.
       </p>
     </PaperSection>

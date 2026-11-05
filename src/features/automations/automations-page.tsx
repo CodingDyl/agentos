@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useMemo } from "react";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PaperButton, PaperSection, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useAutomationSurfaces, useAutomations } from "@/lib/agentos/queries";
@@ -32,11 +32,11 @@ export function AutomationsPage() {
   };
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="automations" activeHref="/automations" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="automations" activeHref="/automations">
       <PaperStage>
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">
+            <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">
               Automations
             </h1>
             <p className="mt-1 text-[13px] text-paper-sage" aria-live="polite">
@@ -55,13 +55,13 @@ export function AutomationsPage() {
 
         <PaperSection label="Scheduled jobs" count={jobs.data ? automations.length : undefined} className="mt-10">
           {jobs.isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : !jobs.data ? (
-            <div className="rounded-none border border-paper-mist px-5 py-4">
+            <div className="rounded-md border border-paper-mist px-5 py-4">
               <p className="font-semibold text-paper-moss">Hermes' schedule couldn't be read.</p>
-              <p className="mt-1 max-w-[72ch] text-[13.5px] leading-6 text-paper-char">
-                {jobs.error?.message} Automations are read through the Hermes CLI. Check that <code className="font-mono text-[12.5px]">hermes</code> is on
-                the server's PATH, or set <code className="font-mono text-[12.5px]">HERMES_CLI_PATH</code>.
+              <p className="mt-1 max-w-[72ch] text-[14px] leading-6 text-paper-char">
+                {jobs.error?.message} Automations are read through the Hermes CLI. Check that <code className="font-mono text-[12px]">hermes</code> is on
+                the server's PATH, or set <code className="font-mono text-[12px]">HERMES_CLI_PATH</code>.
               </p>
               <PaperButton variant="amber" className="mt-4" disabled={jobs.isFetching} onClick={() => void jobs.refetch()}>
                 {jobs.isFetching ? "Trying again…" : "Try again"}
@@ -70,9 +70,9 @@ export function AutomationsPage() {
           ) : (
             <>
               {!jobs.data.health.ok ? (
-                <div role="status" className="mb-4 rounded-none border border-paper-flame-deep px-5 py-4">
+                <div role="status" className="mb-4 rounded-md border border-paper-flame-deep px-5 py-4">
                   <p className="text-[13px] font-semibold text-paper-flame-deep">Hermes' job check found problems</p>
-                  <ul className="mt-2 space-y-1 text-[13.5px] leading-6 text-paper-char">
+                  <ul className="mt-2 space-y-1 text-[14px] leading-6 text-paper-char">
                     {(jobs.data.health.issues.length > 0
                       ? jobs.data.health.issues
                       : ["Hermes could not confirm the health of these jobs."]
@@ -85,10 +85,10 @@ export function AutomationsPage() {
               {automations.length === 0 ? (
                 <p className="text-[14px] text-paper-sage">
                   Hermes has no scheduled jobs. Create one with{" "}
-                  <code className="font-mono text-[12.5px] text-paper-moss">hermes cron create</code>.
+                  <code className="font-mono text-[12px] text-paper-moss">hermes cron create</code>.
                 </p>
               ) : (
-                <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+                <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
                   {automations.map((automation) => (
                     <AutomationRow key={automation.id} automation={automation} />
                   ))}
@@ -102,7 +102,7 @@ export function AutomationsPage() {
           {surfaces.data ? (
             <BackgroundWork surfaces={surfaces.data} />
           ) : surfaces.isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : (
             <p className="text-[14px] text-paper-sage">
               Hermes couldn't report its other automations. {surfaces.error?.message}

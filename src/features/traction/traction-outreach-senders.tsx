@@ -19,7 +19,7 @@ export function SenderManager() {
 
   return (
     <div className="border border-paper-mist bg-paper-cream px-4 py-3">
-      <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">Your companies</p>
+      <p className="text-[13px] font-semibold text-paper-char">Your companies</p>
       {list.length > 0 ? (
         <ul className="mt-2 divide-y divide-paper-mist">
           {list.map((sender) =>
@@ -91,7 +91,7 @@ function SenderForm({ sender, onDone, canCancel = true }: { sender?: Sender; onD
           placeholder={'Dylan Petzer, Virtara (virtara.co.za)\nNot for you? Reply "no thanks" and I will not email you again.'}
           className={cn(PAPER_INPUT, "w-full")}
         />
-        <span className="mt-0.5 block text-[12.5px] text-paper-sage">Added to the foot of every email from this company. Keep the opt-out line.</span>
+        <span className="mt-0.5 block text-[13px] text-paper-sage">Added to the foot of every email from this company. Keep the opt-out line.</span>
       </label>
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Usual monthly price" value={form.defaultMonthly} onChange={set("defaultMonthly")} placeholder="R450 a month" />

@@ -26,7 +26,7 @@ export function MainFocus({ focus, state, className }: MainFocusProps) {
             "border-t border-os-border pt-5",
           )}
         >
-          <span className="text-[15px] leading-6 text-os-muted">
+          <span className="text-[14px] leading-6 text-os-muted">
             {focus.project}
           </span>
           {state ? <StatusPill status={state} /> : null}

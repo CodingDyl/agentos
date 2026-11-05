@@ -195,7 +195,7 @@ function VerdictQuestion({ task }: { task: ValidationTaskView }) {
 
   return (
     <div className="mt-6 border-t border-os-border pt-5">
-      <p className="text-[15px] leading-6 text-foreground">
+      <p className="text-[14px] leading-6 text-foreground">
         Did AgentOS make this task easier than doing it manually?
       </p>
 
@@ -226,7 +226,7 @@ function VerdictQuestion({ task }: { task: ValidationTaskView }) {
           }}
           rows={2}
           placeholder="What slowed this down"
-          className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+          className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
         />
       </label>
     </div>

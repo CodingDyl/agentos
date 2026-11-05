@@ -3,7 +3,7 @@ import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Two skins for the same renderer. `os` is the Editorial Terminal default;
+ * Two skins for the same renderer. `os` is the default;
  * `paper` is for screens that have moved to the paper world, where the dark
  * tokens would print cream on white.
  */
@@ -43,7 +43,7 @@ interface Skin {
 
 const SKINS: Record<MarkdownTone, Skin> = {
   os: {
-    root: "text-[15px] text-os-muted",
+    root: "text-[14px] text-os-muted",
     strong: "font-medium text-foreground",
     code: "rounded-sm bg-os-surface-raised px-1.5 py-0.5 font-mono text-[0.9em] text-foreground",
     link: "os-focus-ring rounded-sm underline decoration-os-border-strong underline-offset-[0.25em] hover:decoration-os-amber",
@@ -66,24 +66,24 @@ const SKINS: Record<MarkdownTone, Skin> = {
     rule: "border-os-border",
   },
   paper: {
-    root: "font-paper-ui text-[15px] text-paper-char",
+    root: "text-[14px] text-paper-char",
     strong: "font-semibold text-paper-moss",
-    code: "rounded-none bg-paper-linen px-1.5 py-0.5 font-mono text-[0.9em] text-paper-moss",
-    link: "rounded-[2px] text-paper-blue underline underline-offset-[0.2em] hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue",
+    code: "rounded-md bg-paper-linen px-1.5 py-0.5 font-mono text-[0.9em] text-paper-moss",
+    link: "rounded-sm text-paper-blue underline underline-offset-[0.2em] hover:text-paper-moss",
     image: "border-paper-mist",
-    heading: "font-paper-display font-bold tracking-[-0.01em] text-paper-moss",
+    heading: "font-semibold tracking-[-0.01em] text-paper-moss",
     marker: "marker:text-paper-sage",
     taskBox: "border-paper-sage",
     taskBoxDone: "border-paper-green bg-paper-green",
     taskDone: "text-paper-sage line-through",
-    tableWrap: "rounded-none border-paper-mist",
+    tableWrap: "rounded-md border-paper-mist",
     thead: "border-b border-paper-mist bg-paper-linen",
-    th: "text-[12.5px] font-semibold text-paper-char",
+    th: "text-[13px] font-semibold text-paper-char",
     tbody: "divide-paper-mist",
     td: "text-paper-moss",
-    pre: "rounded-none border-paper-mist bg-paper-linen",
+    pre: "rounded-md border-paper-mist bg-paper-linen",
     preText: "text-paper-sage",
-    lang: "text-[12px] text-paper-sage",
+    lang: "text-[13px] text-paper-sage",
     codeText: "text-paper-moss",
     quote: "border-paper-mist text-paper-sage",
     rule: "border-paper-mist",
@@ -221,7 +221,7 @@ function renderBlock(token: Token, key: string, t: Skin): ReactNode {
           className={cn(
             "mt-6 first:mt-0",
             t.heading,
-            HEADING_CLASSES[level] ?? "text-[15px] leading-6",
+            HEADING_CLASSES[level] ?? "text-[14px] leading-6",
           )}
         >
           {renderInline(heading.tokens, key, t)}
@@ -335,7 +335,7 @@ function renderBlock(token: Token, key: string, t: Skin): ReactNode {
           key={key}
           className={cn("mt-4 overflow-x-auto border p-4 first:mt-0", t.pre)}
         >
-          <code className={cn("font-mono text-[13px] leading-5", t.preText)}>{(token as Tokens.HTML).text}</code>
+          <code className={cn("font-mono text-[12px] leading-5", t.preText)}>{(token as Tokens.HTML).text}</code>
         </pre>
       );
 
@@ -350,7 +350,7 @@ function renderBlock(token: Token, key: string, t: Skin): ReactNode {
           {code.lang ? (
             <span className={cn("absolute top-2 right-3", t.lang)}>{code.lang}</span>
           ) : null}
-          <code className={cn("font-mono text-[13px] leading-5", t.codeText)}>{code.text}</code>
+          <code className={cn("font-mono text-[12px] leading-5", t.codeText)}>{code.text}</code>
         </pre>
       );
     }
@@ -387,7 +387,7 @@ function renderBlock(token: Token, key: string, t: Skin): ReactNode {
 export interface MarkdownProps {
   content: string;
   className?: string;
-  /** Which world's colours to draw in. Defaults to the Editorial Terminal. */
+  /** Which world's colours to draw in. Defaults to `os`. */
   tone?: MarkdownTone;
   /** A lexer with extra syntax (e.g. Obsidian links). Defaults to plain GFM. */
   lexer?: Marked;

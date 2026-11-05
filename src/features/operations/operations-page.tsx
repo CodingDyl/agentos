@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import type { OperationsData, UsageRange } from "@shared/usage-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useOperations } from "@/lib/agentos/queries";
 import { AgentsTab } from "./agents-tab";
@@ -91,15 +91,14 @@ export function OperationsPage() {
       pageId="operations"
       activeHref="/operations"
       agentState={running ? "running" : "idle"}
-      agentLabel={running ? "Agents / running" : "Agents / idle"}
-      modelLabel="Model / AgentOS V1"
+      agentLabel={running ? "Agents running" : "Agents idle"}
     >
       <PaperStage>
           {isPending ? (
-            <DedsecLoader variant="page" />
+            <PageLoader variant="page" />
           ) : !data ? (
             <div className="py-4">
-              <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Usage could not be read.</h1>
+              <h1 className="text-[16px] font-semibold tracking-[-0.02em]">Usage could not be read.</h1>
               <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
                 {error?.message ?? "The ledger did not answer."} Operations reads the local usage ledger; check that the AgentOS server is running.
               </p>
@@ -146,7 +145,7 @@ function Operations({
     <div>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-balance text-paper-moss sm:text-[34px]">{glanceTitle(data)}</h1>
+          <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-balance text-paper-moss sm:text-[28px]">{glanceTitle(data)}</h1>
           <p className="mt-1 text-[13px] text-paper-sage" aria-live="polite">
             {data.jobs} {data.jobs === 1 ? "job" : "jobs"} · {data.period.records} recorded {data.period.records === 1 ? "run" : "runs"} · Read{" "}
             {new Date(data.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}

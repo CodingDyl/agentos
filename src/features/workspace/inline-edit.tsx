@@ -87,7 +87,7 @@ export function InlineEdit({
           {children ?? (
             <p
               className={cn(
-                "max-w-[80ch] text-[15px] leading-6 whitespace-pre-wrap",
+                "max-w-[80ch] text-[14px] leading-6 whitespace-pre-wrap",
                 value ? "text-os-muted" : "text-os-subtle",
               )}
             >
@@ -124,7 +124,7 @@ export function InlineEdit({
               void commit();
             }
           }}
-          className="os-focus-ring w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+          className="os-focus-ring w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
         />
 
         <div className="mt-3 flex flex-wrap items-center gap-2">

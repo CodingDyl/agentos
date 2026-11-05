@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, KeyRound, Pencil, Plus, RefreshCw, Trash2 } 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import type { DatabaseSetup, DatabaseTable, RowKey } from "@shared/database-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, SegmentedControl, Tag } from "@/components/paper";
 import {
   useDatabaseRows,
@@ -33,7 +33,7 @@ export function DatabaseTab({ slug }: { slug: string }) {
   const linked = useMemo(() => setups.data ?? [], [setups.data]);
   const setup = linked.find((entry) => entry.id === setupId) ?? linked[0];
 
-  if (setups.isPending) return <DedsecLoader variant="compact" />;
+  if (setups.isPending) return <PageLoader variant="compact" />;
   if (setups.isError) return <p role="alert" className="text-[14px] text-paper-flame-deep">{setups.error.message}</p>;
 
   if (!setup) {
@@ -45,7 +45,7 @@ export function DatabaseTab({ slug }: { slug: string }) {
         </p>
         <Link
           to="/connectors/supabase"
-          className={cn("mt-4 inline-flex min-h-8 items-center rounded-none bg-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-white uppercase hover:bg-paper-moss", PAPER_FOCUS)}
+          className={cn("mt-4 inline-flex min-h-8 items-center rounded-md bg-paper-linen px-3.5 text-[13px] font-medium text-paper-moss hover:bg-paper-stone", PAPER_FOCUS)}
         >
           Set up Supabase
         </Link>
@@ -72,7 +72,7 @@ export function DatabaseTab({ slug }: { slug: string }) {
             {setup.environment ? <Tag tone="muted">{setup.environment}</Tag> : null}
           </p>
         )}
-        <Link to="/connectors/supabase" className={cn("rounded-[2px] text-[12.5px] text-paper-sage hover:text-paper-moss", PAPER_FOCUS)}>
+        <Link to="/connectors/supabase" className={cn("rounded-sm text-[13px] text-paper-sage hover:text-paper-moss", PAPER_FOCUS)}>
           Manage databases
         </Link>
       </div>
@@ -93,7 +93,7 @@ function Tables({ setup, tableName, onSelectTable }: { setup: DatabaseSetup; tab
   const list = tables.data?.tables ?? [];
   const table = list.find((entry) => entry.name === tableName) ?? list[0];
 
-  if (tables.isPending) return <DedsecLoader variant="compact" />;
+  if (tables.isPending) return <PageLoader variant="compact" />;
   if (tables.isError) {
     return (
       <div role="alert">
@@ -119,14 +119,14 @@ function Tables({ setup, tableName, onSelectTable }: { setup: DatabaseSetup; tab
                   aria-current={selected ? "true" : undefined}
                   onClick={() => onSelectTable(entry.name)}
                   className={cn(
-                    "flex w-full cursor-pointer items-center justify-between gap-3 rounded-none px-3 py-2 text-left text-[13.5px]",
+                    "flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-[14px]",
                     PAPER_FOCUS,
-                    selected ? "bg-paper-blue text-paper-white" : "text-paper-moss hover:bg-paper-linen",
+                    selected ? "bg-selected text-paper-moss" : "text-paper-moss hover:bg-paper-linen",
                   )}
                 >
-                  <span className="truncate font-mono text-[12.5px]">{entry.name}</span>
+                  <span className="truncate font-mono text-[12px]">{entry.name}</span>
                   {entry.rowCount !== undefined ? (
-                    <span className={cn("text-[12px] tabular-nums", selected ? "text-paper-white" : "text-paper-sage")}>{entry.rowCount.toLocaleString("en-GB")}</span>
+                    <span className={cn("text-[13px] tabular-nums", selected ? "text-paper-white" : "text-paper-sage")}>{entry.rowCount.toLocaleString("en-GB")}</span>
                   ) : null}
                 </button>
               </li>
@@ -157,8 +157,8 @@ function Rows({ setup, table }: { setup: DatabaseSetup; table: DatabaseTable }) 
     <section aria-label={`Rows in ${table.name}`} className="min-w-0">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-mono text-[15px] font-semibold text-paper-moss">{table.name}</h3>
-          <p className="text-[12.5px] text-paper-sage" aria-live="polite">
+          <h3 className="font-mono text-[14px] font-semibold text-paper-moss">{table.name}</h3>
+          <p className="text-[13px] text-paper-sage" aria-live="polite">
             {rows.data ? pageLabel(offset, shown.length, total) : "Reading…"}
             {!editable ? " · no primary key, so rows are read-only here" : ""}
           </p>
@@ -179,9 +179,9 @@ function Rows({ setup, table }: { setup: DatabaseSetup; table: DatabaseTable }) 
       {rows.isError ? (
         <p role="alert" className="text-[14px] text-paper-flame-deep">{rows.error.message}</p>
       ) : rows.isPending && !rows.data ? (
-        <DedsecLoader variant="compact" />
+        <PageLoader variant="compact" />
       ) : (
-        <div className="overflow-x-auto rounded-none border border-paper-mist">
+        <div className="overflow-x-auto rounded-md border border-paper-mist">
           <table className="w-full border-collapse text-left text-[13px]">
             <thead className="bg-paper-linen">
               <tr>
@@ -192,7 +192,7 @@ function Rows({ setup, table }: { setup: DatabaseSetup; table: DatabaseTable }) 
                       {column.primaryKey ? <KeyRound className="size-3" aria-label="Primary key" /> : null}
                       {column.name}
                     </span>
-                    <span className="block font-paper-ui text-[12px] font-normal text-paper-sage">{column.format ?? column.type}</span>
+                    <span className="block text-[13px] font-normal text-paper-sage">{column.format ?? column.type}</span>
                   </th>
                 ))}
               </tr>
@@ -210,13 +210,13 @@ function Rows({ setup, table }: { setup: DatabaseSetup; table: DatabaseTable }) 
                             <span className="flex flex-col gap-1">
                               <button
                                 type="button"
-                                className={cn("cursor-pointer text-[12px] font-semibold text-paper-flame-deep", PAPER_FOCUS)}
+                                className={cn("cursor-pointer text-[13px] font-semibold text-paper-flame-deep", PAPER_FOCUS)}
                                 disabled={remove.isPending}
                                 onClick={() => remove.mutate(key, { onSettled: () => setConfirmDelete(undefined) })}
                               >
                                 {remove.isPending ? "Deleting…" : "Delete?"}
                               </button>
-                              <button type="button" className={cn("cursor-pointer text-[12px] text-paper-sage", PAPER_FOCUS)} onClick={() => setConfirmDelete(undefined)}>
+                              <button type="button" className={cn("cursor-pointer text-[13px] text-paper-sage", PAPER_FOCUS)} onClick={() => setConfirmDelete(undefined)}>
                                 Keep
                               </button>
                             </span>
@@ -246,7 +246,7 @@ function Rows({ setup, table }: { setup: DatabaseSetup; table: DatabaseTable }) 
                     {table.columns.map((column) => {
                       const cell = formatCell(row[column.name]);
                       return (
-                        <td key={column.name} className={cn("max-w-[320px] truncate px-3 py-1.5 font-mono text-[12.5px]", cell.isNull ? "text-paper-ash italic" : "text-paper-moss")} title={cell.isNull ? undefined : toInput(row[column.name])}>
+                        <td key={column.name} className={cn("max-w-[320px] truncate px-3 py-1.5 font-mono text-[12px]", cell.isNull ? "text-paper-ash italic" : "text-paper-moss")} title={cell.isNull ? undefined : toInput(row[column.name])}>
                           {cell.text}
                         </td>
                       );
@@ -325,7 +325,7 @@ function RowForm({ setup, table, editing, onDone }: { setup: DatabaseSetup; tabl
     <form
       onSubmit={submit}
       aria-label={editing.mode === "insert" ? `New row in ${table.name}` : `Edit row in ${table.name}`}
-      className="mb-4 space-y-4 rounded-none border border-paper-mist bg-paper-cream p-5"
+      className="mb-4 space-y-4 rounded-md border border-paper-mist bg-paper-cream p-5"
     >
       <p className="text-[13px] text-paper-char">
         {editing.mode === "insert"
@@ -342,7 +342,7 @@ function RowForm({ setup, table, editing, onDone }: { setup: DatabaseSetup; tabl
             disabled: locked,
             spellCheck: false,
             onChange: (event: { target: { value: string } }) => setDraft((current) => ({ ...current, [column.name]: event.target.value })),
-            className: cn(PAPER_INPUT, "w-full font-mono text-[13px] disabled:opacity-60"),
+            className: cn(PAPER_INPUT, "w-full font-mono text-[12px] disabled:opacity-60"),
             placeholder: column.hasDefault ? "default" : column.required ? "" : "NULL",
           };
           return (

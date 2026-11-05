@@ -12,7 +12,7 @@ The primary user is Dylan, operating a personal agentic workspace. Developers ex
 
 ## Product Purpose
 
-AgentOS is the operating system for Dylan's working day: businesses, clients, products, personal admin, knowledge and the agents that help with all of them. It is the orchestration layer above email, notes, trackers and agent consoles — not a replacement for each. Success means opening AgentOS answers "what matters today, what needs me, and what should I do next?" within seconds, without feeling like a developer tool or a reporting dashboard. Engineering capability (repositories, workers, reviews) stays fully available as supporting infrastructure inside the work it serves.
+AgentOS is the operating system for Dylan's working day: businesses, clients, products, personal admin, knowledge and the agents that help with all of them. It is the orchestration layer above email, notes, trackers and agent consoles — not a replacement for each. Success means opening AgentOS answers "what matters today, what needs me, and what should I do next?" within seconds, without feeling like a reporting dashboard. It keeps a coder's precision in its details, not in visual noise. Engineering capability (repositories, workers, reviews) stays fully available as supporting infrastructure inside the work it serves.
 
 ## Positioning
 
@@ -31,11 +31,11 @@ AgentOS is used as a desktop-oriented working environment through a Tauri-wrappe
 
 ## Brand Commitments
 
-The product name is AgentOS. Its voice is concise, calm, technical, and action-oriented. `DESIGN.md` is the visual authority for the Editorial Terminal language.
+The product name is AgentOS. Its voice is concise, calm, technical, and action-oriented. `DESIGN.md` is the visual authority: the Quiet Terminal specification.
 
 ## Evidence on Hand
 
-The repository contains a detailed V1 design specification in `DESIGN.md`. Showcase project names, activity, and system states on `/design-system` are illustrative component data, not live product claims.
+The repository's design specification is `DESIGN.md`. Showcase project names, activity, and system states on `/design-system` are illustrative component data, not live product claims.
 
 ## Product Principles
 

@@ -200,14 +200,14 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="memory-dialog relative flex max-h-[min(88vh,760px)] w-[min(94vw,680px)] flex-col bg-paper-white font-paper-ui text-paper-moss shadow-[0_30px_80px_rgb(2_2_16/0.5)]"
+        className="memory-dialog relative flex max-h-[min(88vh,760px)] w-[min(94vw,680px)] flex-col bg-paper-white text-paper-moss shadow-[var(--shadow-overlay)]"
       >
         {/* Header and progress */}
         <header className="border-b border-paper-mist px-6 pt-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <FilePlus2 className="size-5 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
-              <h2 id={titleId} data-heading="compact" className="font-paper-display text-[24px] leading-none font-extrabold tracking-[-0.015em]">
+              <h2 id={titleId} data-heading="compact" className="text-[24px] leading-none font-semibold tracking-[-0.015em]">
                 New note
               </h2>
             </div>
@@ -240,8 +240,8 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                   >
                     <span
                       className={cn(
-                        "inline-flex size-6 shrink-0 items-center justify-center text-[12px] tabular-nums transition-colors duration-300",
-                        done ? "bg-paper-moss text-paper-white" : current ? "bg-paper-blue text-paper-white" : "border border-paper-mist",
+                        "inline-flex size-6 shrink-0 items-center justify-center text-[13px] tabular-nums transition-colors duration-300",
+                        done ? "bg-paper-moss text-paper-white" : current ? "bg-selected text-paper-moss" : "border border-paper-mist",
                       )}
                       aria-hidden="true"
                     >
@@ -290,7 +290,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                     onChange={(event) => setTitle(event.target.value)}
                     maxLength={140}
                     placeholder="e.g. Pricing experiments"
-                    className={cn(PAPER_INPUT, "min-h-12 w-full text-[18px] font-medium")}
+                    className={cn(PAPER_INPUT, "min-h-12 w-full text-[16px] font-medium")}
                   />
                 </Field>
                 <Field label="Type" hint="Optional. What kind of memory this is.">
@@ -308,7 +308,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                   </select>
                 </Field>
                 <Field label="Tags" hint="Optional. Press Enter or comma to add one.">
-                  <div className={cn(PAPER_INPUT, "flex min-h-11 w-full flex-wrap items-center gap-1.5 py-1.5 focus-within:outline-2 focus-within:outline-paper-blue")}>
+                  <div className={cn(PAPER_INPUT, "flex min-h-11 w-full flex-wrap items-center gap-1.5 py-1.5 focus-within:outline-2 focus-within:outline-[var(--focus)]")}>
                     {tags.map((tag) => (
                       <Chip key={tag} onRemove={() => setTags(tags.filter((entry) => entry !== tag))} label={`Remove tag ${tag}`}>
                         #{tag}
@@ -336,7 +336,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                   </div>
                   {knownTags.length > 0 ? (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[12.5px] text-paper-sage">In use:</span>
+                      <span className="text-[13px] text-paper-sage">In use:</span>
                       {knownTags
                         .filter((entry) => !tags.includes(entry.tag))
                         .slice(0, 10)
@@ -345,7 +345,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                             key={entry.tag}
                             type="button"
                             onClick={() => addTag(entry.tag)}
-                            className={cn("cursor-pointer border border-paper-mist px-1.5 py-px text-[12.5px] text-paper-char hover:border-paper-blue hover:text-paper-blue", PAPER_FOCUS)}
+                            className={cn("cursor-pointer border border-paper-mist px-1.5 py-px text-[13px] text-paper-char hover:border-paper-ash hover:text-paper-blue", PAPER_FOCUS)}
                           >
                             #{entry.tag}
                           </button>
@@ -365,7 +365,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                     onChange={(event) => setBody(event.target.value)}
                     rows={9}
                     placeholder="What do you want to remember?"
-                    className={cn(PAPER_INPUT, "min-h-[190px] w-full resize-y py-3 text-[15px] leading-6")}
+                    className={cn(PAPER_INPUT, "min-h-[190px] w-full resize-y py-3 text-[14px] leading-6")}
                   />
                 </Field>
                 <LinkPicker notes={notes} selected={links} onChange={setLinks} query={linkQuery} onQuery={setLinkQuery} />
@@ -377,11 +377,11 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                 <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-2.5 text-[14px]">
                   <dt className="text-paper-sage">Folder</dt>
                   <dd className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-mono text-[13px]">{folder ? `${folder}/` : "Vault root"}</span>
-                    {folderIsNew ? <span className="bg-paper-marigold px-1.5 text-[12px] font-semibold tracking-[0.06em] text-primary-foreground uppercase">New</span> : null}
+                    <span className="truncate font-mono text-[12px]">{folder ? `${folder}/` : "Vault root"}</span>
+                    {folderIsNew ? <span className="bg-paper-marigold px-1.5 text-[13px] font-semibold text-primary-foreground">New</span> : null}
                   </dd>
                   <dt className="text-paper-sage">File</dt>
-                  <dd className="truncate font-mono text-[13px]">{fileName}</dd>
+                  <dd className="truncate font-mono text-[12px]">{fileName}</dd>
                   <dt className="text-paper-sage">Tags</dt>
                   <dd>{tags.length ? tags.map((tag) => `#${tag}`).join("  ") : <span className="text-paper-sage">None</span>}</dd>
                   <dt className="text-paper-sage">Links to</dt>
@@ -389,7 +389,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                     {links.length ? (
                       <ul className="space-y-0.5">
                         {links.map((link) => (
-                          <li key={link} className="truncate font-mono text-[13px]">{link}</li>
+                          <li key={link} className="truncate font-mono text-[12px]">{link}</li>
                         ))}
                       </ul>
                     ) : (
@@ -400,7 +400,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
 
                 <div className="border border-paper-mist">
                   <div className="flex items-center justify-between border-b border-paper-mist bg-paper-linen px-3 py-1.5">
-                    <span className="text-[12.5px] font-medium text-paper-char">{showRaw ? "Exactly what will be written" : "Preview"}</span>
+                    <span className="text-[13px] font-medium text-paper-char">{showRaw ? "Exactly what will be written" : "Preview"}</span>
                     <SegmentedControl
                       label="Preview format"
                       options={[
@@ -413,7 +413,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                   </div>
                   <div className="max-h-[260px] overflow-y-auto px-4 py-4">
                     {showRaw ? (
-                      <pre className="font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-moss">{contents}</pre>
+                      <pre className="font-mono text-[12px] leading-5 whitespace-pre-wrap text-paper-moss">{contents}</pre>
                     ) : (
                       <Markdown content={contents.replace(/^---\n[\s\S]*?\n---\n/, "")} tone="paper" lexer={lexer} inline={previewLinks} className="break-words" />
                     )}
@@ -421,7 +421,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                 </div>
 
                 {create.error ? (
-                  <p role="alert" className="border border-paper-flame-deep px-3 py-2 text-[13.5px] text-paper-flame-deep">
+                  <p role="alert" className="border border-paper-flame-deep px-3 py-2 text-[14px] text-paper-flame-deep">
                     {create.error.message}
                   </p>
                 ) : null}
@@ -445,7 +445,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
               </div>
             ) : (
               <>
-                <p className="mb-3 flex min-w-0 items-center gap-2 text-[12.5px]" aria-live="polite">
+                <p className="mb-3 flex min-w-0 items-center gap-2 text-[13px]" aria-live="polite">
                   {stepError && (step > 0 || folderPath) ? (
                     <span className="text-paper-flame-deep">{stepError}</span>
                   ) : (
@@ -462,7 +462,7 @@ export function NewNoteDialog({ folders, notes, tags: knownTags, defaultFolder =
                     {step === 0 ? "Cancel" : "Back"}
                   </PaperButton>
                   <div className="flex items-center gap-3">
-                    <span className="hidden text-[12px] text-paper-sage tabular-nums sm:inline">
+                    <span className="hidden text-[13px] text-paper-sage tabular-nums sm:inline">
                       Step {step + 1} of {STEPS.length}
                     </span>
                     <PaperButton type="submit" variant="amber" disabled={Boolean(stepError) || create.isPending} className="min-w-[132px]">
@@ -483,7 +483,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div>
       <label className="block">
-        <span className="block font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">{label}</span>
+        <span className="block text-[13px] font-semibold text-paper-char">{label}</span>
         {hint ? <span className="mt-1 block text-[13px] text-paper-sage">{hint}</span> : null}
         <span className="mt-2.5 block">{children}</span>
       </label>
@@ -572,7 +572,7 @@ function StepFolder({
           </label>
           <div ref={list} role="radiogroup" aria-label="Folders" className="mt-2 max-h-[280px] overflow-y-auto border border-paper-mist" onKeyDown={onListKey}>
             {visible.length === 0 ? (
-              <p className="px-3 py-3 text-[13.5px] text-paper-sage">No folder matches. Switch to “New folder” to make it.</p>
+              <p className="px-3 py-3 text-[14px] text-paper-sage">No folder matches. Switch to “New folder” to make it.</p>
             ) : (
               visible.map((entry) => {
                 const selected = entry.folder === existing;
@@ -591,13 +591,13 @@ function StepFolder({
                       "flex min-h-9 w-full cursor-pointer items-center gap-2 pr-3 text-left text-[14px] transition-colors duration-100",
                       PAPER_FOCUS,
                       "focus-visible:outline-offset-[-2px]",
-                      selected ? "bg-paper-blue text-paper-white" : "hover:bg-paper-linen",
+                      selected ? "bg-selected text-paper-moss" : "hover:bg-paper-linen",
                     )}
                   >
                     <Folder className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
                     <span className="min-w-0 flex-1 truncate">{entry.folder ? (needle ? entry.folder : entry.folder.split("/").pop()) : "Vault root"}</span>
                     {entry.count !== undefined ? (
-                      <span className={cn("text-[12px] tabular-nums", selected ? "text-paper-white" : "text-paper-sage")}>{entry.count}</span>
+                      <span className={cn("text-[13px] tabular-nums", selected ? "text-paper-white" : "text-paper-sage")}>{entry.count}</span>
                     ) : null}
                   </button>
                 );
@@ -624,13 +624,13 @@ function StepFolder({
               onChange={(event) => onNewName(event.target.value)}
               placeholder="e.g. research"
               maxLength={80}
-              className={cn(PAPER_INPUT, "min-h-11 w-full text-[15px]")}
+              className={cn(PAPER_INPUT, "min-h-11 w-full text-[14px]")}
             />
           </Field>
           {resulting && newName.trim() ? (
-            <p className="flex items-center gap-2 text-[13.5px] text-paper-char">
+            <p className="flex items-center gap-2 text-[14px] text-paper-char">
               <FolderPlus className="size-4 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
-              <span className="font-mono text-[13px]">{resulting}/</span>
+              <span className="font-mono text-[12px]">{resulting}/</span>
               <span className="text-paper-sage">{folderIsNew ? "will be created with the note" : "already exists — the note goes there"}</span>
             </p>
           ) : null}
@@ -662,7 +662,7 @@ function LinkPicker({
 
   return (
     <div>
-      <span className="flex items-center gap-1.5 font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">
+      <span className="flex items-center gap-1.5 text-[13px] font-semibold text-paper-char">
         <Link2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
         Connect to notes
       </span>
@@ -672,7 +672,7 @@ function LinkPicker({
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {selected.map((id) => (
             <Chip key={id} onRemove={() => onChange(selected.filter((entry) => entry !== id))} label={`Remove link to ${id}`}>
-              <span className="font-mono text-[12.5px]">{id.replace(/\.md$/i, "")}</span>
+              <span className="font-mono text-[12px]">{id.replace(/\.md$/i, "")}</span>
             </Chip>
           ))}
         </div>

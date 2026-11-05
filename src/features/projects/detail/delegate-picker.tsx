@@ -69,7 +69,7 @@ export function DelegatePicker({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter tasks"
-            className="os-focus-ring w-full rounded-md border border-os-border bg-transparent px-3 py-2 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+            className="os-focus-ring w-full rounded-md border border-os-border bg-transparent px-3 py-2 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
           />
         </div>
 
@@ -91,7 +91,7 @@ export function DelegatePicker({
                   )}
                 >
                   <span className="os-meta w-16 shrink-0 text-os-subtle">{task.id}</span>
-                  <span className="min-w-0 flex-1 text-[15px] leading-6 text-foreground">{task.title}</span>
+                  <span className="min-w-0 flex-1 text-[14px] leading-6 text-foreground">{task.title}</span>
                   <span className="os-meta shrink-0 text-os-subtle">{task.section}</span>
                   <Send className="size-3.5 shrink-0 self-center text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
                 </button>

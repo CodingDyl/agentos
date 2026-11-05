@@ -40,7 +40,7 @@ export function TractionNextTab({ data, onTab }: { data: TractionData; onTab: (t
         count={data.queue.length}
         action={
           progress.total > 0 ? (
-            <span className="text-[12.5px] font-medium tracking-[0.04em] text-paper-sage uppercase tabular-nums" aria-live="polite">
+            <span className="text-[13px] font-medium text-paper-sage tabular-nums" aria-live="polite">
               {progress.done} / {progress.total} complete
             </span>
           ) : null
@@ -61,9 +61,9 @@ function Step({ count, label, hint, onClick }: { count: number | undefined; labe
       onClick={onClick}
       className={cn("cursor-pointer border border-paper-mist bg-paper-white px-4 py-3 text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
     >
-      <span className="block font-paper-display text-[26px] leading-8 font-bold text-paper-moss tabular-nums">{count ?? "–"}</span>
-      <span className="block text-[13.5px] font-semibold text-paper-moss">{label}</span>
-      <span className="block text-[12.5px] text-paper-sage">{hint}</span>
+      <span className="block text-[24px] leading-8 font-semibold text-paper-moss tabular-nums">{count ?? "–"}</span>
+      <span className="block text-[14px] font-semibold text-paper-moss">{label}</span>
+      <span className="block text-[13px] text-paper-sage">{hint}</span>
     </button>
   );
 }

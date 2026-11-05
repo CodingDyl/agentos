@@ -154,6 +154,37 @@ export function elapsed(startedAt: string, now: Date = new Date()): string {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
+/** A run of Hermes' prose: plain words, or something a machine named. */
+export interface BriefSegment {
+  text: string;
+  code: boolean;
+}
+
+/** A vault-style path with a folder and an extension: `me/GOALS.md`. */
+const FILE_PATH = /(?<![\w/.-])(?:[\w.-]+\/)+[\w.-]*\.[A-Za-z][\w]*(?![\w/-])/g;
+
+/**
+ * Splits Hermes' text so only paths and `backticked` ids render in mono. Paths
+ * are found in the prose too, because Hermes doesn't reliably backtick them.
+ */
+export function briefSegments(text: string): BriefSegment[] {
+  const segments: BriefSegment[] = [];
+  const pushProse = (prose: string) => {
+    let last = 0;
+    for (const match of prose.matchAll(FILE_PATH)) {
+      if (match.index > last) segments.push({ text: prose.slice(last, match.index), code: false });
+      segments.push({ text: match[0], code: true });
+      last = match.index + match[0].length;
+    }
+    if (last < prose.length) segments.push({ text: prose.slice(last), code: false });
+  };
+  text.split(/`([^`]+)`/).forEach((part, index) => {
+    if (index % 2 === 1) segments.push({ text: part, code: true });
+    else pushProse(part);
+  });
+  return segments;
+}
+
 /** Time-of-day greeting. Local only — never a model request. */
 export function greeting(operator: string, now: Date = new Date()): string {
   const hour = now.getHours();
@@ -162,13 +193,11 @@ export function greeting(operator: string, now: Date = new Date()): string {
   return `Good evening, ${operator}`;
 }
 
-/** The header's date line, e.g. `Thursday 10 September`. */
+/** The header's date line, e.g. `Thursday, 10 September`. */
 export function formatToday(now: Date = new Date()): string {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(now);
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(now);
+  const date = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" }).format(now);
+  return `${weekday}, ${date}`;
 }
 
 /**

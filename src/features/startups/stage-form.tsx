@@ -69,7 +69,7 @@ export function StageFields<T extends Record<string, unknown>>({
                 className={cn(PAPER_INPUT, "w-full py-2 leading-6")}
               />
             )}
-            {field.hint ? <span className="mt-1 block text-[12.5px] leading-5 text-paper-sage">{field.hint}{field.kind === "list" ? " One per line." : ""}</span> : field.kind === "list" ? <span className="mt-1 block text-[12.5px] text-paper-sage">One per line.</span> : null}
+            {field.hint ? <span className="mt-1 block text-[13px] leading-5 text-paper-sage">{field.hint}{field.kind === "list" ? " One per line." : ""}</span> : field.kind === "list" ? <span className="mt-1 block text-[13px] text-paper-sage">One per line.</span> : null}
           </label>
         );
       })}
@@ -141,7 +141,7 @@ export function StageInterview<S extends EditableStage>({
       {questions.data.understood.length > 0 && index === 0 ? (
         <div className="mb-5 bg-paper-linen px-4 py-3">
           <FieldLabel>What Hermes already understood</FieldLabel>
-          <ul className="mt-1 list-disc pl-5 text-[13.5px] leading-6 text-paper-char">
+          <ul className="mt-1 list-disc pl-5 text-[14px] leading-6 text-paper-char">
             {questions.data.understood.map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -149,11 +149,11 @@ export function StageInterview<S extends EditableStage>({
         </div>
       ) : null}
 
-      <p className="text-[12.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase tabular-nums">
+      <p className="text-[13px] font-semibold text-paper-sage tabular-nums">
         Question {index + 1} of {list.length}
       </p>
       <label className="mt-2 block">
-        <span className="block font-paper-display text-[18px] leading-7 font-bold text-paper-moss">{list[index]}</span>
+        <span className="block text-[16px] leading-7 font-semibold text-paper-moss">{list[index]}</span>
         <textarea
           key={index}
           rows={4}
@@ -215,7 +215,7 @@ export function StageEditor<T extends Record<string, unknown>>({
 
   return (
     <PaperCard className="p-6">
-      {notice ? <p className="mb-5 bg-paper-linen px-4 py-3 text-[13.5px] leading-6 text-paper-char">{notice}</p> : null}
+      {notice ? <p className="mb-5 bg-paper-linen px-4 py-3 text-[14px] leading-6 text-paper-char">{notice}</p> : null}
       <StageFields fields={fields} value={value} onChange={setValue} disabled={locked} />
       {!locked ? (
         <div className="mt-6 flex flex-wrap items-center gap-2">

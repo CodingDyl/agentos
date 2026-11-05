@@ -9,10 +9,9 @@ import {
   FolderOpen,
   Layers,
   Box,
-  ScanEye,
   GitBranch,
 } from "lucide-react";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useProjects } from "@/lib/agentos/queries";
 import { getProject } from "@/lib/agentos/client";
@@ -59,7 +58,6 @@ export function CoderPage() {
     scripts,
     terminals,
     activeTerminalId,
-    scanlineOverlay,
     setProject,
     clearProject,
     openFile,
@@ -70,7 +68,6 @@ export function CoderPage() {
     addTerminal,
     removeTerminal,
     setActiveTerminal,
-    toggleScanlineOverlay,
     saveAllFiles,
   } = useCoderStore();
 
@@ -391,26 +388,26 @@ export function CoderPage() {
         activeHref="/coder"
         modelLabel="Coder"
       >
-        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono">
+        <div className="flex min-h-screen items-center justify-center bg-[var(--bg-canvas)]">
           <div className="w-full max-w-lg space-y-6 p-8">
-            <div className="space-y-2 border-l-4 border-[#ff0066] pl-4">
-              <h1 className="font-mono text-2xl font-bold text-[#ff0066] tracking-wider">
+            <div className="space-y-2 border-l-4 border-[var(--status-error)] pl-4">
+              <h1 className="font-mono text-[24px] font-semibold text-[var(--status-error)]">
                 COULD_NOT_OPEN_
               </h1>
-              <p className="text-sm text-[#e0e0e0]">{workspaceError}</p>
+              <p className="text-[14px] text-[var(--text-primary)]">{workspaceError}</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={retryOpenWorkspace}
-                className="rounded border border-[#00ffcc] bg-[#00ffcc0d] px-4 py-2 text-sm text-[#00ffcc] hover:bg-[#00ffcc1a]"
+                className="rounded border border-[var(--border-control)] bg-[var(--bg-raised)] px-4 py-2 text-[14px] text-[var(--text-primary)] hover:bg-[var(--bg-raised)]"
               >
                 Retry
               </button>
               <button
                 type="button"
                 onClick={backToWorkspaces}
-                className="rounded border border-[#6a9fb5] px-4 py-2 text-sm text-[#6a9fb5] hover:bg-[#6a9fb51a]"
+                className="rounded border border-[var(--border-control)] px-4 py-2 text-[14px] text-[var(--text-muted)] hover:bg-[var(--bg-raised)]"
               >
                 Back to workspaces
               </button>
@@ -429,7 +426,7 @@ export function CoderPage() {
         activeHref="/coder"
         modelLabel="Coder"
       >
-        <DedsecLoader variant="page" className="min-h-screen" />
+        <PageLoader variant="page" className="min-h-screen" />
       </AppShell>
     );
   }
@@ -442,20 +439,18 @@ export function CoderPage() {
         activeHref="/coder"
         modelLabel="Coder"
       >
-        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] font-mono">
+        <div className="flex min-h-screen items-center justify-center bg-[var(--bg-canvas)]">
           <div className="w-full max-w-2xl space-y-6 p-8">
-            <div className="space-y-2 border-l-4 border-[#00ffcc] pl-4">
-              <h1 className="font-mono text-3xl font-bold text-[#00ffcc] tracking-wider glitch-text">
-                CODER_
-              </h1>
-              <p className="text-sm text-[#6a9fb5]">
+            <div className="space-y-2 ">
+              <h1 className="text-[var(--text-primary)]">Coder</h1>
+              <p className="text-[14px] text-[var(--text-muted)]">
                 Select a workspace or open a folder
               </p>
             </div>
 
-            <div className="space-y-4 rounded border border-[#00ffcc33] bg-[#141414] p-6">
+            <div className="space-y-4 rounded border border-[var(--border-subtle)] bg-[var(--bg-panel)] p-6">
               <div>
-                <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[#00ccff]">
+                <h2 className="mb-3 text-[14px] font-semibold text-[var(--text-secondary)]">
                   AgentOS Workspaces
                 </h2>
                 <div className="space-y-2">
@@ -465,12 +460,12 @@ export function CoderPage() {
                       type="button"
                       disabled={openingSlug !== null}
                       onClick={() => void handleOpenWorkspace(project.slug)}
-                      className="flex w-full items-center gap-3 rounded border border-[#00ffcc1a] bg-[#0a0a0a] p-3 text-left transition-colors hover:border-[#00ffcc] hover:bg-[#00ffcc0d] disabled:opacity-50"
+                      className="flex w-full items-center gap-3 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3 text-left transition-colors hover:border-[var(--border-control)] hover:bg-[var(--bg-raised)] disabled:opacity-50"
                     >
-                      <Box className="size-5 shrink-0 text-[#00ccff]" />
+                      <Box className="size-5 shrink-0 text-[var(--text-secondary)]" />
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-[#e0e0e0]">{project.name}</div>
-                        <div className="truncate text-xs text-[#6a9fb5]">
+                        <div className="font-medium text-[var(--text-primary)]">{project.name}</div>
+                        <div className="truncate text-[13px] text-[var(--text-muted)]">
                           {openingSlug === project.slug ? "Opening…" : project.slug}
                         </div>
                       </div>
@@ -480,20 +475,20 @@ export function CoderPage() {
               </div>
 
               {workspaceError ? (
-                <div className="space-y-3 rounded border border-[#ff006633] bg-[#ff00660d] p-3">
-                  <p className="text-sm text-[#ff0066]">{workspaceError}</p>
+                <div className="space-y-3 rounded border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--status-error)_12%,transparent)] p-3">
+                  <p className="text-[14px] text-[var(--status-error)]">{workspaceError}</p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={retryOpenWorkspace}
-                      className="rounded border border-[#00ffcc] px-3 py-1 text-xs text-[#00ffcc] hover:bg-[#00ffcc1a]"
+                      className="rounded border border-[var(--border-control)] px-3 py-1 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-raised)]"
                     >
                       Retry
                     </button>
                     <button
                       type="button"
                       onClick={backToWorkspaces}
-                      className="rounded border border-[#6a9fb5] px-3 py-1 text-xs text-[#6a9fb5] hover:bg-[#6a9fb51a]"
+                      className="rounded border border-[var(--border-control)] px-3 py-1 text-[13px] text-[var(--text-muted)] hover:bg-[var(--bg-raised)]"
                     >
                       Back to workspaces
                     </button>
@@ -501,7 +496,7 @@ export function CoderPage() {
                 </div>
               ) : null}
 
-              <div className="border-t border-[#00ffcc1a] pt-4">
+              <div className="border-t border-[var(--border-subtle)] pt-4">
                 <FolderOpenControl
                   label="Open Folder..."
                   onPickPath={handleOpenFolderPath}
@@ -522,29 +517,20 @@ export function CoderPage() {
       activeHref="/coder"
         modelLabel="Coder"
     >
-      <div className="relative flex h-screen flex-col bg-[#0a0a0a] font-mono">
-        {scanlineOverlay && (
-          <div
-            className="pointer-events-none absolute inset-0 z-50 opacity-10"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(0deg, transparent, transparent 2px, #00ffcc 2px, #00ffcc 4px)",
-            }}
-          />
-        )}
+      <div className="relative flex h-screen flex-col bg-[var(--bg-canvas)]">
 
-        <header className="flex items-center justify-between border-b border-[#00ffcc33] bg-[#141414] px-4 py-2">
+        <header className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-4 py-2">
           <div className="flex items-center gap-4">
-            <h1 className="font-bold text-[#00ffcc] glitch-text">CODER_</h1>
-            <div className="text-sm text-[#6a9fb5]">
+            <h1 data-heading="compact" className="text-[var(--text-primary)]">Coder</h1>
+            <div className="text-[14px] text-[var(--text-muted)]">
               {workspaceSlug ? (
-                <span className="text-[#00ccff]">{workspaceSlug}</span>
+                <span className="text-[var(--text-secondary)]">{workspaceSlug}</span>
               ) : projectRoot ? (
                 <span>{projectRoot.split("/").pop()}</span>
               ) : null}
             </div>
             {gitBranch && (
-              <div className="flex items-center gap-1 text-xs text-[#ffff00]">
+              <div className="flex items-center gap-1 text-[13px] text-[var(--status-warning)]">
                 <Layers className="size-3" />
                 {gitBranch}
               </div>
@@ -556,7 +542,7 @@ export function CoderPage() {
               <button
                 type="button"
                 onClick={handleSaveAll}
-                className="flex items-center gap-1 rounded border border-[#00ffcc33] px-2 py-1 text-xs text-[#00ffcc] transition-colors hover:border-[#00ffcc] hover:bg-[#00ffcc0d]"
+                className="flex items-center gap-1 rounded border border-[var(--border-subtle)] px-2 py-1 text-[13px] text-[var(--text-primary)] transition-colors hover:border-[var(--border-control)] hover:bg-[var(--bg-raised)]"
                 title="Save All (Cmd/Ctrl+Shift+S)"
               >
                 <Save className="size-3" />
@@ -567,8 +553,8 @@ export function CoderPage() {
               type="button"
               onClick={() => setShowGitPanel(!showGitPanel)}
               className={cn(
-                "rounded p-2 hover:bg-[#00ffcc1a]",
-                showGitPanel ? "bg-[#00ffcc1a] text-[#00ccff]" : "text-[#6a9fb5]"
+                "rounded p-2 hover:bg-[var(--bg-raised)]",
+                showGitPanel ? "bg-[var(--bg-raised)] text-[var(--text-secondary)]" : "text-[var(--text-muted)]"
               )}
               title="Git Panel"
             >
@@ -578,7 +564,7 @@ export function CoderPage() {
             <button
               type="button"
               onClick={() => setShowSearchModal(true)}
-              className="rounded border border-[#00ffcc33] p-1 text-[#00ccff] transition-colors hover:border-[#00ccff] hover:bg-[#00ccff0d]"
+              className="rounded border border-[var(--border-subtle)] p-1 text-[var(--text-secondary)] transition-colors hover:border-[var(--border-control)] hover:bg-[var(--bg-raised)]"
               title="Find in Files (Cmd/Ctrl+F)"
             >
               <Search className="size-4" />
@@ -587,7 +573,7 @@ export function CoderPage() {
             <button
               type="button"
               onClick={handleCreateTerminal}
-              className="rounded border border-[#00ffcc33] p-1 text-[#00ccff] transition-colors hover:border-[#00ccff] hover:bg-[#00ccff0d]"
+              className="rounded border border-[var(--border-subtle)] p-1 text-[var(--text-secondary)] transition-colors hover:border-[var(--border-control)] hover:bg-[var(--bg-raised)]"
               title="New Terminal"
             >
               <TerminalIcon className="size-4" />
@@ -595,20 +581,8 @@ export function CoderPage() {
 
             <button
               type="button"
-              onClick={toggleScanlineOverlay}
-              className={cn(
-                "rounded border border-[#00ffcc33] p-1 transition-colors hover:border-[#00ccff] hover:bg-[#00ccff0d]",
-                scanlineOverlay ? "text-[#00ffcc]" : "text-[#6a9fb5]"
-              )}
-              title="Toggle Scanlines"
-            >
-              <ScanEye className="size-4" />
-            </button>
-
-            <button
-              type="button"
               onClick={() => setShowProjectPicker(true)}
-              className="rounded border border-[#ff00ff33] p-1 text-[#ff00ff] transition-colors hover:border-[#ff00ff] hover:bg-[#ff00ff0d]"
+              className="rounded border border-[var(--border-subtle)] p-1 text-[var(--text-secondary)] transition-colors hover:border-[var(--border-control)] hover:bg-[var(--bg-raised)]"
               title="Switch Project"
             >
               <FolderOpen className="size-4" />
@@ -618,11 +592,11 @@ export function CoderPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {showGitPanel && (
-            <div className="h-full w-96 flex-shrink-0 border-r border-[#00ffcc33]">
+            <div className="h-full w-96 flex-shrink-0 border-r border-[var(--border-subtle)]">
               <GitPanel />
             </div>
           )}
-          <div className="w-64 border-r border-[#00ffcc33]">
+          <div className="w-64 border-r border-[var(--border-subtle)]">
             <FileTree
               nodes={fileTree}
               onFileOpen={handleFileOpen}
@@ -631,15 +605,15 @@ export function CoderPage() {
           </div>
 
           <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex items-center gap-1 border-b border-[#00ffcc33] bg-[#141414] px-2">
+            <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-2">
               {openFiles.map((file) => (
                 <div
                   key={file.path}
                   className={cn(
-                    "group relative flex items-center gap-2 border-r border-[#00ffcc1a] px-3 py-2 text-xs",
+                    "group relative flex items-center gap-2 border-r border-[var(--border-subtle)] px-3 py-2 text-[13px]",
                     file.path === activeFilePath
-                      ? "bg-[#0a0a0a] text-[#00ffcc]"
-                      : "text-[#6a9fb5] hover:bg-[#00ffcc0d]"
+                      ? "bg-[var(--bg-canvas)] text-[var(--text-primary)]"
+                      : "text-[var(--text-muted)] hover:bg-[var(--bg-raised)]"
                   )}
                 >
                   <button
@@ -650,7 +624,7 @@ export function CoderPage() {
                     {file.path.split("/").pop()}
                   </button>
                   {file.isDirty && (
-                    <div className="size-1.5 rounded-full bg-[#ffff00]" title="Unsaved changes" />
+                    <div className="size-1.5 rounded-full bg-[var(--status-warning)]" title="Unsaved changes" />
                   )}
                   <button
                     type="button"
@@ -673,21 +647,21 @@ export function CoderPage() {
                   onSave={handleSaveFile}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-sm text-[#6a9fb5]">
+                <div className="flex h-full items-center justify-center text-[14px] text-[var(--text-muted)]">
                   No file open
                 </div>
               )}
             </div>
 
             {scripts.length > 0 && (
-              <div className="flex items-center gap-2 border-t border-[#00ffcc33] bg-[#141414] px-4 py-2">
-                <span className="text-xs text-[#6a9fb5]">Scripts:</span>
+              <div className="flex items-center gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-panel)] px-4 py-2">
+                <span className="text-[13px] text-[var(--text-muted)]">Scripts:</span>
                 {scripts.slice(0, 5).map((script) => (
                   <button
                     key={script.name}
                     type="button"
                     onClick={() => void handleRunScript(script.command)}
-                    className="flex items-center gap-1 rounded border border-[#00ffcc33] px-2 py-1 text-xs text-[#00ccff] transition-colors hover:border-[#00ccff] hover:bg-[#00ccff0d]"
+                    className="flex items-center gap-1 rounded border border-[var(--border-subtle)] px-2 py-1 text-[13px] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-control)] hover:bg-[var(--bg-raised)]"
                   >
                     <Play className="size-3" />
                     {script.name}
@@ -699,16 +673,16 @@ export function CoderPage() {
         </div>
 
         {terminals.length > 0 && (
-          <div className="flex h-64 flex-col border-t border-[#00ffcc33]">
-            <div className="flex items-center gap-1 border-b border-[#00ffcc33] bg-[#141414] px-2">
+          <div className="flex h-64 flex-col border-t border-[var(--border-subtle)]">
+            <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-2">
               {terminals.map((terminal) => (
                 <div
                   key={terminal.id}
                   className={cn(
-                    "group relative flex items-center gap-2 border-r border-[#00ffcc1a] px-3 py-2 text-xs",
+                    "group relative flex items-center gap-2 border-r border-[var(--border-subtle)] px-3 py-2 text-[13px]",
                     terminal.id === activeTerminalId
-                      ? "bg-[#0a0a0a] text-[#00ffcc]"
-                      : "text-[#6a9fb5] hover:bg-[#00ffcc0d]"
+                      ? "bg-[var(--bg-canvas)] text-[var(--text-primary)]"
+                      : "text-[var(--text-muted)] hover:bg-[var(--bg-raised)]"
                   )}
                 >
                   <button
@@ -747,7 +721,7 @@ export function CoderPage() {
             onClick={() => setShowSearchModal(false)}
           >
             <div
-              className="w-full max-w-2xl space-y-4 rounded border border-[#00ffcc] bg-[#0a0a0a] p-4"
+              className="w-full max-w-2xl space-y-4 rounded border border-[var(--border-control)] bg-[var(--bg-canvas)] p-4"
               onClick={(e) => e.stopPropagation()}
             >
               <input
@@ -756,14 +730,14 @@ export function CoderPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search in files..."
                 autoFocus
-                className="w-full rounded border border-[#00ffcc33] bg-[#141414] px-4 py-2 text-sm text-[#e0e0e0] placeholder-[#6a9fb5] outline-none focus:border-[#00ffcc]"
+                className="w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-panel)] px-4 py-2 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--border-control)]"
               />
 
               <div className="max-h-96 space-y-1 overflow-y-auto">
                 {searching ? (
-                  <div className="py-8 text-center text-sm text-[#6a9fb5]">Searching...</div>
+                  <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">Searching...</div>
                 ) : searchResults.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-[#6a9fb5]">
+                  <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">
                     {searchQuery ? "No results" : "Type to search"}
                   </div>
                 ) : (
@@ -785,15 +759,15 @@ export function CoderPage() {
                         }
                         setShowSearchModal(false);
                       }}
-                      className="w-full rounded p-2 text-left transition-colors hover:bg-[#00ffcc0d]"
+                      className="w-full rounded p-2 text-left transition-colors hover:bg-[var(--bg-raised)]"
                     >
-                      <div className="flex items-baseline gap-2 text-xs">
-                        <span className="font-medium text-[#00ccff]">
+                      <div className="flex items-baseline gap-2 text-[13px]">
+                        <span className="font-medium text-[var(--text-secondary)]">
                           {result.path.split("/").pop()}
                         </span>
-                        <span className="text-[#6a9fb5]">:{result.lineNumber}</span>
+                        <span className="text-[var(--text-muted)]">:{result.lineNumber}</span>
                       </div>
-                      <div className="mt-1 truncate text-xs text-[#e0e0e0]">{result.line}</div>
+                      <div className="mt-1 truncate text-[13px] text-[var(--text-primary)]">{result.line}</div>
                     </button>
                   ))
                 )}
@@ -802,42 +776,6 @@ export function CoderPage() {
           </div>
         )}
       </div>
-
-      <style>{`
-        .glitch-text {
-          animation: glitch 3s infinite;
-        }
-
-        @keyframes glitch {
-          0%, 90%, 100% {
-            transform: translate(0);
-          }
-          91% {
-            transform: translate(-2px, 0);
-          }
-          92% {
-            transform: translate(2px, 0);
-          }
-          93% {
-            transform: translate(0, -2px);
-          }
-          94% {
-            transform: translate(0, 2px);
-          }
-          95% {
-            transform: translate(-1px, 1px);
-          }
-          96% {
-            transform: translate(1px, -1px);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .glitch-text {
-            animation: none;
-          }
-        }
-      `}</style>
     </AppShell>
   );
 }

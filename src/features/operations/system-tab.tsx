@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { SystemStatus } from "@shared/mission-control-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { formatRunTime } from "@/features/automations";
 import { useMissionControl } from "@/lib/agentos/queries";
@@ -58,7 +58,7 @@ interface Row {
 export function SystemTab() {
   const { data, isPending, error } = useMissionControl();
 
-  if (isPending) return <DedsecLoader variant="compact" />;
+  if (isPending) return <PageLoader variant="compact" />;
   if (!data) return <p className="text-[14px] text-paper-flame-deep">{error?.message ?? "The system could not be read."}</p>;
 
   const workers: Row[] = data.workers.map((worker) => ({ ...worker }));
@@ -104,9 +104,9 @@ function StatusList({ label, rows, empty, action }: { label: string; rows: Row[]
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] leading-6 text-paper-moss">{row.name}</span>
                     {row.detail && loud(row.status) ? (
-                      <span className="block text-[12.5px] leading-5 text-paper-flame-deep">{row.detail}</span>
+                      <span className="block text-[13px] leading-5 text-paper-flame-deep">{row.detail}</span>
                     ) : row.detail ? (
-                      <span className="block truncate text-[12.5px] leading-5 text-paper-sage">{row.detail}</span>
+                      <span className="block truncate text-[13px] leading-5 text-paper-sage">{row.detail}</span>
                     ) : null}
                   </span>
                   <Tag tone={tone(row.status)}>{LABEL[row.status]}</Tag>
@@ -136,7 +136,7 @@ export function QuietLink({ to, children }: { to: string; children: ReactNode })
     <Link
       to={to}
       className={cn(
-        "inline-flex min-h-8 items-center rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+        "inline-flex min-h-8 items-center rounded-md px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
         PAPER_FOCUS,
       )}
     >

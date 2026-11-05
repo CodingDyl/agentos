@@ -20,36 +20,36 @@ export function FinanceCashFlowTab({ data }: { data: FinanceData }) {
                 <li key={month.month} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-x-4">
                   <span className="text-[13px] font-medium text-paper-char">{formatMonthShort(month.month)}</span>
                   <div className="space-y-1" role="img" aria-label={`${formatMonthShort(month.month)}: income ${money(month.income)}, spent ${money(month.spent)}`}>
-                    <div className="h-2 rounded-[2px] bg-paper-stone">
-                      <div className="h-full rounded-[2px] bg-paper-moss" style={{ width: `${(month.income / peak) * 100}%` }} />
+                    <div className="h-2 rounded-sm bg-paper-stone">
+                      <div className="h-full rounded-sm bg-paper-moss" style={{ width: `${(month.income / peak) * 100}%` }} />
                     </div>
-                    <div className="h-2 rounded-[2px] bg-paper-stone">
-                      <div className="h-full rounded-[2px] bg-paper-amber" style={{ width: `${(month.spent / peak) * 100}%` }} />
+                    <div className="h-2 rounded-sm bg-paper-stone">
+                      <div className="h-full rounded-sm bg-paper-amber" style={{ width: `${(month.spent / peak) * 100}%` }} />
                     </div>
                   </div>
-                  <span className={cn("w-24 text-right text-[13.5px] tabular-nums", month.saved < 0 ? "font-semibold text-paper-flame-deep" : "text-paper-moss")}>
+                  <span className={cn("w-24 text-right text-[14px] tabular-nums", month.saved < 0 ? "font-semibold text-paper-flame-deep" : "text-paper-moss")}>
                     {money(month.saved)}
-                    {current ? <span className="block text-[12px] font-normal text-paper-sage">so far</span> : null}
+                    {current ? <span className="block text-[13px] font-normal text-paper-sage">so far</span> : null}
                   </span>
                 </li>
               );
             })}
           </ul>
-          <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-[12.5px] text-paper-sage">
+          <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-paper-sage">
             <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-[1px] bg-paper-moss" aria-hidden="true" /> Income
+              <span className="size-2 rounded-sm bg-paper-moss" aria-hidden="true" /> Income
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-[1px] bg-paper-amber" aria-hidden="true" /> Spent
+              <span className="size-2 rounded-sm bg-paper-amber" aria-hidden="true" /> Spent
             </span>
             <span>Right: saved. Transfers between your own accounts and into investments are not counted as spending.</span>
           </p>
         </PaperSection>
 
         <PaperSection label="Month by month">
-          <div className="overflow-x-auto rounded-none border border-paper-mist">
+          <div className="overflow-x-auto rounded-md border border-paper-mist">
             <table className="w-full min-w-[32rem] text-left text-[14px]">
-              <thead className="bg-paper-linen text-[12.5px] text-paper-char">
+              <thead className="bg-paper-linen text-[13px] text-paper-char">
                 <tr>
                   <th scope="col" className="px-4 py-2.5 font-medium">Month</th>
                   <th scope="col" className="px-4 py-2.5 text-right font-medium">Income</th>

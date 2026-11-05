@@ -50,7 +50,7 @@ export function RebuildLauncher({ prospect }: { prospect: Prospect }) {
       <PaperButton variant="amber" onClick={() => setOpen(true)}>
         <Hammer className="size-3.5" aria-hidden="true" /> Start website rebuild
       </PaperButton>
-      <p className="mt-1 text-[12.5px] text-paper-sage">
+      <p className="mt-1 text-[13px] text-paper-sage">
         {prospect.website
           ? "Seven stages from their current site to a Vercel preview. You approve the design, the copy and the features before anything moves on."
           : "No website on file: the rebuild skips reading one and works from research and the details you give."}
@@ -88,7 +88,7 @@ function RebuildStartForm({ prospect, onCancel }: { prospect: Prospect; onCancel
         <PaperButton onClick={onCancel} disabled={start.isPending}>
           Cancel
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">Creates (or reuses) the client's workspace and reads their site, if they have one. Nothing is sent to anyone.</span>
+        <span className="text-[13px] text-paper-sage">Creates (or reuses) the client's workspace and reads their site, if they have one. Nothing is sent to anyone.</span>
       </div>
     </form>
   );

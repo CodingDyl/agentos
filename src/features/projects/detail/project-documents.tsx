@@ -2,7 +2,7 @@ import { PenLine, Plus, Search, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ArtifactType, DocumentProposal, ProjectDetail } from "@shared/agentos-types";
-import { CommandButton, DedsecLoader, EmptyState, FilterBar, FilterToolbar, Markdown, Section, SectionLabel } from "@/components/os";
+import { CommandButton, PageLoader, EmptyState, FilterBar, FilterToolbar, Markdown, Section, SectionLabel } from "@/components/os";
 import { useWorkspaceFeedback } from "@/features/workspace";
 import { useCreateDocument, useProjectDocuments, useProposeDocument } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -52,7 +52,7 @@ export function ProjectDocuments({ project }: { project: ProjectDetail }) {
     return <DocumentViewer slug={slug} path={openPath} origin={openOrigin} onBack={close} />;
   }
 
-  if (isPending) return <DedsecLoader variant="compact" />;
+  if (isPending) return <PageLoader variant="compact" />;
   if (error || !data) return <EmptyState label="Documents unavailable" description={error?.message ?? "Could not read documents."} />;
 
   const total = data.agentos.length + data.repo.length;
@@ -258,7 +258,7 @@ function NewDocument({
       {mode === "blank" ? (
         <>
           <Field label="Content" hint="Markdown." className="mt-5">
-            <textarea rows={10} value={content} onChange={(event) => setContent(event.target.value)} placeholder={"# Heading\n\nWrite here."} className={`${INPUT} resize-y font-mono text-[13px]`} />
+            <textarea rows={10} value={content} onChange={(event) => setContent(event.target.value)} placeholder={"# Heading\n\nWrite here."} className={`${INPUT} resize-y font-mono text-[12px]`} />
           </Field>
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <CommandButton variant="primary" disabled={!title.trim() || !content.trim()} loading={create.isPending} loadingLabel="Saving" onClick={() => save({ title, type, content })}>
@@ -319,7 +319,7 @@ function NewDocument({
                 value={proposal.content}
                 onChange={(event) => setProposal({ ...proposal, content: event.target.value })}
                 rows={16}
-                className="w-full resize-y bg-transparent font-mono text-[13px] leading-6 text-foreground outline-none"
+                className="w-full resize-y bg-transparent font-mono text-[12px] leading-6 text-foreground outline-none"
               />
             ) : (
               <Markdown content={proposal.content} />
@@ -343,10 +343,10 @@ function NewDocument({
 }
 
 const INPUT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle";
 
 const SELECT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[15px] leading-6 text-foreground";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[14px] leading-6 text-foreground";
 
 function Field({ label, hint, className, children }: { label: string; hint?: string; className?: string; children: ReactNode }) {
   return (

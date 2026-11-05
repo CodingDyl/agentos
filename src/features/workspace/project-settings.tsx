@@ -18,7 +18,7 @@ import {
   type WorkspaceModule,
   type WorkspaceType,
 } from "@shared/workspace";
-import { CommandButton, DedsecLoader, SectionLabel } from "@/components/os";
+import { CommandButton, PageLoader, SectionLabel } from "@/components/os";
 import type { ProjectSettings as Settings } from "@/lib/agentos/client";
 import {
   useArchiveProject,
@@ -252,9 +252,9 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
 
         {!form ? (
           settings.error ? (
-            <p className="px-6 py-6 text-[15px] leading-6 text-os-muted">{settings.error.message}</p>
+            <p className="px-6 py-6 text-[14px] leading-6 text-os-muted">{settings.error.message}</p>
           ) : (
-            <DedsecLoader variant="compact" className="px-6 py-6" />
+            <PageLoader variant="compact" className="px-6 py-6" />
           )
         ) : (
           <form
@@ -302,10 +302,10 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
 
             <Group label="Repository">
               <Field label="Local path" hint="Where workers check out and run. Absolute, or ~/.">
-                <input value={form.repoPath} onChange={(event) => update("repoPath", event.target.value)} placeholder="~/Developer/pantry-pilot" className={`${INPUT} font-mono text-[13px]`} />
+                <input value={form.repoPath} onChange={(event) => update("repoPath", event.target.value)} placeholder="~/Developer/pantry-pilot" className={`${INPUT} font-mono text-[12px]`} />
               </Field>
               <Field label="Default branch" hint="What worker jobs branch from. Blank uses the checkout.">
-                <input value={form.defaultBranch} onChange={(event) => update("defaultBranch", event.target.value)} placeholder="main" className={`${INPUT} font-mono text-[13px]`} />
+                <input value={form.defaultBranch} onChange={(event) => update("defaultBranch", event.target.value)} placeholder="main" className={`${INPUT} font-mono text-[12px]`} />
               </Field>
             </Group>
 
@@ -319,7 +319,7 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
                 }
                 invalid={prefixInvalid}
               >
-                <input value={form.taskPrefix} onChange={(event) => update("taskPrefix", event.target.value.toUpperCase())} placeholder="PP" className={`${INPUT} font-mono text-[13px] uppercase`} />
+                <input value={form.taskPrefix} onChange={(event) => update("taskPrefix", event.target.value.toUpperCase())} placeholder="PP" className={`${INPUT} font-mono text-[12px]`} />
               </Field>
             </Group>
 
@@ -348,7 +348,7 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
                 )}
               </Field>
               <Field label="Validation" hint="One command per line. AgentOS runs these after every worker job.">
-                <textarea rows={3} value={form.validation} onChange={(event) => update("validation", event.target.value)} placeholder={"npm test\nnpm run lint"} className={`${INPUT} resize-y font-mono text-[13px]`} />
+                <textarea rows={3} value={form.validation} onChange={(event) => update("validation", event.target.value)} placeholder={"npm test\nnpm run lint"} className={`${INPUT} resize-y font-mono text-[12px]`} />
               </Field>
             </Group>
 
@@ -439,10 +439,10 @@ export function ProjectSettings({ slug, onClose }: { slug: string; onClose: () =
 }
 
 const INPUT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle";
 
 const SELECT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[15px] leading-6 text-foreground disabled:opacity-60";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[14px] leading-6 text-foreground disabled:opacity-60";
 
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (

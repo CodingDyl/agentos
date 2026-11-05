@@ -57,20 +57,20 @@ export function ConceptViewer({ concept, onConceptChange, onClose, images, desig
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-mist px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="font-paper-display text-[18px] font-bold text-paper-moss">
+          <h3 className="text-[16px] font-semibold text-paper-moss">
             {conceptLabel(concept)}
             {directions?.[concept] ? <span className="font-normal text-paper-sage"> · {directions[concept]}</span> : null}
           </h3>
           <SegmentedControl label="Concept" value={concept} onChange={onConceptChange} options={HERO_CONCEPTS.map((id) => ({ value: id, label: `${id.slice(-1).toUpperCase()}${notes[id]?.trim() ? " •" : ""}` }))} />
         </div>
-        <button type="button" onClick={onClose} aria-label="Close viewer" className="inline-flex size-9 cursor-pointer items-center justify-center text-paper-char hover:bg-paper-linen focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue">
+        <button type="button" onClick={onClose} aria-label="Close viewer" className="inline-flex size-9 cursor-pointer items-center justify-center text-paper-char hover:bg-paper-linen">
           <X className="size-4" aria-hidden="true" />
         </button>
       </div>
 
       <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="grid min-w-0 content-start gap-2">
-          <p className="text-[12px] text-paper-sage">Desktop</p>
+          <p className="text-[13px] text-paper-sage">Desktop</p>
           {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" /> : <p className="text-[13px] text-paper-sage">No desktop shot.</p>}
         </div>
 
@@ -84,7 +84,7 @@ export function ConceptViewer({ concept, onConceptChange, onClose, images, desig
               placeholder="Keep, kill, copy tweaks, what to improve…"
               onChange={(event) => onNoteChange(concept, event.target.value)}
             />
-            <span role="status" className={cn("mt-1 block min-h-4 text-[12px]", state === "error" ? "text-paper-flame-deep" : "text-paper-sage")}>
+            <span role="status" className={cn("mt-1 block min-h-4 text-[13px]", state === "error" ? "text-paper-flame-deep" : "text-paper-sage")}>
               {state === "saving" ? "Saving…" : state === "saved" ? "Saved with this revision" : state === "error" ? "Could not save. Edit again to retry." : ""}
             </span>
           </label>
@@ -101,14 +101,14 @@ export function ConceptViewer({ concept, onConceptChange, onClose, images, desig
             </PaperButton>
           ) : null}
           {design ? (
-            <Link to={design.href} className="inline-flex w-fit items-center gap-1.5 border border-paper-mist px-2.5 py-1 text-[12.5px] text-paper-blue hover:bg-paper-linen">
+            <Link to={design.href} className="inline-flex w-fit items-center gap-1.5 border border-paper-mist px-2.5 py-1 text-[13px] text-paper-blue hover:bg-paper-linen">
               <FileText className="size-3.5" aria-hidden="true" /> {design.title}
               <span className="text-paper-sage">r{design.revision}</span>
             </Link>
           ) : null}
 
           <div className="grid gap-2">
-            <p className="text-[12px] text-paper-sage">Phone</p>
+            <p className="text-[13px] text-paper-sage">Phone</p>
             {mobile ? <img src={mobile.href} alt={`${conceptLabel(concept)} hero at phone width`} className="w-[220px] max-w-full border border-paper-mist" /> : <p className="text-[13px] text-paper-sage">No phone shot.</p>}
           </div>
 

@@ -43,7 +43,7 @@ export function DismissAlertButton({ id, text, className }: { id: string; text: 
         aria-label={`Dismiss: ${text}`}
         title="Not relevant: hide until next month"
         className={cn(
-          "inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-none border border-paper-mist bg-paper-white px-2 text-[12.5px] font-medium text-paper-char transition-colors duration-150 hover:border-paper-char hover:bg-paper-linen focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue disabled:cursor-default disabled:opacity-50",
+          "inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-paper-mist bg-paper-white px-2 text-[13px] font-medium text-paper-char transition-colors duration-150 hover:border-paper-char hover:bg-paper-linen disabled:cursor-default disabled:opacity-50",
           className,
         )}
       >
@@ -64,7 +64,7 @@ export function AlertUndoBar() {
   if (!notice) return null;
 
   return (
-    <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-none border border-paper-mist bg-paper-linen px-3.5 py-2.5 text-[13.5px] leading-6 text-paper-moss">
+    <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-paper-mist bg-paper-linen px-3.5 py-2.5 text-[14px] leading-6 text-paper-moss">
       <span className="min-w-0">
         Dismissed until next month: <span className="text-paper-char">{notice.text}</span>
       </span>
@@ -96,11 +96,11 @@ export function AttentionSection({ label, items, onOpen, hrefFor }: { label: str
 
   return (
     <PaperSection label={label} count={items.length}>
-      <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+      <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
         {items.map((item) => (
           <li key={item.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="flex flex-wrap items-center gap-2 text-[14.5px] leading-6 text-paper-moss">
+              <p className="flex flex-wrap items-center gap-2 text-[14px] leading-6 text-paper-moss">
                 <span aria-hidden="true" className={cn("w-3 shrink-0 text-center font-semibold", item.tone === "warn" ? "text-paper-flame-deep" : "text-paper-sage")}>
                   {item.tone === "warn" ? "!" : "○"}
                 </span>
@@ -109,13 +109,13 @@ export function AttentionSection({ label, items, onOpen, hrefFor }: { label: str
                 <span className="min-w-0">{item.text}</span>
               </p>
               <p className="mt-1 pl-5 text-[13px] leading-5 text-paper-char">{item.detail}</p>
-              <p className="mt-1.5 pl-5 text-[12.5px]">
+              <p className="mt-1.5 pl-5 text-[13px]">
                 {hrefFor ? (
                   <Link to={hrefFor(item.tab)} className="rounded-sm text-paper-sage underline-offset-4 hover:text-paper-moss hover:underline">
                     Open {TAB_LABEL[item.tab]} →
                   </Link>
                 ) : (
-                  <button type="button" onClick={() => onOpen?.(item.tab)} className="cursor-pointer rounded-none text-paper-sage underline-offset-4 hover:text-paper-moss hover:underline focus-visible:outline-2 focus-visible:outline-paper-blue">
+                  <button type="button" onClick={() => onOpen?.(item.tab)} className="cursor-pointer rounded-md text-paper-sage underline-offset-4 hover:text-paper-moss hover:underline focus-visible:outline-2 focus-visible:outline-[var(--focus)]">
                     Open {TAB_LABEL[item.tab]} →
                   </button>
                 )}

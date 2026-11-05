@@ -24,21 +24,21 @@ export function TractionIcpCard({ icp }: { icp: Icp | undefined }) {
         <IcpForm icp={icp} onDone={() => setEditing(false)} />
       ) : (
         <PaperCard>
-          <p className="font-paper-display text-[18px] font-bold text-paper-moss">{icp.name}</p>
+          <p className="text-[16px] font-semibold text-paper-moss">{icp.name}</p>
           <dl className="mt-3 space-y-3 text-[14px] leading-6">
             <div>
-              <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">Offer</dt>
+              <dt className="text-[13px] font-semibold text-paper-sage">Offer</dt>
               <dd className="text-paper-moss">{icp.offer}</dd>
             </div>
             {icp.geography ? (
               <div>
-                <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">Geography</dt>
+                <dt className="text-[13px] font-semibold text-paper-sage">Geography</dt>
                 <dd className="text-paper-moss">{icp.geography}</dd>
               </div>
             ) : null}
             {icp.idealProspect.length > 0 ? (
               <div>
-                <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">Ideal prospect</dt>
+                <dt className="text-[13px] font-semibold text-paper-sage">Ideal prospect</dt>
                 <dd>
                   <ul className="list-disc pl-5 text-paper-moss">
                     {icp.idealProspect.map((line) => (
@@ -72,8 +72,8 @@ function IcpForm({ icp, onDone }: { icp: Icp | undefined; onDone: () => void }) 
   return (
     <PaperCard>
       {!icp ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-none bg-paper-linen px-3 py-2.5">
-          <p className="text-[13.5px] leading-5 text-paper-char">One vertical at a time. No ICP means prospecting drifts.</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-paper-linen px-3 py-2.5">
+          <p className="text-[14px] leading-5 text-paper-char">One vertical at a time. No ICP means prospecting drifts.</p>
           <PaperButton variant="ghost" onClick={applySuggested}>
             Start from estate agencies
           </PaperButton>

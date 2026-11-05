@@ -17,17 +17,17 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "flex flex-col gap-6 border-b border-os-border pb-8 md:flex-row md:items-end md:justify-between",
+        "flex flex-col gap-4 md:flex-row md:items-start md:justify-between",
         className,
       )}
       {...props}
     >
       <div className="max-w-2xl">
-        <h1 className="text-[clamp(2rem,4vw,3rem)] leading-[1.05] font-normal tracking-[-0.03em] text-balance">
+        <h1 className="text-[28px] leading-9 font-semibold tracking-[-0.02em] text-balance">
           {title}
         </h1>
         {description ? (
-          <p className="mt-4 max-w-[68ch] text-[15px] leading-6 text-os-muted">
+          <p className="mt-1 max-w-[68ch] text-[14px] leading-[22px] text-os-muted">
             {description}
           </p>
         ) : null}

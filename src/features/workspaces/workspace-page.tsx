@@ -78,7 +78,7 @@ type WorkspaceTab = "overview" | WorkspaceModule;
 /** Old tab names that must keep working in links people saved. */
 const TAB_ALIASES: Record<string, WorkspaceTab> = { designs: "creative", milestones: "roadmap" };
 
-/** Tabs drawn on paper. Everything else is still Editorial Terminal. */
+/** Tabs drawn with the paper primitives; the rest use the os ones. */
 const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion", "dev", "startup", "ship"]);
 
 function readTab(value: string | null): WorkspaceTab {
@@ -198,7 +198,6 @@ export function WorkspacePage() {
       pageId="project"
       activeHref="/workspaces"
       contextLabel={project ? `Workspace / ${project.name}` : undefined}
-      modelLabel="Model / AgentOS V1"
     >
       {isPending ? (
         <div className={cn(CONTENT, "py-10")}>
@@ -220,8 +219,8 @@ export function WorkspacePage() {
           />
         </div>
       ) : (
-        <div className={cn("min-h-full", onPaper && "bg-paper-white")}>
-          <div className="bg-paper-white font-paper-ui text-paper-moss">
+        <div className="min-h-full">
+          <div className="text-paper-moss">
             <div className={cn(CONTENT, "pt-8 lg:pt-10")}>
               <WorkspaceHeader
                 project={project}
@@ -256,7 +255,7 @@ export function WorkspacePage() {
             className={cn(
               CONTENT,
               "pt-10 pb-12 outline-none",
-              onPaper ? "bg-paper-white font-paper-ui text-paper-moss" : "focus-visible:ring-1 focus-visible:ring-os-border-strong",
+              onPaper ? "text-paper-moss" : "focus-visible:ring-1 focus-visible:ring-os-border-strong",
             )}
           >
             <WorkspacePanel
@@ -356,7 +355,7 @@ function WorkspacePanel({
       return (
         <div className="max-w-[44rem]">
           <ClientsBlock />
-          <p className="mt-8 max-w-[60ch] text-[13.5px] leading-6 text-paper-sage">
+          <p className="mt-8 max-w-[60ch] text-[14px] leading-6 text-paper-sage">
             Clients are workspaces whose type is Client. Revenue, receivables and recurring services will live here
             once they are tracked; for now each client's own workspace holds its tasks, milestones and documents.
           </p>
@@ -408,7 +407,7 @@ function WorkspaceHeader({
       <Link
         to="/workspaces"
         className={cn(
-          "-mx-2 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+          "-mx-2 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
           PAPER_FOCUS,
         )}
       >
@@ -418,7 +417,7 @@ function WorkspaceHeader({
 
       <div className="mt-4 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <h1 className="font-paper-display text-[34px] leading-[1.08] font-extrabold tracking-[-0.015em] text-balance text-paper-moss sm:text-[42px]">
+          <h1 className="text-[28px] leading-[1.08] font-semibold tracking-[-0.015em] text-balance text-paper-moss sm:text-[28px]">
             {project.name}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px] text-paper-char">
@@ -433,7 +432,7 @@ function WorkspaceHeader({
               </>
             ) : null}
           </div>
-          {project.status ? <p className="mt-3 max-w-[68ch] text-[15px] leading-6 text-paper-char">{project.status}</p> : null}
+          {project.status ? <p className="mt-3 max-w-[68ch] text-[14px] leading-6 text-paper-char">{project.status}</p> : null}
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -540,16 +539,16 @@ function WorkspaceTabs({
               aria-controls={`panel-${tab}`}
               onClick={() => onSelect(tab)}
               className={cn(
-                "inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-t-[6px] border-b-2 px-3 py-2.5 text-[13.5px] font-medium transition-colors duration-150",
+                "inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-t-md border-b-2 px-3 py-2.5 text-[14px] font-medium transition-colors duration-150",
                 PAPER_FOCUS,
                 selected
-                  ? "border-paper-blue bg-paper-white text-paper-blue"
+                  ? "border-paper-ash bg-paper-white text-paper-blue"
                   : "border-transparent text-paper-sage hover:bg-paper-linen hover:text-paper-moss",
               )}
             >
               {tab === "overview" ? "Overview" : moduleLabel(tab, type)}
               {badge ? (
-                <span className="rounded-full bg-paper-stone px-1.5 text-[12px] leading-[17px] text-paper-char tabular-nums">{badge}</span>
+                <span className="rounded-full bg-paper-stone px-1.5 text-[13px] leading-[17px] text-paper-char tabular-nums">{badge}</span>
               ) : null}
             </button>
           );
@@ -561,7 +560,7 @@ function WorkspaceTabs({
           label="More sections"
           align="right"
           trigger={
-            <span className="inline-flex items-center gap-1 text-[13.5px] font-medium">
+            <span className="inline-flex items-center gap-1 text-[14px] font-medium">
               More
               <ChevronDown className="size-3.5" strokeWidth={2} aria-hidden="true" />
             </span>
@@ -619,7 +618,7 @@ function Menu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "inline-flex min-h-8 min-w-8 cursor-pointer items-center justify-center rounded-none px-2 text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+          "inline-flex min-h-8 min-w-8 cursor-pointer items-center justify-center rounded-md px-2 text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
           open && "bg-paper-linen text-paper-moss",
           PAPER_FOCUS,
         )}
@@ -631,7 +630,7 @@ function Menu({
         <div
           role="menu"
           className={cn(
-            "absolute top-full z-30 mt-1.5 w-56 overflow-hidden rounded-none border border-paper-mist bg-paper-white py-1 font-paper-ui",
+            "absolute top-full z-30 mt-1.5 w-56 overflow-hidden rounded-md border border-paper-mist bg-paper-white py-1",
             align === "right" ? "right-0" : "left-0",
           )}
         >
@@ -648,7 +647,7 @@ function Menu({
                   item.onSelect();
                 }}
                 className={cn(
-                  "flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[13.5px] text-paper-char transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+                  "flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-[14px] text-paper-char transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
                   PAPER_FOCUS,
                 )}
               >

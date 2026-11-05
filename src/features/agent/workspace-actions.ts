@@ -1,4 +1,5 @@
 import type { ProjectSummary, SearchHitKind } from "@shared/agentos-types";
+import { VOICE_TOGGLE_EVENT } from "@/features/voice/voice-model";
 
 /**
  * What ⌘K can do besides run a Hermes skill.
@@ -71,6 +72,7 @@ export function buildActions(context: ActionContext): PaletteAction[] {
   const create: PaletteAction[] = [
     { id: "create:task", group: "Create", label: "New task", hint: inContext ? `Tasks${scope}` : "Choose a workspace", keywords: ["add", "todo"], run: () => quickCreate("task", project) },
     { id: "create:capture", group: "Create", label: "Capture note", hint: "Straight to the inbox", keywords: ["inbox", "idea", "remember", "quick"], run: () => quickCreate("capture", project) },
+    { id: "create:voice", group: "Create", label: "Voice capture", hint: "Say it to Jarvis", keywords: ["mic", "microphone", "talk", "speak", "jarvis", "dictate"], run: () => window.dispatchEvent(new CustomEvent(VOICE_TOGGLE_EVENT)) },
     { id: "create:document", group: "Create", label: "New document", hint: inContext ? `Documents${scope}` : "Choose a workspace", keywords: ["doc", "note", "write", "spec", "plan"], run: () => quickCreate("document", project) },
     { id: "create:project", group: "Create", label: "New workspace", hint: "Four files and a portfolio entry", keywords: ["add", "project"], run: () => quickCreate("project") },
     { id: "create:decision", group: "Create", label: "Add decision", hint: inContext ? `Decisions${scope}` : "Choose a workspace", keywords: ["new", "record"], run: () => quickCreate("decision", project) },

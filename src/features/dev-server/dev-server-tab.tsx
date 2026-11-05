@@ -1,7 +1,7 @@
 import { Play, RotateCw, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { DevServerState, DevServerStatus } from "@shared/dev-server-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PaperButton, PaperEmpty, PaperError, PaperIndicator, PaperNotice, SegmentedControl } from "@/components/paper";
 import { Fact, SiteFrame, UrlValue } from "@/features/site";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,7 @@ export function DevServerTab({ slug }: { slug: string }) {
   const query = useDevServer(slug);
   const act = useDevServerAction(slug);
 
-  if (query.isPending) return <DedsecLoader variant="compact" />;
+  if (query.isPending) return <PageLoader variant="compact" />;
 
   if (query.isError) {
     return (
@@ -93,7 +93,7 @@ function DevServerPanel({
             <PaperIndicator tone={indicator.tone} label={indicator.label} />
           </Fact>
           <Fact label="Runs">
-            <span className="font-mono text-[12.5px] text-paper-char">{state.command ?? plan?.command ?? "—"}</span>
+            <span className="font-mono text-[12px] text-paper-char">{state.command ?? plan?.command ?? "—"}</span>
             {plan ? <span className="ml-2 text-paper-sage">{FRAMEWORK_LABELS[plan.framework]}</span> : null}
           </Fact>
           <Fact label="URL">
@@ -165,7 +165,7 @@ function OutputLog({ lines, tall }: { lines: string[]; tall: boolean }) {
 
   return (
     <section aria-label="Server output">
-      <h3 className="mb-1.5 font-paper-utility text-[12px] leading-[18px] font-medium tracking-[0.08em] text-paper-sage uppercase">Output</h3>
+      <h3 className="mb-1.5 text-[13px] leading-[18px] font-medium text-paper-sage">Output</h3>
       <pre
         ref={ref}
         tabIndex={0}

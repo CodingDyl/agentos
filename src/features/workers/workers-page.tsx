@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import type { WorkerJob, WorkerSummary } from "@shared/worker-types";
 import {
   AppShell,
-  DedsecLoader,
+  PageLoader,
   EmptyState,
   ErrorState,
   HairlineCard,
@@ -68,7 +68,6 @@ export function WorkersPage() {
       navigationItems={navigationItems}
       pageId="workers"
       activeHref="/workers"
-      modelLabel="Model / AgentOS V1"
     >
       <div className={PAGE_PADDING}>
         {workers.isPending ? (
@@ -145,7 +144,7 @@ export function WorkersPage() {
               ) : null}
 
               {jobs.isPending ? (
-                <DedsecLoader variant="compact" />
+                <PageLoader variant="compact" />
               ) : (jobs.data?.jobs ?? []).length === 0 ? (
                 <EmptyState
                   label="No jobs yet"
@@ -190,7 +189,7 @@ function WorkerRow({ worker, jobs }: { worker: WorkerSummary; jobs: WorkerJob[] 
     <li className="px-5 py-5 md:px-6">
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        <h3 className="text-base leading-6 font-medium">{worker.name}</h3>
+        <h3 className="text-[16px] leading-6 font-medium">{worker.name}</h3>
         <p className="mt-1.5 text-[13px] leading-5 text-os-muted">{worker.role}</p>
         <p className="os-meta mt-3 text-os-subtle">
           {[...worker.capabilities, ...(worker.manualOnly ? ["Manually triggered"] : []), ...(worker.transport ? [worker.transport] : [])].join(" · ")}
@@ -204,7 +203,7 @@ function WorkerRow({ worker, jobs }: { worker: WorkerSummary; jobs: WorkerJob[] 
         />
         {/* Says why, rather than leaving an unexplained grey dot. */}
         {worker.unavailableReason ? (
-          <p className="max-w-64 text-right text-[12px] leading-4 text-os-subtle">
+          <p className="max-w-64 text-right text-[13px] leading-4 text-os-subtle">
             {worker.unavailableReason}
           </p>
         ) : null}
@@ -283,7 +282,7 @@ function JobRow({ job }: { job: WorkerJob }) {
           to={`/workers/jobs/${job.id}`}
           className="group min-w-0 flex-1 cursor-pointer rounded-sm outline-none focus-visible:inset-ring-2 focus-visible:inset-ring-ring/70"
         >
-          <h3 className="truncate text-base leading-6 font-medium group-hover:text-os-amber">
+          <h3 className="truncate text-[16px] leading-6 font-medium group-hover:text-os-amber">
             {jobTitle(job.objective)}
           </h3>
           <p className="os-meta mt-2 text-os-subtle">

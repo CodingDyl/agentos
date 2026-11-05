@@ -25,7 +25,6 @@ interface CoderState {
   scripts: PackageJsonScript[];
   terminals: Terminal[];
   activeTerminalId: string | null;
-  scanlineOverlay: boolean;
 
   setProject: (root: string, workspaceSlug: string | null, fileTree: FileTreeNode[], scripts: PackageJsonScript[], gitBranch: string | null) => void;
   clearProject: () => void;
@@ -40,7 +39,6 @@ interface CoderState {
   addTerminal: (id: string, title: string, token: string) => void;
   removeTerminal: (id: string) => void;
   setActiveTerminal: (id: string | null) => void;
-  toggleScanlineOverlay: () => void;
   saveAllFiles: () => Promise<void>;
 }
 
@@ -60,7 +58,6 @@ export const useCoderStore = create<CoderState>()(
   persist(
     (set, get) => ({
       ...INITIAL_STATE,
-      scanlineOverlay: false,
 
       setProject: (root, workspaceSlug, fileTree, scripts, gitBranch) => {
         set({
@@ -77,7 +74,6 @@ export const useCoderStore = create<CoderState>()(
       clearProject: () => {
         set({
           ...INITIAL_STATE,
-          scanlineOverlay: get().scanlineOverlay,
         });
       },
 
@@ -158,7 +154,6 @@ export const useCoderStore = create<CoderState>()(
 
       setActiveTerminal: (id) => set({ activeTerminalId: id }),
 
-      toggleScanlineOverlay: () => set((state) => ({ scanlineOverlay: !state.scanlineOverlay })),
 
       saveAllFiles: async () => {
         const { openFiles } = get();
@@ -189,7 +184,6 @@ export const useCoderStore = create<CoderState>()(
           savedContent: f.savedContent,
         })),
         activeFilePath: state.activeFilePath,
-        scanlineOverlay: state.scanlineOverlay,
       }),
     }
   )

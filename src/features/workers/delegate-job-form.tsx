@@ -274,7 +274,7 @@ export function DelegateJobForm({
             onChange={(event) => editObjective(event.target.value)}
             rows={2}
             placeholder="Implement the design library masonry grid"
-            className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle"
+            className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle"
           />
         </label>
 
@@ -315,7 +315,7 @@ export function DelegateJobForm({
             }}
             rows={4}
             placeholder="Paste the notes, message or snippet the task works on"
-            className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 font-mono text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+            className="os-focus-ring mt-3 w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 font-mono text-[12px] leading-5 text-foreground placeholder:text-os-subtle"
           />
           <span className="os-meta mt-2 block text-os-subtle">
             Sent whole. If it is too long for a local model, the task is routed elsewhere or blocked, never cut short
@@ -348,7 +348,7 @@ export function DelegateJobForm({
                 rows={3}
                 aria-label="JSON Schema (optional)"
                 placeholder='Optional JSON Schema, e.g. {"type":"object","required":["date"]}'
-                className="os-focus-ring w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 font-mono text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+                className="os-focus-ring w-full resize-y rounded-md border border-os-border bg-transparent px-3 py-2.5 font-mono text-[12px] leading-5 text-foreground placeholder:text-os-subtle"
               />
               <span className="os-meta mt-2 block text-os-subtle">
                 The result must parse as JSON{schema.schema ? " and match this schema" : ""} before it can count as done
@@ -420,7 +420,7 @@ export function DelegateJobForm({
             value={repoPath}
             onChange={(event) => setRepoPath(event.target.value)}
             placeholder="/Users/you/Developer/project"
-            className="os-focus-ring mt-3 min-h-10 w-full rounded-md border border-os-border bg-transparent px-3 font-mono text-[13px] leading-5 text-foreground placeholder:text-os-subtle"
+            className="os-focus-ring mt-3 min-h-10 w-full rounded-md border border-os-border bg-transparent px-3 font-mono text-[12px] leading-5 text-foreground placeholder:text-os-subtle"
           />
           {/* The reassurance that makes delegating a coding job reasonable. */}
           <span className="os-meta mt-2 block text-os-subtle">

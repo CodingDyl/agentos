@@ -73,7 +73,7 @@ export function ProspectOverview({ prospect }: { prospect: Prospect }) {
     <PaperCard className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-paper-display text-[22px] leading-7 font-bold tracking-[-0.01em] text-paper-moss">{prospect.company}</h2>
+          <h2 className="text-[16px] leading-7 font-semibold tracking-[-0.01em] text-paper-moss">{prospect.company}</h2>
           <p className="mt-0.5 text-[13px] text-paper-sage">
             {[prospect.segment, prospect.fit ? `${prospect.fit} fit` : undefined, prospect.stage].filter(Boolean).join(" · ")}
           </p>
@@ -165,7 +165,7 @@ export function KnowThem({ prospect, entry }: { prospect: Prospect; entry: Outre
           </button>
         ) : null}
       </div>
-      <p className="mt-2 text-[12.5px] text-paper-sage">
+      <p className="mt-2 text-[13px] text-paper-sage">
         Hermes reads their website and fills the fields below. It only fills empty ones, so your edits stay.
       </p>
       {brief.error ? (
@@ -201,20 +201,20 @@ function LeakCost({ entry }: { entry: OutreachCase }) {
   const estimate = leakEstimate(entry);
   return (
     <fieldset className="border border-paper-mist bg-paper-linen p-4">
-      <legend className="px-1 font-paper-ui text-[13px] font-semibold text-paper-moss">What the leak costs them</legend>
+      <legend className="px-1 text-[13px] font-semibold text-paper-moss">What the leak costs them</legend>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
         {LEAK_FIELDS.map((field) => (
           <CaseLine key={field} entry={entry} field={field} />
         ))}
       </div>
-      <p aria-live="polite" className="mt-3 max-w-[72ch] text-[13.5px] leading-5 tabular-nums text-paper-moss">
+      <p aria-live="polite" className="mt-3 max-w-[72ch] text-[14px] leading-5 tabular-nums text-paper-moss">
         {estimate ? (
           <span className="font-semibold">{leakSentence(estimate)}</span>
         ) : (
           <span className="text-paper-sage">Fill in enquiries, cost per enquiry and the share lost to see what the site costs them a month. Add the average job and booking rate for the jobs it costs.</span>
         )}
       </p>
-      {estimate ? <p className="mt-1 text-[12.5px] text-paper-sage">Your estimate. The draft may use it once, as a rough guess, never as their real figures.</p> : null}
+      {estimate ? <p className="mt-1 text-[13px] text-paper-sage">Your estimate. The draft may use it once, as a rough guess, never as their real figures.</p> : null}
     </fieldset>
   );
 }
@@ -265,7 +265,7 @@ function PhotoSamples({ prospect, entry }: { prospect: Prospect; entry: Outreach
       <div>
         <FieldLabel>Their photos (up to {SAMPLE_PHOTO_LIMIT})</FieldLabel>
         <GenerateReferencePicker references={picked} onChange={changePicked} project={undefined} max={SAMPLE_PHOTO_LIMIT} />
-        <p className="mt-1 text-[12.5px] text-paper-sage">Their own photos only: from their Google listing or website, never Airbnb.</p>
+        <p className="mt-1 text-[13px] text-paper-sage">Their own photos only: from their Google listing or website, never Airbnb.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -294,14 +294,14 @@ function PhotoSamples({ prospect, entry }: { prospect: Prospect; entry: Outreach
                 {original ? (
                   <figure>
                     <img src={original.thumbnailUrl} alt="Original photo" className="aspect-[4/3] w-full object-cover" />
-                    <figcaption className="mt-0.5 text-[12px] text-paper-sage">Original</figcaption>
+                    <figcaption className="mt-0.5 text-[13px] text-paper-sage">Original</figcaption>
                   </figure>
                 ) : (
-                  <div className="flex aspect-[4/3] items-center justify-center bg-paper-cream px-1 text-center text-[12px] text-paper-sage">Original not picked here</div>
+                  <div className="flex aspect-[4/3] items-center justify-center bg-paper-cream px-1 text-center text-[13px] text-paper-sage">Original not picked here</div>
                 )}
                 <figure>
                   <img src={asset.thumbnailUrl} alt="Enhanced photo" className="aspect-[4/3] w-full object-cover" />
-                  <figcaption className="mt-0.5 text-[12px] text-paper-sage">Enhanced</figcaption>
+                  <figcaption className="mt-0.5 text-[13px] text-paper-sage">Enhanced</figcaption>
                 </figure>
               </div>
             </li>
@@ -363,8 +363,8 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
               disabled={write.isPending}
               onClick={() => choose(path)}
               className={cn(
-                "cursor-pointer rounded-none border-[1.5px] px-4 py-3 text-left transition-colors duration-150",
-                selected ? "border-paper-blue bg-paper-white" : "border-paper-mist bg-paper-cream hover:border-paper-sage",
+                "cursor-pointer rounded-md border px-4 py-3 text-left transition-colors duration-150",
+                selected ? "border-paper-ash bg-paper-white" : "border-paper-mist bg-paper-cream hover:border-paper-sage",
                 PAPER_FOCUS,
               )}
             >
@@ -373,7 +373,7 @@ function Decide({ prospect, entry, sender }: { prospect: Prospect; entry: Outrea
                 {selected ? <Check className="size-4 text-paper-blue" aria-hidden="true" /> : null}
               </span>
               <span className="mt-1 block text-[13px] leading-5 text-paper-char">{PATHS[path].line}</span>
-              <span className="mt-1 block text-[12.5px] leading-5 text-paper-sage">{PATHS[path].when}</span>
+              <span className="mt-1 block text-[13px] leading-5 text-paper-sage">{PATHS[path].when}</span>
             </button>
           );
         })}
@@ -474,7 +474,7 @@ function WriteEmail({ prospect, entry, senders, sender }: { prospect: Prospect; 
         </div>
       ) : null}
 
-      <p className="mt-3 text-[12.5px] text-paper-sage">
+      <p className="mt-3 text-[13px] text-paper-sage">
         {mailbox?.connected ? (
           <>
             Goes out from <span className="font-semibold text-paper-char">{mailbox.address}</span>
@@ -595,11 +595,11 @@ export function ReviseDraftPanel({ prospect, entry }: { prospect: Prospect; entr
         run();
       }}
     >
-      <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold text-paper-char">
         <Wand2 className="size-3.5" aria-hidden="true" />
         Revise with an agent
       </p>
-      <p className="mt-1 text-[12.5px] text-paper-sage">Changes only what you ask. Your signature is kept as it is, and the agent cannot use tools or add links, prices or addresses that are not already here.</p>
+      <p className="mt-1 text-[13px] text-paper-sage">Changes only what you ask. Your signature is kept as it is, and the agent cannot use tools or add links, prices or addresses that are not already here.</p>
 
       {agents.isPending ? <p className="mt-2 text-[13px] text-paper-sage">Checking which agents are available…</p> : null}
       {agents.data && available.length === 0 ? (
@@ -767,8 +767,8 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
       {hasContent ? (
         <div className="mt-4 space-y-2">
           {reviewing ? (
-            <div role="group" aria-label="Review before sending" className="rounded-none border-[1.5px] border-paper-blue bg-paper-white px-4 py-3 text-[13px] leading-5 text-paper-char">
-              <p className="text-[12px] font-semibold tracking-[0.06em] uppercase">Review before sending</p>
+            <div role="group" aria-label="Review before sending" className="rounded-md border border-paper-ash bg-paper-white px-4 py-3 text-[13px] leading-5 text-paper-char">
+              <p className="text-[13px] font-semibold">Review before sending</p>
               <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                 <dt className="text-paper-sage">From</dt>
                 <dd>
@@ -843,7 +843,7 @@ function DraftEditor({ prospect, entry, sender }: { prospect: Prospect; entry: O
               <Check className="size-3.5" aria-hidden="true" />
               {manual.isPending ? "Saving…" : manual.isSuccess ? "Recorded" : "I sent it"}
             </PaperButton>
-            <span className="text-[12.5px] text-paper-sage">
+            <span className="text-[13px] text-paper-sage">
               {closed ? "This prospect is closed." : "Sent it from your own mailbox? Press I sent it so the follow-up is tracked."}
             </span>
           </div>
@@ -957,11 +957,11 @@ function Checklist({ subject, body, entry, sender }: { subject: string; body: st
 
   return (
     <div aria-label="Checks" className="self-start bg-paper-linen px-3 py-3">
-      <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">Checks</p>
+      <p className="text-[13px] font-semibold text-paper-char">Checks</p>
       <ul className="mt-2 space-y-1.5 text-[13px] leading-5">
         {checks.map((check) => (
           <li key={check.label} className="flex items-start gap-2">
-            <span className={cn("mt-[3px] inline-flex size-3.5 shrink-0 items-center justify-center font-bold", check.ok ? "text-paper-green" : "text-paper-flame-deep")} aria-hidden="true">
+            <span className={cn("mt-[3px] inline-flex size-3.5 shrink-0 items-center justify-center font-semibold", check.ok ? "text-paper-green" : "text-paper-flame-deep")} aria-hidden="true">
               {check.ok ? <Check className="size-3.5" /> : "!"}
             </span>
             <span className={check.ok ? "text-paper-char" : "text-paper-flame-deep"}>
@@ -971,7 +971,7 @@ function Checklist({ subject, body, entry, sender }: { subject: string; body: st
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[12px] leading-5 text-paper-sage">Best sent Tuesday to Thursday, mid-morning.</p>
+      <p className="mt-3 text-[13px] leading-5 text-paper-sage">Best sent Tuesday to Thursday, mid-morning.</p>
     </div>
   );
 }
@@ -1014,8 +1014,8 @@ function CaseTextInner({ entry, field, rows, serverValue, label, hint, list }: {
         <FilledTag entry={entry} field={field} />
       </FieldLabel>
       <textarea rows={rows} value={value} onChange={(event) => setValue(event.target.value)} onBlur={save} className={cn(PAPER_INPUT, "w-full")} />
-      {hint ? <span className="mt-0.5 block text-[12.5px] text-paper-sage">{hint}</span> : null}
-      {write.error ? <span className="mt-0.5 block text-[12.5px] text-paper-flame-deep">{write.error.message}</span> : null}
+      {hint ? <span className="mt-0.5 block text-[13px] text-paper-sage">{hint}</span> : null}
+      {write.error ? <span className="mt-0.5 block text-[13px] text-paper-flame-deep">{write.error.message}</span> : null}
     </label>
   );
 }
@@ -1042,8 +1042,8 @@ function CaseLineInner({ entry, field, type, serverValue }: { entry: OutreachCas
         }}
         className={cn(PAPER_INPUT, "w-full")}
       />
-      <span className="mt-0.5 block text-[12.5px] text-paper-sage">{meta.hint}</span>
-      {write.error ? <span className="mt-0.5 block text-[12.5px] text-paper-flame-deep">{write.error.message}</span> : null}
+      <span className="mt-0.5 block text-[13px] text-paper-sage">{meta.hint}</span>
+      {write.error ? <span className="mt-0.5 block text-[13px] text-paper-flame-deep">{write.error.message}</span> : null}
     </label>
   );
 }
@@ -1051,9 +1051,9 @@ function CaseLineInner({ entry, field, type, serverValue }: { entry: OutreachCas
 function Card({ number, title, done, children }: { number: number; title: string; done: boolean; children: ReactNode }) {
   return (
     <PaperCard className="p-5" aria-label={title}>
-      <h3 className="mb-4 flex items-center gap-2.5 font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">
+      <h3 className="mb-4 flex items-center gap-2.5 text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">
         <span
-          className={cn("inline-flex size-6 items-center justify-center rounded-none font-paper-ui text-[12px] tabular-nums", done ? "bg-paper-green text-paper-white" : "bg-paper-blue text-paper-white")}
+          className={cn("inline-flex size-6 items-center justify-center rounded-md text-[13px] tabular-nums", done ? "bg-paper-green text-paper-white" : "bg-selected text-paper-moss")}
           aria-hidden="true"
         >
           {done ? <Check className="size-3.5" /> : number}

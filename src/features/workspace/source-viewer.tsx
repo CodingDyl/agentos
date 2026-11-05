@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react";
 import { useEffect, useState } from "react";
-import { DedsecLoader, SectionLabel, TabBar } from "@/components/os";
+import { PageLoader, SectionLabel, TabBar } from "@/components/os";
 import { useProjectSource } from "@/lib/agentos/queries";
 
 /**
@@ -82,13 +82,13 @@ export function SourceViewer({
 
         <div className="min-h-0 flex-1 overflow-auto p-5">
           {isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : data?.contents ? (
             <pre className="font-mono text-[12px] leading-[1.7] whitespace-pre-wrap break-words text-os-muted">
               {data.contents}
             </pre>
           ) : (
-            <p className="text-[15px] leading-6 text-os-subtle">
+            <p className="text-[14px] leading-6 text-os-subtle">
               This project has no {file}.
             </p>
           )}

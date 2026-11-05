@@ -31,7 +31,7 @@ export function ProjectRow({
   const content = (
     <>
       <div className="min-w-0">
-        <h3 className="truncate text-[15px] leading-6 font-medium">{name}</h3>
+        <h3 className="truncate text-[14px] leading-6 font-medium">{name}</h3>
         {summary ? (
           <p className="mt-0.5 truncate text-[13px] leading-5 text-os-muted">
             {summary}

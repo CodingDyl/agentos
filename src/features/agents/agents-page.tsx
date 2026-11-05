@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { AgentSummary } from "@shared/agent-types";
-import { AppShell, DedsecLoader, FilterToolbar, type FilterGroup } from "@/components/os";
+import { AppShell, PageLoader, FilterToolbar, type FilterGroup } from "@/components/os";
 import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useAgents } from "@/lib/agentos/queries";
@@ -60,11 +60,11 @@ export function AgentsPage() {
   }
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="agents" activeHref="/agents" modelLabel="Model / AgentOS V1">
-      <PaperStage full>
+    <AppShell navigationItems={navigationItems} pageId="agents" activeHref="/agents">
+      <PaperStage>
         <header className="flex flex-wrap items-end justify-between gap-5">
           <div>
-            <h1 className="font-paper-display text-[34px] leading-[1.1] font-extrabold tracking-[-0.015em] text-paper-moss">Agents</h1>
+            <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.015em] text-paper-moss">Agents</h1>
             <p className="mt-1 text-[14px] text-paper-sage tabular-nums">
               {data ? `${busy} busy · ${agents.length} on the team` : "Reading the roster…"}
             </p>
@@ -72,10 +72,10 @@ export function AgentsPage() {
         </header>
 
         {isPending ? (
-          <DedsecLoader variant="page" className="mt-10" />
+          <PageLoader variant="page" className="mt-10" />
         ) : !data ? (
           <div className="mt-10">
-            <h2 className="font-paper-display text-[21px] font-bold">The roster could not be read.</h2>
+            <h2 className="text-[16px] font-semibold">The roster could not be read.</h2>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
               {error?.message ?? "The data adapter did not answer."}
             </p>
@@ -100,7 +100,7 @@ export function AgentsPage() {
             </div>
 
             {visible.length === 0 ? (
-              <p className="mt-12 text-[15px] text-paper-sage">Nothing matches.</p>
+              <p className="mt-12 text-[14px] text-paper-sage">Nothing matches.</p>
             ) : (
               <ul className="mt-6 divide-y divide-paper-stone border-y border-paper-mist">
                 {visible.map((agent) => (
@@ -128,19 +128,19 @@ function AgentRow({ agent }: { agent: AgentSummary }) {
     >
       <span className="min-w-0">
         <span className="flex items-baseline gap-2">
-          <span aria-hidden="true" className="text-[18px] leading-none">
+          <span aria-hidden="true" className="text-[16px] leading-none">
             {agent.avatar}
           </span>
-          <span className="truncate font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">{agent.name}</span>
+          <span className="truncate text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">{agent.name}</span>
         </span>
-        <span className="mt-1 block truncate text-[12.5px] text-paper-sage">{agent.role}</span>
+        <span className="mt-1 block truncate text-[13px] text-paper-sage">{agent.role}</span>
       </span>
 
       <span className="min-w-0 text-[14px] leading-6 text-paper-char">
         {agent.currentJob ? (
           <>
             <span className="line-clamp-1">{agent.currentJob.objective}</span>
-            <span className="mt-0.5 block truncate text-[12.5px] text-paper-sage">
+            <span className="mt-0.5 block truncate text-[13px] text-paper-sage">
               {agent.currentJob.project} · {agent.currentJob.status.replace(/_/g, " ")}
             </span>
           </>
@@ -150,7 +150,7 @@ function AgentRow({ agent }: { agent: AgentSummary }) {
       </span>
 
       <span className="min-w-0">
-        <span className="block text-[12.5px] text-paper-sage tabular-nums">{spendLabel(agent.spend)}</span>
+        <span className="block text-[13px] text-paper-sage tabular-nums">{spendLabel(agent.spend)}</span>
         <span className="mt-1.5 block">
           <Meter value={spendRatio(agent.spend)} label={`${agent.name} spend versus ceiling`} tone={spendTone(agent.spend)} />
         </span>
@@ -159,7 +159,7 @@ function AgentRow({ agent }: { agent: AgentSummary }) {
       <span className="flex flex-wrap items-center gap-2">
         <Tag tone={agent.openJobs > 0 ? "blue" : "muted"}>{agent.openJobs > 0 ? `${agent.openJobs} open` : "Idle"}</Tag>
         {agent.linkedWorkspaces.slice(0, 2).map((slug) => (
-          <span key={slug} className="truncate text-[12px] text-paper-sage">
+          <span key={slug} className="truncate text-[13px] text-paper-sage">
             {slug}
           </span>
         ))}

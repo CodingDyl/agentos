@@ -8,7 +8,7 @@ import {
   AgentCommandInput,
   AppShell,
   CommandButton,
-  DedsecLoader,
+  PageLoader,
   EmptyState,
   HairlineCard,
   PageHeader,
@@ -22,19 +22,22 @@ import {
 import { useNavigationItems } from "@/config/use-navigation";
 
 const colorTokens = [
-  { name: "Ink canvas", value: "#090B0A", className: "bg-background" },
-  { name: "Graphite surface", value: "#111512", className: "bg-paper-white" },
-  { name: "Raised surface", value: "#1A201C", className: "bg-paper-linen" },
-  { name: "Paper / text", value: "#F2F4EB", className: "bg-paper-moss" },
-  { name: "Acid lime", value: "#BEFF32", className: "bg-primary" },
-  { name: "Purple tape", value: "#BF6BFF", className: "bg-[var(--color-brand)]" },
-  { name: "Secondary text", value: "#B7C2B9", className: "bg-paper-char" },
-  { name: "Metadata", value: "#89998D", className: "bg-paper-sage" },
-  { name: "Control border", value: "#728176", className: "bg-paper-ash" },
-  { name: "Divider", value: "#3F4B42", className: "bg-paper-mist" },
-  { name: "Success", value: "#6BE3A0", className: "bg-paper-green" },
-  { name: "Attention", value: "#FFD166", className: "bg-paper-marigold" },
-  { name: "Danger", value: "#FF7A8A", className: "bg-paper-flame" },
+  { name: "Canvas", value: "#111315", className: "bg-background" },
+  { name: "Sidebar", value: "#15181B", className: "bg-sidebar" },
+  { name: "Panel", value: "#1A1E22", className: "bg-paper-white" },
+  { name: "Raised", value: "#22272D", className: "bg-paper-linen" },
+  { name: "Selected", value: "#273B34", className: "bg-selected" },
+  { name: "Divider", value: "#30363D", className: "bg-paper-mist" },
+  { name: "Control edge", value: "#65717D", className: "bg-paper-ash" },
+  { name: "Primary text", value: "#EEF1F4", className: "bg-paper-moss" },
+  { name: "Secondary text", value: "#ACB5BF", className: "bg-paper-char" },
+  { name: "Muted text", value: "#8E99A5", className: "bg-paper-sage" },
+  { name: "Mint", value: "#9DDBBD", className: "bg-primary" },
+  { name: "Mint hover", value: "#B4E6CE", className: "bg-[var(--accent-hover)]" },
+  { name: "Ink", value: "#12231B", className: "bg-[var(--on-accent)]" },
+  { name: "Focus", value: "#B0D6FF", className: "bg-[var(--focus)]" },
+  { name: "Warning", value: "#E8C58A", className: "bg-paper-marigold" },
+  { name: "Error", value: "#F4A3A8", className: "bg-paper-flame" },
 ];
 
 const statusStates: AgentStatus[] = [
@@ -75,16 +78,14 @@ export function DesignSystemPage() {
       navigationItems={navigationItems}
       pageId="design-system"
       activeHref="/design-system"
-      modelLabel="Model / AgentOS V1"
     >
-      <div className="mx-auto w-full max-w-[1400px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
+      <div className="qt-page">
         <PageHeader
-          title="AgentOS visual foundation"
-          description="Collective: ink and graphite workspaces, acid-lime commands, torn paper, and purple tape. Shared tokens keep every screen consistent."
+          title="Quiet Terminal"
+          description="Neutral graphite, a measured mint accent, and a clear reading order. These are the live components; DESIGN.md is the authority."
           actions={
             <>
-              <StatusPill status="healthy" label="V1 foundation" />
-              <CommandButton variant="primary" icon={ArrowRight}>
+                            <CommandButton variant="primary" icon={ArrowRight}>
                 Start session
               </CommandButton>
             </>
@@ -94,8 +95,8 @@ export function DesignSystemPage() {
         <div className="mt-12 space-y-14 pb-16">
           <SpecimenSection
             label="Palette"
-            title="Ink, paper, and acid lime"
-            description="Dark surfaces keep work readable. Lime marks primary actions and selection; purple is decorative. Mint, amber, coral, and cyan preserve distinct semantic states."
+            title="Graphite and mint"
+            description="Surfaces step from canvas to panel to raised. Mint is rationed: one primary action per view, the brand mark and the selected rail. Status always carries a word."
           >
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 xl:grid-cols-6">
               {colorTokens.map((token) => (
@@ -106,42 +107,35 @@ export function DesignSystemPage() {
 
           <SpecimenSection
             label="Typography"
-            title="Thin condensed display, plain body"
-            description="Barlow Condensed carries bold display headings. IBM Plex Sans is for reading and controls; IBM Plex Mono is for logs and metadata. All fonts are bundled locally."
+            title="Readable sans, mono for what a machine named"
+            description="Geist Sans for reading and controls. Geist Mono for IDs, paths, shortcuts and runtime details. Both are bundled locally."
           >
             <div className="border-y border-os-border">
               <TypeSpecimen
-                label="Display"
-                detail="36–48 / 300"
-                className="font-paper-display text-[clamp(2.25rem,5vw,3rem)] leading-[1] font-light tracking-[-0.02em]"
+                label="Page heading"
+                detail="28 / 36 / 600"
+                className="text-[28px] leading-9 font-semibold tracking-[-0.02em]"
               >
                 Quiet systems, clear intent.
               </TypeSpecimen>
               <TypeSpecimen
-                label="Section"
-                detail="28 / 400"
-                className="font-paper-display text-[28px] leading-[1.05] font-normal tracking-[-0.015em]"
+                label="Section heading"
+                detail="16 / 24 / 600"
+                className="text-[16px] leading-6 font-semibold"
               >
                 Active workspaces
               </TypeSpecimen>
               <TypeSpecimen
-                label="Feature"
-                detail="Compressed / 500"
-                className="font-paper-compressed text-[32px] leading-[1.1] font-medium"
-              >
-                Connect. Plan. Delegate.
-              </TypeSpecimen>
-              <TypeSpecimen
                 label="Body"
-                detail="15 / 400"
-                className="max-w-[68ch] text-[15px] leading-[1.5] text-os-muted"
+                detail="14 / 22 / 400"
+                className="max-w-[68ch] text-[14px] leading-[1.5] text-os-muted"
               >
                 AgentOS keeps the next useful action visible without turning the
                 workspace into a reporting screen.
               </TypeSpecimen>
               <TypeSpecimen
-                label="Utility"
-                detail="12 / 500 / 0.1em"
+                label="Runtime and paths"
+                detail="12 / 18 / mono"
                 className="os-meta text-os-muted"
               >
                 Hermes / Connected / Local
@@ -190,7 +184,7 @@ export function DesignSystemPage() {
             <div className="grid gap-4 xl:grid-cols-3">
               <HairlineCard className="p-5 md:p-6">
                 <SectionLabel>Current focus</SectionLabel>
-                <h3 className="mt-8 text-base font-medium">System foundation</h3>
+                <h3 className="mt-8 text-[16px] font-medium">System foundation</h3>
                 <p className="mt-2 text-[13px] leading-5 text-os-muted">
                   Validate tokens and primitives before production screens begin.
                 </p>
@@ -290,9 +284,9 @@ export function DesignSystemPage() {
             description="Every route and panel wait uses the same looping DedSec animation. Button spinners stay as they are."
           >
             <div className="grid gap-4 xl:grid-cols-2">
-              <DedsecLoader variant="page" delayMs={0} className="min-h-[22rem] border border-os-border" />
+              <PageLoader variant="page" delayMs={0} className="min-h-[22rem] border border-os-border" />
               <HairlineCard className="p-0">
-                <DedsecLoader variant="compact" delayMs={0} />
+                <PageLoader variant="compact" delayMs={0} />
               </HairlineCard>
             </div>
           </SpecimenSection>

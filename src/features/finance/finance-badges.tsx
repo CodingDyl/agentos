@@ -22,7 +22,7 @@ const STATE: Record<PayState, { icon: typeof Check; classes: string }> = {
 export function PayBadge({ state, children, className }: { state: PayState; children: ReactNode; className?: string }) {
   const { icon: Icon, classes } = STATE[state];
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-px text-[12px] leading-[18px] font-medium", classes, className)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-px text-[13px] leading-[18px] font-medium", classes, className)}>
       <Icon className="size-3" aria-hidden="true" strokeWidth={2.5} />
       {children}
     </span>
@@ -57,8 +57,8 @@ export function UtilisationBar({ value, label }: { value: number; label: string 
 export function MiniBar({ value, label, tone = "green" }: { value: number; label: string; tone?: "green" | "amber" | "flame" }) {
   const clamped = Math.max(0, Math.min(1, value));
   return (
-    <span role="img" aria-label={label} className="block h-1.5 w-full max-w-[16rem] overflow-hidden rounded-[2px] bg-paper-stone">
-      <span className={cn("block h-full rounded-[2px]", tone === "green" ? "bg-paper-green" : tone === "amber" ? "bg-paper-amber" : "bg-paper-flame")} style={{ width: `${clamped * 100}%` }} />
+    <span role="img" aria-label={label} className="block h-1.5 w-full max-w-[16rem] overflow-hidden rounded-sm bg-paper-stone">
+      <span className={cn("block h-full rounded-sm", tone === "green" ? "bg-paper-green" : tone === "amber" ? "bg-paper-amber" : "bg-paper-flame")} style={{ width: `${clamped * 100}%` }} />
     </span>
   );
 }

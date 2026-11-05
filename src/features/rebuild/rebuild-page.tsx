@@ -12,7 +12,7 @@ import {
   type RebuildRun,
   type RebuildStage,
 } from "@shared/website-rebuild-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
@@ -40,10 +40,10 @@ export function RebuildPage() {
   const run = rebuild.data;
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="traction" activeHref="/traction" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="traction" activeHref="/traction" agentState="idle" agentLabel="Agents idle">
       <PaperStage>
         {rebuild.isPending ? (
-          <DedsecLoader variant="page" />
+          <PageLoader variant="page" />
         ) : rebuild.error || !run ? (
           <p role="alert" className="border border-paper-flame-deep p-3 text-paper-flame-deep">
             {rebuild.error?.message ?? "That rebuild could not be found."}
@@ -64,7 +64,7 @@ export function RebuildView({ run, inWorkspace = false }: { run: RebuildRun; inW
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           {inWorkspace ? (
-            <h2 className="font-paper-display text-[24px] leading-none font-bold tracking-[-0.01em] text-paper-moss">Website rebuild</h2>
+            <h2 className="text-[24px] leading-none font-semibold tracking-[-0.01em] text-paper-moss">Website rebuild</h2>
           ) : (
             <>
               <p className="text-[13px] text-paper-sage">
@@ -73,7 +73,7 @@ export function RebuildView({ run, inWorkspace = false }: { run: RebuildRun; inW
                 </Link>{" "}
                 / Website rebuild
               </p>
-              <h1 className="font-paper-display text-[40px] leading-none font-bold tracking-[-0.02em] text-paper-moss">{run.company}</h1>
+              <h1 className="text-[28px] leading-none font-semibold tracking-[-0.02em] text-paper-moss">{run.company}</h1>
             </>
           )}
           <p className="mt-2 max-w-[80ch] text-[13px] leading-5 text-paper-char">
@@ -89,7 +89,7 @@ export function RebuildView({ run, inWorkspace = false }: { run: RebuildRun; inW
           </p>
         </div>
         <div className="text-[13px] text-paper-sage sm:text-right">
-          <div className="text-[15px] font-semibold text-paper-moss">
+          <div className="text-[14px] font-semibold text-paper-moss">
             {done} of {REBUILD_STAGES.length} stages complete
           </div>
           {inWorkspace ? (
@@ -142,21 +142,21 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
       <PaperCard className={cn("p-4", stage.status === "awaiting_approval" && "border-paper-marigold", stage.status === "blocked" && "border-paper-flame")}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="flex flex-wrap items-center gap-2.5 font-paper-display text-[17px] font-bold text-paper-moss">
-              <span className="inline-flex size-6 items-center justify-center bg-paper-blue font-paper-ui text-[12px] text-paper-white" aria-hidden="true">
+            <h2 className="flex flex-wrap items-center gap-2.5 text-[16px] font-semibold text-paper-moss">
+              <span className="inline-flex size-6 items-center justify-center bg-paper-blue text-[13px] text-paper-white" aria-hidden="true">
                 {stage.status === "complete" ? <CheckCircle2 className="size-3.5" /> : index + 1}
               </span>
               {definition.title}
               <StageStatusTag status={stage.status} />
               {gated && stage.status !== "awaiting_approval" ? (
-                <span className="text-[12px] font-normal text-paper-sage" title="When this stage finishes, it waits for you to approve or request changes before the next one starts.">
+                <span className="text-[13px] font-normal text-paper-sage" title="When this stage finishes, it waits for you to approve or request changes before the next one starts.">
                   Approval checkpoint
                 </span>
               ) : null}
             </h2>
             <p className="mt-1 text-[13px] leading-5 text-paper-sage">{definition.detail}</p>
           </div>
-          <div className="text-[12px] text-paper-sage sm:text-right">
+          <div className="text-[13px] text-paper-sage sm:text-right">
             {stage.revision > 0 ? <div>Revision {stage.revision}{gated && stage.approvedRevision ? ` · approved r${stage.approvedRevision}` : ""}</div> : null}
             {stage.attempts > 1 ? <div>{stage.attempts} attempts</div> : null}
             {stage.finishedAt ? <div>{formatRelativeTime(stage.finishedAt)}</div> : null}
@@ -188,9 +188,9 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
           </div>
         ) : null}
         {stage.workerOverride && stage.status !== "blocked" ? (
-          <p className="mt-2 text-[12.5px] text-paper-sage">Using {stage.workerOverride} for this stage, as you chose.</p>
+          <p className="mt-2 text-[13px] text-paper-sage">Using {stage.workerOverride} for this stage, as you chose.</p>
         ) : null}
-        {retry.error || skip.error ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{(retry.error ?? skip.error)?.message}</p> : null}
+        {retry.error || skip.error ? <p className="mt-2 text-[13px] text-paper-flame-deep">{(retry.error ?? skip.error)?.message}</p> : null}
 
         {revision && stage.status !== "in_progress" ? (
           <p className="mt-3 text-[13px] text-paper-char">
@@ -213,7 +213,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
           <ul className="mt-3 flex flex-wrap gap-2" aria-label={`${definition.title} reports`}>
             {artifacts.map((artifact) => (
               <li key={artifact.id}>
-                <Link to={artifact.href} className="inline-flex items-center gap-1.5 border border-paper-mist px-2.5 py-1 text-[12.5px] text-paper-blue hover:bg-paper-linen">
+                <Link to={artifact.href} className="inline-flex items-center gap-1.5 border border-paper-mist px-2.5 py-1 text-[13px] text-paper-blue hover:bg-paper-linen">
                   <FileText className="size-3.5" aria-hidden="true" /> {artifact.title}
                   <span className="text-paper-sage">r{artifact.revision}</span>
                 </Link>
@@ -258,7 +258,7 @@ function WorkerSwitch({ run, stage, busy, onRetry }: { run: RebuildRun; stage: R
   return (
     <div className="basis-full border-t border-paper-flame/30 pt-3">
       {workers.isPending ? (
-        <DedsecLoader variant="compact" />
+        <PageLoader variant="compact" />
       ) : workers.error ? (
         <p role="alert" className="text-paper-flame-deep">{workers.error.message}</p>
       ) : (
@@ -286,7 +286,7 @@ function WorkerSwitch({ run, stage, busy, onRetry }: { run: RebuildRun; stage: R
           <PaperButton disabled={busy} onClick={() => setOpen(false)}>
             Cancel
           </PaperButton>
-          <p className="basis-full text-[12px] text-paper-sage">
+          <p className="basis-full text-[13px] text-paper-sage">
             Unavailable workers are greyed out with the reason; switch them on in Operations → AI Stack. The choice stays with this stage until you change it.
           </p>
         </div>
@@ -362,7 +362,7 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
           <ConceptNotesSummary notes={written} />
           <ConceptGallery images={images} chosen={choice} onChoose={setChoice} branded={Boolean(run.brandKit)} notes={written} onView={setViewing} />
           {choice && written[choice] ? (
-            <p className="mt-2 max-w-[75ch] border-l-2 border-paper-blue pl-3 text-[13px] text-paper-char">
+            <p className="mt-2 max-w-[75ch] border-l-2 border-paper-ash pl-3 text-[13px] text-paper-char">
               <span className="font-semibold text-paper-moss">Your notes on {conceptLabel(choice)}:</span> <span className="whitespace-pre-wrap">{written[choice]}</span>
             </p>
           ) : null}
@@ -395,7 +395,7 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
       </label>
       <ReviewVerdictGate verdict={verdict} override={override} onOverride={setOverride} />
       {decide.error ? (
-        <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
           {decide.error.message}
         </p>
       ) : null}
@@ -427,7 +427,7 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
 function ConceptNotesSummary({ notes }: { notes: Record<string, string> }) {
   const withNotes = HERO_CONCEPTS.filter((concept) => notes[concept]);
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-paper-sage" role="status">
+    <p className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-paper-sage" role="status">
       <MessageSquareText className="size-3.5" aria-hidden="true" />
       {withNotes.length === 0 ? (
         <>Open a concept to leave notes on it.</>
@@ -450,7 +450,7 @@ const BRANDED_DIRECTION: Record<string, string> = { "concept-a": "Faithful", "co
 
 /** The three heroes side by side, desktop beside phone. With `onView`, a click opens the concept; with `onChoose`, each also has its own Choose button. */
 function ConceptGallery({ images, chosen, onChoose, branded = false, notes, onView }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; branded?: boolean; notes?: Record<string, string>; onView?: (concept: string) => void }) {
-  const link = "inline-flex min-h-8 cursor-pointer items-center text-[12.5px] font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
+  const link = "inline-flex min-h-8 cursor-pointer items-center text-[13px] font-semibold hover:underline";
   return (
     <div className="mt-3 grid gap-3 lg:grid-cols-3" role={onChoose ? "group" : undefined} aria-label={onChoose ? "Hero concepts" : undefined}>
       {HERO_CONCEPTS.map((concept) => {
@@ -459,12 +459,12 @@ function ConceptGallery({ images, chosen, onChoose, branded = false, notes, onVi
         const selected = chosen === concept;
         const shots = (
           <span className="mt-2 grid grid-cols-[1fr_auto] items-start gap-2">
-            {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" loading="lazy" /> : <span className="text-[12px] text-paper-sage">No desktop shot</span>}
+            {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" loading="lazy" /> : <span className="text-[13px] text-paper-sage">No desktop shot</span>}
             {mobile ? <img src={mobile.href} alt={`${conceptLabel(concept)} hero at phone width`} className="w-16 border border-paper-mist sm:w-20" loading="lazy" /> : null}
           </span>
         );
         return (
-          <div key={concept} className={cn("border-[1.5px] p-3", selected ? "border-paper-blue bg-paper-white" : "border-paper-mist", onView && !selected && "hover:border-paper-sage")}>
+          <div key={concept} className={cn("border p-3", selected ? "border-paper-ash bg-paper-white" : "border-paper-mist", onView && !selected && "hover:border-paper-sage")}>
             <span className="flex items-center justify-between gap-2 text-[13px] font-semibold text-paper-moss">
               <span>
                 {conceptLabel(concept)}
@@ -476,7 +476,7 @@ function ConceptGallery({ images, chosen, onChoose, branded = false, notes, onVi
               </span>
             </span>
             {onView ? (
-              <button type="button" onClick={() => onView(concept)} aria-label={`Open ${conceptLabel(concept)} at desktop and phone width, and add notes`} className="block w-full cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue">
+              <button type="button" onClick={() => onView(concept)} aria-label={`Open ${conceptLabel(concept)} at desktop and phone width, and add notes`} className="block w-full cursor-pointer text-left">
                 {shots}
               </button>
             ) : (
@@ -508,14 +508,14 @@ function ScreenshotGallery({ images, revision }: { images: RebuildArtifact[]; re
   const pages = [...new Set(images.map((image) => image.title.replace(/ \((desktop|mobile)\)$/, "")))];
   return (
     <div className="mt-3">
-      <p className="text-[12px] text-paper-sage">Screenshots of revision {revision}</p>
+      <p className="text-[13px] text-paper-sage">Screenshots of revision {revision}</p>
       <ul className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {pages.map((page) => {
           const desktop = images.find((image) => image.title === `${page} (desktop)`);
           const mobile = images.find((image) => image.title === `${page} (mobile)`);
           return (
             <li key={page} className="border border-paper-mist p-2">
-              <p className="mb-1 text-[12.5px] font-semibold text-paper-moss">{page}</p>
+              <p className="mb-1 text-[13px] font-semibold text-paper-moss">{page}</p>
               <div className="grid grid-cols-[1fr_auto] items-start gap-2">
                 {desktop ? (
                   <a href={desktop.href} target="_blank" rel="noopener noreferrer">

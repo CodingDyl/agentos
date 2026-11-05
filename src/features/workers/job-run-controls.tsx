@@ -134,12 +134,12 @@ export function JobRunControls({
       ) : null}
 
       {cancel.error ? (
-        <p className="mt-2 text-[12px] leading-4 text-os-danger" role="alert">
+        <p className="mt-2 text-[13px] leading-4 text-os-danger" role="alert">
           {cancel.error.message}
         </p>
       ) : null}
       {retry.error ? (
-        <p className="mt-2 text-[12px] leading-4 text-os-danger" role="alert">
+        <p className="mt-2 text-[13px] leading-4 text-os-danger" role="alert">
           {retry.error.message}
         </p>
       ) : null}

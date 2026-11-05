@@ -70,13 +70,13 @@ function FocusCard() {
       <div className="flex items-baseline justify-between gap-2">
         <Link
           to={`/workspaces/${encodeURIComponent(session.project)}${session.taskId ? `?tab=tasks&task=${encodeURIComponent(session.taskId)}` : ""}`}
-          className="os-focus-ring min-w-0 truncate text-[12.5px] text-foreground hover:underline"
+          className="os-focus-ring min-w-0 truncate text-[13px] text-foreground hover:underline"
           title="Focus session"
         >
           {session.projectName ?? session.project}
           {session.taskId ? <span className="text-os-muted"> · {session.taskId}</span> : null}
         </Link>
-        <span className="font-mono text-[13px] tabular-nums text-foreground" aria-label="Elapsed">
+        <span className="font-mono text-[12px] tabular-nums text-foreground" aria-label="Elapsed">
           {formatElapsed(now - new Date(session.startedAt).getTime())}
         </span>
       </div>
@@ -86,7 +86,7 @@ function FocusCard() {
             value={session.music?.uri ?? ""}
             onChange={(event) => chooseMusic(event.target.value)}
             aria-label="Music"
-            className="os-focus-ring min-w-0 flex-1 truncate rounded-md border border-os-border bg-os-surface px-1.5 py-0.5 text-[12px] text-foreground"
+            className="os-focus-ring min-w-0 flex-1 truncate rounded-md border border-os-border bg-os-surface px-1.5 py-0.5 text-[13px] text-foreground"
           >
             <option value="">No music</option>
             {session.music && !playlists.data?.playlists.some((entry) => entry.uri === session.music?.uri) ? (
@@ -126,8 +126,8 @@ function MiniPlayer() {
           <Music className="size-4 shrink-0 text-os-muted" strokeWidth={1.75} aria-hidden="true" />
         )}
         <Link to="/learning?tab=spotify" className="os-focus-ring min-w-0 flex-1" title={`${track.name} — ${track.artists.join(", ")}`}>
-          <span className="block truncate text-[12.5px] text-foreground">♫ {track.name}</span>
-          <span className="block truncate text-[12px] text-os-muted">{track.artists.join(", ")}</span>
+          <span className="block truncate text-[13px] text-foreground">♫ {track.name}</span>
+          <span className="block truncate text-[13px] text-os-muted">{track.artists.join(", ")}</span>
         </Link>
       </div>
       <div className="mt-1.5 h-0.5 w-full bg-os-border" aria-hidden="true">
@@ -150,7 +150,7 @@ function MiniPlayer() {
         </button>
       </div>
       {spotify.error ? (
-        <p role="alert" className="mt-1 flex items-start gap-1 text-[12px] leading-4 text-os-danger">
+        <p role="alert" className="mt-1 flex items-start gap-1 text-[13px] leading-4 text-os-danger">
           <span className="min-w-0 flex-1">{spotify.error}</span>
           <button type="button" onClick={spotify.clearError} aria-label="Dismiss" className="os-focus-ring cursor-pointer">
             <X className="size-3" />

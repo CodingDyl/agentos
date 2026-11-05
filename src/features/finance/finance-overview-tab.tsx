@@ -24,7 +24,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
         <ExactNetCash data={data} />
 
         <PaperSection label="This month">
-          <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-paper-mist bg-paper-mist lg:grid-cols-4">
             {[
               { label: "Income", value: money(summary.income) },
               { label: "Spent", value: money(summary.spent) },
@@ -44,7 +44,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
         <PaperSection
           label="Goals"
           action={
-            <button type="button" onClick={() => onTab("goals")} className="cursor-pointer rounded-none text-[12.5px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue">
+            <button type="button" onClick={() => onTab("goals")} className="cursor-pointer rounded-md text-[13px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-[var(--focus)]">
               Open goals →
             </button>
           }
@@ -56,7 +56,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
               {data.goals.map((goal) => (
                 <li key={goal.id}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="font-paper-display text-[16px] font-bold text-paper-moss">{goal.name}</p>
+                    <p className="text-[16px] font-semibold text-paper-moss">{goal.name}</p>
                     <span className="text-[13px] font-medium text-paper-char tabular-nums">{Math.round(goal.progress * 100)}%</span>
                   </div>
                   <p className="mt-0.5 text-[13px] text-paper-sage tabular-nums">
@@ -79,11 +79,11 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
               <StackedMeter label="Spending this month by category" format={money} segments={data.categories.map((entry) => ({ key: entry.category, label: entry.category, value: entry.amount }))} />
               <ul className="mt-5 divide-y divide-paper-stone">
                 {data.categories.map((entry) => (
-                  <li key={entry.category} className="flex items-baseline justify-between gap-4 py-2 text-[14.5px]">
+                  <li key={entry.category} className="flex items-baseline justify-between gap-4 py-2 text-[14px]">
                     <span className="text-paper-moss">{entry.category}</span>
                     <span className="flex items-baseline gap-3 tabular-nums">
                       {entry.change !== undefined && Math.abs(entry.change) >= 0.15 ? (
-                        <span className={cn("text-[12.5px]", entry.change > 0 ? "font-semibold text-paper-flame-deep" : "text-paper-sage")}>{formatChange(entry.change)}</span>
+                        <span className={cn("text-[13px]", entry.change > 0 ? "font-semibold text-paper-flame-deep" : "text-paper-sage")}>{formatChange(entry.change)}</span>
                       ) : null}
                       <span className="text-paper-moss">{money(entry.amount)}</span>
                     </span>
@@ -99,7 +99,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
         <PaperSection label="Money health">
           <ul className="space-y-3">
             {data.health.map((signal) => (
-              <li key={signal.id} className="flex items-start gap-2.5 text-[14.5px] leading-6">
+              <li key={signal.id} className="flex items-start gap-2.5 text-[14px] leading-6">
                 <SignalDot tone={signal.tone} />
                 <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
                   <span className="text-paper-char">{signal.label}</span>
@@ -108,7 +108,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-[12.5px] leading-5 text-paper-sage">Separate signals, on purpose. There is no single score, because a score would hide which part to look at.</p>
+          <p className="mt-4 text-[13px] leading-5 text-paper-sage">Separate signals, on purpose. There is no single score, because a score would hide which part to look at.</p>
         </PaperSection>
 
         <PaperSection label="Coming up">
@@ -117,16 +117,16 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
           ) : (
             <ul className="space-y-2">
               {upcoming.map((payment) => (
-                <li key={payment.merchant} className="flex items-baseline justify-between gap-3 text-[14.5px]">
+                <li key={payment.merchant} className="flex items-baseline justify-between gap-3 text-[14px]">
                   <span className="min-w-0 truncate text-paper-moss">
-                    {payment.merchant} <span className="text-[12.5px] text-paper-sage">{formatDay(payment.date)}</span>
+                    {payment.merchant} <span className="text-[13px] text-paper-sage">{formatDay(payment.date)}</span>
                   </span>
                   <span className="shrink-0 tabular-nums text-paper-char">{money(payment.amount)}</span>
                 </li>
               ))}
             </ul>
           )}
-          <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Bills are the ones you track; subscriptions are projected from their monthly rhythm. Neither is a schedule from the bank.</p>
+          <p className="mt-3 text-[13px] leading-5 text-paper-sage">Bills are the ones you track; subscriptions are projected from their monthly rhythm. Neither is a schedule from the bank.</p>
         </PaperSection>
 
         <PaperSection label="Subscriptions">
@@ -137,7 +137,7 @@ export function FinanceOverviewTab({ data, onTab }: { data: FinanceData; onTab: 
               Cancelling them would free {money(data.subscriptionReview.monthly)} a month.
             </p>
           ) : null}
-          <button type="button" onClick={() => onTab("subscriptions")} className="mt-3 cursor-pointer rounded-none text-[13px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue">
+          <button type="button" onClick={() => onTab("subscriptions")} className="mt-3 cursor-pointer rounded-md text-[13px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-[var(--focus)]">
             Open subscriptions →
           </button>
         </PaperSection>
@@ -172,7 +172,7 @@ function Headline({ data }: { data: FinanceData }) {
   return (
     <PaperCard className="bg-paper-cream p-5 sm:p-6">
       <Figure large label="In your Investec accounts" value={money(investec)} note={`Current and savings, across ${count} ${count === 1 ? "account" : "accounts"}. Your net cash, after cards and anything else, is worked out below.`} />
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-paper-sage" role="status" aria-live="polite">
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-paper-sage" role="status" aria-live="polite">
         {live ? (
           <>
             <span className="flex items-start gap-1.5">
@@ -220,7 +220,7 @@ function ExactNetCash({ data }: { data: FinanceData }) {
         <span className="ml-2 align-middle">
           <Tag>{PROVIDER_LABEL[a.provider]}</Tag>
         </span>
-        {a.provider === "manual" ? <span className="ml-2 text-[12px] text-paper-sage">as you last entered it</span> : null}
+        {a.provider === "manual" ? <span className="ml-2 text-[13px] text-paper-sage">as you last entered it</span> : null}
         {a.type === "credit" ? (
           <span className="ml-2 align-middle">
             {(() => {
@@ -241,9 +241,9 @@ function ExactNetCash({ data }: { data: FinanceData }) {
       {data.accounts.length === 0 ? (
         <p className="text-[14px] leading-6 text-paper-char">No accounts yet.</p>
       ) : (
-        <div className="rounded-none border border-paper-mist">
+        <div className="rounded-md border border-paper-mist">
           <div className="px-4 pt-3">
-            <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">What you hold</p>
+            <p className="text-[13px] font-semibold text-paper-sage">What you hold</p>
             <dl className="divide-y divide-paper-stone">{held.length > 0 ? held.map(row) : <p className="py-1.5 text-[14px] text-paper-sage">No current or savings accounts.</p>}</dl>
             <dl className="border-t border-paper-mist">
               <Line label="Total held" value={money(heldTotal, true)} />
@@ -252,7 +252,7 @@ function ExactNetCash({ data }: { data: FinanceData }) {
 
           {owed.length > 0 ? (
             <div className="border-t border-paper-mist px-4 pt-3">
-              <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">What you owe</p>
+              <p className="text-[13px] font-semibold text-paper-sage">What you owe</p>
               <dl className="divide-y divide-paper-stone">{owed.map(row)}</dl>
               <dl className="border-t border-paper-mist">
                 <Line label="Total owed" value={`- ${money(-owedTotal, true)}`} />
@@ -260,7 +260,7 @@ function ExactNetCash({ data }: { data: FinanceData }) {
             </div>
           ) : null}
 
-          <dl className="border-t-2 border-paper-moss bg-paper-cream px-4 py-2">
+          <dl className="border-t-2 border-paper-ash bg-paper-cream px-4 py-2">
             <Line strong label="Net cash" value={money(total, true)} />
           </dl>
         </div>
@@ -268,7 +268,7 @@ function ExactNetCash({ data }: { data: FinanceData }) {
 
       {investments.length > 0 || owedBack > 0 ? (
         <div className="mt-5">
-          <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Not counted above</p>
+          <p className="text-[13px] font-semibold text-paper-sage">Not counted above</p>
           <dl className="mt-1 divide-y divide-paper-stone">
             {investments.length > 0 ? <Line label="Investments (not cash: see the Investments tab)" value={money(investmentValue, true)} /> : null}
             {owedBack > 0 ? <Line label={`Owed back to you by ${data.shared.partner?.name}`} value={`+ ${money(owedBack, true)}`} /> : null}
@@ -277,7 +277,7 @@ function ExactNetCash({ data }: { data: FinanceData }) {
         </div>
       ) : null}
 
-      <p className="mt-3 max-w-[70ch] text-[12.5px] leading-5 text-paper-sage">
+      <p className="mt-3 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
         Investec balances are what the bank reports for each account right now. A card's balance is what you owe on it. Accounts you added are only as accurate as the last time you updated them.
       </p>
     </PaperSection>

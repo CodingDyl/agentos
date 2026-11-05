@@ -45,7 +45,7 @@ export function AccountsSection({ data }: { data: FinanceData }) {
                 <span className="ml-2 inline-flex flex-wrap gap-1.5 align-middle">
                   <Tag>{TYPE_LABEL[account.type]}</Tag>
                   {account.provider === "manual" ? <Tag tone="marigold">You added</Tag> : null}
-                  {account.mask ? <span className="text-[12px] text-paper-sage">•••• {account.mask}</span> : null}
+                  {account.mask ? <span className="text-[13px] text-paper-sage">•••• {account.mask}</span> : null}
                 </span>
               </p>
               <p className={cn("shrink-0 text-[14px] tabular-nums", account.balance < 0 ? "text-paper-flame-deep" : "text-paper-moss")}>{account.type === "credit" && account.balance < 0 ? `${money(-account.balance)} owed` : money(account.balance)}</p>
@@ -56,7 +56,7 @@ export function AccountsSection({ data }: { data: FinanceData }) {
                 type="button"
                 onClick={() => setOpen(open === account.id ? undefined : account.id)}
                 aria-expanded={open === account.id}
-                className="mt-1 cursor-pointer rounded-none text-[12.5px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-paper-blue"
+                className="mt-1 cursor-pointer rounded-md text-[13px] text-paper-sage hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-[var(--focus)]"
               >
                 Manage
               </button>
@@ -66,7 +66,7 @@ export function AccountsSection({ data }: { data: FinanceData }) {
         ))}
       </ul>
 
-      {sample ? <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">These are sample accounts. Add your own and the sample is replaced.</p> : null}
+      {sample ? <p className="mt-3 text-[13px] leading-5 text-paper-sage">These are sample accounts. Add your own and the sample is replaced.</p> : null}
       <dl className="mt-1 border-t border-paper-mist pt-1">
         <Line strong label="Net cash" value={money(data.netCash)} />
       </dl>
@@ -84,7 +84,7 @@ function DebtIndicators({ debt }: { debt: FinanceData["debts"][number] | undefin
     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
       <PayBadge state={pay.state}>{pay.label}</PayBadge>
       {debt.utilisation !== undefined ? (
-        <span className="flex min-w-[10rem] flex-1 items-center gap-2 text-[12.5px] text-paper-char sm:max-w-[16rem]">
+        <span className="flex min-w-[10rem] flex-1 items-center gap-2 text-[13px] text-paper-char sm:max-w-[16rem]">
           <MiniBar value={debt.utilisation} label={`${Math.round(debt.utilisation * 100)}% of the limit used`} tone={tone === "good" ? "green" : tone === "watch" ? "amber" : "flame"} />
           <span className={tone === "act" ? "font-semibold whitespace-nowrap text-paper-flame-deep" : "whitespace-nowrap"}>{Math.round(debt.utilisation * 100)}% used</span>
         </span>
@@ -116,14 +116,14 @@ function AddAccountForm({ onDone }: { onDone: () => void }) {
   return (
     <form
       aria-label="Add an account"
-      className="mb-6 grid gap-4 rounded-none bg-paper-cream p-4 sm:grid-cols-2"
+      className="mb-6 grid gap-4 rounded-md bg-paper-cream p-4 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (valid) create.mutate({ name: name.trim(), type, balance: balanceValue, interestRate: type === "credit" ? rateValue : undefined, creditLimit: type === "credit" ? limitValue : undefined }, { onSuccess: onDone });
       }}
     >
       <div className="flex items-center justify-between gap-3 sm:col-span-2">
-        <h3 className="font-paper-display text-[16px] font-bold text-paper-moss">Add an account</h3>
+        <h3 className="text-[16px] font-semibold text-paper-moss">Add an account</h3>
         <CloseButton label="Close the add account form" onClick={onDone} showLabel />
       </div>
       <label className="block sm:col-span-2">
@@ -161,7 +161,7 @@ function AddAccountForm({ onDone }: { onDone: () => void }) {
           {create.isPending ? "Adding…" : "Add account"}
         </PaperButton>
       </div>
-      <p className="text-[12.5px] leading-5 text-paper-sage sm:col-span-2">Add the rate from your statement if you can. Without it the cost of a balance is understated, and the analyser says so.</p>
+      <p className="text-[13px] leading-5 text-paper-sage sm:col-span-2">Add the rate from your statement if you can. Without it the cost of a balance is understated, and the analyser says so.</p>
       <div className="sm:col-span-2">
         <MutationError error={create.error} />
       </div>
@@ -194,9 +194,9 @@ function ManageAccount({ account, onClose }: { account: FinancialAccount; onClos
     });
 
   return (
-    <div className="mt-3 space-y-4 rounded-none bg-paper-cream p-4" role="group" aria-label={`Manage ${account.name}`}>
+    <div className="mt-3 space-y-4 rounded-md bg-paper-cream p-4" role="group" aria-label={`Manage ${account.name}`}>
       <div className="flex items-center justify-between gap-3">
-        <p className="font-paper-display text-[16px] font-bold text-paper-moss">Manage {account.name}</p>
+        <p className="text-[16px] font-semibold text-paper-moss">Manage {account.name}</p>
         <CloseButton label={`Close managing ${account.name}`} onClick={onClose} showLabel />
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -226,8 +226,8 @@ function ManageAccount({ account, onClose }: { account: FinancialAccount; onClos
 
       {manual ? (
         <div className="border-t border-paper-stone pt-4">
-          <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Import a statement</p>
-          <p className="mt-1 max-w-[62ch] text-[13.5px] leading-6 text-paper-char">
+          <p className="text-[13px] font-semibold text-paper-sage">Import a statement</p>
+          <p className="mt-1 max-w-[62ch] text-[14px] leading-6 text-paper-char">
             Download a CSV statement from your bank and choose it here. It needs a date, a description, and an amount (or debit and credit columns). Importing the same file twice changes nothing.
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -258,7 +258,7 @@ function ManageAccount({ account, onClose }: { account: FinancialAccount; onClos
             </PaperButton>
           </div>
           {result ? (
-            <div role="status" className="mt-3 text-[13.5px] leading-6 text-paper-char">
+            <div role="status" className="mt-3 text-[14px] leading-6 text-paper-char">
               <p className="font-semibold text-paper-moss">
                 {result.added} added{result.alreadyHad > 0 ? `, ${result.alreadyHad} already there` : ""}
                 {result.skipped > 0 ? `, ${result.skipped} rows skipped` : ""}.

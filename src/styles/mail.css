@@ -1,18 +1,9 @@
 /**
- * Mail — a scoped visual trial, independent of the shared AgentOS design
- * tokens in `agentos.css`. Every rule is namespaced under `.mail-*`, so
- * nothing here can leak into another screen. If this style is adopted more
- * broadly later, that is a deliberate follow-up step, not a side effect of
- * this file existing.
- *
- * Fonts are pulled in with `@import`, the same convention `agentos.css` and
- * `App.css` already use for Fontsource packages — never a JS-side import.
+ * Mail's layout. Every rule is namespaced under `.mail-*`, so nothing here can
+ * leak into another screen. Colours and fonts come from the tokens in
+ * `agentos.css`; DESIGN.md is the authority.
  */
 
-@import "@fontsource/ibm-plex-sans/latin-400.css";
-@import "@fontsource/ibm-plex-sans/latin-500.css";
-@import "@fontsource/ibm-plex-sans/latin-600.css";
-@import "@fontsource/ibm-plex-sans/latin-700.css";
 
 :root {
   --mail-sandy-desk: var(--paper-desk);
@@ -31,9 +22,9 @@
   --mail-marigold: var(--paper-marigold);
   --mail-flame-orange: var(--paper-flame);
   --mail-moss-green: var(--paper-green);
-  --mail-font-heading: var(--os-font-display);
-  --mail-font-ui: var(--os-font-sans);
-  --mail-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mail-font-heading: var(--font-ui);
+  --mail-font-ui: var(--font-ui);
+  --mail-font-mono: var(--font-code);
 }
 
 /*
@@ -41,7 +32,7 @@
  * the inbox held to the same 1400px measure as Operations. No window frame.
  */
 .mail-stage {
-  background: var(--mail-paper-white);
+  background: var(--bg-canvas);
   color: var(--mail-deep-moss);
   font-family: var(--mail-font-ui);
   min-height: 100%;
@@ -76,7 +67,7 @@
 
 .mail-title {
   font-family: var(--mail-font-ui);
-  font-weight: 800;
+  font-weight: 600;
   font-size: clamp(2.25rem, 3.6vw, 3rem);
   line-height: 1;
   letter-spacing: -0.02em;
@@ -99,11 +90,11 @@
   background: var(--mail-amber-glow);
   color: #111;
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   padding: 8px 16px;
   font-family: var(--mail-font-ui);
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
@@ -111,7 +102,7 @@
 
 .mail-btn-amber:hover {
   background: var(--mail-dark-amber);
-  color: var(--color-on-paper);
+  color: var(--on-accent);
 }
 
 .mail-btn-amber:disabled {
@@ -123,11 +114,11 @@
   background: transparent;
   color: var(--mail-burnished-gold);
   border: 1.5px solid var(--mail-burnished-gold);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   padding: 8px 16px;
   font-family: var(--mail-font-ui);
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -148,10 +139,8 @@
   align-items: center;
   gap: 8px;
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   margin-bottom: 10px;
   color: var(--mail-sage-gray);
 }
@@ -162,10 +151,10 @@
 
 .mail-bucket-count {
   background: var(--mail-ash-green);
-  color: var(--color-on-paper);
-  border-radius: 0;
+  color: var(--on-accent);
+  border-radius: var(--radius-control);
   padding: 1px 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .mail-bucket-label--needs .mail-bucket-count {
@@ -178,7 +167,7 @@
   gap: 14px;
   background: var(--mail-cream-paper);
   border: 1px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   padding: 12px 14px;
   margin-bottom: 8px;
   cursor: pointer;
@@ -198,13 +187,13 @@
 .mail-thread-avatar {
   width: 34px;
   height: 34px;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--mail-font-ui);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13px;
   background: var(--mail-soft-linen);
   color: var(--mail-olive-char);
@@ -221,7 +210,7 @@
   gap: 7px;
   font-family: var(--mail-font-ui);
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: 14px;
   letter-spacing: -0.01em;
   color: var(--mail-olive-char);
 }
@@ -246,7 +235,7 @@
 
 .mail-thread-subject {
   display: block;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--mail-olive-char);
   margin-top: 1px;
   max-width: 90ch;
@@ -254,7 +243,7 @@
 
 /* Unread reads heavier and darker, with one flame dot — the same cue Gmail trained everyone on. */
 .mail-thread--unread .mail-thread-sender {
-  font-weight: 800;
+  font-weight: 600;
   color: var(--mail-deep-moss);
 }
 
@@ -267,14 +256,14 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--color-danger);
+  background: var(--status-error);
   flex-shrink: 0;
 }
 
 .mail-thread-error {
   margin: 8px 0 0;
-  font-size: 12.5px;
-  color: var(--color-danger);
+  font-size: 13px;
+  color: var(--status-error);
 }
 
 .mail-thread-snippet {
@@ -295,21 +284,20 @@
 
 .mail-tag {
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.02em;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   padding: 2px 9px;
 }
 
 .mail-tag--client {
   background: var(--mail-flame-orange);
-  color: var(--color-on-paper);
+  color: var(--on-accent);
 }
 
 .mail-tag--finance {
   background: var(--mail-marigold);
-  color: var(--color-on-paper);
+  color: var(--on-accent);
 }
 
 .mail-tag--reply {
@@ -320,7 +308,7 @@
 
 .mail-tag--noreply {
   background: var(--mail-moss-green);
-  color: var(--color-on-paper);
+  color: var(--on-accent);
 }
 
 /* A thread the person placed themselves — inked, not coloured, so it never competes with the category. */
@@ -338,7 +326,7 @@
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px dashed var(--mail-warm-mist);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--mail-olive-char);
   white-space: pre-wrap;
@@ -356,7 +344,7 @@
 
 .mail-thread-when {
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--mail-ash-green);
   white-space: nowrap;
   margin-top: 2px;
@@ -369,8 +357,8 @@
 
 .mail-empty-title {
   font-family: var(--mail-font-ui);
-  font-weight: 700;
-  font-size: 17px;
+  font-weight: 600;
+  font-size: 16px;
   margin: 0 0 8px;
 }
 
@@ -398,7 +386,7 @@
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: var(--mail-paper-white);
   color: var(--mail-olive-char);
   font-family: var(--mail-font-ui);
@@ -415,14 +403,14 @@
 
 .mail-filter-count {
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--mail-sage-gray);
   font-variant-numeric: tabular-nums;
 }
 
 /* Needs you keeps its flame even at rest, so the one bucket that asks for action reads first. */
 .mail-filter--needs .mail-filter-count {
-  color: var(--color-danger);
+  color: var(--status-error);
   font-weight: 600;
 }
 
@@ -472,7 +460,7 @@
 
 .mail-pager-range {
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--mail-sage-gray);
   font-variant-numeric: tabular-nums;
 }
@@ -488,7 +476,7 @@
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: var(--mail-paper-white);
   color: var(--mail-olive-char);
   font-family: var(--mail-font-ui);
@@ -501,7 +489,7 @@
 .mail-pager-num {
   padding: 0 8px;
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -584,7 +572,7 @@
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: var(--mail-paper-white);
   color: var(--mail-olive-char);
   font-family: var(--mail-font-ui);
@@ -605,23 +593,23 @@
 }
 
 .mail-bulk-btn--danger {
-  color: var(--color-danger);
+  color: var(--status-error);
 }
 
 .mail-bulk-btn--danger:hover:not(:disabled) {
-  border-color: var(--color-danger);
-  background: var(--color-surface-raised);
+  border-color: var(--status-error);
+  background: var(--bg-raised);
 }
 
 .mail-bulk--confirm .mail-bulk-btn--danger {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  background: var(--status-error);
+  border-color: var(--status-error);
   color: var(--mail-paper-white);
 }
 
 .mail-bulk--confirm .mail-bulk-btn--danger:hover {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
+  background: var(--status-error);
+  border-color: var(--status-error);
   color: var(--mail-paper-white);
 }
 
@@ -635,14 +623,14 @@
 }
 
 .mail-bulk-question {
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--mail-deep-moss);
   text-align: right;
 }
 
 .mail-bulk-status {
   min-height: 16px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--mail-sage-gray);
 }
 
@@ -664,9 +652,9 @@
   margin: 0 0 20px;
   padding: 12px 14px;
   border: 1px solid var(--mail-burnished-gold);
-  border-radius: 0;
-  background: var(--color-surface-raised);
-  font-size: 13.5px;
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  font-size: 14px;
   color: var(--mail-deep-moss);
 }
 
@@ -689,7 +677,7 @@
   justify-content: center;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--mail-sage-gray);
   cursor: pointer;
@@ -728,8 +716,8 @@
   padding: 6px;
   background: var(--mail-paper-white);
   border: 1px solid var(--mail-warm-mist);
-  border-radius: 0;
-  box-shadow: 0 10px 24px -8px rgba(35, 37, 29, 0.22);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-overlay);
   cursor: default;
   transform-origin: top right;
   animation: mail-menu-in 0.14s cubic-bezier(0.16, 1, 0.3, 1);
@@ -752,7 +740,7 @@
 
 .mail-menu-heading {
   margin: 4px 8px 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--mail-sage-gray);
 }
@@ -764,7 +752,7 @@
   gap: 9px;
   padding: 7px 8px;
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--mail-deep-moss);
   font-family: var(--mail-font-ui);
@@ -804,13 +792,13 @@
 }
 
 .mail-menu-hint {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
   color: var(--mail-sage-gray);
 }
 
 .mail-menu-item[aria-checked="true"] .mail-menu-label {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .mail-menu-chips {
@@ -823,11 +811,11 @@
 .mail-menu-chip {
   padding: 4px 10px;
   border: 1px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: var(--mail-paper-white);
   color: var(--mail-olive-char);
   font-family: var(--mail-font-ui);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -844,13 +832,13 @@
 }
 
 .mail-menu-item--danger {
-  color: var(--color-danger);
+  color: var(--status-error);
 }
 
 .mail-menu-item--armed,
 .mail-menu-item--armed:hover:not(:disabled),
 .mail-menu-item--armed:focus-visible {
-  background: var(--color-danger);
+  background: var(--status-error);
   color: var(--mail-paper-white);
 }
 
@@ -919,7 +907,7 @@
 
 .mail-progress-count {
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--mail-sage-gray);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -928,7 +916,7 @@
 .mail-progress-track {
   position: relative;
   height: 6px;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: var(--mail-pale-stone);
   overflow: hidden;
 }
@@ -993,11 +981,11 @@
   justify-content: center;
   padding: 0 6px;
   border: 1px solid transparent;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--mail-sage-gray);
   font-family: var(--mail-font-ui);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   opacity: 0.6;
@@ -1016,9 +1004,9 @@
 }
 
 .mail-quick-btn--danger:hover:not(:disabled) {
-  color: var(--color-danger);
-  border-color: var(--color-danger);
-  background: var(--color-surface-raised);
+  color: var(--status-error);
+  border-color: var(--status-error);
+  background: var(--bg-raised);
 }
 
 /* Keep is the rescue from the 24-hour clock, so it never hides. */
@@ -1056,17 +1044,17 @@
 
 .mail-bucket-note {
   margin: -4px 0 10px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--mail-sage-gray);
 }
 
 .mail-action-error {
   margin: -8px 0 16px;
   padding: 8px 12px;
-  border-radius: 0;
-  background: var(--color-surface-raised);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
   font-size: 13px;
-  color: var(--color-warning);
+  color: var(--status-warning);
 }
 
 .mail-kbd {
@@ -1075,10 +1063,10 @@
   padding: 0 5px;
   border: 1px solid var(--mail-warm-mist);
   border-bottom-width: 2px;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: var(--mail-paper-white);
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   text-align: center;
   color: var(--mail-olive-char);
@@ -1090,7 +1078,7 @@
 
 .mail-shortcuts {
   margin: 14px 0 0;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 2;
   color: var(--mail-sage-gray);
 }
@@ -1108,7 +1096,7 @@
   }
 }
 
-.mail-title { font-family: var(--os-font-display); }
+
 .mail-btn-amber, .mail-btn-ghost { min-height: var(--control-height); }
 /* ── Compose, reply, Sent & drafts ────────────────────────────────────── */
 .mail-visually-hidden {
@@ -1143,7 +1131,7 @@
   margin-bottom: -1px;
   padding: 8px 14px;
   font-family: var(--mail-font-ui);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--mail-sage-gray);
   cursor: pointer;
@@ -1191,7 +1179,7 @@
   color: var(--mail-deep-moss);
   font-family: var(--mail-font-ui);
   border: 1.5px solid var(--mail-deep-moss);
-  box-shadow: 0 18px 50px rgba(0, 0, 70, 0.22);
+  box-shadow: var(--shadow-overlay);
 }
 
 .mail-composer--dragging {
@@ -1243,9 +1231,7 @@
 .mail-composer-tag-label {
   flex: 0 0 56px;
   font-family: var(--mail-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--mail-sage-gray);
 }
 
@@ -1262,7 +1248,7 @@
 
 .mail-composer-cc-toggle {
   flex-shrink: 0;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .mail-composer-tag {
@@ -1281,13 +1267,11 @@
 
 .mail-tag-option {
   font-family: var(--mail-font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   padding: 4px 10px;
   border: 1.3px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--mail-sage-gray);
   cursor: pointer;
@@ -1317,7 +1301,7 @@
   margin-top: 12px;
   padding: 10px 12px;
   border: 1px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   /* Inherits the panel, like the fields above, so the text stays readable in any theme. */
   background: transparent;
   font: inherit;
@@ -1368,7 +1352,7 @@
 .mail-composer-file-size,
 .mail-composer-file-total {
   font-family: var(--mail-font-mono);
-  font-size: 11px;
+  font-size: 13px;
   color: var(--mail-sage-gray);
   flex-shrink: 0;
 }
@@ -1406,7 +1390,7 @@
   justify-content: center;
   background: color-mix(in srgb, var(--mail-soft-linen) 92%, transparent);
   font-family: var(--mail-font-heading);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   pointer-events: none;
 }
@@ -1497,11 +1481,11 @@ section[aria-label="Sent and drafts"] > .mail-filters {
 
 .mail-outbox-tag {
   font-family: var(--mail-font-mono);
-  font-size: 10.5px;
+  font-size: 13px;
   font-weight: 500;
   padding: 2px 6px;
   border: 1.3px solid var(--mail-warm-mist);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--mail-sage-gray);
   cursor: pointer;
@@ -1521,7 +1505,7 @@ section[aria-label="Sent and drafts"] > .mail-filters {
 
 .mail-shortcuts code {
   font-family: var(--mail-font-mono);
-  font-size: 11.5px;
+  font-size: 13px;
   background: var(--mail-soft-linen);
   padding: 0 4px;
 }
@@ -1578,7 +1562,7 @@ section[aria-label="Sent and drafts"] > .mail-filters {
 
 .mail-account-detail {
   font-family: var(--mail-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--mail-sage-gray);
   overflow-wrap: anywhere;
 }

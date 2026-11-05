@@ -10,17 +10,17 @@ import { CATEGORY_CHOICES } from "./finance-model";
 export function Figure({ label, value, note, tone, large }: { label: string; value: ReactNode; note?: ReactNode; tone?: "warn"; large?: boolean }) {
   return (
     <div className="min-w-0">
-      <p className="text-[12.5px] font-medium text-paper-sage">{label}</p>
+      <p className="text-[13px] font-medium text-paper-sage">{label}</p>
       <p
         className={cn(
-          "mt-1 font-paper-display leading-none font-extrabold tracking-[-0.02em] tabular-nums",
-          large ? "text-[44px] sm:text-[52px]" : "text-[24px]",
+          "mt-1 leading-none font-semibold tracking-[-0.02em] tabular-nums",
+          large ? "text-[24px] sm:text-[24px]" : "text-[24px]",
           tone === "warn" ? "text-paper-flame-deep" : "text-paper-moss",
         )}
       >
         {value}
       </p>
-      {note ? <p className="mt-1.5 text-[12.5px] leading-5 text-paper-sage">{note}</p> : null}
+      {note ? <p className="mt-1.5 text-[13px] leading-5 text-paper-sage">{note}</p> : null}
     </div>
   );
 }
@@ -56,7 +56,7 @@ export function SignalDot({ tone }: { tone: "good" | "warn" | "neutral" }) {
 
 export function SampleNotice({ onSettings }: { onSettings: () => void }) {
   return (
-    <div role="note" className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-none border border-paper-mist bg-paper-cream px-4 py-3">
+    <div role="note" className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-mist bg-paper-cream px-4 py-3">
       <p className="max-w-[70ch] text-[14px] leading-6 text-paper-char">
         <Tag tone="marigold" className="mr-2">
           Sample data
@@ -88,7 +88,7 @@ export function CategorySuggest({ transactionId, merchant, current: currentCateg
   return (
     <div className="mt-2">
       {result ? (
-        <div className="rounded-none bg-paper-cream p-3 text-[13px] leading-5 text-paper-char">
+        <div className="rounded-md bg-paper-cream p-3 text-[13px] leading-5 text-paper-char">
           <p>
             Jev leans <span className="font-semibold text-paper-moss">{result.category}</span> ({Math.round(result.confidence * 100)}% confident)
             {agrees ? ", which is what it already is." : "."}

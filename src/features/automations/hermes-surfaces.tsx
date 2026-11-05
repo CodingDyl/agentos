@@ -6,7 +6,7 @@ import { useControlCurator } from "@/lib/agentos/queries";
 
 /** A command or config path, set as code — the one place mono belongs. */
 function Code({ children }: { children: ReactNode }) {
-  return <code className="rounded-none bg-paper-linen px-1 py-px font-mono text-[12px] text-paper-moss">{children}</code>;
+  return <code className="rounded-md bg-paper-linen px-1 py-px font-mono text-[12px] text-paper-moss">{children}</code>;
 }
 
 /**
@@ -20,8 +20,8 @@ export function HermesSwitches({ surfaces }: { surfaces: HermesAutomationSurface
   return (
     <>
       {emergencyStop.engaged ? (
-        <div role="alert" className="mt-8 rounded-none border border-paper-flame-deep bg-paper-cream px-5 py-4">
-          <p className="font-paper-display text-[16px] font-bold text-paper-flame-deep">Emergency stop is on</p>
+        <div role="alert" className="mt-8 rounded-md border border-paper-flame-deep bg-paper-cream px-5 py-4">
+          <p className="text-[16px] font-semibold text-paper-flame-deep">Emergency stop is on</p>
           <p className="mt-1 max-w-[72ch] text-[14px] leading-6 text-paper-moss">
             Hermes won't start any scheduled job, kanban task or new gateway turn until it's lifted
             {emergencyStop.reason ? ` (“${emergencyStop.reason}”)` : ""}. Work already running carries on. Lift it with{" "}
@@ -30,13 +30,13 @@ export function HermesSwitches({ surfaces }: { surfaces: HermesAutomationSurface
         </div>
       ) : null}
 
-      <dl className="mt-8 grid gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist sm:grid-cols-2">
+      <dl className="mt-8 grid gap-px overflow-hidden rounded-md border border-paper-mist bg-paper-mist sm:grid-cols-2">
         <div className="bg-paper-white px-5 py-4">
           <dt className="flex items-center gap-2 text-[13px] font-semibold text-paper-moss">
             Scheduler
             <Tag tone={scheduler.running ? "green" : "flame"}>{scheduler.running ? "Running" : "Stopped"}</Tag>
           </dt>
-          <dd className="mt-1.5 text-[13.5px] leading-5 text-paper-char">
+          <dd className="mt-1.5 text-[14px] leading-5 text-paper-char">
             {scheduler.running ? (
               "Jobs fire on time while the Hermes gateway is up."
             ) : (
@@ -52,7 +52,7 @@ export function HermesSwitches({ surfaces }: { surfaces: HermesAutomationSurface
             Emergency stop
             <Tag tone={emergencyStop.engaged ? "flame" : "muted"}>{emergencyStop.engaged ? "On" : "Off"}</Tag>
           </dt>
-          <dd className="mt-1.5 text-[13.5px] leading-5 text-paper-char">
+          <dd className="mt-1.5 text-[14px] leading-5 text-paper-char">
             <Code>hermes pause</Code> halts all new automation work at once; <Code>hermes resume</Code> lifts it.
           </dd>
         </div>
@@ -75,10 +75,10 @@ function SurfaceCard({
   return (
     <PaperCard className="flex flex-col p-5">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-paper-display text-[15.5px] font-bold tracking-[-0.01em] text-paper-moss">{title}</h3>
+        <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-paper-moss">{title}</h3>
         {tag}
       </div>
-      <p className="mt-1.5 text-[13.5px] leading-[1.55] text-paper-char">{description}</p>
+      <p className="mt-1.5 text-[14px] leading-[1.55] text-paper-char">{description}</p>
       <div className="mt-4 flex flex-1 flex-col gap-3 border-t border-paper-stone pt-4 text-[13px] leading-5 text-paper-sage">
         {children}
       </div>

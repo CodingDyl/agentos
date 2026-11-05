@@ -15,10 +15,10 @@ export const HairlineCard = forwardRef<HTMLDivElement, HairlineCardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-lg border border-os-border bg-os-surface/75",
+          "rounded-lg bg-os-surface",
           raised && "bg-os-surface-raised",
           interactive &&
-            "transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised",
+            "transition-colors duration-150 hover:bg-os-surface-raised",
           className,
         )}
         {...props}

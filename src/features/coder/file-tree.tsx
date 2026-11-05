@@ -12,7 +12,7 @@ interface FileTreeProps {
 
 export function FileTree({ nodes, onFileOpen, selectedPath }: FileTreeProps) {
   return (
-    <div className="h-full overflow-y-auto bg-[#0a0a0a] p-2 font-mono text-sm text-[#e0e0e0]">
+    <div className="h-full overflow-y-auto bg-[var(--bg-canvas)] p-2 font-mono text-[14px] text-[var(--text-primary)]">
       {nodes.map((node) => (
         <FileTreeNode
           key={node.path}
@@ -87,8 +87,8 @@ function FileTreeNode({ node, level, onFileOpen, selectedPath }: FileTreeNodePro
         type="button"
         onClick={handleClick}
         className={cn(
-          "flex w-full items-center gap-1 rounded px-2 py-1 text-left transition-colors hover:bg-[#00ffcc1a]",
-          isSelected && "bg-[#00ffcc33] text-[#00ffcc]"
+          "flex w-full items-center gap-1 rounded px-2 py-1 text-left transition-colors hover:bg-[var(--bg-raised)]",
+          isSelected && "bg-[var(--bg-selected)] text-[var(--text-primary)]"
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
       >
@@ -100,22 +100,22 @@ function FileTreeNode({ node, level, onFileOpen, selectedPath }: FileTreeNodePro
               <ChevronRight className="size-4 shrink-0" />
             )}
             {expanded ? (
-              <FolderOpen className="size-4 shrink-0 text-[#00ffcc]" />
+              <FolderOpen className="size-4 shrink-0 text-[var(--text-primary)]" />
             ) : (
-              <Folder className="size-4 shrink-0 text-[#00ccff]" />
+              <Folder className="size-4 shrink-0 text-[var(--text-secondary)]" />
             )}
           </>
         ) : (
           <>
             <span className="w-4" />
-            <File className="size-4 shrink-0 text-[#6a9fb5]" />
+            <File className="size-4 shrink-0 text-[var(--text-muted)]" />
           </>
         )}
         <span className="truncate">{node.name}</span>
-        {loading && <span className="ml-auto text-xs text-[#6a9fb5]">...</span>}
+        {loading && <span className="ml-auto text-[13px] text-[var(--text-muted)]">...</span>}
       </button>
       {loadError ? (
-        <div className="px-2 py-1 text-xs text-[#ff0066]" style={{ paddingLeft: `${level * 12 + 28}px` }}>
+        <div className="px-2 py-1 text-[13px] text-[var(--status-error)]" style={{ paddingLeft: `${level * 12 + 28}px` }}>
           {loadError}
         </div>
       ) : null}

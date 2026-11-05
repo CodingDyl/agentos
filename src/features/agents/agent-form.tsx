@@ -122,7 +122,7 @@ export function AgentForm({
       </div>
 
       <fieldset>
-        <legend className="mb-2 text-[12.5px] font-medium text-paper-char">Model routes (leave blank to use AI Stack)</legend>
+        <legend className="mb-2 text-[13px] font-medium text-paper-char">Model routes (leave blank to use AI Stack)</legend>
         <div className="grid gap-2 md:grid-cols-4">
           {MODEL_ROUTE_TASK_TYPES.map((type) => (
             <label key={type} className="block">
@@ -174,7 +174,7 @@ export function AgentForm({
       </div>
 
       <fieldset>
-        <legend className="mb-2 text-[12.5px] font-medium text-paper-char">Schedules (notes, or a Hermes automation id)</legend>
+        <legend className="mb-2 text-[13px] font-medium text-paper-char">Schedules (notes, or a Hermes automation id)</legend>
         <ul className="space-y-2">
           {schedules.map((row, index) => (
             <li key={row.id} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">

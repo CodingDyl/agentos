@@ -80,13 +80,13 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
         <h3 id={`${id}-title`} className="text-[14px] font-semibold text-paper-moss">
           Brand kit
         </h3>
-        <p className="text-[12px] text-paper-sage">
+        <p className="text-[13px] text-paper-sage">
           {included} of {draft.order.length} images used
           {draft.removed.length > 0 ? ` · ${draft.removed.length} to remove on save` : ""}
           {kit.source === "edited" ? " · edited" : ""}
         </p>
       </div>
-      <p className="mt-1 max-w-[80ch] text-[12.5px] leading-5 text-paper-sage">
+      <p className="mt-1 max-w-[80ch] text-[13px] leading-5 text-paper-sage">
         Taken from their current site. The first ticked logo is the main one. {heroStarted ? "Changes apply from the next hero or build revision." : "The hero concepts will use what is ticked here."} Photos may be licensed to the client only: check before the preview is shared widely.
       </p>
 
@@ -96,15 +96,15 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
         <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label="Brand images">
           {assets.map(({ asset, include }, index) =>
             asset ? (
-              <li key={asset.id} className={cn("border-[1.5px] p-2", include ? "border-paper-blue bg-paper-white" : "border-paper-mist opacity-60")}>
+              <li key={asset.id} className={cn("border p-2", include ? "border-paper-ash bg-paper-white" : "border-paper-mist opacity-60")}>
                 <div className="flex aspect-[4/3] items-center justify-center bg-paper-linen">
                   {href(asset.artifactId) ? (
                     <img src={href(asset.artifactId)} alt={asset.alt || `${asset.kind} ${asset.id}`} className="max-h-full max-w-full object-contain" loading="lazy" />
                   ) : (
-                    <span className="text-[12px] text-paper-sage">No preview</span>
+                    <span className="text-[13px] text-paper-sage">No preview</span>
                   )}
                 </div>
-                <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12.5px] text-paper-char">
+                <label className="mt-2 flex cursor-pointer items-center gap-2 text-[13px] text-paper-char">
                   <input
                     type="checkbox"
                     checked={include}
@@ -162,7 +162,7 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
                   className="h-8 w-10 cursor-pointer border border-paper-mist bg-transparent"
                   onChange={(event) => change({ ...draft, colors: draft.colors.map((entry, at) => (at === index ? { ...entry, hex: event.target.value.toLowerCase() } : entry)) })}
                 />
-                <code className="w-[7ch] text-[12.5px] text-paper-char">{color.hex}</code>
+                <code className="w-[7ch] text-[13px] text-paper-char">{color.hex}</code>
                 <select
                   className={cn(PAPER_INPUT, "w-auto")}
                   value={color.role}
@@ -229,7 +229,7 @@ export function BrandKitPanel({ run }: { run: RebuildRun }) {
       </div>
 
       {error ? (
-        <p role="alert" className="mt-3 text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-3 text-[13px] text-paper-flame-deep">
           {error.message}
         </p>
       ) : null}

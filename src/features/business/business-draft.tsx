@@ -28,7 +28,7 @@ export function ClientDraftForm({
 
   if (create.data) {
     return (
-      <p role="status" className="text-[13.5px] text-paper-char">
+      <p role="status" className="text-[14px] text-paper-char">
         Draft to {create.data.to} is in Gmail.{" "}
         <a href={create.data.url} target="_blank" rel="noreferrer" className="text-paper-blue hover:underline">
           Open Drafts

@@ -138,9 +138,9 @@ export function MvpPanel({ detail }: { detail: VentureDetail }) {
         <PaperCard className="p-6">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-4 text-paper-moss" aria-hidden="true" />
-            <h3 className="font-paper-display text-[17px] font-bold text-paper-moss">Scope guard</h3>
+            <h3 className="text-[16px] font-semibold text-paper-moss">Scope guard</h3>
           </div>
-          <p className="mt-1 max-w-[64ch] text-[13.5px] leading-6 text-paper-char">
+          <p className="mt-1 max-w-[64ch] text-[14px] leading-6 text-paper-char">
             Want to add something? Check it against the contract first. Anything the core workflow does not need is parked in Later, so the MVP stays small.
           </p>
           <form
@@ -162,10 +162,10 @@ export function MvpPanel({ detail }: { detail: VentureDetail }) {
             <div className="mt-4 bg-paper-linen px-4 py-3" role="status">
               <div className="flex flex-wrap items-center gap-2">
                 <Tag tone={VERDICT[scope.data.check.verdict].tone}>{VERDICT[scope.data.check.verdict].label}</Tag>
-                <span className="text-[13.5px] font-medium text-paper-moss">{scope.data.check.request}</span>
+                <span className="text-[14px] font-medium text-paper-moss">{scope.data.check.request}</span>
               </div>
-              <p className="mt-1 text-[13.5px] leading-6 text-paper-char">{scope.data.check.reason}</p>
-              {scope.data.check.clause ? <p className="mt-1 text-[12.5px] text-paper-sage">Against: {scope.data.check.clause}</p> : null}
+              <p className="mt-1 text-[14px] leading-6 text-paper-char">{scope.data.check.reason}</p>
+              {scope.data.check.clause ? <p className="mt-1 text-[13px] text-paper-sage">Against: {scope.data.check.clause}</p> : null}
             </div>
           ) : null}
           {scope.error ? <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">{scope.error.message}</p> : null}

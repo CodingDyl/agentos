@@ -59,7 +59,7 @@ export function MilestoneReview({
         <header className="flex items-start justify-between gap-4 border-b border-os-border px-5 py-4">
           <div>
             <SectionLabel>Milestone review</SectionLabel>
-            <h2 className="mt-2 text-[20px] leading-7 text-foreground">{milestone.title}</h2>
+            <h2 className="mt-2 text-[16px] leading-7 text-foreground">{milestone.title}</h2>
           </div>
           <button type="button" aria-label="Close" onClick={onClose} className="os-focus-ring -mr-2 cursor-pointer rounded-md p-2 text-os-subtle hover:text-foreground">
             <X className="size-4" strokeWidth={1.5} aria-hidden="true" />
@@ -87,7 +87,7 @@ export function MilestoneReview({
             ) : (
               <ul className="mt-3 space-y-2">
                 {milestone.criteria.map((criterion, index) => (
-                  <li key={index} className="flex items-start gap-3 text-[15px] leading-6">
+                  <li key={index} className="flex items-start gap-3 text-[14px] leading-6">
                     {criterion.done ? (
                       <SquareCheck className="mt-1 size-4 shrink-0 text-os-success" strokeWidth={1.5} aria-hidden="true" />
                     ) : (

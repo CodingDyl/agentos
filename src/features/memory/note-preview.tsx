@@ -3,7 +3,7 @@ import { CircleAlert, CircleDashed, Paperclip, Split, X } from "lucide-react";
 import { useState, type ReactNode, type UIEvent } from "react";
 import { memoryMarkdownExtensions, type WikiLinkToken } from "@shared/memory-markdown";
 import type { MemoryLink, MemoryNoteDetail } from "@shared/memory-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { Markdown, type InlineOverride } from "@/components/os/markdown";
 import { PAPER_FOCUS, PaperError } from "@/components/paper";
 import { formatRelativeTime } from "@/lib/format";
@@ -77,7 +77,7 @@ export function NotePreview({
   onOpen,
   onClose,
   closeLabel = "Close",
-  accent = "#7fe6ff",
+  accent = "#B0D6FF",
   className,
 }: {
   note?: MemoryNoteDetail;
@@ -112,10 +112,10 @@ export function NotePreview({
     return (
       <aside className={cn("flex flex-col justify-center p-8", className)} aria-label="Note">
         {isLoading ? (
-          <DedsecLoader variant="compact" />
+          <PageLoader variant="compact" />
         ) : (
           <div className="max-w-[34ch]">
-            <p className="font-paper-display text-[19px] leading-6 font-bold text-paper-moss">No note open</p>
+            <p className="text-[16px] leading-6 font-semibold text-paper-moss">No note open</p>
             <p className="mt-2 text-[14px] leading-6 text-paper-char">
               Pick a node in the graph or a note from the list. Links inside a note open the note they point to.
             </p>
@@ -133,7 +133,7 @@ export function NotePreview({
       const label = wiki.parts.label ?? (wiki.parts.target ? `${wiki.parts.target}${wiki.parts.heading ? ` › ${wiki.parts.heading}` : ""}` : wiki.parts.heading ?? wiki.inner);
       return wiki.embed && link?.resolution === "resolved" ? (
         <span className="inline-flex items-baseline gap-1">
-          <span className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-sage uppercase">Embeds</span>
+          <span className="text-[13px] text-paper-sage">Embeds</span>
           {renderLink(link, label, onOpen)}
         </span>
       ) : (
@@ -166,7 +166,7 @@ export function NotePreview({
           aria-label={closeLabel}
           title={`${closeLabel} (Esc)`}
           className={cn(
-            "absolute top-3 right-3 z-10 inline-flex size-9 cursor-pointer items-center justify-center bg-paper-linen text-paper-moss backdrop-blur-sm transition-colors duration-150 hover:bg-background",
+            "absolute top-3 right-3 z-10 inline-flex size-9 cursor-pointer items-center justify-center bg-paper-linen text-paper-moss transition-colors duration-150 hover:bg-background",
             PAPER_FOCUS,
           )}
         >
@@ -187,11 +187,11 @@ export function NotePreview({
             <div className="memory-hero-title relative">
               <div className="memory-layer" data-depth="1">
                 <p className="truncate pr-12 font-mono text-[12px] text-paper-sage" title={note.id}>{note.id}</p>
-                <h2 data-heading="compact" className="mt-2 font-paper-display text-[30px] leading-[1.08] font-bold tracking-[-0.02em] text-balance text-white">
+                <h2 data-heading="compact" className="mt-2 text-[24px] leading-[1.08] font-semibold tracking-[-0.02em] text-balance text-white">
                   {note.title}
                 </h2>
               </div>
-              <div className="memory-layer mt-3 space-y-2 text-[12.5px] text-paper-char" data-depth="2">
+              <div className="memory-layer mt-3 space-y-2 text-[13px] text-paper-char" data-depth="2">
                 <p className="tabular-nums">
                   Edited {formatRelativeTime(note.modifiedAt)} · {note.backlinkCount} backlink{note.backlinkCount === 1 ? "" : "s"} · {note.outgoingCount} outgoing ·{" "}
                   <span className="font-mono" title={note.hash}>#{note.hash.slice(0, 8)}</span>
@@ -199,10 +199,10 @@ export function NotePreview({
                 {note.tags.length > 0 || note.aliases.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {note.tags.map((tag) => (
-                      <span key={tag} className="border border-paper-ash/30 px-1.5 py-px text-[12px] text-paper-moss">#{tag}</span>
+                      <span key={tag} className="border border-paper-ash/30 px-1.5 py-px text-[13px] text-paper-moss">#{tag}</span>
                     ))}
                     {note.aliases.map((alias) => (
-                      <span key={alias} className="text-[12.5px]">aka “{alias}”</span>
+                      <span key={alias} className="text-[13px]">aka “{alias}”</span>
                     ))}
                   </div>
                 ) : null}
@@ -217,7 +217,7 @@ export function NotePreview({
           ) : (
           <div className="memory-layer" data-depth="3">
             {note.stale || note.errors.length > 0 ? (
-              <div className="space-y-1.5 border-b border-paper-mist px-6 py-3 text-[12.5px]">
+              <div className="space-y-1.5 border-b border-paper-mist px-6 py-3 text-[13px]">
                 {note.stale ? (
                   <p className="flex items-center gap-1.5 font-medium text-paper-flame-deep">
                     <CircleAlert className="size-3.5" strokeWidth={2} aria-hidden="true" /> Stale — the vault is disconnected; this is the last indexed copy.
@@ -251,7 +251,7 @@ export function NotePreview({
                   <span className="block truncate text-[14px] font-medium text-paper-moss group-hover:text-paper-blue">{backlink.sourceTitle}</span>
                   <span className="block truncate font-mono text-[12px] text-paper-sage">{backlink.sourceId}</span>
                 </span>
-                {backlink.count > 1 ? <span className="text-[12px] text-paper-sage tabular-nums">×{backlink.count}</span> : null}
+                {backlink.count > 1 ? <span className="text-[13px] text-paper-sage tabular-nums">×{backlink.count}</span> : null}
               </button>
             </li>
           ))}
@@ -267,10 +267,10 @@ export function NotePreview({
             </li>
           ))}
           {ambiguous.map((link) => (
-            <li key={`a-${link.raw}-${link.line}`} className="flex items-start gap-2 px-5 py-2 text-[13.5px]">
+            <li key={`a-${link.raw}-${link.line}`} className="flex items-start gap-2 px-5 py-2 text-[14px]">
               <Split className="mt-0.5 size-3.5 shrink-0 text-paper-flame-deep" strokeWidth={2} aria-hidden="true" />
               <span className="min-w-0">
-                <span className="font-mono text-[12.5px] text-paper-moss">{link.raw}</span>
+                <span className="font-mono text-[12px] text-paper-moss">{link.raw}</span>
                 <span className="text-paper-char"> is ambiguous (line {link.line}) — matches </span>
                 {link.candidates?.map((candidate, index) => (
                   <span key={candidate}>
@@ -282,10 +282,10 @@ export function NotePreview({
             </li>
           ))}
           {unresolved.map((link) => (
-            <li key={`u-${link.raw}-${link.line}`} className="flex items-start gap-2 px-5 py-2 text-[13.5px]">
+            <li key={`u-${link.raw}-${link.line}`} className="flex items-start gap-2 px-5 py-2 text-[14px]">
               <CircleDashed className="mt-0.5 size-3.5 shrink-0 text-paper-sage" strokeWidth={2} aria-hidden="true" />
               <span>
-                <span className="font-mono text-[12.5px] text-paper-moss">{link.raw}</span>
+                <span className="font-mono text-[12px] text-paper-moss">{link.raw}</span>
                 <span className="text-paper-sage"> — no such note (line {link.line})</span>
               </span>
             </li>
@@ -295,9 +295,9 @@ export function NotePreview({
         {attachments.length > 0 ? (
           <LinkSection title="Attachments" count={attachments.length} empty="">
             {attachments.map((link) => (
-              <li key={`f-${link.raw}-${link.line}`} className="flex items-center gap-2 px-5 py-2 text-[13.5px] text-paper-char">
+              <li key={`f-${link.raw}-${link.line}`} className="flex items-center gap-2 px-5 py-2 text-[14px] text-paper-char">
                 <Paperclip className="size-3.5 shrink-0 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
-                <span className="truncate font-mono text-[12.5px]">{link.attachment ?? link.target}</span>
+                <span className="truncate font-mono text-[12px]">{link.attachment ?? link.target}</span>
                 {!link.attachment ? <span className="text-paper-sage">(missing)</span> : null}
               </li>
             ))}
@@ -316,11 +316,11 @@ export function NotePreview({
 function LinkSection({ title, count, empty, children }: { title: string; count: number; empty: string; children: ReactNode }) {
   return (
     <section aria-label={title} className="border-t border-paper-mist py-3">
-      <h3 className="flex items-center gap-2 px-5 pb-1.5 font-paper-utility text-[12px] font-semibold tracking-[0.1em] text-paper-char uppercase">
+      <h3 className="flex items-center gap-2 px-5 pb-1.5 text-[13px] font-semibold text-paper-char">
         {title}
-        <span className="bg-paper-stone px-1.5 font-paper-ui text-[12px] font-medium tracking-normal tabular-nums">{count}</span>
+        <span className="bg-paper-stone px-1.5 text-[13px] font-medium tracking-normal tabular-nums">{count}</span>
       </h3>
-      {count === 0 ? <p className="px-5 py-1 text-[13.5px] text-paper-sage">{empty}</p> : <ul>{children}</ul>}
+      {count === 0 ? <p className="px-5 py-1 text-[14px] text-paper-sage">{empty}</p> : <ul>{children}</ul>}
     </section>
   );
 }

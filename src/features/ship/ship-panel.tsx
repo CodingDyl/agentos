@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ShipChangeItem, ShipChangePriority, ShipPreviewSource, ShipSnapshot } from "@shared/ship-types";
-import { DedsecLoader, FilterToolbar, type FilterGroup } from "@/components/os";
+import { PageLoader, FilterToolbar, type FilterGroup } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperError, PaperIndicator, PaperNotice, SegmentedControl } from "@/components/paper";
 import { BlockedSitePanel, SiteFrame } from "@/features/site";
 import { useVercelProjects } from "@/lib/agentos/queries";
@@ -43,8 +43,8 @@ const VIEWPORTS: readonly { value: Viewport; label: string }[] = [
   { value: "mobile", label: "Mobile" },
 ];
 
-const CARD_TITLE = "font-paper-display text-[16px] font-bold text-paper-moss";
-const ERROR_TEXT = "text-[12.5px] text-paper-flame-deep";
+const CARD_TITLE = "text-[16px] font-semibold text-paper-moss";
+const ERROR_TEXT = "text-[13px] text-paper-flame-deep";
 
 /**
  * Ship: finish a generated project without leaving its workspace.
@@ -59,7 +59,7 @@ export function ShipPanel({ slug, projectName }: { slug: string; projectName: st
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [frameKey, setFrameKey] = useState(0);
 
-  if (ship.isPending) return <DedsecLoader variant="compact" />;
+  if (ship.isPending) return <PageLoader variant="compact" />;
   if (ship.isError) {
     return <PaperError headingLevel="h2" title="Ship could not be read." detail={ship.error.message} onRetry={() => void ship.refetch()} isRetrying={ship.isFetching} />;
   }
@@ -72,8 +72,8 @@ export function ShipPanel({ slug, projectName }: { slug: string; projectName: st
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-paper-display text-[24px] font-bold tracking-[-0.01em] text-paper-moss">Ship</h2>
-          <p className="mt-1 max-w-[72ch] text-[13.5px] text-paper-char">
+          <h2 className="text-[24px] font-semibold tracking-[-0.01em] text-paper-moss">Ship</h2>
+          <p className="mt-1 max-w-[72ch] text-[14px] text-paper-char">
             Connect the repo, preview locally, deploy, and send visual changes to a coding agent, without leaving this workspace.
           </p>
         </div>
@@ -87,7 +87,7 @@ export function ShipPanel({ slug, projectName }: { slug: string; projectName: st
 
       <section aria-labelledby={`${slug}-ship-preview`} className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 id={`${slug}-ship-preview`} className="font-paper-utility text-[12px] font-medium tracking-[0.08em] text-paper-sage uppercase">
+          <h3 id={`${slug}-ship-preview`} className="text-[13px] font-medium text-paper-sage">
             {preview === "local" ? "Local preview" : "Live site"}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
@@ -99,7 +99,7 @@ export function ShipPanel({ slug, projectName }: { slug: string; projectName: st
           </div>
         </div>
         {!previewUrl ? (
-          <PaperCard className="text-[13.5px] text-paper-char">
+          <PaperCard className="text-[14px] text-paper-char">
             {preview === "local" ? "Start the local server to preview the site here." : "Link a Vercel project and deploy to production to see the live site here."}
           </PaperCard>
         ) : blocked ? (
@@ -145,14 +145,14 @@ function ProductionConfirm({
     <form
       role="alertdialog"
       aria-labelledby={`${inputId}-title`}
-      className="space-y-2 border-[1.5px] border-paper-flame-deep bg-paper-linen p-3"
+      className="space-y-2 border border-paper-flame-deep bg-paper-linen p-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (ok) onConfirm(typed.trim());
       }}
     >
       <p id={`${inputId}-title`} className="text-[13px] text-paper-char">
-        {action} goes to <strong>production</strong> on Vercel. Type <code className="bg-paper-stone px-1 font-mono text-[12.5px]">{expected}</code> to confirm.
+        {action} goes to <strong>production</strong> on Vercel. Type <code className="bg-paper-stone px-1 font-mono text-[12px]">{expected}</code> to confirm.
       </p>
       <label htmlFor={inputId} className="sr-only">
         Vercel project name
@@ -239,7 +239,7 @@ function GitCard({ slug, snapshot }: { slug: string; snapshot: ShipSnapshot }) {
               </PaperButton>
             ) : null}
           </div>
-          {!auth.github ? <p className="text-[12.5px] text-paper-sage">{auth.githubHint}</p> : null}
+          {!auth.github ? <p className="text-[13px] text-paper-sage">{auth.githubHint}</p> : null}
         </div>
       ) : confirming && expected ? (
         <ProductionConfirm
@@ -259,7 +259,7 @@ function GitCard({ slug, snapshot }: { slug: string; snapshot: ShipSnapshot }) {
           </PaperButton>
         </div>
       )}
-      {push.data?.message && !push.isPending ? <p className="text-[12.5px] text-paper-sage">{push.data.message}</p> : null}
+      {push.data?.message && !push.isPending ? <p className="text-[13px] text-paper-sage">{push.data.message}</p> : null}
       {error ? <p className={ERROR_TEXT}>{error.message}</p> : null}
     </PaperCard>
   );
@@ -303,7 +303,7 @@ function DevCard({ slug, dev, onRunning }: { slug: string; dev: ShipSnapshot["de
       {dev.error ? <p className={ERROR_TEXT}>{dev.error}</p> : null}
       {start.error || stop.error ? <p className={ERROR_TEXT}>{(start.error ?? stop.error)?.message}</p> : null}
       {dev.output.length > 0 ? (
-        <pre tabIndex={0} aria-label="Server output" className="max-h-36 overflow-auto bg-paper-char p-2 font-mono text-[11px] leading-4 whitespace-pre-wrap text-paper-linen">
+        <pre tabIndex={0} aria-label="Server output" className="max-h-36 overflow-auto bg-paper-char p-2 font-mono text-[12px] leading-4 whitespace-pre-wrap text-paper-linen">
           {dev.output.slice(-30).join("\n")}
         </pre>
       ) : null}
@@ -362,7 +362,7 @@ function DeployCard({ slug, snapshot, onLive }: { slug: string; snapshot: ShipSn
               Create project
             </PaperButton>
           </div>
-          {auth.vercel && !git.remote ? <p className="text-[12.5px] text-paper-sage">Connect a GitHub repo first to create a project.</p> : null}
+          {auth.vercel && !git.remote ? <p className="text-[13px] text-paper-sage">Connect a GitHub repo first to create a project.</p> : null}
         </div>
       ) : confirming && expected ? (
         <ProductionConfirm
@@ -387,7 +387,7 @@ function DeployCard({ slug, snapshot, onLive }: { slug: string; snapshot: ShipSn
           ) : null}
         </div>
       )}
-      {!auth.vercel ? <p className="text-[12.5px] text-paper-sage">{auth.vercelHint}</p> : null}
+      {!auth.vercel ? <p className="text-[13px] text-paper-sage">{auth.vercelHint}</p> : null}
       {deploy.error ? <p className={ERROR_TEXT}>{deploy.error}</p> : null}
       {error ? <p className={ERROR_TEXT}>{error.message}</p> : null}
     </PaperCard>
@@ -488,7 +488,7 @@ function ChangeList({
             ))}
           </select>
         </div>
-        <label className="inline-flex min-h-9 cursor-pointer items-center border border-paper-ash bg-paper-linen px-3 text-[13px] text-paper-moss focus-within:outline-2 focus-within:outline-paper-blue">
+        <label className="inline-flex min-h-9 cursor-pointer items-center border border-paper-ash bg-paper-linen px-3 text-[13px] text-paper-moss focus-within:outline-2 focus-within:outline-[var(--focus)]">
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
@@ -535,8 +535,8 @@ function ChangeList({
               disabled={item.status !== "open"}
             />
             <div className="min-w-0 flex-1">
-              <p className="text-[13.5px] break-words text-paper-moss">{item.text}</p>
-              <p className="text-[12px] text-paper-sage">
+              <p className="text-[14px] break-words text-paper-moss">{item.text}</p>
+              <p className="text-[13px] text-paper-sage">
                 {shipChangeStatusLabel(item.status)} · {item.priority}
                 {item.page ? ` · ${item.page}` : ""}
                 {item.jobHref ? (
@@ -548,10 +548,10 @@ function ChangeList({
                   </>
                 ) : null}
               </p>
-              {item.error ? <p className="text-[12px] text-paper-flame-deep">{item.error}</p> : null}
+              {item.error ? <p className="text-[13px] text-paper-flame-deep">{item.error}</p> : null}
             </div>
             {item.screenshotId ? <img src={shipScreenshotUrl(slug, item.screenshotId)} alt={`Screenshot for “${item.text}”`} className="h-12 w-16 object-cover" /> : null}
-            <PaperButton variant="quiet" className="min-h-0 px-2 text-[12px]" onClick={() => remove.mutate(item.id)} aria-label={`Remove “${item.text}”`}>
+            <PaperButton variant="quiet" className="min-h-0 px-2 text-[13px]" onClick={() => remove.mutate(item.id)} aria-label={`Remove “${item.text}”`}>
               Remove
             </PaperButton>
           </li>

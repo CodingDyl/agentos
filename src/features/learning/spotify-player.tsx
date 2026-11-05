@@ -2,7 +2,7 @@ import { BookmarkPlus, Laptop, Music, Pause, Play, Plug, SkipBack, SkipForward, 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatTimestamp, type SpotifyTrack } from "@shared/learning-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
 import { useImportSource, useSpotifyDevices, useSpotifyMusicLibrary, useSpotifyPlaylists } from "@/lib/agentos/learning";
 import { cn } from "@/lib/utils";
@@ -30,12 +30,12 @@ export function SpotifyPanel({ connectResult }: { connectResult?: string }) {
   const spotify = useSpotify();
   const status = spotify.status;
 
-  if (!status) return <DedsecLoader variant="compact" />;
+  if (!status) return <PageLoader variant="compact" />;
 
   if (!spotify.ready) {
     return (
       <section className="max-w-[62ch] border border-paper-mist bg-paper-white p-6">
-        <h2 className="font-paper-display text-[21px] font-bold">Connect Spotify</h2>
+        <h2 className="text-[16px] font-semibold">Connect Spotify</h2>
         {connectResult && connectResult !== "connected" ? <p role="alert" className="mt-2 text-[14px] text-paper-flame-deep">{connectResult}</p> : null}
         <p className="mt-2 text-[14px] leading-6 text-paper-char">{status.detail ?? "Spotify isn't ready."}</p>
         <p className="mt-2 text-[13px] leading-5 text-paper-sage">
@@ -43,11 +43,11 @@ export function SpotifyPanel({ connectResult }: { connectResult?: string }) {
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {status.configured && !status.connected ? (
-            <a href="/api/spotify/connect" className="inline-flex min-h-8 items-center gap-1.5 bg-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-white uppercase hover:bg-paper-moss">
+            <a href="/api/spotify/connect" className="inline-flex min-h-8 items-center gap-1.5 bg-paper-linen px-3.5 text-[13px] font-medium text-paper-moss hover:bg-paper-stone">
               Sign in with Spotify
             </a>
           ) : null}
-          <Link to="/connectors/spotify" className="inline-flex min-h-8 items-center gap-1.5 border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen">
+          <Link to="/connectors/spotify" className="inline-flex min-h-8 items-center gap-1.5 border border-paper-ash px-3.5 text-[13px] font-medium text-paper-blue hover:bg-paper-linen">
             <Plug className="size-3.5" strokeWidth={2} aria-hidden="true" /> Open in Connectors
           </Link>
         </div>
@@ -86,8 +86,8 @@ function NowPlaying() {
   return (
     <section aria-label="Now playing" className="border border-paper-mist bg-paper-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Now playing</p>
-        <div className="flex items-center gap-2 text-[12.5px] text-paper-sage">
+        <p className="text-[13px] font-semibold text-paper-char">Now playing</p>
+        <div className="flex items-center gap-2 text-[13px] text-paper-sage">
           {spotify.status?.account ? <span>{spotify.status.account}</span> : null}
           {spotify.status?.premium === false ? <Tag tone="marigold">Free — controls need Premium</Tag> : null}
         </div>
@@ -97,7 +97,7 @@ function NowPlaying() {
         <div className="mt-4 flex flex-wrap items-center gap-5">
           {track.imageUrl ? <img src={track.imageUrl} alt="" className="size-24 object-cover" referrerPolicy="no-referrer" /> : <Music className="size-12 text-paper-sage" strokeWidth={1.5} />}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-paper-display text-[24px] leading-tight font-bold">{track.name}</p>
+            <p className="truncate text-[24px] leading-tight font-semibold">{track.name}</p>
             <p className="truncate text-[14px] text-paper-char">{[track.artists.join(", "), track.album].filter(Boolean).join(" · ")}</p>
             <div className="mt-3 flex items-center gap-3">
               <span className="w-12 text-right font-mono text-[12px] text-paper-sage tabular-nums">{formatTimestamp(position / 1000)}</span>
@@ -124,7 +124,7 @@ function NowPlaying() {
         </button>
         <button
           type="button"
-          className={cn(ICON_BUTTON, "bg-paper-blue text-paper-white hover:bg-paper-moss")}
+          className={cn(ICON_BUTTON, "bg-paper-linen text-paper-moss hover:bg-paper-stone")}
           aria-label={playback?.isPlaying ? "Pause" : "Play"}
           onClick={() => (playback?.isPlaying ? spotify.command({ kind: "pause" }) : spotify.command({ kind: "play", request: { deviceId: spotify.inApp.deviceId } }))}
         >
@@ -193,7 +193,7 @@ function NowPlaying() {
       </div>
 
       {spotify.error ? (
-        <p role="alert" className="mt-3 text-[13.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-3 text-[14px] text-paper-flame-deep">
           {spotify.error}
         </p>
       ) : null}
@@ -216,9 +216,9 @@ function Playlists() {
 
   return (
     <section aria-label="Playlists">
-      <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Playlists</h2>
-      {playlists.error ? <p className="mt-2 text-[13.5px] text-paper-flame-deep">{playlists.error.message}</p> : null}
-      {playlists.isPending ? <DedsecLoader variant="compact" className="mt-2" /> : null}
+      <h2 className="text-[13px] font-semibold text-paper-char">Playlists</h2>
+      {playlists.error ? <p className="mt-2 text-[14px] text-paper-flame-deep">{playlists.error.message}</p> : null}
+      {playlists.isPending ? <PageLoader variant="compact" className="mt-2" /> : null}
       <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {list.map((playlist) => (
           <li key={playlist.id}>
@@ -228,10 +228,10 @@ function Playlists() {
               className="group block w-full cursor-pointer text-left"
             >
               <span className="block aspect-square overflow-hidden bg-paper-linen">
-                {playlist.imageUrl ? <img src={playlist.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" /> : null}
+                {playlist.imageUrl ? <img src={playlist.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover transition-transform duration-200" /> : null}
               </span>
               <span className="mt-1.5 block truncate text-[14px] font-medium group-hover:text-paper-blue">{playlist.name}</span>
-              <span className="block truncate text-[12px] text-paper-sage">{playlist.trackCount !== undefined ? `${playlist.trackCount} tracks` : playlist.owner}</span>
+              <span className="block truncate text-[13px] text-paper-sage">{playlist.trackCount !== undefined ? `${playlist.trackCount} tracks` : playlist.owner}</span>
             </button>
           </li>
         ))}
@@ -243,7 +243,7 @@ function Playlists() {
 function TrackList({ title, tracks, onPlay }: { title: string; tracks: Array<SpotifyTrack & { playedAt?: string }>; onPlay: (uri: string) => void }) {
   return (
     <section aria-label={title} className="min-w-0">
-      <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">{title}</h2>
+      <h2 className="text-[13px] font-semibold text-paper-char">{title}</h2>
       {tracks.length === 0 ? <p className="mt-2 text-[14px] text-paper-sage">Nothing here.</p> : null}
       <ul className="mt-2 divide-y divide-paper-mist">
         {tracks.slice(0, 10).map((track, index) => (
@@ -252,7 +252,7 @@ function TrackList({ title, tracks, onPlay }: { title: string; tracks: Array<Spo
               {track.imageUrl ? <img src={track.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-9 object-cover" /> : <Music className="size-4 text-paper-sage" />}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14px]">{track.name}</span>
-                <span className="block truncate text-[12px] text-paper-sage">{track.artists.join(", ")}</span>
+                <span className="block truncate text-[13px] text-paper-sage">{track.artists.join(", ")}</span>
               </span>
             </button>
           </li>
@@ -267,7 +267,7 @@ function MusicLibrary() {
   const library = useSpotifyMusicLibrary(true);
   const play = (uri: string) => spotify.command({ kind: "play", request: { uris: [uri], deviceId: spotify.inApp.deviceId } });
 
-  if (library.error) return <p className="text-[13.5px] text-paper-flame-deep">{library.error.message}</p>;
+  if (library.error) return <p className="text-[14px] text-paper-flame-deep">{library.error.message}</p>;
   return (
     <div className="grid gap-8 md:grid-cols-2">
       <TrackList title="Saved" tracks={library.data?.saved ?? []} onPlay={play} />

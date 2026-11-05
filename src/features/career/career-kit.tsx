@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export function ErrorLine({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <p role="alert" className="mt-2 text-[13.5px] leading-6 text-paper-flame-deep">
+    <p role="alert" className="mt-2 text-[14px] leading-6 text-paper-flame-deep">
       {error instanceof Error ? error.message : "That did not work."}
     </p>
   );

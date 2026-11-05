@@ -24,17 +24,17 @@ export function TractionPipelineTab({ data, onOpen }: { data: TractionData; onOp
 
           return (
             <section key={stage} aria-label={stageLabel(stage)} className="min-w-[13rem]">
-              <h3 className="mb-2 flex items-baseline justify-between border-b border-paper-mist pb-2 text-[12.5px] font-semibold tracking-[0.06em] text-paper-sage uppercase">
+              <h3 className="mb-2 flex items-baseline justify-between border-b border-paper-mist pb-2 text-[13px] font-semibold text-paper-sage">
                 {stageLabel(stage)}
-                <span className="font-paper-display text-[15px] tracking-normal text-paper-moss tabular-nums">{prospects.length}</span>
+                <span className="text-[14px] tracking-normal text-paper-moss tabular-nums">{prospects.length}</span>
               </h3>
               <ul className="space-y-2">
                 {prospects.map((prospect) => (
-                  <li key={prospect.id} className="rounded-none border border-paper-mist bg-paper-white p-3">
+                  <li key={prospect.id} className="rounded-md border border-paper-mist bg-paper-white p-3">
                     <button
                       type="button"
                       onClick={() => onOpen(prospect.id)}
-                      className={cn("cursor-pointer rounded-[2px] text-left text-[14px] font-medium text-paper-moss hover:underline", PAPER_FOCUS)}
+                      className={cn("cursor-pointer rounded-sm text-left text-[14px] font-medium text-paper-moss hover:underline", PAPER_FOCUS)}
                     >
                       {prospect.company}
                     </button>
@@ -44,7 +44,7 @@ export function TractionPipelineTab({ data, onOpen }: { data: TractionData; onOp
                       <Tag tone="green" className="mt-1">Pitch ready</Tag>
                     ) : null}
                     {prospect.nextAction ? (
-                      <p className="mt-0.5 text-[12.5px] leading-5 text-paper-sage">
+                      <p className="mt-0.5 text-[13px] leading-5 text-paper-sage">
                         {prospect.nextAction}
                         {prospect.nextActionDate ? ` · ${formatShortDate(prospect.nextActionDate)}` : ""}
                       </p>
@@ -52,7 +52,7 @@ export function TractionPipelineTab({ data, onOpen }: { data: TractionData; onOp
                     <label className="mt-2 block">
                       <span className="sr-only">Move {prospect.company} to stage</span>
                       <select
-                        className={cn(PAPER_INPUT, "min-h-7 w-full text-[12.5px]")}
+                        className={cn(PAPER_INPUT, "min-h-7 w-full text-[13px]")}
                         value={prospect.stage}
                         disabled={update.isPending && update.variables?.prospectId === prospect.id}
                         onChange={(event) =>

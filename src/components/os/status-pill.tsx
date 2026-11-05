@@ -13,11 +13,11 @@ export type AgentStatus =
 
 /**
  * Only the dot carries colour, and it never carries meaning alone — the label
- * beside it always names the state. See DESIGN.md §3 for the signal mapping.
+ * beside it always names the state. See DESIGN.md, Interaction & Accessibility.
  */
 const statusStyles: Record<AgentStatus, string> = {
   active: "bg-os-success",
-  running: "bg-os-amber motion-safe:animate-pulse",
+  running: "bg-os-amber",
   healthy: "bg-os-success",
   completed: "bg-os-success",
   paused: "bg-os-subtle",

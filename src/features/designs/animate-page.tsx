@@ -116,12 +116,12 @@ function FlowStrip() {
     <ol aria-label="How Claude Motion works" className="mt-8 grid grid-cols-2 gap-px border border-paper-mist bg-paper-mist sm:grid-cols-3 lg:grid-cols-6">
       {FLOW.map((step, index) => (
         <li key={step.label} className="bg-paper-white px-3 py-2.5">
-          <p className="font-paper-utility text-[11.5px] tracking-[0.08em] text-paper-sage uppercase tabular-nums">
+          <p className="text-[13px] text-paper-sage tabular-nums">
             {String(index + 1).padStart(2, "0")}
             {step.gate ? <span className="text-paper-blue"> · You review</span> : null}
           </p>
-          <p className="mt-0.5 text-[13.5px] font-semibold text-paper-moss">{step.label}</p>
-          <p className="text-[12px] leading-4 text-paper-sage">{step.note}</p>
+          <p className="mt-0.5 text-[14px] font-semibold text-paper-moss">{step.label}</p>
+          <p className="text-[13px] leading-4 text-paper-sage">{step.note}</p>
         </li>
       ))}
     </ol>
@@ -135,8 +135,8 @@ function SkillMissing({ skill }: { skill: Exclude<AnimateSkillState, { state: "r
       title: "Animate isn't installed",
       description: (
         <>
-          Claude Motion runs the Animate skill. Install it from Skills: choose <span className="font-mono text-[12.5px]">Install from GitHub</span> and paste{" "}
-          <span className="font-mono text-[12.5px]">cth9191/animate</span>.
+          Claude Motion runs the Animate skill. Install it from Skills: choose <span className="font-mono text-[12px]">Install from GitHub</span> and paste{" "}
+          <span className="font-mono text-[12px]">cth9191/animate</span>.
         </>
       ),
       cta: "Install Animate from Skills",
@@ -161,7 +161,7 @@ function SkillMissing({ skill }: { skill: Exclude<AnimateSkillState, { state: "r
         action={
           <Link
             to="/connectors"
-            className={cn("inline-flex min-h-11 cursor-pointer items-center gap-2 bg-primary px-5 text-[13px] font-medium text-primary-foreground transition-colors duration-150 hover:bg-[var(--color-accent-hover)]", PAPER_FOCUS)}
+            className={cn("inline-flex min-h-11 cursor-pointer items-center gap-2 bg-primary px-5 text-[13px] font-medium text-primary-foreground transition-colors duration-150 hover:bg-[var(--accent-hover)]", PAPER_FOCUS)}
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
             {content.cta}
@@ -181,7 +181,7 @@ function VideoRow({ job, poster }: { job: AnimateJob; poster?: DesignAsset }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold text-paper-moss group-hover:text-paper-blue">{job.title}</p>
-          <p className="mt-0.5 text-[12.5px] text-paper-sage tabular-nums">
+          <p className="mt-0.5 text-[13px] text-paper-sage tabular-nums">
             {job.request.durationSec}s · {job.request.formats.join(" + ")} · {formatRelativeTime(job.createdAt)}
           </p>
           <AnimateStatus job={job} className="mt-1.5" />
@@ -230,7 +230,7 @@ function Intake({ styles, missing, initialProject, images }: { styles: AnimateSt
 
   return (
     <form onSubmit={submit} className="min-w-0" aria-label="Claude Motion intake">
-      <h2 className="font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">New video</h2>
+      <h2 className="text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">New video</h2>
 
       <div className="mt-4 grid gap-5">
         <label className="block">
@@ -250,7 +250,7 @@ function Intake({ styles, missing, initialProject, images }: { styles: AnimateSt
       </div>
 
       <fieldset className="mt-8">
-        <legend className="mb-1.5 block text-[12.5px] font-medium text-paper-char">Look</legend>
+        <legend className="mb-1.5 block text-[13px] font-medium text-paper-char">Look</legend>
         <div role="radiogroup" aria-label="Look" className="grid grid-cols-2 gap-px border border-paper-mist bg-paper-mist sm:grid-cols-3">
           <StyleChoice selected={style === ""} onSelect={() => setStyle("")} name="Let Claude choose" blurb="It picks the style that fits the story, and says why at the story check." />
           {styles.map((entry) => (
@@ -279,16 +279,16 @@ function Intake({ styles, missing, initialProject, images }: { styles: AnimateSt
                   className={cn(
                     "inline-flex min-h-11 cursor-pointer items-center gap-2.5 border px-3 text-[13px] font-medium transition-colors duration-150",
                     PAPER_FOCUS,
-                    on ? "border-paper-blue bg-paper-linen text-paper-moss" : "border-paper-mist text-paper-sage hover:border-paper-ash hover:text-paper-moss",
+                    on ? "border-paper-ash bg-paper-linen text-paper-moss" : "border-paper-mist text-paper-sage hover:border-paper-ash hover:text-paper-moss",
                   )}
                 >
                   <span className="grid size-5 place-items-center" aria-hidden="true">
-                    <span className={cn("block border-[1.5px]", FORMAT_SHAPE[format], on ? "border-paper-blue bg-paper-blue/15" : "border-current")} />
+                    <span className={cn("block border", FORMAT_SHAPE[format], on ? "border-paper-ash bg-paper-blue/15" : "border-current")} />
                   </span>
                   <span>
                     {FORMAT_NAME[format]} <span className="text-paper-sage tabular-nums">{format}</span>
                   </span>
-                  {order === 0 && formats.length > 1 ? <span className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-blue uppercase">Master</span> : null}
+                  {order === 0 && formats.length > 1 ? <span className="text-[13px] text-paper-blue">Master</span> : null}
                 </button>
               );
             })}
@@ -314,7 +314,7 @@ function Intake({ styles, missing, initialProject, images }: { styles: AnimateSt
               </option>
             ))}
           </select>
-          <span className="mt-1.5 block text-[12.5px] leading-5 text-paper-sage">The workspace's notes go into the brief, and the video is filed under it.</span>
+          <span className="mt-1.5 block text-[13px] leading-5 text-paper-sage">The workspace's notes go into the brief, and the video is filed under it.</span>
         </label>
       ) : null}
 
@@ -334,11 +334,11 @@ function Intake({ styles, missing, initialProject, images }: { styles: AnimateSt
                   aria-label={`${on ? "Remove" : "Use"} ${asset.filename}`}
                   title={asset.filename}
                   onClick={() => setReferences((current) => (on ? current.filter((id) => id !== asset.id) : current.length >= MOTION_MAX_REFERENCES ? current : [...current, asset.id]))}
-                  className={cn("relative aspect-square cursor-pointer overflow-hidden bg-paper-linen ring-1 transition-[box-shadow] duration-150", PAPER_FOCUS, on ? "ring-2 ring-paper-blue" : "ring-paper-mist hover:ring-paper-sage")}
+                  className={cn("relative aspect-square cursor-pointer overflow-hidden bg-paper-linen ring-1 transition-[box-shadow] duration-150", PAPER_FOCUS, on ? "ring-2 ring-paper-ash" : "ring-paper-mist hover:ring-paper-sage")}
                 >
                   <img src={asset.thumbnailUrl} alt="" loading="lazy" className="size-full object-cover" />
                   {on ? (
-                    <span className="absolute top-1 right-1 grid size-4 place-items-center bg-paper-blue text-paper-white" aria-hidden="true">
+                    <span className="absolute top-1 right-1 grid size-4 place-items-center bg-selected text-paper-moss" aria-hidden="true">
                       <Check className="size-3" strokeWidth={2.5} />
                     </span>
                   ) : null}
@@ -352,13 +352,13 @@ function Intake({ styles, missing, initialProject, images }: { styles: AnimateSt
             No images in Creative yet. Animate will draw everything itself.
           </p>
         )}
-        <span className="mt-1.5 block text-[12.5px] leading-5 text-paper-sage">Screenshots and logos Animate may use, or a look for it to match.</span>
+        <span className="mt-1.5 block text-[13px] leading-5 text-paper-sage">Screenshots and logos Animate may use, or a look for it to match.</span>
       </div>
 
       {!ready ? <PaperNotice className="mt-8">Videos can't be made on this machine yet. {missing.join(" ")}</PaperNotice> : null}
 
       {create.isError ? (
-        <p role="alert" className="mt-6 text-[13.5px] leading-5 text-paper-flame-deep">
+        <p role="alert" className="mt-6 text-[14px] leading-5 text-paper-flame-deep">
           {create.error instanceof Error ? create.error.message : "Claude Motion could not be started."}
         </p>
       ) : null}
@@ -368,7 +368,7 @@ function Intake({ styles, missing, initialProject, images }: { styles: AnimateSt
           <Clapperboard className="size-3.5" aria-hidden="true" />
           {create.isPending ? "Setting up the studio…" : "Start with the story"}
         </PaperButton>
-        <span className="text-[12.5px] leading-5 text-paper-sage">The story check takes a few minutes. Nothing is built until you approve the storyboard.</span>
+        <span className="text-[13px] leading-5 text-paper-sage">The story check takes a few minutes. Nothing is built until you approve the storyboard.</span>
       </div>
     </form>
   );
@@ -381,7 +381,7 @@ function StyleChoice({ selected, onSelect, name, blurb, sampleUrl }: { selected:
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className={cn("relative flex cursor-pointer flex-col items-stretch text-left transition-colors duration-150", PAPER_FOCUS, selected ? "bg-paper-blue text-paper-white" : "bg-paper-white text-paper-moss hover:bg-paper-linen")}
+      className={cn("relative flex cursor-pointer flex-col items-stretch text-left transition-colors duration-150", PAPER_FOCUS, selected ? "bg-selected text-paper-moss" : "bg-paper-white text-paper-moss hover:bg-paper-linen")}
     >
       {sampleUrl ? (
         <img src={sampleUrl} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover object-top" />
@@ -391,8 +391,8 @@ function StyleChoice({ selected, onSelect, name, blurb, sampleUrl }: { selected:
         </span>
       )}
       <span className="flex flex-1 flex-col gap-1 p-3">
-        <span className="font-paper-display text-[14px] font-bold tracking-[-0.01em]">{name}</span>
-        <span className={cn("line-clamp-3 text-[12px] leading-[17px]", selected ? "text-paper-white/85" : "text-paper-sage")}>{blurb}</span>
+        <span className="text-[14px] font-semibold tracking-[-0.01em]">{name}</span>
+        <span className={cn("line-clamp-3 text-[13px] leading-[17px]", selected ? "text-paper-white/85" : "text-paper-sage")}>{blurb}</span>
       </span>
     </button>
   );

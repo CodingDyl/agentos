@@ -2,7 +2,7 @@ import { Archive, ArchiveRestore, BookmarkPlus, Check, Clock, ExternalLink, File
 import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { formatTimestamp, LEARNING_SOURCE_LABELS, type LearningSource } from "@shared/learning-types";
-import { AppShell, DedsecLoader, FilterToolbar } from "@/components/os";
+import { AppShell, PageLoader, FilterToolbar } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
@@ -93,13 +93,12 @@ export function LearningPage() {
       activeHref="/learning"
       agentState="idle"
       agentLabel="Learning"
-      modelLabel="Model / AgentOS V1"
     >
       <PaperStage>
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-paper-display text-[34px] leading-none font-extrabold tracking-[-0.015em] text-paper-moss">Learning</h1>
-            <p className="mt-2 text-[13.5px] text-paper-sage">
+            <h1 className="text-[28px] leading-none font-semibold tracking-[-0.015em] text-paper-moss">Learning</h1>
+            <p className="mt-2 text-[14px] text-paper-sage">
               {sources.length} saved · {notes.filter((note) => !note.archived).length} learnings · {notebooks.length} notebooks
             </p>
           </div>
@@ -127,7 +126,7 @@ export function LearningPage() {
         </div>
 
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="pt-7">
-          {library.isPending ? <DedsecLoader variant="compact" /> : null}
+          {library.isPending ? <PageLoader variant="compact" /> : null}
           {library.data && tab === "discover" ? (
             <Discover sources={sources} onOpen={openVideo} onTab={(next) => update({ tab: next })} onNote={(id) => update({ tab: "saved", note: id })} />
           ) : null}
@@ -183,7 +182,7 @@ function ImportBar({ onOpened }: { onOpened: (source: LearningSource, at?: numbe
           {importSource.isPending ? "Saving…" : later ? "Save" : "Open"}
         </PaperButton>
       </div>
-      <div className="mt-1.5 flex items-center gap-3 text-[12.5px]">
+      <div className="mt-1.5 flex items-center gap-3 text-[13px]">
         <label className="flex items-center gap-1.5 text-paper-char">
           <input type="checkbox" checked={later} onChange={(event) => setLater(event.target.checked)} /> Watch later
         </label>
@@ -224,7 +223,7 @@ function VideoStage({ source, requestedT, onClose, onSaved }: { source: Learning
         <YouTubePlayer ref={player} sourceId={source.id} videoId={source.externalId} startSeconds={start} title={source.title} seekKey={`${source.id}:${requestedT ?? ""}`} />
         <div className="mt-4 flex flex-wrap items-start gap-4">
           <div className="min-w-0 flex-1">
-            <h2 className="font-paper-display text-[22px] leading-tight font-bold">{source.title}</h2>
+            <h2 className="text-[16px] leading-tight font-semibold">{source.title}</h2>
             <p className="mt-1 text-[13px] text-paper-sage">
               {source.author ? `${source.author} · ` : ""}
               {source.durationSeconds ? formatTimestamp(source.durationSeconds) : "YouTube"}
@@ -308,9 +307,9 @@ function VideoCard({ source, active, onOpen }: { source: LearningSource; active?
   const share = progressShare(source);
   return (
     <button type="button" onClick={onOpen} className={cn("group block w-full cursor-pointer text-left", PAPER_FOCUS)} aria-current={active ? "true" : undefined}>
-      <span className={cn("relative block aspect-video overflow-hidden bg-paper-linen", active && "ring-2 ring-paper-blue")}>
+      <span className={cn("relative block aspect-video overflow-hidden bg-paper-linen", active && "ring-2 ring-paper-ash")}>
         {source.thumbnailUrl ? (
-          <img src={source.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
+          <img src={source.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover transition-transform duration-200" />
         ) : null}
         {share !== undefined ? (
           <span className="absolute inset-x-0 bottom-0 h-1 bg-black/30">
@@ -319,7 +318,7 @@ function VideoCard({ source, active, onOpen }: { source: LearningSource; active?
         ) : null}
       </span>
       <span className="mt-2 line-clamp-2 block text-[14px] leading-5 font-medium group-hover:text-paper-blue">{source.title}</span>
-      <span className="block truncate text-[12px] text-paper-sage">
+      <span className="block truncate text-[13px] text-paper-sage">
         {source.author ?? "YouTube"}
         {source.positionSeconds > 5 && !source.finished ? ` · ${formatTimestamp(source.positionSeconds)}` : ""}
       </span>
@@ -351,7 +350,7 @@ function Discover({
         <section aria-label="Listening" className="flex items-center gap-4 border border-paper-mist bg-paper-white p-4">
           {track.imageUrl ? <img src={track.imageUrl} alt="" className="size-14 object-cover" referrerPolicy="no-referrer" /> : null}
           <div className="min-w-0 flex-1">
-            <p className="font-paper-utility text-[12px] tracking-[0.1em] text-paper-sage uppercase">{spotify?.playback?.isPlaying ? "Listening" : "Paused"}</p>
+            <p className="text-[13px] text-paper-sage">{spotify?.playback?.isPlaying ? "Listening" : "Paused"}</p>
             <p className="truncate text-[16px] font-medium">{track.name}</p>
             <p className="truncate text-[13px] text-paper-sage">{track.artists.join(", ")}</p>
           </div>
@@ -362,7 +361,7 @@ function Discover({
       ) : null}
 
       <section aria-label="Continue">
-        <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Continue</h2>
+        <h2 className="text-[13px] font-semibold text-paper-char">Continue</h2>
         {groups.continueWatching.length === 0 ? (
           <p className="mt-2 text-[14px] text-paper-sage">Nothing in progress. Paste a YouTube link above to start.</p>
         ) : (
@@ -379,8 +378,8 @@ function Discover({
       <section aria-label="Saved" className="grid gap-8 lg:grid-cols-3">
         <div>
           <div className="flex items-baseline justify-between">
-            <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Recent learnings</h2>
-            <button type="button" onClick={() => onTab("saved")} className="cursor-pointer text-[12.5px] text-paper-blue hover:underline">
+            <h2 className="text-[13px] font-semibold text-paper-char">Recent learnings</h2>
+            <button type="button" onClick={() => onTab("saved")} className="cursor-pointer text-[13px] text-paper-blue hover:underline">
               All
             </button>
           </div>
@@ -389,8 +388,8 @@ function Discover({
             {notes.map((note) => (
               <li key={note.id}>
                 <button type="button" onClick={() => onNote(note.id)} className={cn("block w-full cursor-pointer py-2.5 text-left hover:bg-paper-linen", PAPER_FOCUS)}>
-                  <span className="block truncate text-[14.5px] font-medium">{note.title}</span>
-                  <span className="block text-[12.5px] text-paper-sage">
+                  <span className="block truncate text-[14px] font-medium">{note.title}</span>
+                  <span className="block text-[13px] text-paper-sage">
                     {LEARNING_SOURCE_LABELS[note.sourceType]}
                     {note.timestampSeconds !== undefined ? ` · ${formatTimestamp(note.timestampSeconds)}` : ""} · {formatRelativeTime(note.createdAt)}
                   </span>
@@ -402,8 +401,8 @@ function Discover({
 
         <div>
           <div className="flex items-baseline justify-between">
-            <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Research notebooks</h2>
-            <button type="button" onClick={() => onTab("notebooks")} className="cursor-pointer text-[12.5px] text-paper-blue hover:underline">
+            <h2 className="text-[13px] font-semibold text-paper-char">Research notebooks</h2>
+            <button type="button" onClick={() => onTab("notebooks")} className="cursor-pointer text-[13px] text-paper-blue hover:underline">
               All
             </button>
           </div>
@@ -412,7 +411,7 @@ function Discover({
             {notebooks.map((notebook) => (
               <li key={notebook.id} className="flex items-center gap-2 py-2.5">
                 <NotebookText className="size-4 shrink-0 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate text-[14.5px]">{notebook.name}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px]">{notebook.name}</span>
                 {notebook.externalUrl ? (
                   <a href={notebook.externalUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${notebook.name}`} className="text-paper-sage hover:text-paper-moss">
                     <ExternalLink className="size-3.5" />
@@ -425,8 +424,8 @@ function Discover({
 
         <div>
           <div className="flex items-baseline justify-between">
-            <h2 className="font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">Watch later</h2>
-            <button type="button" onClick={() => onTab("youtube")} className="cursor-pointer text-[12.5px] text-paper-blue hover:underline">
+            <h2 className="text-[13px] font-semibold text-paper-char">Watch later</h2>
+            <button type="button" onClick={() => onTab("youtube")} className="cursor-pointer text-[13px] text-paper-blue hover:underline">
               Library
             </button>
           </div>
@@ -508,7 +507,7 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
                   {source.thumbnailUrl ? <img src={source.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover" /> : null}
                 </span>
                 <span className="mt-2 block truncate text-[14px] font-medium">{source.title}</span>
-                <span className="block text-[12px] text-paper-sage">Spotify</span>
+                <span className="block text-[13px] text-paper-sage">Spotify</span>
               </a>
             )}
             <div className="mt-1 flex gap-1 opacity-70 group-hover/card:opacity-100">
@@ -564,7 +563,7 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
                 </button>
               ) : null}
               {source.workspaceId ? (
-                <Link to={`/workspaces/${encodeURIComponent(source.workspaceId)}`} className="ml-auto self-center truncate text-[12px] text-paper-sage hover:text-paper-moss">
+                <Link to={`/workspaces/${encodeURIComponent(source.workspaceId)}`} className="ml-auto self-center truncate text-[13px] text-paper-sage hover:text-paper-moss">
                   {source.workspaceId}
                 </Link>
               ) : null}

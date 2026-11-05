@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ProjectState, ProjectSummary } from "@shared/agentos-types";
 import { WORKSPACE_TYPE_LABELS, type WorkspaceType } from "@shared/workspace";
-import { AppShell, DedsecLoader, FilterToolbar, type FilterGroup } from "@/components/os";
+import { AppShell, PageLoader, FilterToolbar, type FilterGroup } from "@/components/os";
 import { Meter, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { sortProjects, stateLabel } from "@/features/projects/projects-model";
@@ -74,11 +74,11 @@ export function WorkspacesPage() {
   const parked = projects.filter((project) => project.state === "incubating" || project.state === "paused").length;
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="projects" activeHref="/workspaces" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="projects" activeHref="/workspaces">
       <PaperStage>
         <header className="flex flex-wrap items-end justify-between gap-5">
           <div>
-            <h1 className="font-paper-display text-[34px] leading-[1.1] font-extrabold tracking-[-0.015em] text-paper-moss">Workspaces</h1>
+            <h1 className="text-[28px] leading-[1.1] font-semibold tracking-[-0.015em] text-paper-moss">Workspaces</h1>
             <p className="mt-1 text-[14px] text-paper-sage tabular-nums">
               {data ? `${live} in play · ${parked} parked · ${projects.length} in all` : "Reading the portfolio…"}
             </p>
@@ -96,13 +96,13 @@ export function WorkspacesPage() {
         </header>
 
         {isPending ? (
-          <DedsecLoader variant="page" className="mt-10" />
+          <PageLoader variant="page" className="mt-10" />
         ) : !data ? (
           <div className="mt-10">
-            <h2 className="font-paper-display text-[21px] font-bold">The portfolio could not be read.</h2>
+            <h2 className="text-[16px] font-semibold">The portfolio could not be read.</h2>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
               {error?.message ?? "The data adapter did not answer."} Workspaces are read from{" "}
-              <span className="font-mono text-[13px]">~/AgentOS/projects</span>; check that the AgentOS server is running.
+              <span className="font-mono text-[12px]">~/AgentOS/projects</span>; check that the AgentOS server is running.
             </p>
             <PaperButton variant="ghost" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
               {isFetching ? "Trying again…" : "Try again"}
@@ -125,7 +125,7 @@ export function WorkspacesPage() {
             </div>
 
             {visible.length === 0 ? (
-              <p className="mt-12 text-[15px] text-paper-sage">
+              <p className="mt-12 text-[14px] text-paper-sage">
                 {projects.length === 0 ? "No workspaces yet. Create one and AgentOS writes the files." : "Nothing matches."}
               </p>
             ) : (
@@ -153,9 +153,9 @@ function WorkspaceGroup({ label, workspaces, all }: { label: string; workspaces:
 
   return (
     <section aria-labelledby={`group-${label}`}>
-      <h2 id={`group-${label}`} className="mb-2 flex items-center gap-2 font-paper-display text-[15px] font-bold">
+      <h2 id={`group-${label}`} className="mb-2 flex items-center gap-2 text-[14px] font-semibold">
         {label}
-        <span className="rounded-full bg-paper-stone px-2 py-px font-paper-ui text-[12px] font-medium text-paper-char tabular-nums">{workspaces.length}</span>
+        <span className="rounded-full bg-paper-stone px-2 py-px text-[13px] font-medium text-paper-char tabular-nums">{workspaces.length}</span>
       </h2>
 
       <ul className="divide-y divide-paper-stone border-y border-paper-mist">
@@ -186,8 +186,8 @@ function WorkspaceGroup({ label, workspaces, all }: { label: string; workspaces:
                 )}
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">{project.name}</span>
-                  <span className="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-paper-sage">
+                  <span className="block truncate text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">{project.name}</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-paper-sage">
                     <Tag tone="muted">{WORKSPACE_TYPE_LABELS[project.workspaceType ?? "general"]}</Tag>
                     <span>{stateLabel(project.state)}</span>
                     {project.priority === "high" ? <span>· High priority</span> : null}
@@ -203,7 +203,7 @@ function WorkspaceGroup({ label, workspaces, all }: { label: string; workspaces:
                   ) : null}
                 </span>
 
-                <span className="min-w-0 text-[12.5px] text-paper-sage">
+                <span className="min-w-0 text-[13px] text-paper-sage">
                   {project.milestone ? (
                     <>
                       <span className="block truncate text-paper-char">{project.milestone.title}</span>

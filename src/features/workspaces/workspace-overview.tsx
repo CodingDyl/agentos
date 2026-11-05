@@ -73,12 +73,12 @@ export function WorkspaceOverview({
       <div className="min-w-0 space-y-11">
         <section>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-paper-display text-[15px] leading-6 font-bold tracking-[-0.01em]">Goal</h2>
+            <h2 className="text-[14px] leading-6 font-semibold tracking-[-0.01em]">Goal</h2>
             <TextButton onClick={onOpenSettings}>Edit</TextButton>
           </div>
           <p
             className={cn(
-              "mt-1.5 max-w-[60ch] font-paper-display text-[21px] leading-[1.4] font-medium tracking-[-0.01em] text-balance",
+              "mt-1.5 max-w-[60ch] text-[16px] leading-[1.4] font-medium tracking-[-0.01em] text-balance",
               goal ? "text-paper-moss" : "text-paper-sage",
             )}
           >
@@ -153,7 +153,7 @@ export function WorkspaceOverview({
         <Block title="Recent" action={<TextButton onClick={() => onSelectTab("activity")}>Activity</TextButton>}>
           {project.sessions[0] ? (
             <div>
-              <p className="text-[12.5px] text-paper-sage">{project.sessions[0].date}</p>
+              <p className="text-[13px] text-paper-sage">{project.sessions[0].date}</p>
               <p className="mt-1 text-[14px] leading-[1.55] text-paper-char">
                 {project.sessions[0].resumeHere ?? project.sessions[0].completed?.[0] ?? "A session was recorded without notes."}
               </p>
@@ -173,7 +173,7 @@ function Block({ title, action, children }: { title: string; action?: ReactNode;
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-paper-display text-[15px] leading-6 font-bold tracking-[-0.01em]">{title}</h2>
+        <h2 className="text-[14px] leading-6 font-semibold tracking-[-0.01em]">{title}</h2>
         {action}
       </div>
       {children}
@@ -191,7 +191,7 @@ function TextButton({ onClick, children }: { onClick: () => void; children: Reac
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-none px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
+        "inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-[13px] font-medium text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
         PAPER_FOCUS,
       )}
     >
@@ -232,7 +232,7 @@ function TaskLine({
   const body = (
     <>
       <span className="w-14 shrink-0 font-mono text-[12px] text-paper-sage tabular-nums">{id ?? "-"}</span>
-      <span className="min-w-0 flex-1 text-[14.5px] leading-6 text-paper-moss">{title}</span>
+      <span className="min-w-0 flex-1 text-[14px] leading-6 text-paper-moss">{title}</span>
       {tag ? <Tag tone={tag.tone}>{tag.label}</Tag> : null}
     </>
   );
@@ -243,7 +243,7 @@ function TaskLine({
         <button
           type="button"
           onClick={onOpen}
-          className={cn("flex w-full cursor-pointer items-baseline gap-3 rounded-none px-2 py-2 text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+          className={cn("flex w-full cursor-pointer items-baseline gap-3 rounded-md px-2 py-2 text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
         >
           {body}
         </button>
@@ -251,14 +251,14 @@ function TaskLine({
         <div className="flex items-baseline gap-3 px-2 py-2">{body}</div>
       )}
       {job && jobState ? (
-        <div className="mb-1.5 ml-[4.75rem] flex items-center gap-2 text-[12.5px] text-paper-char">
+        <div className="mb-1.5 ml-[4.75rem] flex items-center gap-2 text-[13px] text-paper-char">
           <span
             className={cn("size-1.5 rounded-full", jobState.tone === "attention" ? "bg-paper-flame" : "bg-paper-blue motion-safe:animate-pulse")}
             aria-hidden="true"
           />
           <span className="capitalize">{job.worker ?? "Worker"}</span>
           <span className="text-paper-sage">· {jobState.label}</span>
-          <Link to={`/workers/jobs/${job.jobId}`} className={cn("ml-1 rounded-none font-medium text-paper-blue hover:underline", PAPER_FOCUS)}>
+          <Link to={`/workers/jobs/${job.jobId}`} className={cn("ml-1 rounded-md font-medium text-paper-blue hover:underline", PAPER_FOCUS)}>
             View
           </Link>
           <JobIdControls jobId={job.jobId} />
@@ -291,11 +291,11 @@ function WaitingLine({
       <button
         type="button"
         onClick={onOpen}
-        className={cn("group flex w-full cursor-pointer items-start gap-3 rounded-none px-2 py-1.5 text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+        className={cn("group flex w-full cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
       >
         <span className={cn("mt-2 size-1.5 shrink-0 rounded-full", task.status === "review" ? "bg-paper-amber" : "bg-paper-flame")} aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block text-[14.5px] leading-6 text-paper-moss">
+          <span className="block text-[14px] leading-6 text-paper-moss">
             <span className="mr-2 font-mono text-[12px] text-paper-sage">{task.id}</span>
             {task.title}
           </span>
@@ -312,9 +312,9 @@ function MilestoneCard({ project, type, onOpen }: { project: ProjectDetail; type
   const destination = type === "client" ? "Open milestones" : "Open roadmap";
 
   return (
-    <section className="rounded-none border border-paper-mist bg-paper-cream p-5">
+    <section className="rounded-md border border-paper-mist bg-paper-cream p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[12.5px] font-medium text-paper-sage">Current milestone</h2>
+        <h2 className="text-[13px] font-medium text-paper-sage">Current milestone</h2>
         {project.health && project.health !== "no_target" ? (
           <Tag tone={project.health === "on_track" ? "green" : project.health === "at_risk" ? "marigold" : "flame"}>{HEALTH_LABELS[project.health]}</Tag>
         ) : null}
@@ -322,7 +322,7 @@ function MilestoneCard({ project, type, onOpen }: { project: ProjectDetail; type
 
       {milestone ? (
         <>
-          <p className="mt-2 font-paper-display text-[19px] leading-snug font-bold tracking-[-0.01em] text-paper-moss">{milestone.title}</p>
+          <p className="mt-2 text-[16px] leading-snug font-semibold tracking-[-0.01em] text-paper-moss">{milestone.title}</p>
           <div className="mt-4">
             <Meter value={milestone.progress.percent / 100} label={`${milestone.title} progress`} tone="amber" size="md" />
           </div>
@@ -341,7 +341,7 @@ function MilestoneCard({ project, type, onOpen }: { project: ProjectDetail; type
         <p className="mt-2 text-[14px] leading-6 text-paper-char">No active milestone. A milestone gives the tasks a finish line.</p>
       )}
 
-      <button type="button" onClick={onOpen} className={cn("mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-none text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+      <button type="button" onClick={onOpen} className={cn("mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
         {milestone ? destination : "Plan a milestone"}
         <ArrowRight className="size-3.5" strokeWidth={2} aria-hidden="true" />
       </button>
@@ -366,12 +366,12 @@ function KeyDocuments({ slug, onOpenAll }: { slug: string; onOpenAll: () => void
               <li key={`${document.origin}:${document.id}`}>
                 <Link
                   to={`/workspaces/${slug}?${params.toString()}`}
-                  className={cn("flex items-start gap-2.5 rounded-none px-2 py-1.5 transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+                  className={cn("flex items-start gap-2.5 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                 >
                   <FileText className="mt-1 size-3.5 shrink-0 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
                   <span className="min-w-0">
                     <span className="block truncate text-[14px] leading-6 text-paper-moss">{document.title}</span>
-                    <span className="block text-[12.5px] text-paper-sage">
+                    <span className="block text-[13px] text-paper-sage">
                       {TYPE_LABELS[document.type]} · {document.origin === "repo" ? "Repository" : SOURCE_LABELS[document.source]}
                     </span>
                   </span>
@@ -405,10 +405,10 @@ export function ClientsBlock({ onOpenAll }: { onOpenAll?: () => void }) {
             <li key={client.slug}>
               <Link
                 to={`/workspaces/${client.slug}`}
-                className={cn("flex items-baseline justify-between gap-3 rounded-none px-2 py-1.5 transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+                className={cn("flex items-baseline justify-between gap-3 rounded-md px-2 py-1.5 transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
               >
                 <span className="min-w-0 truncate text-[14px] leading-6 text-paper-moss">{client.name}</span>
-                <span className="shrink-0 text-[12.5px] text-paper-sage capitalize">{client.state}</span>
+                <span className="shrink-0 text-[13px] text-paper-sage capitalize">{client.state}</span>
               </Link>
             </li>
           ))}
@@ -426,12 +426,12 @@ function RepositoryLine({ project, onOpen }: { project: ProjectDetail; onOpen: (
       {!git.repositoryPath ? (
         <Quiet>No local repository linked. Workers need one; set it in Settings.</Quiet>
       ) : git.unavailable ? (
-        <p className="text-[13.5px] leading-5 text-paper-flame-deep">{git.unavailable}</p>
+        <p className="text-[14px] leading-5 text-paper-flame-deep">{git.unavailable}</p>
       ) : (
-        <div className="flex items-center justify-between gap-3 rounded-none border border-paper-mist px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-paper-mist px-3 py-2.5">
           <span className="flex min-w-0 items-center gap-2">
             <GitBranch className="size-3.5 shrink-0 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
-            <span className="truncate font-mono text-[13px] text-paper-moss">{git.branch ?? "Detached HEAD"}</span>
+            <span className="truncate font-mono text-[12px] text-paper-moss">{git.branch ?? "Detached HEAD"}</span>
           </span>
           <Tag tone={git.workingTree === "clean" ? "green" : "marigold"}>
             {git.workingTree === "clean" ? "Clean" : `${git.changedFiles.length} changed`}

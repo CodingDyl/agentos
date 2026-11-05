@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Compass } from "@shared/compass-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PaperButton, PaperError, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useCompass } from "@/lib/agentos/compass";
@@ -21,10 +21,10 @@ export function CompassPage() {
   const [draft, setDraft] = useState<{ compass: Compass; from: "hermes" | "blank" }>();
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="compass" activeHref="/compass" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="compass" activeHref="/compass" agentState="idle" agentLabel="Agents idle">
       <PaperStage>
         <header className="max-w-[72ch]">
-          <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">Compass</h1>
+          <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">Compass</h1>
           <p className="mt-2 text-[14px] leading-6 text-paper-char">
             Where you are heading and what matters. Today reads this every morning when it picks your three things, and the Sunday review keeps it current.
           </p>
@@ -32,7 +32,7 @@ export function CompassPage() {
 
         <div className="mt-8">
           {compass.isPending ? (
-            <DedsecLoader variant="page" />
+            <PageLoader variant="page" />
           ) : compass.error ? (
             <PaperError title="The Compass could not be read." detail={compass.error.message} headingLevel="h2" isRetrying={compass.isFetching} onRetry={() => void compass.refetch()} />
           ) : compass.data.exists ? (

@@ -37,7 +37,7 @@ export function AgentThread({ messages, isThinking = false, className }: AgentTh
       {isThinking ? (
         <div className="border-t border-paper-mist pt-6" role="status" aria-live="polite">
           <SpeakerLabel speaker="Hermes" agent />
-          <p className="mt-3 text-[15px] leading-6 text-paper-sage">Thinking…</p>
+          <p className="mt-3 text-[14px] leading-6 text-paper-sage">Thinking…</p>
         </div>
       ) : null}
 

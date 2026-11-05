@@ -2,7 +2,7 @@ import { Maximize2, MessageSquarePlus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ChatPageContext } from "@shared/chat-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PAPER_FOCUS } from "@/components/paper";
 import { projectInContext } from "@/features/agent/command-catalog";
 import { ChatComposer } from "@/features/operator/chat-composer";
@@ -147,13 +147,13 @@ function ChatPanelBody() {
       id={CHAT_PANEL_ID}
       role="dialog"
       aria-label="Chat"
-      className="fixed inset-y-0 right-0 z-40 flex w-[min(100vw,460px)] flex-col border-l border-paper-mist bg-paper-white font-paper-ui text-paper-moss shadow-[-16px_0_40px_-24px_rgb(0_0_0/0.45)] motion-safe:animate-[chat-panel-in_180ms_cubic-bezier(0.16,1,0.3,1)]"
+      className="fixed inset-y-0 right-0 z-40 flex w-[min(100vw,460px)] flex-col border-l border-paper-mist bg-paper-white text-paper-moss shadow-[var(--shadow-overlay)] motion-safe:animate-[chat-panel-in_180ms_cubic-bezier(0.16,1,0.3,1)]"
     >
       <header className="flex items-center gap-2 border-b border-paper-stone py-2.5 pr-2 pl-4">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-paper-display text-[16px] leading-6 font-bold tracking-[-0.01em]">{current?.title ?? "Ask AgentOS"}</h2>
+          <h2 className="truncate text-[16px] leading-6 font-semibold tracking-[-0.01em]">{current?.title ?? "Ask AgentOS"}</h2>
           {chatId && connection === "reconnecting" ? (
-            <p role="status" className="text-[12px] text-paper-marigold">
+            <p role="status" className="text-[13px] text-paper-marigold">
               Reconnecting…
             </p>
           ) : null}
@@ -194,11 +194,11 @@ function ChatPanelBody() {
       <div className="min-h-0 flex-1 overflow-y-auto px-4">
         <div className="py-5">
           {chatId && chat.isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : messages.length === 0 ? (
             <div className="pt-6">
-              <p className="font-paper-display text-[22px] leading-[1.15] font-extrabold tracking-[-0.015em]">What do you need?</p>
-              <p className="mt-2 text-[13.5px] leading-6 text-paper-char">
+              <p className="text-[16px] leading-[1.15] font-semibold tracking-[-0.015em]">What do you need?</p>
+              <p className="mt-2 text-[14px] leading-6 text-paper-char">
                 Ask about what's on this screen, or anything else. Your day, mail, notes and projects are a question away.
               </p>
               <ul className="mt-4 space-y-1.5" aria-label="Suggestions">
@@ -207,7 +207,7 @@ function ChatPanelBody() {
                     <button
                       type="button"
                       onClick={() => setInput(suggestion)}
-                      className={cn("w-full cursor-pointer border border-paper-mist px-3 py-2 text-left text-[13.5px] text-paper-char transition-colors duration-150 hover:bg-paper-cream hover:text-paper-moss", PAPER_FOCUS)}
+                      className={cn("w-full cursor-pointer border border-paper-mist px-3 py-2 text-left text-[14px] text-paper-char transition-colors duration-150 hover:bg-paper-cream hover:text-paper-moss", PAPER_FOCUS)}
                     >
                       {suggestion}
                     </button>
@@ -233,7 +233,7 @@ function ChatPanelBody() {
       </div>
 
       <div className="px-4">
-        <div className="flex min-h-7 items-center gap-1.5 pt-2 text-[12px] text-paper-sage">
+        <div className="flex min-h-7 items-center gap-1.5 pt-2 text-[13px] text-paper-sage">
           {withContext ? (
             <>
               <span className="min-w-0 truncate" title="Sent with your message, so 'this' means what's on screen">

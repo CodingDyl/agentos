@@ -118,8 +118,8 @@ export function SavedLearning({
                   aria-current={note.id === selectedId ? "true" : undefined}
                   className={cn("block w-full cursor-pointer px-3 py-3 text-left hover:bg-paper-linen", PAPER_FOCUS, note.id === selectedId && "bg-paper-linen")}
                 >
-                  <span className="block truncate text-[15px] font-medium text-paper-moss">{note.title}</span>
-                  <span className="mt-0.5 block truncate text-[12.5px] text-paper-sage">
+                  <span className="block truncate text-[14px] font-medium text-paper-moss">{note.title}</span>
+                  <span className="mt-0.5 block truncate text-[13px] text-paper-sage">
                     {LEARNING_SOURCE_LABELS[note.sourceType]}
                     {note.timestampSeconds !== undefined ? ` · ${formatTimestamp(note.timestampSeconds)}` : ""}
                     {note.workspaceId ? ` · ${projectName(note.workspaceId)}` : ""}
@@ -188,7 +188,7 @@ function LearningDetail({ note, sources, projectName }: { note: LearningNote; so
             <input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })} className={cn(PAPER_INPUT, "min-h-10 w-full")} />
           </label>
           <WorkspaceTaskPicker workspaceId={draft.workspaceId} taskId={draft.taskId} onChange={(link) => setDraft({ ...draft, ...link })} />
-          {update.error ? <p role="alert" className="text-[13.5px] text-paper-flame-deep">{update.error.message}</p> : null}
+          {update.error ? <p role="alert" className="text-[14px] text-paper-flame-deep">{update.error.message}</p> : null}
           <div className="flex gap-2">
             <PaperButton variant="amber" onClick={save} disabled={update.isPending}>
               {update.isPending ? "Saving…" : "Save"}
@@ -200,11 +200,11 @@ function LearningDetail({ note, sources, projectName }: { note: LearningNote; so
         <>
           <div className="flex flex-wrap items-center gap-2">
             <Tag tone="blue">{LEARNING_SOURCE_LABELS[note.sourceType]}</Tag>
-            {note.timestampSeconds !== undefined ? <span className="font-mono text-[13px] text-paper-char">{formatTimestamp(note.timestampSeconds)}</span> : null}
+            {note.timestampSeconds !== undefined ? <span className="font-mono text-[12px] text-paper-char">{formatTimestamp(note.timestampSeconds)}</span> : null}
             {note.archived ? <Tag tone="marigold">Archived</Tag> : null}
             {note.promotedTo.length > 0 ? <Tag tone="green">In memory</Tag> : null}
           </div>
-          <h2 className="mt-3 font-paper-display text-[26px] leading-tight font-bold tracking-[-0.01em]">{note.title}</h2>
+          <h2 className="mt-3 text-[24px] leading-tight font-semibold tracking-[-0.01em]">{note.title}</h2>
           <p className="mt-1 text-[13px] text-paper-sage">
             {note.sourceTitle ? `${note.sourceTitle} · ` : ""}Captured {formatRelativeTime(note.createdAt)}
             {projectName ? (
@@ -220,7 +220,7 @@ function LearningDetail({ note, sources, projectName }: { note: LearningNote; so
           {note.tags.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {note.tags.map((tag) => (
-                <span key={tag} className="border border-paper-mist px-1.5 text-[12px] text-paper-char">
+                <span key={tag} className="border border-paper-mist px-1.5 text-[13px] text-paper-char">
                   #{tag}
                 </span>
               ))}
@@ -235,7 +235,7 @@ function LearningDetail({ note, sources, projectName }: { note: LearningNote; so
             <p className="mt-4 text-[13px] text-paper-char">
               Memory:{" "}
               {note.promotedTo.map((target) => (
-                <Link key={target} to={`/memory?note=${encodeURIComponent(target)}`} className="mr-2 font-mono text-[12.5px] text-paper-blue hover:underline">
+                <Link key={target} to={`/memory?note=${encodeURIComponent(target)}`} className="mr-2 font-mono text-[12px] text-paper-blue hover:underline">
                   {target}
                 </Link>
               ))}
@@ -245,11 +245,11 @@ function LearningDetail({ note, sources, projectName }: { note: LearningNote; so
           <div className="mt-6 flex flex-wrap gap-2 border-t border-paper-mist pt-4">
             {open ? (
               open.internal ? (
-                <Link to={open.href} className={cn("inline-flex min-h-8 items-center gap-1.5 bg-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-white uppercase hover:bg-paper-moss", PAPER_FOCUS)}>
+                <Link to={open.href} className={cn("inline-flex min-h-8 items-center gap-1.5 bg-paper-linen px-3.5 text-[13px] font-medium text-paper-moss hover:bg-paper-stone", PAPER_FOCUS)}>
                   <Play className="size-3.5" strokeWidth={2} aria-hidden="true" /> {note.timestampSeconds !== undefined ? `Open at ${formatTimestamp(note.timestampSeconds)}` : "Open source"}
                 </Link>
               ) : (
-                <a href={open.href} target="_blank" rel="noopener noreferrer" className={cn("inline-flex min-h-8 items-center gap-1.5 border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen", PAPER_FOCUS)}>
+                <a href={open.href} target="_blank" rel="noopener noreferrer" className={cn("inline-flex min-h-8 items-center gap-1.5 border border-paper-ash px-3.5 text-[13px] font-medium text-paper-blue hover:bg-paper-linen", PAPER_FOCUS)}>
                   <ExternalLink className="size-3.5" strokeWidth={2} aria-hidden="true" /> Open original
                 </a>
               )

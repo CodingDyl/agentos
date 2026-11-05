@@ -1,22 +1,18 @@
 import { useEffect, useId, useState, type ButtonHTMLAttributes, type HTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
-import { PaperLabel } from "@/components/collective/collective-identity";
 import { cn } from "@/lib/utils";
 
 /**
- * The paper world's primitives, as Operations uses them.
+ * The shared page primitives: panels, buttons, tags, inputs and meters, drawn
+ * from the semantic tokens in `agentos.css`. DESIGN.md is the authority. The
+ * `Paper` names are historical and describe no particular look.
  *
- * A white page, hairline warm borders, 4px corners, and no shadows — the same world Mail trialled, drawn here from the
- * shared `paper-*` tokens so the next screen to move over can reuse them.
- *
- * The one piece of authored motion is the meters filling in: every meter,
- * ring and line on the page draws from empty once, on arrival, with the same
- * ease-out. It is transform-only, and it does nothing under reduced motion.
+ * Motion is limited to short colour and opacity transitions, plus a meter
+ * settling to its value; all of it stops under reduced motion.
  */
 
-export const PAPER_FOCUS =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
+export const PAPER_FOCUS = "os-focus-ring";
 
-const EASE = "duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none";
+const EASE = "duration-150 ease-out motion-reduce:transition-none";
 
 /** True one frame after mount, so meters can draw from empty rather than appear full. */
 function useArrived(): boolean {
@@ -31,15 +27,13 @@ function useArrived(): boolean {
 }
 
 /**
- * The page itself is the sheet of paper: white, edge to edge. Content is held
- * to the same 1400px measure the other AgentOS pages use so a wide screen does
- * not stretch the cards thin — unless `full`, which the Dashboard uses to span
- * the viewport.
+ * The page frame: canvas behind, content on one left edge, held to the 1440px
+ * measure with the gutter for the current width.
  */
-export function PaperStage({ children, full }: { children: ReactNode; full?: boolean }) {
+export function PaperStage({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-full bg-background font-paper-ui text-paper-moss">
-      <div className={cn("w-full", full ? "dashboard-workspace" : "collective-workspace")}>{children}</div>
+    <div className="min-h-full bg-background text-paper-moss">
+      <div className="qt-page">{children}</div>
     </div>
   );
 }
@@ -61,12 +55,12 @@ export function PaperSection({
   className?: string;
 }) {
   return (
-    <section id={id} aria-label={label} className={cn("collective-panel", id && "scroll-mt-8", className)}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">
-          <PaperLabel>{label}</PaperLabel>
+    <section id={id} aria-label={label} className={cn("qt-panel", id && "scroll-mt-6", className)}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 className="flex items-center gap-2 text-[16px] leading-6 font-semibold text-paper-moss">
+          {label}
           {count !== undefined ? (
-            <span className="rounded-none bg-paper-stone px-2 py-px font-paper-ui text-[12px] font-medium tracking-normal text-paper-char tabular-nums">
+            <span className="rounded-sm bg-paper-stone px-1.5 text-[13px] leading-5 font-medium text-paper-char tabular-nums">
               {count}
             </span>
           ) : null}
@@ -81,7 +75,7 @@ export function PaperSection({
 /** A top-level card on the window. Never nested inside another. */
 export function PaperCard({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...props} className={cn("rounded-none border border-paper-mist bg-paper-white p-4", className)}>
+    <div {...props} className={cn("rounded-lg bg-paper-white p-6 max-sm:p-4", className)}>
       {children}
     </div>
   );
@@ -90,14 +84,13 @@ export function PaperCard({ className, children, ...props }: HTMLAttributes<HTML
 type ButtonVariant = "amber" | "ghost" | "quiet" | "danger";
 
 const BUTTON: Record<ButtonVariant, string> = {
-  // The primary action is Hermes Blue with paper text (9:1). "amber" is the
-  // variant's historical name and every screen still calls it that.
-  amber: "bg-primary text-primary-foreground hover:bg-[var(--color-accent-hover)]",
-  // The secondary action: blue outline, blue label, the same square footprint.
-  ghost: "border border-paper-ash bg-paper-linen text-paper-moss hover:bg-paper-stone",
-  quiet: "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
-  // Refusing or stopping something. Flame-deep is the AA-safe flame for text.
-  danger: "border-[1.5px] border-paper-flame-deep text-paper-flame-deep hover:bg-paper-linen",
+  // The filled primary. "amber" is the variant's historical name.
+  amber: "bg-primary text-primary-foreground hover:bg-[var(--accent-hover)]",
+  // The secondary action: a raised neutral surface.
+  ghost: "border border-paper-mist bg-paper-linen text-paper-moss hover:bg-paper-stone",
+  quiet: "text-paper-char hover:bg-paper-linen hover:text-paper-moss",
+  // Refusing or stopping something: an explicit verb and the error treatment.
+  danger: "border border-paper-flame/50 text-paper-flame hover:bg-paper-flame/10",
 };
 
 export function PaperButton({
@@ -111,7 +104,7 @@ export function PaperButton({
       type="button"
       {...props}
       className={cn(
-        "inline-flex min-h-[var(--control-height)] cursor-pointer items-center justify-center gap-1.5 rounded-none px-3.5 font-paper-ui text-[14px] font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-[var(--control-height)] cursor-pointer items-center justify-center gap-1.5 rounded-md px-3.5 text-[14px] font-medium transition-[background-color,color,transform] duration-150 disabled:cursor-not-allowed disabled:opacity-50",
         PAPER_FOCUS,
         BUTTON[variant],
         className,
@@ -127,16 +120,15 @@ type TagTone = "flame" | "green" | "marigold" | "muted" | "blue";
 const TAG: Record<TagTone, string> = {
   flame: "bg-paper-flame/10 text-paper-flame",
   green: "bg-paper-green/10 text-paper-green",
-  // Ink on the brand yellow is 12:1. Yellow is never text on paper.
   marigold: "bg-paper-marigold/10 text-paper-marigold",
   muted: "bg-paper-stone text-paper-char",
-  blue: "bg-paper-blue/10 text-paper-blue",
+  blue: "bg-paper-stone text-paper-moss",
 };
 
-/** The world's only pill: a small categorical tag. */
+/** A small status or category badge. Its word carries the meaning; tone only reinforces it. */
 export function Tag({ tone = "muted", children, className }: { tone?: TagTone; children: ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center rounded-none px-2 py-px font-paper-utility text-[12px] leading-[18px] font-medium tracking-[0.08em] uppercase", TAG[tone], className)}>
+    <span className={cn("inline-flex items-center rounded-sm px-1.5 text-[13px] leading-5 font-medium", TAG[tone], className)}>
       {children}
     </span>
   );
@@ -167,7 +159,7 @@ export function SegmentedControl<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} onKeyDown={(event) => moveChoice(event, options, value, onChange)} className="inline-flex rounded-none border border-paper-mist bg-paper-linen p-0.5">
+    <div role="radiogroup" aria-label={label} onKeyDown={(event) => moveChoice(event, options, value, onChange)} className="inline-flex rounded-md bg-paper-linen p-0.5">
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -179,9 +171,9 @@ export function SegmentedControl<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              "min-h-[var(--control-height)] cursor-pointer rounded-none px-3 text-[14px] font-medium transition-colors duration-150",
+              "min-h-[var(--control-height)] cursor-pointer rounded-md px-3 text-[14px] font-medium transition-colors duration-150",
               PAPER_FOCUS,
-              selected ? "bg-primary text-primary-foreground" : "text-paper-sage hover:text-paper-moss",
+              selected ? "bg-selected text-paper-moss" : "text-paper-char hover:text-paper-moss",
             )}
           >
             {option.label}
@@ -192,7 +184,7 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-/** Content tabs: sage when idle, signal blue with a 2px underline when active. */
+/** Content tabs: secondary text when idle, primary text with a 2px underline when active. */
 export function PaperTabs<T extends string>({
   options,
   value,
@@ -219,11 +211,11 @@ export function PaperTabs<T extends string>({
             aria-controls={`panel-${option.value}`}
             onClick={() => onChange(option.value)}
             className={cn(
-              "shrink-0 cursor-pointer rounded-t-[6px] border-b-2 px-3 py-2.5 text-[13px] font-medium transition-colors duration-150",
+              "min-h-10 shrink-0 cursor-pointer rounded-t-md border-b-2 px-3 py-2 text-[14px] leading-5 font-medium transition-colors duration-150",
               PAPER_FOCUS,
               selected
-                ? "border-paper-blue bg-paper-white text-paper-blue"
-                : "border-transparent text-paper-sage hover:bg-paper-linen hover:text-paper-moss",
+                ? "border-paper-moss text-paper-moss"
+                : "border-transparent text-paper-char hover:bg-paper-linen hover:text-paper-moss",
             )}
           >
             {option.label}
@@ -262,7 +254,7 @@ export function Meter({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={value === undefined ? undefined : Math.round(clamped * 100)}
-      className={cn("w-full overflow-hidden rounded-[2px] bg-paper-stone", size === "md" ? "h-2" : "h-1.5")}
+      className={cn("w-full overflow-hidden rounded-sm bg-paper-stone", size === "md" ? "h-2" : "h-1.5")}
     >
       {value === undefined ? null : (
         <div
@@ -303,7 +295,7 @@ export function StackedMeter({
 
   return (
     <div>
-      <div role="img" aria-label={`${label}: ${summary}`} className="flex h-2.5 w-full gap-px overflow-hidden rounded-[2px] bg-paper-stone">
+      <div role="img" aria-label={`${label}: ${summary}`} className="flex h-2.5 w-full gap-px overflow-hidden rounded-sm bg-paper-stone">
         {segments.map((segment, index) => (
           <div
             key={segment.key}
@@ -315,8 +307,8 @@ export function StackedMeter({
 
       <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
         {segments.map((segment, index) => (
-          <li key={segment.key} className="flex items-center gap-1.5 text-[12.5px] text-paper-char">
-            <span className={cn("size-2 rounded-[1px]", STACK_INKS[index % STACK_INKS.length])} aria-hidden="true" />
+          <li key={segment.key} className="flex items-center gap-1.5 text-[13px] text-paper-char">
+            <span className={cn("size-2 rounded-sm", STACK_INKS[index % STACK_INKS.length])} aria-hidden="true" />
             <span className="max-w-[16ch] truncate">{segment.label}</span>
             <span className="text-paper-sage tabular-nums">{format(segment.value)}</span>
           </li>
@@ -326,10 +318,7 @@ export function StackedMeter({
   );
 }
 
-/**
- * A value within a range, as a ring: a track of printed beads, and a solid
- * arc over it for the part that is filled.
- */
+/** A value within a range, as a ring: a quiet track and an arc for the filled part. */
 export function RadialMeter({
   value,
   word,
@@ -349,9 +338,6 @@ export function RadialMeter({
   const stroke = size >= 100 ? 9 : 6;
   const radius = (size - stroke) / 2 - 2;
   const circumference = 2 * Math.PI * radius;
-  // A whole number of beads, so the track closes without a seam.
-  const beads = Math.round(circumference / (stroke * 1.9));
-  const beadGap = circumference / beads;
   const clamped = value === undefined ? 0 : Math.max(0, Math.min(value, 1));
   const color =
     tone === "green" ? "var(--paper-green)" : tone === "amber" ? "var(--paper-amber)" : tone === "flame" ? "var(--paper-flame)" : "var(--paper-moss)";
@@ -375,8 +361,6 @@ export function RadialMeter({
           fill="none"
           stroke="var(--paper-mist)"
           strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`0.1 ${(beadGap - 0.1).toFixed(3)}`}
         />
         {value === undefined ? null : (
           <circle
@@ -397,14 +381,14 @@ export function RadialMeter({
       <div className="absolute inset-0 grid place-content-center text-center">
         <span
           className={cn(
-            "font-paper-display leading-none font-extrabold tracking-[-0.03em] text-paper-moss tabular-nums",
-            size >= 100 ? "text-[32px]" : "text-[15px]",
+            "leading-none font-semibold text-paper-moss tabular-nums",
+            size >= 100 ? "text-[24px]" : "text-[14px]",
           )}
         >
           {value === undefined ? "-" : `${Math.round(clamped * 100)}%`}
         </span>
         {word && size >= 100 ? (
-          <span id={id} className="mt-1 text-[12.5px] text-paper-sage">
+          <span id={id} className="mt-1 text-[13px] text-paper-sage">
             {word}
           </span>
         ) : null}
@@ -429,26 +413,21 @@ export function Sparkline({ values, label }: { values: readonly number[]; label:
   const line = values
     .map((value, index) => `${index === 0 ? "M" : "L"}${(index * step).toFixed(2)},${(30 - (value / max) * 26).toFixed(2)}`)
     .join(" ");
-  const area = `${line} L100,32 L0,32 Z`;
 
-  // Revealed left to right with a clip-path wipe rather than a stroke-dash
-  // draw: dash lengths and `non-scaling-stroke` disagree in Chromium and leave
-  // gaps mid-line.
   return (
     <div
-      className="transition-[clip-path] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
-      style={{ clipPath: arrived ? "inset(0 0 0 0)" : "inset(0 100% 0 0)" }}
+      className="transition-opacity duration-150 motion-reduce:transition-none"
+      style={{ opacity: arrived ? 1 : 0 }}
     >
       <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="block h-14 w-full" role="img" aria-label={label}>
-        <path d={area} fill="var(--paper-amber)" opacity={0.16} />
-        <path d={line} fill="none" stroke="var(--paper-amber-deep)" strokeWidth={1.75} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+                <path d={line} fill="none" stroke="var(--paper-amber-deep)" strokeWidth={1.75} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
         <line x1="0" y1="31.5" x2="100" y2="31.5" stroke="var(--paper-mist)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
       </svg>
     </div>
   );
 }
 
-/** The paper version of the on/off switch: moss green when on. */
+/** The on/off switch. Mint when on, and its label says what it controls. */
 export function PaperSwitch({
   checked,
   disabled,
@@ -487,9 +466,9 @@ export function PaperSwitch({
 }
 
 export const PAPER_INPUT =
-  "min-h-[var(--control-height)] rounded-none border border-paper-ash bg-paper-white px-3 text-[14px] text-paper-moss placeholder:text-paper-sage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue";
+  "min-h-[var(--control-height)] rounded-md border border-paper-ash bg-paper-linen px-3 text-[14px] leading-5 text-paper-moss placeholder:text-paper-sage";
 
-/** Small uppercase-free field label, above its input. */
+/** A persistent field label, above its input. */
 export function FieldLabel({ children }: { children: ReactNode }) {
-  return <span className="mb-1.5 block text-[12.5px] font-medium text-paper-char">{children}</span>;
+  return <span className="mb-1.5 block text-[13px] leading-5 font-medium text-paper-char">{children}</span>;
 }

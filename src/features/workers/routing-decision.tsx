@@ -45,7 +45,7 @@ function Confidence({
           <span
             key={index}
             className={cn(
-              "w-[3px] rounded-[1px]",
+              "w-[3px] rounded-sm",
               // Rising bars: the shape carries the meaning even before the
               // colour does, which is what makes it readable at a glance.
               index === 0 ? "h-[6px]" : index === 1 ? "h-[9px]" : "h-3",
@@ -94,7 +94,7 @@ export function RoutingDecision({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <SectionLabel>Routing decision</SectionLabel>
-            <p className="mt-2 text-[17px] leading-6 text-foreground">
+            <p className="mt-2 text-[16px] leading-6 text-foreground">
               {name(decision.selectedWorker)}
             </p>
           </div>

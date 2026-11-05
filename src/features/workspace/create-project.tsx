@@ -305,7 +305,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
                   setSlug(toSlug(event.target.value));
                 }}
                 placeholder="pantry-pilot-web"
-                className={`${INPUT} font-mono text-[13px]`}
+                className={`${INPUT} font-mono text-[12px]`}
               />
             </Field>
 
@@ -334,7 +334,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
             </div>
 
             <Field label="Repository" hint="Optional. Where workers will run.">
-              <input value={repoPath} onChange={(event) => setRepoPath(event.target.value)} placeholder="/Users/you/dev/projects/pantry-pilot-web" className={`${INPUT} font-mono text-[13px]`} />
+              <input value={repoPath} onChange={(event) => setRepoPath(event.target.value)} placeholder="/Users/you/dev/projects/pantry-pilot-web" className={`${INPUT} font-mono text-[12px]`} />
             </Field>
 
             {mode === "review" ? (
@@ -360,7 +360,7 @@ export function CreateProject({ onClose }: { onClose: () => void }) {
                               current.map((entry, at) => (at === index ? { ...entry, section: event.target.value as ProjectTaskSection } : entry)),
                             )
                           }
-                          className="os-focus-ring rounded-md border border-os-border bg-os-surface px-2 py-2 font-mono text-[12px] uppercase tracking-[0.08em] text-os-muted"
+                          className="os-focus-ring rounded-md border border-os-border bg-os-surface px-2 py-2 font-mono text-[12px] text-os-muted"
                         >
                           {SECTIONS.map((section) => (
                             <option key={section} value={section}>{section}</option>
@@ -459,10 +459,10 @@ function ChoiceCard({
 }
 
 const INPUT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[15px] leading-6 text-foreground placeholder:text-os-subtle";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-transparent px-3 py-2.5 text-[14px] leading-6 text-foreground placeholder:text-os-subtle";
 
 const SELECT =
-  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[15px] leading-6 text-foreground";
+  "os-focus-ring mt-3 w-full rounded-md border border-os-border bg-os-surface px-3 py-2.5 text-[14px] leading-6 text-foreground";
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (

@@ -82,3 +82,6 @@ export const PHASE_LABEL: Record<VoicePhase, string> = {
   speaking: "Speaking",
   error: "Something went wrong",
 };
+
+/** Fired by the command palette, which sits above the voice provider. */
+export const VOICE_TOGGLE_EVENT = "agentos:voice-toggle";

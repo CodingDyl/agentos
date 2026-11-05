@@ -40,7 +40,7 @@ export function CreativeDownloadButton({
       title="Download"
       onClick={() => void download(source)}
       className={cn(
-        "pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-none border border-paper-mist",
+        "pointer-events-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-md border border-paper-mist",
         "bg-paper-white/90 text-paper-char transition-colors duration-150 hover:bg-paper-white hover:text-paper-moss",
         PAPER_FOCUS,
         className,

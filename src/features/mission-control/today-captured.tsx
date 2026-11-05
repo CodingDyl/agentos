@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   CAPTURE_KIND_LABEL,
@@ -36,15 +35,15 @@ export function TodayCaptured({ className }: { className?: string }) {
   return (
     <PaperSection id="captured" label="Captured" count={items.length > 0 ? items.length : undefined} className={className}>
       {triage.error ? (
-        <p role="alert" className="text-[13.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[14px] text-paper-flame-deep">
           {triage.error.message}
         </p>
       ) : items.length === 0 ? (
-        <p className="text-[14px] leading-6 text-paper-char">Inbox empty. Capture from anywhere with the pen in the top bar, or ⌘⇧C.</p>
+        <p className="text-[14px] leading-6 text-paper-char">Inbox empty. Capture from anywhere with the top bar.</p>
       ) : (
         <>
-          <p className="mb-3 flex items-center gap-1.5 text-[12.5px] text-paper-sage" aria-live="polite">
-            <Sparkles className="size-3.5 text-paper-blue" aria-hidden="true" />
+          <p className="mb-3 flex items-center gap-1.5 text-[13px] text-paper-sage" aria-live="polite">
+            
             {suggest.isPending
               ? "Hermes is sorting your notes…"
               : suggest.error
@@ -56,7 +55,7 @@ export function TodayCaptured({ className }: { className?: string }) {
               </button>
             ) : null}
           </p>
-          <ul className="divide-y divide-paper-mist border-y border-paper-mist">
+          <ul className="divide-y divide-paper-mist">
             {[...items].reverse().map((item) => (
               <CaptureRow key={item.id} item={item} triage={triage.data as CaptureTriage} />
             ))}
@@ -84,7 +83,7 @@ function CaptureRow({ item, triage }: { item: CaptureEntry; triage: CaptureTriag
     <li className="py-3">
       <p className="text-[14px] leading-6 text-paper-moss">{item.text}</p>
       {suggestion && !changing ? (
-        <p className="mt-0.5 text-[12.5px] leading-5 text-paper-sage">
+        <p className="mt-0.5 text-[13px] leading-5 text-paper-sage">
           <Tag tone="blue" className="mr-1.5">
             {CAPTURE_KIND_LABEL[suggestion.kind]}
           </Tag>

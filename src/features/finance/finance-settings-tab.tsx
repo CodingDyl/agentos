@@ -26,37 +26,37 @@ export function FinanceSettingsTab({ data }: { data: FinanceData }) {
       <div className="min-w-0 space-y-12">
         <PaperSection label="Investec">
           <PaperCard className="p-5">
-            <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-paper-moss">
+            <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-paper-moss">
               {source.configured ? <Tag tone="green">Credentials set</Tag> : <Tag tone="marigold">Not connected</Tag>}
               {source.kind === "investec" ? "Reading your accounts" : source.kind === "sample" ? "Showing sample data" : "No accounts read yet"}
             </p>
 
             {source.configured ? (
               <>
-                <p className="mt-2 text-[13.5px] leading-6 text-paper-char">
+                <p className="mt-2 text-[14px] leading-6 text-paper-char">
                   {source.lastSyncedAt ? `Last synced ${new Date(source.lastSyncedAt).toLocaleString("en-GB")}.` : "Not synced yet."} The server refreshes on its own about every half hour when the page is open.
                 </p>
-                {source.error ? <p role="alert" className="mt-2 text-[13.5px] leading-6 text-paper-flame-deep">Last attempt failed: {source.error}</p> : null}
+                {source.error ? <p role="alert" className="mt-2 text-[14px] leading-6 text-paper-flame-deep">Last attempt failed: {source.error}</p> : null}
                 <PaperButton variant="amber" className="mt-4" disabled={sync.isPending} onClick={() => sync.mutate()}>
                   {sync.isPending ? "Reading Investec…" : "Sync now"}
                 </PaperButton>
                 <MutationError error={sync.error} />
               </>
             ) : (
-              <div className="mt-3 text-[13.5px] leading-6 text-paper-char">
+              <div className="mt-3 text-[14px] leading-6 text-paper-char">
                 {source.missing.length > 0 && source.missing.length < 3 ? (
                   <p role="alert" className="mb-3 font-semibold text-paper-flame-deep">
                     Still missing: {source.missing.join(", ")}. All three are needed.
                   </p>
                 ) : null}
-                <p>Create API credentials in Investec's Programmable Banking portal, add them to the server's <code className="font-mono text-[12.5px]">.env</code> and <strong>restart the data server</strong> (it reads <code className="font-mono text-[12.5px]">.env</code> once, at startup):</p>
-                <pre className="mt-3 overflow-x-auto rounded-none bg-paper-linen p-3 font-mono text-[12.5px] leading-6 text-paper-moss">
+                <p>Create API credentials in Investec's Programmable Banking portal, add them to the server's <code className="font-mono text-[12px]">.env</code> and <strong>restart the data server</strong> (it reads <code className="font-mono text-[12px]">.env</code> once, at startup):</p>
+                <pre className="mt-3 overflow-x-auto rounded-md bg-paper-linen p-3 font-mono text-[12px] leading-6 text-paper-moss">
 {`INVESTEC_CLIENT_ID=...
 INVESTEC_SECRET=...
 INVESTEC_API_KEY=...`}
                 </pre>
                 <p className="mt-3">
-                  Never prefix them with <code className="font-mono text-[12.5px]">VITE_</code>. Anything with that prefix is bundled into the browser, where a secret is a public secret.
+                  Never prefix them with <code className="font-mono text-[12px]">VITE_</code>. Anything with that prefix is bundled into the browser, where a secret is a public secret.
                 </p>
               </div>
             )}
@@ -67,9 +67,9 @@ INVESTEC_API_KEY=...`}
           {data.corrections.length === 0 ? (
             <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">None yet. Change a payment's category on the Spending tab and Finance remembers it for that merchant, past and future.</p>
           ) : (
-            <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+            <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
               {corrections.pageItems.map((correction) => (
-                <li key={correction.merchant} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14.5px]">
+                <li key={correction.merchant} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14px]">
                   <span className="min-w-0 truncate text-paper-moss">
                     {correction.merchant} <span className="text-paper-sage">→</span> {correction.category}
                   </span>
@@ -90,12 +90,12 @@ INVESTEC_API_KEY=...`}
         {data.dismissedAlerts.length === 0 ? (
           <p className="max-w-[60ch] text-[14px] leading-6 text-paper-char">None. Dismiss an alert that is not relevant to you and it waits here until you bring it back.</p>
         ) : (
-          <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+          <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
             {data.dismissedAlerts.map((alert) => (
-              <li key={alert.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14.5px]">
+              <li key={alert.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14px]">
                 <span className="min-w-0 text-paper-moss">
                   <Tag>{alert.source}</Tag> {alert.text}
-                  <span className="block text-[12.5px] text-paper-sage">{alert.scope === "always" ? "Hidden for good" : "Hidden until next month"}</span>
+                  <span className="block text-[13px] text-paper-sage">{alert.scope === "always" ? "Hidden for good" : "Hidden until next month"}</span>
                 </span>
                 <PaperButton disabled={restore.isPending} onClick={() => restore.mutate(alert.id)} aria-label={`Bring back: ${alert.text}`}>
                   Bring back
@@ -110,7 +110,7 @@ INVESTEC_API_KEY=...`}
       <PaperSection label="Privacy">
         <ul className="space-y-3">
           {PRIVACY.map((line) => (
-            <li key={line} className="flex items-start gap-2.5 text-[14.5px] leading-6 text-paper-char">
+            <li key={line} className="flex items-start gap-2.5 text-[14px] leading-6 text-paper-char">
               <span aria-hidden="true" className="mt-[0.15em] shrink-0 font-semibold text-paper-green">✓</span>
               {line}
             </li>

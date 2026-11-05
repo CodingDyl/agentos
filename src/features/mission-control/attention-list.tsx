@@ -1,4 +1,4 @@
-import { ArrowRight, Check, RefreshCw, Rocket, RotateCcw, Search, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, RefreshCw, Rocket, RotateCcw, Search, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { RebuildStageId } from "@shared/website-rebuild-types";
@@ -23,13 +23,17 @@ import { attentionTag, inboxSourceLabel } from "./mission-control-model";
  * Approvals and blockers, aggregated into one inbox.
  *
  * The most important block on the Dashboard, and the one that has to earn its
- * prominence by disappearing. When nothing is waiting it says so in one
- * sentence: no empty card grid, no invented suggestion.
+ * prominence by disappearing. With decisions waiting it is an actionable queue
+ * above the day's work. With none, the summary strip already says so, and this
+ * shrinks to one quiet line about what was cleared, or to nothing at all.
  *
  * Each row names its source and age, and acts inline (Approve / Retry / Open)
  * through the same handlers the owning screens use. Clearing hides that
  * occurrence from the Dashboard only.
  */
+
+/** Enough to act on from the first viewport without pushing today's work off it. */
+const QUEUE_PREVIEW = 3;
 
 export interface AttentionListProps {
   items: AttentionItem[];
@@ -49,6 +53,8 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
   const [lastCleared, setLastCleared] = useState<AttentionItem[]>([]);
   const [retried, setRetried] = useState<string | undefined>();
   const [showCleared, setShowCleared] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? items : items.slice(0, QUEUE_PREVIEW);
 
   const clear = (cleared: AttentionItem[]) => {
     setLastCleared(cleared);
@@ -60,33 +66,9 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
     setLastCleared([]);
   };
 
-  return (
-    <PaperSection
-      id="needs-you"
-      label="Approvals & blockers"
-      count={items.length > 0 ? items.length : undefined}
-      className={className}
-      action={
-        items.length > 1 ? (
-          <PaperButton variant="quiet" onClick={() => clear(items)} disabled={dismiss.isPending}>
-            Clear all
-          </PaperButton>
-        ) : null
-      }
-    >
-      {items.length === 0 ? (
-        <p className="text-[14px] text-paper-char">Nothing waiting on you</p>
-      ) : (
-        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
-          {items.map((item) => (
-            <li key={`${item.id}@${item.createdAt}`}>
-              <AttentionCard item={item} workers={workers} onClear={() => clear([item])} onRetried={setRetried} />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-2 flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-paper-sage" aria-live="polite">
+  const status =
+    retried || lastCleared.length > 0 || dismissed.length > 0 ? (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] leading-5 text-paper-sage" aria-live="polite">
         {retried ? <span>{retried}</span> : null}
         {lastCleared.length > 0 ? (
           <span>
@@ -94,7 +76,7 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
             <button
               type="button"
               onClick={undo}
-              className={cn("rounded-[2px] font-semibold text-paper-moss underline decoration-paper-gold underline-offset-4", PAPER_FOCUS)}
+              className={cn("cursor-pointer rounded-sm font-medium text-paper-moss underline decoration-paper-gold underline-offset-4", PAPER_FOCUS)}
             >
               Undo
             </button>
@@ -105,39 +87,82 @@ export function AttentionList({ items, dismissed, workers, className }: Attentio
             type="button"
             aria-expanded={showCleared}
             onClick={() => setShowCleared((open) => !open)}
-            className={cn("rounded-[2px] hover:text-paper-moss", PAPER_FOCUS)}
+            className={cn("inline-flex min-h-6 cursor-pointer items-center gap-1 rounded-sm hover:text-paper-moss", PAPER_FOCUS)}
           >
             {showCleared ? "Hide cleared" : `${dismissed.length} cleared`}
+            <ChevronDown className={cn("size-3.5 transition-transform duration-150", showCleared && "rotate-180")} strokeWidth={1.5} aria-hidden="true" />
           </button>
         ) : null}
       </div>
+    ) : null;
 
-      {showCleared && dismissed.length > 0 ? (
-        <div className="mt-2 rounded-none bg-paper-linen px-3 py-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[12.5px] font-medium text-paper-sage">Cleared from Dashboard, still current</p>
-            <PaperButton variant="quiet" className="-mr-2" onClick={() => restore.mutate(undefined)} disabled={restore.isPending}>
-              Restore all
-            </PaperButton>
-          </div>
-          <ul className="mt-1 space-y-1">
-            {dismissed.map((item) => (
-              <li key={`${item.id}@${item.createdAt}`} className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate text-[13.5px] text-paper-char">{item.title}</span>
-                <PaperButton
-                  variant="quiet"
-                  className="-mr-2 shrink-0"
-                  onClick={() => restore.mutate([item.id])}
-                  disabled={restore.isPending}
-                >
-                  <RotateCcw className="size-3.5" aria-hidden="true" />
-                  Restore
-                </PaperButton>
-              </li>
-            ))}
-          </ul>
+  const clearedList =
+    showCleared && dismissed.length > 0 ? (
+      <div className="mt-2 rounded-md bg-paper-linen px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[13px] leading-5 text-paper-sage">Cleared from Dashboard, still current</p>
+          <PaperButton variant="quiet" className="-mr-2" onClick={() => restore.mutate(undefined)} disabled={restore.isPending}>
+            Restore all
+          </PaperButton>
         </div>
+        <ul className="mt-1 space-y-1">
+          {dismissed.map((item) => (
+            <li key={`${item.id}@${item.createdAt}`} className="flex items-center justify-between gap-3">
+              <span className="min-w-0 truncate text-[14px] leading-[22px] text-paper-char">{item.title}</span>
+              <PaperButton
+                variant="quiet"
+                className="-mr-2 shrink-0"
+                onClick={() => restore.mutate([item.id])}
+                disabled={restore.isPending}
+              >
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+                Restore
+              </PaperButton>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : null;
+
+  // Nothing waiting: no panel, and no rectangle held open for one.
+  if (items.length === 0) {
+    if (!status) return null;
+    return (
+      <div id="needs-you" className={cn("mt-3 scroll-mt-6 px-1", className)}>
+        {status}
+        {clearedList}
+      </div>
+    );
+  }
+
+  return (
+    <PaperSection
+      id="needs-you"
+      label="Approvals & blockers"
+      count={items.length}
+      className={cn("mt-6 @container", className)}
+      action={
+        items.length > 1 ? (
+          <PaperButton variant="quiet" onClick={() => clear(items)} disabled={dismiss.isPending}>
+            Clear all
+          </PaperButton>
+        ) : null
+      }
+    >
+      <ul className="divide-y divide-paper-stone">
+        {visible.map((item) => (
+          <li key={`${item.id}@${item.createdAt}`}>
+            <AttentionCard item={item} workers={workers} onClear={() => clear([item])} onRetried={setRetried} />
+          </li>
+        ))}
+      </ul>
+      {items.length > QUEUE_PREVIEW ? (
+        <PaperButton variant="quiet" className="mt-1 -ml-3.5" aria-expanded={showAll} onClick={() => setShowAll((open) => !open)}>
+          {showAll ? "Show fewer" : `Show ${items.length - QUEUE_PREVIEW} more`}
+        </PaperButton>
       ) : null}
+      {status ? <div className="mt-2">{status}</div> : null}
+      {clearedList}
     </PaperSection>
   );
 }
@@ -334,7 +359,7 @@ function RetryJobButton({ jobId, onRetried }: { jobId: string; onRetried: (messa
       </PaperButton>
       <Link
         to={`/workers/jobs/${jobId}`}
-        className={cn("inline-flex min-h-8 items-center px-2.5 text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}
+        className={cn("inline-flex min-h-10 items-center rounded-md px-2.5 text-[14px] leading-5 font-medium text-paper-moss hover:bg-paper-linen", PAPER_FOCUS)}
       >
         Edit & rerun
       </Link>
@@ -384,7 +409,7 @@ function RebuildInboxActions({ item, onActioned }: { item: AttentionItem; onActi
       ) : null}
       {rebuild.forceDeploy ? (
         <PaperButton
-          variant="amber"
+          variant="ghost"
           disabled={busy}
           onClick={() => force.mutate(undefined as never, { onSuccess: () => onActioned("Forcing a new Vercel deploy.") })}
         >
@@ -454,30 +479,26 @@ function AttentionCard({
   const age = formatRelativeTime(item.createdAt);
 
   return (
-    <div className="group flex min-w-0 gap-3 px-3 py-2.5 transition-colors duration-150 hover:bg-paper-cream">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <Tag tone={tag.tone}>{item.occurrences ? `${tag.label} ${item.occurrences}×` : tag.label}</Tag>
-          <span className="text-[12px] font-medium text-paper-sage">{source}</span>
-          {age ? (
-            <span className="text-[12px] text-paper-sage" title={item.createdAt}>
-              {age}
-            </span>
+    <div className="flex min-w-0 items-start gap-2 py-2.5">
+      <div className="grid min-w-0 flex-1 gap-x-4 gap-y-1.5 @3xl:grid-cols-[minmax(0,1fr)_auto] @3xl:items-center">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <Tag tone={tag.tone}>{item.occurrences ? `${tag.label} ${item.occurrences}×` : tag.label}</Tag>
+            <span className="min-w-0 text-[14px] leading-[22px] font-medium [overflow-wrap:anywhere] text-paper-moss">{item.title}</span>
+          </p>
+          <p className="mt-0.5 flex flex-wrap gap-x-2 text-[13px] leading-5 text-paper-sage">
+            <span>{source}</span>
+            {age ? <span title={item.createdAt}>{age}</span> : null}
+            {item.project ? <span>{item.project}</span> : null}
+          </p>
+          {item.description ? (
+            <p title={item.description} className="mt-0.5 line-clamp-1 max-w-[80ch] text-[13px] leading-5 break-words text-paper-char">
+              {item.description}
+            </p>
           ) : null}
-          {item.project ? <span className="text-[12px] font-medium text-paper-sage">{item.project}</span> : null}
         </div>
 
-        <p className="mt-1 max-w-[70ch] text-[14.5px] leading-5 font-semibold [overflow-wrap:anywhere] text-paper-moss">
-          {item.title}
-        </p>
-
-        {item.description ? (
-          <p className="mt-0.5 line-clamp-2 max-w-[80ch] text-[13px] leading-5 break-words text-paper-char">
-            {item.description}
-          </p>
-        ) : null}
-
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 @3xl:justify-end">
           {item.rebuild ? (
             <RebuildInboxActions item={item} onActioned={onRetried} />
           ) : item.operator ? (
@@ -490,8 +511,9 @@ function AttentionCard({
           )}
           <Link
             to={item.action.href}
+            aria-label={`${item.action.label || "Open"}: ${item.title}`}
             className={cn(
-              "inline-flex min-h-8 items-center gap-1 px-2.5 text-[13px] font-semibold text-paper-blue hover:underline",
+              "inline-flex min-h-10 items-center gap-1 rounded-md px-2.5 text-[14px] leading-5 font-medium text-paper-moss hover:bg-paper-linen",
               PAPER_FOCUS,
             )}
           >
@@ -507,7 +529,7 @@ function AttentionCard({
         aria-label={`Clear "${item.title}" from Dashboard`}
         title="Clear from Dashboard"
         className={cn(
-          "-mr-1 flex size-8 shrink-0 items-center justify-center rounded-none text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+          "-mr-1 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-paper-sage transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss",
           PAPER_FOCUS,
         )}
       >

@@ -34,7 +34,7 @@ export function TractionOverviewTab({ data, onTab }: { data: TractionData; onTab
           count={data.queue.length}
           action={
             progress.total > 0 ? (
-              <span className="text-[12.5px] font-medium tracking-[0.04em] text-paper-sage uppercase tabular-nums" aria-live="polite">
+              <span className="text-[13px] font-medium text-paper-sage tabular-nums" aria-live="polite">
                 {progress.done} / {progress.total} complete
               </span>
             ) : null
@@ -65,8 +65,8 @@ export function Goal({ data }: { data: TractionData }) {
 
   return (
     <PaperCard className="bg-paper-cream p-5">
-      <p className="text-[12px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Goal this week</p>
-      <p className="mt-2 font-paper-display text-[22px] leading-7 font-bold tracking-[-0.01em] text-paper-moss">
+      <p className="text-[13px] font-semibold text-paper-sage">Goal this week</p>
+      <p className="mt-2 text-[16px] leading-7 font-semibold tracking-[-0.01em] text-paper-moss">
         {target} new qualified {target === 1 ? "conversation" : "conversations"}
       </p>
       <div className="mt-4 flex items-center gap-3">
@@ -129,7 +129,7 @@ function ThisWeek({ data }: { data: TractionData }) {
         )
       }
     >
-      <p className="-mt-2 mb-4 text-[12.5px] text-paper-sage">From Monday {weekOf}</p>
+      <p className="-mt-2 mb-4 text-[13px] text-paper-sage">From Monday {weekOf}</p>
 
       {editing ? (
         <form
@@ -198,11 +198,11 @@ function PipelineSummary({ data, onOpen }: { data: TractionData; onOpen: () => v
         {PIPELINE_STAGES.map((stage) => (
           <div key={stage} className="flex items-baseline justify-between py-2 text-[14px]">
             <dt className="text-paper-char">{stageLabel(stage)}</dt>
-            <dd className="font-paper-display font-bold text-paper-moss tabular-nums">{data.pipeline[stage]}</dd>
+            <dd className="font-semibold text-paper-moss tabular-nums">{data.pipeline[stage]}</dd>
           </div>
         ))}
       </dl>
-      {data.provider !== "local" ? <p className="mt-2 text-[12px] text-paper-sage">Read from {data.provider}</p> : null}
+      {data.provider !== "local" ? <p className="mt-2 text-[13px] text-paper-sage">Read from {data.provider}</p> : null}
     </PaperSection>
   );
 }
@@ -229,7 +229,7 @@ function ActiveExperiments({ data, onOpen }: { data: TractionData; onOpen: () =>
             <li key={experiment.id} className="flex items-center justify-between gap-3 py-2.5">
               <span className="min-w-0">
                 <span className="block truncate text-[14px] font-medium text-paper-moss">{experiment.name}</span>
-                <span className="text-[12.5px] text-paper-sage">{CHANNEL_LABELS[experiment.channel]}</span>
+                <span className="text-[13px] text-paper-sage">{CHANNEL_LABELS[experiment.channel]}</span>
               </span>
               <Tag tone={experiment.status === "running" ? "green" : "muted"}>{experiment.status === "running" ? "Running" : "Planned"}</Tag>
             </li>
@@ -247,7 +247,7 @@ function ReviewNudge({ data, onOpen }: { data: TractionData; onOpen: () => void 
   if (weekday !== 5 && weekday !== 6 && weekday !== 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-none border border-paper-gold px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-paper-gold px-4 py-3">
       <p className="text-[14px] text-paper-moss">
         <span className="font-semibold">Weekly review.</span> {data.week.conversations} of {data.targets.conversations} conversations this week. Look at what
         worked before Monday.
@@ -279,9 +279,9 @@ function WaitingSummary({ data, onOpen }: { data: TractionData; onOpen: () => vo
               <li key={item.id} className="flex items-baseline justify-between gap-3 py-2.5">
                 <span className="min-w-0">
                   <span className="block truncate text-[14px] font-medium text-paper-moss">{item.who}</span>
-                  <span className="block truncate text-[12.5px] text-paper-sage">{item.what}</span>
+                  <span className="block truncate text-[13px] text-paper-sage">{item.what}</span>
                 </span>
-                <span className={chase <= data.today ? "shrink-0 text-[12.5px] font-semibold text-paper-amber-deep" : "shrink-0 text-[12.5px] text-paper-sage"}>
+                <span className={chase <= data.today ? "shrink-0 text-[13px] font-semibold text-paper-amber-deep" : "shrink-0 text-[13px] text-paper-sage"}>
                   {chase <= data.today ? "Chase today" : `Chase ${formatShortDate(chase)}`}
                 </span>
               </li>
@@ -310,7 +310,7 @@ function MoneySummary({ data, onOpen }: { data: TractionData; onOpen: () => void
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline justify-between py-2 text-[14px]">
             <dt className="text-paper-char">{row.label}</dt>
-            <dd className={row.loud ? "font-paper-display font-bold text-paper-flame-deep tabular-nums" : "font-paper-display font-bold text-paper-moss tabular-nums"}>
+            <dd className={row.loud ? "font-semibold text-paper-flame-deep tabular-nums" : "font-semibold text-paper-moss tabular-nums"}>
               {row.value ?? "-"}
             </dd>
           </div>

@@ -208,7 +208,7 @@ function FollowUpItem({
   const needsSetup = draft.error && /^Add .* first\.$/.test(draft.error.message);
 
   return (
-    <li ref={ref} className={cn("border border-paper-mist bg-paper-white p-4", selected ? "border-paper-blue" : undefined)}>
+    <li ref={ref} className={cn("border border-paper-mist bg-paper-white p-4", selected ? "border-paper-ash" : undefined)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[16px] font-semibold text-paper-moss">
@@ -302,7 +302,7 @@ function ReplyBlock({ row, onNotice }: { row: FollowUpRow; onNotice: (notice: No
       <div className="border-l-2 border-paper-green bg-paper-cream px-3 py-2 text-[13px] leading-5 text-paper-char">
         <p className="font-semibold text-paper-moss">{reply.subject}</p>
         {reply.snippet ? <p className="mt-0.5 whitespace-pre-wrap">{reply.snippet}</p> : null}
-        <p className="mt-1 text-[12px] text-paper-sage">From {reply.fromEmail}</p>
+        <p className="mt-1 text-[13px] text-paper-sage">From {reply.fromEmail}</p>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <PaperButton
@@ -422,7 +422,7 @@ function FollowUpDraft({ row, entry, prospect, onSent, onRedraft, redrafting }: 
 
   return (
     <div className="mt-4 space-y-3 border-t border-paper-mist pt-4">
-      <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">Follow-up {row.nextTouch}: your draft</p>
+      <p className="text-[13px] font-semibold text-paper-char">Follow-up {row.nextTouch}: your draft</p>
       <label className="block">
         <FieldLabel>Subject</FieldLabel>
         <input maxLength={150} value={subject} onChange={(event) => setSubject(event.target.value.replace(/[\r\n]/g, " "))} onBlur={keep} className={cn(PAPER_INPUT, "w-full")} />
@@ -447,7 +447,7 @@ function FollowUpDraft({ row, entry, prospect, onSent, onRedraft, redrafting }: 
         <PaperButton variant="quiet" disabled={redrafting} onClick={onRedraft}>
           {redrafting ? "Writing…" : "Draft again"}
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">Copy it, send it from your own mailbox, then press I sent it.</span>
+        <span className="text-[13px] text-paper-sage">Copy it, send it from your own mailbox, then press I sent it.</span>
       </div>
       {manual.error ?? write.error ? (
         <p role="alert" className="text-[13px] text-paper-flame-deep">
