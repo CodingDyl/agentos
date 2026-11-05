@@ -333,9 +333,10 @@ import {
 import { getThreadBody, GmailError } from "./mail/gmail-client";
 import { JevError } from "./mail/jev-client";
 import { runMailSync, syncDepsFor } from "./mail/sync";
-import { closeTitanConnection, getTitanThreadBody, TitanError, verifyTitanLogin } from "./mail/titan-client";
+import { closeTitanConnection, getTitanThreadBody, TitanError } from "./mail/titan-client";
+import { detectMailProvider, testMailConnection } from "./mail/mail-connection";
 import { forgetTitanCredentials, saveTitanCredentials, titanAccount, TitanCredentialsError, updateTitanSenderName } from "./mail/titan-credentials";
-import { MAIL_ACCOUNT_LABEL, mailAccountOf, TitanConnectRequestSchema, TitanUpdateRequestSchema, type MailAccountSummary } from "../shared/mail-account-types";
+import { MAIL_ACCOUNT_LABEL, MAIL_PROVIDER_LABEL, mailAccountOf, MailConnectRequestSchema, MailDetectQuerySchema, TitanUpdateRequestSchema, type MailAccountSummary } from "../shared/mail-account-types";
 import { activeMailClassifier } from "./mail/classifier";
 import { captureNote, CAPTURE_PATH, parseCaptures } from "./agentos/capture";
 import { compassRouter } from "./compass/routes";
@@ -635,7 +636,18 @@ app.get("/api/mail/status", async (_request, response) => {
     const titan = await titanAccount();
     const accounts: MailAccountSummary[] = [
       { id: "gmail", label: MAIL_ACCOUNT_LABEL.gmail, connected },
-      { id: "titan", label: MAIL_ACCOUNT_LABEL.titan, connected: titan !== undefined, address: titan?.address, server: titan?.imapHost, senderName: titan?.senderName },
+      {
+        id: "titan",
+        label: MAIL_ACCOUNT_LABEL.titan,
+        connected: titan !== undefined,
+        address: titan?.address,
+        server: titan?.imapHost,
+        smtpServer: titan?.smtpHost,
+        provider: titan?.provider,
+        providerLabel: titan ? MAIL_PROVIDER_LABEL[titan.provider] : undefined,
+        problem: titan?.problem,
+        senderName: titan?.senderName,
+      },
     ];
 
     response.json({
@@ -723,28 +735,64 @@ app.post("/api/mail/disconnect", async (_request, response) => {
   response.json({ ok: true });
 });
 
+/** Where an address's mail is hosted, from its domain's MX record (4 s timeout). Never returns a password; takes none. */
+app.get("/api/mail/accounts/titan/detect", async (request, response) => {
+  const parsed = MailDetectQuerySchema.safeParse(request.query);
+  if (!parsed.success) {
+    response.status(400).json({ error: "Enter the full mailbox address." });
+    return;
+  }
+  response.json(await detectMailProvider(parsed.data.address));
+});
+
 /**
- * Links the Virtara (Titan) mailbox. The login is tried against the server
- * first and only saved when it works, sealed on this machine. The password
- * is never echoed back, logged, or sent anywhere but the mailbox's servers.
+ * Tests a mailbox login without saving it: IMAP (log in, open INBOX) and SMTP
+ * (EHLO and AUTH; no email is sent), each reported separately.
  */
-app.post("/api/mail/accounts/titan", async (request, response) => {
-  const parsed = TitanConnectRequestSchema.safeParse(request.body);
+app.post("/api/mail/accounts/titan/test", async (request, response) => {
+  const parsed = MailConnectRequestSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: parsed.error.issues[0]?.message ?? "Enter the mailbox address and password." });
     return;
   }
   try {
-    const { imapLoginMethod } = await verifyTitanLogin(parsed.data);
-    console.log(`[agentos] Virtara mailbox linked for ${parsed.data.address} at ${parsed.data.imapHost}:${parsed.data.imapPort}${imapLoginMethod ? " (IMAP LOGIN)" : ""}.`);
-    closeTitanConnection();
-    await saveTitanCredentials(parsed.data, imapLoginMethod);
-    response.json({ ok: true, address: parsed.data.address });
+    const outcome = await testMailConnection(parsed.data);
+    // Results only, never the password; the log names the hosts, not the login.
+    console.log(`[agentos] Mail connection test for ${parsed.data.address} (${parsed.data.provider}): IMAP ${outcome.imap.ok ? "ok" : "failed"}, SMTP ${outcome.smtp.ok ? "ok" : "failed"}.`);
+    response.json({ ok: outcome.ok, imap: outcome.imap, smtp: outcome.smtp });
   } catch (error) {
-    if (error instanceof TitanError) {
-      // The reason and Titan's reply only: never the password.
-      console.warn(`[agentos] Linking the Virtara mailbox failed (${error.reason}) for ${parsed.data.address} at ${parsed.data.imapHost}:${parsed.data.imapPort}: ${error.message}`);
-      response.status(error.reason === "unauthorized" ? 401 : 409).json({ error: error.message, reason: error.reason });
+    console.error("[agentos] mail connection test failed:", error instanceof Error ? error.message : "unknown error");
+    response.status(500).json({ error: "Unable to test the mailbox" });
+  }
+});
+
+/**
+ * Links the Virtara mailbox. IMAP and SMTP are both tried against the chosen
+ * servers first and the login is only saved when both work, sealed on this
+ * machine. The password is never echoed back, logged, or sent anywhere but
+ * those servers.
+ */
+app.post("/api/mail/accounts/titan", async (request, response) => {
+  const parsed = MailConnectRequestSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? "Enter the mailbox address and password." });
+    return;
+  }
+  try {
+    const outcome = await testMailConnection(parsed.data);
+    if (!outcome.ok) {
+      const failed = !outcome.imap.ok ? outcome.imap.message : outcome.smtp.message;
+      console.warn(`[agentos] Linking the Virtara mailbox failed for ${parsed.data.address} (${parsed.data.provider}): IMAP ${outcome.imap.ok ? "ok" : "failed"}, SMTP ${outcome.smtp.ok ? "ok" : "failed"}.`);
+      response.status(422).json({ error: `Not linked. ${failed}`, imap: outcome.imap, smtp: outcome.smtp });
+      return;
+    }
+    console.log(`[agentos] Virtara mailbox linked for ${parsed.data.address} on ${parsed.data.provider} (${parsed.data.imapHost}, ${parsed.data.smtpHost})${outcome.imapLoginMethod ? " (IMAP LOGIN)" : ""}.`);
+    closeTitanConnection();
+    await saveTitanCredentials(parsed.data, outcome.imapLoginMethod);
+    response.json({ ok: true, address: parsed.data.address, imap: outcome.imap, smtp: outcome.smtp });
+  } catch (error) {
+    if (error instanceof TitanCredentialsError || error instanceof TitanError) {
+      response.status(409).json({ error: error.message });
       return;
     }
     console.error("[agentos] linking the Virtara mailbox failed:", error instanceof Error ? error.message : "unknown error");

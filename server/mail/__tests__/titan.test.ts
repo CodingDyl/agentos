@@ -20,7 +20,7 @@ const { markThreadsRead } = await import("../actions");
 const { cleanExpiredLowPriority } = await import("../auto-clean");
 const credentials = await import("../titan-credentials");
 const { summaryFromMessage, plainTextOf, describeTitanError, titanServerSaid, TitanError } = await import("../titan-client");
-const { mailAccountOf, parseTitanThreadId, titanThreadId, TitanConnectRequestSchema, TitanUpdateRequestSchema } = await import("../../../shared/mail-account-types");
+const { mailAccountOf, parseTitanThreadId, titanThreadId, MailConnectRequestSchema, TitanUpdateRequestSchema } = await import("../../../shared/mail-account-types");
 
 before(() => {
   mailDatabase();
@@ -54,7 +54,7 @@ describe("Titan thread ids", () => {
 
 describe("Titan login form", () => {
   it("fills in Titan's TLS servers and lowercases the address", () => {
-    const parsed = TitanConnectRequestSchema.parse({ address: " DylanPetzer@Virtara.co.za ", password: "secret" });
+    const parsed = MailConnectRequestSchema.parse({ address: " DylanPetzer@Virtara.co.za ", password: "secret", provider: "titan" });
     assert.equal(parsed.address, "dylanpetzer@virtara.co.za");
     assert.equal(parsed.imapHost, "imap.titan.email");
     assert.equal(parsed.imapPort, 993);
@@ -63,8 +63,10 @@ describe("Titan login form", () => {
   });
 
   it("refuses a server name that is not a host name", () => {
-    assert.equal(TitanConnectRequestSchema.safeParse({ address: "a@b.co", password: "x", imapHost: "evil.com/path" }).success, false);
-    assert.equal(TitanConnectRequestSchema.safeParse({ address: "a@b.co", password: "x", imapHost: "-bad.example.com" }).success, false);
+    const custom = { address: "a@b.co", password: "x", provider: "custom", imapPort: 993, smtpHost: "smtp.b.co", smtpPort: 465, confirmServers: true };
+    assert.equal(MailConnectRequestSchema.safeParse({ ...custom, imapHost: "imap.b.co" }).success, true);
+    assert.equal(MailConnectRequestSchema.safeParse({ ...custom, imapHost: "evil.com/path" }).success, false);
+    assert.equal(MailConnectRequestSchema.safeParse({ ...custom, imapHost: "-bad.example.com" }).success, false);
   });
 });
 
@@ -80,7 +82,7 @@ describe("Titan credentials", () => {
 
   it("stores the password sealed, private to this user, and reads it back", async () => {
     await credentials.saveTitanCredentials(
-      TitanConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "very-secret-password" }),
+      MailConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "very-secret-password", provider: "titan" }),
     );
     const file = path.join(directory, "titan-mail.json");
     const raw = fs.readFileSync(file, "utf8");
@@ -106,11 +108,11 @@ describe("Titan credentials", () => {
   });
 
   it("keeps the IMAP login method that worked, so later connections sign in the same way", async () => {
-    await credentials.saveTitanCredentials(TitanConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "pw" }), "LOGIN");
+    await credentials.saveTitanCredentials(MailConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "pw", provider: "titan" }), "LOGIN");
     assert.equal((await credentials.readTitanCredentials())?.imapLoginMethod, "LOGIN");
     await credentials.updateTitanSenderName("Dylan");
     assert.equal((await credentials.readTitanCredentials())?.imapLoginMethod, "LOGIN", "renaming keeps it");
-    await credentials.saveTitanCredentials(TitanConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "pw" }));
+    await credentials.saveTitanCredentials(MailConnectRequestSchema.parse({ address: "dylanpetzer@virtara.co.za", password: "pw", provider: "titan" }));
     assert.equal((await credentials.readTitanCredentials())?.imapLoginMethod, undefined);
     await credentials.forgetTitanCredentials();
   });
@@ -168,6 +170,7 @@ describe("Titan message parsing", () => {
   it("names the third-party switch and quotes Titan's reply on one capped line", () => {
     const error = describeTitanError(
       Object.assign(new Error("Command failed"), { authenticationFailed: true, serverResponseCode: "AUTHENTICATIONFAILED", response: "Invalid credentials\r\n(Failure)" }),
+      "titan",
     );
     assert.match(error.message, /Enable Titan on other apps/);
     assert.match(error.message, /Titan said: AUTHENTICATIONFAILED: Invalid credentials \(Failure\)$/);

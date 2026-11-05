@@ -1,12 +1,13 @@
-import { ImapFlow, type FetchMessageObject, type MessageAddressObject } from "imapflow";
+import { ImapFlow, type FetchMessageObject, type ImapFlowOptions, type MessageAddressObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import { MAIL_THREAD_LIMIT, mailCutoff } from "../../shared/mail-types";
-import { parseTitanThreadId, titanThreadId } from "../../shared/mail-account-types";
+import { MAIL_PROVIDER_LABEL, parseTitanThreadId, titanThreadId, type MailProviderId } from "../../shared/mail-account-types";
 import type { ThreadSummaryInput } from "./store";
-import { readTitanCredentials, type TitanCredentials } from "./titan-credentials";
+import { readTitanCredentials, TitanCredentialsError, type TitanCredentials } from "./titan-credentials";
 
 /**
- * The Virtara mailbox (Titan) over IMAP.
+ * The Virtara mailbox over IMAP, on whichever servers it was linked with
+ * (GoDaddy, Titan, Hostinger or custom). Names say "Titan" for history only.
  *
  * One TLS connection is shared by everything here and closed after a minute
  * of quiet, so a Refresh or a bulk "Done" on 40 messages logs in once, not 40
@@ -18,7 +19,7 @@ import { readTitanCredentials, type TitanCredentials } from "./titan-credentials
  * (read, Trash, archive) is made on the server first.
  */
 
-export type TitanErrorReason = "not-connected" | "unauthorized" | "offline" | "failed";
+export type TitanErrorReason = "not-connected" | "unauthorized" | "no-mailbox" | "offline" | "failed";
 
 export class TitanError extends Error {
   constructor(
@@ -34,18 +35,33 @@ const IDLE_CLOSE_MS = 60_000;
 const SNIPPET_SOURCE_BYTES = 64 * 1024;
 const BODY_SOURCE_BYTES = 30 * 1024 * 1024;
 
-function clientFor(credentials: TitanCredentials): ImapFlow {
-  return new ImapFlow({
+/** The IMAPFlow options for a login: always the stored host, always TLS with the certificate checked. */
+export function imapOptions(credentials: TitanCredentials): ImapFlowOptions & { host: string; port: number } {
+  return {
     host: credentials.imapHost,
     port: credentials.imapPort,
     secure: true,
+    tls: { rejectUnauthorized: true, minVersion: "TLSv1.2" },
     auth: { user: credentials.address, pass: credentials.password, ...(credentials.imapLoginMethod ? { loginMethod: credentials.imapLoginMethod } : {}) },
     // IMAPFlow's logger would print protocol lines; nothing about this mailbox is logged.
     logger: false,
     connectionTimeout: 20_000,
     greetingTimeout: 15_000,
     socketTimeout: 120_000,
-  });
+  };
+}
+
+type ImapClientFactory = (options: ImapFlowOptions & { host: string; port: number }) => ImapFlow;
+const realImapClient: ImapClientFactory = (options) => new ImapFlow(options);
+let imapClientFactory: ImapClientFactory = realImapClient;
+
+/** For tests, so they can see which server a connection goes to without touching one. */
+export function setImapClientFactoryForTests(factory: ImapClientFactory | undefined): void {
+  imapClientFactory = factory ?? realImapClient;
+}
+
+function clientFor(credentials: TitanCredentials): ImapFlow {
+  return imapClientFactory(imapOptions(credentials));
 }
 
 /** Turns IMAPFlow's errors into one the Inbox can explain. Never includes the password. */
@@ -63,44 +79,68 @@ export function titanServerSaid(error: unknown): string | undefined {
   return said || undefined;
 }
 
-export function describeTitanError(error: unknown): TitanError {
-  if (error instanceof TitanError) return error;
-  const value = error as { authenticationFailed?: boolean; code?: string; responseText?: string; message?: string } | undefined;
-  if (value?.authenticationFailed || /AUTHENTICATIONFAILED|invalid credentials|authentication failed/i.test(`${value?.responseText ?? ""} ${value?.message ?? ""}`)) {
-    const said = titanServerSaid(error);
-    // Titan's own apps sign in without it, so "it works in the Titan app" does
-    // not rule this switch out: it is the usual reason a correct password fails.
-    return new TitanError(
-      "Titan refused the login. If the password is right, turn on \"Enable Titan on other apps\" in Titan webmail (Settings, the gear icon), " +
-        "then try again: Titan's own app works without it, other apps don't. Also check two-factor authentication is off for this mailbox." +
-        (said ? ` Titan said: ${said}` : ""),
-      "unauthorized",
-    );
-  }
-  if (value?.code && /^(ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH)$/.test(value.code)) {
-    return new TitanError("Could not reach the Titan mail server. Check the internet connection and the server name.", "offline");
-  }
-  if (value?.code === "NoConnection" || /timeout/i.test(value?.message ?? "")) {
-    return new TitanError("The Titan mail server stopped answering. Try again.", "offline");
-  }
-  return new TitanError("The Titan mail server did not accept that request.", "failed");
+/** Titan's reply when the address has no mailbox on that server at all: the mail is hosted somewhere else. */
+export const NO_MAILBOX_MESSAGE =
+  "This server has no mailbox for that address. Your mail may be hosted elsewhere. Check the provider (virtara.co.za uses GoDaddy).";
+
+function serverName(provider: MailProviderId | undefined): string {
+  return provider && provider !== "custom" ? `The ${MAIL_PROVIDER_LABEL[provider]} mail server` : "The mail server";
 }
 
-/** Logs in and out once. */
+/**
+ * Turns IMAPFlow's errors into one the Inbox can explain. Never includes the
+ * password. Titan's "other apps / two-factor" advice is only given for a
+ * refused login on Titan itself, never for a mailbox that isn't there.
+ */
+export function describeTitanError(error: unknown, provider?: MailProviderId): TitanError {
+  if (error instanceof TitanError) return error;
+  const value = error as { authenticationFailed?: boolean; code?: string; responseText?: string; message?: string } | undefined;
+  const text = `${value?.responseText ?? ""} ${value?.message ?? ""}`;
+  const said = titanServerSaid(error);
+  if (/AccountNotFound/i.test(`${text} ${said ?? ""}`)) {
+    return new TitanError(NO_MAILBOX_MESSAGE + (said ? ` The server said: ${said}` : ""), "no-mailbox");
+  }
+  if (value?.authenticationFailed || /AUTHENTICATIONFAILED|invalid credentials|authentication failed/i.test(text)) {
+    if (provider === "titan") {
+      // Titan's own apps sign in without it, so "it works in the Titan app" does
+      // not rule this switch out: it is the usual reason a correct password fails.
+      return new TitanError(
+        "Titan refused the login. If the password is right, turn on \"Enable Titan on other apps\" in Titan webmail (Settings, the gear icon), " +
+          "then try again: Titan's own app works without it, other apps don't. Also check two-factor authentication is off for this mailbox." +
+          (said ? ` Titan said: ${said}` : ""),
+        "unauthorized",
+      );
+    }
+    return new TitanError(`${serverName(provider)} refused the login. Check the address and password.` + (said ? ` The server said: ${said}` : ""), "unauthorized");
+  }
+  if (value?.code && /^(ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|EHOSTUNREACH|ENETUNREACH)$/.test(value.code)) {
+    return new TitanError(`Could not reach ${serverName(provider).replace(/^The/, "the")}. Check the internet connection and the server name.`, "offline");
+  }
+  if (/certificate|self[- ]signed|CERT_|ERR_TLS/i.test(`${value?.code ?? ""} ${text}`)) {
+    return new TitanError(`${serverName(provider)}'s TLS certificate could not be verified, so AgentOS did not sign in. Check the server name.`, "failed");
+  }
+  if (value?.code === "NoConnection" || /timeout/i.test(value?.message ?? "")) {
+    return new TitanError(`${serverName(provider)} stopped answering. Try again.`, "offline");
+  }
+  return new TitanError(`${serverName(provider)} did not accept that request.`, "failed");
+}
+
+/** Logs in, opens INBOX read-only (nothing is marked or moved), and logs out. */
 async function tryLogin(credentials: TitanCredentials): Promise<void> {
   const client = clientFor(credentials);
   client.on("error", () => undefined);
   try {
     await client.connect();
+    await client.mailboxOpen("INBOX", { readOnly: true });
     await client.logout();
   } catch (error) {
     client.close();
-    throw describeTitanError(error);
+    throw describeTitanError(error, credentials.provider);
   }
 }
 
 /**
- * The check before a login is saved. IMAPFlow signs in with AUTHENTICATE PLAIN
+ * The IMAP half of the check before a login is saved. IMAPFlow signs in with AUTHENTICATE PLAIN
  * when the server offers it; some Titan mailboxes refuse that yet accept the
  * plain IMAP LOGIN command with the same password, so a refused login is tried
  * once more that way. Returns the method that worked, to keep with the login.
@@ -120,7 +160,7 @@ export async function verifyTitanLogin(credentials: TitanCredentials): Promise<{
   }
 }
 
-/** A pasted password often brings a space or line break with it, which Titan counts as part of it. */
+/** A pasted password often brings a space or line break with it, which the server counts as part of it. */
 function withPasswordHint(error: unknown, password: string): unknown {
   if (!(error instanceof TitanError) || error.reason !== "unauthorized" || password === password.trim()) return error;
   return new TitanError(`${error.message} The password you entered starts or ends with a space or line break; if it was pasted, try typing it instead.`, "unauthorized");
@@ -128,17 +168,33 @@ function withPasswordHint(error: unknown, password: string): unknown {
 
 interface SharedConnection {
   client: ImapFlow;
+  provider: MailProviderId;
   idle?: NodeJS.Timeout;
 }
 
 let shared: SharedConnection | undefined;
 let opening: Promise<SharedConnection> | undefined;
 
-async function openShared(): Promise<SharedConnection> {
-  const credentials = await readTitanCredentials();
+/**
+ * The stored login for a connection, or a TitanError saying why there is none.
+ * A link that fails the server guard is refused here, before any connection.
+ */
+export async function linkedCredentials(): Promise<TitanCredentials> {
+  let credentials: TitanCredentials | undefined;
+  try {
+    credentials = await readTitanCredentials();
+  } catch (error) {
+    if (error instanceof TitanCredentialsError) throw new TitanError(error.message, "not-connected");
+    throw error;
+  }
   if (!credentials) throw new TitanError("The Virtara mailbox is not linked.", "not-connected");
+  return credentials;
+}
+
+async function openShared(): Promise<SharedConnection> {
+  const credentials = await linkedCredentials();
   const client = clientFor(credentials);
-  const connection: SharedConnection = { client };
+  const connection: SharedConnection = { client, provider: credentials.provider };
   // A dropped socket must not crash the server; the next call reconnects.
   client.on("error", () => {
     if (shared === connection) shared = undefined;
@@ -150,7 +206,7 @@ async function openShared(): Promise<SharedConnection> {
     await client.connect();
   } catch (error) {
     client.close();
-    throw describeTitanError(error);
+    throw describeTitanError(error, credentials.provider);
   }
   return connection;
 }
@@ -179,7 +235,7 @@ async function withConnection<T>(run: (client: ImapFlow) => Promise<T>): Promise
   try {
     return await run(current.client);
   } catch (error) {
-    throw describeTitanError(error);
+    throw describeTitanError(error, current.provider);
   } finally {
     current.idle = setTimeout(() => {
       if (shared === current) closeTitanConnection();
@@ -198,7 +254,7 @@ async function withFolder<T>(
     const lock = await client.getMailboxLock(path);
     try {
       const mailbox = client.mailbox;
-      if (!mailbox) throw new TitanError(`Titan did not open ${path}.`, "failed");
+      if (!mailbox) throw new TitanError(`The mail server did not open ${path}.`, "failed");
       return await run(client, mailbox.uidValidity.toString());
     } finally {
       lock.release();
