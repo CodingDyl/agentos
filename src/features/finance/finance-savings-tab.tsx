@@ -62,7 +62,7 @@ export function FinanceSavingsTab({ data }: { data: FinanceData }) {
                 return (
                   <li key={step.id}>
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-paper-display text-[16px] font-bold text-paper-moss">
+                      <p className="text-[16px] font-semibold text-paper-moss">
                         <span className="mr-2 text-paper-sage tabular-nums">{index + 1}</span>
                         {step.label}
                       </p>
@@ -83,7 +83,7 @@ export function FinanceSavingsTab({ data }: { data: FinanceData }) {
                 );
               })}
           </ol>
-          <p className="mt-6 max-w-[70ch] text-[12.5px] leading-5 text-paper-sage">
+          <p className="mt-6 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
             The horizons are assumptions: the starter buffer over three months, debt and the full buffer over twelve. Change the goals and Finance recalculates. "Left to save" is your recent average, not a promise, and money owed to you is not counted until it arrives.
           </p>
         </PaperSection>
@@ -119,7 +119,7 @@ export function FinanceSavingsTab({ data }: { data: FinanceData }) {
               <Meter value={Math.min(1, plan.movedToSavingsThisMonth / plan.recommended)} label="Moved to savings this month against the plan" tone="green" />
             </div>
           ) : null}
-          <div role="note" className="mt-5 rounded-none bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
+          <div role="note" className="mt-5 rounded-md bg-paper-linen p-4 text-[13px] leading-6 text-paper-char">
             <p className="font-semibold text-paper-moss">AgentOS does not move money.</p>
             <p className="mt-1">You make the transfer in your bank, and Finance checks that it happened. Only savings accounts Finance can see are counted, so an account it does not know about will show as R0 moved.</p>
           </div>
@@ -132,7 +132,7 @@ export function FinanceSavingsTab({ data }: { data: FinanceData }) {
                 <span className="text-paper-char">{formatMonthShort(entry.month)}{entry.month === data.month ? " (so far)" : ""}</span>
                 <span className={cn(entry.saved < 0 ? "font-semibold text-paper-flame-deep" : "text-paper-moss")}>
                   {money(entry.saved)}
-                  <span className="ml-2 text-[12.5px] text-paper-sage">{entry.savingsRate === undefined ? "" : `${Math.round(entry.savingsRate * 100)}%`}</span>
+                  <span className="ml-2 text-[13px] text-paper-sage">{entry.savingsRate === undefined ? "" : `${Math.round(entry.savingsRate * 100)}%`}</span>
                 </span>
               </li>
             ))}

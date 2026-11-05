@@ -16,7 +16,7 @@ export function PaperPagination<T>({ pager, label, className }: { pager: Pager<T
   const { page, pageCount, from, to, total, size, sizes, setPage: onPage, setSize: onSize } = pager;
   if (total <= sizes[0]) return null;
 
-  const button = "inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-none border px-2 text-[13px] font-medium tabular-nums transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40";
+  const button = "inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center rounded-md border px-2 text-[13px] font-medium tabular-nums transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <nav aria-label={label} className={cn("mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3", className)}>
@@ -30,7 +30,7 @@ export function PaperPagination<T>({ pager, label, className }: { pager: Pager<T
           <select
             value={size}
             onChange={(event) => onSize(Number(event.target.value) as PageSize)}
-            className={cn("min-h-9 cursor-pointer rounded-none border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss", PAPER_FOCUS)}
+            className={cn("min-h-9 cursor-pointer rounded-md border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss", PAPER_FOCUS)}
           >
             {sizes.map((option) => (
               <option key={option} value={option}>
@@ -58,7 +58,7 @@ export function PaperPagination<T>({ pager, label, className }: { pager: Pager<T
                   onClick={() => onPage(entry)}
                   aria-label={`Page ${entry}`}
                   aria-current={entry === page ? "page" : undefined}
-                  className={cn(button, PAPER_FOCUS, entry === page ? "border-paper-blue bg-paper-blue text-paper-white" : "border-paper-mist bg-paper-white text-paper-moss hover:bg-paper-linen")}
+                  className={cn(button, PAPER_FOCUS, entry === page ? "border-paper-ash bg-selected text-paper-moss" : "border-paper-mist bg-paper-white text-paper-moss hover:bg-paper-linen")}
                 >
                   {entry}
                 </button>

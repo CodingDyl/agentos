@@ -57,7 +57,7 @@ function UserMessage({ message }: { message: ChatMessage }) {
   const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
   return (
     <li className="flex justify-end" aria-label="You said">
-      <p className="max-w-[min(85%,640px)] bg-paper-blue px-4 py-3 text-[15px] leading-6 break-words whitespace-pre-wrap text-paper-white">{text}</p>
+      <p className="max-w-[min(85%,640px)] rounded-lg bg-paper-linen px-4 py-3 text-[14px] leading-6 break-words whitespace-pre-wrap text-paper-moss">{text}</p>
     </li>
   );
 }
@@ -104,14 +104,14 @@ function AssistantMessage({
       </div>
 
       {message.error ? (
-        <p role="alert" className="mt-3 flex items-start gap-2 text-[13.5px] leading-5 text-paper-flame-deep">
+        <p role="alert" className="mt-3 flex items-start gap-2 text-[14px] leading-5 text-paper-flame-deep">
           <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           {message.error}
         </p>
       ) : null}
 
       {!live && !isRun && (message.model || message.costUsd !== undefined) ? (
-        <p className="mt-2 font-paper-utility text-[11.5px] tracking-[0.08em] text-paper-sage uppercase tabular-nums">
+        <p className="mt-2 text-[13px] text-paper-sage tabular-nums">
           {message.model}
           {message.costUsd !== undefined ? ` · $${message.costUsd.toFixed(message.costUsd < 0.01 ? 4 : 2)}` : ""}
         </p>
@@ -142,9 +142,9 @@ function ToolRow({ part }: { part: ChatToolPart }) {
   const row = (
     <>
       <Wrench className="size-3.5 shrink-0 text-paper-sage" aria-hidden="true" />
-      <span className="shrink-0 font-paper-utility text-[12px] font-medium tracking-[0.08em] text-paper-moss uppercase">{part.name}</span>
-      <code className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-paper-char">{part.summary}</code>
-      <span className={cn("inline-flex shrink-0 items-center gap-1 text-[12px]", status.className)}>
+      <span className="shrink-0 text-[13px] font-medium text-paper-moss">{part.name}</span>
+      <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-paper-char">{part.summary}</code>
+      <span className={cn("inline-flex shrink-0 items-center gap-1 text-[13px]", status.className)}>
         <ToolStatusIcon status={part.status} />
         <span className="hidden sm:inline">{status.label}</span>
       </span>
@@ -193,7 +193,7 @@ function ApprovalCard({
     }[part.status];
     const Icon = settled.icon;
     return (
-      <p className={cn("flex items-center gap-2 text-[12.5px]", settled.className)}>
+      <p className={cn("flex items-center gap-2 text-[13px]", settled.className)}>
         <Icon className="size-3.5 shrink-0" aria-hidden="true" />
         <span>
           {settled.text}: <code className="font-mono text-paper-char">{part.summary || part.tool}</code>
@@ -203,8 +203,8 @@ function ApprovalCard({
   }
 
   return (
-    <div role="alertdialog" aria-label={`Approve ${part.tool}?`} aria-describedby={`${part.id}-reason`} className="border-[1.5px] border-paper-marigold bg-paper-cream p-4">
-      <p className="flex items-center gap-2 font-paper-utility text-[12px] font-medium tracking-[0.12em] text-paper-moss uppercase">
+    <div role="alertdialog" aria-label={`Approve ${part.tool}?`} aria-describedby={`${part.id}-reason`} className="border border-paper-marigold bg-paper-cream p-4">
+      <p className="flex items-center gap-2 text-[13px] font-medium text-paper-moss">
         <ShieldAlert className="size-4 text-paper-marigold" aria-hidden="true" />
         Needs your OK
       </p>
@@ -212,11 +212,11 @@ function ApprovalCard({
         {part.reason}
       </p>
       {part.detail ? (
-        <pre aria-label="What will be sent" className="mt-2 max-h-72 overflow-auto bg-paper-white px-3 py-2 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
+        <pre aria-label="What will be sent" className="mt-2 max-h-72 overflow-auto bg-paper-white px-3 py-2 font-mono text-[12px] leading-5 whitespace-pre-wrap text-paper-char">
           {part.detail}
         </pre>
       ) : (
-        <pre className="mt-2 max-h-40 overflow-auto bg-paper-white px-3 py-2 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
+        <pre className="mt-2 max-h-40 overflow-auto bg-paper-white px-3 py-2 font-mono text-[12px] leading-5 whitespace-pre-wrap text-paper-char">
           <span className="text-paper-sage">{part.tool} </span>
           {part.summary}
         </pre>

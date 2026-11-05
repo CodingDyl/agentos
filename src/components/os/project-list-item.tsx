@@ -51,7 +51,7 @@ export function ProjectListItem({
     <>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
-          <h3 className="truncate text-base leading-6 font-medium">{name}</h3>
+          <h3 className="truncate text-[16px] leading-6 font-medium">{name}</h3>
           {type ? (
             <p className="os-meta mt-1.5 text-os-subtle">{type}</p>
           ) : null}
@@ -65,7 +65,7 @@ export function ProjectListItem({
       </div>
 
       {summary ? (
-        <p className="mt-4 max-w-[68ch] text-[15px] leading-6 text-os-muted">
+        <p className="mt-4 max-w-[68ch] text-[14px] leading-6 text-os-muted">
           {summary}
         </p>
       ) : null}

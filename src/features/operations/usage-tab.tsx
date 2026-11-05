@@ -49,21 +49,21 @@ function Anomalies({ data }: { data: OperationsData }) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Tag tone="flame">{ratio ? `${ratio.toFixed(1)}× typical` : "Unusual"}</Tag>
-                    <p className="truncate text-[14.5px] text-paper-moss">{anomaly.label}</p>
+                    <p className="truncate text-[14px] text-paper-moss">{anomaly.label}</p>
                   </div>
-                  <p className="mt-1.5 text-[12.5px] text-paper-sage">
+                  <p className="mt-1.5 text-[13px] text-paper-sage">
                     {anomaly.project ? `${anomaly.project} · ` : ""}compared with {anomaly.sampleSize} similar run{anomaly.sampleSize === 1 ? "" : "s"}
                   </p>
                 </div>
 
                 <dl className="flex shrink-0 gap-8 text-right">
                   <div>
-                    <dt className="text-[12px] text-paper-sage">This run</dt>
-                    <dd className="font-paper-display text-[18px] font-bold text-paper-flame-deep tabular-nums">{formatTokens(anomaly.tokens)}</dd>
+                    <dt className="text-[13px] text-paper-sage">This run</dt>
+                    <dd className="text-[16px] font-semibold text-paper-flame-deep tabular-nums">{formatTokens(anomaly.tokens)}</dd>
                   </div>
                   <div>
-                    <dt className="text-[12px] text-paper-sage">Typical</dt>
-                    <dd className="font-paper-display text-[18px] font-bold text-paper-char tabular-nums">{formatTokens(anomaly.typicalTokens)}</dd>
+                    <dt className="text-[13px] text-paper-sage">Typical</dt>
+                    <dd className="text-[16px] font-semibold text-paper-char tabular-nums">{formatTokens(anomaly.typicalTokens)}</dd>
                   </div>
                 </dl>
               </PaperCard>
@@ -98,9 +98,9 @@ export function RecentJobs({ jobs }: { jobs: readonly JobUsage[] }) {
 
   return (
     <PaperSection label="Recent jobs" count={jobs.length}>
-      <div className="min-w-0 overflow-x-auto rounded-none border border-paper-mist">
+      <div className="min-w-0 overflow-x-auto rounded-md border border-paper-mist">
         <div className="min-w-[46rem]">
-          <div className={cn(JOB_COLUMNS, "border-b border-paper-mist bg-paper-linen px-4 py-2 text-[12px] font-medium text-paper-char")}>
+          <div className={cn(JOB_COLUMNS, "border-b border-paper-mist bg-paper-linen px-4 py-2 text-[13px] font-medium text-paper-char")}>
             <span>Job</span>
             <span>Agent</span>
             <span className="text-right">Tokens</span>
@@ -115,19 +115,19 @@ export function RecentJobs({ jobs }: { jobs: readonly JobUsage[] }) {
               const cost = measuredCost(job.total);
 
               return (
-                <li key={job.jobId} className={cn(JOB_COLUMNS, "items-baseline px-4 py-3 text-[13.5px] leading-5 transition-colors duration-150 hover:bg-paper-cream")}>
+                <li key={job.jobId} className={cn(JOB_COLUMNS, "items-baseline px-4 py-3 text-[14px] leading-5 transition-colors duration-150 hover:bg-paper-cream")}>
                   <span className="min-w-0">
                     <Link
                       to={`/workers/jobs/${job.jobId}`}
                       className={cn(
-                        "block truncate rounded-[2px] text-paper-moss underline decoration-paper-mist decoration-[1.5px] underline-offset-[3px] transition-colors duration-150 hover:text-paper-blue hover:decoration-paper-blue",
+                        "block truncate rounded-sm text-paper-moss underline decoration-paper-mist decoration-[1.5px] underline-offset-[3px] transition-colors duration-150 hover:text-paper-blue hover:decoration-paper-blue",
                         PAPER_FOCUS,
                       )}
                     >
                       {job.taskId ? `${job.taskId} · ` : ""}
                       {job.objective}
                     </Link>
-                    <span className="mt-1 block truncate text-[12px] text-paper-sage">
+                    <span className="mt-1 block truncate text-[13px] text-paper-sage">
                       {job.project ?? ""}
                       {job.reviewVerdict ? ` · ${job.reviewVerdict.replace(/_/g, " ")}` : ""}
                     </span>

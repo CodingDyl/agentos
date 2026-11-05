@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { AreaStatus } from "@shared/compass-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperSection, Tag } from "@/components/paper";
 import { useCompass } from "@/lib/agentos/compass";
 import { cn } from "@/lib/utils";
@@ -26,13 +26,13 @@ export function CompassRail({ className }: { className?: string }) {
     return (
       <PaperSection label="Compass" className={className}>
         {compass.isPending ? (
-          <DedsecLoader variant="compact" />
+          <PageLoader variant="compact" />
         ) : (
           <>
-            <p className="text-[14px] leading-6 text-paper-char">
+            <p className="max-w-[62ch] text-[14px] leading-[22px] text-paper-char">
               No Compass yet. Ten minutes with Hermes sets out your direction, goals and life areas, and your three get picked against it.
             </p>
-            <Link to="/compass" className={cn("mt-2 inline-block text-[13.5px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+            <Link to="/compass" className={cn("mt-2 inline-block rounded-sm text-[14px] leading-5 font-medium text-paper-moss hover:underline", PAPER_FOCUS)}>
               Set up your Compass
             </Link>
           </>
@@ -49,48 +49,54 @@ export function CompassRail({ className }: { className?: string }) {
       label="Compass"
       className={className}
       action={
-        <Link to="/compass" className={cn("text-[12.5px] font-medium text-paper-sage hover:text-paper-moss hover:underline", PAPER_FOCUS)}>
+        <Link to="/compass" className={cn("inline-flex min-h-8 items-center rounded-md px-1.5 text-[14px] leading-5 text-paper-char transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss", PAPER_FOCUS)}>
           Edit
         </Link>
       }
     >
-      {direction ? <p className="text-[14px] leading-6 text-paper-moss italic">{direction}</p> : null}
-
-      {thisWeek.length > 0 ? (
-        <div className="mt-4">
-          <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">This week</p>
-          <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-[13.5px] leading-5 text-paper-char">
-            {thisWeek.map((outcome) => (
-              <li key={outcome}>{outcome}</li>
-            ))}
-          </ol>
+      <div className="grid gap-x-8 gap-y-4 lg:grid-cols-3">
+        <div className="min-w-0">
+          {direction ? <p className="text-[14px] leading-[22px] text-paper-moss">{direction}</p> : null}
+          {measured.length > 0 ? (
+            <ul className="mt-3 space-y-1.5" aria-label="Goals with a target">
+              {measured.slice(0, 5).map((goal) => (
+                <li key={goal.id} className="text-[13px] leading-5">
+                  <span className="font-medium text-paper-moss">{goal.title}</span>
+                  <span className="block text-paper-sage tabular-nums">
+                    {goal.now || "?"} → {goal.target || "?"}
+                    {goal.by ? ` by ${goal.by}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
-      ) : null}
 
-      {areas.length > 0 ? (
-        <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-1.5" aria-label="Areas of life">
-          {areas.map((area) => (
-            <li key={area.name} className="flex items-center justify-between gap-2 text-[13px] text-paper-char">
-              <span className="truncate">{area.name}</span>
-              <Tag tone={TONE[area.status]}>{area.status === "unrated" ? "?" : area.status}</Tag>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+        {thisWeek.length > 0 ? (
+          <div className="min-w-0">
+            <h3 className="text-[13px] leading-5 text-paper-sage">This week</h3>
+            <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-[14px] leading-[22px] text-paper-char">
+              {thisWeek.map((outcome) => (
+                <li key={outcome}>{outcome}</li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
 
-      {measured.length > 0 ? (
-        <ul className="mt-4 space-y-1.5" aria-label="Goals with a target">
-          {measured.slice(0, 5).map((goal) => (
-            <li key={goal.id} className="text-[13px] leading-5">
-              <span className="font-semibold text-paper-moss">{goal.title}</span>
-              <span className="block text-paper-sage tabular-nums">
-                {goal.now || "?"} → {goal.target || "?"}
-                {goal.by ? ` by ${goal.by}` : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+        {areas.length > 0 ? (
+          <div className="min-w-0">
+            <h3 className="text-[13px] leading-5 text-paper-sage">Areas of life</h3>
+            <ul className="mt-1 space-y-1" aria-label="Areas of life">
+              {areas.map((area) => (
+                <li key={area.name} className="flex items-center justify-between gap-2 text-[14px] leading-[22px] text-paper-char">
+                  <span className="truncate">{area.name}</span>
+                  <Tag tone={TONE[area.status]}>{area.status === "unrated" ? "Unrated" : area.status}</Tag>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
     </PaperSection>
   );
 }

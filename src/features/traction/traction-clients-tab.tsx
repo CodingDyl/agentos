@@ -62,7 +62,7 @@ export function TractionClientsTab({ data }: { data: TractionData }) {
             return (
               <li key={client.id} className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="min-w-0">
-                  <Link to={prospectHref(client.id)} className={cn("rounded-[2px] text-[15px] font-semibold text-paper-moss hover:underline", PAPER_FOCUS)}>
+                  <Link to={prospectHref(client.id)} className={cn("rounded-sm text-[14px] font-semibold text-paper-moss hover:underline", PAPER_FOCUS)}>
                     {client.company}
                   </Link>
                   <dl className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
@@ -102,7 +102,7 @@ export function TractionClientsTab({ data }: { data: TractionData }) {
                     <Link
                       to={hermesHref(prompt)}
                       className={cn(
-                        "inline-flex min-h-8 items-center gap-1.5 rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-linen",
+                        "inline-flex min-h-8 items-center gap-1.5 rounded-md border border-paper-gold px-3 text-[14px] font-semibold text-paper-moss hover:bg-paper-linen",
                         PAPER_FOCUS,
                       )}
                     >

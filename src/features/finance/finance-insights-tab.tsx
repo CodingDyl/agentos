@@ -26,13 +26,13 @@ export function FinanceInsightsTab({ data }: { data: FinanceData }) {
                 <li key={anomaly.id}>
                   <PaperCard className="p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="flex min-w-0 flex-wrap items-center gap-2 text-[15px] font-semibold text-paper-moss">
+                      <p className="flex min-w-0 flex-wrap items-center gap-2 text-[14px] font-semibold text-paper-moss">
                         <Tag tone="flame">{anomaly.kind === "category" ? "Spending" : "Payment"}</Tag>
                         {anomaly.title}
                       </p>
                       <DismissAlertButton id={anomaly.id} text={anomaly.title} />
                     </div>
-                    <p className="mt-1 text-[13.5px] leading-6 text-paper-char">{anomaly.detail}</p>
+                    <p className="mt-1 text-[14px] leading-6 text-paper-char">{anomaly.detail}</p>
                     {anomaly.kind === "transaction" && anomaly.transactionId && anomaly.merchant && data.jev.configured && !sample ? (
                       <AnomalyClassify data={data} transactionId={anomaly.transactionId} merchant={anomaly.merchant} />
                     ) : null}
@@ -81,11 +81,11 @@ function PreviousReviewPanel({ previous, sample }: { previous: NonNullable<Finan
       primary={!review.narrative}
       notice={
         review.narrative ? undefined : previous.error ? (
-          <p role="alert" className="mt-3 text-[13.5px] leading-6 text-paper-flame-deep">
+          <p role="alert" className="mt-3 text-[14px] leading-6 text-paper-flame-deep">
             Hermes could not write it: {previous.error} It tries again on its own, or you can ask now.
           </p>
         ) : (
-          <p className="mt-3 text-[13.5px] leading-6 text-paper-char">Hermes writes this on its own at the start of each month. It has not yet, so you can ask for it now.</p>
+          <p className="mt-3 text-[14px] leading-6 text-paper-char">Hermes writes this on its own at the start of each month. It has not yet, so you can ask for it now.</p>
         )
       }
       footer={
@@ -152,10 +152,10 @@ function ReviewPanel({
 
       {review.changes.length > 0 ? (
         <div className="mt-6">
-          <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">What changed</p>
+          <p className="text-[13px] font-semibold text-paper-sage">What changed</p>
           <ul className="mt-2 divide-y divide-paper-stone">
             {review.changes.map((change) => (
-              <li key={change.label} className="flex items-baseline justify-between py-1.5 text-[14.5px]">
+              <li key={change.label} className="flex items-baseline justify-between py-1.5 text-[14px]">
                 <span className="text-paper-moss">{change.label}</span>
                 <span className={cn("tabular-nums", change.change >= 0.2 ? "font-semibold text-paper-flame-deep" : "text-paper-char")}>{formatChange(change.change)}</span>
               </li>
@@ -171,10 +171,10 @@ function ReviewPanel({
       ].map((group) =>
         group.items.length === 0 ? null : (
           <div key={group.label} className="mt-6">
-            <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">{group.label}</p>
+            <p className="text-[13px] font-semibold text-paper-sage">{group.label}</p>
             <ul className="mt-2 space-y-1.5">
               {group.items.map((item) => (
-                <li key={item} className="text-[14.5px] leading-6 text-paper-moss">
+                <li key={item} className="text-[14px] leading-6 text-paper-moss">
                   {item}
                 </li>
               ))}
@@ -186,16 +186,16 @@ function ReviewPanel({
       <div className="mt-8 border-t border-paper-stone pt-6">
         {review.narrative ? (
           <>
-            <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Hermes explains</p>
+            <p className="text-[13px] font-semibold text-paper-sage">Hermes explains</p>
             <div className="mt-2">
               {splitNarrative(review.narrative).map((block, index) => (
                 <div key={`${block.heading ?? "intro"}-${index}`} className={index > 0 ? "mt-4" : undefined}>
                   {block.heading ? <p className="text-[13px] font-semibold text-paper-moss">{block.heading}</p> : null}
-                  <p className="text-[14.5px] leading-7 whitespace-pre-line text-paper-char">{block.text}</p>
+                  <p className="text-[14px] leading-7 whitespace-pre-line text-paper-char">{block.text}</p>
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-[12.5px] text-paper-sage">
+            <p className="mt-2 text-[13px] text-paper-sage">
               Written from the figures above{review.narrativeAt ? `, ${new Date(review.narrativeAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}. Hermes did not calculate any of them.
             </p>
           </>
@@ -204,7 +204,7 @@ function ReviewPanel({
         <PaperButton variant={primary ? "amber" : "ghost"} className="mt-4" disabled={pending || sample} onClick={onExplain}>
           {pending ? "Asking Hermes…" : explainLabel}
         </PaperButton>
-        {sample ? <p className="mt-2 text-[12.5px] text-paper-sage">Not available on sample data.</p> : null}
+        {sample ? <p className="mt-2 text-[13px] text-paper-sage">Not available on sample data.</p> : null}
         <MutationError error={error} />
         {footer}
       </div>

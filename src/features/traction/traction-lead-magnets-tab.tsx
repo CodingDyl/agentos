@@ -91,13 +91,13 @@ export function TractionLeadMagnetsTab({ data }: { data: TractionData }) {
                     type="button"
                     onClick={() => setOpen(magnet.id)}
                     className={cn(
-                      "flex w-full cursor-pointer items-center justify-between gap-3 rounded-none border border-paper-mist bg-paper-white p-4 text-left hover:bg-paper-linen",
+                      "flex w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-paper-mist bg-paper-white p-4 text-left hover:bg-paper-linen",
                       PAPER_FOCUS,
                     )}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-[15px] font-semibold text-paper-moss">{magnet.title}</span>
-                      <span className="block text-[12.5px] text-paper-sage">
+                      <span className="block truncate text-[14px] font-semibold text-paper-moss">{magnet.title}</span>
+                      <span className="block text-[13px] text-paper-sage">
                         {TRACKS.find((track) => track.value === magnet.track)?.label} · {FORMATS.find((format) => format.value === magnet.format)?.label} ·{" "}
                         {statsLine(data.leadMagnetStats[magnet.id] ?? EMPTY_STATS)}
                       </span>
@@ -129,7 +129,7 @@ function NewLeadMagnetForm({ offers, onCreated }: { offers: readonly Offer[]; on
 
   return (
     <form
-      className="grid gap-3 rounded-none border border-paper-mist bg-paper-cream p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:items-end"
+      className="grid gap-3 rounded-md border border-paper-mist bg-paper-cream p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:items-end"
       onSubmit={(event) => {
         event.preventDefault();
         if (!title.trim()) return;
@@ -347,11 +347,11 @@ function LeadMagnetEditor({
 
         <Results stats={stats} virtec={virtec} source={leadMagnetSource(magnet.slug)} />
 
-        <div className="flex flex-wrap items-center gap-2 rounded-none bg-paper-linen px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-paper-linen px-3 py-2.5">
           {magnet.experimentId ? (
             <Link
               to="/traction?tab=experiments"
-              className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
+              className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-md px-3 text-[14px] font-semibold text-paper-blue hover:bg-paper-stone", PAPER_FOCUS)}
             >
               <FlaskConical className="size-3.5" aria-hidden="true" />
               {experimentName ?? "Its experiment"}
@@ -362,7 +362,7 @@ function LeadMagnetEditor({
               {experiment.isPending ? "Starting…" : "Track with an experiment"}
             </PaperButton>
           )}
-          <span className="text-[12.5px] text-paper-sage">
+          <span className="text-[13px] text-paper-sage">
             {magnet.experimentId
               ? "Signups you take into Traction are tagged with it, so its numbers come from real prospects."
               : "Creates a planned experiment on the content channel and links it; sharpen its hypothesis on the Experiments tab."}
@@ -398,7 +398,7 @@ function LeadMagnetEditor({
               maxLength={32}
               pattern="[a-z0-9](?:[a-z0-9\-]{0,30}[a-z0-9])?"
               title="Lower-case letters, digits and hyphens"
-              className={cn(PAPER_INPUT, "w-full font-mono text-[13px]")}
+              className={cn(PAPER_INPUT, "w-full font-mono text-[12px]")}
               value={draft.slug}
               onChange={set("slug")}
             />
@@ -416,18 +416,18 @@ function LeadMagnetEditor({
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 rounded-none bg-paper-linen px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-paper-linen px-3 py-2.5">
           <PaperButton variant="ghost" disabled={hermes.isPending || dirty} onClick={() => hermes.mutate(magnet.id)} title={dirty ? "Save your edits first" : undefined}>
             <PenLine className="size-3.5" aria-hidden="true" />
             {hermes.isPending ? "Hermes is drafting… (up to 2 min)" : magnet.draftedAt ? "Redraft empty fields" : "Draft with Hermes"}
           </PaperButton>
-          <span className="text-[12.5px] text-paper-sage">
+          <span className="text-[13px] text-paper-sage">
             {dirty ? "Save first. Hermes fills only fields that are empty on the server." : "Fills empty fields only. Anything it cannot know is marked [NEEDS DATA]."}
           </span>
         </div>
 
         <fieldset className="space-y-3">
-          <legend className="mb-1 font-paper-display text-[15px] font-bold text-paper-moss">The promise</legend>
+          <legend className="mb-1 text-[14px] font-semibold text-paper-moss">The promise</legend>
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField label="Promise" hint="the one-line result" max={200} value={draft.promise} onChange={set("promise")} />
             <TextField label="Who it is for" hint="in their words" max={200} value={draft.audience} onChange={set("audience")} />
@@ -435,7 +435,7 @@ function LeadMagnetEditor({
         </fieldset>
 
         <fieldset className="space-y-3">
-          <legend className="mb-1 font-paper-display text-[15px] font-bold text-paper-moss">Landing page</legend>
+          <legend className="mb-1 text-[14px] font-semibold text-paper-moss">Landing page</legend>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <TextField label="Headline" max={120} value={draft.headline} onChange={set("headline")} />
             <TextField label="Button" hint="2 to 5 words" max={40} value={draft.cta} onChange={set("cta")} />
@@ -466,18 +466,18 @@ function LeadMagnetEditor({
         </fieldset>
 
         <fieldset className="space-y-3">
-          <legend className="mb-1 font-paper-display text-[15px] font-bold text-paper-moss">
+          <legend className="mb-1 text-[14px] font-semibold text-paper-moss">
             The resource{" "}
-            <span className="text-[12.5px] font-normal text-paper-sage">
+            <span className="text-[13px] font-normal text-paper-sage">
               Blank line between paragraphs, <code>- </code> for bullets, <code>- [ ] </code> for checklist items, <code>**bold**</code>.
             </span>
           </legend>
           {draft.sections.length === 0 ? <p className="text-[13px] text-paper-sage">No sections yet. Draft with Hermes, or add the first one.</p> : null}
           <ol className="space-y-3">
             {draft.sections.map((section, index) => (
-              <li key={index} className="rounded-none border border-paper-mist p-3">
+              <li key={index} className="rounded-md border border-paper-mist p-3">
                 <div className="flex items-center gap-2">
-                  <span className="font-paper-display text-[13px] font-bold text-paper-ash tabular-nums">{index + 1}.</span>
+                  <span className="text-[13px] font-semibold text-paper-ash tabular-nums">{index + 1}.</span>
                   <input
                     aria-label={`Section ${index + 1} heading`}
                     maxLength={120}
@@ -503,7 +503,7 @@ function LeadMagnetEditor({
                   aria-label={`Section ${index + 1} text`}
                   rows={6}
                   maxLength={4000}
-                  className={cn(PAPER_INPUT, "mt-2 w-full py-2 font-mono text-[13px] leading-6")}
+                  className={cn(PAPER_INPUT, "mt-2 w-full py-2 font-mono text-[12px] leading-6")}
                   value={section.body}
                   onChange={(event) => setSection(index, "body", event.target.value)}
                 />
@@ -555,7 +555,7 @@ function LeadMagnetEditor({
         </div>
 
         {blockers.length > 0 ? (
-          <div className="rounded-none border border-paper-mist bg-paper-cream px-4 py-3">
+          <div className="rounded-md border border-paper-mist bg-paper-cream px-4 py-3">
             <p className="text-[13px] font-semibold text-paper-moss">Before it can ship</p>
             <ul className="mt-1 list-disc pl-5 text-[13px] leading-6 text-paper-char">
               {blockers.map((blocker) => (
@@ -605,7 +605,7 @@ function LeadMagnetEditor({
               href={`/api/traction/lead-magnets/${encodeURIComponent(magnet.id)}/export.zip`}
               download
               className={cn(
-                "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md px-3 text-[14px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                 PAPER_FOCUS,
               )}
             >
@@ -648,13 +648,13 @@ function Results({ stats, virtec, source }: { stats: LeadMagnetStats; virtec: "o
     <div>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {cells.map(([label, value]) => (
-          <div key={label} className="rounded-none border border-paper-mist px-3 py-2">
-            <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
-            <dd className="font-paper-display text-[22px] font-bold text-paper-moss tabular-nums">{value}</dd>
+          <div key={label} className="rounded-md border border-paper-mist px-3 py-2">
+            <dt className="text-[13px] font-semibold text-paper-sage">{label}</dt>
+            <dd className="text-[16px] font-semibold text-paper-moss tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
-      <p className="mt-1.5 text-[12px] text-paper-sage">
+      <p className="mt-1.5 text-[13px] text-paper-sage">
         {virtec === "ok" ? (
           <>
             Counted from Virtec website leads with source <code>{source}</code>.
@@ -705,7 +705,7 @@ function IconButton({ label, disabled, onClick, children }: { label: string; dis
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={cn("cursor-pointer rounded-none p-1.5 text-paper-sage hover:text-paper-moss disabled:cursor-default disabled:opacity-30", PAPER_FOCUS)}
+      className={cn("cursor-pointer rounded-md p-1.5 text-paper-sage hover:text-paper-moss disabled:cursor-default disabled:opacity-30", PAPER_FOCUS)}
     >
       {children}
     </button>
@@ -749,9 +749,9 @@ function SignupEmail({
 
   return (
     <fieldset className="space-y-3">
-      <legend className="mb-1 font-paper-display text-[15px] font-bold text-paper-moss">
+      <legend className="mb-1 text-[14px] font-semibold text-paper-moss">
         Signup email{" "}
-        <span className="text-[12.5px] font-normal text-paper-sage">
+        <span className="text-[13px] font-normal text-paper-sage">
           Sent by Virtec the moment someone signs up. Use <code>{"{{firstName}}"}</code> and <code>{"{{link}}"}</code>.
         </span>
       </legend>
@@ -767,7 +767,7 @@ function SignupEmail({
               rows={9}
               maxLength={3000}
               placeholder={"Hi {{firstName}},\n\nHere is your checklist: {{link}}\n\n…\n\nDylan"}
-              className={cn(PAPER_INPUT, "w-full py-2 font-mono text-[13px] leading-6")}
+              className={cn(PAPER_INPUT, "w-full py-2 font-mono text-[12px] leading-6")}
               value={body}
               onChange={onBody}
             />
@@ -775,16 +775,16 @@ function SignupEmail({
         </div>
         <div>
           <FieldLabel>Preview</FieldLabel>
-          <div className="rounded-none border border-paper-mist bg-paper-white p-4 text-[13.5px] leading-6 text-paper-char">
+          <div className="rounded-md border border-paper-mist bg-paper-white p-4 text-[14px] leading-6 text-paper-char">
             <p className="font-semibold text-paper-moss">{subject.replaceAll("{{firstName}}", "Jane") || "No subject yet"}</p>
             <p className="mt-2 break-words whitespace-pre-wrap">{preview || "Nothing written yet."}</p>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-none bg-paper-linen px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 rounded-md bg-paper-linen px-3 py-2.5">
         <Mail className="size-3.5 text-paper-sage" aria-hidden="true" />
-        <span className="text-[12.5px] text-paper-char">{state}</span>
+        <span className="text-[13px] text-paper-char">{state}</span>
         <span className="ml-auto flex gap-1.5">
           {!on || changed ? (
             <PaperButton
@@ -811,7 +811,7 @@ function SignupEmail({
           ) : null}
         </span>
       </div>
-      {blockers.length > 0 && !on ? <p className="text-[12.5px] text-paper-sage">Before it can go out: {blockers.join("; ")}.</p> : null}
+      {blockers.length > 0 && !on ? <p className="text-[13px] text-paper-sage">Before it can go out: {blockers.join("; ")}.</p> : null}
       {toggle.error ? (
         <p role="alert" className="text-[13px] text-paper-flame-deep">
           {toggle.error.message}

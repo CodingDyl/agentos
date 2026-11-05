@@ -96,7 +96,7 @@ function IdeaBody({ idea }: { idea: VideoIdea }) {
           {idea.assessmentPath ? (
             <PaperSection label="Assessment">
               {assessment.data ? <Markdown tone="paper" content={assessment.data.markdown} className="max-w-[72ch]" /> : null}
-              {assessment.error ? <p className="text-[13.5px] text-paper-flame-deep">{assessment.error.message}</p> : null}
+              {assessment.error ? <p className="text-[14px] text-paper-flame-deep">{assessment.error.message}</p> : null}
             </PaperSection>
           ) : idea.mode === "learn" && idea.stage === "noted" ? (
             <PaperNotice>This one was only for learning. Your note is in Memory, tagged learning.</PaperNotice>
@@ -128,7 +128,7 @@ function Decide({ idea }: { idea: VideoIdea }) {
 
   return (
     <section aria-label="Decide" className="border border-paper-ash bg-paper-cream px-5 py-5">
-      <h2 className="font-paper-display text-[19px] font-bold tracking-[-0.01em] text-paper-moss">Should AgentOS adopt this?</h2>
+      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Should AgentOS adopt this?</h2>
       <p className="mt-1.5 max-w-[64ch] text-[14px] leading-6 text-paper-char">
         Approving plans this and starts building it, one task at a time. You'll still review each change before it merges.
       </p>
@@ -184,9 +184,9 @@ function PasteTranscript({ idea }: { idea: VideoIdea }) {
         if (text.trim()) paste.mutate({ id: idea.id, text });
       }}
     >
-      <h2 className="font-paper-display text-[19px] font-bold tracking-[-0.01em] text-paper-moss">{idea.captionAttempts ? "Or paste the transcript yourself" : "This video has no captions"}</h2>
+      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">{idea.captionAttempts ? "Or paste the transcript yourself" : "This video has no captions"}</h2>
       <p className="mt-1.5 max-w-[64ch] text-[14px] leading-6 text-paper-char">Paste a transcript and the note is written from it straight away. Lines starting with a time like 01:05 keep it.</p>
-      <textarea value={text} onChange={(event) => setText(event.target.value)} rows={8} aria-label="Transcript" className={cn(PAPER_INPUT, "mt-3 w-full py-2 font-mono text-[12.5px]")} />
+      <textarea value={text} onChange={(event) => setText(event.target.value)} rows={8} aria-label="Transcript" className={cn(PAPER_INPUT, "mt-3 w-full py-2 font-mono text-[12px]")} />
       <PaperButton type="submit" variant="amber" className="mt-3" disabled={!text.trim() || paste.isPending}>
         {paste.isPending ? "Saving…" : "Write the note"}
       </PaperButton>
@@ -219,8 +219,8 @@ function BuildPlan({ idea }: { idea: VideoIdea }) {
           return (
             <li key={taskId ?? index} className="border-t border-paper-mist pt-4">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="font-mono text-[12.5px] text-paper-sage tabular-nums">{taskId}</span>
-                <span className="text-[15px] font-medium text-paper-moss">{task.title}</span>
+                <span className="font-mono text-[12px] text-paper-sage tabular-nums">{taskId}</span>
+                <span className="text-[14px] font-medium text-paper-moss">{task.title}</span>
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-3">
                 <PaperIndicator tone={state.tone} label={state.label} />
@@ -234,7 +234,7 @@ function BuildPlan({ idea }: { idea: VideoIdea }) {
                 <summary className="cursor-pointer text-[13px] text-paper-sage hover:text-paper-moss">What it builds</summary>
                 <p className="mt-2 max-w-[72ch] text-[14px] leading-6 whitespace-pre-wrap text-paper-char">{task.objective}</p>
                 {task.acceptanceCriteria.length ? (
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-[13.5px] leading-6 text-paper-char">
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6 text-paper-char">
                     {task.acceptanceCriteria.map((line) => (
                       <li key={line}>{line}</li>
                     ))}

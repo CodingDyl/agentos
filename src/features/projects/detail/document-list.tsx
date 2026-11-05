@@ -42,7 +42,7 @@ export function DocumentList({
 
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 items-baseline gap-2.5">
-                  <span className={cn("min-w-0 truncate text-foreground", dense ? "text-[14px] leading-5" : "text-[15px] leading-6")}>
+                  <span className={cn("min-w-0 truncate text-foreground", dense ? "text-[14px] leading-5" : "text-[14px] leading-6")}>
                     {document.title}
                   </span>
                   {document.origin === "repo" ? (

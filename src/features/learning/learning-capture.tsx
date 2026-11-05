@@ -111,7 +111,7 @@ export function LearningCapture({ context, onDone, className }: { context: Captu
     <form onSubmit={submit} aria-labelledby={`${id}-title`} className={cn("space-y-4 border border-paper-mist bg-paper-white p-5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 id={`${id}-title`} className="font-paper-display text-[19px] font-bold">
+          <h2 id={`${id}-title`} className="text-[16px] font-semibold">
             Capture learning
           </h2>
           {context.sourceTitle ? (
@@ -179,7 +179,7 @@ export function LearningCapture({ context, onDone, className }: { context: Captu
       <WorkspaceTaskPicker workspaceId={link.workspaceId} taskId={link.taskId} onChange={setLink} />
 
       {create.error ? (
-        <p role="alert" className="text-[13.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[14px] text-paper-flame-deep">
           {create.error.message}
         </p>
       ) : null}
@@ -188,7 +188,7 @@ export function LearningCapture({ context, onDone, className }: { context: Captu
         <PaperButton type="submit" variant="amber" disabled={!title.trim() || stampInvalid || create.isPending}>
           <BookmarkPlus className="size-3.5" strokeWidth={2} aria-hidden="true" /> {create.isPending ? "Saving…" : "Save learning"}
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">Saved to Knowledge. It becomes memory only if you promote it.</span>
+        <span className="text-[13px] text-paper-sage">Saved to Knowledge. It becomes memory only if you promote it.</span>
       </div>
     </form>
   );

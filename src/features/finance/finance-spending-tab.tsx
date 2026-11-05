@@ -34,7 +34,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
         label="Recent payments"
         count={filter === "enquire" ? data.enquiries.length : rows.length}
         action={
-          <div role="radiogroup" aria-label="Filter payments" className="inline-flex rounded-none border border-paper-mist bg-paper-linen p-0.5 text-[13px]">
+          <div role="radiogroup" aria-label="Filter payments" className="inline-flex rounded-md border border-paper-mist bg-paper-linen p-0.5 text-[13px]">
             {(["all", "review", "enquire"] as const).map((option) => (
               <button
                 key={option}
@@ -42,7 +42,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
                 role="radio"
                 aria-checked={filter === option}
                 onClick={() => setFilter(option)}
-                className={cn("min-h-7 cursor-pointer rounded-none px-3 font-medium", filter === option ? "bg-paper-white text-paper-moss ring-1 ring-paper-mist" : "text-paper-sage hover:text-paper-moss")}
+                className={cn("min-h-7 cursor-pointer rounded-md px-3 font-medium", filter === option ? "bg-paper-white text-paper-moss ring-1 ring-paper-mist" : "text-paper-sage hover:text-paper-moss")}
               >
                 {FILTER_LABEL[option]}
                 {option === "enquire" && data.enquiries.length > 0 ? <span className="ml-1 tabular-nums">({data.enquiries.length})</span> : null}
@@ -58,7 +58,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
             </p>
           ) : (
             <>
-              <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+              <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
                 {enquiryPager.pageItems.map((enquiry) => (
                   <EnquiryLine key={enquiry.transactionId} enquiry={enquiry} />
                 ))}
@@ -70,7 +70,7 @@ export function FinanceSpendingTab({ data }: { data: FinanceData }) {
           <p className="text-[14px] leading-6 text-paper-char">{filter === "review" ? "Nothing needs a look." : "No payments yet."}</p>
         ) : (
           <>
-            <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+            <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
               {pager.pageItems.map((row) => (
                 <TransactionLine key={row.id} row={row} jev={data.jev.configured} readOnlySample={sample} enquired={enquired.has(row.id)} />
               ))}
@@ -94,14 +94,14 @@ function TransactionLine({ row, jev, readOnlySample, enquired }: { row: FinanceT
     <li className="px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-2 text-[14.5px] text-paper-moss">
+          <p className="flex flex-wrap items-center gap-2 text-[14px] text-paper-moss">
             <span className="truncate">{label}</span>
             {row.recurring ? <Tag>Recurring</Tag> : null}
             {row.flagged ? <Tag tone="flame">Unusual</Tag> : null}
             {row.categorySource === "you" ? <Tag tone="green">Yours</Tag> : null}
             {enquired ? <Tag tone="blue">Enquiring</Tag> : null}
           </p>
-          <p className="text-[12.5px] text-paper-sage">
+          <p className="text-[13px] text-paper-sage">
             {formatDay(row.date)} · {row.accountName}
           </p>
         </div>
@@ -113,7 +113,7 @@ function TransactionLine({ row, jev, readOnlySample, enquired }: { row: FinanceT
             disabled={save.isPending || readOnlySample}
             title={readOnlySample ? "Corrections are saved once Investec is connected" : undefined}
             onChange={(event) => save.mutate({ merchant: label, category: event.target.value as Category })}
-            className="min-h-8 cursor-pointer rounded-none border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-8 cursor-pointer rounded-md border border-paper-mist bg-paper-white px-2 text-[13px] text-paper-moss disabled:cursor-not-allowed disabled:opacity-60"
           >
             {CATEGORY_CHOICES.map((category) => (
               <option key={category} value={category}>
@@ -124,7 +124,7 @@ function TransactionLine({ row, jev, readOnlySample, enquired }: { row: FinanceT
         </label>
 
         <div className="flex items-center gap-1">
-          <p className={cn("w-28 text-right text-[14.5px] tabular-nums", row.amount > 0 ? "text-paper-moss" : "text-paper-char")}>{money(row.amount, true)}</p>
+          <p className={cn("w-28 text-right text-[14px] tabular-nums", row.amount > 0 ? "text-paper-moss" : "text-paper-char")}>{money(row.amount, true)}</p>
           <button
             type="button"
             aria-pressed={enquired}
@@ -133,7 +133,7 @@ function TransactionLine({ row, jev, readOnlySample, enquired }: { row: FinanceT
             disabled={enquiryPending || readOnlySample}
             onClick={() => (enquired ? resolve.mutate(row.id) : enquire.mutate({ transactionId: row.id }))}
             className={cn(
-              "inline-flex size-8 cursor-pointer items-center justify-center rounded-none disabled:cursor-not-allowed disabled:opacity-50",
+              "inline-flex size-8 cursor-pointer items-center justify-center rounded-md disabled:cursor-not-allowed disabled:opacity-50",
               PAPER_FOCUS,
               enquired ? "text-paper-blue" : "text-paper-sage hover:text-paper-moss",
             )}
@@ -161,13 +161,13 @@ function EnquiryLine({ enquiry }: { enquiry: Enquiry }) {
     <li className="px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14.5px] text-paper-moss">{label}</p>
-          <p className="text-[12.5px] text-paper-sage">
+          <p className="truncate text-[14px] text-paper-moss">{label}</p>
+          <p className="text-[13px] text-paper-sage">
             {formatDay(enquiry.date)} · {enquiry.accountName}
             {enquiry.merchant && enquiry.merchant !== enquiry.description ? ` · ${enquiry.description}` : ""}
           </p>
         </div>
-        <p className={cn("w-28 text-right text-[14.5px] tabular-nums", enquiry.amount > 0 ? "text-paper-moss" : "text-paper-char")}>{money(enquiry.amount, true)}</p>
+        <p className={cn("w-28 text-right text-[14px] tabular-nums", enquiry.amount > 0 ? "text-paper-moss" : "text-paper-char")}>{money(enquiry.amount, true)}</p>
       </div>
 
       <form

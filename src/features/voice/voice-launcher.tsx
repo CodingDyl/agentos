@@ -1,79 +1,49 @@
-import { MessageSquareText, Mic } from "lucide-react";
+import { MicOff } from "lucide-react";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useJarvis } from "./jarvis-store";
-import { PHASE_LABEL } from "./voice-model";
+import { useVoiceControl } from "./use-voice-control";
+import { PHASE_LABEL, VOICE_TOGGLE_EVENT } from "./voice-model";
 import { VoiceBars } from "./voice-bars";
 
 /**
- * The small always-there way in, and the visualiser.
- *
- * One press starts recording straight away and the bars follow your voice; the
- * next press (or a pause in your speech) ends it. What you said is sent to
- * Hermes and the answer is spoken back, with no panel in the way. The panel is
- * one press away on the text button, and opens itself only when it has
- * something to ask you: an approval, or an error.
+ * Voice in the top bar: nothing while idle, then what Jarvis is doing, as a
+ * labelled control that stops it. Also where the palette's voice command lands.
  */
 export function VoiceLauncher() {
   const jarvis = useJarvis();
+  const control = useVoiceControl();
+  const { toggle } = control;
   const busy = jarvis.phase !== "idle" && jarvis.phase !== "error";
-  const canRecord = jarvis.voice?.enabled === true && jarvis.voice.configured;
-  const caption =
-    jarvis.voice?.enabled === false
-      ? "Voice off"
-      : jarvis.voiceStatusError
-        ? "Voice server unreachable"
-        : jarvis.voice && !jarvis.voice.configured
-          ? "No FISH_API_KEY on server"
-          : jarvis.audioNote && jarvis.phase === "idle"
-            ? "Voice failed. Open text for why"
-            : jarvis.holding && jarvis.phase === "listening"
-              ? "Listening. Let go of Ctrl to send"
-            : jarvis.askingMic
-        ? "Allow the microphone in the browser prompt"
-        : jarvis.phase === "confirming" && jarvis.transcript
-        ? `"${jarvis.transcript}"`
-        : jarvis.phase === "idle" && canRecord && jarvis.micPermission === "denied"
-          ? "Microphone blocked"
-          : jarvis.phase === "idle" && canRecord && jarvis.micPermission === "prompt"
-            ? "Tap to allow microphone"
-            : jarvis.phase === "idle" && canRecord
-              ? jarvis.pushToTalk
-                ? "Ready. Hold Ctrl to talk"
-                : jarvis.target
-                  ? `Ready. Tell ${jarvis.target} what to do`
-                  : "Ready. Tap to talk"
-              : PHASE_LABEL[jarvis.phase];
 
+  useEffect(() => {
+    const onToggle = () => toggle();
+    window.addEventListener(VOICE_TOGGLE_EVENT, onToggle);
+    return () => window.removeEventListener(VOICE_TOGGLE_EVENT, onToggle);
+  }, [toggle]);
+
+  // Always present, so a state change is announced as it happens.
   return (
-    <div className="flex items-stretch gap-1.5">
-      <button
-        type="button"
-        onClick={() => (canRecord ? jarvis.toggleListening() : jarvis.open())}
-        aria-label={`Jarvis, ${PHASE_LABEL[jarvis.phase]}`}
-        aria-pressed={jarvis.phase === "listening"}
-        className={cn(
-          "os-focus-ring flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-1 rounded-md border px-3 py-2 text-left transition-colors duration-150",
-          busy ? "border-os-amber/60" : "border-os-border hover:border-os-border-strong",
-        )}
-      >
-        <span className="flex items-center gap-3">
-          <Mic className={cn("size-4 shrink-0", busy ? "text-os-amber" : "text-os-muted")} strokeWidth={1.5} aria-hidden="true" />
-          <VoiceBars phase={jarvis.phase} level={jarvis.level} />
-        </span>
-        <span className="os-meta truncate text-os-subtle" role="status" aria-live="polite">
-          {caption}
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={jarvis.isOpen ? jarvis.close : jarvis.open}
-        aria-label={jarvis.isOpen ? "Hide Jarvis text" : "Show Jarvis text"}
-        aria-pressed={jarvis.isOpen}
-        title="Text, transcript and approvals"
-        className="os-focus-ring inline-flex w-9 shrink-0 cursor-pointer items-center justify-center rounded-md border border-os-border text-os-muted transition-colors duration-150 hover:border-os-border-strong hover:text-foreground"
-      >
-        <MessageSquareText className="size-4" strokeWidth={1.5} aria-hidden="true" />
-      </button>
-    </div>
+    <span className="contents">
+      <span className="sr-only" role="status" aria-live="polite">
+        {busy ? control.caption : ""}
+      </span>
+      {busy ? (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={control.listening}
+          aria-label={`Jarvis, ${PHASE_LABEL[jarvis.phase]}`}
+          title={control.caption}
+          className={cn(
+            "os-focus-ring inline-flex min-h-10 max-w-52 cursor-pointer items-center gap-2 rounded-md bg-selected px-2.5 text-[13px] leading-5 text-foreground transition-colors duration-150",
+          )}
+        >
+          <MicOff className="size-[18px] shrink-0" strokeWidth={1.5} aria-hidden="true" />
+          <VoiceBars phase={jarvis.phase} level={jarvis.level} width={48} height={18} />
+          <span className="truncate max-lg:hidden">{PHASE_LABEL[jarvis.phase]}</span>
+        </button>
+      ) : null}
+    </span>
   );
 }

@@ -79,13 +79,13 @@ function Stepper({ job }: { job: AnimateJob }) {
         const state = stepState(job, stage);
         return (
           <li key={stage} aria-current={state === "current" || state === "review" ? "step" : undefined} className={cn("px-3 py-2.5", state === "review" ? "bg-paper-linen" : "bg-paper-white")}>
-            <p className="flex items-center gap-1.5 font-paper-utility text-[11.5px] tracking-[0.08em] text-paper-sage uppercase tabular-nums">
+            <p className="flex items-center gap-1.5 text-[13px] text-paper-sage tabular-nums">
               {state === "done" ? <Check className="size-3 text-paper-green" strokeWidth={2.5} aria-hidden="true" /> : <span>{String(index + 1).padStart(2, "0")}</span>}
               <span className={cn(state === "review" && "text-paper-blue")}>
                 {state === "done" ? "Done" : state === "review" ? "Your review" : state === "current" ? "Claude is on it" : "Next"}
               </span>
             </p>
-            <p className={cn("mt-0.5 text-[13.5px] font-semibold", state === "upcoming" ? "text-paper-sage" : "text-paper-moss")}>{ANIMATE_STAGE_LABEL[stage]}</p>
+            <p className={cn("mt-0.5 text-[14px] font-semibold", state === "upcoming" ? "text-paper-sage" : "text-paper-moss")}>{ANIMATE_STAGE_LABEL[stage]}</p>
           </li>
         );
       })}
@@ -166,7 +166,7 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
             </p>
           ) : null}
           {/* The first line says what went wrong; the rest is the evidence: Claude's last words, the failing tool, stray files. */}
-          <p className="text-[13.5px] leading-6 font-medium text-paper-char">{failingInfo.reason.split("\n")[0]}</p>
+          <p className="text-[14px] leading-6 font-medium text-paper-char">{failingInfo.reason.split("\n")[0]}</p>
           {failingInfo.reason.includes("\n") ? (
             <ul className="list-disc space-y-1 pl-5 text-[13px] leading-6 break-words text-paper-char">
               {failingInfo.reason
@@ -205,7 +205,7 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
 
           {live ? (
             <PaperSection label={ANIMATE_STAGE_LABEL[job.stage]}>
-              <p className="max-w-[60ch] text-[13.5px] leading-6 text-paper-sage">
+              <p className="max-w-[60ch] text-[14px] leading-6 text-paper-sage">
                 {job.status === "queued"
                   ? "Waiting for the studio. One stage runs at a time."
                   : job.stage === "build"
@@ -223,10 +223,10 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
                     <details>
                       <summary className={cn("cursor-pointer text-[14px] font-semibold text-paper-moss hover:text-paper-blue", PAPER_FOCUS)}>
                         {ANIMATE_STAGE_LABEL[checkpoint.stage]} · {checkpoint.decision === "approved" ? "approved" : checkpoint.decision === "changes" ? "changes asked for" : "open"}
-                        <span className="ml-2 text-[12.5px] font-normal text-paper-sage">{formatRelativeTime(checkpoint.at)}</span>
+                        <span className="ml-2 text-[13px] font-normal text-paper-sage">{formatRelativeTime(checkpoint.at)}</span>
                       </summary>
                       <div className="mt-4">
-                        {checkpoint.note ? <p className="mb-4 max-w-[72ch] border-l-2 border-paper-blue pl-3 text-[13.5px] leading-6 text-paper-char">You said: {checkpoint.note}</p> : null}
+                        {checkpoint.note ? <p className="mb-4 max-w-[72ch] border-l-2 border-paper-ash pl-3 text-[14px] leading-6 text-paper-char">You said: {checkpoint.note}</p> : null}
                         <Notes checkpoint={checkpoint} />
                       </div>
                     </details>
@@ -247,7 +247,7 @@ function Video({ job, films }: { job: AnimateJob; films: DesignAsset[] }) {
           <StudioLog entries={job.log} live={live} />
           <details className="border-t border-paper-mist pt-4">
             <summary className={cn("cursor-pointer text-[13px] font-medium text-paper-char hover:text-paper-moss", PAPER_FOCUS)}>What Claude was told</summary>
-            <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">
+            <p className="mt-3 text-[13px] leading-5 text-paper-sage">
               Skill: {job.skill.ref} {job.skill.version}. Later stages add the stage's task to the same session.
             </p>
             <pre className="mt-3 max-h-72 overflow-auto border border-paper-mist bg-paper-linen p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap text-paper-moss">{job.prompt}</pre>
@@ -271,7 +271,7 @@ function Notes({ checkpoint }: { checkpoint: AnimateCheckpoint }) {
                 <img src={image.url} alt={image.name} loading="lazy" className="w-full" />
               </button>
               <div className="mt-1 flex items-center justify-between gap-2">
-                <p className="truncate text-[12px] text-paper-sage">{image.name.replace(/\.[a-z]+$/i, "")}</p>
+                <p className="truncate text-[13px] text-paper-sage">{image.name.replace(/\.[a-z]+$/i, "")}</p>
                 <CreativeDownloadButton
                   source={{ url: image.url, title: image.name, date: checkpoint.at, filename: image.name }}
                 />
@@ -280,7 +280,7 @@ function Notes({ checkpoint }: { checkpoint: AnimateCheckpoint }) {
           ))}
         </ul>
       ) : null}
-      {checkpoint.notes ? <Markdown tone="paper" content={checkpoint.notes} className="max-w-[78ch] [&_h1]:text-[22px] [&_h1]:leading-7 [&_h2]:text-[17px]" /> : null}
+      {checkpoint.notes ? <Markdown tone="paper" content={checkpoint.notes} className="max-w-[78ch] [&_h1]:text-[16px] [&_h1]:leading-7 [&_h2]:text-[16px]" /> : null}
       {open !== null ? <FrameViewer images={checkpoint.images} index={open} onIndex={setOpen} onClose={() => setOpen(null)} /> : null}
     </div>
   );
@@ -300,7 +300,7 @@ function FrameViewer({ images, index, onIndex, onClose }: { images: AnimateCheck
 
   const image = images[index];
   return (
-    <div role="dialog" aria-modal="true" aria-label={image.name} className="fixed inset-0 z-50 grid place-items-center bg-paper-moss/90 p-4" onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label={image.name} className="fixed inset-0 z-50 grid place-items-center bg-[var(--scrim)] p-4" onClick={onClose}>
       <button type="button" onClick={onClose} aria-label="Close" className={cn("absolute top-4 right-4 grid size-11 cursor-pointer place-items-center bg-paper-white text-paper-moss", PAPER_FOCUS)}>
         <X className="size-4" aria-hidden="true" />
       </button>
@@ -354,7 +354,7 @@ function Gate({ job, checkpoint }: { job: AnimateJob; checkpoint: AnimateCheckpo
               <PaperButton type="button" variant="ghost" onClick={() => setChanging(false)} disabled={decide.isPending}>
                 Back
               </PaperButton>
-              <span className="text-[12.5px] text-paper-sage">Claude redoes the {label.toLowerCase()} and stops here again.</span>
+              <span className="text-[13px] text-paper-sage">Claude redoes the {label.toLowerCase()} and stops here again.</span>
             </div>
           </form>
         ) : (
@@ -366,11 +366,11 @@ function Gate({ job, checkpoint }: { job: AnimateJob; checkpoint: AnimateCheckpo
             <PaperButton variant="ghost" className="min-h-11" onClick={() => setChanging(true)} disabled={decide.isPending}>
               Request changes
             </PaperButton>
-            <span className="text-[12.5px] text-paper-sage">{next === "build" ? "Approving starts the build, which can take 20 to 40 minutes." : `Next: ${ANIMATE_STAGE_LABEL[next]}.`}</span>
+            <span className="text-[13px] text-paper-sage">{next === "build" ? "Approving starts the build, which can take 20 to 40 minutes." : `Next: ${ANIMATE_STAGE_LABEL[next]}.`}</span>
           </div>
         )}
         {decide.isError ? (
-          <p role="alert" className="mt-3 text-[13.5px] text-paper-flame-deep">
+          <p role="alert" className="mt-3 text-[14px] text-paper-flame-deep">
             {decide.error instanceof Error ? decide.error.message : "That could not be sent."}
           </p>
         ) : null}
@@ -388,7 +388,7 @@ function Revise({ job }: { job: AnimateJob }) {
       {job.revisions.length > 0 ? (
         <ol className="mb-5 space-y-2">
           {job.revisions.map((revision) => (
-            <li key={revision.at} className="text-[13.5px] leading-6 text-paper-char">
+            <li key={revision.at} className="text-[14px] leading-6 text-paper-char">
               <span className="text-paper-sage tabular-nums">{formatRelativeTime(revision.at)} · </span>
               {revision.note}
             </li>
@@ -409,7 +409,7 @@ function Revise({ job }: { job: AnimateJob }) {
           <PaperButton type="submit" variant="ghost" disabled={!note.trim() || resume.isPending}>
             {resume.isPending ? "Sending…" : "Revise the video"}
           </PaperButton>
-          <span className="text-[12.5px] text-paper-sage">Claude rebuilds in the same session and runs the review checks again. The new cut is filed beside this one.</span>
+          <span className="text-[13px] text-paper-sage">Claude rebuilds in the same session and runs the review checks again. The new cut is filed beside this one.</span>
         </div>
       </form>
     </PaperSection>

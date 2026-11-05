@@ -68,7 +68,7 @@ function Profile({ data }: { data: CareerData }) {
           <ErrorLine error={save.error} />
         </form>
       ) : (
-        <div className="space-y-3 text-[15px] leading-6 text-paper-char">
+        <div className="space-y-3 text-[14px] leading-6 text-paper-char">
           <p className="font-medium text-paper-moss">{growth.role}</p>
           {growth.nextMilestone ? <p>Next: {growth.nextMilestone}</p> : null}
           {growth.growthAreas.length > 0 ? (
@@ -99,7 +99,7 @@ function Goals({ data }: { data: CareerData }) {
     <PaperSection label="Goals" count={active.length}>
       <ul className="space-y-2">
         {active.map((goal) => (
-          <li key={goal.id} className="flex flex-wrap items-baseline justify-between gap-2 text-[15px] leading-6">
+          <li key={goal.id} className="flex flex-wrap items-baseline justify-between gap-2 text-[14px] leading-6">
             <span className="min-w-0">{goal.text}</span>
             <span className="flex gap-1">
               <PaperButton onClick={() => setStatus.mutate({ goalId: goal.id, status: "done" })}>Done</PaperButton>
@@ -122,7 +122,7 @@ function Goals({ data }: { data: CareerData }) {
       </form>
       <ErrorLine error={add.error ?? setStatus.error} />
       {closed.length > 0 ? (
-        <ul className="mt-4 space-y-1 text-[13.5px] text-paper-sage">
+        <ul className="mt-4 space-y-1 text-[14px] text-paper-sage">
           {closed.map((goal) => (
             <li key={goal.id}>
               {goal.status === "done" ? "✓" : "✕"} {goal.text}
@@ -188,15 +188,15 @@ function Evidence({ data }: { data: CareerData }) {
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="flex items-center gap-2">
                   <Tag>{EVIDENCE_LABELS[item.kind]}</Tag>
-                  <span className="text-[12.5px] text-paper-sage">{formatDay(item.date)}</span>
+                  <span className="text-[13px] text-paper-sage">{formatDay(item.date)}</span>
                 </span>
                 <PaperButton disabled={remove.isPending} onClick={() => window.confirm("Delete this evidence?") && remove.mutate(item.id)}>
                   Delete
                 </PaperButton>
               </div>
-              <p className="mt-2 text-[15px] leading-6">{item.text}</p>
+              <p className="mt-2 text-[14px] leading-6">{item.text}</p>
               {item.memoryTarget ? (
-                <p className="mt-2 text-[12.5px] text-paper-green">In memory · {item.memoryTarget}</p>
+                <p className="mt-2 text-[13px] text-paper-green">In memory · {item.memoryTarget}</p>
               ) : (
                 <div className="mt-1">
                   <MemoryProposalButton
@@ -234,7 +234,7 @@ function Suggestions({ data }: { data: CareerData }) {
     >
       <ErrorLine error={suggest.error ?? accept.error ?? dismiss.error} />
       {suggestions.length === 0 ? (
-        <p className="text-[14.5px] leading-6 text-paper-char">
+        <p className="text-[14px] leading-6 text-paper-char">
           Skill gaps, measurable next steps, achievements worth recording, and goals your recent work isn't serving. Nothing changes until you accept it.
         </p>
       ) : (
@@ -243,8 +243,8 @@ function Suggestions({ data }: { data: CareerData }) {
             <li key={suggestion.id}>
               <PaperCard>
                 <Tag tone={suggestion.kind === "mismatch" ? "flame" : "marigold"}>{SUGGESTION_LABELS[suggestion.kind]}</Tag>
-                <p className="mt-2 text-[14.5px] leading-6">{suggestion.text}</p>
-                {suggestion.proposedGoal ? <p className="mt-1 text-[13.5px] text-paper-sage">Goal: {suggestion.proposedGoal}</p> : null}
+                <p className="mt-2 text-[14px] leading-6">{suggestion.text}</p>
+                {suggestion.proposedGoal ? <p className="mt-1 text-[14px] text-paper-sage">Goal: {suggestion.proposedGoal}</p> : null}
                 <div className="mt-3 flex gap-2">
                   {suggestion.kind !== "mismatch" || suggestion.proposedGoal ? (
                     <PaperButton variant="ghost" disabled={accept.isPending} onClick={() => accept.mutate(suggestion.id)}>
@@ -260,7 +260,7 @@ function Suggestions({ data }: { data: CareerData }) {
           ))}
         </ul>
       )}
-      {suggestionsAt ? <p className="mt-3 text-[12.5px] text-paper-sage">Asked {formatTimestamp(suggestionsAt)}</p> : null}
+      {suggestionsAt ? <p className="mt-3 text-[13px] text-paper-sage">Asked {formatTimestamp(suggestionsAt)}</p> : null}
     </PaperSection>
   );
 }

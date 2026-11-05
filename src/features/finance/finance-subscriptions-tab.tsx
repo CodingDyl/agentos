@@ -77,7 +77,7 @@ export function FinanceSubscriptionsTab({ data }: { data: FinanceData }) {
           <Figure label="Subscriptions" value={`${money(data.subscriptionMonthly)} / month`} note={`${money(data.subscriptionAnnual)} a year`} />
           {data.subscriptions.length > 0 ? (
             <div className="mt-4 border-t border-paper-stone pt-4" role="group" aria-label="This month's payments">
-              <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">This month</p>
+              <p className="text-[13px] font-semibold text-paper-sage">This month</p>
               <p className="mt-2 flex flex-wrap gap-2">
                 <PayBadge state="paid">{tally.paid} paid</PayBadge>
                 <PayBadge state="due">{tally.due} due</PayBadge>
@@ -101,7 +101,7 @@ export function FinanceSubscriptionsTab({ data }: { data: FinanceData }) {
               <Line strong label="Annual saving" value={money(data.subscriptionReview.annual)} />
             </dl>
           )}
-          <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">Candidates are what Jev ranked high or medium, excluding anything you marked Keep.</p>
+          <p className="mt-3 text-[13px] leading-5 text-paper-sage">Candidates are what Jev ranked high or medium, excluding anything you marked Keep.</p>
         </PaperSection>
 
         <PaperSection label="Jev's second opinion">
@@ -113,7 +113,7 @@ export function FinanceSubscriptionsTab({ data }: { data: FinanceData }) {
               <PaperButton variant="amber" className="mt-4" disabled={assess.isPending || sample || data.subscriptions.length === 0} onClick={() => assess.mutate()}>
                 {assess.isPending ? "Asking Jev…" : unassessed > 0 ? `Rank ${unassessed} ${unassessed === 1 ? "subscription" : "subscriptions"}` : "Ask again"}
               </PaperButton>
-              {sample ? <p className="mt-2 text-[12.5px] text-paper-sage">Not available on sample data.</p> : null}
+              {sample ? <p className="mt-2 text-[13px] text-paper-sage">Not available on sample data.</p> : null}
               {assess.data?.error ? <p className="mt-2 text-[13px] text-paper-flame-deep">Stopped early: {assess.data.error}</p> : null}
               {assess.data && !assess.data.error ? (
                 <p className="mt-2 text-[13px] text-paper-char">
@@ -170,8 +170,8 @@ function SubscriptionCard({
       }
       figure={
         <>
-          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(subscription.monthly)}</span>
-          <span className="block text-[12px] text-paper-sage tabular-nums">{money(subscription.annual)} a year</span>
+          <span className="block text-[16px] leading-6 font-semibold tracking-[-0.02em] text-paper-moss tabular-nums">{money(subscription.monthly)}</span>
+          <span className="block text-[13px] text-paper-sage tabular-nums">{money(subscription.annual)} a year</span>
         </>
       }
     >
@@ -184,10 +184,10 @@ function SubscriptionCard({
           <Line label="Jev's confidence" value={`${Math.round(assessment.confidence * 100)}%`} />
         </dl>
       ) : (
-        <p className="text-[13.5px] leading-6 text-paper-sage">Not ranked yet. Ask Jev on the right to say whether this deserves a review.</p>
+        <p className="text-[14px] leading-6 text-paper-sage">Not ranked yet. Ask Jev on the right to say whether this deserves a review.</p>
       )}
 
-      {subscription.decisionNote ? <p className="mt-3 text-[13.5px] leading-6 text-paper-char">Your note: {subscription.decisionNote}</p> : null}
+      {subscription.decisionNote ? <p className="mt-3 text-[14px] leading-6 text-paper-char">Your note: {subscription.decisionNote}</p> : null}
 
       {!readOnly ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">

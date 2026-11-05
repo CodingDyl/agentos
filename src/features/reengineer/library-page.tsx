@@ -133,7 +133,7 @@ function KindFilter({ value, onChange, entries }: { value: Filter; onChange: (va
             className={cn(
               "min-h-8 cursor-pointer px-3 text-[13px] font-medium capitalize transition-colors duration-150",
               PAPER_FOCUS,
-              value === kind ? "bg-paper-blue text-paper-white" : "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+              value === kind ? "bg-selected text-paper-moss" : "text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
             )}
           >
             {kind} <span className="tabular-nums opacity-70">{count}</span>
@@ -157,22 +157,22 @@ function Entry({ entry }: { entry: LibraryEntry }) {
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone={entry.status === "proven" ? "green" : entry.status === "rejected" ? "flame" : "muted"}>{entry.status === "candidate" ? "To judge" : entry.status}</Tag>
-          <span className="font-paper-utility text-[11.5px] tracking-[0.08em] text-paper-sage uppercase">{entry.kind}</span>
-          {entry.uses > 0 ? <span className="text-[12px] text-paper-sage tabular-nums">used {entry.uses}×</span> : null}
+          <span className="text-[13px] text-paper-sage">{entry.kind}</span>
+          {entry.uses > 0 ? <span className="text-[13px] text-paper-sage tabular-nums">used {entry.uses}×</span> : null}
         </div>
-        <h3 className="font-paper-display text-[16px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">{entry.title}</h3>
-        <p className="text-[13.5px] leading-6 text-paper-char">{entry.summary}</p>
+        <h3 className="text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">{entry.title}</h3>
+        <p className="text-[14px] leading-6 text-paper-char">{entry.summary}</p>
         {entry.whyItWorks ? (
           <p className="text-[13px] leading-6 text-paper-moss">
             <span className="font-medium">Why it works. </span>
             {entry.whyItWorks}
           </p>
         ) : null}
-        <p className="text-[12px] leading-5 break-words text-paper-sage">
+        <p className="text-[13px] leading-5 break-words text-paper-sage">
           From {entry.source.target} · {formatRelativeTime(entry.createdAt)}
           {entry.tags.length > 0 ? ` · ${entry.tags.join(", ")}` : ""}
         </p>
-        {entry.verdicts.length > 0 && entry.verdicts.at(-1)?.note ? <p className="border-l-2 border-paper-mist pl-3 text-[12.5px] leading-5 text-paper-char">“{entry.verdicts.at(-1)!.note}”</p> : null}
+        {entry.verdicts.length > 0 && entry.verdicts.at(-1)?.note ? <p className="border-l-2 border-paper-mist pl-3 text-[13px] leading-5 text-paper-char">“{entry.verdicts.at(-1)!.note}”</p> : null}
 
         <div className="mt-auto pt-2">
           {rejecting ? (
@@ -257,12 +257,12 @@ function Intake() {
 
   return (
     <form onSubmit={submit} aria-label="Start a teardown">
-      <h2 className="font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">Take something apart</h2>
+      <h2 className="text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">Take something apart</h2>
       <div className="mt-4 grid gap-4">
         <label className="block">
           <FieldLabel>Website, app or source</FieldLabel>
           <input value={target} onChange={(event) => setTarget(event.target.value)} placeholder="https://linear.app" className={cn(PAPER_INPUT, "w-full")} required />
-          <span className="mt-1 block text-[12.5px] text-paper-sage">Websites first. Apps and source folders are accepted, with less to go on.</span>
+          <span className="mt-1 block text-[13px] text-paper-sage">Websites first. Apps and source folders are accepted, with less to go on.</span>
         </label>
         <label className="block">
           <FieldLabel>What do you want to understand? (optional)</FieldLabel>
@@ -276,12 +276,12 @@ function Intake() {
 
       {missing.length > 0 ? <PaperNotice className="mt-4">{missing.join(" ")}</PaperNotice> : null}
       {readiness.data && missing.length === 0 && !readiness.data.browser ? (
-        <p className="mt-3 text-[12.5px] leading-5 text-paper-sage">
+        <p className="mt-3 text-[13px] leading-5 text-paper-sage">
           No Chrome with remote debugging is listening, so REA will read the site from its files rather than watch it run. For a live look, start Chrome with <span className="font-mono">--remote-debugging-port=9222</span>.
         </p>
       ) : null}
       {start.isError ? (
-        <p role="alert" className="mt-3 text-[13.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-3 text-[14px] text-paper-flame-deep">
           {start.error instanceof Error ? start.error.message : "The teardown could not be started."}
         </p>
       ) : null}
@@ -291,7 +291,7 @@ function Intake() {
           <Microscope className="size-3.5" aria-hidden="true" />
           {start.isPending ? "Starting…" : "Start the teardown"}
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">Runs on your Claude Code plan, about 10 to 30 minutes.</span>
+        <span className="text-[13px] text-paper-sage">Runs on your Claude Code plan, about 10 to 30 minutes.</span>
       </div>
     </form>
   );
@@ -304,7 +304,7 @@ function Runs({ runs }: { runs: ReengineerRunView[] }) {
   return (
     <PaperSection label="Teardowns" count={runs.length || undefined}>
       {runs.length === 0 ? (
-        <p className="text-[13.5px] leading-6 text-paper-sage">None yet.</p>
+        <p className="text-[14px] leading-6 text-paper-sage">None yet.</p>
       ) : (
         <ul className="divide-y divide-paper-mist border-y border-paper-mist">
           {runs.map((run) => (
@@ -312,13 +312,13 @@ function Runs({ runs }: { runs: ReengineerRunView[] }) {
               <p className="truncate text-[14px] font-semibold text-paper-moss" title={run.target}>
                 {run.target}
               </p>
-              <p className="mt-0.5 text-[12.5px] text-paper-sage tabular-nums">
+              <p className="mt-0.5 text-[13px] text-paper-sage tabular-nums">
                 {run.kind} · {formatRelativeTime(run.createdAt)}
                 {run.entryIds.length > 0 ? ` · ${run.entryIds.length} entries` : ""}
               </p>
               <PaperIndicator tone={RUN_TONE[run.status]} label={RUN_LABEL[run.status]} className="mt-1.5" />
-              {run.error ? <p className="mt-1.5 text-[12.5px] leading-5 text-paper-flame-deep">{run.error}</p> : null}
-              <p className="mt-1.5 flex flex-wrap gap-x-4 text-[12.5px]">
+              {run.error ? <p className="mt-1.5 text-[13px] leading-5 text-paper-flame-deep">{run.error}</p> : null}
+              <p className="mt-1.5 flex flex-wrap gap-x-4 text-[13px]">
                 <Link to={run.jobHref} className={cn("inline-flex items-center gap-1 text-paper-blue hover:underline", PAPER_FOCUS)}>
                   <Link2 className="size-3" aria-hidden="true" />
                   Worker job

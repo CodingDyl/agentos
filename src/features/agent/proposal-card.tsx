@@ -61,8 +61,8 @@ export function ProposalCard({ proposal, approval, onApply, onReject, isRespondi
       aria-label="Proposed update to AgentOS"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Proposed update</h2>
-        <span className="text-[12.5px] text-paper-sage">
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Proposed update</h2>
+        <span className="text-[13px] text-paper-sage">
           {changed} {changed === 1 ? "file" : "files"}
         </span>
       </div>
@@ -70,17 +70,17 @@ export function ProposalCard({ proposal, approval, onApply, onReject, isRespondi
       <ul className="mt-4 space-y-5">
         {proposal.files.map((file) => (
           <li key={file.file} className="min-w-0">
-            <p className="font-mono text-[13px] leading-5 text-paper-moss">{file.file}</p>
+            <p className="font-mono text-[12px] leading-5 text-paper-moss">{file.file}</p>
 
             {file.unchanged || file.changes.length === 0 ? (
-              <p className="mt-1.5 text-[13.5px] leading-5 text-paper-sage">No change</p>
+              <p className="mt-1.5 text-[14px] leading-5 text-paper-sage">No change</p>
             ) : (
               <ul className="mt-2 space-y-1.5">
                 {file.changes.map((change, index) => {
                   const Icon = CHANGE_ICON[change.kind];
 
                   return (
-                    <li key={`${change.kind}-${index}-${change.text}`} className="flex items-start gap-3 text-[15px] leading-6">
+                    <li key={`${change.kind}-${index}-${change.text}`} className="flex items-start gap-3 text-[14px] leading-6">
                       <Icon className={cn("mt-1 size-3.5 shrink-0", CHANGE_TONE[change.kind])} strokeWidth={1.75} aria-hidden="true" />
                       <span className="min-w-0 text-paper-char">
                         <span className="sr-only">{change.kind}: </span>
@@ -100,8 +100,8 @@ export function ProposalCard({ proposal, approval, onApply, onReject, isRespondi
           {/* The second, separate question: not "is this edit right?" but
               "may Hermes run this?". Both are shown, so approving the change
               is never a blind approval of the command that performs it. */}
-          <h3 className="text-[13.5px] font-semibold text-paper-moss">System approval</h3>
-          <p className="mt-1.5 text-[13.5px] leading-5 text-paper-sage">Applying runs this, once:</p>
+          <h3 className="text-[14px] font-semibold text-paper-moss">System approval</h3>
+          <p className="mt-1.5 text-[14px] leading-5 text-paper-sage">Applying runs this, once:</p>
           <GatedCommand request={approval} className="mt-2" />
         </div>
       ) : null}
@@ -119,10 +119,10 @@ export function ProposalCard({ proposal, approval, onApply, onReject, isRespondi
       ) : approval ? (
         <ApprovalOutcome request={approval} className="mt-5" />
       ) : (
-        <p className="mt-5 text-[13.5px] leading-5 text-paper-sage">Hermes has not asked for a decision on this yet.</p>
+        <p className="mt-5 text-[14px] leading-5 text-paper-sage">Hermes has not asked for a decision on this yet.</p>
       )}
 
-      {error ? <p className="mt-4 text-[13.5px] leading-5 text-paper-flame-deep">{error} Nothing has been changed.</p> : null}
+      {error ? <p className="mt-4 text-[14px] leading-5 text-paper-flame-deep">{error} Nothing has been changed.</p> : null}
     </PaperCard>
   );
 }

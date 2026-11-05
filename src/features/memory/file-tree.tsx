@@ -165,7 +165,7 @@ export function FileTree({
               onClick={() => !searching && toggle(row.folder.path)}
               style={{ paddingLeft: pad }}
               className={cn(
-                "group flex min-h-8 cursor-pointer items-center gap-1.5 pr-1.5 text-[13.5px] text-paper-moss transition-colors duration-100 select-none hover:bg-paper-linen",
+                "group flex min-h-8 cursor-pointer items-center gap-1.5 pr-1.5 text-[14px] text-paper-moss transition-colors duration-100 select-none hover:bg-paper-linen",
                 PAPER_FOCUS,
                 "focus-visible:outline-offset-[-2px]",
               )}
@@ -177,7 +177,7 @@ export function FileTree({
               />
               <Icon className="size-4 shrink-0 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate font-medium">{row.folder.name}</span>
-              <span className="text-[12px] text-paper-sage tabular-nums">{row.folder.count}</span>
+              <span className="text-[13px] text-paper-sage tabular-nums">{row.folder.count}</span>
               <button
                 type="button"
                 tabIndex={-1}
@@ -191,7 +191,7 @@ export function FileTree({
                 className={cn(
                   "inline-flex size-6 shrink-0 cursor-pointer items-center justify-center transition-[opacity,background-color,color] duration-150",
                   filtering
-                    ? "bg-paper-blue text-paper-white opacity-100"
+                    ? "bg-selected text-paper-moss opacity-100"
                     : "text-paper-sage opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-paper-stone hover:text-paper-moss",
                 )}
               >
@@ -217,10 +217,10 @@ export function FileTree({
             onClick={() => onOpen(row.note.id)}
             style={{ paddingLeft: pad + 20 }}
             className={cn(
-              "flex min-h-8 cursor-pointer items-center gap-2 pr-2 text-[13.5px] transition-colors duration-100 select-none",
+              "flex min-h-8 cursor-pointer items-center gap-2 pr-2 text-[14px] transition-colors duration-100 select-none",
               PAPER_FOCUS,
               "focus-visible:outline-offset-[-2px]",
-              selected ? "bg-paper-blue text-paper-white" : "text-paper-char hover:bg-paper-linen hover:text-paper-moss",
+              selected ? "bg-selected text-paper-moss" : "text-paper-char hover:bg-paper-linen hover:text-paper-moss",
             )}
           >
             {color ? (

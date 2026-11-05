@@ -42,7 +42,7 @@ export function UsageSummary({ className }: { className?: string }) {
       action={
         <Link
           to="/operations"
-          className="text-[12.5px] inline-flex cursor-pointer items-center gap-2 rounded-md text-paper-sage transition-colors duration-150 hover:text-paper-moss"
+          className="text-[13px] inline-flex cursor-pointer items-center gap-2 rounded-md text-paper-sage transition-colors duration-150 hover:text-paper-moss"
         >
           Operations
           <ArrowRight className="size-3.5" aria-hidden="true" />
@@ -51,8 +51,8 @@ export function UsageSummary({ className }: { className?: string }) {
     >
       <div className="grid gap-x-12 gap-y-6 sm:grid-cols-3">
         <div className="min-w-0">
-          <p className="text-[12.5px] text-paper-sage">Today</p>
-          <p className="mt-2 text-[18px] leading-6">
+          <p className="text-[13px] text-paper-sage">Today</p>
+          <p className="mt-2 text-[16px] leading-6">
             <span className={measurementTone(todayCost.measurement)}>
               {todayCost.text}
             </span>
@@ -67,8 +67,8 @@ export function UsageSummary({ className }: { className?: string }) {
         </div>
 
         <div className="min-w-0">
-          <p className="text-[12.5px] text-paper-sage">Month</p>
-          <p className="mt-2 text-[18px] leading-6 text-paper-moss">
+          <p className="text-[13px] text-paper-sage">Month</p>
+          <p className="mt-2 text-[16px] leading-6 text-paper-moss">
             {formatCost(data.month.costUsd)}
             {data.budget ? (
               <span className="text-paper-sage">
@@ -92,8 +92,8 @@ export function UsageSummary({ className }: { className?: string }) {
         </div>
 
         <div className="min-w-0">
-          <p className="text-[12.5px] text-paper-sage">Highest today</p>
-          <p className="mt-2 text-[18px] leading-6 text-paper-moss">
+          <p className="text-[13px] text-paper-sage">Highest today</p>
+          <p className="mt-2 text-[16px] leading-6 text-paper-moss">
             {data.topAgent
               ? `${data.topAgent.label} · ${formatCost(data.topAgent.costUsd)}`
               : UNKNOWN}

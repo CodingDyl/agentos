@@ -26,7 +26,7 @@ export function TractionMailSuggestions({ data }: { data: TractionData }) {
         ))}
       </ul>
       {data.mailSuggestions.length > 5 ? (
-        <p className="mt-3 text-[12.5px] text-paper-sage">+{data.mailSuggestions.length - 5} more. Answer these first.</p>
+        <p className="mt-3 text-[13px] text-paper-sage">+{data.mailSuggestions.length - 5} more. Answer these first.</p>
       ) : null}
     </PaperSection>
   );
@@ -56,11 +56,11 @@ function SuggestionRow({ suggestion }: { suggestion: MailSuggestion }) {
             <p className="truncate text-[13px] text-paper-char">“{suggestion.subject}”</p>
 
             {suggestion.moveTo && suggestion.moveFrom ? (
-              <p className="mt-2 text-[13.5px] font-medium text-paper-moss">
+              <p className="mt-2 text-[14px] font-medium text-paper-moss">
                 Move {stageLabel(suggestion.moveFrom)} → {stageLabel(suggestion.moveTo)}?
               </p>
             ) : (
-              <p className="mt-2 text-[13.5px] font-medium text-paper-moss">Link this thread to {suggestion.company}?</p>
+              <p className="mt-2 text-[14px] font-medium text-paper-moss">Link this thread to {suggestion.company}?</p>
             )}
 
             <div className="mt-2 flex flex-wrap gap-1.5">

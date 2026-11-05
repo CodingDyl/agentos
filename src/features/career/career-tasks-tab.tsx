@@ -7,7 +7,7 @@ import {
   type CareerTaskCategory,
   type CareerTaskMeta,
 } from "@shared/career-types";
-import { DedsecLoader, FilterToolbar } from "@/components/os";
+import { PageLoader, FilterToolbar } from "@/components/os";
 import { PAPER_INPUT, PaperButton, PaperSection, Tag } from "@/components/paper";
 import { useSaveTaskMeta } from "@/lib/agentos/career";
 import type { TaskRecord } from "@/lib/agentos/client";
@@ -63,11 +63,11 @@ export function CareerTasksTab({ data }: { data: CareerData }) {
         }
       >
         {tasks.isPending ? (
-          <DedsecLoader variant="compact" />
+          <PageLoader variant="compact" />
         ) : tasks.isError ? (
           <ErrorLine error={tasks.error} />
         ) : open.length === 0 ? (
-          <p className="text-[15px] leading-6 text-paper-char">No open career tasks.</p>
+          <p className="text-[14px] leading-6 text-paper-char">No open career tasks.</p>
         ) : (
           <ul className="divide-y divide-paper-mist border-y border-paper-mist">
             {open.map((task) => (
@@ -168,10 +168,10 @@ function CareerTaskRow({ task, meta, today, revision }: { task: TaskRecord & { i
           onChange={() => patch.mutate({ taskId: task.id, completed: true, expectedRevision: revision })}
         />
         <div className="min-w-0 flex-1">
-          <button type="button" className="cursor-pointer text-left text-[15.5px] leading-6 text-paper-char hover:text-paper-moss" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <button type="button" className="cursor-pointer text-left text-[14px] leading-6 text-paper-char hover:text-paper-moss" aria-expanded={open} onClick={() => setOpen(!open)}>
             {task.title}
           </button>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-paper-sage">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-paper-sage">
             <Tag>{CAREER_TASK_CATEGORY_LABELS[meta?.category ?? "other"]}</Tag>
             {meta?.client ? <span>{meta.client}</span> : null}
             {meta?.dueDate ? <span className={overdue ? "text-paper-flame-deep" : undefined}>due {formatDay(meta.dueDate)}</span> : null}

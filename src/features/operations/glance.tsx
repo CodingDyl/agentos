@@ -42,11 +42,11 @@ function SpendCard({ data }: { data: OperationsData }) {
   return (
     <PaperCard className="flex flex-col">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-[13.5px] font-semibold text-paper-moss">{priced ? "Spent on AI" : "Used by AI"}</h3>
-        <span className="text-[12.5px] text-paper-sage">{data.window.label}</span>
+        <h3 className="text-[14px] font-semibold text-paper-moss">{priced ? "Spent on AI" : "Used by AI"}</h3>
+        <span className="text-[13px] text-paper-sage">{data.window.label}</span>
       </div>
 
-      <p className={cn("mt-2 font-paper-display text-[36px] leading-none font-extrabold tracking-[-0.02em] tabular-nums", paperTone(headline.measurement))}>
+      <p className={cn("mt-2 text-[24px] leading-none font-semibold tracking-[-0.02em] tabular-nums", paperTone(headline.measurement))}>
         {headline.text}
         {!priced && headline.measurement !== "unknown" ? <span className="ml-2 text-[16px] font-semibold tracking-normal text-paper-sage">tokens</span> : null}
       </p>
@@ -54,11 +54,11 @@ function SpendCard({ data }: { data: OperationsData }) {
         {priced ? `${measuredTokens(data.period).text} tokens · ` : "No run in this window reported a price · "}
         {data.jobs} {data.jobs === 1 ? "job" : "jobs"}
       </p>
-      {note ? <p className="mt-0.5 text-[12.5px] text-paper-sage">{note}</p> : null}
+      {note ? <p className="mt-0.5 text-[13px] text-paper-sage">{note}</p> : null}
 
       <div className="mt-auto pt-4">
         <Sparkline values={values} label={`${priced ? "Spend" : "Tokens"} across ${data.window.label.toLowerCase()}`} />
-        <div className="mt-1.5 flex justify-between text-[12px] text-paper-sage tabular-nums">
+        <div className="mt-1.5 flex justify-between text-[13px] text-paper-sage tabular-nums">
           <span>{bucketLabel(data.series[0]?.from, data.range)}</span>
           <span>{priced ? "Spend" : "Tokens"}</span>
           <span>{data.range === "today" ? "Now" : "Today"}</span>
@@ -93,11 +93,11 @@ function BillCard({ data }: { data: OperationsData }) {
   return (
     <PaperCard className="flex flex-col">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-[13.5px] font-semibold text-paper-moss">This month's bill</h3>
-        <span className="text-[12.5px] text-paper-sage">{monthName(data)}</span>
+        <h3 className="text-[14px] font-semibold text-paper-moss">This month's bill</h3>
+        <span className="text-[13px] text-paper-sage">{monthName(data)}</span>
       </div>
 
-      <p className={cn("mt-2 font-paper-display text-[28px] leading-none font-extrabold tracking-[-0.02em] tabular-nums", cost.totalUsd === undefined ? "text-paper-sage" : "text-paper-moss")}>
+      <p className={cn("mt-2 text-[24px] leading-none font-semibold tracking-[-0.02em] tabular-nums", cost.totalUsd === undefined ? "text-paper-sage" : "text-paper-moss")}>
         {formatCost(cost.totalUsd)}
       </p>
 
@@ -125,7 +125,7 @@ function BillCard({ data }: { data: OperationsData }) {
         </div>
       ) : null}
 
-      <div className="mt-auto space-y-0.5 border-t border-paper-stone pt-3 text-[12.5px] leading-5">
+      <div className="mt-auto space-y-0.5 border-t border-paper-stone pt-3 text-[13px] leading-5">
         {pace !== undefined ? (
           <p className="text-paper-char">
             <span className="font-medium text-paper-moss tabular-nums">~{formatCost(pace)}</span> by month end at this pace
@@ -161,15 +161,15 @@ function SuccessCard({ data }: { data: OperationsData }) {
   return (
     <PaperCard className="flex flex-col items-center">
       <div className="flex w-full items-baseline justify-between gap-3">
-        <h3 className="text-[13.5px] font-semibold text-paper-moss">Jobs landing</h3>
-        <span className="text-[12.5px] text-paper-sage">{data.window.label}</span>
+        <h3 className="text-[14px] font-semibold text-paper-moss">Jobs landing</h3>
+        <span className="text-[13px] text-paper-sage">{data.window.label}</span>
       </div>
 
       <div className="my-auto pt-3">
         <RadialMeter value={data.successRate} word={word ?? "No finished jobs"} label="Share of finished jobs that completed" tone={tone} />
       </div>
 
-      <p className="mt-2 text-center text-[12.5px] leading-5 text-paper-sage">
+      <p className="mt-2 text-center text-[13px] leading-5 text-paper-sage">
         {data.successRate === undefined ? "Rate appears once a job finishes." : "Of jobs that finished, how many completed."}
       </p>
     </PaperCard>
@@ -212,7 +212,7 @@ export function PlansPanel({ data, onManage }: { data: OperationsData; onManage:
 
       {view === "plans" ? (
         plans.length === 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-none border border-dashed border-paper-mist bg-paper-cream px-4 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-dashed border-paper-mist bg-paper-cream px-4 py-5">
             <p className="max-w-[56ch] text-[14px] leading-6 text-paper-char">
               No plans recorded. Add what you pay flat each month (Claude, ChatGPT, Gemini) and it shows here beside what was metered.
             </p>
@@ -236,8 +236,8 @@ export function PlansPanel({ data, onManage }: { data: OperationsData; onManage:
           {metered.map((row) => (
             <li key={row.key} className="py-3">
               <div className="flex items-baseline justify-between gap-4">
-                <span className="text-[14.5px] text-paper-moss">{row.label}</span>
-                <span className="text-[13.5px] text-paper-moss tabular-nums">{formatCost(row.total.costUsd)}</span>
+                <span className="text-[14px] text-paper-moss">{row.label}</span>
+                <span className="text-[14px] text-paper-moss tabular-nums">{formatCost(row.total.costUsd)}</span>
               </div>
               <div className="mt-2">
                 <Meter
@@ -265,23 +265,23 @@ function PlanCard({ plan, tint }: { plan: Subscription; tint: string }) {
         : { amount: formatCost(plan.price), unit: plan.billingCycle === "annual" ? "/ year" : "/ month" };
 
   return (
-    <div className="flex h-full flex-col rounded-none border border-paper-mist bg-paper-white p-3.5 transition-colors duration-150 hover:bg-paper-cream">
+    <div className="flex h-full flex-col rounded-md border border-paper-mist bg-paper-white p-3.5 transition-colors duration-150 hover:bg-paper-cream">
       <div className="flex items-center gap-2.5">
-        <span className={cn("grid size-8 shrink-0 place-items-center rounded-none font-paper-display text-[14px] font-bold text-paper-moss", tint)} aria-hidden="true">
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-md text-[14px] font-semibold text-paper-moss", tint)} aria-hidden="true">
           {plan.name.trim().charAt(0).toUpperCase()}
         </span>
         <span className="min-w-0">
           <span className="block truncate text-[14px] font-semibold text-paper-moss">{plan.name}</span>
           <span className="mt-0.5 flex items-center gap-1.5">
-            {plan.provider ? <span className="truncate text-[12px] text-paper-sage">{plan.provider}</span> : null}
+            {plan.provider ? <span className="truncate text-[13px] text-paper-sage">{plan.provider}</span> : null}
             <Tag tone={plan.type === "subscription" ? "marigold" : "muted"}>{plan.type.replace(/-/g, " ")}</Tag>
           </span>
         </span>
       </div>
 
       <p className="mt-4 flex items-baseline justify-between gap-2">
-        <span className="font-paper-display text-[20px] font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{price?.amount ?? "-"}</span>
-        {price ? <span className="text-[12px] text-paper-sage">{price.unit}</span> : null}
+        <span className="text-[16px] font-semibold tracking-[-0.02em] text-paper-moss tabular-nums">{price?.amount ?? "-"}</span>
+        {price ? <span className="text-[13px] text-paper-sage">{price.unit}</span> : null}
       </p>
     </div>
   );

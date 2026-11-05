@@ -30,13 +30,13 @@ export function RunHistory({ runs, now, className }: RunHistoryProps) {
   }
 
   return (
-    <ul className={cn("divide-y divide-paper-stone rounded-none border border-paper-mist", className)}>
+    <ul className={cn("divide-y divide-paper-stone rounded-md border border-paper-mist", className)}>
       {runs.map((run) => {
         const Icon = STATUS_ICON[run.status];
         return (
           <li key={run.id} className="px-4 py-3">
             <div className="flex items-baseline justify-between gap-6">
-              <span className="text-[13.5px] text-paper-char tabular-nums">{formatRunStamp(run.timestamp, now)}</span>
+              <span className="text-[14px] text-paper-char tabular-nums">{formatRunStamp(run.timestamp, now)}</span>
               <span className={cn("flex min-w-0 items-center gap-1.5 text-[13px] font-medium", STATUS_TONE[run.status])}>
                 <Icon
                   className={cn("size-3.5 shrink-0", run.status === "running" && "motion-safe:animate-pulse")}

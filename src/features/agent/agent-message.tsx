@@ -15,7 +15,7 @@ const ROLE_LABELS: Record<AgentMessageModel["role"], string> = {
  */
 export function SpeakerLabel({ speaker, agent = false }: { speaker: string; agent?: boolean }) {
   return (
-    <p className="flex items-center gap-2 text-[12.5px] font-semibold text-paper-char">
+    <p className="flex items-center gap-2 text-[13px] font-semibold text-paper-char">
       {agent ? <span className="size-2 rounded-full bg-paper-amber" aria-hidden="true" /> : null}
       {speaker}
     </p>
@@ -40,7 +40,7 @@ export function AgentMessage({ message }: AgentMessageProps) {
       <div className={cn("mt-3 min-w-0")}>
         {isUser ? (
           // The operator's own text is shown verbatim, never re-interpreted.
-          <p className="text-[15px] leading-6 whitespace-pre-wrap text-paper-moss">{message.content}</p>
+          <p className="text-[14px] leading-6 whitespace-pre-wrap text-paper-moss">{message.content}</p>
         ) : (
           // Hermes' words, shown in AgentOS's house style (no em dashes).
           // Hermes' own transcript is not changed; only what is displayed.

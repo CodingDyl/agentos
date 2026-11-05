@@ -2,7 +2,7 @@ import { Check, Copy, ExternalLink, Link2, RotateCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { LinkedProjectSite } from "@shared/vercel-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperEmpty, PaperError, PaperIndicator, PaperNotice, SegmentedControl } from "@/components/paper";
 import { useProjectSite } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
@@ -29,7 +29,7 @@ const VIEWPORTS: readonly { value: Viewport; label: string }[] = [
 export function SiteTab({ slug, onOpenSettings }: { slug: string; onOpenSettings: () => void }) {
   const site = useProjectSite(slug);
 
-  if (site.isPending) return <DedsecLoader variant="compact" />;
+  if (site.isPending) return <PageLoader variant="compact" />;
 
   if (site.isError) {
     return (
@@ -187,7 +187,7 @@ export function SiteFrame({ url, viewport }: { url: string; viewport: Viewport }
       />
       {!loaded ? (
         <div className="absolute inset-0 grid place-items-center bg-black">
-          <DedsecLoader variant="compact" className="min-h-0 bg-transparent" />
+          <PageLoader variant="compact" className="min-h-0 bg-transparent" />
         </div>
       ) : null}
     </div>
@@ -197,8 +197,8 @@ export function SiteFrame({ url, viewport }: { url: string; viewport: Viewport }
 export function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="font-paper-utility text-[12px] leading-[18px] font-medium tracking-[0.08em] text-paper-sage uppercase">{label}</dt>
-      <dd className="mt-1 flex min-h-6 items-center text-[13.5px]">{children}</dd>
+      <dt className="text-[13px] leading-[18px] font-medium text-paper-sage">{label}</dt>
+      <dd className="mt-1 flex min-h-6 items-center text-[14px]">{children}</dd>
     </div>
   );
 }
@@ -236,7 +236,7 @@ function ConnectorsLink() {
     <Link
       to="/connectors/vercel"
       className={cn(
-        "inline-flex min-h-8 items-center rounded-none bg-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-white uppercase hover:bg-paper-moss",
+        "inline-flex min-h-8 items-center rounded-md bg-paper-linen px-3.5 text-[13px] font-medium text-paper-moss hover:bg-paper-stone",
         PAPER_FOCUS,
       )}
     >
@@ -280,8 +280,8 @@ export function BlockedSitePanel({ url, projectId, projectName, reason }: { url:
         <summary className="cursor-pointer hover:text-paper-char">Advanced</summary>
         <p className="mt-2">
           To embed the site directly, add{" "}
-          <code className="bg-paper-stone px-1 font-mono text-[12.5px]">frame-ancestors &apos;self&apos; {window.location.origin}</code> to the
-          site&apos;s Content-Security-Policy and drop any <code className="bg-paper-stone px-1 font-mono text-[12.5px]">X-Frame-Options</code> header.
+          <code className="bg-paper-stone px-1 font-mono text-[12px]">frame-ancestors &apos;self&apos; {window.location.origin}</code> to the
+          site&apos;s Content-Security-Policy and drop any <code className="bg-paper-stone px-1 font-mono text-[12px]">X-Frame-Options</code> header.
         </p>
       </details>
     </div>

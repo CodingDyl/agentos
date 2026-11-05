@@ -28,7 +28,7 @@ export function IdeasToDecide({ className }: { className?: string }) {
 
   return (
     <PaperSection label="Ideas to decide" count={deciding.length || undefined} className={className} action={<TodayLink to="/learning?tab=youtube">Learning</TodayLink>}>
-      <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+      <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
         {deciding.map((idea) => (
           <li key={idea.id}>
             <Link to={ideaHref(idea)} className={cn("block px-4 py-3 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}>
@@ -37,7 +37,7 @@ export function IdeasToDecide({ className }: { className?: string }) {
                 <span className="min-w-0 truncate text-[14px] font-medium text-paper-moss">{idea.title}</span>
               </span>
               {idea.verdictWhy ? <span className="mt-1 line-clamp-2 block text-[13px] leading-5 text-paper-char">{idea.verdictWhy}</span> : null}
-              {idea.size ? <span className="mt-0.5 block text-[12px] text-paper-sage">{idea.size} change</span> : null}
+              {idea.size ? <span className="mt-0.5 block text-[13px] text-paper-sage">{idea.size} change</span> : null}
             </Link>
           </li>
         ))}

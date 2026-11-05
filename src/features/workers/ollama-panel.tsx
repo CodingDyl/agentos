@@ -5,7 +5,7 @@ import {
   type OllamaSettings,
   type ProbeRecord,
 } from "@shared/route-policy-types";
-import { CommandButton, DedsecLoader, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
+import { CommandButton, PageLoader, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
 import { formatRelativeTime } from "@/lib/format";
 import { useOllamaStatus, useProbeOllamaModel, useSaveOllamaSettings } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ import {
 
 const CHECKBOX = "os-focus-ring mt-0.5 size-3.5 shrink-0 cursor-pointer accent-os-amber";
 const NUMBER_INPUT =
-  "os-focus-ring mt-2 min-h-9 w-32 rounded-md border border-os-border bg-transparent px-3 font-mono text-[13px] tabular-nums text-foreground";
+  "os-focus-ring mt-2 min-h-9 w-32 rounded-md border border-os-border bg-transparent px-3 font-mono text-[12px] tabular-nums text-foreground";
 
 interface ModelRow {
   name: string;
@@ -71,7 +71,7 @@ export function OllamaPanel() {
   }, [status.data, draft]);
 
   if (status.isPending) {
-    return <DedsecLoader variant="compact" />;
+    return <PageLoader variant="compact" />;
   }
   if (!status.data || !draft) {
     return (
@@ -98,7 +98,7 @@ export function OllamaPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <SectionLabel>Connection</SectionLabel>
-            <p className="mt-2 font-mono text-[13px] leading-5 text-os-muted">{draft.baseUrl}</p>
+            <p className="mt-2 font-mono text-[12px] leading-5 text-os-muted">{draft.baseUrl}</p>
           </div>
           <StatusPill
             status={state.reachable ? "healthy" : "paused"}
@@ -172,7 +172,7 @@ export function OllamaPanel() {
           </div>
         </div>
 
-        <p className="mt-6 max-w-[62ch] text-[12px] leading-5 text-os-subtle">
+        <p className="mt-6 max-w-[62ch] text-[13px] leading-5 text-os-subtle">
           Limits are conservative starting policies, not measured hardware guarantees. Loading a model from disk counts toward
           the timeout, so the first run after a cold start is the slowest.
         </p>
@@ -428,7 +428,7 @@ function ProbeReport({ record, config }: { record: ProbeRecord; config: OllamaMo
           </summary>
           <ul className="mt-2 space-y-2">
             {record.variants.map((variant) => (
-              <li key={variant.label} className="max-w-[70ch] text-[12px] leading-5 text-os-subtle">
+              <li key={variant.label} className="max-w-[70ch] text-[13px] leading-5 text-os-subtle">
                 <span className="text-os-muted">{variant.label}</span>
                 {" · "}
                 {variant.error

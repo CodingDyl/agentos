@@ -1,381 +1,237 @@
-# Hermes Agent — Style Reference
-> Electric-blue editorial landing page for an AI agent. Condensed type, tiny terminal labels, engraved mythic imagery, and stark blue/white section changes do most of the visual work.
+# AgentOS — Quiet Terminal
 
-**Theme:** high-contrast blue and warm white
+> A calm personal command center with the precision of a code editor.
 
-**Source:** [Hermes Agent website](https://hermes-agent.nousresearch.com/#install), inspected 29 September 2026 at a 1363px desktop viewport. Values identified as *observed* were read from the live page's computed styles. Recommendations and responsive values are interpretations for reuse in AgentOS, not claims about the site's source code. The page's desktop app screenshot is product imagery, not the landing page's component specification.
+**Theme:** dark · **Density:** comfortable compact · **Status:** adopted. This file is the visual authority for all AgentOS UI.
 
-The page opens as an electric-blue field (`#0000f2`) with an oversized three-line condensed headline in warm white (`#f2f2f2`). Compact uppercase navigation and square call-to-action buttons sit above and below it. A blue-tinted, engraved multi-armed Hermes illustration occupies the other half of the hero. The desktop app section stays blue, while the features and pricing sections switch to warm white with deep blue text. The effect is closer to a printed poster and command-line tool than a conventional rounded SaaS dashboard.
+This is an original AgentOS design direction. Refero's Linear, Vercel and Raycast references informed the research; this document is not an export of their systems. The accompanying generated image is a visual concept. This specification is authoritative for exact values, content, interaction and accessibility.
+
+## Design intent
+
+Make the next useful action obvious. Retain a coder's personality through keyboard shortcuts, precise alignment, technical metadata and an understated terminal mark. Personality should come from the tool's behavior and details rather than visual noise.
+
+Replace the current green-black canvas, neon lime navigation, torn-paper headings and large decorative mascot with neutral graphite, a measured mint accent and a clear reading order. Keep the existing product capabilities and data. Reorganizing presentation must not silently remove routes or actions.
 
 ## Tokens — Colors
 
-| Name | Value | Token | Role |
-|------|-------|-------|------|
-| Hermes Blue | `#0000f2` | `--color-hermes-blue` | Hero, desktop section, primary buttons, feature media backgrounds, blue text on paper |
-| Hermes Paper | `#f2f2f2` | `--color-hermes-paper` | Primary text on blue, pale section canvas, light buttons |
-| Deep Ink | `#000091` | `--color-deep-ink` | Feature and portal headings/body on paper; observed computed text color |
-| Dark Blue | `color-mix(in srgb, #0000f2 20%, #000)` | `--color-dark-blue` | Inset/terminal-like surfaces; derived from the site's dark surface token |
-| Light Blue Surface | `color-mix(in srgb, #0000f2 2%, #fff)` | `--color-light-blue-surface` | Very pale card surface; defined in site tokens, use sparingly |
-| Paper 20 | `color-mix(in srgb, #f2f2f2 20%, transparent)` | `--color-paper-20` | Ghost controls on a blue field |
-| Yellow Accent | `#f2f200` | `--color-hermes-yellow` | Available brand accent token; not a dominant surface in inspected sections |
+| Name | Value | CSS token | Role |
+|---|---|---|---|
+| Canvas | #111315 | --bg-canvas | Main workspace |
+| Sidebar | #15181B | --bg-sidebar | Navigation and top bar |
+| Panel | #1A1E22 | --bg-panel | Content surfaces |
+| Raised | #22272D | --bg-raised | Menus, hover and nested inputs |
+| Selected | #273B34 | --bg-selected | Selected navigation background |
+| Divider | #30363D | --border-subtle | Nonessential structural lines |
+| Control edge | #65717D | --border-control | Input and checkbox boundaries |
+| Primary text | #EEF1F4 | --text-primary | Headings, task titles and values |
+| Secondary text | #ACB5BF | --text-secondary | Descriptions, supporting labels |
+| Muted text | #8E99A5 | --text-muted | Timestamps and secondary metadata |
+| Mint | #9DDBBD | --accent | Primary action and selected indicator |
+| Mint hover | #B4E6CE | --accent-hover | Primary action hover |
+| Ink | #12231B | --on-accent | Text on mint buttons |
+| Focus | #B0D6FF | --focus | Keyboard focus outline |
+| Success | #9DDBBD | --status-success | Confirmed completion or availability |
+| Warning | #E8C58A | --status-warning | Waiting, overdue or needs attention |
+| Error | #F4A3A8 | --status-error | Failed execution or destructive result |
 
-The blue/paper pair is the actual signature. The root CSS also declares cyan, green, orange, pink, red, indigo, and neon color tokens, but these are not the main landing-page palette. Avoid turning them into equal-weight theme colors.
+Use accent for one filled primary action per view, a small brand mark, and the selected navigation indicator. Use labelled semantic statuses where necessary. Avoid accent-colored headings, charts without data, glows and decorative gradients. Status must always include a word or icon, never color alone.
 
 ## Tokens — Typography
 
-The live site uses proprietary **Rules** faces. Secure a license before shipping those font files in another product. The fallback recommendations below approximate width and hierarchy, not exact letterforms.
+**UI:** Geist Sans; fallback Inter, system-ui, sans-serif. **Technical details:** Geist Mono; fallback JetBrains Mono, ui-monospace, monospace. Use locally available or properly loaded fonts; avoid layout shifts.
 
-### Rules Gothic Condensed — Hero and large section headings · `--font-display`
-- **Observed:** hero 108px / 200 / 108px line height / -2.16px tracking at the inspected desktop viewport; section headings 80px / 400 / 80px / -1.6px.
-- **Substitute:** `Roboto Condensed`, `Arial Narrow`, sans-serif. A narrow variable display font with a genuinely light weight will be closer.
-- **Role:** huge stacked statement, chapter headings, poster-like hierarchy.
+| Role | Family | Size / line height | Weight |
+|---|---|---|---|
+| Page heading | Sans | 28px / 36px | 600 |
+| Section heading | Sans | 16px / 24px | 600 |
+| Key value | Sans | 24px / 32px | 600 |
+| Task title and body | Sans | 14px / 22px | 400–500 |
+| Navigation and button | Sans | 14px / 20px | 500 |
+| Supporting metadata | Sans | 13px / 20px | 400 |
+| IDs, shortcuts, paths, runtime | Mono | 12px / 18px | 400 |
 
-### Rules Gothic Compressed — Feature and platform headings · `--font-compressed`
-- **Observed:** feature/platform headings 48px / 500 / 52.8px; the wordmark area uses approximately 31.5px / 500 / 28.35px.
-- **Substitute:** `Barlow Condensed`, `Roboto Condensed`, sans-serif, with a narrow width axis if available.
-- **Role:** short feature names and emphatic compact headings.
-
-### Rules Variable — Body · `--font-body`
-- **Observed:** body default 14px; feature descriptions 16px; nav context 14px.
-- **Substitute:** `Inter`, `Arial`, sans-serif.
-- **Role:** explanatory copy, FAQ answers, general UI text.
-
-### Rules Condensed / Aeonik Fono Pro TRIAL — Utility and terminal · `--font-utility`, `--font-code`
-- **Observed:** large nav labels 14px / 500 / 1.4px tracking; compact nav 12px / 500 / 1.2px; feature indices 10px in Aeonik Fono; terminal tabs and command 11px in Aeonik Fono.
-- **Substitute:** `Roboto Condensed` for utility; `IBM Plex Mono` or `JetBrains Mono` for command content.
-- **Role:** uppercase links, buttons, numbered labels, tabs, command snippets.
-
-### Type Scale
-
-| Role | Family | Weight | Desktop size / line height | Tracking | Token |
-|------|--------|--------|----------------------------|----------|-------|
-| Hero display | Rules Gothic Condensed | 200 | 108px / 108px | -2.16px | `--text-hero` |
-| Section heading | Rules Gothic Condensed | 400 | 80px / 80px | -1.6px | `--text-section` |
-| Feature heading | Rules Gothic Compressed | 500 | 48px / 52.8px | normal | `--text-feature` |
-| Body / feature description | Rules Variable | 400 | 16px / approximately 25px | normal | `--text-body` |
-| Nav utility | Rules Condensed | 500 | 14px / 21px | 1.4px | `--text-nav` |
-| Feature index | Aeonik Fono | 400 | 10px | normal | `--text-index` |
-| Terminal command | Aeonik Fono | 400 | 11px / 16.5px | normal | `--text-code` |
+Use sentence case. Keep body tracking normal; headings may use -0.02em. Use tabular numerals for counts and financial values. Do not set whole paragraphs or task names in monospace. Avoid all-caps section banners and condensed display lettering.
 
 ## Tokens — Spacing & Shapes
 
-**Density:** spacious sections, compact controls. **Spacing scale below:** practical reconstruction based on observed components; it is not an extracted global token scale.
+- Base spacing: 4px. Scale: 4, 8, 12, 16, 20, 24, 32, 40, 48.
+- Main page padding: 32px desktop, 24px tablet, 16px mobile.
+- Panel padding: 24px; panel gap: 24px; task row padding: 16px.
+- Radius: 10px panels, 6px inputs/buttons, 4px badges, 999px status dots only.
+- Borders: 1px; no visible shadows on ordinary panels.
+- Buttons and input controls: minimum 40px tall. Dense desktop navigation: 40px rows. Touch-oriented controls: minimum 44px.
+- Icons: one consistent outline family, 18px, 1.5px stroke. No emoji as interface icons.
 
-### Spacing Scale
+## Surfaces & Elevation
 
-| Name | Value | Token | Use |
-|------|-------|-------|-----|
-| 4 | 4px | `--space-1` | Icon/copy gap |
-| 8 | 8px | `--space-2` | Tight control gap |
-| 12 | 12px | `--space-3` | Terminal tab horizontal padding, control groups |
-| 16 | 16px | `--space-4` | Body rhythm |
-| 24 | 24px | `--space-6` | Content groups |
-| 40 | 40px | `--space-10` | Navigation top padding, major subgroups |
-| 60 | 60px | `--space-15` | FAQ and portal vertical padding observed |
-| 80 | 80px | `--space-20` | Downloads bottom/top padding, feature bottom padding observed |
-| 180 | 180px | `--space-45` | Feature section top padding observed at desktop |
-
-### Border Radius
-
-| Element | Value | Interpretation |
-|---------|-------|----------------|
-| Buttons / navigation | 0px | Observed square corners; sharp edges are part of the identity |
-| Terminal tab group | 4px on outside corners | Observed on the platform tabs |
-| Feature image panels | approximately 5px on upper corners | Observed 5.25px at inspected viewport |
-| Major UI cards | 0–6px | Reuse recommendation; avoid generic 16–28px SaaS cards |
-
-### Shadows
-
-Primary sections and feature panels rely on color contrast, not resting drop shadows. The site defines subtle hover/press lift shadows for buttons; use them only as interaction feedback. The observed buttons also scale to approximately `0.98` while pressed.
-
-### Layout
-
-- Wide desktop content column centered within full-bleed color bands; inspected navigation has 80px side padding at 1363px viewport.
-- Hero: text and illustrated figure as a two-part composition; large headline stacks into three short lines.
-- Feature section: three equal-width columns; observed feature media width about 333px in a 1363px viewport, with two rows of three.
-- The features section begins with unusually generous top breathing room (180px observed).
-- **Responsive recommendation:** collapse three columns to two at tablet widths and one on narrow phones; reduce the 108px/80px display sizes with `clamp()` rather than preserving desktop sizes.
-
-## Components
-
-### Split Navigation
-**Role:** Brand, external destinations, and installation action.
-
-Place compact uppercase/condensed text links on the left and right of a central Hermes mark. On blue use paper text; over paper use blue text. Nav link labels are 14px with 1.4px tracking in the inspected large state; a smaller variant uses 12px with 1.2px. Keep the install action rectangular and visually stronger than ordinary links.
-
-### Hero Statement
-**Role:** Immediate brand claim.
-
-Set a light-weight Rules Gothic Condensed display line at 108px with 1.0 line height and -0.02em tracking on desktop. Break into short lines. Make the headline the primary left-side mass while the engraved figure balances the right. Use `#f2f2f2` against `#0000f2`.
-
-### Engraved Hermes Illustration
-**Role:** Distinctive brand artwork.
-
-Use a detailed, almost etching-like figure and radial strokes, rendered in blue/white contrast. It can be tightly cropped and dramatic. This is identity artwork: do not substitute a generic robot illustration or use the brand image as an indiscriminate UI background. Reusing the original artwork requires the appropriate rights.
-
-### Primary Light CTA
-**Role:** Desktop download or primary hero action.
-
-Square `#f2f2f2` fill, `#0000f2` text, compact uppercase condensed type, minimal padding and icon. The hero desktop CTA was observed at 14px/500, with roughly 10px padding; smaller download-card links render near 10.5px with 1.05px tracking. Apply a subtle hover lift and press scale.
-
-### Secondary Translucent CTA
-**Role:** Cloud deployment or secondary hero action.
-
-Set paper text over a `20%` paper tint on the blue field; keep the same square outline and height as the light CTA. On hover, increase the tint modestly rather than introducing a new accent color.
-
-### Terminal Install Block
-**Role:** Copyable command with platform switch.
-
-Place a small uppercase label over a darker blue command well. Use three 11px monospaced tabs for macOS, Linux, and Windows, with a selected blue tab and translucent inactive tabs. The tab group uses only 4px outside corner radius. Put a small copy icon at the command's right edge. Treat the command as real selectable text.
-
-### Desktop Product Stage
-**Role:** App preview and OS download choices.
-
-Continue the electric-blue section. Present one large screenshot of the actual product in a wide media stage, then a section heading in condensed 80px type and platform entries. The screenshot's white UI is evidence of the desktop product, not permission to restyle the landing page as a white dashboard.
-
-### Feature Unit
-**Role:** Repeating product capability story.
-
-On paper, stack a tiny numbered monospace index (such as `#1 Connect`), a 48px compressed heading, a 16px paragraph, and a roughly square blue illustration panel. Keep all six items aligned on a three-column grid at desktop. Give media very little rounding and no resting shadow.
-
-### FAQ Accordion
-**Role:** Compact support answers.
-
-Use thin, text-led disclosure rows within the paper section. Questions use blue condensed type and a modest approximately 38px minimum hit height in the inspected control. Expose focus and expanded state clearly, and preserve readable body type for the answer.
-
-### Portal Pricing Grid
-**Role:** Tier comparison and conversion.
-
-Use paper as the surrounding canvas, a large condensed section title, compact uppercase utility details, and clear tier columns. The page shows Free, Plus, Super, and Ultra tiers. Keep plan details readable and distinguish the promoted tier with a small annotation; prices and credits are live commercial content, so do not hard-code them into a design token system.
-
-### Footer
-**Role:** Editorial brand close and link directory.
-
-End with oversized brand language, compact uppercase section labels, and grouped research/product/resource/platform links. Preserve the high-contrast blue/paper palette and square editorial treatment.
-
-## Do's and Don'ts
-
-### Do
-- Use `#0000f2` and `#f2f2f2` as the dominant pair, flipping foreground and background between major sections.
-- Make condensed typography and dramatic scale the main visual system.
-- Use small letter-spaced utility labels and monospace command/index details to signal an agent and terminal context.
-- Keep buttons mostly square; reserve slight rounding for terminal tabs and media corners.
-- Pair mythic/engraved brand imagery with actual product screenshots.
-- Treat keyboard focus, active platform tabs, and copy feedback as real interaction states.
-
-### Don't
-- Don't convert the look into a generic dark navy/purple gradient SaaS dashboard.
-- Don't put every section into large rounded floating cards.
-- Don't replace the thin hero with heavy 700-weight grotesk type.
-- Don't fill the page with multicolored status chips because optional accent tokens exist.
-- Don't use the licensed Rules/Aeonik fonts or original Hermes illustration in a shipped product without rights.
-- Don't paste the landing page's huge display scale into dense AgentOS task lists or data tables.
-
-## Surfaces
-
-| Level | Name | Value | Purpose |
-|-------|------|-------|---------|
-| 0 | Electric stage | `#0000f2` | Hero and desktop app storytelling |
-| 1 | Paper stage | `#f2f2f2` | Features, FAQ surroundings, portal and footer regions |
-| 2 | Deep command well | dark blue / blue-black mix | Terminal command, inset controls |
-| 3 | Light image card | blue on paper | Feature media panel; media supplies detail |
-| 4 | Transparent overlay | `#f2f2f2` at about 20% | Secondary action on blue |
-
-## Elevation
-
-The primary hierarchy comes from a hard color transition, type scale, and image blocks. Cards are mostly flat. Add only a restrained interaction lift/press effect to controls. Avoid glassmorphism, broad ambient shadows, and layered floating dashboards.
-
-## Imagery
-
-The hero's blue-white engraved figure and radiating lines establish the mythic identity. Feature tiles use blue textured or graphic illustrations with distinct content. The desktop section instead presents a large real application screenshot. For AgentOS, borrow the *relationship*: one signature editorial brand illustration for arrival/onboarding, actual interface previews for capability proof, and small expressive media only where it adds meaning. Do not imitate proprietary brand art pixel for pixel.
+Canvas → panel → raised surface. Differentiate with tone and spacing before adding borders. Use a divider between task rows rather than a separate card for every row. Menus and dialogs may use a restrained shadow: 0 12px 36px rgba(0,0,0,.30). Avoid nested bordered boxes more than one level deep.
 
 ## Layout
 
-The page moves from a dense but spacious blue hero with centered navigation, headline/illustration split, two adjacent CTAs, and terminal command, into a blue desktop-app showcase. A sharp switch to paper introduces six feature units in a three-column grid. FAQ rows follow as lighter text-led content, then a portal tier comparison and extensive footer. The alternation of full-width color fields creates chapters without inserting card containers between every section. At narrow widths, preserve the visual order: headline → actions → install block → illustration/product media → features.
+### Desktop, 1280px and wider
+
+Use a 224px fixed sidebar and a 56px top bar. Main content fills the remaining width with a 1440px maximum internal content width. Align all main content to one left edge.
+
+Top bar: breadcrumb on the left; compact command search, Chat and neutral Capture controls on the right. Show `Hermes online` with a small labelled status dot. Plan the day is the primary mint button in the page header; Capture remains secondary on this view.
+
+Header: `Dashboard`, followed by `Good morning, Dylan` and `Thursday, 5 November`. Put `Plan the day` and `Wrap up` at the right. Report friction stays in the page overflow menu, with a discoverable text label.
+
+Follow with a compact four-cell summary strip: `11 tasks / 4 workspaces`, `No approvals waiting`, `Agents idle`, `Nothing to file`. These are functional links to their respective views, with hover and focus states.
+
+Below it use a 7:5 grid, minimum column widths 480px and 340px:
+
+1. Left: `Your three`, the dominant panel with three priority rows and a quiet completion count. Under it: `Primary focus`, showing AgentOS and its next action.
+2. Right: `Morning brief`, a concise Hermes summary and three numbered actions, with `View full plan`. Under it: `To do today`, a two-item checklist and inline add control.
+3. Full width below the work area: `Business pulse`, with revenue target, four overdue invoices, and pending pipeline counts. Include Send invoice and Follow up as neutral actions. The overdue item links to invoices; retain visible warning text.
+4. Below the first viewport: compact Compass section with the existing goal and weekly intentions. Keep it accessible without competing with today's work.
+
+An empty approvals panel becomes the summary strip's status plus a quiet `8 cleared` detail in its destination. When approvals actually need attention, insert a compact actionable queue above Your three. Do not reserve a large empty rectangle.
+
+### Navigation
+
+Brand: small mint `>_` mark and AgentOS wordmark. Dashboard and Inbox appear first. Keep Business, Work, Memory and Operations as expandable groups with existing destinations underneath. Use a subdued selected fill and 2px mint rail, not a neon full-width block. Pin Compass, settings and profile below. Keep counts neutral unless they represent actionable urgency. Preserve the microphone capture function in the Capture menu and command search.
+
+### Responsive behavior
+
+- 960–1279px: sidebar collapses to a 64px icon rail with labels available on focus/hover; main content becomes one column when the grid minimums cannot fit.
+- Below 960px: one-column panels; priorities first, then morning brief, today's checklist, primary focus and business pulse. Summary uses a 2×2 grid.
+- Below 640px: navigation moves into a labelled drawer; main actions wrap. Summary becomes stacked compact rows. Convert business metrics into vertical rows. Never hide required actions or introduce page-wide horizontal scrolling.
+- Keep long titles wrapping; use ellipsis only for secondary metadata with an accessible full value.
+
+## Components
+
+### Priority task row
+
+Use a neutral outlined rank badge, task title, one sentence explaining impact, and a quiet workspace label. Put Swap and its accessible label in a trailing menu. Preserve the current three tasks: Implement Google Auth; Follow up with Total Electric – Trusted Electricians; SEO: Missing meta description. Priority rows link to their tasks; completion and menus are separate controls, not nested buttons inside a link.
+
+### Morning brief
+
+Header `Morning brief`, metadata `Hermes · 07:31`, neutral Run again action. Main summary: `Establish the foundational structure of AgentOS.` List the existing three actions involving projects/PORTFOLIO.md, me/MEMORY_POLICY.md, and me/PROFILE.md plus me/GOALS.md. Render only file paths in mono. Keep `If there's time` and `Avoid` in the expanded plan. Regeneration has visible loading, failure and retry states; it must not erase the previous plan on failure.
+
+### Buttons and inputs
+
+Primary: mint background, ink text, 6px radius, 12–16px horizontal padding, 14px/500 label. Secondary: raised or transparent neutral surface and readable text. Destructive: explicit verb plus error treatment, isolated from routine actions. Inputs use raised fill, visible control-edge border and persistent labels. Placeholder is supplemental.
+
+### Checklist and empty states
+
+Unchecked boxes need visible control-edge strokes. Completed rows show checked icon and readable completion state. Enter submits a new item; Escape cancels editing. Empty state: one concise sentence and an action only when useful. Never show invented activity, fake graphs or placeholder performance numbers.
+
+### Command palette
+
+Expose a visible search trigger with platform-appropriate Cmd K or Ctrl K hint. Search routes, workspaces, tasks and commands. Show type labels, arrow-key navigation, Enter activation and Escape dismissal. Trap focus while open and restore it to the trigger. Shortcuts must not interfere with text input.
+
+### Runtime footer
+
+Keep a low-contrast 28px status bar for `Agents idle`, `Context / AgentOS` and model metadata. Use mono sparingly. Show actual execution state; no permanent pulsing cursor or animated dots when idle. If model/context metadata is unavailable, omit the value rather than inventing it.
+
+## Interaction & Accessibility
+
+- Target WCAG AA: at least 4.5:1 for normal text, 3:1 for large text and essential non-text UI. Validate actual rendered combinations, including hover and selected states; token choice alone is not certification.
+- Structural dividers may be subtle; essential controls use the stronger control-edge token.
+- Focus: 2px focus-color outline with 2px offset, visible on every surface. Keep it distinct from selection.
+- Label all icon controls. Provide landmarks, heading order and a skip-to-content link.
+- Preserve logical keyboard order. No hover-only actions. Announce capture, completion and agent state changes through restrained live regions.
+- Motion: 120–160ms color/opacity transitions only; respect prefers-reduced-motion. No decorative looping animation.
+- Loading: stable-size skeletons or labelled progress. Errors include a useful retry action. Dangerous actions require an appropriate confirmation or undo.
+
+## Do's and Don'ts
+
+**Do:** prioritize today's work; preserve readable contrast; use technical details as subtle identity; keep recurring controls in consistent places; show meaningful empty, loading, error and busy states.
+
+**Don't:** use ripped-paper labels, sticker graphics, a large dashboard mascot, neon blocks, colored panel borders, gradients, glass blur, decorative charts, tiny low-contrast body text or a terminal font everywhere.
 
 ## Agent Prompt Guide
 
-Quick Color Reference:
-- Hermes Blue `#0000f2` — hero, strong actions, and illustration panels.
-- Hermes Paper `#f2f2f2` — light canvas and text on blue.
-- Deep Ink `#000091` — long text/headings on paper.
-- Dark Blue — terminal well and inset treatments.
+Implement the AgentOS Quiet Terminal system using the exact tokens above. Preserve existing routes, data and business logic. Replace presentational components incrementally: shell and tokens first, navigation and typography second, priority layout third, then secondary panels. Do not add dependencies solely for decorative effects. Map semantic CSS tokens into the project's current styling approach.
 
-Create an AgentOS landing or mission-control entry screen inspired by Hermes: a full-bleed Hermes Blue canvas, a light condensed display headline, small uppercase utility navigation, rectangular paper primary button, translucent secondary button, and one dramatic editorial illustration. Use original AgentOS branding and art.
+The first viewport must answer: what matters today, what needs my approval, and what Hermes recommends next. Match the proposed desktop composition while honoring actual application state. Never turn the workspace into a marketing landing page.
 
-Create a feature overview on Hermes Paper with a three-column desktop grid. Each item has a 10px monospace numbered kicker, a 48px compressed heading, a 16px description, and a mostly square blue illustration panel. Collapse the grid on smaller screens.
+Acceptance: all current destinations and capture modes remain reachable; real task and financial data survive; blank approvals do not consume a large panel; the page works at 1440, 1024, 768 and 390px; keyboard users can capture, search, open tasks, edit the checklist and reach approvals; text and essential controls pass contrast checks; no content is clipped at 200% zoom.
 
-Create a copyable install/command module with a dark-blue well, 11px monospace command, three compact platform tabs, and visible active/copy states. Keep it keyboard accessible.
+## Research references
 
-For dense AgentOS views, carry over the color, typography hierarchy, and compact labels, but reduce display sizes and use readable body/UI fonts. The marketing page is inspiration; task, worker, and log screens need information density and legibility.
+- Linear on Refero: https://styles.refero.design/style/90ce5883-bb24-4466-93f7-801cd617b0d1 — primary aesthetic reference; my fit rating: 9/10.
+- Vercel on Refero: https://styles.refero.design/style/f24daf3a-d43f-4dec-85a9-8ac1d5148a03 — typography and technical-detail reference; my fit rating: 8/10.
+- Raycast on Refero: https://styles.refero.design/style/3b6a17f0-3bdf-418c-a95e-0b89e5a8b2f8 — command-oriented character reference; my fit rating: 8/10.
 
-## Similar Brands
-
-- **Nothing** — assertive brand type and graphic product storytelling, although Hermes is more electric blue and mythic.
-- **Linear** — restrained product UI and crisp interaction details, but much quieter than Hermes's landing page.
-- **IBM Plex-era developer tools** — terminal-like utility labels and command snippets, though Hermes uses proprietary condensed faces.
-
-## Quick Start
-
-### CSS Custom Properties
-
-```css
-:root {
-  /* Observed palette */
-  --color-hermes-blue: #0000f2;
-  --color-hermes-paper: #f2f2f2;
-  --color-deep-ink: #000091;
-  --color-dark-blue: color-mix(in srgb, #0000f2 20%, #000);
-  --color-light-blue-surface: color-mix(in srgb, #0000f2 2%, #fff);
-  --color-paper-20: color-mix(in srgb, #f2f2f2 20%, transparent);
-  --color-hermes-yellow: #f2f200;
-
-  /* Substitutes: replace with properly licensed Rules faces if available */
-  --font-display: 'Roboto Condensed', 'Arial Narrow', sans-serif;
-  --font-compressed: 'Barlow Condensed', 'Roboto Condensed', sans-serif;
-  --font-body: Inter, Arial, sans-serif;
-  --font-utility: 'Roboto Condensed', Arial, sans-serif;
-  --font-code: 'IBM Plex Mono', 'JetBrains Mono', monospace;
-
-  /* Desktop roles observed on the reference */
-  --text-hero: 108px;
-  --leading-hero: 1;
-  --tracking-hero: -0.02em;
-  --text-section: 80px;
-  --leading-section: 1;
-  --tracking-section: -0.02em;
-  --text-feature: 48px;
-  --leading-feature: 1.1;
-  --text-body: 16px;
-  --text-nav: 14px;
-  --tracking-nav: 0.1em;
-  --text-index: 10px;
-  --text-code: 11px;
-
-  /* Reusable spacing reconstruction */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --space-10: 40px;
-  --space-15: 60px;
-  --space-20: 80px;
-  --space-45: 180px;
-  --radius-control: 0px;
-  --radius-tab: 4px;
-  --radius-media: 5px;
-}
-
-.hermes-inspired-hero {
-  background: var(--color-hermes-blue);
-  color: var(--color-hermes-paper);
-}
-
-.hermes-inspired-hero h1 {
-  font-family: var(--font-display);
-  font-size: clamp(3.75rem, 8vw, var(--text-hero));
-  font-weight: 200;
-  line-height: var(--leading-hero);
-  letter-spacing: var(--tracking-hero);
-}
-
-.hermes-inspired-button {
-  border: 0;
-  border-radius: var(--radius-control);
-  background: var(--color-hermes-paper);
-  color: var(--color-hermes-blue);
-  font: 500 14px/1.3 var(--font-utility);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  transition: transform 150ms ease, box-shadow 150ms ease;
-}
-
-.hermes-inspired-button:active { transform: scale(.98); }
-.hermes-inspired-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-
-@media (prefers-reduced-motion: reduce) {
-  .hermes-inspired-button { transition: none; }
-}
-```
-
-The CSS is a reusable reconstruction. It is not copied from the site's compiled stylesheet; the font fallbacks and responsive `clamp()` are implementation recommendations.
+Research reviewed 5 November 2026. Refero's entries describe interpreted website styles, not official application specifications. The section organization follows its useful token/component/guideline pattern; all AgentOS layout, interaction and palette choices here are custom recommendations.
 
 ---
 
 # AgentOS implementation
 
-Everything above is the visual reference. This section is how AgentOS applies it. Where the two differ, this section wins for the product; the reference wins for any landing or onboarding page.
+Everything above is the specification. This section records how the code applies it. Names, counts and tasks quoted above (`11 tasks / 4 workspaces`, `Implement Google Auth`, `Hermes · 07:31`) are illustrations; every screen renders real data.
 
-## Token mapping
+## Where values live
 
-The product already addressed colour through two families of Tailwind tokens. Rather than rewrite every screen, both families were re-pointed at the Hermes palette in `src/styles/agentos.css`, so the theme changes in one place.
+`src/styles/agentos.css` is the one place a value enters the code. It declares the semantic tokens above, then gives the older names to components as aliases. An alias never has a value of its own.
 
-| Reference | `--paper-*` / `--os-*` token | Value |
-|-----------|------------------------------|-------|
-| Hermes Paper | `paper-white`, `os-background` | `#f2f2f2` |
-| Hermes Blue | `paper-blue`, `paper-amber`, `paper-gold`, `os-amber` (on paper) | `#0000f2` |
-| Deep Ink | `paper-moss`, `os-foreground` | `#000091` |
-| Ink 90 / 70 (body, muted) | `paper-char`, `paper-sage` | `#1d1d9d`, `#4949ae` |
-| Control border | `paper-ash` | `#7474c0` (3.7:1) |
-| Hairline | `paper-mist`, `os-border` | `#a9a9f2`, ink at 20% |
-| Raised surfaces | `paper-linen`, `paper-stone`, `os-surface-raised` | `#e6e6f2`, `#dcdcf2` |
-| Yellow Accent | `paper-marigold`, `os-amber` (on the blue stage) | `#f2f200` |
-| Danger | `paper-flame-deep`, `os-danger` | `#b00020` |
+| Token | Alias a screen may use |
+|---|---|
+| `--bg-canvas` | `paper-desk`, `os-background`, `background` |
+| `--bg-sidebar` | `.os-stage` |
+| `--bg-panel` | `paper-white`, `os-surface`, `card` |
+| `--bg-raised` | `paper-cream`, `paper-linen`, `os-surface-raised`, `popover` |
+| `--bg-selected` | `selected` |
+| `--border-subtle` | `paper-mist`, `paper-stone`, `os-border`, `os-surface-active`, `border` |
+| `--border-control` | `paper-ash`, `paper-gold`, `os-border-strong`, `input` |
+| `--text-primary` | `paper-moss`, `paper-blue`, `paper-amber-deep`, `os-foreground`, `os-amber`, `foreground` |
+| `--text-secondary` | `paper-char`, `paper-amber`, `os-muted` |
+| `--text-muted` | `paper-sage`, `os-subtle` |
+| `--accent`, `--on-accent` | `primary`, `primary-foreground` |
+| `--status-success` | `paper-green`, `os-success` |
+| `--status-warning` | `paper-marigold`, `os-warning` |
+| `--status-error` | `paper-flame`, `paper-flame-deep`, `os-danger`, `destructive` |
 
-The `paper-*` names are historical (the PostHog-derived Paper world this replaced). `paper-amber` is now blue and `paper-green` is now blue: names describe where a token is used, not what colour it is.
+The `paper-*` and `os-*` names are historical and describe a role, not a colour: `paper-blue` is primary text, and links and progress are neutral because mint is rationed. Use the alias a file already uses; use a semantic token in new CSS.
 
-## The two grounds
+## Shared pieces
 
-- **The stage** is Hermes Blue. The top bar, sidebar and status bar carry the `os-stage` class, which redefines the tokens locally to paper-on-blue. Yellow is the accent there and only there.
-- **The page** is Hermes Paper with Deep Ink text. Content never sits on blue. The reference alternates full-width colour bands as chapters; the product keeps one band (the chrome) and one page, because a working screen is read for hours.
+- **Shell:** `src/components/os/app-shell.tsx`. Its three modes (`drawer` below 640px, `rail` to 1279px, `full` above) match `.qt-shell`. Between 640 and 959px the specification names no change, so the rail continues.
+- **Page frame and panel:** `PaperStage` and `PaperSection` in `src/components/paper/paper.tsx`, or `.qt-page` and `.qt-panel`.
+- **Controls:** `PaperButton` (`amber` is the filled primary, `ghost` secondary, `quiet` transparent, `danger` destructive), `CommandButton`, `PAPER_INPUT`, `Tag`.
+- **Menus:** `ActionMenu` and `ActionMenuItem` in `src/components/os/menu.tsx`.
+- **Waiting:** `PageLoader`, a labelled line at a stable height.
+- **Type:** arbitrary sizes are limited to 12 (mono only), 13, 14, 16, 24 and 28px. `.os-meta` is supporting metadata in sans; `.os-mono` is for what a machine named.
 
-## Rules for dense screens
+## Decisions the specification left open
 
-- **Display sizes are capped.** Page titles are Roboto Condensed at weight 300, `clamp(2.25rem, 3.6vw, 3rem)`. The reference's 108px and 80px never appear in a list, table or log.
-- **Headings are thin.** `.font-paper-display` is forced to 500 (and page `h1` to 300) in unlayered CSS so no screen carries its own idea of a heading. Nothing is 700 or heavier.
-- **Body is Inter at 14–15px.** Condensed faces are for titles, tags and utility labels only.
-- **Square by default.** Buttons, inputs, tags, chips and cards are 0px. The only rounded controls are the switch and status dots.
-- **One primary action per view.** It is Hermes Blue with paper text. Secondary actions are outlined in blue.
-- **Status is a word first.** The dot carries colour; the label carries meaning. There are no multicolour chips: tags are blue, ink, yellow-on-ink, or danger.
-- **No shadows.** Hover lifts are a background change; press is `scale(0.98)`.
+- **Capture is a split control.** The main half opens the note form at once, because capture must never wait on a menu. The chevron holds Note, Voice, Jarvis text and Quick create. The voice control appears in the top bar only while Jarvis is busy.
+- **Settings and profile** are named in Navigation, but AgentOS has no such routes. They are left out rather than drawn as dead links. Add them to `footer` in `src/config/navigation.ts` when those screens exist.
+- **Model metadata** in the status bar appears only where a screen knows the model in use.
+- **Compass** keeps its areas and measured goals beside the goal and weekly intentions.
 
-## Contrast (measured)
+## Contrast (computed from the tokens)
 
 | Pair | Ratio |
-|------|-------|
-| Deep Ink on paper | 13.3 |
-| Ink 90 on paper | 10.9 |
-| Ink 70 on paper | 6.6 |
-| Hermes Blue on paper | 8.2 |
-| Paper on Hermes Blue | 8.2 |
-| White on Hermes Blue (primary button) | 9.2 |
-| Yellow on Hermes Blue | 7.7 |
-| Deep Ink on yellow | 12.4 |
-| Danger on paper | 6.5 |
-| Muted paper (`#bdbdf2`) on Hermes Blue | 5.1 |
-| Control border on paper | 3.7 |
+|---|---|
+| Primary text on canvas | 16.4 |
+| Primary text on panel | 14.8 |
+| Primary text on raised | 13.3 |
+| Primary text on selected | 10.5 |
+| Secondary text on panel | 8.1 |
+| Secondary text on selected | 5.7 |
+| Muted text on panel | 5.8 |
+| Muted text on raised | 5.2 |
+| Muted text on selected (fails; not used) | 4.1 |
+| Ink on mint | 10.4 |
+| Control edge on panel (non-text) | 3.4 |
+| Warning on panel | 10.2 |
+| Error on panel | 8.5 |
+| Focus on canvas | 12.3 |
 
-The hairline (`#a9a9f2`, 1.9:1) is decoration only; it never marks the edge of a control.
+Muted text falls below AA on the Selected fill, so selected states use primary or secondary text. Hover fills that use the divider colour only ever carry primary text.
 
-## Typefaces
-
-Roboto Condensed (display, utility) and Barlow Condensed (feature headings) stand in for the licensed Rules faces. Inter is body. IBM Plex Mono is commands and indices. Replace the first two once the Rules faces are licensed; nothing else changes.
-
-## Not adopted from the reference
-
-The engraved Hermes illustration, the landing hero, the terminal install block and the pricing grid are marketing artwork and content. AgentOS has no arrival screen that needs them yet, and the artwork needs rights. Build them from original AgentOS art if an onboarding screen is added.
+Checked by `src/components/os/__tests__/design-tokens.test.ts`, which reads the values from `agentos.css`.
 
 ---
 
-## 28. Everyday OS information architecture (Step 59)
+# Information architecture
 
 AgentOS organises around the operator's work, not around the agents doing it.
 
-- **Sidebar:** `Today · Inbox`, then **Work** (`Workspaces` with pinned workspaces nested beneath, `Knowledge`, `Creative`), then **System** (`Automations · Operations · Activity`), with `Agents` and `Design system` as quiet footer links. The Hermes console and worker jobs are reached from Operations and from the work they belong to.
-- **Vocabulary:** the primary UI says Today, attention, workspaces, tasks, documents, creative, inbox. Worktrees, diffs, runs, models and providers appear only once a person drills into technical work.
-- **Workspaces** are a presentation of vault projects. Type (`Workspace type:`) and tabs (`Modules:`) live in `PROJECT.md → ## Configuration`; the type decides which tabs lead, never which exist — everything else is under More.
+- **Sidebar:** `Dashboard · Inbox`, then the expandable groups **Business**, **Work**, **Memory** and **Operations**, with Compass pinned below. `src/config/navigation.ts` is the list. The Hermes console and worker jobs are reached from Operations and from the work they belong to.
+- **Vocabulary:** the primary UI says dashboard, attention, workspaces, tasks, documents, creative, inbox. Worktrees, diffs, runs, models and providers appear only once a person drills into technical work.
+- **Workspaces** are a presentation of vault projects. Type (`Workspace type:`) and tabs (`Modules:`) live in `PROJECT.md → ## Configuration`; the type decides which tabs lead, never which exist. Everything else is under More.
 - **Agents surface in context:** on the task they hold (`Claude · Awaiting review · View`), not as a panel of their own.
 - **Capture** is in every top bar (⌘⇧C) and never waits on a model.
-
-`Markdown` takes `tone="paper"` on moved screens; the default `os` skin stays for screens still on the dark desk.

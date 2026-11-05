@@ -56,9 +56,9 @@ function TimesheetSection({ data }: { data: CareerData }) {
       ) : null}
       <ErrorLine error={extract.error} />
       {data.timesheet.lastSubmittedAt ? (
-        <p className="mt-3 text-[12.5px] text-paper-sage">Last submitted {formatTimestamp(data.timesheet.lastSubmittedAt)}</p>
+        <p className="mt-3 text-[13px] text-paper-sage">Last submitted {formatTimestamp(data.timesheet.lastSubmittedAt)}</p>
       ) : null}
-      {run ? <TimesheetRunCard run={run} /> : <p className="mt-6 text-[15px] text-paper-char">No extraction yet. Friday's one button: Run extraction.</p>}
+      {run ? <TimesheetRunCard run={run} /> : <p className="mt-6 text-[14px] text-paper-char">No extraction yet. Friday's one button: Run extraction.</p>}
     </PaperSection>
   );
 }
@@ -73,13 +73,13 @@ function TimesheetRunCard({ run }: { run: TimesheetRun }) {
   return (
     <PaperCard className="mt-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h3 className="font-paper-display text-[17px] font-bold">
+        <h3 className="text-[16px] font-semibold">
           Week {run.week} <span className="text-[13px] font-normal text-paper-sage">{formatDay(run.weekStart)} – {formatDay(run.weekEnd)}</span>
         </h3>
         <Tag tone={run.status === "submitted" ? "green" : run.status === "reviewed" ? "blue" : "marigold"}>{run.status}</Tag>
       </div>
 
-      <dl className="mt-4 grid max-w-[28rem] grid-cols-[1fr_auto] gap-x-6 gap-y-1 font-paper-utility text-[15px] tabular-nums">
+      <dl className="mt-4 grid max-w-[28rem] grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-[14px] tabular-nums">
         <dt>Toggl recorded</dt>
         <dd>{formatMinutes(run.totals.recordedMinutes)}</dd>
         <dt>Mapped</dt>
@@ -100,9 +100,9 @@ function TimesheetRunCard({ run }: { run: TimesheetRun }) {
       ) : null}
 
       <div className="mt-5 overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-[13.5px]">
+        <table className="w-full min-w-[640px] text-left text-[14px]">
           <caption className="sr-only">Extracted timesheet rows</caption>
-          <thead className="text-[12px] text-paper-sage">
+          <thead className="text-[13px] text-paper-sage">
             <tr>
               <th className="py-1.5 pr-3 font-medium">Date</th>
               <th className="py-1.5 pr-3 font-medium">Project</th>
@@ -124,7 +124,7 @@ function TimesheetRunCard({ run }: { run: TimesheetRun }) {
                 <td className="py-1.5 pr-3">{row.billable ? "Yes" : "No"}</td>
                 <td className="py-1.5">
                   {row.description}
-                  {row.issue ? <span className="ml-2 text-[12px] text-paper-flame-deep">{row.issue}</span> : null}
+                  {row.issue ? <span className="ml-2 text-[13px] text-paper-flame-deep">{row.issue}</span> : null}
                 </td>
               </tr>
             ))}
@@ -146,7 +146,7 @@ function TimesheetRunCard({ run }: { run: TimesheetRun }) {
         {run.uploadFile ? (
           <a
             href={`/api/career/timesheet/files/${encodeURIComponent(run.uploadFile)}`}
-            className="inline-flex min-h-8 items-center px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen"
+            className="inline-flex min-h-8 items-center px-3.5 text-[13px] font-medium text-paper-blue hover:bg-paper-linen"
           >
             Download upload file
           </a>
@@ -189,8 +189,8 @@ function SoccerSection({ data }: { data: CareerData }) {
     <PaperSection id="soccer" label={defaults.eventType || "Indoor soccer"}>
       <div className="grid gap-8 lg:grid-cols-2">
         <PaperCard>
-          <p className="text-[12.5px] text-paper-sage">Next event</p>
-          <p className="font-paper-display text-[19px] font-bold">{formatDay(nextDate)}</p>
+          <p className="text-[13px] text-paper-sage">Next event</p>
+          <p className="text-[16px] font-semibold">{formatDay(nextDate)}</p>
           <p className="mt-1 text-[14px] text-paper-char">
             {defaults.time}
             {defaults.venue ? ` · ${defaults.venue}` : ""}
@@ -236,7 +236,7 @@ function SoccerSection({ data }: { data: CareerData }) {
 
         <div className="space-y-6">
           <div>
-            <p className="text-[12.5px] text-paper-sage">Last link</p>
+            <p className="text-[13px] text-paper-sage">Last link</p>
             {last ? (
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <a href={last.link} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-[14px] text-paper-blue underline-offset-4 hover:underline">
@@ -338,7 +338,7 @@ function RoutineSettings({ routines }: { routines: RoutineStatus[] }) {
               disabled={patch.isPending}
               onChange={(enabled) => patch.mutate({ routineId: routine.id, patch: { enabled } })}
             />
-            <span className="min-w-[10rem] flex-1 text-[15px]">{routine.name}</span>
+            <span className="min-w-[10rem] flex-1 text-[14px]">{routine.name}</span>
             <select
               aria-label={`${routine.name} day`}
               className={PAPER_INPUT}

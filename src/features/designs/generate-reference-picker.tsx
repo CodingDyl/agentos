@@ -79,7 +79,7 @@ export function GenerateReferencePicker({ references, onChange, project, max = M
 
   return (
     <div
-      className={cn("mt-6 border border-dashed p-3 transition-colors", dragging ? "border-paper-blue bg-paper-linen" : "border-paper-mist")}
+      className={cn("mt-6 border border-dashed p-3 transition-colors", dragging ? "border-paper-ash bg-paper-linen" : "border-paper-mist")}
       onDragOver={(event) => {
         if (!event.dataTransfer.types.includes("Files")) return;
         event.preventDefault();
@@ -92,7 +92,7 @@ export function GenerateReferencePicker({ references, onChange, project, max = M
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <FieldLabel>References</FieldLabel>
-        <span className="text-[12px] text-paper-sage">
+        <span className="text-[13px] text-paper-sage">
           {references.length} of {max} · drop, paste or add images the result should follow
         </span>
       </div>
@@ -101,12 +101,12 @@ export function GenerateReferencePicker({ references, onChange, project, max = M
         <ul className="mt-2 flex flex-wrap gap-2" aria-label="Chosen references">
           {references.map((asset) => (
             <li key={asset.id} className="relative">
-              <img src={asset.thumbnailUrl} alt={asset.filename} className="size-16 rounded-none object-cover ring-1 ring-paper-mist" />
+              <img src={asset.thumbnailUrl} alt={asset.filename} className="size-16 rounded-md object-cover ring-1 ring-paper-mist" />
               <button
                 type="button"
                 onClick={() => onChange(references.filter((entry) => entry.id !== asset.id))}
                 aria-label={`Remove reference ${asset.filename}`}
-                className={cn("absolute -top-1.5 -right-1.5 rounded-none bg-paper-white p-0.5 text-paper-sage ring-1 ring-paper-mist hover:text-paper-flame", PAPER_FOCUS)}
+                className={cn("absolute -top-1.5 -right-1.5 rounded-md bg-paper-white p-0.5 text-paper-sage ring-1 ring-paper-mist hover:text-paper-flame", PAPER_FOCUS)}
               >
                 <X className="size-3" aria-hidden="true" />
               </button>
@@ -138,7 +138,7 @@ export function GenerateReferencePicker({ references, onChange, project, max = M
       </div>
 
       {notice || upload.error ? (
-        <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
           {notice ?? (upload.error instanceof Error ? upload.error.message : "That file could not be uploaded.")}
         </p>
       ) : null}
@@ -154,7 +154,7 @@ export function GenerateReferencePicker({ references, onChange, project, max = M
             className={cn(PAPER_INPUT, "w-full max-w-sm")}
           />
           {candidates.length === 0 ? (
-            <p className="mt-2 text-[12.5px] text-paper-sage">{query ? "No images match." : "No other images in the library yet."}</p>
+            <p className="mt-2 text-[13px] text-paper-sage">{query ? "No images match." : "No other images in the library yet."}</p>
           ) : (
             <ul className="mt-2 grid max-h-64 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6 lg:grid-cols-8" aria-label="Library images">
               {candidates.map((asset) => (
@@ -164,7 +164,7 @@ export function GenerateReferencePicker({ references, onChange, project, max = M
                     disabled={room <= 0}
                     onClick={() => onChange([...references, asset])}
                     aria-label={`Use ${asset.filename} as a reference`}
-                    className={cn("block w-full ring-1 ring-paper-mist hover:ring-paper-blue disabled:cursor-not-allowed disabled:opacity-40", PAPER_FOCUS)}
+                    className={cn("block w-full ring-1 ring-paper-mist hover:ring-paper-ash disabled:cursor-not-allowed disabled:opacity-40", PAPER_FOCUS)}
                   >
                     <img src={asset.thumbnailUrl} alt="" className="aspect-square w-full object-cover" loading="lazy" />
                   </button>

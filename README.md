@@ -2,7 +2,7 @@
 
 A personal agentic workspace: a calm operator interface over the AgentOS vault.
 
-- `DESIGN.md` — the Editorial Terminal visual language. Authority for all UI.
+- `DESIGN.md`: the Quiet Terminal design specification. Authority for all UI; `src/styles/agentos.css` implements its tokens.
 - `PRODUCT.md` — product context, users, and principles.
 
 ## Architecture

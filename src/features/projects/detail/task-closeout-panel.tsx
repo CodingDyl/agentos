@@ -31,7 +31,7 @@ import {
  */
 
 const INPUT =
-  "os-focus-ring w-full rounded-md border border-os-border bg-transparent px-3 py-2 text-[13.5px] leading-5 text-foreground placeholder:text-os-subtle";
+  "os-focus-ring w-full rounded-md border border-os-border bg-transparent px-3 py-2 text-[14px] leading-5 text-foreground placeholder:text-os-subtle";
 
 export function TaskCloseoutPanel({
   project,
@@ -106,7 +106,7 @@ function CloseoutForm({
 
   return (
     <div className="mt-3 space-y-5">
-      <p className="font-mono text-[13px] tracking-wide text-os-amber">{taskId} COMPLETE</p>
+      <p className="font-mono text-[12px] text-os-amber">{taskId} COMPLETE</p>
 
       <label className="block">
         <SectionLabel>Summary</SectionLabel>
@@ -189,7 +189,7 @@ function CloseoutForm({
 
       <div>
         <SectionLabel>Project update</SectionLabel>
-        <label className="mt-2 flex items-center gap-2 text-[13.5px] text-foreground">
+        <label className="mt-2 flex items-center gap-2 text-[14px] text-foreground">
           <input type="checkbox" checked={status.apply} onChange={(event) => setStatus({ ...status, apply: event.target.checked })} />
           Apply STATUS.md update
         </label>
@@ -276,7 +276,7 @@ function ProposalRow({
               value={proposal.type}
               onChange={(event) => onEdit({ type: event.target.value as ProposableMemoryType })}
               aria-label="Memory type"
-              className="os-focus-ring rounded-md border border-os-border bg-transparent px-2 py-1 text-[12.5px] text-foreground"
+              className="os-focus-ring rounded-md border border-os-border bg-transparent px-2 py-1 text-[13px] text-foreground"
             >
               {PROPOSABLE_MEMORY_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -358,7 +358,7 @@ function DuplicateChoice({
                 {match.kind === "decision" ? "Decision in DECISIONS.md" : match.id}
                 {match.createdAt ? ` · added ${formatAdded(match.createdAt)}` : ""} · {Math.round(match.score * 100)}% overlap
               </p>
-              {match.excerpt ? <p className="mt-1 text-[12.5px] leading-5 text-os-muted">{match.excerpt}</p> : null}
+              {match.excerpt ? <p className="mt-1 text-[13px] leading-5 text-os-muted">{match.excerpt}</p> : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 <CommandButton
                   variant={chosen ? "primary" : "secondary"}

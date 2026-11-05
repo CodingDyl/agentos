@@ -52,7 +52,7 @@ export function JarvisConsole({ narrating, onNarratingChange }: { narrating: boo
   const said = jarvis.target === "Operator" ? jarvis.reply : "";
 
   return (
-    <section aria-label="Jarvis" className="mt-6 border-[1.5px] border-paper-blue bg-paper-cream">
+    <section aria-label="Jarvis" className="mt-6 border border-paper-ash bg-paper-cream">
       <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
         <button
           type="button"
@@ -67,10 +67,10 @@ export function JarvisConsole({ narrating, onNarratingChange }: { narrating: boo
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 className="font-paper-display text-[18px] font-extrabold tracking-[-0.01em] text-paper-moss uppercase">Jarvis</h2>
-            <span className="font-paper-utility text-[12px] tracking-[0.12em] text-paper-sage uppercase">{PHASE_LABEL[jarvis.phase]}</span>
+            <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Jarvis</h2>
+            <span className="text-[13px] text-paper-sage">{PHASE_LABEL[jarvis.phase]}</span>
           </div>
-          <p className="mt-1 text-[13.5px] text-paper-char" role="status" aria-live="polite">
+          <p className="mt-1 text-[14px] text-paper-char" role="status" aria-live="polite">
             {unavailable ?? caption}
             {unavailable && voiceOn && !jarvis.voice?.configured ? (
               <>
@@ -82,7 +82,7 @@ export function JarvisConsole({ narrating, onNarratingChange }: { narrating: boo
             ) : null}
           </p>
           {said ? (
-            <p aria-live="polite" className="mt-2 border-l-2 border-paper-blue pl-3 text-[14.5px] leading-6 whitespace-pre-line text-paper-moss">
+            <p aria-live="polite" className="mt-2 border-l-2 border-paper-ash pl-3 text-[14px] leading-6 whitespace-pre-line text-paper-moss">
               {said}
             </p>
           ) : null}
@@ -91,11 +91,11 @@ export function JarvisConsole({ narrating, onNarratingChange }: { narrating: boo
               {jarvis.error}
             </p>
           ) : null}
-          {jarvis.audioNote ? <p className="mt-2 text-[12.5px] text-paper-flame-deep">{jarvis.audioNote}</p> : null}
+          {jarvis.audioNote ? <p className="mt-2 text-[13px] text-paper-flame-deep">{jarvis.audioNote}</p> : null}
         </div>
 
         <div className="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
-          <label className="flex items-center gap-2 text-[12.5px] text-paper-char">
+          <label className="flex items-center gap-2 text-[13px] text-paper-char">
             Narrate runs
             <PaperSwitch checked={narrating} onChange={onNarratingChange} label="Jarvis narrates runs" />
           </label>
@@ -122,8 +122,8 @@ export function JarvisConsole({ narrating, onNarratingChange }: { narrating: boo
         </div>
       </div>
 
-      <p className="border-t border-paper-stone px-4 py-2.5 text-[12.5px] text-paper-sage sm:px-5">
-        <span className="font-paper-utility tracking-[0.12em] uppercase">Say</span>{" "}
+      <p className="border-t border-paper-stone px-4 py-2.5 text-[13px] text-paper-sage sm:px-5">
+        <span className="">Say</span>{" "}
         {SAY.map((line, index) => (
           <span key={line}>
             {index > 0 ? " · " : ""}“{line}”

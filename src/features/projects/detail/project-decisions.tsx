@@ -23,7 +23,7 @@ export function ProjectDecisions({ decisions }: ProjectDecisionsProps) {
           <li key={decision.title} className="px-5 py-5 md:px-6">
             <SectionLabel>{decision.title}</SectionLabel>
             {decision.detail ? (
-              <p className="mt-3 max-w-[72ch] text-[15px] leading-6 text-os-muted">
+              <p className="mt-3 max-w-[72ch] text-[14px] leading-6 text-os-muted">
                 {decision.detail}
               </p>
             ) : null}

@@ -71,7 +71,7 @@ export function RecentActivity({ className }: RecentActivityProps) {
                     )}
                     aria-hidden="true"
                   />
-                  <span className="min-w-0 truncate text-[15px] leading-6 text-os-muted">
+                  <span className="min-w-0 truncate text-[14px] leading-6 text-os-muted">
                     {event.title}
                   </span>
                 </span>

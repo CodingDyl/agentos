@@ -155,7 +155,6 @@ export function DesignsPage() {
             ? `Context / ${project}`
             : undefined
       }
-      modelLabel="Model / AgentOS V1"
     >
       <UploadDropzone onFiles={uploadFiles}>
         <PaperStage>
@@ -181,7 +180,7 @@ export function DesignsPage() {
                     <Link
                       to="/designs/boards"
                       className={cn(
-                        "inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 items-center rounded-md px-3 text-[14px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                     >
@@ -190,7 +189,7 @@ export function DesignsPage() {
                     <Link
                       to="/designs/generations"
                       className={cn(
-                        "inline-flex min-h-8 items-center rounded-none px-3 text-[13.5px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
+                        "inline-flex min-h-8 items-center rounded-md px-3 text-[14px] font-semibold text-paper-sage transition-colors duration-150 hover:bg-paper-stone hover:text-paper-moss",
                         PAPER_FOCUS,
                       )}
                     >
@@ -282,7 +281,7 @@ export function DesignsPage() {
               />
 
               {upload.isError ? (
-                <p role="alert" className="mt-6 text-[13.5px] leading-5 text-paper-flame-deep">
+                <p role="alert" className="mt-6 text-[14px] leading-5 text-paper-flame-deep">
                   {upload.error instanceof Error
                     ? upload.error.message
                     : "That file could not be uploaded."}
@@ -529,7 +528,7 @@ function SelectionBar({
   if (!selecting) {
     return (
       <div className="mb-5 flex items-center justify-between gap-3">
-        <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">{label}</h2>
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">{label}</h2>
         <PaperButton variant="quiet" onClick={onStart}>
           Select references
         </PaperButton>
@@ -539,7 +538,7 @@ function SelectionBar({
 
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <span className="text-[13.5px] text-paper-char" aria-live="polite">
+      <span className="text-[14px] text-paper-char" aria-live="polite">
         {count} of {MAX_REVIEW_ASSETS} selected
         {count >= MAX_REVIEW_ASSETS ? " (the most one review takes)" : ""}
       </span>

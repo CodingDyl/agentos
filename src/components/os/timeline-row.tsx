@@ -54,7 +54,7 @@ export function TimelineRow({
         <div className="flex items-baseline justify-between gap-3">
           <p
             className={cn(
-              "truncate text-[15px] leading-6",
+              "truncate text-[14px] leading-6",
               isPast ? "text-os-subtle" : "text-foreground",
             )}
           >

@@ -24,7 +24,7 @@ function Command({ entry }: { entry: Entry }) {
   return (
     <li className="border-b border-os-border py-3">
       <div className="flex flex-wrap items-center gap-3">
-        <code className="rounded-sm bg-os-border/30 px-2 py-0.5 font-mono text-[12.5px] text-foreground">{entry.command}</code>
+        <code className="rounded-sm bg-os-border/30 px-2 py-0.5 font-mono text-[12px] text-foreground">{entry.command}</code>
         <button
           type="button"
           onClick={() => {
@@ -124,7 +124,7 @@ function Here({ status }: { status: RepositoryStatus }) {
         <ul className="mt-2 border-t border-os-border">
           {notes.map((note) => (
             <li key={note.title} className="border-b border-os-border py-3">
-              <p className="text-[13.5px] font-medium text-foreground">{note.title}</p>
+              <p className="text-[14px] font-medium text-foreground">{note.title}</p>
               <p className="mt-1 max-w-[72ch] text-[13px] leading-6 text-os-muted">{note.body}</p>
               {note.command ? <code className="mt-2 inline-block rounded-sm bg-os-border/30 px-2 py-0.5 font-mono text-[12px] text-os-muted">{note.command}</code> : null}
             </li>

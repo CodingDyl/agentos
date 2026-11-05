@@ -4,6 +4,7 @@ import type { FrictionCategory } from "@shared/validation-sprint-types";
 import { CommandButton, SectionLabel } from "@/components/os";
 import { PaperButton } from "@/components/paper";
 import { useReportFriction } from "@/lib/agentos/queries";
+import { useRestoreFocus } from "@/lib/use-restore-focus";
 import { cn } from "@/lib/utils";
 import { FRICTION_LABELS, FRICTION_ORDER } from "./validation-model";
 
@@ -16,6 +17,13 @@ export interface FrictionButtonProps {
   className?: string;
   /** Drawn for a paper page (Today). Other screens keep the terminal look. */
   paper?: boolean;
+  /**
+   * Controlled, with no button of its own: for a host that offers reporting
+   * from a menu. The host still gets the "Recorded" acknowledgement, as a live
+   * region this draws.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 /** How long the button says it worked before going quiet again. */
@@ -48,8 +56,16 @@ export function FrictionButton({
   project,
   className,
   paper = false,
+  open: openProp,
+  onOpenChange,
 }: FrictionButtonProps) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openState;
+  const setOpen = (next: boolean) => {
+    if (controlled) onOpenChange?.(next);
+    else setOpenState(next);
+  };
   const [note, setNote] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const report = useReportFriction();
@@ -71,7 +87,11 @@ export function FrictionButton({
 
   return (
     <>
-      {paper ? (
+      {controlled ? (
+        <span role="status" className="text-[13px] leading-5 text-paper-sage">
+          {acknowledged ? "Friction recorded" : ""}
+        </span>
+      ) : paper ? (
         <PaperButton variant="quiet" onClick={() => setOpen(true)} className={className} aria-haspopup="dialog">
           <MessageSquareWarning className="size-3.5" aria-hidden="true" />
           {acknowledged ? "Recorded" : "Report friction"}
@@ -126,10 +146,7 @@ function FrictionDialog({
 }: FrictionDialogProps) {
   // Where focus was before this opened, so closing returns the operator to what
   // they were doing rather than to the top of the document.
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    return () => previous?.focus?.();
-  }, []);
+  useRestoreFocus();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -146,7 +163,7 @@ function FrictionDialog({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className={cn("absolute inset-0 cursor-default", paper ? "bg-paper-moss/40" : "bg-os-background/85")}
+        className={cn("absolute inset-0 cursor-default", paper ? "bg-[var(--scrim)]" : "bg-os-background/85")}
       />
 
       <div
@@ -155,12 +172,12 @@ function FrictionDialog({
         aria-label="Report friction"
         className={cn(
           "relative flex max-h-full w-[min(92vw,34rem)] flex-col overflow-hidden border",
-          paper ? "rounded-none border-paper-mist bg-paper-white font-paper-ui text-paper-moss" : "rounded-xl border-os-border-strong bg-os-surface",
+          paper ? "text-paper-moss" : "",
         )}
       >
         <header className={cn("border-b px-5 py-4", paper ? "border-paper-stone" : "border-os-border")}>
           {paper ? (
-            <p className="font-paper-display text-[17px] font-bold">Report friction</p>
+            <p className="text-[16px] leading-6 font-semibold">Report friction</p>
           ) : (
             <SectionLabel>Report friction</SectionLabel>
           )}
@@ -172,7 +189,7 @@ function FrictionDialog({
         <div className="min-h-0 overflow-y-auto px-5 py-5">
           <label className="block">
             {paper ? (
-              <span className="text-[12.5px] font-medium text-paper-char">Note (optional)</span>
+              <span className="text-[13px] font-medium text-paper-char">Note (optional)</span>
             ) : (
               <SectionLabel>Note (optional)</SectionLabel>
             )}
@@ -183,9 +200,9 @@ function FrictionDialog({
               rows={2}
               placeholder="What actually happened"
               className={cn(
-                "mt-3 w-full resize-y border px-3 py-2.5 text-[15px] leading-6",
+                "mt-3 w-full resize-y border px-3 py-2.5 text-[14px] leading-6",
                 paper
-                  ? "rounded-none border-paper-mist bg-paper-white text-paper-moss placeholder:text-paper-sage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
+                  ? "rounded-md border-paper-ash bg-paper-linen text-paper-moss placeholder:text-paper-sage"
                   : "os-focus-ring rounded-md border-os-border bg-transparent text-foreground placeholder:text-os-subtle",
               )}
             />
@@ -193,7 +210,7 @@ function FrictionDialog({
 
           <div className="mt-6">
             {paper ? (
-              <span className="text-[12.5px] font-medium text-paper-char">Choosing one files the report</span>
+              <span className="text-[13px] font-medium text-paper-char">Choosing one files the report</span>
             ) : (
               <SectionLabel>Choosing one files the report</SectionLabel>
             )}
@@ -207,7 +224,7 @@ function FrictionDialog({
                     className={cn(
                       "w-full cursor-pointer border border-transparent px-3 py-2.5 text-left text-[14px] leading-5 transition-colors duration-150",
                       paper
-                        ? "rounded-none text-paper-char hover:border-paper-mist hover:bg-paper-linen hover:text-paper-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper-blue"
+                        ? "rounded-md text-paper-char hover:bg-paper-stone hover:text-paper-moss"
                         : "os-focus-ring rounded-md text-os-muted hover:border-os-border-strong hover:bg-os-surface-raised hover:text-foreground",
                     )}
                   >

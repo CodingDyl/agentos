@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import type { AgentDetail } from "@shared/usage-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useAgentDetail } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
@@ -30,13 +30,13 @@ export function AgentDetailPage() {
   const { data, isPending, isFetching, error, refetch } = useAgentDetail(id);
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="operations-agent" activeHref="/operations" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="operations-agent" activeHref="/operations">
       <PaperStage>
           {isPending ? (
-            <DedsecLoader variant="page" />
+            <PageLoader variant="page" />
           ) : !data ? (
             <div className="py-4">
-              <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">That agent has no record.</h1>
+              <h1 className="text-[16px] font-semibold tracking-[-0.02em]">That agent has no record.</h1>
               <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "Nothing was returned for this agent."}</p>
               <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
                 {isFetching ? "Trying again…" : "Try again"}
@@ -57,7 +57,7 @@ function Agent({ agent }: { agent: AgentDetail }) {
     <div>
       <Link
         to="/operations?tab=agents"
-        className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-none px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
+        className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
       >
         <ArrowLeft className="size-3.5" aria-hidden="true" />
         Operations
@@ -65,7 +65,7 @@ function Agent({ agent }: { agent: AgentDetail }) {
 
       <header className="mt-3 flex flex-wrap items-end justify-between gap-4 border-b border-paper-mist pb-6">
         <div className="min-w-0">
-          <h1 className="font-paper-display text-[30px] leading-9 font-extrabold tracking-[-0.015em] text-paper-moss">{agent.label}</h1>
+          <h1 className="text-[28px] leading-9 font-semibold tracking-[-0.015em] text-paper-moss">{agent.label}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
             <Tag tone={agent.available ? "green" : "flame"}>{agent.available ? "Ready" : "Unavailable"}</Tag>
             {agent.role ? <span className="text-[13px] text-paper-sage">{agent.role}</span> : null}
@@ -74,7 +74,7 @@ function Agent({ agent }: { agent: AgentDetail }) {
         <span className="text-[13px] text-paper-sage">{agent.window.label}</span>
       </header>
 
-      {agent.unavailableReason ? <p className="mt-4 max-w-[72ch] text-[13.5px] leading-5 text-paper-char">{agent.unavailableReason}</p> : null}
+      {agent.unavailableReason ? <p className="mt-4 max-w-[72ch] text-[14px] leading-5 text-paper-char">{agent.unavailableReason}</p> : null}
 
       <div className="mt-8 grid gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="min-w-0 space-y-12">
@@ -83,7 +83,7 @@ function Agent({ agent }: { agent: AgentDetail }) {
               <TotalFigures total={agent.usage.total} costLabel="Spend" />
               {!isHermes ? (
                 <div className="flex items-center gap-3">
-                  <span className="text-right text-[12.5px] leading-4 text-paper-sage">
+                  <span className="text-right text-[13px] leading-4 text-paper-sage">
                     First-pass
                     <br />
                     reviews
@@ -121,10 +121,10 @@ function Agent({ agent }: { agent: AgentDetail }) {
           {agent.configuration.length === 0 ? (
             <p className="text-[14px] leading-6 text-paper-sage">Nothing configurable.</p>
           ) : (
-            <dl className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+            <dl className="divide-y divide-paper-stone rounded-md border border-paper-mist">
               {agent.configuration.map((row) => (
                 <div key={row.label} className="px-3.5 py-2.5">
-                  <dt className="text-[12.5px] font-medium text-paper-char">{row.label}</dt>
+                  <dt className="text-[13px] font-medium text-paper-char">{row.label}</dt>
                   <dd className="mt-1 font-mono text-[12px] leading-5 break-words text-paper-moss">{row.value}</dd>
                 </div>
               ))}

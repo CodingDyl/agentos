@@ -84,7 +84,7 @@ export function ConnectorIcon({ icon, size = "md" }: { icon: string; size?: "sm"
   const Icon = ICONS[icon] ?? Plug;
 
   return (
-    <span className={cn("inline-grid shrink-0 place-items-center rounded-none border border-paper-mist bg-paper-linen text-paper-moss", box)} aria-hidden="true">
+    <span className={cn("inline-grid shrink-0 place-items-center rounded-md border border-paper-mist bg-paper-linen text-paper-moss", box)} aria-hidden="true">
       {icon === "github" ? <GithubMark className={glyph} /> : <Icon className={glyph} strokeWidth={1.75} />}
     </span>
   );

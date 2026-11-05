@@ -27,7 +27,7 @@ export function ActiveWorkList({
       {items.length === 0 ? (
         <p className="text-[14px] text-paper-char">No agents are running.</p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
           {items.map((item) => (
             <li key={item.id}>
               <ActiveWorkRow item={item} />
@@ -69,12 +69,12 @@ function ActiveWorkRow({ item }: { item: ActiveWorkItem }) {
         aria-hidden="true"
       />
       <div className="min-w-0 flex-1">
-        <p className="text-[12.5px] font-medium text-paper-sage">
+        <p className="text-[13px] font-medium text-paper-sage">
           <span className="text-paper-moss">{item.actor}</span>
           {item.project ? ` · ${item.project}` : ""}
         </p>
         <p className="mt-0.5 text-[14px] leading-6 text-paper-moss">{item.title}</p>
-        <p className="mt-0.5 text-[12.5px] text-paper-sage tabular-nums">
+        <p className="mt-0.5 text-[13px] text-paper-sage tabular-nums">
           {item.uncertain ? (
             <>
               Started {elapsed(item.startedAt, now)} ago · unconfirmed

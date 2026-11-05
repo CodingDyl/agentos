@@ -104,20 +104,20 @@ export function NoteEditor({ note, onDone }: { note: MemoryNoteDetail; onDone: (
           onChange={(event) => setBody(event.target.value)}
           rows={18}
           spellCheck
-          className={cn(PAPER_INPUT, "w-full resize-y font-mono text-[13px] leading-6")}
+          className={cn(PAPER_INPUT, "w-full resize-y font-mono text-[12px] leading-6")}
         />
       </label>
 
       {conflict ? (
-        <div role="alert" className="border-l-2 border-paper-flame-deep bg-paper-linen px-4 py-3 text-[13.5px] leading-5">
+        <div role="alert" className="border-l-2 border-paper-flame-deep bg-paper-linen px-4 py-3 text-[14px] leading-5">
           <p className="font-medium text-paper-flame-deep">{edit.error?.message}</p>
           <PaperButton variant="ghost" className="mt-2" onClick={() => void loadLatest()} disabled={latest.isFetching}>
             {latest.isFetching ? "Loading…" : "Load the latest version"}
           </PaperButton>
-          <p className="mt-1.5 text-[12.5px] text-paper-sage">Your text stays below so you can copy what you need back in.</p>
+          <p className="mt-1.5 text-[13px] text-paper-sage">Your text stays below so you can copy what you need back in.</p>
         </div>
       ) : edit.error ? (
-        <p role="alert" className="text-[13.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[14px] text-paper-flame-deep">
           {edit.error.message}
         </p>
       ) : null}
@@ -125,7 +125,7 @@ export function NoteEditor({ note, onDone }: { note: MemoryNoteDetail; onDone: (
       {orphanedDraft !== undefined ? (
         <details className="text-[13px]">
           <summary className="cursor-pointer text-paper-char">Your unsaved text</summary>
-          <textarea readOnly value={orphanedDraft} rows={8} className={cn(PAPER_INPUT, "mt-2 w-full font-mono text-[12.5px]")} />
+          <textarea readOnly value={orphanedDraft} rows={8} className={cn(PAPER_INPUT, "mt-2 w-full font-mono text-[12px]")} />
         </details>
       ) : null}
 
@@ -136,7 +136,7 @@ export function NoteEditor({ note, onDone }: { note: MemoryNoteDetail; onDone: (
         <PaperButton onClick={onDone} disabled={edit.isPending}>
           <X className="size-3.5" strokeWidth={2} aria-hidden="true" /> Cancel
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">Front matter and provenance are kept. The change can be undone.</span>
+        <span className="text-[13px] text-paper-sage">Front matter and provenance are kept. The change can be undone.</span>
       </div>
     </form>
   );

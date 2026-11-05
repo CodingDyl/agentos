@@ -85,7 +85,6 @@ export function GenerationsPage() {
       navigationItems={navigationItems}
       pageId="design-generations"
       activeHref="/designs"
-      modelLabel="Model / AgentOS V1"
     >
       <PaperStage>
         <PaperBackLink to="/designs">Creative</PaperBackLink>
@@ -153,10 +152,10 @@ function GenerationRow({
       <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="max-w-[62ch] text-[15px] leading-6 text-paper-moss">
+            <p className="max-w-[62ch] text-[14px] leading-6 text-paper-moss">
               {generation.request.prompt}
             </p>
-            <p className="mt-1.5 text-[12.5px] text-paper-sage">
+            <p className="mt-1.5 text-[13px] text-paper-sage">
               {generation.request.project ?? "No project"}
               {generation.request.aspectRatio
                 ? ` · ${generation.request.aspectRatio}`
@@ -176,7 +175,7 @@ function GenerationRow({
         {/* Why it failed, kept where the attempt is. A history that recorded
             only successes would lose the reason the same thing keeps failing. */}
         {generation.error ? (
-          <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+          <p className="mt-3 max-w-[62ch] text-[14px] leading-5 text-paper-char">
             {generation.error}
           </p>
         ) : null}
@@ -187,13 +186,13 @@ function GenerationRow({
               <div key={asset.id} className="relative">
                 <Link
                   to={`/designs?asset=${encodeURIComponent(asset.id)}`}
-                  className={cn("rounded-none", PAPER_FOCUS)}
+                  className={cn("rounded-md", PAPER_FOCUS)}
                   aria-label={`Open ${asset.filename}`}
                 >
                   <img
                     src={asset.thumbnailUrl}
                     alt={asset.filename}
-                    className="size-20 rounded-none object-cover ring-1 ring-paper-mist transition-[box-shadow] duration-150 hover:ring-paper-sage"
+                    className="size-20 rounded-md object-cover ring-1 ring-paper-mist transition-[box-shadow] duration-150 hover:ring-paper-sage"
                   />
                 </Link>
                 <CreativeDownloadButton
@@ -210,7 +209,7 @@ function GenerationRow({
         generation.finalPrompt !== generation.request.prompt ? (
           <div className="mt-4 border-t border-paper-mist pt-4">
             <h3 className="text-[13px] font-semibold text-paper-moss">Rendered prompt</h3>
-            <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+            <p className="mt-1.5 max-w-[62ch] text-[14px] leading-5 text-paper-char">
               {generation.finalPrompt}
             </p>
           </div>

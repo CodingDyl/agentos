@@ -3,7 +3,7 @@ import { CircleAlert, FilePlus2, FolderTree, Maximize, Minus, Plus, RefreshCw, R
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { VaultStatus } from "@shared/memory-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperIndicator } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
@@ -195,15 +195,15 @@ export function MemoryPage() {
   const clearOfPanel = { right: noteId ? "min(560px, 100%)" : "0px" };
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="memory" activeHref="/memory" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="memory" activeHref="/memory">
       <div
         data-still={reducedMotion}
-        className="@container/memory flex h-full min-h-0 flex-col bg-paper-white font-paper-ui text-paper-moss"
+        className="@container/memory flex h-full min-h-0 flex-col bg-background text-paper-moss"
       >
         {/* Toolbar */}
         <header className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-paper-mist px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-baseline gap-3">
-            <h1 data-heading="compact" className="font-paper-display text-[26px] leading-none font-extrabold tracking-[-0.015em] text-paper-moss">
+            <h1 data-heading="compact" className="text-[24px] leading-none font-semibold tracking-[-0.015em] text-paper-moss">
               Memory
             </h1>
             <p className="hidden text-[13px] text-paper-sage tabular-nums sm:block">
@@ -257,7 +257,7 @@ export function MemoryPage() {
         </header>
 
         {vault && (vault.state === "unavailable" || vault.state === "unconfigured") ? (
-          <div role="alert" className="flex items-start gap-3 border-b border-paper-flame-deep bg-paper-cream px-4 py-3 text-[13.5px] leading-6 text-paper-char sm:px-6">
+          <div role="alert" className="flex items-start gap-3 border-b border-paper-flame-deep bg-paper-cream px-4 py-3 text-[14px] leading-6 text-paper-char sm:px-6">
             <CircleAlert className="mt-1 size-4 shrink-0 text-paper-flame-deep" strokeWidth={2} aria-hidden="true" />
             <p className="max-w-[110ch]">
               <strong className="font-semibold text-paper-moss">{vault.reason ?? "The vault is not available."}</strong>{" "}
@@ -289,19 +289,19 @@ export function MemoryPage() {
             aria-label="Vault files"
             className={cn(
               "flex min-h-0 flex-col border-r border-paper-mist bg-paper-white",
-              "@max-[899px]/memory:fixed @max-[899px]/memory:inset-y-0 @max-[899px]/memory:left-0 @max-[899px]/memory:z-40 @max-[899px]/memory:w-[min(320px,88vw)] @max-[899px]/memory:shadow-[0_12px_40px_rgb(4_5_26/0.35)] @max-[899px]/memory:transition-transform @max-[899px]/memory:duration-300 @max-[899px]/memory:ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+              "@max-[899px]/memory:fixed @max-[899px]/memory:inset-y-0 @max-[899px]/memory:left-0 @max-[899px]/memory:z-40 @max-[899px]/memory:w-[min(320px,88vw)] @max-[899px]/memory:shadow-[var(--shadow-overlay)] @max-[899px]/memory:transition-transform @max-[899px]/memory:duration-300 @max-[899px]/memory:ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
               drawerOpen ? "@max-[899px]/memory:translate-x-0" : "@max-[899px]/memory:-translate-x-full @max-[899px]/memory:invisible",
             )}
           >
             <div className="flex items-center justify-between gap-2 border-b border-paper-mist px-4 py-2.5">
               <span className="flex min-w-0 items-center gap-2">
                 <FolderTree className="size-4 shrink-0 text-paper-blue" strokeWidth={1.75} aria-hidden="true" />
-                <span className="truncate font-paper-utility text-[12.5px] font-semibold tracking-[0.1em] text-paper-char uppercase">
+                <span className="truncate text-[13px] font-semibold text-paper-char">
                   {vault?.root?.split("/").pop() ?? "Vault"}
                 </span>
               </span>
               <span className="flex items-center gap-1">
-                <span className="text-[12px] text-paper-sage tabular-nums">
+                <span className="text-[13px] text-paper-sage tabular-nums">
                   {tree.data ? (query ? `${tree.data.total} of ${tree.data.vaultTotal}` : tree.data.total) : "…"}
                 </span>
                 <button
@@ -317,7 +317,7 @@ export function MemoryPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {tree.data && tree.data.notes.length === 0 ? (
-                <p className="px-4 py-4 text-[13.5px] leading-6 text-paper-sage">{query ? `No notes match “${query}”.` : "The vault has no notes."}</p>
+                <p className="px-4 py-4 text-[14px] leading-6 text-paper-sage">{query ? `No notes match “${query}”.` : "The vault has no notes."}</p>
               ) : (
                 <FileTree
                   notes={tree.data?.notes ?? []}
@@ -330,7 +330,7 @@ export function MemoryPage() {
                 />
               )}
               {tree.data && tree.data.omitted > 0 ? (
-                <p className="px-4 py-3 text-[12.5px] text-paper-sage">
+                <p className="px-4 py-3 text-[13px] text-paper-sage">
                   {tree.data.omitted} more notes are not listed. Search to find them.
                 </p>
               ) : null}
@@ -391,7 +391,7 @@ export function MemoryPage() {
               className="pointer-events-none absolute top-0 left-0 z-10 flex flex-wrap items-start gap-2 p-3 transition-[right] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
               style={clearOfPanel}
             >
-              <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 bg-paper-linen p-1.5 backdrop-blur-md">
+              <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 bg-paper-linen p-1.5">
                 <FieldSegment label="Graph scope" options={SCOPES} value={scope} onChange={(value) => update({ scope: value === "global" ? undefined : value })} />
                 {scope === "local" ? (
                   <FieldSegment label="Depth" options={DEPTHS} value={depth} onChange={(value) => update({ depth: value === "1" ? undefined : value })} />
@@ -402,7 +402,7 @@ export function MemoryPage() {
                     aria-label="Show notes with tag"
                     value={tag}
                     onChange={(event) => update({ tag: event.target.value || undefined })}
-                    className={cn("min-h-7 cursor-pointer border border-white/20 bg-transparent px-2 text-[12.5px] text-paper-moss [&>option]:text-paper-moss", PAPER_FOCUS)}
+                    className={cn("min-h-7 cursor-pointer border border-white/20 bg-transparent px-2 text-[13px] text-paper-moss [&>option]:text-paper-moss", PAPER_FOCUS)}
                   >
                     <option value="">Any tag</option>
                     {tags.slice(0, 60).map((entry) => (
@@ -421,7 +421,7 @@ export function MemoryPage() {
                 <FieldToggle pressed={arrows} onClick={() => update({ arrows: arrows ? undefined : "1" })}>Arrows</FieldToggle>
                 <FieldToggle pressed={reducedMotion} onClick={toggleMotion}>Still</FieldToggle>
               </div>
-              <div className="pointer-events-auto ml-auto flex items-center bg-paper-linen p-1 backdrop-blur-md">
+              <div className="pointer-events-auto ml-auto flex items-center bg-paper-linen p-1">
                 <FieldIcon label="Zoom out" onClick={() => graphRef.current?.zoomBy(1 / 1.4)}><Minus /></FieldIcon>
                 <FieldIcon label="Zoom in" onClick={() => graphRef.current?.zoomBy(1.4)}><Plus /></FieldIcon>
                 <FieldIcon label="Fit to view" onClick={() => graphRef.current?.fit()}><Maximize /></FieldIcon>
@@ -449,7 +449,7 @@ export function MemoryPage() {
 
             {graphData && graphData.nodes.length > 0 ? (
               <div
-                className="pointer-events-none absolute bottom-0 left-0 z-10 flex flex-wrap items-end justify-between gap-3 p-3 text-[12px] text-paper-char"
+                className="pointer-events-none absolute bottom-0 left-0 z-10 flex flex-wrap items-end justify-between gap-3 p-3 text-[13px] text-paper-char"
                 style={clearOfPanel}
               >
                 {colorBy !== "random" ? (
@@ -488,7 +488,7 @@ export function MemoryPage() {
                 onClose={close}
                 closeLabel="Close note"
                 accent={colorOf(noteId) ?? noteColor(noteId)}
-                className="absolute inset-y-0 right-0 z-20 w-[min(560px,100%)] bg-paper-white shadow-[-24px_0_60px_rgb(2_2_16/0.55)]"
+                className="absolute inset-y-0 right-0 z-20 w-[min(560px,100%)] bg-paper-white shadow-[var(--shadow-overlay)]"
               />
             ) : null}
           </section>
@@ -544,7 +544,7 @@ function FieldSegment<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex border border-white/15">
+    <div role="radiogroup" aria-label={label} className="inline-flex border border-paper-mist">
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -555,9 +555,9 @@ function FieldSegment<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              "min-h-7 cursor-pointer px-2.5 text-[12.5px] font-medium transition-colors duration-150",
+              "min-h-7 cursor-pointer px-2.5 text-[13px] font-medium transition-colors duration-150",
               FIELD_FOCUS,
-              selected ? "bg-primary text-primary-foreground" : "text-paper-char hover:bg-white/10 hover:text-white",
+              selected ? "bg-selected text-paper-moss" : "text-paper-char hover:bg-paper-linen hover:text-paper-moss",
             )}
           >
             {option.label}
@@ -575,9 +575,9 @@ function FieldToggle({ pressed, onClick, children }: { pressed: boolean; onClick
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        "min-h-7 cursor-pointer border px-2.5 text-[12.5px] font-medium transition-colors duration-150",
+        "min-h-7 cursor-pointer border px-2.5 text-[13px] font-medium transition-colors duration-150",
         FIELD_FOCUS,
-        pressed ? "border-paper-ash bg-primary text-primary-foreground" : "border-white/15 text-paper-char hover:border-white/40 hover:text-white",
+        pressed ? "border-paper-ash bg-selected text-paper-moss" : "border-paper-mist text-paper-char hover:border-paper-ash hover:text-paper-moss",
       )}
     >
       {children}
@@ -593,7 +593,7 @@ function FieldIcon({ label, onClick, children }: { label: string; onClick: () =>
       title={label}
       onClick={onClick}
       className={cn(
-        "inline-flex size-8 cursor-pointer items-center justify-center text-paper-char transition-colors duration-150 hover:bg-white/10 hover:text-white [&>svg]:size-4 [&>svg]:stroke-[1.75]",
+        "inline-flex size-8 cursor-pointer items-center justify-center text-paper-char transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss [&>svg]:size-4 [&>svg]:stroke-[1.75]",
         FIELD_FOCUS,
       )}
     >
@@ -604,7 +604,7 @@ function FieldIcon({ label, onClick, children }: { label: string; onClick: () =>
 
 function FilterChip({ children, onClear }: { children: ReactNode; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 bg-primary py-0.5 pr-0.5 pl-2 text-[12.5px] font-medium text-primary-foreground">
+    <span className="inline-flex items-center gap-1 rounded-sm bg-selected py-0.5 pr-0.5 pl-2 text-[13px] font-medium text-paper-moss">
       Only {children}
       <button
         type="button"
@@ -645,7 +645,7 @@ function GraphMessage({
   } else if (loading) {
     return (
       <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/70" style={style}>
-        <DedsecLoader variant="compact" className="bg-transparent" />
+        <PageLoader variant="compact" className="bg-transparent" />
       </div>
     );
   } else if (nodes === 0) {
@@ -662,7 +662,7 @@ function GraphMessage({
   if (!message) return null;
   return (
     <div className="pointer-events-none absolute bottom-12 left-0 z-10 flex justify-center p-4" style={style}>
-      <p role="status" className="max-w-[52ch] border border-white/15 bg-paper-linen px-4 py-2.5 text-center text-[13.5px] leading-6 text-paper-moss backdrop-blur-md">
+      <p role="status" className="max-w-[52ch] border border-paper-mist bg-paper-linen px-4 py-2.5 text-center text-[14px] leading-6 text-paper-moss">
         {message}
       </p>
     </div>

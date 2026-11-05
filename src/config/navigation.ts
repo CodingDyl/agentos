@@ -11,11 +11,11 @@ import {
   Gauge,
   Images,
   Inbox,
+  LayoutDashboard,
   LayoutGrid,
   PackageCheck,
   Network,
   Plug,
-  Sun,
   SquareTerminal,
   Target,
   Wallet,
@@ -35,13 +35,14 @@ import type { AppShellNavigationItem } from "@/components/os";
  *             Compass stays in the quiet footer
  * ```
  *
- * Dashboard is the old Today label: same `/` route, same screen. HUB is the
+ * The structure is specified in DESIGN.md, Navigation. Dashboard is the old
+ * Today label: same `/` route, same screen. HUB is the
  * old Learning tab: same `/learning` route. Career sits with Operations
  * because employment admin is machinery beside the agent network, not a
  * workspace.
  */
 export const navigationItems: AppShellNavigationItem[] = [
-  { label: "Dashboard", href: "/", icon: Sun, section: "primary" },
+  { label: "Dashboard", href: "/", icon: LayoutDashboard, section: "primary" },
   { label: "Inbox", href: "/inbox", icon: Inbox, section: "primary" },
   { label: "Business", href: "/business", icon: Briefcase, section: "business" },
   { label: "Traction", href: "/traction", icon: Target, section: "business" },

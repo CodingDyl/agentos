@@ -29,7 +29,7 @@ export function WatchItem({ watch, alerts = [], className }: WatchItemProps) {
                   strokeWidth={1.5}
                   aria-hidden="true"
                 />
-                <p className="max-w-[62ch] text-[15px] leading-6 text-os-muted">
+                <p className="max-w-[62ch] text-[14px] leading-6 text-os-muted">
                   {watch}
                 </p>
               </div>
@@ -49,7 +49,7 @@ export function WatchItem({ watch, alerts = [], className }: WatchItemProps) {
                   aria-hidden="true"
                 />
                 <span className="min-w-0">
-                  <span className="block max-w-[62ch] text-[15px] leading-6 text-foreground">
+                  <span className="block max-w-[62ch] text-[14px] leading-6 text-foreground">
                     {alert.name}
                   </span>
                   <span className="os-meta mt-1.5 block text-os-subtle">

@@ -1,7 +1,7 @@
 import { Check, GitBranch, GitCommitHorizontal, Plus, TriangleAlert } from "lucide-react";
 import { type ChangeEvent, useState } from "react";
 import type { BranchSummary, RepositoryStatus } from "@shared/repository-types";
-import { CommandButton, DedsecLoader, EmptyState, SectionLabel } from "@/components/os";
+import { CommandButton, PageLoader, EmptyState, SectionLabel } from "@/components/os";
 import { useRepositoryAction, useRepositoryStatus } from "@/lib/agentos/queries";
 import { GitGraph } from "./git-graph";
 import { GitGuide } from "./git-guide";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 /** Matches the vault forms elsewhere, minus their stacked top margin. */
 const INPUT =
-  "os-focus-ring w-full max-w-xs rounded-md border border-os-border bg-transparent px-3 py-2 font-mono text-[13px] leading-6 text-foreground placeholder:text-os-subtle disabled:opacity-45";
+  "os-focus-ring w-full max-w-xs rounded-md border border-os-border bg-transparent px-3 py-2 font-mono text-[12px] leading-6 text-foreground placeholder:text-os-subtle disabled:opacity-45";
 
 /**
  * The project's real repository.
@@ -42,7 +42,7 @@ function Row({
       <span className="os-meta text-os-subtle">{label}</span>
       <span
         className={cn(
-          "truncate font-mono text-[13px]",
+          "truncate font-mono text-[12px]",
           tone === "warning" ? "text-os-warning" : "text-foreground",
         )}
       >
@@ -88,7 +88,7 @@ export function ProjectRepository({ slug }: { slug: string }) {
   const [creating, setCreating] = useState(false);
 
   if (isLoading) {
-    return <DedsecLoader variant="compact" className="mt-6" />;
+    return <PageLoader variant="compact" className="mt-6" />;
   }
 
   if (error) {
@@ -356,7 +356,7 @@ export function ProjectRepository({ slug }: { slug: string }) {
 
                   <span
                     className={cn(
-                      "min-w-0 flex-1 truncate font-mono text-[13px]",
+                      "min-w-0 flex-1 truncate font-mono text-[12px]",
                       branch.current ? "text-foreground" : "text-os-muted",
                     )}
                   >

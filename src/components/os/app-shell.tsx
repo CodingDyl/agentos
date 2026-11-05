@@ -1,6 +1,6 @@
 import { useMissionControl } from "@/lib/agentos/queries";
 import { ChevronDown, Menu, X, type LucideIcon } from "lucide-react";
-import { useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { AppShellActionsContext } from "./app-shell-actions-context";
@@ -10,6 +10,7 @@ import { ActiveWorkIndicator } from "./active-work-indicator";
 import {
   COLLAPSIBLE_SECTIONS,
   SECTION_LABELS,
+  breadcrumbForPath,
   expandActiveSection,
   isCollapsibleSection,
   readCollapsedSections,
@@ -70,8 +71,45 @@ export interface AppShellProps {
   agentLabel?: string;
   /** The project the workspace is currently pointed at. Shown bottom-right. */
   contextLabel?: string;
+  /** The model actually in use, when a screen knows it. Absent shows nothing. */
   modelLabel?: string;
   className?: string;
+}
+
+type ShellMode = "drawer" | "rail" | "full";
+
+const DRAWER_QUERY = "(max-width: 639px)";
+const FULL_QUERY = "(min-width: 1280px)";
+
+function readShellMode(): ShellMode {
+  if (typeof window === "undefined") return "full";
+  if (window.matchMedia(DRAWER_QUERY).matches) return "drawer";
+  return window.matchMedia(FULL_QUERY).matches ? "full" : "rail";
+}
+
+/** The same three widths as `.qt-shell` in agentos.css. */
+function useShellMode(): ShellMode {
+  const [mode, setMode] = useState<ShellMode>(readShellMode);
+
+  useEffect(() => {
+    const queries = [window.matchMedia(DRAWER_QUERY), window.matchMedia(FULL_QUERY)];
+    const update = () => setMode(readShellMode());
+    for (const query of queries) query.addEventListener("change", update);
+    return () => {
+      for (const query of queries) query.removeEventListener("change", update);
+    };
+  }, []);
+
+  return mode;
+}
+
+/** The brand: a small `>_` prompt and the wordmark. */
+function BrandMark() {
+  return (
+    <span aria-hidden="true" className="os-mono flex size-7 shrink-0 items-center justify-center rounded-md bg-selected font-medium text-primary">
+      {">_"}
+    </span>
+  );
 }
 
 export function AppShell({
@@ -82,9 +120,9 @@ export function AppShell({
   systemState,
   systemLabel,
   agentState = "idle",
-  agentLabel = "Agent / idle",
+  agentLabel = "Agents idle",
   contextLabel,
-  modelLabel = "Local workspace",
+  modelLabel,
   className,
 }: AppShellProps) {
   const connection = useMissionControl();
@@ -99,25 +137,15 @@ export function AppShell({
   // Most screens pass a fixed "idle"; that must not outvote work that is
   // demonstrably running. A screen with a more specific state keeps it.
   const footerAgentState: SystemState = agentState === "idle" && liveCount > 0 ? "running" : agentState;
-  const footerAgentLabel = agentState === "idle" && liveCount > 0 ? `Agents / ${liveCount} running` : agentLabel;
+  const footerAgentLabel = agentState === "idle" && liveCount > 0 ? `${liveCount} ${liveCount === 1 ? "agent" : "agents"} running` : agentLabel;
   const navigationRef = useRef<HTMLElement>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement>(null);
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window === "undefined"
-      ? true
-      : window.matchMedia("(min-width: 768px)").matches,
-  );
+  const mode = useShellMode();
+  const isDrawer = mode === "drawer";
 
   useEffect(() => {
-    const desktopMediaQuery = window.matchMedia("(min-width: 768px)");
-    const updateViewportMode = () => setIsDesktop(desktopMediaQuery.matches);
-    desktopMediaQuery.addEventListener("change", updateViewportMode);
-    return () => desktopMediaQuery.removeEventListener("change", updateViewportMode);
-  }, []);
-
-  useEffect(() => {
-    if (!isNavigationOpen || isDesktop) return;
+    if (!isNavigationOpen || !isDrawer) return;
     const drawer = navigationRef.current;
     drawer?.querySelector<HTMLElement>("a, button")?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
@@ -129,15 +157,17 @@ export function AppShell({
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     document.addEventListener("keydown", onKeyDown);
-    return () => { document.removeEventListener("keydown", onKeyDown); navigationTriggerRef.current?.focus(); };
-  }, [isNavigationOpen, isDesktop]);
+    const trigger = navigationTriggerRef.current;
+    return () => { document.removeEventListener("keydown", onKeyDown); trigger?.focus(); };
+  }, [isNavigationOpen, isDrawer]);
 
-  const navigationIsAvailable = isDesktop || isNavigationOpen;
+  const navigationIsAvailable = !isDrawer || isNavigationOpen;
   const location = useLocation();
   const shellActions = useContext(AppShellActionsContext);
-  const voiceLauncher = useContext(AppShellVoiceContext);
+  const voiceStatus = useContext(AppShellVoiceContext);
   const media = useContext(AppShellMediaContext);
   const activePath = activeHref ?? location.pathname;
+  const crumbs = breadcrumbForPath(location.pathname, navigationItems);
   const [collapsedSections, setCollapsedSections] = useState<Set<CollapsibleSection>>(() =>
     typeof window === "undefined" ? new Set() : readCollapsedSections(),
   );
@@ -159,146 +189,175 @@ export function AppShell({
     });
   };
 
+  const isRail = mode === "rail";
+  const footerItems = navigationItems.filter((item) => item.section === "footer");
+
   return (
-    <div
-      className={cn(
-        "os-environment grid grid-cols-[minmax(0,1fr)] h-dvh grid-rows-[56px_minmax(0,1fr)_32px] overflow-hidden text-foreground",
-        className,
-      )}
-    >
-      {/* The sidebar is a dozen stops long; keyboard users skip it. */}
+    <div className={cn("os-environment qt-shell text-foreground", className)}>
+      {/* The sidebar is two dozen stops long; keyboard users skip it. */}
       <a
         href="#agentos-main"
-        className="os-focus-ring sr-only z-50 rounded-md bg-os-surface-raised px-3 py-2 text-[13px] text-foreground focus:not-sr-only focus:absolute focus:top-2 focus:left-2"
+        className="os-focus-ring sr-only z-50 rounded-md bg-os-surface-raised px-3 py-2 text-[14px] text-foreground focus:not-sr-only focus:absolute focus:top-2 focus:left-2"
       >
         Skip to content
       </a>
-      <header className="os-stage z-30 flex items-center justify-between border-b border-os-border bg-os-background px-4 sm:px-6">
-        <div className="flex items-center gap-3">
+
+      {isDrawer && isNavigationOpen ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 cursor-default bg-[var(--scrim)]"
+          onClick={() => setIsNavigationOpen(false)}
+          aria-label="Close navigation overlay"
+        />
+      ) : null}
+
+      <aside
+        ref={navigationRef}
+        role={isDrawer && isNavigationOpen ? "dialog" : undefined}
+        aria-modal={isDrawer && isNavigationOpen ? true : undefined}
+        data-surface="sidebar"
+        className="os-stage qt-sidebar flex min-h-0 flex-col border-r border-os-border"
+        data-open={isNavigationOpen}
+        inert={!navigationIsAvailable}
+        aria-hidden={!navigationIsAvailable}
+        aria-label="Primary navigation"
+      >
+        <div className={cn("flex h-14 shrink-0 items-center", isRail ? "justify-center" : "px-4")}>
+          {isDrawer ? (
+            <span className="inline-flex items-center gap-2 text-[14px] leading-5 font-semibold">
+              <BrandMark />
+              AgentOS
+            </span>
+          ) : (
+            <Link
+              to="/"
+              aria-label="AgentOS home"
+              className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md text-[14px] leading-5 font-semibold"
+            >
+              <BrandMark />
+              {isRail ? null : "AgentOS"}
+            </Link>
+          )}
+        </div>
+
+        <nav className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto pb-3", isRail ? "items-stretch px-3" : "px-3")} aria-label="Sections">
+          {SECTION_ORDER.map((section, index) => {
+            const items = navigationItems.filter((item) => (item.section ?? "primary") === section);
+            if (items.length === 0) return null;
+            const collapsible = isCollapsibleSection(section);
+
+            return (
+              <Fragment key={section}>
+                {isRail && index > 0 ? <span className="my-2 block h-px shrink-0 bg-os-border" aria-hidden="true" /> : null}
+                <NavSection
+                  label={collapsible && !isRail ? SECTION_LABELS[section] : undefined}
+                  groupLabel={collapsible ? SECTION_LABELS[section] : undefined}
+                  collapsed={collapsible ? collapsedSections.has(section) : false}
+                  onToggle={collapsible && !isRail ? () => toggleSection(section) : undefined}
+                  items={items}
+                  activeHref={activeHref}
+                  pathname={location.pathname}
+                  rail={isRail}
+                  onNavigate={() => setIsNavigationOpen(false)}
+                />
+              </Fragment>
+            );
+          })}
+        </nav>
+
+        {isRail ? null : media}
+
+        <div className={cn("flex shrink-0 flex-col gap-0.5 border-t border-os-border py-2", isRail ? "px-3" : "px-3")}>
+          {footerItems.map((item) => (
+            <NavigationLink
+              key={item.href}
+              item={item}
+              isActive={item.href === activeHref}
+              pathname={location.pathname}
+              rail={isRail}
+              onNavigate={() => setIsNavigationOpen(false)}
+            />
+          ))}
+        </div>
+      </aside>
+
+      {/* The rail has no room for a focus timer or a player, so what is playing
+          floats beside it, and only while something is. */}
+      {isRail ? (
+        <div className="fixed bottom-9 left-[72px] z-30 w-64 rounded-lg bg-os-surface-raised shadow-[var(--shadow-overlay)] empty:hidden [&>div]:border-t-0">
+          {media}
+        </div>
+      ) : null}
+
+      <header className="os-stage qt-topbar z-20 flex items-center justify-between gap-3 border-b border-os-border px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
             ref={navigationTriggerRef}
             onClick={() => setIsNavigationOpen((isOpen) => !isOpen)}
-            className="os-focus-ring -ml-2 inline-flex size-10 cursor-pointer items-center justify-center rounded-md text-os-muted transition-colors hover:bg-os-surface-raised hover:text-foreground md:hidden"
+            className="qt-drawer-control os-focus-ring -ml-2 inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-os-muted transition-colors duration-150 hover:bg-os-surface-raised hover:text-foreground"
             aria-label={isNavigationOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={isNavigationOpen}
           >
             {isNavigationOpen ? (
-              <X className="size-4" aria-hidden="true" />
+              <X className="size-[18px]" strokeWidth={1.5} aria-hidden="true" />
             ) : (
-              <Menu className="size-4" aria-hidden="true" />
+              <Menu className="size-[18px]" strokeWidth={1.5} aria-hidden="true" />
             )}
           </button>
-          <Link
-            to="/"
-            aria-label="AgentOS home"
-            className="collective-brand os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-none font-paper-utility text-[15px] font-medium tracking-[0.14em] uppercase"
-          >
-            <span className="text-os-muted">Agent</span>
-            <span className="text-os-subtle">/</span>
-            <span>OS</span>
-          </Link>
+          <nav aria-label="Breadcrumb" className="min-w-0">
+            <ol className="flex min-w-0 items-center gap-1.5 text-[14px] leading-5">
+              {crumbs.map((crumb, index) => {
+                const last = index === crumbs.length - 1;
+                return (
+                  <li key={`${crumb.label}-${index}`} className={cn("flex min-w-0 items-center gap-1.5", !last && "hidden sm:flex")}>
+                    {index > 0 ? <span aria-hidden="true" className="hidden text-os-subtle sm:inline">/</span> : null}
+                    {last ? (
+                      <span aria-current="page" className="truncate font-medium text-foreground">{crumb.label}</span>
+                    ) : crumb.href ? (
+                      <Link to={crumb.href} className="os-focus-ring truncate rounded-sm text-os-muted transition-colors duration-150 hover:text-foreground">{crumb.label}</Link>
+                    ) : (
+                      <span className="truncate text-os-muted">{crumb.label}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
         </div>
-        <div className="flex items-center gap-3 sm:gap-4">
-          {shellActions}
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {voiceStatus}
           <ActiveWorkIndicator items={activeWork} />
-          <SystemIndicator state={systemState ?? connectionState} label={systemLabel ?? connectionLabel} title={hermes?.detail} />
+          <SystemIndicator
+            state={systemState ?? connectionState}
+            label={systemLabel ?? connectionLabel}
+            title={hermes?.detail}
+            className="max-lg:hidden"
+          />
+          {shellActions}
         </div>
       </header>
 
-      {/* One row the height of the stage, so a sidebar longer than the window
-          scrolls inside itself instead of running under the status bar. */}
-      <div className="relative grid min-h-0 grid-rows-[minmax(0,1fr)] md:grid-cols-[224px_minmax(0,1fr)]">
-        {isNavigationOpen ? (
-          <button
-            type="button"
-            className="absolute inset-0 z-10 cursor-default bg-os-background/80 md:hidden"
-            onClick={() => setIsNavigationOpen(false)}
-            aria-label="Close navigation overlay"
+      <main inert={isDrawer && isNavigationOpen} id="agentos-main" tabIndex={-1} data-agentos-page={pageId} className="qt-main overflow-y-auto outline-none">
+        {children}
+      </main>
+
+      <footer className="os-stage qt-statusbar z-20 flex items-center justify-between gap-4 border-t border-os-border px-4 sm:px-6">
+        <span className="flex min-w-0 items-center gap-4">
+          <SystemIndicator state={footerAgentState} label={footerAgentLabel} />
+          {/* Below the top bar's room for it, Hermes' state moves here rather than going unsaid. */}
+          <SystemIndicator
+            state={systemState ?? connectionState}
+            label={systemLabel ?? connectionLabel}
+            title={hermes?.detail}
+            className="lg:hidden"
           />
-        ) : null}
-        <aside
-          ref={navigationRef}
-          role={!isDesktop && isNavigationOpen ? "dialog" : undefined}
-          aria-modal={!isDesktop && isNavigationOpen ? true : undefined}
-          className={cn(
-            "os-stage os-navigation-drawer absolute inset-y-0 left-0 z-20 flex min-h-0 w-[min(82vw,224px)] flex-col border-r border-os-border bg-os-surface transition-transform duration-150",
-          )}
-          data-open={isNavigationOpen}
-          inert={!navigationIsAvailable}
-          aria-hidden={!navigationIsAvailable}
-          aria-label="Primary navigation"
-        >
-          <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 pt-4" aria-label="Sections">
-            {SECTION_ORDER.map((section) => {
-              const items = navigationItems.filter((item) => (item.section ?? "primary") === section);
-              if (items.length === 0) return null;
-              const collapsible = isCollapsibleSection(section);
-
-              return (
-                <NavSection
-                  key={section}
-                  label={collapsible ? SECTION_LABELS[section] : undefined}
-                  collapsed={collapsible ? collapsedSections.has(section) : false}
-                  onToggle={collapsible ? () => toggleSection(section) : undefined}
-                  items={items}
-                  activeHref={activeHref}
-                  pathname={location.pathname}
-                  onNavigate={() => setIsNavigationOpen(false)}
-                />
-              );
-            })}
-          </nav>
-          {media}
-          {voiceLauncher ? <div className="border-t border-os-border p-3">{voiceLauncher}</div> : null}
-          <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-os-border px-6 py-3">
-            {navigationItems
-              .filter((item) => item.section === "footer")
-              .map((item) => {
-                const Icon = item.icon;
-                const isActive = item.href === activeHref;
-                return (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    onClick={() => setIsNavigationOpen(false)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={cn(
-                      "os-focus-ring os-meta inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-none transition-colors duration-150",
-                      isActive ? "text-foreground" : "text-os-subtle hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-          </div>
-        </aside>
-
-        <main inert={!isDesktop && isNavigationOpen} id="agentos-main" tabIndex={-1} data-agentos-page={pageId} className="min-w-0 overflow-y-auto outline-none">
-          {children}
-        </main>
-      </div>
-
-      <footer className="os-stage z-30 flex items-center justify-between gap-4 border-t border-os-border bg-os-background px-4 sm:px-6">
-        <SystemIndicator state={footerAgentState} label={footerAgentLabel} />
-        <div className="flex min-w-0 items-center gap-3">
-          {contextLabel ? (
-            <>
-              <span className="os-meta hidden truncate text-os-muted sm:inline">
-                {contextLabel}
-              </span>
-              <span
-                className="hidden h-3 w-px shrink-0 bg-os-border sm:inline-block"
-                aria-hidden="true"
-              />
-            </>
-          ) : null}
-          <span className="os-meta truncate text-right text-os-subtle">
-            {modelLabel}
-          </span>
-        </div>
+        </span>
+        <span className="flex min-w-0 items-center gap-3 max-sm:hidden">
+          {contextLabel ? <span className="os-mono truncate text-os-subtle">{contextLabel}</span> : null}
+          {contextLabel && modelLabel ? <span className="h-3 w-px shrink-0 bg-os-border" aria-hidden="true" /> : null}
+          {modelLabel ? <span className="os-mono truncate text-right text-os-subtle">{modelLabel}</span> : null}
+        </span>
       </footer>
     </div>
   );
@@ -306,19 +365,25 @@ export function AppShell({
 
 function NavSection({
   label,
+  groupLabel,
   collapsed,
   onToggle,
   items,
   activeHref,
   pathname,
+  rail,
   onNavigate,
 }: {
+  /** The visible, foldable heading. Absent on the rail and for the top group. */
   label?: string;
+  /** The group's name for assistive tech when no heading is drawn. */
+  groupLabel?: string;
   collapsed: boolean;
   onToggle?: () => void;
   items: AppShellNavigationItem[];
   activeHref?: string;
   pathname: string;
+  rail: boolean;
   onNavigate: () => void;
 }) {
   const panelId = useId();
@@ -330,28 +395,29 @@ function NavSection({
       item={item}
       isActive={item.href === activeHref}
       pathname={pathname}
+      rail={rail}
       onNavigate={onNavigate}
     />
   ));
 
   if (!label || !onToggle) {
-    return <div className="flex flex-col gap-0.5">{links}</div>;
+    return <div role={groupLabel ? "group" : undefined} aria-label={groupLabel} className="flex flex-col gap-0.5">{links}</div>;
   }
 
   return (
-    <div className="mt-6 flex flex-col">
+    <div className="mt-4 flex flex-col">
       <button
         type="button"
         id={headerId}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={onToggle}
-        className="os-focus-ring os-meta mb-1 flex min-h-8 w-full cursor-pointer items-center justify-between rounded-none px-3 text-os-subtle transition-colors hover:text-foreground"
+        className="os-focus-ring mb-0.5 flex min-h-8 w-full cursor-pointer items-center justify-between rounded-md px-3 text-[13px] leading-5 text-os-subtle transition-colors duration-150 hover:text-foreground"
       >
         <span>{label}</span>
         <ChevronDown
-          className={cn("size-3.5 shrink-0 transition-transform duration-200", open ? "rotate-0" : "-rotate-90")}
-          strokeWidth={1.75}
+          className={cn("size-3.5 shrink-0 transition-transform duration-150", open ? "rotate-0" : "-rotate-90")}
+          strokeWidth={1.5}
           aria-hidden="true"
         />
       </button>
@@ -359,13 +425,11 @@ function NavSection({
         id={panelId}
         role="region"
         aria-labelledby={headerId}
-        className={cn(
-          "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-        )}
-        inert={!open}
+        hidden={!open}
+        className="flex-col gap-0.5"
+        style={{ display: open ? "flex" : "none" }}
       >
-        <div className="flex min-h-0 flex-col gap-0.5 overflow-hidden">{links}</div>
+        {links}
       </div>
     </div>
   );
@@ -375,49 +439,71 @@ function NavigationLink({
   item,
   isActive,
   pathname,
+  rail,
   onNavigate,
 }: {
   item: AppShellNavigationItem;
   isActive: boolean;
   pathname: string;
+  rail: boolean;
   onNavigate: () => void;
 }) {
   const Icon = item.icon;
   const children = item.children ?? [];
+  // Fixed, because the sidebar's own scroll would clip anything absolute.
+  const [tip, setTip] = useState<{ top: number; left: number }>();
+  const showTip = (element: HTMLElement) => {
+    if (!rail) return;
+    const box = element.getBoundingClientRect();
+    setTip({ top: box.top + box.height / 2, left: box.right + 8 });
+  };
+  const hideTip = () => setTip(undefined);
 
   return (
     <>
       <Link
         to={item.href}
-        onClick={onNavigate}
+        onClick={() => {
+          hideTip();
+          onNavigate();
+        }}
+        onMouseEnter={(event) => showTip(event.currentTarget)}
+        onMouseLeave={hideTip}
+        onFocus={(event) => showTip(event.currentTarget)}
+        onBlur={hideTip}
         className={cn(
-          "os-focus-ring group relative flex min-h-10 cursor-pointer items-center gap-3 rounded-none px-3 font-paper-ui text-[14px] font-medium transition-colors duration-150",
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : "text-os-muted hover:bg-os-surface-raised/70 hover:text-foreground",
+          "os-focus-ring relative flex min-h-10 shrink-0 cursor-pointer items-center rounded-md text-[14px] leading-5 font-medium transition-colors duration-150",
+          rail ? "justify-center" : "gap-3 px-3",
+          isActive ? "bg-selected text-foreground" : "text-os-muted hover:bg-os-surface-raised hover:text-foreground",
         )}
         aria-current={isActive ? "page" : undefined}
       >
-        {isActive ? (
-          <span className="absolute inset-y-2 left-0 w-[3px] bg-os-amber" aria-hidden="true" />
-        ) : null}
-        <Icon
-          className={cn("size-4 transition-colors", isActive ? "text-primary-foreground" : "text-os-subtle")}
-          strokeWidth={1.5}
-          aria-hidden="true"
-        />
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        {isActive ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-sm bg-primary" aria-hidden="true" /> : null}
+        <Icon className="size-[18px] shrink-0" strokeWidth={1.5} aria-hidden="true" />
+        <span className={rail ? "sr-only" : "min-w-0 flex-1 truncate"}>{item.label}</span>
         {item.badge ? (
+          rail ? (
+            <span className="absolute top-1 right-1 rounded-sm bg-os-surface-active px-1 text-[12px] leading-4 font-medium text-os-warning tabular-nums" aria-label={`${item.badge} waiting on you`}>
+              {item.badge}
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-sm bg-os-surface-active px-1.5 text-[13px] leading-5 font-medium text-os-warning tabular-nums" aria-label={`${item.badge} waiting on you`}>
+              {item.badge}
+            </span>
+          )
+        ) : null}
+        {tip ? (
           <span
-            className="shrink-0 rounded-none bg-os-warning px-1.5 py-0.5 text-[12px] leading-4 font-medium text-primary-foreground tabular-nums"
-            aria-label={`${item.badge} waiting on you`}
+            aria-hidden="true"
+            style={{ top: tip.top, left: tip.left }}
+            className="pointer-events-none fixed z-50 -translate-y-1/2 rounded-md border border-os-border bg-os-surface-raised px-2 py-1 text-[13px] leading-5 whitespace-nowrap text-foreground shadow-[var(--shadow-overlay)]"
           >
-            {item.badge}
+            {item.label}
           </span>
         ) : null}
       </Link>
 
-      {children.length > 0 ? (
+      {children.length > 0 && !rail ? (
         <ul className="mb-1 flex flex-col gap-px" aria-label={`Pinned ${item.label.toLowerCase()}`}>
           {children.map((child) => {
             const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
@@ -428,16 +514,10 @@ function NavigationLink({
                   onClick={onNavigate}
                   aria-current={childActive ? "page" : undefined}
                   className={cn(
-                    "os-focus-ring flex min-h-8 cursor-pointer items-center gap-2.5 rounded-none py-1 pr-3 pl-10 text-[13.5px] leading-5 transition-colors duration-150",
-                    childActive
-                      ? "bg-os-surface-raised/70 text-foreground"
-                      : "text-os-muted hover:bg-os-surface-raised/50 hover:text-foreground",
+                    "os-focus-ring flex min-h-8 cursor-pointer items-center rounded-md py-1 pr-3 pl-10 text-[13px] leading-5 transition-colors duration-150",
+                    childActive ? "bg-os-surface-raised text-foreground" : "text-os-muted hover:bg-os-surface-raised hover:text-foreground",
                   )}
                 >
-                  <span
-                    className={cn("size-1.5 shrink-0 rounded-none", childActive ? "bg-os-amber" : "bg-os-subtle")}
-                    aria-hidden="true"
-                  />
                   <span className="min-w-0 truncate">{child.label}</span>
                 </Link>
               </li>

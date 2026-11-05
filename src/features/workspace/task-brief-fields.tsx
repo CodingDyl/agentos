@@ -143,7 +143,7 @@ function PendingRef({ file, onRemove }: { file: File; onRemove: () => void }) {
       ) : (
         <FileText className="size-4 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
       )}
-      <span className="max-w-[12rem] truncate text-[12px] leading-4 text-os-muted">{file.name}</span>
+      <span className="max-w-[12rem] truncate text-[13px] leading-4 text-os-muted">{file.name}</span>
       <button
         type="button"
         aria-label={`Remove ${file.name}`}
@@ -271,7 +271,7 @@ function StoredRef({
         ) : (
           <FileText className="size-4 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
         )}
-        <span className="max-w-[12rem] truncate text-[12px] leading-4 text-os-muted">{reference.name}</span>
+        <span className="max-w-[12rem] truncate text-[13px] leading-4 text-os-muted">{reference.name}</span>
       </a>
     </li>
   );

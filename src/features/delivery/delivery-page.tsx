@@ -30,7 +30,7 @@ const deliveryHref = (slug: string) => `/delivery/${encodeURIComponent(slug)}`;
 function Shell({ children }: { children: React.ReactNode }) {
   const navigationItems = useNavigationItems();
   return (
-    <AppShell navigationItems={navigationItems} pageId="delivery" activeHref="/delivery" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="delivery" activeHref="/delivery">
       <PaperStage>{children}</PaperStage>
     </AppShell>
   );
@@ -78,7 +78,7 @@ function DecisionList({ decisions }: { decisions: DeliveryDecision[] }) {
         const blockers = decision.review?.blockers ?? 0;
         return (
           <li key={`${decision.runId}-${decision.stage}`}>
-            <Link to={href} className="group grid cursor-pointer gap-1 px-4 py-3 transition-colors duration-150 hover:bg-paper-linen focus-visible:bg-paper-linen focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-paper-blue sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+            <Link to={href} className="group grid cursor-pointer gap-1 px-4 py-3 transition-colors duration-150 hover:bg-paper-linen focus-visible:bg-paper-linen focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--focus)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 text-[14px]">
                   <span className="font-semibold text-paper-moss">{decision.company}</span>
@@ -86,7 +86,7 @@ function DecisionList({ decisions }: { decisions: DeliveryDecision[] }) {
                   <span className="text-paper-char">{stageTitle(decision.stage)}</span>
                   {decision.kind === "review" ? <Tag tone="marigold">Review r{decision.revision}</Tag> : <Tag tone="flame">Stopped</Tag>}
                   {blockers > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-paper-flame-deep">
+                    <span className="inline-flex items-center gap-1 text-[13px] font-medium text-paper-flame-deep">
                       <AlertTriangle className="size-3.5" aria-hidden="true" />
                       Reviewer found {blockers} blocker{blockers === 1 ? "" : "s"}
                     </span>
@@ -94,9 +94,9 @@ function DecisionList({ decisions }: { decisions: DeliveryDecision[] }) {
                 </p>
                 {decision.detail ? <p className="mt-0.5 line-clamp-2 max-w-[90ch] text-[13px] leading-5 text-paper-char">{decision.detail}</p> : null}
               </div>
-              <span className="inline-flex items-center gap-1 text-[12.5px] text-paper-sage sm:justify-end">
+              <span className="inline-flex items-center gap-1 text-[13px] text-paper-sage sm:justify-end">
                 {formatRelativeTime(decision.since) ?? ""}
-                <ArrowRight className="size-3.5 text-paper-blue transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+                <ArrowRight className="size-3.5 text-paper-blue transition-transform duration-150" aria-hidden="true" />
               </span>
             </Link>
           </li>
@@ -114,7 +114,7 @@ function WorkspaceList({ workspaces }: { workspaces: DeliveryWorkspace[] }) {
         const action = workspace.state === "not_started" ? "Start" : workspace.state === "done" ? "Open" : "Resume";
         return (
           <li key={workspace.slug}>
-            <Link to={deliveryHref(workspace.slug)} className="group grid cursor-pointer gap-1 px-4 py-3 transition-colors duration-150 hover:bg-paper-linen focus-visible:bg-paper-linen focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-paper-blue sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
+            <Link to={deliveryHref(workspace.slug)} className="group grid cursor-pointer gap-1 px-4 py-3 transition-colors duration-150 hover:bg-paper-linen focus-visible:bg-paper-linen focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--focus)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 text-[14px]">
                   <span className="font-semibold text-paper-moss">{workspace.name}</span>
@@ -134,7 +134,7 @@ function WorkspaceList({ workspaces }: { workspaces: DeliveryWorkspace[] }) {
               </div>
               <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue">
                 {action}
-                <ArrowRight className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+                <ArrowRight className="size-3.5 transition-transform duration-150" aria-hidden="true" />
               </span>
             </Link>
           </li>
@@ -204,7 +204,7 @@ function MotionPassCard({ run, slug }: { run: RebuildRun; slug: string }) {
   return (
     <section aria-labelledby="motion-pass-title" className="flex flex-wrap items-center justify-between gap-4 border border-paper-mist bg-paper-white px-5 py-4">
       <div className="min-w-0 max-w-[72ch]">
-        <h2 id="motion-pass-title" className="flex flex-wrap items-center gap-2 font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">
+        <h2 id="motion-pass-title" className="flex flex-wrap items-center gap-2 text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">
           <Film className="size-4 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
           Motion pass
           {published && !previewBusy ? <Tag tone="green">On the preview</Tag> : existing ? <Tag tone="blue">{publishable ? "Ready to publish" : MOTION_WIZARD_STEP_LABEL[existing.step]}</Tag> : <Tag>Optional</Tag>}
@@ -221,7 +221,7 @@ function MotionPassCard({ run, slug }: { run: RebuildRun; slug: string }) {
                 : "Make the approved site more interactive. Motion Design proposes two concepts with their Higgsfield cost and spends nothing until you approve one. Pages, copy and features stay as approved."}
         </p>
         {publish.error ? (
-          <p role="alert" className="mt-2 text-[12.5px] text-paper-flame-deep">
+          <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
             {publish.error.message}
           </p>
         ) : null}
@@ -263,10 +263,10 @@ function DeliveryStartForm({ slug, name }: { slug: string; name: string }) {
   return (
     <form onSubmit={submit} className="grid max-w-[880px] gap-4 border border-paper-mist bg-paper-white p-5" aria-labelledby={`${id}-title`}>
       <div>
-        <h2 id={`${id}-title`} className="font-paper-display text-[21px] font-bold tracking-[-0.015em] text-paper-moss">
+        <h2 id={`${id}-title`} className="text-[16px] font-semibold tracking-[-0.015em] text-paper-moss">
           Build {name}'s website from scratch
         </h2>
-        <p className="mt-1 max-w-[72ch] text-[13.5px] leading-5 text-paper-char">
+        <p className="mt-1 max-w-[72ch] text-[14px] leading-5 text-paper-char">
           Seven stages, from their current site to a private Vercel preview, all in this workspace. You approve the design, the copy and the features before anything moves on. Nothing is sent to the client.
         </p>
       </div>

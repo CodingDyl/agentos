@@ -11,7 +11,7 @@ export function RecentProgress({ progress, className }: RecentProgressProps) {
     <Section label="Recent progress" className={className}>
       <HairlineCard className="p-5 md:p-6">
         {progress ? (
-          <p className="max-w-[68ch] text-[15px] leading-6 text-os-muted">
+          <p className="max-w-[68ch] text-[14px] leading-6 text-os-muted">
             {progress}
           </p>
         ) : (

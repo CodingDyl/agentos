@@ -63,7 +63,7 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
       ) : null}
 
       {bills.items.length > 0 ? (
-        <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-paper-mist bg-paper-mist lg:grid-cols-4">
           {[
             { label: "Bills each month", value: money(bills.committedMonthly), note: `${bills.items.length} tracked` },
             { label: "Paid so far", value: money(bills.paidThisMonth) },
@@ -86,12 +86,12 @@ export function FinanceBillsTab({ data }: { data: FinanceData }) {
       {bills.suggestions.length > 0 && !sample ? (
         <PaperSection label="Found in your payments" count={bills.suggestions.length}>
           <p className="mb-3 max-w-[62ch] text-[14px] leading-6 text-paper-char">These leave your account on a regular rhythm and you are not tracking them yet.</p>
-          <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+          <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
             {bills.suggestions.map((suggestion) => (
               <li key={suggestion.merchant} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
-                <p className="min-w-0 text-[14.5px] text-paper-moss">
+                <p className="min-w-0 text-[14px] text-paper-moss">
                   {suggestion.merchant}
-                  <span className="ml-2 text-[12.5px] text-paper-sage">
+                  <span className="ml-2 text-[13px] text-paper-sage">
                     {money(suggestion.amount)} · around the {suggestion.dueDay}
                     {ordinal(suggestion.dueDay)} · {suggestion.category}
                   </span>
@@ -186,12 +186,12 @@ function BillCard({ bill, open, onToggle, readOnly }: { bill: BillStatus; open: 
       }
       figure={
         <>
-          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{money(bill.paidAmount ?? bill.amount)}</span>
-          <span className="block text-[12px] text-paper-sage tabular-nums">{bill.paidAmount === undefined ? "expected" : bill.variance !== undefined && Math.abs(bill.variance) >= 1 ? `expected ${money(bill.amount)}` : "as expected"}</span>
+          <span className="block text-[16px] leading-6 font-semibold tracking-[-0.02em] text-paper-moss tabular-nums">{money(bill.paidAmount ?? bill.amount)}</span>
+          <span className="block text-[13px] text-paper-sage tabular-nums">{bill.paidAmount === undefined ? "expected" : bill.variance !== undefined && Math.abs(bill.variance) >= 1 ? `expected ${money(bill.amount)}` : "as expected"}</span>
         </>
       }
     >
-      <p className={cn("text-[14.5px] leading-6", bill.status === "missing" ? "font-semibold text-paper-flame-deep" : "text-paper-moss")} role="status">
+      <p className={cn("text-[14px] leading-6", bill.status === "missing" ? "font-semibold text-paper-flame-deep" : "text-paper-moss")} role="status">
         {bill.status === "paid" ? (
           <>
             {bill.marked ? "Marked paid" : "Paid"} {money(bill.paidAmount ?? 0)}
@@ -212,12 +212,12 @@ function BillCard({ bill, open, onToggle, readOnly }: { bill: BillStatus; open: 
           `Due ${formatDay(bill.dueDate)}, in ${bill.daysUntil} ${bill.daysUntil === 1 ? "day" : "days"}.`
         )}
       </p>
-      {bill.match ? <p className="mt-1 text-[12.5px] text-paper-sage">Looks for “{bill.match}” in your payments.</p> : null}
+      {bill.match ? <p className="mt-1 text-[13px] text-paper-sage">Looks for “{bill.match}” in your payments.</p> : null}
 
       {seen ? (
         <div className="mt-3">
-          <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Last months</p>
-          <ul className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1 text-[13.5px] tabular-nums">
+          <p className="text-[13px] font-semibold text-paper-sage">Last months</p>
+          <ul className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1 text-[14px] tabular-nums">
             {bill.history.map((entry) => (
               <li key={entry.month} className="text-paper-char">
                 <span className="text-paper-sage">{formatMonthShort(entry.month)} </span>
@@ -253,7 +253,7 @@ function BillCard({ bill, open, onToggle, readOnly }: { bill: BillStatus; open: 
           </PaperButton>
         </div>
       ) : (
-        <p className="mt-4 text-[12.5px] text-paper-sage">A sample bill. Add your own to track real ones.</p>
+        <p className="mt-4 text-[13px] text-paper-sage">A sample bill. Add your own to track real ones.</p>
       )}
       <MutationError error={mark.error ?? unmark.error ?? remove.error} />
     </FoldCard>
@@ -301,7 +301,7 @@ function BillForm({ bill, initial, onDone }: { bill?: BillStatus; initial?: Bill
       }}
     >
       <div className="flex items-center justify-between gap-3 sm:col-span-2">
-        <h2 className="font-paper-display text-[17px] font-bold text-paper-moss">{bill ? `Edit ${bill.name}` : "New bill"}</h2>
+        <h2 className="text-[16px] font-semibold text-paper-moss">{bill ? `Edit ${bill.name}` : "New bill"}</h2>
         <CloseButton label={bill ? `Close editing ${bill.name}` : "Close the new bill form"} onClick={onDone} showLabel />
       </div>
       <label className="block sm:col-span-2">
@@ -330,7 +330,7 @@ function BillForm({ bill, initial, onDone }: { bill?: BillStatus; initial?: Bill
         <FieldLabel>Word to look for in the payment (optional)</FieldLabel>
         <input value={match} onChange={(event) => setMatch(event.target.value)} placeholder={name.trim() || "Defaults to the name"} className={`${PAPER_INPUT} w-full`} maxLength={60} />
       </label>
-      <p className="text-[12.5px] leading-5 text-paper-sage sm:col-span-2">
+      <p className="text-[13px] leading-5 text-paper-sage sm:col-span-2">
         Finance looks for a payment out of your accounts containing that word each month, as a whole word. For water and electricity use what your bank shows, such as the municipality's name. A bill paid another way can be marked paid by hand.
       </p>
       <div className="flex gap-2 sm:col-span-2">

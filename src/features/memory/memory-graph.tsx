@@ -69,7 +69,7 @@ function hashPair(a: string, b: string): number {
 }
 
 function fontFamily(): string {
-  return getComputedStyle(document.body).getPropertyValue("--os-font-sans").trim() || "Inter, Arial, sans-serif";
+  return getComputedStyle(document.body).getPropertyValue("--font-ui").trim() || "Inter, Arial, sans-serif";
 }
 
 /** Past this many beams, gradients give way to flat colour to keep frames cheap. */
@@ -108,7 +108,7 @@ export const MemoryGraphCanvas = forwardRef<MemoryGraphHandle, MemoryGraphCanvas
     const map = new Map<string, string>();
     for (const node of graph.nodes) {
       if (node.unresolved) continue;
-      map.set(node.id, colorBy === "random" ? noteColor(node.id) : legend.colors.get(groupOf(node, colorBy)) ?? "#f2f2f2");
+      map.set(node.id, colorBy === "random" ? noteColor(node.id) : legend.colors.get(groupOf(node, colorBy)) ?? "#EEF1F4");
     }
     return map;
   }, [graph.nodes, colorBy, legend]);
@@ -192,8 +192,8 @@ export const MemoryGraphCanvas = forwardRef<MemoryGraphHandle, MemoryGraphCanvas
           return;
         }
 
-        const from = palette.get(source.id) ?? "#f2f2f2";
-        const to = palette.get(target.id) ?? "#f2f2f2";
+        const from = palette.get(source.id) ?? "#EEF1F4";
+        const to = palette.get(target.id) ?? "#EEF1F4";
         const paint = (alpha: number) => {
           if (!gradients && !lit) return withAlpha(from, alpha);
           const gradient = context.createLinearGradient(x1, y1, x2, y2);
@@ -236,14 +236,14 @@ export const MemoryGraphCanvas = forwardRef<MemoryGraphHandle, MemoryGraphCanvas
         if (node.unresolved) {
           // A ghost: an outline only, dashed, so it never reads as a real note.
           context.setLineDash([2 / scale, 2 / scale]);
-          context.strokeStyle = "rgb(220 224 255 / 0.7)";
+          context.strokeStyle = "rgb(172 181 191 / 0.8)";
           context.lineWidth = 1.1 / scale;
           context.beginPath();
           context.arc(x, y, radius, 0, Math.PI * 2);
           context.stroke();
           context.setLineDash([]);
         } else {
-          const color = palette.get(node.id) ?? "#f2f2f2";
+          const color = palette.get(node.id) ?? "#EEF1F4";
           const emphasised = node.id === selected || node.id === hover.current;
 
           // Glow, additive, so neighbouring cells light each other.
@@ -293,7 +293,7 @@ export const MemoryGraphCanvas = forwardRef<MemoryGraphHandle, MemoryGraphCanvas
           context.lineWidth = 3 / scale;
           context.strokeStyle = "rgb(4 5 26 / 0.85)";
           context.strokeText(label, x, top);
-          context.fillStyle = node.unresolved ? "rgb(220 224 255 / 0.7)" : "#eef0ff";
+          context.fillStyle = node.unresolved ? "rgb(172 181 191 / 0.8)" : "#EEF1F4";
           context.fillText(label, x, top);
         }
         context.restore();
@@ -308,7 +308,7 @@ export const MemoryGraphCanvas = forwardRef<MemoryGraphHandle, MemoryGraphCanvas
       .linkDirectionalParticleSpeed((link) => 0.0035 + link.seed * 0.006)
       .linkDirectionalParticleColor((link) => {
         const target = nodeOf(link.target);
-        return target ? state.current.colors.get(target.id) ?? "#ffffff" : "#ffffff";
+        return target ? state.current.colors.get(target.id) ?? "#EEF1F4" : "#EEF1F4";
       })
       .onNodeHover((node) => {
         hover.current = node?.id ?? null;

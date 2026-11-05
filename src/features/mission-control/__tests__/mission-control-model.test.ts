@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { MissionSources } from "@shared/mission-control-types";
 import {
   attentionTag,
+  briefSegments,
   eventTimings,
   formatBriefTime,
   formatEventTime,
@@ -174,5 +175,26 @@ describe("day timing", () => {
     const now = new Date(2026, 8, 28, 18);
     assert.equal(formatBriefTime(new Date(2026, 8, 28, 7, 30).toISOString(), now), "07:30");
     assert.match(formatBriefTime(new Date(2026, 8, 25, 7, 41).toISOString(), now), /^Fri 07:41$/);
+  });
+});
+
+describe("briefSegments", () => {
+  it("sets backticked ids and bare file paths in code, and nothing else", () => {
+    assert.deepEqual(briefSegments("Review `PP-031`, then update projects/PORTFOLIO.md today."), [
+      { text: "Review ", code: false },
+      { text: "PP-031", code: true },
+      { text: ", then update ", code: false },
+      { text: "projects/PORTFOLIO.md", code: true },
+      { text: " today.", code: false },
+    ]);
+  });
+
+  it("finds each path in a list and leaves words with slashes alone", () => {
+    const segments = briefSegments("Fill me/PROFILE.md and me/GOALS.md, either/or.");
+    assert.deepEqual(segments.filter((segment) => segment.code).map((segment) => segment.text), ["me/PROFILE.md", "me/GOALS.md"]);
+  });
+
+  it("keeps plain prose whole", () => {
+    assert.deepEqual(briefSegments("Establish the foundational structure."), [{ text: "Establish the foundational structure.", code: false }]);
   });
 });

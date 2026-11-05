@@ -1,10 +1,9 @@
-import { CollectiveArtwork, DecorativeTape, PaperLabel } from "@/components/collective/collective-identity";
-import { FileText } from "lucide-react";
-import { useState } from "react";
+import { FileText, MoreHorizontal, MessageSquareWarning } from "lucide-react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { MissionControlData } from "@shared/mission-control-types";
-import { AppShell, DedsecLoader } from "@/components/os";
-import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage, SegmentedControl } from "@/components/paper";
+import { ActionMenu, ActionMenuItem, AppShell, PageLoader } from "@/components/os";
+import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatTime, sourceLabel, toneFor } from "@/features/activity";
 import { UsageSummary } from "@/features/operations";
@@ -23,7 +22,6 @@ import {
 import { cn } from "@/lib/utils";
 import { ActiveWorkList } from "./active-work-list";
 import { AttentionList } from "./attention-list";
-import { dashboardCardClass } from "./dashboard-layout";
 import { FocusBlock } from "./focus-block";
 import { degradedSources, formatToday, greeting, isEvening } from "./mission-control-model";
 import { RevenueStrip } from "./revenue-strip";
@@ -44,13 +42,11 @@ import { TodayNews, TodayTrending } from "./today-world";
 /**
  * Dashboard (Mission Control).
  *
- * Where the day starts. One page that answers, in about ten seconds: what does
- * today look like, what needs me, what am I focused on, which work needs
- * movement, what is running, and what changed.
- *
- * Full-width dense grid: columns arrive as the viewport grows, urgent cards
- * sit top-left and span two columns, live work next, everything else packs
- * with `grid-auto-flow: dense`. Designed for an ultrawide as much as a laptop.
+ * The first viewport answers three things: what matters today, what needs my
+ * approval, and what Hermes recommends next. In reading order, at every width:
+ * the summary, any approvals, your three, the morning brief, today's list and
+ * the primary focus. Then business pulse and Compass, then everything else the
+ * day might want a glance at. DESIGN.md specifies the layout.
  *
  * The day has two ends. Until 5pm the plan leads; from 5pm the wrap does.
  * Either can be picked by hand from the header.
@@ -72,20 +68,19 @@ export function MissionControlPage() {
       pageId="mission-control"
       activeHref="/"
       agentState={running ? "running" : "idle"}
-      agentLabel={running ? "Agents / running" : "Agents / idle"}
+      agentLabel={running ? "Agents running" : "Agents idle"}
       contextLabel={data?.focus?.project ? `Context / ${data.focus.project}` : undefined}
-      modelLabel="Model / AgentOS V1"
     >
-      <PaperStage full>
+      <PaperStage>
         {isPending ? (
-          <DedsecLoader variant="page" />
+          <PageLoader variant="page" label="Reading your day…" />
         ) : !data ? (
-          <div>
-            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.015em]">Your day couldn't be read.</h1>
-            <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
+          <div role="alert">
+            <h1>Your day couldn't be read.</h1>
+            <p className="mt-2 max-w-[60ch] text-[14px] leading-[22px] text-paper-char">
               {error?.message ?? "The server didn't answer."} Check that the AgentOS server is running.
             </p>
-            <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
+            <PaperButton variant="amber" className="mt-4" disabled={isFetching} onClick={() => void refetch()}>
               {isFetching ? "Trying again…" : "Try again"}
             </PaperButton>
           </div>
@@ -111,42 +106,75 @@ function MissionControl({ data }: { data: MissionControlData }) {
   const focus = useFocusToday();
   // "auto" shows morning mode only while today has no check-in; "open" keeps it up through the plan.
   const [morning, setMorning] = useState<"auto" | "open" | "closed">("auto");
+  const [reportingFriction, setReportingFriction] = useState(false);
+  const dayPanel = useRef<HTMLDivElement>(null);
   const needsCheckIn = Boolean(focus.data && !focus.data.day.checkIn && !focus.data.day.skipped);
   const showMorning = Boolean(focus.data) && (morning === "open" || (morning === "auto" && needsCheckIn));
+
+  const showDayPanel = () => {
+    // After the render that swaps the panel, so focus lands on what is now there.
+    requestAnimationFrame(() => {
+      dayPanel.current?.scrollIntoView({ block: "nearest" });
+      dayPanel.current?.focus({ preventScroll: true });
+    });
+  };
+
+  // With no three picked yet, planning the day means the check-in that picks
+  // them. Otherwise the plan already exists, and this goes to it.
+  const planTheDay = () => {
+    setMode("plan");
+    if (focus.data && focus.data.day.picks.length === 0) setMorning("open");
+    else showDayPanel();
+  };
+
+  const wrapUp = () => {
+    setMode("wrap");
+    showDayPanel();
+  };
 
   return (
     <>
       {showMorning && focus.data ? <MorningMode today={focus.data} onStart={() => setMorning("open")} onClose={() => setMorning("closed")} /> : null}
-      <header className="collective-hero">
-        <div className="collective-hero-copy">
-        <div>
-          <h1><PaperLabel>Dashboard</PaperLabel></h1>
-          <DecorativeTape />
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <p className="text-[16px] font-medium text-paper-moss">{greeting("Dylan")}</p>
-            <p className="font-mono text-[12px] text-paper-sage">{formatToday()}</p>
-          </div>
+
+      <header className="qt-page-header">
+        <div className="min-w-0">
+          <h1>Dashboard</h1>
+          <p className="mt-1 text-[14px] leading-[22px] text-paper-char">
+            {greeting("Dylan")}
+            <span className="text-paper-sage"> · {formatToday()}</span>
+          </p>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <SegmentedControl
-            label="Dashboard view"
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: "plan", label: "Plan the day" },
-              { value: "wrap", label: "Wrap up" },
-            ]}
-          />
-          {/* Reachable from the screen the day starts on, because friction is
-              most often noticed on the way somewhere. */}
-          <FrictionButton surface="mission-control" paper />
+        <div className="flex flex-wrap items-center gap-2">
+          <PaperButton variant="amber" onClick={planTheDay}>
+            Plan the day
+          </PaperButton>
+          <PaperButton variant="ghost" onClick={wrapUp} aria-pressed={mode === "wrap"} className="aria-pressed:bg-selected">
+            Wrap up
+          </PaperButton>
+          <ActionMenu
+            trigger={
+              <button
+                type="button"
+                className={cn("inline-flex min-h-[var(--control-height)] cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[14px] leading-5 font-medium text-paper-char transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss", PAPER_FOCUS)}
+              >
+                <MoreHorizontal className="size-[18px]" strokeWidth={1.5} aria-hidden="true" />
+                More
+              </button>
+            }
+          >
+            {/* Reachable from the screen the day starts on, because friction is
+                most often noticed on the way somewhere. */}
+            <ActionMenuItem onSelect={() => setReportingFriction(true)}>
+              <MessageSquareWarning className="size-[18px] shrink-0 text-paper-sage" strokeWidth={1.5} aria-hidden="true" />
+              Report friction
+            </ActionMenuItem>
+          </ActionMenu>
+          <FrictionButton surface="mission-control" paper open={reportingFriction} onOpenChange={setReportingFriction} />
         </div>
-        </div>
-        <CollectiveArtwork />
       </header>
 
       {degraded.length > 0 ? (
-        <p role="status" className="mt-2 max-w-[80ch] text-[13.5px] leading-5 text-paper-flame-deep">
+        <p role="status" className="mt-3 max-w-[80ch] text-[13px] leading-5 text-paper-marigold">
           {degraded.join(", ")} could not be read, so parts of this page are incomplete.
         </p>
       ) : null}
@@ -154,48 +182,64 @@ function MissionControl({ data }: { data: MissionControlData }) {
       <TodayStrip
         projects={projects}
         attention={data.attention.length}
+        cleared={data.dismissed.length}
         running={data.activeWork.length}
         captures={captured}
-        className="mt-3"
       />
 
-      <div className="dashboard-grid">
-        <RevenueStrip />
-        <AttentionList
-          items={data.attention}
-          dismissed={data.dismissed}
-          workers={data.workers}
-          className={dashboardCardClass("inbox")}
-        />
-        {/* Videos checked against AgentOS, waiting on Approve or Decline. */}
-        <IdeasToDecide className={dashboardCardClass("ideas")} />
+      <AttentionList items={data.attention} dismissed={data.dismissed} workers={data.workers} />
+
+      <div className="qt-work">
         {focus.data ? (
-          <YourThree today={focus.data} onCheckIn={() => setMorning("open")} className={dashboardCardClass("yourThree")} />
-        ) : null}
-        {focus.data ? <TodayTodos today={focus.data} className={dashboardCardClass("todos")} /> : null}
-        <TodayScheduledTasks className={dashboardCardClass("scheduled")} />
-        {mode === "wrap" ? (
-          <DayWrapUp className={dashboardCardClass("dayPlan")} />
+          <YourThree today={focus.data} onCheckIn={() => setMorning("open")} className="qt-work-three" />
         ) : (
-          <MorningPlan className={dashboardCardClass("dayPlan")} />
+          <PaperSection label="Your three" className="qt-work-three">
+            {focus.isError ? (
+              <p role="alert" className="text-[14px] leading-[22px] text-paper-flame-deep">
+                Today's three couldn't be read. {focus.error?.message}
+              </p>
+            ) : (
+              <PageLoader variant="compact" label="Reading your three…" />
+            )}
+          </PaperSection>
         )}
-        {data.focus ? <FocusBlock focus={data.focus} className={dashboardCardClass("focus")} /> : null}
-        <ActiveWorkList items={data.activeWork} className={dashboardCardClass("activeWork")} />
-        <CompassRail className={dashboardCardClass("compass")} />
-        <OverviewCalendar className={dashboardCardClass("overviewCalendar")} />
-        <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} className={dashboardCardClass("workspaces")} />
-        <TractionToday className={dashboardCardClass("traction")} />
-        <CareerToday className={dashboardCardClass("career")} />
-        <FinanceToday className={dashboardCardClass("finance")} />
-        <TodayCaptured className={dashboardCardClass("captured")} />
-        <RecentActivity data={data} className={dashboardCardClass("activity")} />
-        <UsageSummary className={dashboardCardClass("usage")} />
-        <RecentDocuments className={dashboardCardClass("documents")} />
-        <TodayNews className={dashboardCardClass("news")} />
-        <TodayTrending className={dashboardCardClass("trending")} />
-        {sprint && sprint.scorecard.tasksAttempted > 0 ? (
-          <SprintScorecard sprint={sprint} className={dashboardCardClass("scorecard")} />
-        ) : null}
+        <div ref={dayPanel} tabIndex={-1} className="qt-work-brief min-w-0 scroll-mt-6 rounded-lg outline-none [&>section]:h-full">
+          {mode === "wrap" ? <DayWrapUp /> : <MorningPlan />}
+        </div>
+        {focus.data ? (
+          <TodayTodos today={focus.data} className="qt-work-todos" />
+        ) : (
+          <PaperSection label="To do today" className="qt-work-todos">
+            {focus.isError ? (
+              <p className="text-[14px] leading-[22px] text-paper-char">The list couldn't be read.</p>
+            ) : (
+              <PageLoader variant="compact" label="Reading today's list…" />
+            )}
+          </PaperSection>
+        )}
+        {data.focus ? <FocusBlock focus={data.focus} className="qt-work-focus" /> : null}
+      </div>
+
+      <RevenueStrip className="mt-6" />
+      <CompassRail className="mt-6" />
+
+      <div className="qt-more">
+        {/* Videos checked against AgentOS, waiting on Approve or Decline. */}
+        <IdeasToDecide />
+        <ActiveWorkList items={data.activeWork} />
+        <TodayScheduledTasks />
+        <OverviewCalendar className="qt-more-wide" />
+        <TodayWorkspaces projects={projects} focus={data.focus?.projectSlug} />
+        <TractionToday />
+        <CareerToday />
+        <FinanceToday />
+        <TodayCaptured />
+        <RecentActivity data={data} />
+        <UsageSummary />
+        <RecentDocuments />
+        <TodayNews />
+        <TodayTrending />
+        {sprint && sprint.scorecard.tasksAttempted > 0 ? <SprintScorecard sprint={sprint} className="qt-more-wide" /> : null}
       </div>
     </>
   );
@@ -228,16 +272,16 @@ function RecentActivity({ data, className }: { data: MissionControlData; classNa
             const tone = toneFor(event);
             return (
               <li key={event.id} className="flex min-w-0 items-baseline gap-3">
-                <span className="w-11 shrink-0 text-[12.5px] text-paper-sage tabular-nums">{formatTime(event.timestamp)}</span>
+                <span className="os-mono w-11 shrink-0 text-paper-sage tabular-nums">{formatTime(event.timestamp)}</span>
                 <span
                   className={cn(
-                    "size-1.5 shrink-0 translate-y-[-0.15em] rounded-full",
+                    "size-1.5 shrink-0 -translate-y-px rounded-full",
                     tone in TONE_DOT ? TONE_DOT[tone as keyof typeof TONE_DOT] : "bg-paper-ash",
                   )}
                   aria-hidden="true"
                 />
-                <span className="min-w-0 flex-1 truncate text-[14px] text-paper-moss">{event.title}</span>
-                <span className="hidden shrink-0 text-[12px] text-paper-sage sm:block">{sourceLabel(event.source)}</span>
+                <span title={event.title} className="min-w-0 flex-1 truncate text-[14px] leading-[22px] text-paper-moss">{event.title}</span>
+                <span className="hidden shrink-0 text-[13px] text-paper-sage sm:block">{sourceLabel(event.source)}</span>
               </li>
             );
           })}
@@ -256,17 +300,17 @@ function RecentDocuments({ className }: { className?: string }) {
 
   return (
     <PaperSection label="Recent documents" className={className} action={<TodayLink to="/knowledge">Knowledge</TodayLink>}>
-      <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+      <ul className="-mx-3 divide-y divide-paper-mist">
         {documents.map((document) => (
           <li key={`${document.origin}:${document.id}`}>
             <Link
               to={documentHref(document)}
-              className={cn("flex min-w-0 items-start gap-3 px-4 py-2.5 transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
+              className={cn("flex min-w-0 items-start gap-3 rounded-md px-3 py-2 transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
             >
-              <FileText className="mt-0.5 size-4 shrink-0 text-paper-sage" strokeWidth={1.5} aria-hidden="true" />
+              <FileText className="mt-0.5 size-[18px] shrink-0 text-paper-sage" strokeWidth={1.5} aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14px] text-paper-moss">{document.title}</span>
-                <span className="mt-0.5 block truncate text-[12px] text-paper-sage">
+                <span className="mt-0.5 block truncate text-[13px] text-paper-sage">
                   {TYPE_LABELS[document.type]}
                   {document.projectName ? ` · ${document.projectName}` : ""}
                   {document.updatedAt ? ` · ${formatRelativeTime(document.updatedAt)}` : ""}

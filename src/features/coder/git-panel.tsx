@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import {
   GitBranch,
   GitCommit,
@@ -236,7 +236,7 @@ export function GitPanel() {
   }, [loadStatus]);
 
   if (!status) {
-    return <DedsecLoader variant="compact" className="h-full" />;
+    return <PageLoader variant="compact" className="h-full" />;
   }
 
   const stagedFiles = status.files.filter((f) => f.staged);
@@ -244,22 +244,22 @@ export function GitPanel() {
   const untrackedFiles = status.files.filter((f) => f.status === "untracked");
 
   return (
-    <div className="flex h-full flex-col bg-[#0a0a0a] text-[#e0e0e0]">
+    <div className="flex h-full flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)]">
       {/* Git status bar */}
-      <div className="flex items-center justify-between border-b border-[#00ffcc33] bg-[#141414] p-3">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] p-3">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setShowBranchList(!showBranchList)}
-            className="flex items-center gap-2 rounded border border-[#00ccff33] bg-[#00ccff0d] px-3 py-1.5 text-sm hover:border-[#00ccff] hover:bg-[#00ccff1a]"
+            className="flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-raised)] px-3 py-1.5 text-[14px] hover:border-[var(--border-control)] hover:bg-[var(--bg-raised)]"
           >
-            <GitBranch className="h-4 w-4 text-[#00ccff]" />
+            <GitBranch className="h-4 w-4 text-[var(--text-secondary)]" />
             <span>{status.branch}</span>
             <ChevronDown className="h-3 w-3" />
           </button>
 
           {(status.ahead > 0 || status.behind > 0) && (
-            <div className="flex items-center gap-2 text-xs text-[#6a9fb5]">
+            <div className="flex items-center gap-2 text-[13px] text-[var(--text-muted)]">
               {status.ahead > 0 && <span>↑{status.ahead}</span>}
               {status.behind > 0 && <span>↓{status.behind}</span>}
             </div>
@@ -271,7 +271,7 @@ export function GitPanel() {
             type="button"
             onClick={handlePull}
             disabled={loading}
-            className="rounded p-2 text-[#00ccff] hover:bg-[#00ccff1a] disabled:opacity-50"
+            className="rounded p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] disabled:opacity-50"
             title="Pull"
           >
             <GitMerge className="h-4 w-4" />
@@ -280,7 +280,7 @@ export function GitPanel() {
             type="button"
             onClick={handlePush}
             disabled={loading}
-            className="rounded p-2 text-[#00ccff] hover:bg-[#00ccff1a] disabled:opacity-50"
+            className="rounded p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] disabled:opacity-50"
             title="Push"
           >
             <Upload className="h-4 w-4" />
@@ -289,7 +289,7 @@ export function GitPanel() {
             type="button"
             onClick={() => void loadStatus()}
             disabled={loading}
-            className="rounded p-2 text-[#00ccff] hover:bg-[#00ccff1a] disabled:opacity-50"
+            className="rounded p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] disabled:opacity-50"
             title="Refresh"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -299,7 +299,7 @@ export function GitPanel() {
 
       {/* Branch list dropdown */}
       {showBranchList && (
-        <div className="border-b border-[#00ffcc33] bg-[#141414] p-3">
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] p-3">
           <div className="mb-2 flex items-center gap-2">
             <input
               type="text"
@@ -307,13 +307,13 @@ export function GitPanel() {
               onChange={(e) => setNewBranchName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void handleCreateBranch()}
               placeholder="New branch name..."
-              className="flex-1 rounded border border-[#00ffcc33] bg-[#0a0a0a] px-3 py-1.5 text-sm text-[#e0e0e0] placeholder-[#6a9fb5] focus:border-[#00ccff] focus:outline-none"
+              className="flex-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-control)] focus:outline-none"
             />
             <button
               type="button"
               onClick={() => void handleCreateBranch()}
               disabled={!newBranchName.trim()}
-              className="rounded border border-[#00ccff] px-3 py-1.5 text-sm text-[#00ccff] hover:bg-[#00ccff1a] disabled:opacity-50"
+              className="rounded border border-[var(--border-control)] px-3 py-1.5 text-[14px] text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] disabled:opacity-50"
             >
               Create
             </button>
@@ -324,8 +324,8 @@ export function GitPanel() {
                 key={branch.name}
                 type="button"
                 onClick={() => void handleSwitchBranch(branch.name)}
-                className={`flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm hover:bg-[#00ffcc1a] ${
-                  branch.current ? "bg-[#00ccff1a] text-[#00ccff]" : "text-[#e0e0e0]"
+                className={`flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-[14px] hover:bg-[var(--bg-raised)] ${
+                  branch.current ? "bg-[var(--bg-raised)] text-[var(--text-secondary)]" : "text-[var(--text-primary)]"
                 }`}
               >
                 {branch.current && <Check className="h-3 w-3" />}
@@ -338,11 +338,11 @@ export function GitPanel() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* File list */}
-        <div className="w-80 flex-shrink-0 overflow-y-auto border-r border-[#00ffcc33] bg-[#0f0f0f]">
+        <div className="w-80 flex-shrink-0 overflow-y-auto border-r border-[var(--border-subtle)] bg-[var(--bg-sidebar)]">
           {status.clean ? (
-            <div className="flex h-full items-center justify-center p-4 text-center text-sm text-[#6a9fb5]">
+            <div className="flex h-full items-center justify-center p-4 text-center text-[14px] text-[var(--text-muted)]">
               <div>
-                <Check className="mx-auto mb-2 h-8 w-8 text-[#00ff00]" />
+                <Check className="mx-auto mb-2 h-8 w-8 text-[var(--status-success)]" />
                 <p>Working tree is clean</p>
               </div>
             </div>
@@ -356,7 +356,7 @@ export function GitPanel() {
                     onClick={() =>
                       setExpandedSections((prev) => ({ ...prev, staged: !prev.staged }))
                     }
-                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-sm font-medium text-[#00ff00] hover:bg-[#00ffcc1a]"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-[14px] font-medium text-[var(--status-success)] hover:bg-[var(--bg-raised)]"
                   >
                     {expandedSections.staged ? (
                       <ChevronDown className="h-4 w-4" />
@@ -370,20 +370,20 @@ export function GitPanel() {
                         e.stopPropagation();
                         void handleUnstage(stagedFiles.map((f) => f.path));
                       }}
-                      className="ml-auto rounded p-1 hover:bg-[#ff00661a]"
+                      className="ml-auto rounded p-1 hover:bg-[color-mix(in_srgb,var(--status-error)_12%,transparent)]"
                       title="Unstage all"
                     >
-                      <Minus className="h-3 w-3 text-[#ff0066]" />
+                      <Minus className="h-3 w-3 text-[var(--status-error)]" />
                     </button>
                   </button>
                   {expandedSections.staged &&
                     stagedFiles.map((file) => (
                       <div
                         key={file.path}
-                        className={`group flex items-center gap-2 rounded px-2 py-1 text-xs ${
+                        className={`group flex items-center gap-2 rounded px-2 py-1 text-[13px] ${
                           selectedFile?.path === file.path
-                            ? "bg-[#00ccff1a] text-[#00ccff]"
-                            : "text-[#e0e0e0] hover:bg-[#00ffcc1a]"
+                            ? "bg-[var(--bg-raised)] text-[var(--text-secondary)]"
+                            : "text-[var(--text-primary)] hover:bg-[var(--bg-raised)]"
                         }`}
                       >
                         <button
@@ -393,17 +393,17 @@ export function GitPanel() {
                         >
                           <FileText className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{file.path}</span>
-                          <span className="ml-auto flex-shrink-0 text-[#00ff00]">
+                          <span className="ml-auto flex-shrink-0 text-[var(--status-success)]">
                             {file.status[0].toUpperCase()}
                           </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleUnstage([file.path])}
-                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[#ff00661a]"
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[color-mix(in_srgb,var(--status-error)_12%,transparent)]"
                           title="Unstage"
                         >
-                          <Minus className="h-3 w-3 text-[#ff0066]" />
+                          <Minus className="h-3 w-3 text-[var(--status-error)]" />
                         </button>
                       </div>
                     ))}
@@ -418,7 +418,7 @@ export function GitPanel() {
                     onClick={() =>
                       setExpandedSections((prev) => ({ ...prev, unstaged: !prev.unstaged }))
                     }
-                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-sm font-medium text-[#ffff00] hover:bg-[#00ffcc1a]"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-[14px] font-medium text-[var(--status-warning)] hover:bg-[var(--bg-raised)]"
                   >
                     {expandedSections.unstaged ? (
                       <ChevronDown className="h-4 w-4" />
@@ -432,20 +432,20 @@ export function GitPanel() {
                         e.stopPropagation();
                         void handleStage(unstagedFiles.map((f) => f.path));
                       }}
-                      className="ml-auto rounded p-1 hover:bg-[#00ff001a]"
+                      className="ml-auto rounded p-1 hover:bg-[var(--bg-raised)]"
                       title="Stage all"
                     >
-                      <Plus className="h-3 w-3 text-[#00ff00]" />
+                      <Plus className="h-3 w-3 text-[var(--status-success)]" />
                     </button>
                   </button>
                   {expandedSections.unstaged &&
                     unstagedFiles.map((file) => (
                       <div
                         key={file.path}
-                        className={`group flex items-center gap-2 rounded px-2 py-1 text-xs ${
+                        className={`group flex items-center gap-2 rounded px-2 py-1 text-[13px] ${
                           selectedFile?.path === file.path
-                            ? "bg-[#00ccff1a] text-[#00ccff]"
-                            : "text-[#e0e0e0] hover:bg-[#00ffcc1a]"
+                            ? "bg-[var(--bg-raised)] text-[var(--text-secondary)]"
+                            : "text-[var(--text-primary)] hover:bg-[var(--bg-raised)]"
                         }`}
                       >
                         <button
@@ -455,25 +455,25 @@ export function GitPanel() {
                         >
                           <FileText className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{file.path}</span>
-                          <span className="ml-auto flex-shrink-0 text-[#ffff00]">
+                          <span className="ml-auto flex-shrink-0 text-[var(--status-warning)]">
                             {file.status[0].toUpperCase()}
                           </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleStage([file.path])}
-                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[#00ff001a]"
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[var(--bg-raised)]"
                           title="Stage"
                         >
-                          <Plus className="h-3 w-3 text-[#00ff00]" />
+                          <Plus className="h-3 w-3 text-[var(--status-success)]" />
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleDiscard([file.path])}
-                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[#ff00661a]"
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[color-mix(in_srgb,var(--status-error)_12%,transparent)]"
                           title="Discard"
                         >
-                          <X className="h-3 w-3 text-[#ff0066]" />
+                          <X className="h-3 w-3 text-[var(--status-error)]" />
                         </button>
                       </div>
                     ))}
@@ -488,7 +488,7 @@ export function GitPanel() {
                     onClick={() =>
                       setExpandedSections((prev) => ({ ...prev, untracked: !prev.untracked }))
                     }
-                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-sm font-medium text-[#6a9fb5] hover:bg-[#00ffcc1a]"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-[14px] font-medium text-[var(--text-muted)] hover:bg-[var(--bg-raised)]"
                   >
                     {expandedSections.untracked ? (
                       <ChevronDown className="h-4 w-4" />
@@ -502,20 +502,20 @@ export function GitPanel() {
                         e.stopPropagation();
                         void handleStage(untrackedFiles.map((f) => f.path));
                       }}
-                      className="ml-auto rounded p-1 hover:bg-[#00ff001a]"
+                      className="ml-auto rounded p-1 hover:bg-[var(--bg-raised)]"
                       title="Stage all"
                     >
-                      <Plus className="h-3 w-3 text-[#00ff00]" />
+                      <Plus className="h-3 w-3 text-[var(--status-success)]" />
                     </button>
                   </button>
                   {expandedSections.untracked &&
                     untrackedFiles.map((file) => (
                       <div
                         key={file.path}
-                        className={`group flex items-center gap-2 rounded px-2 py-1 text-xs ${
+                        className={`group flex items-center gap-2 rounded px-2 py-1 text-[13px] ${
                           selectedFile?.path === file.path
-                            ? "bg-[#00ccff1a] text-[#00ccff]"
-                            : "text-[#e0e0e0] hover:bg-[#00ffcc1a]"
+                            ? "bg-[var(--bg-raised)] text-[var(--text-secondary)]"
+                            : "text-[var(--text-primary)] hover:bg-[var(--bg-raised)]"
                         }`}
                       >
                         <button
@@ -525,15 +525,15 @@ export function GitPanel() {
                         >
                           <FileText className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{file.path}</span>
-                          <span className="ml-auto flex-shrink-0 text-[#6a9fb5]">U</span>
+                          <span className="ml-auto flex-shrink-0 text-[var(--text-muted)]">U</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleStage([file.path])}
-                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[#00ff001a]"
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 hover:bg-[var(--bg-raised)]"
                           title="Stage"
                         >
-                          <Plus className="h-3 w-3 text-[#00ff00]" />
+                          <Plus className="h-3 w-3 text-[var(--status-success)]" />
                         </button>
                       </div>
                     ))}
@@ -545,7 +545,7 @@ export function GitPanel() {
                 <button
                   type="button"
                   onClick={() => setShowCommitDialog(true)}
-                  className="mt-4 w-full rounded border border-[#00ccff] bg-[#00ccff0d] px-3 py-2 text-sm font-medium text-[#00ccff] hover:bg-[#00ccff1a]"
+                  className="mt-4 w-full rounded border border-[var(--border-control)] bg-[var(--bg-raised)] px-3 py-2 text-[14px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-raised)]"
                 >
                   <GitCommit className="mr-2 inline h-4 w-4" />
                   Commit ({stagedFiles.length})
@@ -559,10 +559,10 @@ export function GitPanel() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {selectedFile && diffContent ? (
             <div className="flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-[#00ffcc33] bg-[#141414] px-4 py-2">
+              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-panel)] px-4 py-2">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-[#00ccff]" />
-                  <span className="text-sm font-medium">{selectedFile.path}</span>
+                  <FileText className="h-4 w-4 text-[var(--text-secondary)]" />
+                  <span className="text-[14px] font-medium">{selectedFile.path}</span>
                 </div>
                 <button
                   type="button"
@@ -570,7 +570,7 @@ export function GitPanel() {
                     setSelectedFile(null);
                     setDiffContent(null);
                   }}
-                  className="rounded p-1 hover:bg-[#00ffcc1a]"
+                  className="rounded p-1 hover:bg-[var(--bg-raised)]"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -591,7 +591,7 @@ export function GitPanel() {
               </div>
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-[#6a9fb5]">
+            <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
               <div className="text-center">
                 <AlertCircle className="mx-auto mb-2 h-8 w-8" />
                 <p>Select a file to view diff</p>
@@ -604,13 +604,13 @@ export function GitPanel() {
       {/* Commit dialog */}
       {showCommitDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded border border-[#00ffcc] bg-[#141414] p-6">
-            <h3 className="mb-4 text-lg font-bold text-[#00ffcc]">Commit Changes</h3>
+          <div className="w-full max-w-md rounded border border-[var(--border-control)] bg-[var(--bg-panel)] p-6">
+            <h3 className="mb-4 text-[16px] font-semibold text-[var(--text-primary)]">Commit Changes</h3>
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
               placeholder="Commit message..."
-              className="mb-4 h-32 w-full resize-none rounded border border-[#00ffcc33] bg-[#0a0a0a] p-3 text-sm text-[#e0e0e0] placeholder-[#6a9fb5] focus:border-[#00ccff] focus:outline-none"
+              className="mb-4 h-32 w-full resize-none rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3 text-[14px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-control)] focus:outline-none"
               autoFocus
             />
             <div className="flex justify-end gap-2">
@@ -620,7 +620,7 @@ export function GitPanel() {
                   setShowCommitDialog(false);
                   setCommitMessage("");
                 }}
-                className="rounded border border-[#6a9fb5] px-4 py-2 text-sm text-[#6a9fb5] hover:bg-[#6a9fb51a]"
+                className="rounded border border-[var(--border-control)] px-4 py-2 text-[14px] text-[var(--text-muted)] hover:bg-[var(--bg-raised)]"
               >
                 Cancel
               </button>
@@ -628,7 +628,7 @@ export function GitPanel() {
                 type="button"
                 onClick={() => void handleCommit()}
                 disabled={!commitMessage.trim()}
-                className="rounded border border-[#00ccff] bg-[#00ccff0d] px-4 py-2 text-sm text-[#00ccff] hover:bg-[#00ccff1a] disabled:opacity-50"
+                className="rounded border border-[var(--border-control)] bg-[var(--bg-raised)] px-4 py-2 text-[14px] text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] disabled:opacity-50"
               >
                 Commit
               </button>

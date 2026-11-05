@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from "react";
-import { DedsecLoader } from "./dedsec-loader";
+import { PageLoader } from "./page-loader";
 
 export interface LoadingStateProps extends HTMLAttributes<HTMLDivElement> {
   label: string;
@@ -9,9 +9,8 @@ export interface LoadingStateProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * A screen waiting on data. The DedSec loop is the wait; callers still name
- * what is being read so existing call sites do not have to change.
+ * A screen waiting on data, named in the product's own words.
  */
-export function LoadingState({ className }: LoadingStateProps) {
-  return <DedsecLoader variant="page" className={className} />;
+export function LoadingState({ message, className }: LoadingStateProps) {
+  return <PageLoader variant="page" label={message} className={className} />;
 }

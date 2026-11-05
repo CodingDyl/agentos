@@ -2,7 +2,7 @@ import { Lightbulb, Sparkles, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { STARTUP_STAGES, type BrainstormIdea, type Venture } from "@shared/startup-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperEmpty, PaperError, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
@@ -20,16 +20,16 @@ export function StartupsPage() {
   const [mode, setMode] = useState<"idle" | "idea" | "brainstorm">("idle");
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="startups" activeHref="/startups" agentState="idle" agentLabel="Agents / idle" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="startups" activeHref="/startups" agentState="idle" agentLabel="Agents idle">
       <PaperStage>
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-[72ch]">
-            <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">Startups</h1>
+            <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">Startups</h1>
             <p className="mt-2 text-[14px] leading-6 text-paper-char">
               Idea, value, validate, MVP, then design, tech, build, test, refine and launch. Each stage is a gate. An idea has to score {8}/10 in Validate to be built, and the MVP stays small.
             </p>
           </div>
-          <Link to="/startups/personas" className={cn("inline-flex min-h-8 items-center gap-1.5 px-2 text-[13.5px] font-medium text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}>
+          <Link to="/startups/personas" className={cn("inline-flex min-h-8 items-center gap-1.5 px-2 text-[14px] font-medium text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}>
             <Users className="size-3.5" aria-hidden="true" />
             Persona library
           </Link>
@@ -51,7 +51,7 @@ export function StartupsPage() {
 
         <section aria-label="Ventures" className="mt-10">
           {ventures.isPending ? (
-            <DedsecLoader variant="compact" />
+            <PageLoader variant="compact" />
           ) : ventures.error ? (
             <PaperError headingLevel="h2" title="Ventures could not be read." detail={ventures.error.message} onRetry={() => void ventures.refetch()} isRetrying={ventures.isFetching} />
           ) : ventures.data.length === 0 ? (
@@ -86,16 +86,16 @@ function VentureCard({ venture }: { venture: Venture }) {
   return (
     <Link to={`/startups/${venture.slug}`} className={cn("block h-full border border-paper-mist bg-paper-white p-5 transition-colors duration-150 hover:border-paper-ash hover:bg-paper-linen", PAPER_FOCUS)}>
       <div className="flex items-start justify-between gap-3">
-        <p className="font-paper-display text-[17px] font-bold text-paper-moss">{venture.name}</p>
+        <p className="text-[16px] font-semibold text-paper-moss">{venture.name}</p>
         <Tag tone={STATUS_TONE[venture.status]}>{venture.status}</Tag>
       </div>
-      {venture.pitch ? <p className="mt-1 line-clamp-2 text-[13.5px] leading-6 text-paper-char">{venture.pitch}</p> : null}
+      {venture.pitch ? <p className="mt-1 line-clamp-2 text-[14px] leading-6 text-paper-char">{venture.pitch}</p> : null}
       <ol className="mt-4 flex gap-1" aria-label={`Stage ${stageIndex + 1} of ${STARTUP_STAGES.length}: ${STARTUP_STAGES[stageIndex]?.label}`}>
         {STARTUP_STAGES.map((stage, index) => (
           <li key={stage.id} className={cn("h-1.5 flex-1", index < stageIndex ? "bg-paper-moss" : index === stageIndex ? (venture.status === "stopped" ? "bg-paper-flame" : "bg-paper-blue") : "bg-paper-stone")} />
         ))}
       </ol>
-      <p className="mt-2 text-[12.5px] text-paper-sage">
+      <p className="mt-2 text-[13px] text-paper-sage">
         {STARTUP_STAGES[stageIndex]?.label} · {formatRelativeTime(venture.updated)}
       </p>
     </Link>
@@ -163,7 +163,7 @@ function Brainstorm({ onCancel }: { onCancel: () => void }) {
           {brainstorm.data.map((idea) => (
             <li key={idea.title} className="flex flex-col border border-paper-mist bg-paper-linen p-4">
               <p className="font-medium text-paper-moss">{idea.title}</p>
-              <p className="mt-1 text-[13.5px] leading-6 text-paper-char">{idea.oneLiner}</p>
+              <p className="mt-1 text-[14px] leading-6 text-paper-char">{idea.oneLiner}</p>
               {idea.who ? <p className="mt-1 text-[13px] text-paper-sage">For {idea.who}</p> : null}
               {idea.why ? <p className="mt-2 text-[13px] leading-5 text-paper-char">{idea.why}</p> : null}
               <PaperButton className="mt-3 self-start" variant="ghost" onClick={() => setPicked(idea)}>

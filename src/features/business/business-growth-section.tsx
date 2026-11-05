@@ -9,12 +9,12 @@ const percent = (value: number | undefined) => (value === undefined ? "—" : `$
 function Measure({ label, value, note, warn }: { label: string; value: string; note?: string; warn?: boolean }) {
   return (
     <div>
-      <dt className="text-[12.5px] text-paper-sage">{label}</dt>
-      <dd className="mt-0.5 flex items-center gap-2 font-paper-display text-[24px] font-bold tracking-[-0.01em]">
+      <dt className="text-[13px] text-paper-sage">{label}</dt>
+      <dd className="mt-0.5 flex items-center gap-2 text-[24px] font-semibold tracking-[-0.01em]">
         {value}
         {warn ? <Tag tone="flame">Risk</Tag> : null}
       </dd>
-      {note ? <dd className="mt-0.5 text-[12.5px] text-paper-sage">{note}</dd> : null}
+      {note ? <dd className="mt-0.5 text-[13px] text-paper-sage">{note}</dd> : null}
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function GrowthSection({ entity, data, onTab, onClient }: { entity: Busin
           <ul className="divide-y divide-paper-mist border-y border-paper-mist">
             {growth.upsell.map((client) => (
               <li key={client.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <button type="button" onClick={() => onClient(client.id)} className={cn("cursor-pointer text-left text-[14.5px] font-semibold hover:underline", PAPER_FOCUS)}>
+                <button type="button" onClick={() => onClient(client.id)} className={cn("cursor-pointer text-left text-[14px] font-semibold hover:underline", PAPER_FOCUS)}>
                   {client.companyName ?? client.name}
                 </button>
                 <span className="text-[13px] text-paper-sage">{formatRand(client.totalSpent)} spent</span>

@@ -102,7 +102,7 @@ function SearchPanel({ prospects }: { prospects: readonly Prospect[] }) {
           <PaperButton type="submit" variant="amber" disabled={search.isPending || Boolean(blocker) || area.trim().length < 2}>
             {search.isPending ? "Searching…" : "Search"}
           </PaperButton>
-          <span className="text-[12.5px] text-paper-sage">
+          <span className="text-[13px] text-paper-sage">
             Uses {PLACES_SEARCH_REQUESTS} Places requests. {reply.budget.cap > 0 ? `${reply.budget.remaining} of ${reply.budget.cap} left this month.` : "No monthly cap is set."}
           </span>
         </div>
@@ -134,7 +134,7 @@ function radiusOptions({ min, max }: { min: number; max: number }): number[] {
 
 function NicheNote({ niche }: { niche: PlaceNiche }) {
   return (
-    <div className="text-[12.5px] leading-5 text-paper-char">
+    <div className="text-[13px] leading-5 text-paper-char">
       <p>{niche.why}</p>
       {niche.caveat ? <p className="mt-0.5 text-paper-sage">{niche.caveat}</p> : null}
     </div>
@@ -182,7 +182,7 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
         </p>
       ) : null}
       {checks.size > 0 ? (
-        <p className="mb-2 max-w-[70ch] text-[12.5px] leading-5 text-paper-sage">
+        <p className="mb-2 max-w-[70ch] text-[13px] leading-5 text-paper-sage">
           Websites are read from their HTML. The bold lines are where a site loses visitors ready to buy; the rest is what is out of date. A site built with scripts can show gaps a visitor would not see, so treat these as a reason to look, not a verdict.
         </p>
       ) : null}
@@ -196,22 +196,22 @@ function Results({ reply, niche, prospects }: { reply: PlacesSearchReply; niche:
             return (
               <li key={candidate.placeId} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-semibold text-paper-moss">{candidate.name}</h3>
-                  <p className="text-[12.5px] text-paper-sage">
+                  <h3 className="text-[14px] font-semibold text-paper-moss">{candidate.name}</h3>
+                  <p className="text-[13px] text-paper-sage">
                     {[candidate.address, `${candidate.distanceKm} km`, candidate.rating !== undefined ? `${candidate.rating} stars (${candidate.ratingCount ?? 0})` : undefined].filter(Boolean).join(" · ")}
                   </p>
                   {siteCheck && siteCheck.leaks.length > 0 ? (
-                    <ul aria-label="Where the site loses customers" className="mt-1 max-w-[70ch] space-y-0.5 text-[12.5px] leading-5 font-medium text-paper-moss">
+                    <ul aria-label="Where the site loses customers" className="mt-1 max-w-[70ch] space-y-0.5 text-[13px] leading-5 font-medium text-paper-moss">
                       {siteCheck.leaks.map((leak) => (
                         <li key={leak}>{leak}</li>
                       ))}
                     </ul>
                   ) : null}
                   {siteCheck && siteCheck.problems.length > 0 ? (
-                    <p className="mt-0.5 max-w-[70ch] text-[12.5px] leading-5 text-paper-char">{siteCheck.problems.slice(0, 3).join(" · ")}</p>
+                    <p className="mt-0.5 max-w-[70ch] text-[13px] leading-5 text-paper-char">{siteCheck.problems.slice(0, 3).join(" · ")}</p>
                   ) : null}
                   {siteCheck && siteCheck.reachable && siteCheck.problems.length === 0 && siteCheck.leaks.length === 0 ? (
-                    <p className="mt-0.5 text-[12.5px] text-paper-sage">Nothing obvious to fix on the site.</p>
+                    <p className="mt-0.5 text-[13px] text-paper-sage">Nothing obvious to fix on the site.</p>
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">

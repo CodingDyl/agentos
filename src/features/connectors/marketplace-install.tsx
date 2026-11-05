@@ -43,7 +43,7 @@ export function MarketplaceInstall({ onDone, onCancel }: { onDone: (message: str
               placeholder="cth9191/animate or https://github.com/cth9191/animate"
               autoComplete="off"
               spellCheck={false}
-              className={cn(PAPER_INPUT, "min-w-0 flex-1 font-mono text-[13px]")}
+              className={cn(PAPER_INPUT, "min-w-0 flex-1 font-mono text-[12px]")}
             />
             <PaperButton type="submit" variant="amber" disabled={!repo.trim() || preview.isPending}>
               {preview.isPending ? "Reading repo…" : "Read repo"}
@@ -52,7 +52,7 @@ export function MarketplaceInstall({ onDone, onCancel }: { onDone: (message: str
               Cancel
             </PaperButton>
           </div>
-          <p id="marketplace-repo-hint" className="mt-1 text-[12px] text-paper-sage">
+          <p id="marketplace-repo-hint" className="mt-1 text-[13px] text-paper-sage">
             Works with Claude plugin marketplaces and any repo with a SKILL.md. Private repos use GITHUB_TOKEN from Connectors → GitHub.
           </p>
         </div>
@@ -151,7 +151,7 @@ function Review({
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2 font-semibold text-paper-moss">
                     {skill.name}
-                    <span className="font-paper-utility text-[12px] font-normal text-paper-sage">v{skill.version}</span>
+                    <span className="text-[13px] font-normal text-paper-sage">v{skill.version}</span>
                     {skill.installed ? <Tag tone="blue">Installed · update</Tag> : null}
                   </span>
                   <span className="mt-1 block max-w-[80ch] text-[13px] leading-5 text-paper-char">{skill.description || "No description."}</span>
@@ -162,7 +162,7 @@ function Review({
                 </span>
               </label>
               {skill.conflict || skill.errors.length > 0 ? (
-                <ul role="alert" className="mt-2 grid gap-1 pl-7 text-[12.5px] text-paper-flame-deep">
+                <ul role="alert" className="mt-2 grid gap-1 pl-7 text-[13px] text-paper-flame-deep">
                   {[...(skill.conflict ? [skill.conflict] : []), ...skill.errors].map((problem) => (
                     <li key={problem} className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -177,7 +177,7 @@ function Review({
       </ul>
 
       {preview.notInstalled.length > 0 ? (
-        <p className="max-w-[80ch] text-[12.5px] leading-5 text-paper-sage">
+        <p className="max-w-[80ch] text-[13px] leading-5 text-paper-sage">
           <span className="font-medium text-paper-char">Left out:</span> {preview.notInstalled.join(" · ")}. AgentOS installs skill folders only.
         </p>
       ) : null}

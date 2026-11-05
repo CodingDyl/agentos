@@ -19,7 +19,7 @@ test.describe("Dashboard", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Dashboard", exact: true })).toBeVisible();
     await expect(page.getByText(/Good (morning|afternoon|evening), Dylan/)).toBeVisible();
     // 2 Pantry Pilot + 2 Virtara + 1 AgentOS + 1 Story Keeper open Now tasks.
-    await expect(page.getByText("6 tasks across 4 workspaces")).toBeVisible();
+    await expect(page.getByText("6 tasks / 4 workspaces")).toBeVisible();
 
     const needsYou = page.locator("#needs-you");
     await expect(needsYou.getByText("Story Keeper").first()).toBeVisible();
@@ -77,7 +77,7 @@ test.describe("Workspaces", () => {
     await page.goto("/workspaces/virtara");
 
     await expect(page.getByRole("heading", { level: 1, name: "Virtara" })).toBeVisible();
-    await expect(page.getByText("Business", { exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByText("Business", { exact: true })).toBeVisible();
 
     const tabs = page.getByRole("tablist", { name: "Workspace sections" });
     await expect(tabs.getByRole("tab", { name: "Clients" })).toBeVisible();

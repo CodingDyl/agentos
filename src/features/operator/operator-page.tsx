@@ -2,7 +2,7 @@ import { ArrowUp, Square, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { isRunSettled, type OperatorMode, type RunbookSummary } from "@shared/operator-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperStage } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useCreateOperatorRun, useOperatorRun, useOperatorRuns, useRunbooks, useStopOperatorRun } from "@/lib/agentos/operator";
@@ -66,12 +66,12 @@ export function OperatorPage() {
   const active = latest && isStoppable(latest.status) ? latest : undefined;
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="operator" activeHref="/operator" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="operator" activeHref="/operator">
       <PaperStage>
         <div className="mx-auto flex min-h-full w-full max-w-[860px] flex-col">
           <header>
-            <p className="font-paper-utility text-[12px] font-medium tracking-[0.14em] text-paper-sage uppercase">Operator</p>
-            <h1 className="mt-1 font-paper-display text-[26px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[32px]">
+            <p className="text-[13px] font-medium text-paper-sage">Operator</p>
+            <h1 className="mt-1 text-[24px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">
               What do you want to get done?
             </h1>
           </header>
@@ -80,9 +80,9 @@ export function OperatorPage() {
 
           <section aria-label="Conversation" className="mt-8 flex-1">
             {isPending ? (
-              <DedsecLoader variant="compact" />
+              <PageLoader variant="compact" />
             ) : error ? (
-              <p role="alert" className="text-[13.5px] text-paper-flame-deep">
+              <p role="alert" className="text-[14px] text-paper-flame-deep">
                 {error.message}
               </p>
             ) : thread.length === 0 ? (
@@ -192,7 +192,7 @@ function Composer({
           </PaperButton>
         </div>
       ) : null}
-      <div className="border border-paper-mist bg-paper-white focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-paper-blue">
+      <div className="border border-paper-mist bg-paper-white focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus)]">
         <label htmlFor={inputId} className="sr-only">
           What do you want to get done?
         </label>
@@ -207,7 +207,7 @@ function Composer({
           onChange={(event) => onValueChange(event.currentTarget.value)}
           onKeyDown={keys}
           placeholder="Message Operator, or press Jarvis and say it"
-          className="block max-h-48 min-h-14 w-full resize-y bg-transparent px-4 py-3 text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash disabled:opacity-60"
+          className="block max-h-48 min-h-14 w-full resize-y bg-transparent px-4 py-3 text-[14px] leading-6 text-paper-moss outline-none placeholder:text-paper-ash disabled:opacity-60"
         />
         <div className="flex flex-wrap items-center gap-3 border-t border-paper-stone px-3 py-2">
           <div role="radiogroup" aria-label="Mode" className="flex">
@@ -221,9 +221,9 @@ function Composer({
                   aria-checked={selected}
                   onClick={() => onModeChange(entry.value)}
                   className={cn(
-                    "min-h-8 cursor-pointer border-b-2 px-3 font-paper-utility text-[13px] font-medium tracking-[0.14em] uppercase transition-colors duration-150",
+                    "min-h-8 cursor-pointer border-b-2 px-3 text-[13px] font-medium transition-colors duration-150",
                     PAPER_FOCUS,
-                    selected ? "border-paper-blue text-paper-blue" : "border-transparent text-paper-sage hover:text-paper-moss",
+                    selected ? "border-paper-ash text-paper-blue" : "border-transparent text-paper-sage hover:text-paper-moss",
                   )}
                 >
                   {entry.label}
@@ -231,7 +231,7 @@ function Composer({
               );
             })}
           </div>
-          <p id={hintId} className="hidden min-w-0 flex-1 truncate text-[12px] text-paper-sage md:block">
+          <p id={hintId} className="hidden min-w-0 flex-1 truncate text-[13px] text-paper-sage md:block">
             {current.hint}
           </p>
           <PaperButton type="submit" variant="amber" className="ml-auto min-h-9" disabled={!value.trim() || pending}>
@@ -255,7 +255,7 @@ function Runbooks({ onPick }: { onPick: (runbook: RunbookSummary) => void }) {
 
   return (
     <div role="region" aria-label="Runbooks">
-      <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Start from a runbook</h2>
+      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Start from a runbook</h2>
       <p className="mt-1 text-[13px] text-paper-sage">The usual flow for each kind of request, already known. Pick one to fill in its example.</p>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2">
         {data.map((runbook) => {
@@ -267,9 +267,9 @@ function Runbooks({ onPick }: { onPick: (runbook: RunbookSummary) => void }) {
                 onClick={() => onPick(runbook)}
                 className={cn("flex h-full w-full cursor-pointer flex-col gap-2 border border-paper-mist bg-paper-white p-4 text-left transition-colors duration-150 hover:bg-paper-cream", PAPER_FOCUS)}
               >
-                <span className="font-paper-display text-[15.5px] font-bold text-paper-moss">{runbook.name}</span>
+                <span className="text-[14px] font-semibold text-paper-moss">{runbook.name}</span>
                 <span className="text-[13px] leading-5 text-paper-char">{runbook.description}</span>
-                <span className="mt-auto text-[12px] text-paper-sage tabular-nums">
+                <span className="mt-auto text-[13px] text-paper-sage tabular-nums">
                   {built} of {runbook.steps.length} steps built into AgentOS
                 </span>
               </button>
@@ -297,15 +297,15 @@ function RunDetails({ runId, onClose, onRunAgain }: { runId: string; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50">
-      <button type="button" aria-hidden="true" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-paper-moss/30" />
+      <button type="button" aria-hidden="true" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-[var(--scrim)]" />
       <section
         role="dialog"
         aria-modal="true"
         aria-label="Run details"
-        className="absolute inset-y-0 right-0 flex w-full max-w-[780px] flex-col border-l border-paper-mist bg-paper-white font-paper-ui text-paper-moss"
+        className="absolute inset-y-0 right-0 flex w-full max-w-[780px] flex-col border-l border-paper-mist bg-paper-white text-paper-moss"
       >
         <header className="flex items-center justify-between gap-3 border-b border-paper-stone px-5 py-3 sm:px-8">
-          <p className="font-paper-utility text-[12px] font-medium tracking-[0.14em] text-paper-sage uppercase">
+          <p className="text-[13px] font-medium text-paper-sage">
             Details{run && !isRunSettled(run.status) ? " · live" : ""}
           </p>
           <button

@@ -73,11 +73,11 @@ function WaitingRow({ data, item, onEdit }: { data: TractionData; item: WaitingO
     <li className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-[15px] leading-6 font-semibold text-paper-moss">{item.who}</h3>
+          <h3 className="text-[14px] leading-6 font-semibold text-paper-moss">{item.who}</h3>
           {overdue ? <Tag tone="marigold">Chase today</Tag> : null}
         </div>
         <p className="text-[14px] leading-6 text-paper-char">{item.what}</p>
-        <p className="mt-0.5 text-[12.5px] leading-5 text-paper-sage">
+        <p className="mt-0.5 text-[13px] leading-5 text-paper-sage">
           Since {formatShortDate(item.since)} ({waited <= 0 ? "today" : `${waited} ${waited === 1 ? "day" : "days"}`}) · {overdue ? `Chase was due ${formatShortDate(chase)}` : `Next chase ${formatShortDate(chase)}`}
           {prospect ? (
             <>
@@ -105,7 +105,7 @@ function WaitingRow({ data, item, onEdit }: { data: TractionData; item: WaitingO
         <Link
           to={hermesHref(waitingPrompt(item, data.today, prospect))}
           className={cn(
-            "inline-flex min-h-8 items-center gap-1.5 rounded-none px-3 text-[13.5px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
+            "inline-flex min-h-8 items-center gap-1.5 rounded-md px-3 text-[14px] font-semibold text-paper-sage hover:bg-paper-stone hover:text-paper-moss",
             PAPER_FOCUS,
           )}
         >

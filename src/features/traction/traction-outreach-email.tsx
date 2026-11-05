@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Prospect } from "@shared/traction-types";
 import { MAX_EMAIL_BODY, type EmailCandidate } from "@shared/outreach-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import {
   FieldLabel,
   PAPER_FOCUS,
@@ -70,10 +70,10 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
 
   return (
     <div
-      className="mt-5 rounded-none border border-paper-linen px-3 py-3"
+      className="mt-5 rounded-md border border-paper-linen px-3 py-3"
       aria-label="Email this prospect"
     >
-      <p className="flex items-center gap-1.5 text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold text-paper-char">
         <Mail className="size-3.5" aria-hidden="true" />
         Email from the outreach mailbox
       </p>
@@ -84,7 +84,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
       ) : null}
 
       {status.isPending ? (
-        <DedsecLoader variant="compact" className="mt-2" />
+        <PageLoader variant="compact" className="mt-2" />
       ) : null}
       {status.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
@@ -112,7 +112,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
                 onClick={() => useInbox.mutate()}
                 disabled={useInbox.isPending}
                 className={cn(
-                  "inline-flex min-h-8 cursor-pointer items-center rounded-none border-[1.5px] border-paper-gold bg-paper-white px-3 font-semibold text-paper-moss hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-60",
+                  "inline-flex min-h-8 cursor-pointer items-center rounded-md border border-paper-gold bg-paper-white px-3 font-semibold text-paper-moss hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-60",
                   PAPER_FOCUS,
                 )}
               >
@@ -135,7 +135,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
           <a
             href="/api/outreach/connect"
             className={cn(
-              "mt-2 inline-flex min-h-8 items-center rounded-none border-[1.5px] border-paper-gold px-3 font-semibold text-paper-moss hover:bg-paper-white",
+              "mt-2 inline-flex min-h-8 items-center rounded-md border border-paper-gold px-3 font-semibold text-paper-moss hover:bg-paper-white",
               PAPER_FOCUS,
             )}
           >
@@ -157,7 +157,7 @@ export function ProspectEmailSection({ prospect }: { prospect: Prospect }) {
               onClick={() => disconnect.mutate()}
               disabled={disconnect.isPending}
               className={cn(
-                "cursor-pointer rounded-[2px] text-paper-sage hover:text-paper-moss hover:underline",
+                "cursor-pointer rounded-sm text-paper-sage hover:text-paper-moss hover:underline",
                 PAPER_FOCUS,
               )}
             >
@@ -277,8 +277,8 @@ function Composer({
       {replies.data && replies.data.length > 0 ? (
         <div className="mt-3 space-y-2" aria-label="Replies from this prospect">
           {replies.data.slice(0, 3).map((reply) => (
-            <div key={reply.id} className="rounded-none bg-paper-linen px-3 py-2 text-[13px] leading-5 text-paper-char">
-              <p className="text-[12px] font-semibold tracking-[0.06em] uppercase">
+            <div key={reply.id} className="rounded-md bg-paper-linen px-3 py-2 text-[13px] leading-5 text-paper-char">
+              <p className="text-[13px] font-semibold">
                 They wrote · {formatShortDate(reply.at)}
               </p>
               <p className="mt-1 font-semibold">{reply.subject}</p>
@@ -351,14 +351,14 @@ function Composer({
       ) : null}
 
       {prospect.email ? (
-        <p className="mt-2 text-[12.5px] text-paper-sage">
+        <p className="mt-2 text-[13px] text-paper-sage">
           {suppressed ? (
             <button
               type="button"
               disabled={removeSuppression.isPending}
               onClick={() => removeSuppression.mutate(suppressed.address)}
               className={cn(
-                "cursor-pointer rounded-[2px] hover:text-paper-moss hover:underline",
+                "cursor-pointer rounded-sm hover:text-paper-moss hover:underline",
                 PAPER_FOCUS,
               )}
             >
@@ -379,7 +379,7 @@ function Composer({
                 }
               }}
               className={cn(
-                "cursor-pointer rounded-[2px] hover:text-paper-moss hover:underline",
+                "cursor-pointer rounded-sm hover:text-paper-moss hover:underline",
                 PAPER_FOCUS,
               )}
             >
@@ -425,7 +425,7 @@ function Composer({
             >
               {create.isPending ? "Creating…" : "Create Gmail draft"}
             </PaperButton>
-            <span className="text-[12.5px] text-paper-sage">
+            <span className="text-[13px] text-paper-sage">
               {replyToId ? "A Gmail draft would not be in their thread, so a reply is sent from here." : "Or save it as a Gmail draft to send yourself."}
             </span>
           </div>
@@ -438,9 +438,9 @@ function Composer({
             <div
               role="group"
               aria-label="Preview before sending"
-              className="rounded-none border-[1.5px] border-paper-gold bg-paper-white px-3 py-3 text-[13px] leading-5 text-paper-char"
+              className="rounded-md border border-paper-gold bg-paper-white px-3 py-3 text-[13px] leading-5 text-paper-char"
             >
-              <p className="text-[12px] font-semibold tracking-[0.06em] uppercase">
+              <p className="text-[13px] font-semibold">
                 Check before sending
               </p>
               <p className="mt-1">
@@ -541,7 +541,7 @@ function CheckReplies({ lastSyncAt }: { lastSyncAt?: string }) {
         <PaperButton variant="ghost" disabled={check.isPending} onClick={() => check.mutate()}>
           {check.isPending ? "Checking…" : "Check for replies"}
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">
+        <span className="text-[13px] text-paper-sage">
           {lastSyncAt ? `Last checked ${formatShortDate(lastSyncAt)}. Also checked every 15 minutes.` : "Not checked yet. Reading only: nothing is changed in Gmail."}
         </span>
       </div>
@@ -622,7 +622,7 @@ export function EmailFinder({ prospect }: { prospect: Prospect }) {
           >
             {apollo.isPending ? "Asking Apollo…" : "Ask Apollo who runs it"}
           </PaperButton>
-          <p className="mt-1 text-[12px] text-paper-sage">
+          <p className="mt-1 text-[13px] text-paper-sage">
             Names and titles are free. Revealing an address spends one Apollo credit.
           </p>
         </div>

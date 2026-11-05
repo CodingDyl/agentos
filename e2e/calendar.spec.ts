@@ -10,6 +10,10 @@ test.beforeEach(async ({ request }) => { await request.post("/api/focus/skip", {
 const date = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; };
 test("calendar starts in month, opens a selected day, and sits after today's priorities", async ({ page }) => {
   await page.goto("/");
+  // The first open of a day is the check-in, over the whole page.
+  const skip = page.getByRole("button", { name: "Skip today", exact: true });
+  await skip.waitFor({ timeout: 5_000 }).catch(() => undefined);
+  if (await skip.isVisible()) await skip.click();
   const calendar = page.locator("#overview-calendar");
   await expect(calendar.getByRole("radio", { name: "Month", exact: true })).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
   expect(await page.evaluate(() => {
@@ -33,6 +37,10 @@ test("calendar starts in month, opens a selected day, and sits after today's pri
 
 test("calendar saves, moves and completes real workspace tasks", async ({ page }) => {
   await page.goto("/");
+  // The first open of a day is the check-in, over the whole page.
+  const skip = page.getByRole("button", { name: "Skip today", exact: true });
+  await skip.waitFor({ timeout: 5_000 }).catch(() => undefined);
+  if (await skip.isVisible()) await skip.click();
   const calendar = page.locator("#overview-calendar");
   await expect(calendar.getByRole("radio", { name: "Week", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(calendar.getByText(/Connect your Google account/)).toBeVisible();
@@ -49,7 +57,8 @@ test("calendar saves, moves and completes real workspace tasks", async ({ page }
   // Month drag moves the same task, preserving its time and id.
   await calendar.getByRole("radio", { name: "Month", exact: true }).click();
   const days = calendar.locator("[data-calendar-date]");
-  const target = days.nth(10);
+  // Any cell but today's: a drag onto its own cell is only a click.
+  const target = (await days.nth(10).getAttribute("data-calendar-date")) === date() ? days.nth(11) : days.nth(10);
   const targetDate = await target.getAttribute("data-calendar-date");
   const source = calendar.locator(`[data-calendar-date="${date()}"]`).getByRole("button", { name: /Prepare calendar verification slides/ });
   await target.scrollIntoViewIfNeeded();
@@ -78,6 +87,10 @@ test("calendar edits Google events and reviews opt-in preparation suggestions", 
   });
   await page.route("**/api/calendar/events/review_1/suggestions", (route) => route.fulfill({ json: { suggestions: ["Prepare the slides", "Review the agenda"] } }));
   await page.goto("/");
+  // The first open of a day is the check-in, over the whole page.
+  const skip = page.getByRole("button", { name: "Skip today", exact: true });
+  await skip.waitFor({ timeout: 5_000 }).catch(() => undefined);
+  if (await skip.isVisible()) await skip.click();
   const calendar = page.locator("#overview-calendar");
   await calendar.getByRole("button", { name: /Client review/ }).first().click();
   const dialog = page.getByRole("dialog");
@@ -96,7 +109,7 @@ test("calendar edits Google events and reviews opt-in preparation suggestions", 
   await calendar.getByRole("radio", { name: "Week", exact: true }).click();
   await page.screenshot({ animations: "disabled", path: "test-results/calendar-week-desktop.png" });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(() => page.locator(".os-navigation-drawer").evaluate((node) => node.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
+  await expect.poll(() => page.locator(".qt-sidebar").evaluate((node) => node.getBoundingClientRect().right)).toBeLessThanOrEqual(1);
   await calendar.getByRole("heading", { name: "Calendar", exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ animations: "disabled", path: "test-results/calendar-mobile.png" });
   expect(await calendar.evaluate((node) => node.getBoundingClientRect().right <= window.innerWidth)).toBe(true);

@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import { vettingOf, type TractionData } from "@shared/traction-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PaperButton, PaperStage } from "@/components/paper";
 import { useFollowUps } from "@/lib/agentos/outreach";
 import { useNavigationItems } from "@/config/use-navigation";
@@ -65,15 +65,14 @@ export function TractionPage() {
       pageId="traction"
       activeHref="/traction"
       agentState="idle"
-      agentLabel="Agents / idle"
-      modelLabel="Model / AgentOS V1"
+      agentLabel="Agents idle"
     >
       <PaperStage>
         {isPending ? (
-          <DedsecLoader variant="page" />
+          <PageLoader variant="page" />
         ) : !data ? (
           <div className="py-4">
-            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">Traction could not be read.</h1>
+            <h1 className="text-[16px] font-semibold tracking-[-0.02em]">Traction could not be read.</h1>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">
               {error?.message ?? "The adapter did not answer."} Traction reads its local store through the AgentOS server; check that it is running.
             </p>
@@ -128,12 +127,12 @@ function Traction({
     <div>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss sm:text-[34px]">Traction</h1>
+          <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss sm:text-[28px]">Traction</h1>
           <p className="mt-1 text-[13px] text-paper-sage">
             {data.icp ? `Selling to ${data.icp.name}${data.icp.geography ? ` · ${data.icp.geography}` : ""}` : "No active ICP yet"}
           </p>
         </div>
-        <p className="text-[12.5px] font-semibold tracking-[0.1em] text-paper-sage uppercase">{month}</p>
+        <p className="text-[13px] font-semibold text-paper-sage">{month}</p>
       </header>
 
       <div className="mt-8">

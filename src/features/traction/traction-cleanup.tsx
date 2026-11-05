@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatBytes, REMOTE_ITEMS, type CleanupCandidate, type CleanupItem, type CleanupItemId, type CleanupPreview, type CleanupResult } from "@shared/client-cleanup";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperEmpty, PaperSection, Tag } from "@/components/paper";
 import { useCleanupCandidates, useCleanupPreview, useRunCleanup } from "@/lib/agentos/cleanup";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,7 @@ export function CleanUpSection() {
           <li key={candidate.prospectId} className="border border-paper-mist bg-paper-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold text-paper-moss">{candidate.company}</h3>
+                <h3 className="text-[14px] font-semibold text-paper-moss">{candidate.company}</h3>
                 <p className="text-[13px] text-paper-char">{candidate.reason}</p>
               </div>
               <PaperButton
@@ -83,7 +83,7 @@ function CleanupPanel({ candidate, onCleaned }: { candidate: CleanupCandidate; o
   const [typed, setTyped] = useState("");
   const [armed, setArmed] = useState(false);
 
-  if (preview.isPending) return <DedsecLoader variant="compact" className="mt-4" />;
+  if (preview.isPending) return <PageLoader variant="compact" className="mt-4" />;
   if (preview.error) {
     return (
       <p role="alert" className="mt-4 text-[13px] text-paper-flame-deep">
@@ -152,7 +152,7 @@ function CleanupPanel({ candidate, onCleaned }: { candidate: CleanupCandidate; o
             {freed > 0 ? `Frees ${approximate ? "at least " : "about "}${formatBytes(freed)} on this machine.` : "Frees no space on this machine."}
           </p>
           {armed ? (
-            <div role="alertdialog" aria-label="Confirm the delete" className="space-y-2 border-[1.5px] border-paper-flame-deep px-4 py-3">
+            <div role="alertdialog" aria-label="Confirm the delete" className="space-y-2 border border-paper-flame-deep px-4 py-3">
               <p className="text-[14px] font-semibold text-paper-flame-deep">This permanently deletes {selected.length === 1 ? "the item" : `the ${selected.length} items`} ticked above. It cannot be undone.</p>
               <div className="flex flex-wrap gap-2">
                 <PaperButton
@@ -177,7 +177,7 @@ function CleanupPanel({ candidate, onCleaned }: { candidate: CleanupCandidate; o
               Delete {selected.length} {selected.length === 1 ? "item" : "items"}…
             </PaperButton>
           )}
-          {!nameOk ? <p className="text-[12.5px] text-paper-sage">Type the company's name above to unlock deleting from GitHub or Vercel.</p> : null}
+          {!nameOk ? <p className="text-[13px] text-paper-sage">Type the company's name above to unlock deleting from GitHub or Vercel.</p> : null}
         </div>
       ) : anythingToDelete ? (
         <p className="text-[13px] text-paper-sage">Tick what you want gone.</p>
@@ -195,7 +195,7 @@ function CleanupPanel({ candidate, onCleaned }: { candidate: CleanupCandidate; o
 function ItemGroup({ title, items, checked, onToggle, danger }: { title: string; items: CleanupItem[]; checked: (entry: CleanupItem) => boolean; onToggle: (entry: CleanupItem) => void; danger?: boolean }) {
   return (
     <fieldset className="space-y-2">
-      <legend className={cn("mb-1 text-[12px] font-semibold tracking-[0.06em] uppercase", danger ? "text-paper-flame-deep" : "text-paper-char")}>{title}</legend>
+      <legend className={cn("mb-1 text-[13px] font-semibold", danger ? "text-paper-flame-deep" : "text-paper-char")}>{title}</legend>
       {items.map((entry) => (
         <label key={entry.id} className={cn("flex items-start gap-3 border border-paper-mist px-3 py-2.5", entry.state === "ready" ? "cursor-pointer" : "opacity-80")}>
           <input type="checkbox" className="mt-1" checked={checked(entry)} disabled={entry.state !== "ready"} onChange={() => onToggle(entry)} />
@@ -204,17 +204,17 @@ function ItemGroup({ title, items, checked, onToggle, danger }: { title: string;
               <span className="text-[14px] font-semibold text-paper-moss">{entry.label}</span>
               {entry.state !== "ready" ? <Tag tone={entry.state === "blocked" ? "flame" : "muted"}>{STATE_NOTE[entry.state]}</Tag> : null}
               {entry.bytes !== undefined ? (
-                <span className="text-[12.5px] text-paper-sage tabular-nums">
+                <span className="text-[13px] text-paper-sage tabular-nums">
                   {entry.approximate ? "at least " : ""}
                   {formatBytes(entry.bytes)}
                   {entry.files !== undefined ? ` · ${entry.files.toLocaleString("en-GB")} files` : ""}
                 </span>
               ) : null}
             </span>
-            <span className="block text-[12px] break-all text-paper-sage">{entry.location}</span>
-            {entry.reason ? <span className="mt-0.5 block text-[12.5px] leading-5 text-paper-char">{entry.reason}</span> : null}
+            <span className="block text-[13px] break-all text-paper-sage">{entry.location}</span>
+            {entry.reason ? <span className="mt-0.5 block text-[13px] leading-5 text-paper-char">{entry.reason}</span> : null}
             {entry.warnings.map((warning) => (
-              <span key={warning} className="mt-0.5 block text-[12.5px] leading-5 text-paper-amber-deep">
+              <span key={warning} className="mt-0.5 block text-[13px] leading-5 text-paper-amber-deep">
                 {warning}
               </span>
             ))}

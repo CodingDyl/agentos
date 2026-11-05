@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, Copy, FileText } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { DedsecLoader, EmptyState, FilterBar, Markdown, SectionLabel } from "@/components/os";
+import { PageLoader, EmptyState, FilterBar, Markdown, SectionLabel } from "@/components/os";
 import { useProjectDocument } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { formatTokens, SOURCE_LABELS, TYPE_LABELS } from "../documents-model";
@@ -57,7 +57,7 @@ export function DocumentViewer({
       </button>
 
       {isPending ? (
-        <DedsecLoader variant="compact" className="mt-6" />
+        <PageLoader variant="compact" className="mt-6" />
       ) : error || !data ? (
         <EmptyState
           label="Document unavailable"
@@ -108,7 +108,7 @@ export function DocumentViewer({
               <Markdown content={data.content} className="mt-8 max-w-[76ch]" />
             ) : (
               <pre className="mt-8 overflow-x-auto rounded-md border border-os-border bg-os-surface-raised p-5">
-                <code className="font-mono text-[13px] leading-6 text-foreground whitespace-pre-wrap">{data.content}</code>
+                <code className="font-mono text-[12px] leading-6 text-foreground whitespace-pre-wrap">{data.content}</code>
               </pre>
             )}
           </article>
@@ -156,7 +156,7 @@ export function DocumentViewer({
 
             <div>
               <SectionLabel>File</SectionLabel>
-              <p className="mt-2 break-all font-mono text-[12px] leading-5 tracking-[0.02em] text-os-subtle">
+              <p className="mt-2 break-all font-mono text-[12px] leading-5 text-os-subtle">
                 {data.artifact.origin === "repo" ? `<repo>/${data.artifact.relativePath}` : `~/AgentOS/${data.artifact.relativePath}`}
               </p>
               <p className="os-meta mt-2 text-os-subtle tabular-nums">

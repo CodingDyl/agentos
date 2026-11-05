@@ -102,7 +102,7 @@ export function FinanceGoalsTab({ data }: { data: FinanceData }) {
       ) : null}
 
       {data.goals.some((goal) => goal.paceMonthly !== undefined) ? (
-        <p className="max-w-[70ch] text-[12.5px] leading-5 text-paper-sage">
+        <p className="max-w-[70ch] text-[13px] leading-5 text-paper-sage">
           Projections assume your free cash flow ({data.freeCashFlow === undefined ? "-" : money(data.freeCashFlow)} a month, the last three complete months) is shared evenly between the goals that have a date. It is an estimate, not a forecast.
         </p>
       ) : null}
@@ -139,8 +139,8 @@ function GoalCard({ goal, data, open, onToggle, readOnly }: { goal: GoalProgress
       }
       figure={
         <>
-          <span className="block font-paper-display text-[20px] leading-6 font-extrabold tracking-[-0.02em] text-paper-moss tabular-nums">{Math.round(goal.progress * 100)}%</span>
-          <span className="block text-[12px] text-paper-sage tabular-nums">
+          <span className="block text-[16px] leading-6 font-semibold tracking-[-0.02em] text-paper-moss tabular-nums">{Math.round(goal.progress * 100)}%</span>
+          <span className="block text-[13px] text-paper-sage tabular-nums">
             {money(goal.currentAmount)} of {money(goal.targetAmount)}
           </span>
         </>
@@ -166,8 +166,8 @@ function GoalCard({ goal, data, open, onToggle, readOnly }: { goal: GoalProgress
             Find {money(goal.shortfall ?? 0)} →
           </PaperButton>
           {finding ? (
-            <div className="mt-3 rounded-none bg-paper-cream p-4">
-              <p className="text-[12.5px] font-semibold tracking-[0.08em] text-paper-sage uppercase">Savings opportunities</p>
+            <div className="mt-3 rounded-md bg-paper-cream p-4">
+              <p className="text-[13px] font-semibold text-paper-sage">Savings opportunities</p>
               {data.opportunities.length === 0 ? (
                 <p className="mt-2 text-[14px] leading-6 text-paper-char">Nothing obvious to trim yet. Rank your subscriptions and check Spending for categories running high.</p>
               ) : (
@@ -232,7 +232,7 @@ function GoalCard({ goal, data, open, onToggle, readOnly }: { goal: GoalProgress
           </PaperButton>
         </div>
       ) : (
-        <p className="mt-4 text-[12.5px] text-paper-sage">A sample goal. Add your own to track real money.</p>
+        <p className="mt-4 text-[13px] text-paper-sage">A sample goal. Add your own to track real money.</p>
       )}
       <MutationError error={update.error ?? remove.error} />
     </FoldCard>
@@ -266,7 +266,7 @@ function GoalForm({ onDone }: { onDone: () => void }) {
       className="grid gap-4 sm:grid-cols-2"
     >
       <div className="flex items-center justify-between gap-3 sm:col-span-2">
-        <h2 className="font-paper-display text-[17px] font-bold text-paper-moss">New savings goal</h2>
+        <h2 className="text-[16px] font-semibold text-paper-moss">New savings goal</h2>
         <CloseButton label="Close the new goal form" onClick={onDone} showLabel />
       </div>
       <label className="block sm:col-span-2">

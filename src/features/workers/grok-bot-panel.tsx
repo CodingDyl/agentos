@@ -1,7 +1,7 @@
 import { Check, X } from "lucide-react";
 import { useState } from "react";
 import type { GrokBotTestResult } from "@shared/grok-bot-types";
-import { CommandButton, DedsecLoader, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
+import { CommandButton, PageLoader, FilterBar, HairlineCard, SectionLabel, StatusPill } from "@/components/os";
 import { formatRelativeTime } from "@/lib/format";
 import { useGrokBotStatus, useSaveGrokBotSettings, useTestGrokBotConnection } from "@/lib/agentos/queries";
 
@@ -14,7 +14,7 @@ import { useGrokBotStatus, useSaveGrokBotSettings, useTestGrokBotConnection } fr
  */
 
 const TEXT_INPUT =
-  "os-focus-ring mt-2 min-h-9 w-full rounded-md border border-os-border bg-transparent px-3 font-mono text-[13px] text-foreground placeholder:text-os-subtle";
+  "os-focus-ring mt-2 min-h-9 w-full rounded-md border border-os-border bg-transparent px-3 font-mono text-[12px] text-foreground placeholder:text-os-subtle";
 
 export function GrokBotPanel() {
   const status = useGrokBotStatus();
@@ -24,7 +24,7 @@ export function GrokBotPanel() {
   const [result, setResult] = useState<GrokBotTestResult>();
 
   if (status.isPending) {
-    return <DedsecLoader variant="compact" />;
+    return <PageLoader variant="compact" />;
   }
   if (!status.data) {
     return (

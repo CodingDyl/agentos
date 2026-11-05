@@ -15,7 +15,7 @@ import type { WorkerDiff, WorkerJob, WorkerReview } from "@shared/worker-types";
 import {
   AppShell,
   CommandButton,
-  DedsecLoader,
+  PageLoader,
   EmptyState,
   ErrorState,
   HairlineCard,
@@ -106,7 +106,6 @@ export function JobDetailPage() {
       agentLabel={
         job && !isFinished(job.status) ? "Worker / running" : "Worker / idle"
       }
-      modelLabel="Model / AgentOS V1"
     >
       <div className={PAGE_PADDING}>
         {isPending ? (
@@ -173,7 +172,7 @@ function JobDetail({ job, events }: JobDetailProps) {
             {jobTitle(job.objective) !== job.objective.trim() ? (
               <details className="mt-3 max-w-[90ch]">
                 <summary className="os-meta cursor-pointer text-os-subtle hover:text-foreground">Full brief</summary>
-                <pre className="mt-2 max-h-[420px] overflow-auto rounded-md border border-os-border p-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-os-subtle">
+                <pre className="mt-2 max-h-[420px] overflow-auto rounded-md border border-os-border p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap text-os-subtle">
                   {job.objective}
                 </pre>
               </details>
@@ -238,7 +237,7 @@ function JobDetail({ job, events }: JobDetailProps) {
       {stalled ? (
         <div className="mt-10 max-w-[72ch] rounded-lg border border-os-warning/40 bg-os-warning/5 p-5 md:p-6" role="status">
           <p className="os-meta text-os-warning">Stalled</p>
-          <p className="mt-3 text-[15px] leading-6 text-foreground">
+          <p className="mt-3 text-[14px] leading-6 text-foreground">
             Nothing has been heard from {job.resolvedWorker ?? job.worker} since {lastHeard ? formatRelativeTime(lastHeard) : "it started"}.
             The run is still live and its own timeout still applies; cancel it if it is not coming back, then retry.
           </p>
@@ -332,7 +331,7 @@ function JobDetail({ job, events }: JobDetailProps) {
         <div className="flex flex-col gap-10 lg:col-start-2">
           {job.result ? (
             <Section label="Result">
-              <p className="max-w-[62ch] text-[15px] leading-6 text-os-muted">
+              <p className="max-w-[62ch] text-[14px] leading-6 text-os-muted">
                 {job.result.summary}
               </p>
 
@@ -544,7 +543,7 @@ function CompletedNotice({ job }: { job: WorkerJob }) {
   return (
     <section aria-label="Completed" className="mt-10 max-w-[72ch] rounded-lg border border-os-success/40 bg-os-success/5 p-5 md:p-6">
       <p className="os-meta text-os-success">Completed</p>
-      <p className="mt-2 text-[15px] leading-6 text-foreground">
+      <p className="mt-2 text-[14px] leading-6 text-foreground">
         {job.integratedCommit
           ? `Approved and applied${job.targetBranch ? ` to ${job.targetBranch}` : ""} as ${job.integratedCommit.slice(0, 8)}, and validated there.`
           : "Approved and closed."}
@@ -679,7 +678,7 @@ function ReviewStation({ job }: { job: WorkerJob }) {
           ) : null}
         </div>
 
-        <p className="mt-3 max-w-[62ch] text-[15px] leading-6 text-foreground">
+        <p className="mt-3 max-w-[62ch] text-[14px] leading-6 text-foreground">
           {changed === 0
             ? "The worker changed nothing in its worktree."
             : `${changed} ${changed === 1 ? "file" : "files"} changed in an isolated worktree.`}
@@ -733,13 +732,13 @@ function ReviewStation({ job }: { job: WorkerJob }) {
         <SectionLabel>Hermes review</SectionLabel>
 
         {job.status === "reviewing" ? (
-          <p className="mt-3 text-[15px] leading-6 text-os-muted">
+          <p className="mt-3 text-[14px] leading-6 text-os-muted">
             Hermes is reading the diff…
           </p>
         ) : job.review ? (
           <HermesReview review={job.review} />
         ) : (
-          <p className="mt-3 max-w-[62ch] text-[15px] leading-6 text-os-muted">
+          <p className="mt-3 max-w-[62ch] text-[14px] leading-6 text-os-muted">
             This work has not been reviewed yet. Nothing can be approved until it
             has been.
           </p>
@@ -923,7 +922,7 @@ function HermesReview({ review }: { review: WorkerReview }) {
         ) : null}
       </div>
 
-      <p className="mt-4 max-w-[62ch] text-[15px] leading-6 text-os-muted">
+      <p className="mt-4 max-w-[62ch] text-[14px] leading-6 text-os-muted">
         {review.summary}
       </p>
 
@@ -1010,7 +1009,7 @@ function DiffViewer({
   error?: string;
 }) {
   if (isPending) {
-    return <DedsecLoader variant="compact" className="mt-4" />;
+    return <PageLoader variant="compact" className="mt-4" />;
   }
 
   if (error || !diff) {
@@ -1135,7 +1134,7 @@ function RunCost({
   if (metrics.location === "local") {
     return (
       <div className="space-y-1.5">
-        <p className="text-[15px] leading-6 text-foreground">{providerChargeLabel(metrics)}</p>
+        <p className="text-[14px] leading-6 text-foreground">{providerChargeLabel(metrics)}</p>
         <p className="text-[13px] leading-5 text-os-subtle">{LOCAL_COST_CAVEAT}</p>
         {metrics.model ? (
           <p className="os-meta font-mono text-os-subtle">
@@ -1167,14 +1166,14 @@ function RunCost({
           <div className="flex items-baseline gap-2">
             <span
               className={cn(
-                "font-mono text-[20px] leading-none tabular-nums",
+                "font-mono text-[16px] leading-none tabular-nums",
                 exhausted ? "text-os-danger" : "text-foreground",
               )}
             >
               ${spent.toFixed(2)}
             </span>
             {ceiling !== undefined ? (
-              <span className="font-mono text-[13px] leading-none tabular-nums text-os-subtle">
+              <span className="font-mono text-[12px] leading-none tabular-nums text-os-subtle">
                 / ${ceiling.toFixed(2)}
               </span>
             ) : null}

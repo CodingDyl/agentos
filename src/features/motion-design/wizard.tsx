@@ -17,7 +17,7 @@ import {
   type YouDecideFields,
 } from "@shared/motion-design-types";
 import { DEFAULT_MODEL_ROUTING } from "@shared/model-routing-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperError, PaperSwitch } from "@/components/paper";
 import {
   suggestedReferences,
@@ -170,16 +170,16 @@ export function MotionDesignWizard({ onClose, target }: { onClose: () => void; t
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-paper-moss/40 p-4 sm:p-8" role="dialog" aria-modal="true" aria-labelledby="motion-design-title">
-      <div className="mb-8 w-full max-w-3xl border border-paper-mist bg-paper-white p-6 shadow-[0_24px_60px_rgba(20,24,20,0.18)] sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--scrim)] p-4 sm:p-8" role="dialog" aria-modal="true" aria-labelledby="motion-design-title">
+      <div className="mb-8 w-full max-w-3xl border border-paper-mist bg-paper-white p-6 shadow-[var(--shadow-overlay)] sm:p-8">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-sage uppercase">{target ? "Delivery" : "Workspaces"}</p>
-            <h2 id="motion-design-title" className="mt-1 flex items-center gap-2 font-paper-display text-[28px] font-extrabold tracking-[-0.02em] text-paper-moss">
+            <p className="text-[13px] text-paper-sage">{target ? "Delivery" : "Workspaces"}</p>
+            <h2 id="motion-design-title" className="mt-1 flex items-center gap-2 text-[24px] font-semibold tracking-[-0.02em] text-paper-moss">
               <Film className="size-6" strokeWidth={1.75} aria-hidden="true" />
               Motion Design
             </h2>
-            <p className="mt-1 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+            <p className="mt-1 max-w-[62ch] text-[14px] leading-5 text-paper-char">
               {target
                 ? `Adds motion to ${target.name}'s approved website with your local Claude Code worker and the motion-site-studio skill. Pages, copy and features stay as approved.`
                 : "Builds a cinematic site in a new workspace with your local Claude Code worker and the motion-site-studio skill."}
@@ -192,7 +192,7 @@ export function MotionDesignWizard({ onClose, target }: { onClose: () => void; t
 
         <ol className="mt-6 grid grid-cols-4 gap-px border border-paper-mist bg-paper-mist" aria-label="Wizard steps">
           {INTAKE.map((id, index) => (
-            <li key={id} className={cn("bg-paper-white px-3 py-2 font-paper-utility text-[11px] tracking-[0.08em] uppercase", index === stepIndex ? "text-paper-blue" : "text-paper-sage")}>
+            <li key={id} className={cn("bg-paper-white px-3 py-2 text-[13px]", index === stepIndex ? "text-paper-blue" : "text-paper-sage")}>
               {index + 1}. {MOTION_WIZARD_STEP_LABEL[id]}
             </li>
           ))}
@@ -334,7 +334,7 @@ function SetupStep({
   codeOnly: boolean;
   onCodeOnly: (value: boolean) => void;
 }) {
-  if (loading) return <DedsecLoader variant="compact" />;
+  if (loading) return <PageLoader variant="compact" />;
   if (error || !setup) {
     return <PaperError title="Setup could not be read." detail={error} onRetry={onRetry} isRetrying={retrying} headingLevel="h2" />;
   }
@@ -348,13 +348,13 @@ function SetupStep({
               <p className="font-medium text-paper-moss">
                 {check.ok ? "Ready" : check.required ? "Missing" : "Optional"} · {check.label}
               </p>
-              {check.detail ? <p className="mt-0.5 font-mono text-[12.5px] text-paper-sage">{check.detail}</p> : null}
+              {check.detail ? <p className="mt-0.5 font-mono text-[12px] text-paper-sage">{check.detail}</p> : null}
               {!check.ok && check.fix ? <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-paper-char">{check.fix}</p> : null}
             </div>
             {check.id === "skill" && !check.ok ? (
               <div className="flex flex-col items-end gap-2">
                 {needsConfirm ? (
-                  <label className="flex items-center gap-2 text-[12.5px] text-paper-char">
+                  <label className="flex items-center gap-2 text-[13px] text-paper-char">
                     <input type="checkbox" checked={confirmOverwrite} onChange={(event) => onConfirmOverwrite(event.target.checked)} />
                     Replace the installed copy
                   </label>
@@ -371,7 +371,7 @@ function SetupStep({
       {installMessage ? <p role="status" className="text-[13px] text-paper-char">{installMessage}</p> : null}
       {installError ? <p role="alert" className="text-[13px] text-paper-flame-deep">{installError}</p> : null}
       {zipMessage ? <p role="status" className="text-[13px] text-paper-char">{zipMessage}</p> : null}
-      <label className="text-[12.5px] text-paper-sage">
+      <label className="text-[13px] text-paper-sage">
         Secondary: import a skill zip
         <input
           type="file"
@@ -384,11 +384,11 @@ function SetupStep({
         />
       </label>
       {setup.codeOnly ? (
-        <label className="flex items-start gap-3 border border-paper-marigold p-3 text-[13.5px] leading-5">
+        <label className="flex items-start gap-3 border border-paper-marigold p-3 text-[14px] leading-5">
           <PaperSwitch checked={codeOnly} onChange={onCodeOnly} label="Code-only motion" />
           <span>
             Higgsfield is not signed in. Continue in <strong>code-only motion</strong> (the skill draws motion in code). This never runs{" "}
-            <span className="font-mono text-[12.5px]">higgsfield auth login</span> for you — run that in your own terminal if you want generated film.
+            <span className="font-mono text-[12px]">higgsfield auth login</span> for you — run that in your own terminal if you want generated film.
           </span>
         </label>
       ) : null}
@@ -420,7 +420,7 @@ function ReferencesStep({
 
   return (
     <div className="grid gap-4">
-      <p className="text-[13.5px] leading-5 text-paper-char">Add 3–10 references as links or images. For each, say what you like: color, composition, typography, material, lighting, motion, or layout.</p>
+      <p className="text-[14px] leading-5 text-paper-char">Add 3–10 references as links or images. For each, say what you like: color, composition, typography, material, lighting, motion, or layout.</p>
       <div className="flex flex-wrap gap-3 text-[13px]">
         {REFERENCE_LIBRARY_LINKS.map((entry) => (
           <a key={entry.href} href={entry.href} target="_blank" rel="noopener noreferrer" className={cn("text-paper-blue hover:underline", PAPER_FOCUS)}>
@@ -443,12 +443,12 @@ function ReferencesStep({
         </PaperButton>
       </div>
       {uploadError ? <p role="alert" className="text-[13px] text-paper-flame-deep">{uploadError}</p> : null}
-      {draft.references.length === 0 ? <p className="text-[13.5px] text-paper-sage">No references yet.</p> : null}
+      {draft.references.length === 0 ? <p className="text-[14px] text-paper-sage">No references yet.</p> : null}
       <ul className="grid gap-3">
         {draft.references.map((reference) => (
           <li key={reference.id} className="border border-paper-mist p-3">
             <div className="flex items-start justify-between gap-3">
-              <p className="min-w-0 truncate font-mono text-[12.5px] text-paper-moss">{reference.url ?? reference.filename ?? reference.path}</p>
+              <p className="min-w-0 truncate font-mono text-[12px] text-paper-moss">{reference.url ?? reference.filename ?? reference.path}</p>
               <button type="button" className={cn("text-paper-sage hover:text-paper-moss", PAPER_FOCUS)} aria-label="Remove reference" onClick={() => onChange(draft.references.filter((entry) => entry.id !== reference.id))}>
                 <X className="size-3.5" />
               </button>
@@ -463,7 +463,7 @@ function ReferencesStep({
                     type="button"
                     aria-pressed={on}
                     onClick={() => update(reference.id, { likes: on ? reference.likes.filter((item) => item !== like) : [...reference.likes, like] })}
-                    className={cn("border px-2 py-0.5 font-paper-utility text-[11px] tracking-[0.06em] uppercase", PAPER_FOCUS, on ? "border-paper-moss bg-paper-moss text-paper-white" : "border-paper-mist text-paper-char")}
+                    className={cn("border px-2 py-0.5 text-[13px]", PAPER_FOCUS, on ? "border-paper-ash bg-paper-moss text-paper-white" : "border-paper-mist text-paper-char")}
                   >
                     {REFERENCE_LIKE_LABEL[like as ReferenceLike]}
                   </button>
@@ -509,7 +509,7 @@ function BriefStep({
         <input className={cn(PAPER_INPUT, "w-full")} value={brief.vibe} onChange={(event) => set({ vibe: event.target.value })} placeholder="One line" disabled={brief.youDecide.vibe} />
       </Field>
       <Field youDecide={Boolean(brief.youDecide.journey)} onYouDecide={(value) => toggle("journey", value)} label="Journey" highlight>
-        <p className="mb-2 text-[12.5px] text-paper-char">The most important answer: start frame, end frame, and intermediate states.</p>
+        <p className="mb-2 text-[13px] text-paper-char">The most important answer: start frame, end frame, and intermediate states.</p>
         <input className={cn(PAPER_INPUT, "w-full")} value={brief.journeyStart} onChange={(event) => set({ journeyStart: event.target.value })} placeholder="Start frame" aria-label="Start frame" disabled={brief.youDecide.journey} />
         <input className={cn(PAPER_INPUT, "mt-2 w-full")} value={brief.journeyEnd} onChange={(event) => set({ journeyEnd: event.target.value })} placeholder="End frame" aria-label="End frame" disabled={brief.youDecide.journey} />
         <textarea className={cn(PAPER_INPUT, "mt-2 w-full py-2")} rows={3} value={brief.journeyBeats} onChange={(event) => set({ journeyBeats: event.target.value })} placeholder="Intermediate states" aria-label="Intermediate states" disabled={brief.youDecide.journey} />
@@ -523,22 +523,22 @@ function BriefStep({
       <div className="border border-paper-mist p-3">
         <div className="flex items-center justify-between gap-3">
           <FieldLabel>Higgsfield credit budget</FieldLabel>
-          <label className="flex items-center gap-2 text-[12.5px] text-paper-char">
+          <label className="flex items-center gap-2 text-[13px] text-paper-char">
             You decide
             <PaperSwitch checked={Boolean(brief.youDecide.budget)} onChange={(value) => toggle("budget", value)} label="You decide budget" />
           </label>
         </div>
-        <p className="mb-2 text-[12.5px] text-paper-char">You decide never authorizes spend. A concept and ceiling still need an explicit Approve after the skill proposes two ideas.</p>
+        <p className="mb-2 text-[13px] text-paper-char">You decide never authorizes spend. A concept and ceiling still need an explicit Approve after the skill proposes two ideas.</p>
         <div className="flex flex-wrap gap-2">
           {BUDGET_PLANS.map((plan) => (
             <button
               key={plan.id}
               type="button"
               onClick={() => onPlan(plan.id, plan.credits ?? draft.budgetCeiling)}
-              className={cn("border px-3 py-1.5 text-left text-[13px]", PAPER_FOCUS, draft.budgetPlan === plan.id ? "border-paper-blue text-paper-blue" : "border-paper-mist")}
+              className={cn("border px-3 py-1.5 text-left text-[13px]", PAPER_FOCUS, draft.budgetPlan === plan.id ? "border-paper-ash text-paper-blue" : "border-paper-mist")}
             >
               <span className="block font-medium">{plan.label}{plan.credits ? ` · ~${plan.credits}` : ""}</span>
-              <span className="block text-[12px] text-paper-sage">{plan.detail}</span>
+              <span className="block text-[13px] text-paper-sage">{plan.detail}</span>
             </button>
           ))}
         </div>
@@ -552,8 +552,8 @@ function BriefStep({
             aria-label="Custom credit ceiling"
           />
         ) : null}
-        <table className="mt-3 w-full text-left text-[12.5px] text-paper-char">
-          <caption className="mb-1 text-left text-[12px] text-paper-sage">Source-listed costs (October 2026). Plans keep about 15% spare.</caption>
+        <table className="mt-3 w-full text-left text-[13px] text-paper-char">
+          <caption className="mb-1 text-left text-[13px] text-paper-sage">Source-listed costs (October 2026). Plans keep about 15% spare.</caption>
           <tbody>
             {CREDIT_COST_TABLE.map((row) => (
               <tr key={row.output} className="border-t border-paper-stone">
@@ -566,7 +566,7 @@ function BriefStep({
         </table>
       </div>
       <Field youDecide={Boolean(brief.youDecide.extras)} onYouDecide={(value) => toggle("extras", value)} label="Extras">
-        <label className="flex items-center gap-2 text-[13.5px]">
+        <label className="flex items-center gap-2 text-[14px]">
           <input type="checkbox" checked={brief.extrasCharacter} onChange={(event) => set({ extrasCharacter: event.target.checked })} disabled={brief.youDecide.extras} />
           A small character
         </label>
@@ -590,10 +590,10 @@ function Field({
   children: import("react").ReactNode;
 }) {
   return (
-    <div className={cn("border p-3", highlight ? "border-paper-blue" : "border-paper-mist")}>
+    <div className={cn("border p-3", highlight ? "border-paper-ash" : "border-paper-mist")}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <FieldLabel>{label}{highlight ? " · most important" : ""}</FieldLabel>
-        <label className="flex items-center gap-2 text-[12.5px] text-paper-char">
+        <label className="flex items-center gap-2 text-[13px] text-paper-char">
           You decide
           <PaperSwitch checked={youDecide} onChange={onYouDecide} label={`You decide ${label}`} />
         </label>
@@ -619,9 +619,9 @@ function LaunchStep({
   const ceiling = draft.budgetPlan === "custom" ? draft.budgetCeiling : BUDGET_PLANS.find((plan) => plan.id === draft.budgetPlan)?.credits;
   return (
     <form className="grid gap-4" onSubmit={(event) => event.preventDefault()}>
-      <p className="text-[13.5px] leading-5 text-paper-char">
+      <p className="text-[14px] leading-5 text-paper-char">
         {target ? `Writes the brief into ${target.name}'s site repository and starts a Claude Code worker job with ` : "Creates a workspace, writes the brief into its site folder, and starts a Claude Code worker job with "}
-        <span className="font-mono text-[12.5px]">/motion-site-studio</span>. The skill will stop with two concepts before any Higgsfield spend.
+        <span className="font-mono text-[12px]">/motion-site-studio</span>. The skill will stop with two concepts before any Higgsfield spend.
         {target ? " The approved pages, copy and features stay as they are, and the build must keep passing." : ""}
       </p>
       {target ? null : (
@@ -636,14 +636,14 @@ function LaunchStep({
       </label>
       <fieldset>
         <FieldLabel>Effort</FieldLabel>
-        <p className="mb-2 text-[12.5px] text-paper-sage">Low is the cheaper run. High is the Motion default from the routing table. The model field overrides the table.</p>
+        <p className="mb-2 text-[13px] text-paper-sage">Low is the cheaper run. High is the Motion default from the routing table. The model field overrides the table.</p>
         <div className="flex gap-2">
           {MOTION_WIZARD_EFFORTS.map((effort) => (
             <button
               key={effort}
               type="button"
               onClick={() => onChange({ ...draft, effort })}
-              className={cn("border px-3 py-1.5 font-mono text-[13px]", PAPER_FOCUS, draft.effort === effort ? "border-paper-blue text-paper-blue" : "border-paper-mist")}
+              className={cn("border px-3 py-1.5 font-mono text-[12px]", PAPER_FOCUS, draft.effort === effort ? "border-paper-ash text-paper-blue" : "border-paper-mist")}
             >
               {effort}
             </button>

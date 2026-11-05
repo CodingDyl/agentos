@@ -80,7 +80,7 @@ function Figure({
     <div className="min-w-0">
       <p
         className={cn(
-          "text-[22px] leading-[1.15] tabular-nums",
+          "text-[16px] leading-[1.15] tabular-nums",
           unknown
             ? "text-paper-sage"
             : muted
@@ -90,7 +90,7 @@ function Figure({
       >
         {value}
       </p>
-      <p className="text-[12.5px] mt-2 text-paper-sage">{label}</p>
+      <p className="text-[13px] mt-2 text-paper-sage">{label}</p>
       {detail ? (
         <p className="mt-1.5 text-[13px] leading-5 text-paper-sage">{detail}</p>
       ) : null}
@@ -206,7 +206,7 @@ function TaskTable({ tasks }: { tasks: readonly ValidationTaskView[] }) {
   return (
     <div className="min-w-0 overflow-x-auto">
       <div className="min-w-[42rem]">
-        <div className={cn(COLUMNS, "text-[12.5px] pb-3 text-paper-sage")}>
+        <div className={cn(COLUMNS, "text-[13px] pb-3 text-paper-sage")}>
           <span>Task</span>
           <span>Worker</span>
           <span className="text-right">Total</span>
@@ -226,7 +226,7 @@ function TaskTable({ tasks }: { tasks: readonly ValidationTaskView[] }) {
             >
               <span className="min-w-0">
                 <span className="block truncate text-paper-char">{task.label}</span>
-                <span className="text-[12.5px] mt-1 block text-paper-sage">
+                <span className="text-[13px] mt-1 block text-paper-sage">
                   {OUTCOME_LABELS[task.outcome]}
                   {task.humanInterventions > 0
                     ? ` · ${task.humanInterventions} intervention${task.humanInterventions === 1 ? "" : "s"}`
@@ -265,14 +265,14 @@ function TaskTable({ tasks }: { tasks: readonly ValidationTaskView[] }) {
  */
 function WorkerCell({ task }: { task: ValidationTaskView }) {
   if (!task.worker) {
-    return <span className="text-[12.5px] text-paper-sage">{UNKNOWN}</span>;
+    return <span className="text-[13px] text-paper-sage">{UNKNOWN}</span>;
   }
 
   return (
     <span className="min-w-0">
-      <span className="text-[12.5px] block truncate text-paper-char">{task.worker}</span>
+      <span className="text-[13px] block truncate text-paper-char">{task.worker}</span>
       {task.routingOverridden === true ? (
-        <span className="text-[12.5px] mt-1 block truncate text-paper-flame-deep">
+        <span className="text-[13px] mt-1 block truncate text-paper-flame-deep">
           Not {task.recommendedWorker}
         </span>
       ) : null}

@@ -68,25 +68,25 @@ export function CaseStudyScreenshots({
             const asset = byId.get(id);
             return (
               <li key={id} className="w-36">
-                <div className="relative overflow-hidden rounded-none border border-paper-mist bg-paper-linen">
+                <div className="relative overflow-hidden rounded-md border border-paper-mist bg-paper-linen">
                   {asset ? (
                     <img src={asset.thumbnailUrl} alt={asset.notes ?? asset.filename} className="aspect-[4/3] w-full object-cover" loading="lazy" />
                   ) : (
-                    <div className="grid aspect-[4/3] place-items-center px-2 text-center text-[12px] text-paper-sage">
+                    <div className="grid aspect-[4/3] place-items-center px-2 text-center text-[13px] text-paper-sage">
                       {isPending ? "Loading…" : "No longer in Creative"}
                     </div>
                   )}
-                  <span className="absolute top-1 left-1 rounded-none bg-paper-white/90 px-1.5 text-[12px] font-semibold text-paper-moss tabular-nums">{index + 1}</span>
+                  <span className="absolute top-1 left-1 rounded-md bg-paper-white/90 px-1.5 text-[13px] font-semibold text-paper-moss tabular-nums">{index + 1}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-1">
-                  <span className="min-w-0 truncate text-[12px] text-paper-sage">{asset?.filename ?? id.slice(0, 8)}</span>
+                  <span className="min-w-0 truncate text-[13px] text-paper-sage">{asset?.filename ?? id.slice(0, 8)}</span>
                   <span className="flex shrink-0">
                     <button
                       type="button"
                       onClick={() => moveEarlier(index)}
                       disabled={index === 0}
                       aria-label={`Move screenshot ${index + 1} earlier`}
-                      className={cn("cursor-pointer rounded-none p-1 text-paper-sage hover:text-paper-moss disabled:cursor-default disabled:opacity-30", PAPER_FOCUS)}
+                      className={cn("cursor-pointer rounded-md p-1 text-paper-sage hover:text-paper-moss disabled:cursor-default disabled:opacity-30", PAPER_FOCUS)}
                     >
                       <ArrowLeft className="size-3.5" aria-hidden="true" />
                     </button>
@@ -94,7 +94,7 @@ export function CaseStudyScreenshots({
                       type="button"
                       onClick={() => toggle(id)}
                       aria-label={`Remove screenshot ${index + 1}`}
-                      className={cn("cursor-pointer rounded-none p-1 text-paper-sage hover:text-paper-flame-deep", PAPER_FOCUS)}
+                      className={cn("cursor-pointer rounded-md p-1 text-paper-sage hover:text-paper-flame-deep", PAPER_FOCUS)}
                     >
                       <X className="size-3.5" aria-hidden="true" />
                     </button>
@@ -134,7 +134,7 @@ export function CaseStudyScreenshots({
             );
           }}
         />
-        {full && !replaces ? <span className="text-[12.5px] text-paper-sage">{max} is the most a study holds.</span> : null}
+        {full && !replaces ? <span className="text-[13px] text-paper-sage">{max} is the most a study holds.</span> : null}
       </div>
       {upload.error ? (
         <p role="alert" className="mt-2 text-[13px] text-paper-flame-deep">
@@ -143,7 +143,7 @@ export function CaseStudyScreenshots({
       ) : null}
 
       {picking ? (
-        <div className="mt-3 rounded-none border border-paper-mist bg-paper-cream p-3">
+        <div className="mt-3 rounded-md border border-paper-mist bg-paper-cream p-3">
           {workspace ? (
             <div className="mb-3">
               <SegmentedControl
@@ -174,8 +174,8 @@ export function CaseStudyScreenshots({
                       aria-pressed={selected}
                       aria-label={`${selected ? "Remove" : "Add"} ${asset.filename}`}
                       className={cn(
-                        "block w-full cursor-pointer overflow-hidden rounded-none border-2 disabled:cursor-not-allowed disabled:opacity-40",
-                        selected ? "border-paper-blue" : "border-transparent hover:border-paper-mist",
+                        "block w-full cursor-pointer overflow-hidden rounded-md border-2 disabled:cursor-not-allowed disabled:opacity-40",
+                        selected ? "border-paper-ash" : "border-transparent hover:border-paper-mist",
                         PAPER_FOCUS,
                       )}
                     >

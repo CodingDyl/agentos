@@ -171,7 +171,7 @@ export function DesignReviewPanel({
       <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Visual review</h2>
+            <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Visual review</h2>
             <p className="mt-1 text-[14px] leading-6 text-paper-char">
               {assetIds.length} reference{assetIds.length === 1 ? "" : "s"}{" "}
               selected
@@ -181,7 +181,7 @@ export function DesignReviewPanel({
             type="button"
             onClick={onClose}
             aria-label="Close visual review"
-            className={cn("rounded-none p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+            className={cn("rounded-md p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
           >
             <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -193,11 +193,11 @@ export function DesignReviewPanel({
         {!vision ? (
           <div className="mt-5 border-t border-paper-mist pt-5">
             <Tag tone="flame">Vision unavailable</Tag>
-            <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+            <p className="mt-3 max-w-[62ch] text-[14px] leading-5 text-paper-char">
               {capabilities?.visionReason ??
                 "Hermes cannot inspect images on this machine."}
             </p>
-            <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-sage">
+            <p className="mt-3 max-w-[62ch] text-[14px] leading-5 text-paper-sage">
               Without it Hermes would still answer (from the filenames and the
               project notes), and nothing in the reply would tell you it had not
               looked at anything. So the review is not offered.
@@ -282,7 +282,7 @@ export function DesignReviewPanel({
         )}
 
         {failure ? (
-          <p role="alert" className="mt-5 text-[13.5px] leading-5 text-paper-flame-deep">{failure}</p>
+          <p role="alert" className="mt-5 text-[14px] leading-5 text-paper-flame-deep">{failure}</p>
         ) : null}
       </div>
     </PaperCard>
@@ -328,14 +328,14 @@ function InsightList({
 
   return (
     <div className="mt-6">
-      <h3 className="text-[13.5px] font-semibold text-paper-moss">{label}</h3>
+      <h3 className="text-[14px] font-semibold text-paper-moss">{label}</h3>
       <ul className="mt-3 space-y-3">
         {items.map((item, index) => (
           <li key={item.title} className="flex gap-3">
             {numbered ? (
               // Numbered because a design review is read as a list of findings,
               // and a person needs to be able to point at the third one.
-              <span className="shrink-0 pt-0.5 font-mono text-[12.5px] tabular-nums text-paper-sage">
+              <span className="shrink-0 pt-0.5 font-mono text-[12px] tabular-nums text-paper-sage">
                 {String(index + 1).padStart(2, "0")}
               </span>
             ) : (
@@ -348,7 +348,7 @@ function InsightList({
                 {item.title}
               </span>
               {item.detail !== item.title ? (
-                <span className="mt-0.5 block max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+                <span className="mt-0.5 block max-w-[62ch] text-[14px] leading-5 text-paper-char">
                   {item.detail}
                 </span>
               ) : null}
@@ -389,7 +389,7 @@ function ReviewResult({
         <Tag tone="marigold">Analysing</Tag>
         <ul className="mt-4 space-y-1.5">
           {progress.length === 0 ? (
-            <li className="text-[13.5px] leading-5 text-paper-sage">
+            <li className="text-[14px] leading-5 text-paper-sage">
               Waiting for Hermes to pick up the run…
             </li>
           ) : (
@@ -397,7 +397,7 @@ function ReviewResult({
               <li
                 key={`${line}-${index}`}
                 className={cn(
-                  "text-[13.5px] leading-5",
+                  "text-[14px] leading-5",
                   index === progress.length - 1
                     ? "text-paper-char"
                     : "text-paper-sage",
@@ -416,7 +416,7 @@ function ReviewResult({
     return (
       <div>
         <Tag tone="flame">Review failed</Tag>
-        <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+        <p className="mt-3 max-w-[62ch] text-[14px] leading-5 text-paper-char">
           {review.error ?? "The review did not finish."}
         </p>
       </div>
@@ -433,7 +433,7 @@ function ReviewResult({
         </span>
       </div>
 
-      <p className="mt-4 max-w-[62ch] text-[15px] leading-6 text-paper-char">
+      <p className="mt-4 max-w-[62ch] text-[14px] leading-6 text-paper-char">
         {review.summary}
       </p>
 
@@ -444,12 +444,12 @@ function ReviewResult({
 
       {review.avoid?.length ? (
         <div className="mt-6">
-          <h3 className="text-[13.5px] font-semibold text-paper-moss">Avoid</h3>
+          <h3 className="text-[14px] font-semibold text-paper-moss">Avoid</h3>
           <ul className="mt-3 space-y-1.5">
             {review.avoid.map((item) => (
               <li
                 key={item}
-                className="flex max-w-[62ch] gap-2 text-[13.5px] leading-5 text-paper-char"
+                className="flex max-w-[62ch] gap-2 text-[14px] leading-5 text-paper-char"
               >
                 <span className="text-paper-flame-deep" aria-hidden="true">
                   ×
@@ -463,12 +463,12 @@ function ReviewResult({
 
       {review.implementationNotes?.length ? (
         <div className="mt-6">
-          <h3 className="text-[13.5px] font-semibold text-paper-moss">Implementation notes</h3>
+          <h3 className="text-[14px] font-semibold text-paper-moss">Implementation notes</h3>
           <ul className="mt-3 space-y-1.5">
             {review.implementationNotes.map((item) => (
               <li
                 key={item}
-                className="max-w-[62ch] text-[13.5px] leading-5 text-paper-char"
+                className="max-w-[62ch] text-[14px] leading-5 text-paper-char"
               >
                 {item}
               </li>
@@ -479,7 +479,7 @@ function ReviewResult({
 
       {review.bestNextMove ? (
         <div className="mt-6 border-t border-paper-mist pt-5">
-          <h3 className="text-[13.5px] font-semibold text-paper-moss">Best next move</h3>
+          <h3 className="text-[14px] font-semibold text-paper-moss">Best next move</h3>
           <p className="mt-1.5 max-w-[62ch] text-[14px] leading-6 text-paper-moss">
             {review.bestNextMove}
           </p>
@@ -489,7 +489,7 @@ function ReviewResult({
       {/* Promoting a review into the project. The one step here that writes
           anything a person would have to live with. */}
       <div className="mt-6 border-t border-paper-mist pt-5">
-        <h3 className="text-[13.5px] font-semibold text-paper-moss">Design brief</h3>
+        <h3 className="text-[14px] font-semibold text-paper-moss">Design brief</h3>
 
         {!proposal ? (
           <>
@@ -512,16 +512,16 @@ function ReviewResult({
           </>
         ) : (
           <div className="mt-3">
-            <p className="font-mono text-[12.5px] leading-5 break-all text-paper-moss">
+            <p className="font-mono text-[12px] leading-5 break-all text-paper-moss">
               {proposal.path}
             </p>
             {proposal.exists ? (
-              <p className="mt-2 max-w-[62ch] text-[13.5px] leading-5 font-medium text-paper-flame-deep">
+              <p className="mt-2 max-w-[62ch] text-[14px] leading-5 font-medium text-paper-flame-deep">
                 A file already exists there. Saving replaces it.
               </p>
             ) : null}
 
-            <pre className="mt-3 max-h-64 overflow-auto rounded-none border border-paper-mist bg-paper-linen p-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-paper-char">
+            <pre className="mt-3 max-h-64 overflow-auto rounded-md border border-paper-mist bg-paper-linen p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap text-paper-char">
               {proposal.markdown}
             </pre>
 

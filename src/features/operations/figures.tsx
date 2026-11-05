@@ -36,17 +36,17 @@ export function Figure({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[12.5px] font-medium text-paper-char">{label}</p>
+      <p className="text-[13px] font-medium text-paper-char">{label}</p>
       <p
         className={cn(
-          "mt-1 font-paper-display font-extrabold tracking-[-0.02em] tabular-nums",
-          size === "large" ? "text-[28px] leading-[1.1]" : "text-[20px] leading-7",
+          "mt-1 font-semibold tracking-[-0.02em] tabular-nums",
+          size === "large" ? "text-[24px] leading-[1.1]" : "text-[16px] leading-7",
           paperTone(value.measurement),
         )}
       >
         {value.text}
       </p>
-      {detail ? <p className="mt-1 text-[12.5px] leading-5 text-paper-sage">{detail}</p> : null}
+      {detail ? <p className="mt-1 text-[13px] leading-5 text-paper-sage">{detail}</p> : null}
     </div>
   );
 }
@@ -133,8 +133,8 @@ export function Breakdown({
           const content = (
             <>
               <div className="flex min-w-0 items-baseline justify-between gap-4">
-                <span className="min-w-0 truncate text-[14.5px] leading-6 text-paper-moss">{row.label}</span>
-                <span className="flex shrink-0 items-baseline gap-5 text-[13.5px] tabular-nums">
+                <span className="min-w-0 truncate text-[14px] leading-6 text-paper-moss">{row.label}</span>
+                <span className="flex shrink-0 items-baseline gap-5 text-[14px] tabular-nums">
                   <span className={paperTone(tokens.measurement)}>{tokens.text}</span>
                   <span className={cn("w-16 text-right", paperTone(cost.measurement))}>{cost.text}</span>
                   <span className="w-10 text-right text-paper-sage">{share === undefined ? UNKNOWN : formatPercent(share)}</span>
@@ -152,7 +152,7 @@ export function Breakdown({
                 <button
                   type="button"
                   onClick={() => onSelect(row.key)}
-                  className={cn("block w-full cursor-pointer rounded-none text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
+                  className={cn("block w-full cursor-pointer rounded-md text-left transition-colors duration-150 hover:bg-paper-linen", PAPER_FOCUS)}
                 >
                   {content}
                 </button>

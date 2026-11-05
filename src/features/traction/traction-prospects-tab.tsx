@@ -54,7 +54,7 @@ export function TractionProspectsTab({
 
   const panel = adding ? (
     <PaperCard className="p-5">
-      <h2 className="mb-4 font-paper-display text-[17px] font-bold text-paper-moss">New prospect</h2>
+      <h2 className="mb-4 text-[16px] font-semibold text-paper-moss">New prospect</h2>
       <ProspectForm
         data={data}
         onDone={(prospectId) => {
@@ -124,7 +124,7 @@ export function TractionProspectsTab({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[36rem] border-collapse text-left text-[14px]">
               <thead>
-                <tr className="border-b border-paper-mist text-[12px] tracking-[0.06em] text-paper-sage uppercase">
+                <tr className="border-b border-paper-mist text-[13px] text-paper-sage">
                   <th scope="col" className="py-2 pr-3 font-semibold">Company</th>
                   <th scope="col" className="py-2 pr-3 font-semibold">Fit</th>
                   <th scope="col" className="py-2 pr-3 font-semibold">Stage</th>
@@ -141,18 +141,18 @@ export function TractionProspectsTab({
                           setAdding(false);
                           onSelect(prospect.id);
                         }}
-                        className={cn("cursor-pointer rounded-[2px] text-left font-medium text-paper-moss hover:underline", PAPER_FOCUS)}
+                        className={cn("cursor-pointer rounded-sm text-left font-medium text-paper-moss hover:underline", PAPER_FOCUS)}
                       >
                         {prospect.company}
                       </button>
-                      {prospect.contact ? <span className="block text-[12.5px] text-paper-sage">{prospect.contact}</span> : null}
+                      {prospect.contact ? <span className="block text-[13px] text-paper-sage">{prospect.contact}</span> : null}
                     </td>
                     <td className="py-2.5 pr-3">{prospect.fit ? <Tag tone={FIT_TONE[prospect.fit]}>{FIT_LABEL[prospect.fit]}</Tag> : <span className="text-paper-ash">-</span>}</td>
                     <td className="py-2.5 pr-3 text-paper-char">{stageLabel(prospect.stage)}</td>
                     <td className="py-2.5 text-paper-char">
                       {prospect.nextAction ?? <span className="text-paper-ash">-</span>}
                       {prospect.nextActionDate ? (
-                        <span className={cn("ml-2 text-[12.5px] tabular-nums", prospect.nextActionDate <= data.today ? "font-semibold text-paper-flame-deep" : "text-paper-sage")}>
+                        <span className={cn("ml-2 text-[13px] tabular-nums", prospect.nextActionDate <= data.today ? "font-semibold text-paper-flame-deep" : "text-paper-sage")}>
                           {formatShortDate(prospect.nextActionDate)}
                         </span>
                       ) : null}
@@ -184,7 +184,7 @@ function ProspectPanel({ data, prospect, onClose, onCompose }: { data: TractionD
   if (editing) {
     return (
       <PaperCard className="p-5">
-        <h2 className="mb-4 font-paper-display text-[17px] font-bold text-paper-moss">Edit {prospect.company}</h2>
+        <h2 className="mb-4 text-[16px] font-semibold text-paper-moss">Edit {prospect.company}</h2>
         <ProspectForm data={data} prospect={prospect} onDone={() => setEditing(false)} />
       </PaperCard>
     );
@@ -194,7 +194,7 @@ function ProspectPanel({ data, prospect, onClose, onCompose }: { data: TractionD
     <PaperCard className="p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-paper-display text-[20px] leading-7 font-bold tracking-[-0.01em] text-paper-moss">{prospect.company}</h2>
+          <h2 className="text-[16px] leading-7 font-semibold tracking-[-0.01em] text-paper-moss">{prospect.company}</h2>
           <p className="text-[13px] text-paper-sage">
             {stageLabel(prospect.stage)} · {SOURCE_LABELS[prospect.source]}
             {prospect.segment ? ` · ${prospect.segment}` : ""}
@@ -254,14 +254,14 @@ function ProspectPanel({ data, prospect, onClose, onCompose }: { data: TractionD
               {(data.mailThreads[prospect.id] ?? []).slice(0, 5).map((thread) => (
                 <li key={thread.threadId} className="flex items-baseline justify-between gap-3">
                   <span className="min-w-0 truncate">{thread.subject}</span>
-                  <span className="flex shrink-0 items-baseline gap-2 text-[12.5px] text-paper-sage">
+                  <span className="flex shrink-0 items-baseline gap-2 text-[13px] text-paper-sage">
                     {formatShortDate(thread.messageDate)}
                     <button
                       type="button"
                       onClick={() => unlink.mutate(thread.threadId)}
                       disabled={unlink.isPending}
                       aria-label={`Unlink “${thread.subject}” from ${prospect.company}`}
-                      className={cn("cursor-pointer rounded-[2px] hover:text-paper-moss hover:underline", PAPER_FOCUS)}
+                      className={cn("cursor-pointer rounded-sm hover:text-paper-moss hover:underline", PAPER_FOCUS)}
                     >
                       Unlink
                     </button>
@@ -274,10 +274,10 @@ function ProspectPanel({ data, prospect, onClose, onCompose }: { data: TractionD
       </dl>
 
       {/* The brand guard, stated where the decision to write is made. The composer is where it gets resolved. */}
-      <div className={cn("mt-5 rounded-none px-3 py-3", gaps.length > 0 ? "bg-paper-linen" : "border border-paper-green")}>
+      <div className={cn("mt-5 rounded-md px-3 py-3", gaps.length > 0 ? "bg-paper-linen" : "border border-paper-green")}>
         {gaps.length > 0 ? (
           <>
-            <p className="text-[12px] font-semibold tracking-[0.06em] text-paper-char uppercase">Not ready to write yet</p>
+            <p className="text-[13px] font-semibold text-paper-char">Not ready to write yet</p>
             <p className="mt-1 text-[13px] leading-5 text-paper-sage">
               Missing: {gapLabels(gaps).join(", ")}. The outreach composer reviews their website and walks you through the rest.
             </p>
@@ -338,7 +338,7 @@ function ProspectPanel({ data, prospect, onClose, onCompose }: { data: TractionD
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
+      <dt className="text-[13px] font-semibold text-paper-sage">{label}</dt>
       <dd className="text-paper-moss">{children}</dd>
     </div>
   );

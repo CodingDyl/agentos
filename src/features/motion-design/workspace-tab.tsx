@@ -6,7 +6,7 @@ import {
   MOTION_WIZARD_STEP_LABEL,
   type MotionRunView,
 } from "@shared/motion-design-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperError, Tag } from "@/components/paper";
 import { useApproveMotionConcept, useMotionForWorkspace, useSendMotionNotes } from "@/lib/agentos/motion-design";
 import { cn } from "@/lib/utils";
@@ -14,12 +14,12 @@ import { CreativeDownloadButton } from "@/features/designs/download-button";
 
 export function WorkspaceMotionTab({ slug }: { slug: string }) {
   const query = useMotionForWorkspace(slug);
-  if (query.isPending) return <DedsecLoader variant="compact" />;
+  if (query.isPending) return <PageLoader variant="compact" />;
   if (query.error) {
     return <PaperError title="Motion Design could not be read." detail={query.error.message} onRetry={() => void query.refetch()} isRetrying={query.isFetching} headingLevel="h2" />;
   }
   if (!query.data) {
-    return <p className="text-[13.5px] text-paper-sage">This workspace has no Motion Design run.</p>;
+    return <p className="text-[14px] text-paper-sage">This workspace has no Motion Design run.</p>;
   }
   return <MotionRunViewPanel run={query.data} />;
 }
@@ -40,8 +40,8 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
     <div className="grid gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-paper-display text-[24px] font-bold tracking-[-0.01em] text-paper-moss">Motion Design</h2>
-          <p className="mt-1 text-[13.5px] text-paper-char">
+          <h2 className="text-[24px] font-semibold tracking-[-0.01em] text-paper-moss">Motion Design</h2>
+          <p className="mt-1 text-[14px] text-paper-char">
             {MOTION_WIZARD_STEP_LABEL[run.step]} · {run.brief.brandName || run.workspaceSlug}
             {` · Motion / video · ${run.model} · ${run.effort}`}
             {run.codeOnly ? " · code-only motion" : ""}
@@ -67,8 +67,8 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
 
       {run.status === "awaiting_approval" || (run.concepts.length > 0 && !run.approval && !run.codeOnly) ? (
         <PaperCard className="border-paper-marigold p-4">
-          <h3 className="font-paper-display text-[17px] font-bold">Pick a concept and a credit ceiling</h3>
-          <p className="mt-1 max-w-[68ch] text-[13.5px] leading-5 text-paper-char">
+          <h3 className="text-[16px] font-semibold">Pick a concept and a credit ceiling</h3>
+          <p className="mt-1 max-w-[68ch] text-[14px] leading-5 text-paper-char">
             The skill proposed two ideas. One Approve click authorizes that concept plus this ceiling. Any later request to go over it needs a new approval. You decide never authorizes spend.
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -80,16 +80,16 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
                     setConceptId(concept.id);
                     setCeiling((current) => Math.max(current, Math.ceil(concept.plannedCredits / 0.85)));
                   }}
-                  className={cn("h-full w-full border p-3 text-left", conceptId === concept.id ? "border-paper-blue" : "border-paper-mist")}
+                  className={cn("h-full w-full border p-3 text-left", conceptId === concept.id ? "border-paper-ash" : "border-paper-mist")}
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium">{concept.title}</span>
                     {concept.recommended ? <Tag tone="blue">Recommended</Tag> : null}
                   </span>
                   <span className="mt-2 block text-[13px] leading-5 text-paper-char">{concept.summary}</span>
-                  <span className="mt-2 block text-[12.5px] tabular-nums text-paper-sage">Planned {concept.plannedCredits} credits</span>
+                  <span className="mt-2 block text-[13px] tabular-nums text-paper-sage">Planned {concept.plannedCredits} credits</span>
                   {concept.itemized.length > 0 ? (
-                    <ul className="mt-2 text-[12.5px] text-paper-char">
+                    <ul className="mt-2 text-[13px] text-paper-char">
                       {concept.itemized.map((item) => (
                         <li key={item.label}>
                           {item.label} · {item.credits}
@@ -135,17 +135,17 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
       ) : null}
 
       {run.approval ? (
-        <p className="text-[13.5px] text-paper-char">
+        <p className="text-[14px] text-paper-char">
           Approved concept {run.approval.conceptId} with a ceiling of {run.approval.ceiling} credits (planned {run.approval.plannedCredits}).
         </p>
       ) : null}
 
       {progress ? (
         <section>
-          <h3 className="font-paper-display text-[17px] font-bold">Progress</h3>
+          <h3 className="text-[16px] font-semibold">Progress</h3>
           <ol className="mt-3 grid gap-2">
             {progress.stages.map((stage) => (
-              <li key={stage.id} className="flex items-center gap-2 text-[13.5px]">
+              <li key={stage.id} className="flex items-center gap-2 text-[14px]">
                 {stage.status === "complete" ? <CheckCircle2 className="size-4 text-paper-green" /> : <span className={cn("size-2 rounded-full", stage.status === "in_progress" ? "bg-paper-amber" : "bg-paper-ash")} />}
                 <span className={stage.status === "not_started" ? "text-paper-sage" : "text-paper-moss"}>
                   {stage.label}
@@ -178,7 +178,7 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
                   <figure key={image.url} className="border border-paper-mist">
                     <img src={image.url} alt={image.name} className="aspect-video w-full object-cover" />
                     <figcaption className="flex items-center justify-between gap-1 px-2 py-1">
-                      <span className="truncate font-mono text-[11px]">{image.name}</span>
+                      <span className="truncate font-mono text-[12px]">{image.name}</span>
                       <CreativeDownloadButton source={{ url: image.url, title: image.name, filename: image.name }} />
                     </figcaption>
                   </figure>
@@ -219,10 +219,10 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
           {progress.ledger ? (
             <div className="mt-6 overflow-x-auto">
               <h4 className="font-medium">Credit ledger</h4>
-              <p className="mt-1 text-[12.5px] text-paper-sage">
+              <p className="mt-1 text-[13px] text-paper-sage">
                 Spent {progress.ledger.spent} · pending {progress.ledger.pending} · committed {progress.ledger.committed}
               </p>
-              <table className="mt-2 w-full text-left text-[12.5px]">
+              <table className="mt-2 w-full text-left text-[13px]">
                 <thead>
                   <tr className="text-paper-sage">
                     <th className="py-1 pr-3">When</th>
@@ -235,7 +235,7 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
                 <tbody>
                   {progress.ledger.rows.map((row, index) => (
                     <tr key={`${row.timestamp}-${index}`} className="border-t border-paper-stone">
-                      <td className="py-1 pr-3 font-mono text-[11px]">{row.timestamp}</td>
+                      <td className="py-1 pr-3 font-mono text-[12px]">{row.timestamp}</td>
                       <td className="py-1 pr-3">{row.purpose}</td>
                       <td className="py-1 pr-3">{row.status}</td>
                       <td className="py-1 pr-3 tabular-nums">{row.quotedCredits ?? "—"}</td>
@@ -250,7 +250,7 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
       ) : null}
 
       <section>
-        <h3 className="font-paper-display text-[17px] font-bold">Your notes</h3>
+        <h3 className="text-[16px] font-semibold">Your notes</h3>
         <p className="mt-1 text-[13px] text-paper-sage">Sent into the job for the next round. Highest design priority.</p>
         <textarea className={cn(PAPER_INPUT, "mt-2 w-full py-2")} rows={4} value={feedback} onChange={(event) => setFeedback(event.target.value)} />
         <PaperButton
@@ -265,8 +265,8 @@ function MotionRunViewPanel({ run }: { run: MotionRunView }) {
       </section>
 
       <section className="border border-dashed border-paper-ash p-4">
-        <h3 className="font-paper-display text-[17px] font-bold text-paper-sage">Make it a business</h3>
-        <p className="mt-1 max-w-[62ch] text-[13.5px] leading-5 text-paper-sage">
+        <h3 className="text-[16px] font-semibold text-paper-sage">Make it a business</h3>
+        <p className="mt-1 max-w-[62ch] text-[14px] leading-5 text-paper-sage">
           Placeholder — out of scope for now. A later step will attach a MongoDB-backed business record to this motion site. Nothing here creates accounts, billing, or a backend.
         </p>
       </section>

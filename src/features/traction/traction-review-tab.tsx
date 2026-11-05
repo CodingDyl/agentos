@@ -49,7 +49,7 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
         <Link
           to={hermesHref(reviewPrompt(review, data.targets))}
           className={cn(
-            "inline-flex min-h-8 items-center gap-1.5 rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-linen",
+            "inline-flex min-h-8 items-center gap-1.5 rounded-md border border-paper-gold px-3 text-[14px] font-semibold text-paper-moss hover:bg-paper-linen",
             PAPER_FOCUS,
           )}
         >
@@ -71,9 +71,9 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
                     <th scope="row" className="py-2 text-left font-normal text-paper-char">
                       {row.label}
                     </th>
-                    <td className="py-2 text-right font-paper-display font-bold text-paper-moss tabular-nums">
+                    <td className="py-2 text-right font-semibold text-paper-moss tabular-nums">
                       {value}
-                      {target !== undefined ? <span className="ml-1 font-paper-ui font-normal text-paper-ash">/ {target}</span> : null}
+                      {target !== undefined ? <span className="ml-1 font-normal text-paper-ash">/ {target}</span> : null}
                     </td>
                   </tr>
                 );
@@ -85,7 +85,7 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
         <PaperSection label="Best source">
           {best ? (
             <PaperCard className="bg-paper-cream p-5">
-              <p className="font-paper-display text-[20px] font-bold text-paper-moss">{SOURCE_LABELS[best.source]}</p>
+              <p className="text-[16px] font-semibold text-paper-moss">{SOURCE_LABELS[best.source]}</p>
               <p className="mt-1 text-[14px] text-paper-char">
                 {best.leads} {best.leads === 1 ? "lead" : "leads"} → {best.conversations} {best.conversations === 1 ? "conversation" : "conversations"} → {best.proposals}{" "}
                 {best.proposals === 1 ? "proposal" : "proposals"}
@@ -96,10 +96,10 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
           )}
 
           {review.sources.length > 0 ? (
-            <table className="mt-5 w-full border-collapse text-[13.5px]">
-              <caption className="mb-2 text-left text-[12.5px] text-paper-sage">Leads created in the four weeks to this one</caption>
+            <table className="mt-5 w-full border-collapse text-[14px]">
+              <caption className="mb-2 text-left text-[13px] text-paper-sage">Leads created in the four weeks to this one</caption>
               <thead>
-                <tr className="border-b border-paper-mist text-[12px] tracking-[0.06em] text-paper-sage uppercase">
+                <tr className="border-b border-paper-mist text-[13px] text-paper-sage">
                   <th scope="col" className="py-2 text-left font-semibold">Source</th>
                   <th scope="col" className="py-2 text-right font-semibold">Leads</th>
                   <th scope="col" className="py-2 text-right font-semibold">Conv.</th>
@@ -128,8 +128,8 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
           <div className="grid gap-4 lg:grid-cols-2">
             {review.experiments.map((experiment) => (
               <PaperCard key={experiment.experimentId} className="p-5">
-                <h3 className="font-paper-display text-[16px] font-bold text-paper-moss">{experiment.name}</h3>
-                <dl className="mt-3 grid grid-cols-2 gap-3 text-[13.5px] sm:grid-cols-4">
+                <h3 className="text-[16px] font-semibold text-paper-moss">{experiment.name}</h3>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-[14px] sm:grid-cols-4">
                   <Figure label="Contacted" value={String(experiment.contacted)} />
                   <Figure label="Conversations" value={String(experiment.conversations)} />
                   <Figure label="Conversation rate" value={percent(experiment.conversationRate)} />
@@ -147,8 +147,8 @@ export function TractionReviewTab({ data }: { data: TractionData }) {
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
-      <dd className="font-paper-display text-[18px] font-bold text-paper-moss tabular-nums">{value}</dd>
+      <dt className="text-[13px] font-semibold text-paper-sage">{label}</dt>
+      <dd className="text-[16px] font-semibold text-paper-moss tabular-nums">{value}</dd>
     </div>
   );
 }

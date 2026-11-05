@@ -137,7 +137,7 @@ function FilmRow({ job, poster }: { job: MotionJob; poster?: DesignAsset }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold text-paper-moss group-hover:text-paper-blue">{job.title}</p>
-          <p className="mt-0.5 text-[12.5px] text-paper-sage tabular-nums">
+          <p className="mt-0.5 text-[13px] text-paper-sage tabular-nums">
             {job.request.durationSec}s · {job.request.formats.join(" + ")} · {formatRelativeTime(job.createdAt)}
           </p>
           <MotionStatus job={job} className="mt-1.5" />
@@ -219,7 +219,7 @@ function BriefComposer({
 
   return (
     <form onSubmit={submit} className="min-w-0" aria-label="Motion brief">
-      <h2 className="font-paper-display text-[17px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">New film</h2>
+      <h2 className="text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">New film</h2>
 
       <fieldset className="mt-4">
         <legend className="sr-only">Kind of film</legend>
@@ -236,14 +236,14 @@ function BriefComposer({
                 className={cn(
                   "relative flex cursor-pointer flex-col items-start gap-1.5 p-4 text-left transition-colors duration-150",
                   PAPER_FOCUS,
-                  selected ? "bg-paper-blue text-paper-white" : "bg-paper-white text-paper-moss hover:bg-paper-linen",
+                  selected ? "bg-selected text-paper-moss" : "bg-paper-white text-paper-moss hover:bg-paper-linen",
                 )}
               >
-                <span className="font-paper-display text-[15px] font-bold tracking-[-0.01em]">{entry.label}</span>
-                <span className={cn("text-[12.5px] leading-[18px]", selected ? "text-paper-white/85" : "text-paper-sage")}>
+                <span className="text-[14px] font-semibold tracking-[-0.01em]">{entry.label}</span>
+                <span className={cn("text-[13px] leading-[18px]", selected ? "text-paper-white/85" : "text-paper-sage")}>
                   {entry.description}
                 </span>
-                <span className={cn("mt-auto pt-1 font-paper-utility text-[12px] tracking-[0.08em] uppercase", selected ? "text-paper-white/70" : "text-paper-sage")}>
+                <span className={cn("mt-auto pt-1 text-[13px]", selected ? "text-paper-white/70" : "text-paper-sage")}>
                   {entry.id === "custom" ? "Studio rules apply" : sourceLabel(entry.source)}
                 </span>
               </button>
@@ -326,17 +326,17 @@ function BriefComposer({
                   className={cn(
                     "inline-flex min-h-11 cursor-pointer items-center gap-2.5 border px-3 text-[13px] font-medium transition-colors duration-150",
                     PAPER_FOCUS,
-                    on ? "border-paper-blue bg-paper-linen text-paper-moss" : "border-paper-mist text-paper-sage hover:border-paper-ash hover:text-paper-moss",
+                    on ? "border-paper-ash bg-paper-linen text-paper-moss" : "border-paper-mist text-paper-sage hover:border-paper-ash hover:text-paper-moss",
                   )}
                 >
                   <span className="grid size-5 place-items-center" aria-hidden="true">
-                    <span className={cn("block border-[1.5px]", FORMAT_SHAPE[format], on ? "border-paper-blue bg-paper-blue/15" : "border-current")} />
+                    <span className={cn("block border", FORMAT_SHAPE[format], on ? "border-paper-ash bg-paper-blue/15" : "border-current")} />
                   </span>
                   <span>
                     {FORMAT_NAME[format]} <span className="text-paper-sage tabular-nums">{format}</span>
                   </span>
                   {order === 0 && formats.length > 1 ? (
-                    <span className="font-paper-utility text-[12px] tracking-[0.08em] text-paper-blue uppercase">Master</span>
+                    <span className="text-[13px] text-paper-blue">Master</span>
                   ) : null}
                 </button>
               );
@@ -368,7 +368,7 @@ function BriefComposer({
               </option>
             ))}
           </select>
-          <span className="mt-1.5 block text-[12.5px] leading-5 text-paper-sage">
+          <span className="mt-1.5 block text-[13px] leading-5 text-paper-sage">
             The workspace's own notes go into the brief, and the film is filed under it.
           </span>
         </label>
@@ -397,12 +397,12 @@ function BriefComposer({
                   className={cn(
                     "relative aspect-square cursor-pointer overflow-hidden bg-paper-linen ring-1 transition-[box-shadow] duration-150",
                     PAPER_FOCUS,
-                    on ? "ring-2 ring-paper-blue" : "ring-paper-mist hover:ring-paper-sage",
+                    on ? "ring-2 ring-paper-ash" : "ring-paper-mist hover:ring-paper-sage",
                   )}
                 >
                   <img src={asset.thumbnailUrl} alt="" loading="lazy" className="size-full object-cover" />
                   {on ? (
-                    <span className="absolute top-1 right-1 grid size-4 place-items-center bg-paper-blue text-paper-white" aria-hidden="true">
+                    <span className="absolute top-1 right-1 grid size-4 place-items-center bg-selected text-paper-moss" aria-hidden="true">
                       <Check className="size-3" strokeWidth={2.5} />
                     </span>
                   ) : null}
@@ -427,7 +427,7 @@ function BriefComposer({
             <PromptBlock label={`${template.label} · ${sourceLabel(template.source)}`} text={template.text} />
           ) : null}
           <PromptBlock label={`Studio rules · ${sourceLabel(rulesSource)}`} text={rulesText} />
-          <p className="text-[12.5px] leading-5 text-paper-sage">
+          <p className="text-[13px] leading-5 text-paper-sage">
             AgentOS adds where to save each round's contact sheet and scores, where finished films go, and that no metric or testimonial may be invented.
             Edit the notes in Obsidian to change the next film.
           </p>
@@ -441,7 +441,7 @@ function BriefComposer({
       ) : null}
 
       {create.isError ? (
-        <p role="alert" className="mt-6 text-[13.5px] leading-5 text-paper-flame-deep">
+        <p role="alert" className="mt-6 text-[14px] leading-5 text-paper-flame-deep">
           {create.error instanceof Error ? create.error.message : "The film could not be started."}
         </p>
       ) : null}
@@ -451,7 +451,7 @@ function BriefComposer({
           <Clapperboard className="size-3.5" aria-hidden="true" />
           {create.isPending ? "Setting up the studio…" : "Make the film"}
         </PaperButton>
-        <span className="text-[12.5px] leading-5 text-paper-sage">Usually 20 to 40 minutes. You can leave this page.</span>
+        <span className="text-[13px] leading-5 text-paper-sage">Usually 20 to 40 minutes. You can leave this page.</span>
       </div>
     </form>
   );

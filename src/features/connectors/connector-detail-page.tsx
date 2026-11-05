@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { ConnectorCapability, ConnectorDetail } from "@shared/connector-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperButton, PaperSection, PaperStage, PaperSwitch, SegmentedControl, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import {
@@ -42,21 +42,21 @@ export function ConnectorDetailPage() {
   const { data, isPending, isFetching, error, refetch } = useConnector(id);
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="connector" activeHref="/connectors" modelLabel="Model / AgentOS V1">
+    <AppShell navigationItems={navigationItems} pageId="connector" activeHref="/connectors">
       <PaperStage>
         <Link
           to="/connectors"
-          className={cn("inline-flex items-center gap-1.5 rounded-[2px] text-[13px] font-medium text-paper-sage hover:text-paper-moss", PAPER_FOCUS)}
+          className={cn("inline-flex items-center gap-1.5 rounded-sm text-[13px] font-medium text-paper-sage hover:text-paper-moss", PAPER_FOCUS)}
         >
           <ArrowLeft className="size-3.5" aria-hidden="true" />
           Connectors
         </Link>
 
         {isPending ? (
-          <DedsecLoader variant="page" className="mt-6" />
+          <PageLoader variant="page" className="mt-6" />
         ) : !data ? (
           <div className="mt-6">
-            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">That connector couldn't be read.</h1>
+            <h1 className="text-[16px] font-semibold tracking-[-0.02em]">That connector couldn't be read.</h1>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "Nothing was returned."}</p>
             <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
               {isFetching ? "Trying again…" : "Try again"}
@@ -107,7 +107,7 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
         <div className="flex min-w-0 items-start gap-4">
           <ConnectorIcon icon={connector.icon} size="lg" />
           <div className="min-w-0">
-            <h1 className="font-paper-display text-[28px] leading-[1.15] font-extrabold tracking-[-0.015em] text-paper-moss">{connector.name}</h1>
+            <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.015em] text-paper-moss">{connector.name}</h1>
             <p className="mt-1 max-w-[64ch] text-[14px] leading-6 text-paper-char">{connector.description}</p>
           </div>
         </div>
@@ -117,15 +117,15 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
         </Tag>
       </header>
 
-      <dl className="mt-6 grid gap-px overflow-hidden rounded-none border border-paper-mist bg-paper-mist sm:grid-cols-3">
+      <dl className="mt-6 grid gap-px overflow-hidden rounded-md border border-paper-mist bg-paper-mist sm:grid-cols-3">
         <div className="bg-paper-white px-5 py-4">
-          <dt className="text-[12.5px] font-medium text-paper-sage">Account</dt>
+          <dt className="text-[13px] font-medium text-paper-sage">Account</dt>
           <dd className="mt-1 truncate text-[14px] font-semibold text-paper-moss">
             {connector.account ?? (connector.status === "connected" ? "Run a test to see it" : "—")}
           </dd>
         </div>
         <div className="bg-paper-white px-5 py-4">
-          <dt className="text-[12.5px] font-medium text-paper-sage">Enabled for AgentOS</dt>
+          <dt className="text-[13px] font-medium text-paper-sage">Enabled for AgentOS</dt>
           <dd className="mt-1 flex items-center gap-3">
             {connector.enabledSource === "required" || !integrated ? (
               <span className="text-[14px] font-semibold text-paper-moss">{integrated ? "Always on" : "—"}</span>
@@ -137,18 +137,18 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
                 onChange={(enabled) => setEnabled.mutate({ id: connector.id, enabled })}
               />
             )}
-            {note ? <span className="text-[12.5px] leading-5 text-paper-sage">{note}</span> : null}
+            {note ? <span className="text-[13px] leading-5 text-paper-sage">{note}</span> : null}
           </dd>
         </div>
         <div className="bg-paper-white px-5 py-4">
-          <dt className="text-[12.5px] font-medium text-paper-sage">Last test</dt>
-          <dd className="mt-1 text-[13.5px] leading-5 text-paper-moss">
+          <dt className="text-[13px] font-medium text-paper-sage">Last test</dt>
+          <dd className="mt-1 text-[14px] leading-5 text-paper-moss">
             {connector.lastHealthCheck ? (
               <>
                 <span className={cn("font-semibold", connector.lastHealthCheck.ok ? "text-paper-moss" : "text-paper-flame-deep")}>
                   {connector.lastHealthCheck.ok ? "Passed" : "Failed"} · {formatWhen(connector.lastHealthCheck.checkedAt)}
                 </span>
-                <span className="block text-[12.5px] text-paper-char">{connector.lastHealthCheck.detail}</span>
+                <span className="block text-[13px] text-paper-char">{connector.lastHealthCheck.detail}</span>
               </>
             ) : (
               "Not tested yet"
@@ -172,7 +172,7 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
             <a
               href={connector.connectUrl}
               className={cn(
-                "inline-flex min-h-8 items-center rounded-none border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen",
+                "inline-flex min-h-8 items-center rounded-md border border-paper-ash px-3.5 text-[13px] font-medium text-paper-blue hover:bg-paper-linen",
                 PAPER_FOCUS,
               )}
             >
@@ -196,7 +196,7 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
                 href={action.href}
                 title={action.hint}
                 className={cn(
-                  "inline-flex min-h-8 items-center rounded-none border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen",
+                  "inline-flex min-h-8 items-center rounded-md border border-paper-ash px-3.5 text-[13px] font-medium text-paper-blue hover:bg-paper-linen",
                   PAPER_FOCUS,
                 )}
               >
@@ -249,7 +249,7 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
         count={connector.capabilities.length}
         className="mt-10"
         action={
-          <span className="text-[12.5px] text-paper-sage tabular-nums">
+          <span className="text-[13px] text-paper-sage tabular-nums">
             {counts.built} built · {counts.approval} need approval · {counts.disabled} off
           </span>
         }
@@ -259,7 +259,7 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
           confirmation. <strong className="font-semibold">Off</strong> refuses everyone. A policy can be set before AgentOS has the code for it, and
           holds when the code lands.
         </p>
-        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
           {connector.capabilities.map((capability) => (
             <CapabilityRow key={capability.id} connectorId={connector.id} capability={capability} />
           ))}
@@ -272,10 +272,10 @@ function Connector({ connector }: { connector: ConnectorDetail }) {
             {connector.lastUsed ? `Read ${formatWhen(connector.lastUsed)}. No actions recorded yet.` : "AgentOS hasn't used it yet."}
           </p>
         ) : (
-          <ol className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+          <ol className="divide-y divide-paper-stone rounded-md border border-paper-mist">
             {connector.recentUses.map((use) => (
-              <li key={`${use.at}:${use.capabilityId}`} className="grid grid-cols-[5.5rem_1fr] gap-3 px-4 py-3 text-[13.5px]">
-                <time dateTime={use.at} className="font-mono text-[12.5px] text-paper-sage tabular-nums">
+              <li key={`${use.at}:${use.capabilityId}`} className="grid grid-cols-[5.5rem_1fr] gap-3 px-4 py-3 text-[14px]">
+                <time dateTime={use.at} className="font-mono text-[12px] text-paper-sage tabular-nums">
                   {formatWhen(use.at)}
                 </time>
                 <span className="min-w-0">
@@ -318,13 +318,13 @@ function CapabilityRow({ connectorId, capability }: { connectorId: string; capab
             </span>
             {!capability.implemented ? <Tag tone="muted">Not built</Tag> : null}
           </p>
-          <p className="mt-0.5 text-[12.5px] text-paper-sage">
+          <p className="mt-0.5 text-[13px] text-paper-sage">
             <code className="font-mono text-[12px]">{capability.id}</code>
             {note ? ` · ${note}` : ""}
             {capability.implemented && capability.unavailableReason ? ` · ${capability.unavailableReason}` : ""}
           </p>
           {setPolicy.isError ? (
-            <p role="alert" className="mt-1 text-[12.5px] text-paper-flame-deep">
+            <p role="alert" className="mt-1 text-[13px] text-paper-flame-deep">
               {setPolicy.error.message}
             </p>
           ) : null}
@@ -334,7 +334,7 @@ function CapabilityRow({ connectorId, capability }: { connectorId: string; capab
         {capability.policyOverridden ? (
           <PaperButton
             variant="quiet"
-            className="min-h-7 px-2 text-[12px]"
+            className="min-h-7 px-2 text-[13px]"
             disabled={setPolicy.isPending}
             onClick={() => setPolicy.mutate({ id: connectorId, capabilityId: capability.id, policy: null })}
             title={`Back to the default: ${capability.defaultPolicy}`}

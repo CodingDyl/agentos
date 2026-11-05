@@ -1,7 +1,7 @@
 import { Copy, GitBranch, GitMerge, Tag } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { GraphCommit, GraphRef, RepositoryStatus } from "@shared/repository-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { useRepositoryGraph } from "@/lib/agentos/queries";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 const LANE_W = 18;
 const ROW_H = 34;
 const DOT = 5;
-const PALETTE = ["#a3e635", "#38bdf8", "#f472b6", "#fbbf24", "#a78bfa", "#34d399", "#fb7185", "#60a5fa"];
+const PALETTE = ["#9DDBBD", "#B0D6FF", "#E8C58A", "#F4A3A8", "#D3C4F0", "#A9DDE0", "#ACB5BF", "#EEF1F4"];
 const colour = (index: number) => PALETTE[index % PALETTE.length];
 
 const x = (lane: number) => lane * LANE_W + LANE_W / 2 + 4;
@@ -42,7 +42,7 @@ function Lines({ commit, width }: { commit: GraphCommit; width: number }) {
         cx={x(commit.lane)}
         cy={mid}
         r={commit.parents.length > 1 ? DOT + 0.5 : DOT}
-        fill={commit.parents.length > 1 ? "#0c0c0c" : colour(commit.color)}
+        fill={commit.parents.length > 1 ? "#111315" : colour(commit.color)}
         stroke={colour(commit.color)}
         strokeWidth={2}
       />
@@ -63,7 +63,7 @@ function RefChip({ item }: { item: GraphRef }) {
             : "border-os-success/50 text-os-success";
   const Icon = item.kind === "tag" ? Tag : GitBranch;
   return (
-    <span className={cn("inline-flex max-w-[16rem] shrink-0 items-center gap-1 rounded-sm border px-1.5 font-mono text-[11px] leading-[18px]", tone)} title={item.kind === "worker" ? "A worker's scratch branch" : item.kind === "remote" ? "Where the remote last was" : item.name}>
+    <span className={cn("inline-flex max-w-[16rem] shrink-0 items-center gap-1 rounded-sm border px-1.5 font-mono text-[12px] leading-[18px]", tone)} title={item.kind === "worker" ? "A worker's scratch branch" : item.kind === "remote" ? "Where the remote last was" : item.name}>
       <Icon className="size-2.5 shrink-0" strokeWidth={2} aria-hidden="true" />
       <span className="truncate">{item.name}</span>
       {item.current ? <span className="sr-only"> (checked out)</span> : null}
@@ -79,7 +79,7 @@ export function GitGraph({ slug, status }: { slug: string; status: RepositorySta
   const width = useMemo(() => Math.max(1, data?.lanes ?? 1) * LANE_W + 8, [data?.lanes]);
   const dirty = status.uncommitted.length;
 
-  if (isLoading) return <DedsecLoader variant="compact" className="mt-6" />;
+  if (isLoading) return <PageLoader variant="compact" className="mt-6" />;
   if (error || !data) return <p className="os-meta mt-6 text-os-warning">{error instanceof Error ? error.message : "The history could not be read."}</p>;
   if (data.unavailable) return <p className="os-meta mt-6 text-os-subtle">{data.unavailable}</p>;
 

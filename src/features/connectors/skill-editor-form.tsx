@@ -85,7 +85,7 @@ export function SkillEditorForm({ skill, onDone, onCancel }: SkillEditorFormProp
       </div>
 
       {notes.length > 0 ? (
-        <ul className="grid gap-1 text-[12.5px] text-paper-char" role="status">
+        <ul className="grid gap-1 text-[13px] text-paper-char" role="status">
           {notes.map((note) => (
             <li key={note}>{note}</li>
           ))}
@@ -106,7 +106,7 @@ export function SkillEditorForm({ skill, onDone, onCancel }: SkillEditorFormProp
           pattern="[a-z0-9][a-z0-9-]*"
           title="Lowercase letters, digits and hyphens"
         />
-        <span className="mt-1 block text-[12px] text-paper-sage">
+        <span className="mt-1 block text-[13px] text-paper-sage">
           {editing ? "The name is the skill's id and can't change." : "Lowercase letters, digits and hyphens. This is the skill's id."}
         </span>
       </label>
@@ -125,10 +125,10 @@ export function SkillEditorForm({ skill, onDone, onCancel }: SkillEditorFormProp
       </label>
 
       <fieldset>
-        <legend className="mb-1.5 block text-[12.5px] font-medium text-paper-char">Needs connectors (optional)</legend>
+        <legend className="mb-1.5 block text-[13px] font-medium text-paper-char">Needs connectors (optional)</legend>
         <div className="flex flex-wrap gap-2">
           {known.map((connector) => (
-            <label key={connector.id} className="inline-flex items-center gap-1.5 border border-paper-mist px-2 py-1 text-[12.5px] text-paper-char">
+            <label key={connector.id} className="inline-flex items-center gap-1.5 border border-paper-mist px-2 py-1 text-[13px] text-paper-char">
               <input type="checkbox" checked={requires.includes(connector.id)} onChange={() => toggleRequirement(connector.id)} />
               {connector.name}
             </label>
@@ -136,37 +136,37 @@ export function SkillEditorForm({ skill, onDone, onCancel }: SkillEditorFormProp
           {requires
             .filter((connector) => !known.some((entry) => entry.id === connector))
             .map((connector) => (
-              <label key={connector} className="inline-flex items-center gap-1.5 border border-paper-flame/50 px-2 py-1 text-[12.5px] text-paper-flame-deep">
+              <label key={connector} className="inline-flex items-center gap-1.5 border border-paper-flame/50 px-2 py-1 text-[13px] text-paper-flame-deep">
                 <input type="checkbox" checked onChange={() => toggleRequirement(connector)} />
                 {connector} (unknown)
               </label>
             ))}
         </div>
-        <span className="mt-1 block text-[12px] text-paper-sage">A job can't use the skill until these are connected. Skills never carry credentials.</span>
+        <span className="mt-1 block text-[13px] text-paper-sage">A job can't use the skill until these are connected. Skills never carry credentials.</span>
       </fieldset>
 
       <label className="block">
         <FieldLabel>Instructions (Markdown)</FieldLabel>
         <textarea
-          className={`${PAPER_INPUT} w-full resize-y py-2 font-mono text-[13px] leading-5`}
+          className={`${PAPER_INPUT} w-full resize-y py-2 font-mono text-[12px] leading-5`}
           rows={14}
           value={instructions}
           onChange={(event) => setInstructions(event.target.value)}
           placeholder={"# How to do this kind of work\n\n1. …\n2. …"}
           required
         />
-        <span className="mt-1 block text-[12px] text-paper-sage">
+        <span className="mt-1 block text-[13px] text-paper-sage">
           What the worker should do, step by step. Links to other local files aren't supported: put everything in here.
         </span>
       </label>
 
       {save.error ? (
-        <p role="alert" className="text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
           {save.error.message}
         </p>
       ) : null}
       {parse.error ? (
-        <p role="alert" className="text-[12.5px] text-paper-flame-deep">
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
           {parse.error.message}
         </p>
       ) : null}

@@ -75,7 +75,7 @@ export function PaperCommandInput({
   return (
     <form
       className={cn(
-        "rounded-none border border-paper-mist bg-paper-white transition-colors duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-paper-blue",
+        "rounded-md border border-paper-mist bg-paper-white transition-colors duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--focus)]",
         disabled && "opacity-50",
         className,
       )}
@@ -83,12 +83,12 @@ export function PaperCommandInput({
       {...props}
     >
       {activeContext ? (
-        <div className="border-b border-paper-mist px-4 py-2 text-[12.5px] text-paper-sage">
+        <div className="border-b border-paper-mist px-4 py-2 text-[13px] text-paper-sage">
           Context: <span className="font-medium text-paper-char">{activeContext}</span>
         </div>
       ) : null}
       <div className="flex items-start gap-3 px-4 py-3">
-        <span className="mt-1.5 font-mono text-sm text-paper-char" aria-hidden="true">
+        <span className="mt-1.5 font-mono text-[14px] text-paper-char" aria-hidden="true">
           &gt;
         </span>
         <label htmlFor={inputId} className="sr-only">
@@ -104,21 +104,21 @@ export function PaperCommandInput({
           aria-describedby={helpId}
           onChange={(event) => updateValue(event.currentTarget.value)}
           onKeyDown={handleShortcut}
-          className="min-h-14 flex-1 resize-none bg-transparent py-1 text-[15px] leading-6 text-paper-moss outline-none placeholder:text-paper-sage disabled:cursor-not-allowed"
+          className="min-h-14 flex-1 resize-none bg-transparent py-1 text-[14px] leading-6 text-paper-moss outline-none placeholder:text-paper-sage disabled:cursor-not-allowed"
         />
         <button
           type="submit"
           disabled={!currentValue.trim() || disabled || running}
           aria-label={running ? "Agent is running" : "Run command"}
           className={cn(
-            "mt-0.5 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-none bg-paper-moss text-paper-white transition-colors duration-150 hover:bg-paper-char disabled:cursor-not-allowed disabled:opacity-40",
+            "mt-0.5 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-paper-moss text-paper-white transition-colors duration-150 hover:bg-paper-char disabled:cursor-not-allowed disabled:opacity-40",
             PAPER_FOCUS,
           )}
         >
           <CornerDownLeft className={cn("size-4", running && "motion-safe:animate-pulse")} aria-hidden="true" />
         </button>
       </div>
-      <div id={helpId} className="flex flex-wrap items-center justify-between gap-2 border-t border-paper-mist px-4 py-2 text-[12.5px] text-paper-sage">
+      <div id={helpId} className="flex flex-wrap items-center justify-between gap-2 border-t border-paper-mist px-4 py-2 text-[13px] text-paper-sage">
         <span>Type / for commands</span>
         <span>⌘ Enter to run</span>
       </div>
@@ -131,12 +131,12 @@ export function PaperCommandInput({
               disabled={disabled || running}
               onClick={() => selectSuggestion(suggestion.command)}
               className={cn(
-                "flex min-h-10 w-full cursor-pointer items-center justify-between gap-4 rounded-none px-3 text-left transition-colors duration-150 hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-45",
+                "flex min-h-10 w-full cursor-pointer items-center justify-between gap-4 rounded-md px-3 text-left transition-colors duration-150 hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-45",
                 PAPER_FOCUS,
               )}
             >
-              <span className="font-mono text-[12.5px] text-paper-moss">{suggestion.command}</span>
-              <span className="text-[12.5px] text-paper-sage">{suggestion.description}</span>
+              <span className="font-mono text-[12px] text-paper-moss">{suggestion.command}</span>
+              <span className="text-[13px] text-paper-sage">{suggestion.description}</span>
             </button>
           ))}
         </div>

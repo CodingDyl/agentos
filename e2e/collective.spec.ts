@@ -17,7 +17,7 @@ async function noHorizontalOverflow(page: Page) {
   expect(await page.locator("main").evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
 }
 
-test("Collective preserves route surfaces, real empty states, and dark tokens", async ({ page }) => {
+test("every route renders on the Quiet Terminal tokens with no overflow", async ({ page }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -26,7 +26,7 @@ test("Collective preserves route surfaces, real empty states, and dark tokens", 
     await page.goto(route);
     await expect(page.locator("main[data-agentos-page]")).toBeVisible();
     await expect(page.locator("vite-error-overlay")).toHaveCount(0);
-    expect(await page.locator("header.os-stage").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(17, 21, 18)");
+    expect(await page.locator("header.os-stage").evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(21, 24, 27)");
     await noHorizontalOverflow(page);
   }
   expect(errors).toEqual([]);
@@ -43,7 +43,7 @@ test("Today responds to narrow, tablet, desktop, and 200% equivalent CSS viewpor
     await expect(page.getByRole("button", { name: "Search AgentOS" })).toBeVisible();
     await page.screenshot({ path: path.join(screenshots, `today-${name}.png`), animations: "disabled" });
   }
-  expect(await page.locator(".collective-artwork").first().evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
+  await expect(page.locator(".collective-artwork, .collective-paper-label, .collective-tape")).toHaveCount(0);
 });
 
 test("mobile drawer traps keyboard focus, closes with Escape, and keeps routes reachable", async ({ page }) => {
@@ -68,11 +68,13 @@ test("mobile drawer traps keyboard focus, closes with Escape, and keeps routes r
 
 test("search, capture, Today view keys and visible focus retain keyboard operation", async ({ page }) => {
   await openDashboard(page);
-  const wrap = page.getByRole("radio", { name: "Wrap up", exact: true });
+  const wrap = page.getByRole("button", { name: "Wrap up", exact: true });
   await wrap.click();
-  await page.keyboard.press("ArrowLeft");
-  await expect(page.getByRole("radio", { name: "Plan the day" })).toBeChecked();
-  await expect(page.getByRole("radio", { name: "Plan the day" })).toBeFocused();
+  await expect(wrap).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "Wrap up the day" })).toBeVisible();
+  await page.getByRole("button", { name: "Plan the day" }).click();
+  await expect(wrap).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("region", { name: "Morning brief" })).toBeVisible();
   await page.keyboard.press("ControlOrMeta+k");
   const palette = page.getByRole("dialog", { name: "Commands and search" });
   await expect(palette).toBeVisible();
@@ -103,4 +105,91 @@ test("secondary screen evidence at desktop and mobile widths", async ({ page }) 
       await page.screenshot({ path: path.join(screenshots, `${route}-${size}.png`), animations: "disabled", timeout: 10_000 });
     }
   }
+});
+
+test("the Capture menu keeps every mode, and voice is also in search", async ({ page }) => {
+  await openDashboard(page);
+  await page.getByRole("button", { name: "More ways to capture" }).click();
+  await expect(page.getByRole("menuitem", { name: /^Note/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /^Voice/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /Jarvis text/ })).toBeVisible();
+  await page.getByRole("menuitem", { name: /^Quick create/ }).click();
+  await expect(page.getByRole("dialog", { name: "Quick create" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Search AgentOS" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "More ways to capture" })).toBeFocused();
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByRole("combobox", { name: "Search AgentOS" }).fill("voice");
+  await expect(page.getByRole("option", { name: /Voice capture/ })).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("combobox", { name: "Search AgentOS" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Commands and search" })).toHaveCount(0);
+});
+
+test("a priority row opens its task, and approvals are one link away", async ({ page }) => {
+  await openDashboard(page);
+  // With nothing picked yet, Plan the day is the check-in that picks them.
+  await page.getByRole("button", { name: "Plan the day" }).click();
+  const morning = page.getByRole("dialog", { name: /Good (morning|afternoon|evening)/ });
+  if (await morning.isVisible().catch(() => false)) {
+    await morning.getByRole("button", { name: "OK", exact: true }).click();
+    await morning.getByRole("button", { name: "1 to 3 hours" }).click();
+    await morning.getByRole("button", { name: "Plan my day" }).click();
+    await page.getByRole("button", { name: "Start the day" }).click({ timeout: 20_000 });
+  }
+  const three = page.getByRole("region", { name: "Your three" });
+  const title = three.getByRole("listitem").first().getByRole("link").first();
+  await expect(title).toBeVisible();
+  await title.click();
+  await expect(page).toHaveURL(/\/workspaces\//);
+  await page.goto("/");
+  await page.getByRole("list", { name: "Today at a glance" }).getByRole("link", { name: /approvals? waiting|No approvals waiting/ }).click();
+  await expect(page).toHaveURL(/#needs-you|\/activity/);
+  await page.goto("/");
+  await page.getByRole("complementary", { name: "Primary navigation" }).getByRole("link", { name: /^Workspaces/ }).click();
+  await expect(page).toHaveURL(/\/workspaces$/);
+});
+
+test("the rail keeps every destination, with labels on focus", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await openDashboard(page);
+  const nav = page.getByRole("complementary", { name: "Primary navigation" });
+  expect((await nav.boundingBox())?.width).toBe(64);
+  for (const label of ["Dashboard", "Inbox", "Finance", "Workspaces", "Memory", "Connectors", "Compass"]) {
+    await expect(nav.getByRole("link", { name: new RegExp(`^${label}`) })).toBeAttached();
+  }
+  await nav.getByRole("link", { name: "Finance" }).focus();
+  await expect(nav.getByText("Finance", { exact: true }).last()).toBeVisible();
+});
+
+test("the checklist adds on Enter, ticks, and removes by keyboard", async ({ page }) => {
+  await openDashboard(page);
+  const panel = page.getByRole("region", { name: "To do today" });
+  const input = panel.getByRole("textbox", { name: "Add to today's list" });
+  const text = `Checklist item ${Date.now()}`;
+  await input.fill(text);
+  await input.press("Enter");
+  const box = panel.getByRole("checkbox", { name: `Done: ${text}` });
+  await expect(box).toBeVisible();
+  await box.focus();
+  await page.keyboard.press("Space");
+  await expect(panel.getByRole("checkbox", { name: `Not done: ${text}` })).toBeChecked();
+  await panel.getByRole("button", { name: `Remove: ${text}` }).click();
+  await expect(panel.getByText(text)).toHaveCount(0);
+  await input.fill("discarded");
+  await input.press("Escape");
+  await expect(input).toHaveValue("");
+});
+
+test("report friction is reachable from the page's More menu", async ({ page }) => {
+  await openDashboard(page);
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Report friction" }).click();
+  const dialog = page.getByRole("dialog", { name: "Report friction" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "More", exact: true })).toBeFocused();
 });

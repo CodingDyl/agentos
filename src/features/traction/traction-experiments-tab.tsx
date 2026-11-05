@@ -33,7 +33,7 @@ export function TractionExperimentsTab({ data }: { data: TractionData }) {
     <div className="space-y-12">
       {editing === "new" ? (
         <PaperCard className="max-w-2xl p-5">
-          <h2 className="mb-4 font-paper-display text-[17px] font-bold text-paper-moss">New experiment</h2>
+          <h2 className="mb-4 text-[16px] font-semibold text-paper-moss">New experiment</h2>
           <ExperimentForm onDone={() => setEditing(undefined)} />
         </PaperCard>
       ) : (
@@ -88,8 +88,8 @@ function ExperimentCard({ experiment, progress, onEdit }: { experiment: Experime
     <PaperCard className="p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">{experiment.name}</h3>
-          <p className="text-[12.5px] text-paper-sage">{CHANNEL_LABELS[experiment.channel]}</p>
+          <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">{experiment.name}</h3>
+          <p className="text-[13px] text-paper-sage">{CHANNEL_LABELS[experiment.channel]}</p>
         </div>
         <Tag tone={experiment.status === "running" ? "green" : "muted"}>{STATUS_LABEL[experiment.status]}</Tag>
       </div>
@@ -115,7 +115,7 @@ function ExperimentCard({ experiment, progress, onEdit }: { experiment: Experime
       </div>
 
       {experiment.verdict ? (
-        <p className="mt-3 text-[13.5px] leading-6 text-paper-moss">
+        <p className="mt-3 text-[14px] leading-6 text-paper-moss">
           <span className="font-semibold">Verdict: </span>
           {experiment.verdict}
         </p>
@@ -142,7 +142,7 @@ function ExperimentCard({ experiment, progress, onEdit }: { experiment: Experime
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[12px] font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
+      <dt className="text-[13px] font-semibold text-paper-sage">{label}</dt>
       <dd className="text-paper-moss">{value}</dd>
     </div>
   );

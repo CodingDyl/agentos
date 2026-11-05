@@ -18,7 +18,7 @@ export function RebuildBriefFields({ id, defaults, functions, onFunctions }: { i
     <label className="block" htmlFor={`${id}-${name}`}>
       <FieldLabel>{label}</FieldLabel>
       <input id={`${id}-${name}`} name={name} type={type} required={required} className={PAPER_INPUT} defaultValue={defaultValue} />
-      {hint ? <span className="mt-0.5 block text-[12.5px] text-paper-sage">{hint}</span> : null}
+      {hint ? <span className="mt-0.5 block text-[13px] text-paper-sage">{hint}</span> : null}
     </label>
   );
 

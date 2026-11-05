@@ -94,7 +94,7 @@ export function GrokBotJobPanel({ job }: { job: WorkerJob }) {
       className="mt-10 max-w-[72ch] rounded-lg border border-os-amber/40 bg-os-amber/5 p-5 md:p-6"
     >
       <p className="os-meta text-os-amber">Awaiting manual trigger</p>
-      <p className="mt-3 text-[15px] leading-6 text-foreground">
+      <p className="mt-3 text-[14px] leading-6 text-foreground">
         The task is on the SSD. Paste the instruction into Grok; AgentOS imports the answer as soon as the result file
         appears.
       </p>

@@ -50,7 +50,7 @@ export function TractionOffersTab({ data }: { data: TractionData }) {
           ) : (
             <PaperCard key={offer.id} className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss uppercase">{offer.name}</h3>
+                <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">{offer.name}</h3>
                 {offer.startingPrice ? <Tag tone="muted">From {offer.startingPrice}</Tag> : null}
               </div>
               <dl className="mt-3 space-y-2.5 text-[14px] leading-6">
@@ -60,7 +60,7 @@ export function TractionOffersTab({ data }: { data: TractionData }) {
                 {offer.upsells.length > 0 ? <Row label="Upsell">{offer.upsells.join(" · ")}</Row> : null}
               </dl>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <span className="text-[12.5px] text-paper-sage">
+                <span className="text-[13px] text-paper-sage">
                   {pitchedBy(offer.id)} {pitchedBy(offer.id) === 1 ? "prospect" : "prospects"}
                 </span>
                 <span className="flex gap-1.5">
@@ -94,7 +94,7 @@ export function TractionOffersTab({ data }: { data: TractionData }) {
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2">
-      <dt className="text-[12px] leading-6 font-semibold tracking-[0.06em] text-paper-sage uppercase">{label}</dt>
+      <dt className="text-[13px] leading-6 font-semibold text-paper-sage">{label}</dt>
       <dd className="text-paper-moss">{children}</dd>
     </div>
   );

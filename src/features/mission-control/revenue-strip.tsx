@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { TriangleAlert } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Meter, PAPER_FOCUS, PaperButton } from "@/components/paper";
+import { Meter, PAPER_FOCUS, PaperButton, PaperSection } from "@/components/paper";
 import { ClientDraftForm } from "@/features/business/business-draft";
 import { followUpMailto, formatRand } from "@/features/business/business-model";
 import { useBusiness } from "@/lib/agentos/business";
@@ -9,11 +10,13 @@ import { useTraction } from "@/lib/agentos/traction";
 import { usePitches } from "@/lib/agentos/pitch";
 import { pitchesReady } from "@shared/pitch-types";
 import { cn } from "@/lib/utils";
-import { dashboardCardClass } from "./dashboard-layout";
 import { MRR_GOAL_RAND, selectRevenueStrip } from "./revenue-strip-model";
 
+const NEUTRAL_LINK =
+  "inline-flex min-h-[var(--control-height)] items-center rounded-md border border-paper-mist bg-paper-linen px-3.5 text-[14px] leading-5 font-medium text-paper-moss transition-colors duration-150 hover:bg-paper-stone";
+
 /**
- * Full-width money and pipeline, at the top of the Dashboard. Numbers come
+ * Full-width money and pipeline, below the day's work. Numbers come
  * from Virtec / Traction / Business / the inbox; a missing source says so.
  * Send invoice and Follow up open existing flows. Nothing here sends.
  */
@@ -40,29 +43,16 @@ export function RevenueStrip({ className }: { className?: string }) {
     strip.followUp.kind === "draft" ? followUpMailto(strip.followUp.email, strip.followUp.subject, strip.followUp.message) : undefined;
 
   return (
-    <section aria-label="Revenue and pipeline" className={cn(dashboardCardClass("revenue"), "min-w-0", className)}>
-      <div className="dashboard-revenue-grid">
-        <MrrCell state={strip.mrr} />
-        <OverdueCell state={strip.overdue} />
-        <WaitingCell state={strip.waiting} />
-        <div className="flex min-w-0 flex-wrap items-center gap-2 self-center">
-          <Link
-            to={strip.sendInvoice.href}
-            className={cn(
-              "inline-flex min-h-8 items-center border-[1.5px] border-paper-blue px-3 font-paper-utility text-[12px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen",
-              PAPER_FOCUS,
-            )}
-          >
+    <PaperSection
+      label="Business pulse"
+      className={className}
+      action={
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to={strip.sendInvoice.href} className={cn(NEUTRAL_LINK, PAPER_FOCUS)}>
             Send invoice
           </Link>
           {strip.followUp.kind === "list" ? (
-            <Link
-              to={strip.followUp.href}
-              className={cn(
-                "inline-flex min-h-8 items-center border-[1.5px] border-paper-mist px-3 font-paper-utility text-[12px] font-medium tracking-[0.1em] text-paper-moss uppercase hover:bg-paper-linen",
-                PAPER_FOCUS,
-              )}
-            >
+            <Link to={strip.followUp.href} className={cn(NEUTRAL_LINK, PAPER_FOCUS)}>
               Follow up
             </Link>
           ) : (
@@ -71,10 +61,16 @@ export function RevenueStrip({ className }: { className?: string }) {
             </PaperButton>
           )}
         </div>
+      }
+    >
+      <div className="qt-pulse">
+        <MrrCell state={strip.mrr} />
+        <OverdueCell state={strip.overdue} href={strip.sendInvoice.href} />
+        <WaitingCell state={strip.waiting} />
       </div>
       {followOpen && strip.followUp.kind === "draft" ? (
-        <div className="mt-3 border-t border-paper-mist pt-3">
-          <p className="text-[13px] text-paper-char">
+        <div className="mt-4 border-t border-paper-mist pt-4">
+          <p className="text-[14px] leading-[22px] text-paper-char">
             Draft to {strip.followUp.name}. Nothing is sent until you send it from Gmail.
           </p>
           {strip.followUp.customerId ? (
@@ -88,61 +84,62 @@ export function RevenueStrip({ className }: { className?: string }) {
               />
             </div>
           ) : mail ? (
-            <a href={mail} className={cn("mt-2 inline-flex text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+            <a href={mail} className={cn("mt-2 inline-flex rounded-sm text-[14px] leading-[22px] font-medium text-paper-moss hover:underline", PAPER_FOCUS)}>
               Open drafted message in mail
             </a>
           ) : (
-            <Link to="/business?tab=follow-ups" className={cn("mt-2 inline-flex text-[13px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+            <Link to="/business?tab=follow-ups" className={cn("mt-2 inline-flex rounded-sm text-[14px] leading-[22px] font-medium text-paper-moss hover:underline", PAPER_FOCUS)}>
               Open follow-ups
             </Link>
           )}
         </div>
       ) : null}
-    </section>
+    </PaperSection>
   );
+}
+
+function MetricLabel({ children }: { children: ReactNode }) {
+  return <p className="text-[13px] leading-5 text-paper-sage">{children}</p>;
 }
 
 function MrrCell({ state }: { state: ReturnType<typeof selectRevenueStrip>["mrr"] }) {
   if (state.kind === "connect") {
-    return (
-      <ConnectCell label="MRR" href={state.href} detail={state.label} />
-    );
+    return <ConnectCell label="Revenue target" href={state.href} detail={state.label} />;
   }
   const over = state.amount >= state.goal;
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-medium tracking-[0.04em] text-paper-sage uppercase">MRR vs R100k/month</p>
-      <p className="mt-0.5 text-[16px] font-semibold text-paper-moss tabular-nums">
-        {formatRand(state.amount)} <span className="text-[12px] font-medium text-paper-sage">/ {formatRand(MRR_GOAL_RAND)}</span>
-      </p>
-      <div className="mt-1.5">
-        <Meter value={state.progress} label="Monthly recurring towards R100,000" tone={over ? "green" : "amber"} />
+      <MetricLabel>MRR against {formatRand(MRR_GOAL_RAND)} a month</MetricLabel>
+      <p className="mt-0.5 text-[24px] leading-8 font-semibold text-paper-moss tabular-nums">{formatRand(state.amount)}</p>
+      <div className="mt-1.5 max-w-60">
+        <Meter value={state.progress} label={`Monthly recurring towards ${formatRand(MRR_GOAL_RAND)}`} tone={over ? "green" : "amber"} />
       </div>
     </div>
   );
 }
 
-function OverdueCell({ state }: { state: ReturnType<typeof selectRevenueStrip>["overdue"] }) {
+function OverdueCell({ state, href }: { state: ReturnType<typeof selectRevenueStrip>["overdue"]; href: string }) {
   if (state.kind === "connect") {
     return <ConnectCell label="Overdue invoices" href={state.href} detail={state.label} />;
   }
+  const overdue = state.count > 0;
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-medium tracking-[0.04em] text-paper-sage uppercase">Overdue invoices</p>
-      <p className={cn("mt-0.5 text-[16px] font-semibold tabular-nums", state.count > 0 ? "text-paper-flame-deep" : "text-paper-moss")}>
-        {state.count}{" "}
-        <span className="text-[12px] font-medium text-paper-sage">
-          {state.count === 1 ? "invoice" : "invoices"}
-          {state.amount !== undefined ? ` · ${formatRand(state.amount)}` : ""}
+      <MetricLabel>Overdue invoices</MetricLabel>
+      <Link to={href} className={cn("group mt-0.5 block w-fit rounded-sm", PAPER_FOCUS)}>
+        <span className="block text-[24px] leading-8 font-semibold text-paper-moss tabular-nums group-hover:underline">{state.count}</span>
+        <span className={cn("flex items-center gap-1 text-[13px] leading-5 tabular-nums", overdue ? "text-paper-marigold" : "text-paper-sage")}>
+          {overdue ? <TriangleAlert className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" /> : null}
+          {overdue ? (state.amount !== undefined ? `${formatRand(state.amount)} overdue` : "Overdue") : "Nothing overdue"}
         </span>
-      </p>
+      </Link>
     </div>
   );
 }
 
 function WaitingCell({ state }: { state: ReturnType<typeof selectRevenueStrip>["waiting"] }) {
   if (state.kind === "connect") {
-    return <ConnectCell label="Waiting on you" href={state.href} detail={state.label} />;
+    return <ConnectCell label="Pipeline waiting on you" href={state.href} detail={state.label} />;
   }
   const parts = [
     state.leads !== undefined ? `${state.leads} ${state.leads === 1 ? "lead" : "leads"}` : undefined,
@@ -151,8 +148,8 @@ function WaitingCell({ state }: { state: ReturnType<typeof selectRevenueStrip>["
   ].filter(Boolean);
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-medium tracking-[0.04em] text-paper-sage uppercase">Waiting on you</p>
-      <p className="mt-0.5 text-[16px] font-semibold text-paper-moss">{parts.join(" · ") || "Nothing queued"}</p>
+      <MetricLabel>Pipeline waiting on you</MetricLabel>
+      <p className="mt-0.5 text-[14px] leading-[22px] font-medium text-paper-moss tabular-nums">{parts.join(" · ") || "Nothing queued"}</p>
     </div>
   );
 }
@@ -160,8 +157,8 @@ function WaitingCell({ state }: { state: ReturnType<typeof selectRevenueStrip>["
 function ConnectCell({ label, href, detail }: { label: string; href: string; detail: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-medium tracking-[0.04em] text-paper-sage uppercase">{label}</p>
-      <Link to={href} className={cn("mt-0.5 block text-[13.5px] font-semibold text-paper-blue hover:underline", PAPER_FOCUS)}>
+      <MetricLabel>{label}</MetricLabel>
+      <Link to={href} className={cn("mt-0.5 block w-fit rounded-sm text-[14px] leading-[22px] font-medium text-paper-moss hover:underline", PAPER_FOCUS)}>
         {detail}
       </Link>
     </div>

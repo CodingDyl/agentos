@@ -141,12 +141,12 @@ export function GeneratePanel({
     <PaperCard className={cn("p-5", className)}>
       <div>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 className="font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">Generate visual</h2>
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">Generate visual</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close generate"
-            className={cn("rounded-none p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+            className={cn("rounded-md p-1 text-paper-sage transition-colors hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
           >
             <X className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -158,7 +158,7 @@ export function GeneratePanel({
         {!available ? (
           <div className="mt-5 border-t border-paper-mist pt-5">
             <Tag tone="flame">Generation unavailable</Tag>
-            <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+            <p className="mt-3 max-w-[62ch] text-[14px] leading-5 text-paper-char">
               {capability?.generation.reason ??
                 "Concepts cannot be rendered on this machine."}
             </p>
@@ -332,7 +332,7 @@ export function GeneratePanel({
         ) : null}
 
         {failure ? (
-          <p role="alert" className="mt-5 text-[13.5px] leading-5 text-paper-flame-deep">{failure}</p>
+          <p role="alert" className="mt-5 text-[14px] leading-5 text-paper-flame-deep">{failure}</p>
         ) : null}
       </div>
     </PaperCard>
@@ -373,7 +373,7 @@ export function GenerationResult({
       </div>
 
       {generation.error ? (
-        <p className="mt-3 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+        <p className="mt-3 max-w-[62ch] text-[14px] leading-5 text-paper-char">
           {generation.error}
         </p>
       ) : null}
@@ -384,7 +384,7 @@ export function GenerationResult({
       generation.finalPrompt !== generation.request.prompt ? (
         <div className="mt-4">
           <h3 className="text-[13px] font-semibold text-paper-moss">Rendered prompt</h3>
-          <p className="mt-1.5 max-w-[62ch] text-[13.5px] leading-5 text-paper-char">
+          <p className="mt-1.5 max-w-[62ch] text-[14px] leading-5 text-paper-char">
             {generation.finalPrompt}
           </p>
         </div>

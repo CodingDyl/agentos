@@ -22,7 +22,7 @@ export function FinanceToday({ className }: { className?: string }) {
   if (isError) {
     return (
       <PaperSection label="Finance" className={className}>
-        <p className="text-[15px] leading-6 text-paper-flame-deep">Finance could not be read.</p>
+        <p className="text-[14px] leading-6 text-paper-flame-deep">Finance could not be read.</p>
       </PaperSection>
     );
   }
@@ -41,14 +41,14 @@ export function FinanceToday({ className }: { className?: string }) {
       label="Finance"
       className={className}
       action={
-        <Link to="/finance" className="-mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-[12.5px] text-paper-sage transition-colors duration-150 hover:text-paper-moss">
+        <Link to="/finance" className="-mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss">
           Open Finance →
         </Link>
       }
     >
       <AlertUndoBar />
       {!live ? (
-        <p className="text-[15px] leading-6 text-paper-char">
+        <p className="text-[14px] leading-6 text-paper-char">
           Finance is not connected to a bank yet.{" "}
           <Link to="/finance?tab=settings" className="rounded-sm text-paper-moss underline-offset-4 hover:underline">
             Connect Investec
@@ -58,7 +58,7 @@ export function FinanceToday({ className }: { className?: string }) {
       ) : shown.length === 0 ? (
         <>
           {review ? <MonthlyReviewCard previous={review} /> : null}
-          {review ? null : <p className="text-[15px] leading-6 text-paper-char">Nothing needs attention in your money.</p>}
+          {review ? null : <p className="text-[14px] leading-6 text-paper-char">Nothing needs attention in your money.</p>}
         </>
       ) : (
         <>
@@ -80,7 +80,7 @@ export function FinanceToday({ className }: { className?: string }) {
                 {item.dismissible ? <DismissAlertButton id={item.id} text={item.text} /> : null}
               </li>
             ))}
-            {alerts.length > shown.length ? <li className="pl-6 text-[12.5px] text-paper-sage">+{alerts.length - shown.length} more in Finance</li> : null}
+            {alerts.length > shown.length ? <li className="pl-6 text-[13px] text-paper-sage">+{alerts.length - shown.length} more in Finance</li> : null}
           </ul>
         </>
       )}
@@ -103,10 +103,10 @@ function MonthlyReviewCard({ previous }: { previous: PreviousReview }) {
   const advice = review.narrative ? excerpt(narrativeSection(review.narrative, "Next month") ?? review.narrative, 320) : undefined;
 
   return (
-    <div className="mb-6 rounded-none border border-l-[3px] border-paper-mist border-l-paper-green bg-paper-cream p-4" role="region" aria-label={`${month} review`}>
+    <div className="mb-6 rounded-md border border-l-[3px] border-paper-mist border-l-paper-green bg-paper-cream p-4" role="region" aria-label={`${month} review`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-paper-display text-[18px] leading-6 font-bold tracking-[-0.01em] text-paper-moss">{month} review</h3>
+          <h3 className="text-[16px] leading-6 font-semibold tracking-[-0.01em] text-paper-moss">{month} review</h3>
           <p className="mt-1">
             <Tag tone={review.narrative ? "green" : "muted"}>{review.narrative ? "Ready" : "Figures only"}</Tag>
           </p>
@@ -124,13 +124,13 @@ function MonthlyReviewCard({ previous }: { previous: PreviousReview }) {
         ].map((cell) => (
           <div key={cell.label}>
             <dt className="text-paper-sage">{cell.label}</dt>
-            <dd className={cn("font-paper-display text-[18px] font-extrabold tracking-[-0.02em] tabular-nums", cell.warn ? "text-paper-flame-deep" : "text-paper-moss")}>{cell.value}</dd>
+            <dd className={cn("text-[16px] font-semibold tracking-[-0.02em] tabular-nums", cell.warn ? "text-paper-flame-deep" : "text-paper-moss")}>{cell.value}</dd>
           </div>
         ))}
       </dl>
 
       {advice ? (
-        <p className="mt-3 text-[14.5px] leading-6 text-paper-char">
+        <p className="mt-3 text-[14px] leading-6 text-paper-char">
           <span className="font-semibold text-paper-moss">Next month: </span>
           {advice}
         </p>
@@ -138,7 +138,7 @@ function MonthlyReviewCard({ previous }: { previous: PreviousReview }) {
         <p className="mt-3 text-[14px] leading-6 text-paper-char">{previous.error ? "Hermes could not write its part yet. It will try again." : "Hermes is still to write its part."}</p>
       )}
 
-      <Link to="/finance?tab=insights" className="mt-3 inline-flex min-h-8 items-center rounded-sm text-[13.5px] font-medium text-paper-moss underline-offset-4 hover:underline">
+      <Link to="/finance?tab=insights" className="mt-3 inline-flex min-h-8 items-center rounded-sm text-[14px] font-medium text-paper-moss underline-offset-4 hover:underline">
         Read the full review →
       </Link>
       {read.error ? (

@@ -44,7 +44,7 @@ export function AgentChip({
       to={`/agents/${agentId}`}
       className={cn(
         styles,
-        tone === "os" ? "os-focus-ring rounded-sm hover:text-foreground" : cn("rounded-[2px] hover:text-paper-moss", PAPER_FOCUS),
+        tone === "os" ? "os-focus-ring rounded-sm hover:text-foreground" : cn("rounded-sm hover:text-paper-moss", PAPER_FOCUS),
         className,
       )}
       title={agent?.role}

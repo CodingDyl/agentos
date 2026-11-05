@@ -29,8 +29,8 @@ function Row({ title, detail, children }: { title: string; detail?: string; chil
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-3">
       <span className="min-w-0">
-        <span className="block truncate text-[14.5px] font-semibold">{title}</span>
-        {detail ? <span className="block truncate text-[12.5px] text-paper-sage">{detail}</span> : null}
+        <span className="block truncate text-[14px] font-semibold">{title}</span>
+        {detail ? <span className="block truncate text-[13px] text-paper-sage">{detail}</span> : null}
       </span>
       <span className="flex flex-wrap items-center gap-2 text-[14px] text-paper-char">{children}</span>
     </li>
@@ -184,8 +184,8 @@ function FollowUpRow({ followUp, writable }: { followUp: BusinessFollowUp; writa
     <li className="py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)} className={cn("min-w-0 cursor-pointer text-left", PAPER_FOCUS)}>
-          <span className="block truncate text-[14.5px] font-semibold">{name}</span>
-          <span className="block truncate text-[12.5px] text-paper-sage">{followUp.reason ?? followUp.projectName}</span>
+          <span className="block truncate text-[14px] font-semibold">{name}</span>
+          <span className="block truncate text-[13px] text-paper-sage">{followUp.reason ?? followUp.projectName}</span>
         </button>
         <span className="flex flex-wrap items-center gap-2">
           {followUp.amount ? <span className="text-[14px] font-semibold">{formatRand(followUp.amount)}</span> : null}
@@ -196,7 +196,7 @@ function FollowUpRow({ followUp, writable }: { followUp: BusinessFollowUp; writa
 
       {open ? (
         <div className="mt-3 grid gap-3">
-          {followUp.suggestedMessage ? <p className="max-w-[70ch] border-l-2 border-paper-mist pl-3 text-[13.5px] leading-6 whitespace-pre-wrap text-paper-char">{followUp.suggestedMessage}</p> : null}
+          {followUp.suggestedMessage ? <p className="max-w-[70ch] border-l-2 border-paper-mist pl-3 text-[14px] leading-6 whitespace-pre-wrap text-paper-char">{followUp.suggestedMessage}</p> : null}
           {drafting && followUp.customerId ? (
             <ClientDraftForm
               request={{ clientId: followUp.customerId, followUpId: followUp.id }}
@@ -213,7 +213,7 @@ function FollowUpRow({ followUp, writable }: { followUp: BusinessFollowUp; writa
               </PaperButton>
             ) : null}
             {mail ? (
-              <a href={mail} className={cn("inline-flex min-h-8 items-center border-[1.5px] border-paper-blue px-3.5 font-paper-utility text-[13px] font-medium tracking-[0.1em] text-paper-blue uppercase hover:bg-paper-linen", PAPER_FOCUS)}>
+              <a href={mail} className={cn("inline-flex min-h-8 items-center border border-paper-ash px-3.5 text-[13px] font-medium text-paper-blue hover:bg-paper-linen", PAPER_FOCUS)}>
                 Open in mail app
               </a>
             ) : null}

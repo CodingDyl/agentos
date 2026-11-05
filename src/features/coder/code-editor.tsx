@@ -20,28 +20,28 @@ export function CodeEditor({ value, path, onChange, onSave }: CodeEditorProps) {
   function handleEditorDidMount(editor: editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editor;
 
-    monaco.editor.defineTheme("dedsec", {
+    monaco.editor.defineTheme("quiet-terminal", {
       base: "vs-dark",
       inherit: true,
       rules: [
-        { token: "comment", foreground: "6a9fb5" },
-        { token: "keyword", foreground: "00ffcc" },
-        { token: "string", foreground: "ff00ff" },
-        { token: "number", foreground: "ffff00" },
-        { token: "type", foreground: "00ccff" },
-        { token: "function", foreground: "00ffcc" },
+        { token: "comment", foreground: "8E99A5" },
+        { token: "keyword", foreground: "9DDBBD" },
+        { token: "string", foreground: "D3C4F0" },
+        { token: "number", foreground: "E8C58A" },
+        { token: "type", foreground: "B0D6FF" },
+        { token: "function", foreground: "9DDBBD" },
       ],
       colors: {
-        "editor.background": "#0a0a0a",
-        "editor.foreground": "#e0e0e0",
-        "editor.lineHighlightBackground": "#141414",
-        "editorCursor.foreground": "#00ffcc",
-        "editor.selectionBackground": "#00ffcc33",
-        "editor.inactiveSelectionBackground": "#00ffcc1a",
+        "editor.background": "#111315",
+        "editor.foreground": "#EEF1F4",
+        "editor.lineHighlightBackground": "#1A1E22",
+        "editorCursor.foreground": "#9DDBBD",
+        "editor.selectionBackground": "#273B34",
+        "editor.inactiveSelectionBackground": "#22272D",
       },
     });
 
-    monaco.editor.setTheme("dedsec");
+    monaco.editor.setTheme("quiet-terminal");
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       onSave();
@@ -60,10 +60,10 @@ export function CodeEditor({ value, path, onChange, onSave }: CodeEditorProps) {
         value={value}
         onChange={handleChange}
         onMount={handleEditorDidMount}
-        theme="dedsec"
+        theme="quiet-terminal"
         options={{
           fontSize: 14,
-          fontFamily: "'IBM Plex Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
+          fontFamily: "'Geist Mono Variable', 'JetBrains Mono', Menlo, monospace",
           minimap: { enabled: true },
           scrollBeyondLastLine: false,
           automaticLayout: true,

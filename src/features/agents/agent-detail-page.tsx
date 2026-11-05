@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import type { AgentJobSummary } from "@shared/agent-types";
-import { AppShell, DedsecLoader } from "@/components/os";
+import { AppShell, PageLoader } from "@/components/os";
 import { Meter, PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useAgent, usePatchAgent } from "@/lib/agentos/queries";
@@ -16,13 +16,13 @@ export function AgentProfilePage() {
   const save = usePatchAgent(id);
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="agent-profile" activeHref="/agents" modelLabel="Model / AgentOS V1">
-      <PaperStage full>
+    <AppShell navigationItems={navigationItems} pageId="agent-profile" activeHref="/agents">
+      <PaperStage>
         {isPending ? (
-          <DedsecLoader variant="page" />
+          <PageLoader variant="page" />
         ) : !data ? (
           <div className="py-4">
-            <h1 className="font-paper-display text-[21px] font-bold tracking-[-0.02em]">That agent has no record.</h1>
+            <h1 className="text-[16px] font-semibold tracking-[-0.02em]">That agent has no record.</h1>
             <p className="mt-2 max-w-[60ch] text-[14px] leading-6 text-paper-char">{error?.message ?? "Nothing was returned for this agent."}</p>
             <PaperButton variant="amber" className="mt-5" disabled={isFetching} onClick={() => void refetch()}>
               {isFetching ? "Trying again…" : "Try again"}
@@ -32,7 +32,7 @@ export function AgentProfilePage() {
           <div>
             <Link
               to="/agents"
-              className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-none px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
+              className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
             >
               <ArrowLeft className="size-3.5" aria-hidden="true" />
               Agents
@@ -40,7 +40,7 @@ export function AgentProfilePage() {
 
             <header className="mt-3 flex flex-wrap items-end justify-between gap-4 border-b border-paper-mist pb-6">
               <div className="min-w-0">
-                <h1 className="font-paper-display text-[30px] leading-9 font-extrabold tracking-[-0.015em] text-paper-moss">
+                <h1 className="text-[28px] leading-9 font-semibold tracking-[-0.015em] text-paper-moss">
                   <span className="mr-2" aria-hidden="true">
                     {data.agent.avatar}
                   </span>
@@ -50,7 +50,7 @@ export function AgentProfilePage() {
                 <p className="mt-2 max-w-[72ch] text-[14px] leading-6 text-paper-char">{data.agent.mission}</p>
               </div>
               <div className="w-full max-w-[16rem]">
-                <p className="text-[12.5px] text-paper-sage tabular-nums">{spendLabel(data.spend)} · {data.spend.windowLabel}</p>
+                <p className="text-[13px] text-paper-sage tabular-nums">{spendLabel(data.spend)} · {data.spend.windowLabel}</p>
                 <div className="mt-2">
                   <Meter value={spendRatio(data.spend)} label="Spend versus ceiling" tone={spendTone(data.spend)} size="md" />
                 </div>
@@ -63,7 +63,7 @@ export function AgentProfilePage() {
                   {data.jobs.length === 0 ? (
                     <p className="text-[14px] leading-6 text-paper-sage">No jobs on this agent yet.</p>
                   ) : (
-                    <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+                    <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
                       {data.jobs.map((job) => (
                         <li key={job.id}>
                           <JobLine job={job} />
@@ -77,19 +77,19 @@ export function AgentProfilePage() {
                   {data.agent.schedules.length === 0 ? (
                     <p className="text-[14px] leading-6 text-paper-sage">None linked. Add a cadence note or a Hermes automation id.</p>
                   ) : (
-                    <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+                    <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
                       {data.agent.schedules.map((row) => (
                         <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-3 px-4 py-3">
                           <span>
                             <span className="block text-[14px] text-paper-moss">{row.label}</span>
-                            <span className="mt-0.5 block text-[12.5px] text-paper-sage">{row.cadence}</span>
+                            <span className="mt-0.5 block text-[13px] text-paper-sage">{row.cadence}</span>
                           </span>
                           {row.automationId ? (
                             <Link to={`/automations/${row.automationId}`} className={cn("text-[13px] text-paper-moss underline decoration-paper-mist underline-offset-[3px]", PAPER_FOCUS)}>
                               Automation
                             </Link>
                           ) : (
-                            <span className="text-[12.5px] text-paper-sage">Note</span>
+                            <span className="text-[13px] text-paper-sage">Note</span>
                           )}
                         </li>
                       ))}
@@ -99,7 +99,7 @@ export function AgentProfilePage() {
 
                 {data.agent.memoryNotes ? (
                   <PaperCard>
-                    <h2 className="text-[12.5px] font-medium tracking-[0.08em] text-paper-char uppercase">Memory</h2>
+                    <h2 className="text-[13px] font-medium text-paper-char">Memory</h2>
                     <p className="mt-2 whitespace-pre-wrap text-[14px] leading-6 text-paper-moss">{data.agent.memoryNotes}</p>
                   </PaperCard>
                 ) : null}
@@ -129,7 +129,7 @@ function JobLine({ job }: { job: AgentJobSummary }) {
     <Link to={job.href} className={cn("flex items-start justify-between gap-4 px-4 py-3 hover:bg-paper-cream", PAPER_FOCUS)}>
       <span className="min-w-0">
         <span className="block truncate text-[14px] text-paper-moss">{job.objective}</span>
-        <span className="mt-0.5 block text-[12.5px] text-paper-sage">
+        <span className="mt-0.5 block text-[13px] text-paper-sage">
           {job.worker.toUpperCase()} · {job.project}
         </span>
       </span>

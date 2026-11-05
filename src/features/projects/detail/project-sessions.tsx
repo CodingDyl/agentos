@@ -23,8 +23,8 @@ function SessionList({ label, items, tone = "muted" }: SessionListProps) {
             key={item}
             className={
               tone === "danger"
-                ? "text-[15px] leading-6 text-os-danger"
-                : "text-[15px] leading-6 text-os-muted"
+                ? "text-[14px] leading-6 text-os-danger"
+                : "text-[14px] leading-6 text-os-muted"
             }
           >
             {item}
@@ -64,7 +64,7 @@ export function ProjectSessions({ sessions }: ProjectSessionsProps) {
             {session.resumeHere ? (
               <div>
                 <SectionLabel>Resume here</SectionLabel>
-                <p className="mt-3 max-w-[68ch] text-[15px] leading-6 text-foreground">
+                <p className="mt-3 max-w-[68ch] text-[14px] leading-6 text-foreground">
                   {session.resumeHere}
                 </p>
               </div>

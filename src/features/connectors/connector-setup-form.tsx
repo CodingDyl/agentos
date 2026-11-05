@@ -34,12 +34,12 @@ export function ConnectorSetupForm({ connector }: { connector: ConnectorDetail }
 
   return (
     <div>
-      <p className="max-w-[72ch] text-[13.5px] leading-6 text-paper-char">{connector.connectHint}</p>
+      <p className="max-w-[72ch] text-[14px] leading-6 text-paper-char">{connector.connectHint}</p>
 
       {steps.length > 0 ? (
         <ul className="mt-3 space-y-1.5">
           {steps.map((item) => (
-            <li key={item.label} className="flex items-center gap-2 text-[13.5px] text-paper-moss">
+            <li key={item.label} className="flex items-center gap-2 text-[14px] text-paper-moss">
               <Done done={item.done} />
               {item.label}
             </li>
@@ -62,7 +62,7 @@ export function ConnectorSetupForm({ connector }: { connector: ConnectorDetail }
             <PaperButton type="submit" variant="amber" disabled={!filled || save.isPending}>
               {save.isPending ? "Connecting…" : "Save & connect"}
             </PaperButton>
-            <span className="text-[12.5px] text-paper-sage">
+            <span className="text-[13px] text-paper-sage">
               Written to <code className="font-mono text-[12px]">.env</code> on this machine. Enter works from any field.
             </span>
           </div>
@@ -76,9 +76,9 @@ export function ConnectorSetupForm({ connector }: { connector: ConnectorDetail }
       ) : null}
 
       {save.data ? (
-        <ol aria-live="polite" aria-label="Save & connect" className="mt-5 max-w-[640px] divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ol aria-live="polite" aria-label="Save & connect" className="mt-5 max-w-[640px] divide-y divide-paper-stone rounded-md border border-paper-mist">
           {save.data.steps.map((step) => (
-            <li key={step.label} className="flex items-start gap-3 px-4 py-2.5 text-[13.5px]">
+            <li key={step.label} className="flex items-start gap-3 px-4 py-2.5 text-[14px]">
               {step.ok ? (
                 <Check className="mt-0.5 size-4 shrink-0 text-paper-green" aria-label="Done" />
               ) : (
@@ -144,7 +144,7 @@ function Field({ item, value, onChange }: { item: ConnectorSetupItem; value: str
           autoComplete={secret ? "new-password" : "off"}
           spellCheck={false}
           autoCapitalize="off"
-          className={cn(PAPER_INPUT, "min-w-0 flex-1 font-mono text-[13px]")}
+          className={cn(PAPER_INPUT, "min-w-0 flex-1 font-mono text-[12px]")}
         />
         {secret ? (
           <button
@@ -152,7 +152,7 @@ function Field({ item, value, onChange }: { item: ConnectorSetupItem; value: str
             onClick={() => setShown((current) => !current)}
             aria-label={shown ? `Hide ${item.envName}` : `Show ${item.envName}`}
             aria-pressed={shown}
-            className={cn("grid min-h-8 w-9 shrink-0 cursor-pointer place-items-center rounded-none border border-paper-ash text-paper-sage hover:text-paper-moss", PAPER_FOCUS)}
+            className={cn("grid min-h-8 w-9 shrink-0 cursor-pointer place-items-center rounded-md border border-paper-ash text-paper-sage hover:text-paper-moss", PAPER_FOCUS)}
           >
             {shown ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
           </button>

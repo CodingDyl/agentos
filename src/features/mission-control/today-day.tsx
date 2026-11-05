@@ -1,8 +1,8 @@
-import { Check, ExternalLink, Play, Video } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, RefreshCw, Video } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { BriefPlan, CalendarEvent } from "@shared/today-types";
-import { DedsecLoader } from "@/components/os";
+import { PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperSection, Tag } from "@/components/paper";
 import { mailConnectUrl } from "@/lib/agentos/client";
 import {
@@ -13,43 +13,45 @@ import {
   useTodayCalendar,
 } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
-import { eventTimings, formatBriefTime, formatEventTime } from "./mission-control-model";
+import { briefSegments, eventTimings, formatBriefTime, formatEventTime } from "./mission-control-model";
 import { TodayLabel, TodayLink } from "./today-kit";
 
 /* ── Morning plan ─────────────────────────────────────────────────────── */
 
-/** Hermes' text with its `backticked` ids set as small code, rather than raw backticks. */
+/** Hermes' text with its file paths and `backticked` ids in mono, and nothing else. */
 function BriefText({ text }: { text: string }) {
-  const parts = text.split(/`([^`]+)`/);
   return (
     <>
-      {parts.map((part, index) =>
-        index % 2 === 1 ? (
-          <code key={index} className="rounded-none bg-paper-stone px-1 py-px font-mono text-[0.85em] text-paper-moss">
-            {part}
+      {briefSegments(text).map((segment, index) =>
+        segment.code ? (
+          <code key={index} className="os-mono [overflow-wrap:anywhere] text-paper-moss">
+            {segment.text}
           </code>
         ) : (
-          part
+          segment.text
         ),
       )}
     </>
   );
 }
 
-/** The plan itself: outcome first, then the three, then the extras. */
+/** The plan: outcome first, then the three. The extras wait behind View full plan. */
 function PlanBody({ plan }: { plan: BriefPlan }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = plan.ifTime.length > 0 || Boolean(plan.avoid);
+
   return (
     <>
       {plan.mainOutcome ? (
-        <p className="font-paper-display text-[19px] leading-[1.35] font-bold tracking-[-0.01em] text-balance text-paper-moss">
+        <p className="text-[14px] leading-[22px] font-medium text-paper-moss">
           <BriefText text={plan.mainOutcome} />
         </p>
       ) : null}
       {plan.top.length > 0 ? (
-        <ol className="mt-4 space-y-2">
+        <ol className="mt-3 space-y-2">
           {plan.top.map((task, index) => (
-            <li key={task} className="flex gap-3 text-[14.5px] leading-6 text-paper-moss">
-              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-paper-stone text-[12px] font-semibold text-paper-char tabular-nums">
+            <li key={task} className="flex gap-3 text-[14px] leading-[22px] text-paper-char">
+              <span aria-hidden="true" className="w-4 shrink-0 text-right text-paper-sage tabular-nums">
                 {index + 1}
               </span>
               <span className="min-w-0">
@@ -59,27 +61,40 @@ function PlanBody({ plan }: { plan: BriefPlan }) {
           ))}
         </ol>
       ) : null}
-      {plan.ifTime.length > 0 || plan.avoid ? (
-        <dl className="mt-4 grid gap-x-8 gap-y-3 border-t border-paper-stone pt-3 sm:grid-cols-2">
-          {plan.ifTime.length > 0 ? (
-            <div className="min-w-0">
-              <dt>
-                <TodayLabel>If there's time</TodayLabel>
-              </dt>
-              <dd className="mt-0.5 text-[13.5px] leading-5 text-paper-char"><BriefText text={plan.ifTime.join(" · ")} /></dd>
-            </div>
+      {hasMore ? (
+        <>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+            className={cn("mt-3 -ml-1.5 inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-1.5 text-[14px] leading-5 text-paper-char transition-colors duration-150 hover:bg-paper-linen hover:text-paper-moss", PAPER_FOCUS)}
+          >
+            {expanded ? "Hide full plan" : "View full plan"}
+            <ChevronDown className={cn("size-3.5 transition-transform duration-150", expanded && "rotate-180")} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          {expanded ? (
+            <dl className="mt-2 space-y-2 border-t border-paper-mist pt-3">
+              {plan.ifTime.length > 0 ? (
+                <div className="min-w-0">
+                  <dt>
+                    <TodayLabel>If there's time</TodayLabel>
+                  </dt>
+                  <dd className="mt-0.5 text-[14px] leading-[22px] text-paper-char"><BriefText text={plan.ifTime.join(" · ")} /></dd>
+                </div>
+              ) : null}
+              {plan.avoid ? (
+                <div className="min-w-0">
+                  <dt>
+                    <TodayLabel>Avoid</TodayLabel>
+                  </dt>
+                  <dd className="mt-0.5 text-[14px] leading-[22px] text-paper-char">
+                    <BriefText text={plan.avoid} />
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
           ) : null}
-          {plan.avoid ? (
-            <div className="min-w-0">
-              <dt>
-                <TodayLabel>Avoid</TodayLabel>
-              </dt>
-              <dd className="mt-0.5 text-[13.5px] leading-5 text-paper-char">
-                <BriefText text={plan.avoid} />
-              </dd>
-            </div>
-          ) : null}
-        </dl>
+        </>
       ) : null}
     </>
   );
@@ -99,33 +114,33 @@ export function MorningPlan({ className }: { className?: string }) {
   const runNow =
     data?.jobId !== undefined ? (
       <PaperButton
-        variant="quiet"
+        variant="ghost"
         disabled={run.isPending || queued}
         onClick={() =>
           run.mutate({ id: data.jobId as string, control: "run" }, { onSuccess: () => setQueued(true) })
         }
       >
-        <Play className="size-3.5" aria-hidden="true" />
-        {queued ? "Hermes is on it" : run.isPending ? "Queuing…" : data.status === "today" ? "Run again" : "Run now"}
+        <RefreshCw className="size-3.5" aria-hidden="true" />
+        {queued ? "Hermes is on it" : run.isPending ? "Queuing…" : run.isError ? "Try again" : data.status === "today" ? "Run again" : "Run now"}
       </PaperButton>
     ) : null;
 
   if (brief.isPending) {
     return (
-      <PaperSection label="This morning's plan" className={className}>
-        <DedsecLoader variant="compact" />
+      <PaperSection label="Morning brief" className={className}>
+        <PageLoader variant="compact" label="Reading Hermes' brief…" />
       </PaperSection>
     );
   }
 
   if (!data || data.status === "no-job") {
     return (
-      <PaperSection label="This morning's plan" className={className}>
-        <p className="max-w-[62ch] text-[14px] leading-6 text-paper-char">
+      <PaperSection label="Morning brief" className={className}>
+        <p className="max-w-[62ch] text-[14px] leading-[22px] text-paper-char">
           {brief.isError
             ? "Hermes' brief couldn't be read."
             : "Hermes has no morning-brief job. A scheduled job running the start-day skill will appear here each morning."}{" "}
-          <Link to="/automations" className={cn("rounded-[2px] font-semibold text-paper-moss underline decoration-paper-gold underline-offset-4", PAPER_FOCUS)}>
+          <Link to="/automations" className={cn("rounded-sm font-medium text-paper-moss underline decoration-paper-gold underline-offset-4", PAPER_FOCUS)}>
             Automations
           </Link>
         </p>
@@ -137,50 +152,54 @@ export function MorningPlan({ className }: { className?: string }) {
 
   return (
     <PaperSection
-      label="This morning's plan"
+      label="Morning brief"
       className={className}
       action={
-        <span className="flex items-center gap-2">
-          {when ? <span className="text-[12.5px] text-paper-sage">Hermes · {when}</span> : null}
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {when ? <span className="os-mono text-paper-sage">Hermes · {when}</span> : null}
           {runNow}
         </span>
       }
     >
-      <div className="rounded-none border border-paper-mist bg-paper-cream px-5 py-4">
-        {queued ? (
-          <p className="mb-3 text-[13px] text-paper-sage" role="status">
-            Queued. The new plan appears here when Hermes finishes, usually within a couple of minutes.
-          </p>
-        ) : null}
+      {queued ? (
+        <p className="mb-3 text-[13px] leading-5 text-paper-sage" role="status">
+          Queued. The new plan appears here when Hermes finishes, usually within a couple of minutes.
+        </p>
+      ) : null}
+      {/* A failed regeneration says so above the plan, which stays. */}
+      {run.isError ? (
+        <p className="mb-3 text-[13px] leading-5 text-paper-flame-deep" role="alert">
+          That run didn't start: {run.error.message}. This is still the last plan Hermes wrote.
+        </p>
+      ) : null}
 
-        {data.status === "none" ? (
-          <p className="text-[14px] text-paper-char">The brief hasn't run yet. Run it now to get today's plan.</p>
-        ) : data.plan ? (
-          <>
-            {data.status === "stale" ? (
-              <p className="mb-3 text-[13px] text-paper-flame-deep">No brief yet today. This is the latest one, from {when}.</p>
-            ) : null}
-            <PlanBody plan={data.plan} />
-          </>
-        ) : (
-          <>
-            <p className="text-[14px] font-semibold text-paper-flame-deep">
-              {data.status === "today" ? "Hermes didn't produce a plan this morning." : `The latest brief (${when}) isn't a plan.`}
+      {data.status === "none" ? (
+        <p className="text-[14px] leading-[22px] text-paper-char">The brief hasn't run yet. Run it now to get today's plan.</p>
+      ) : data.plan ? (
+        <>
+          {data.status === "stale" ? (
+            <p className="mb-3 text-[13px] leading-5 text-paper-marigold">No brief yet today. This is the latest one, from {when}.</p>
+          ) : null}
+          <PlanBody plan={data.plan} />
+        </>
+      ) : (
+        <>
+          <p className="text-[14px] leading-[22px] font-medium text-paper-flame-deep">
+            {data.status === "today" ? "Hermes didn't produce a plan this morning." : `The latest brief (${when}) isn't a plan.`}
+          </p>
+          {data.response ? (
+            <p className="mt-1 line-clamp-3 max-w-[80ch] text-[14px] leading-[22px] text-paper-char">
+              <BriefText text={data.response} />
             </p>
-            {data.response ? (
-              <p className="mt-1 line-clamp-3 max-w-[80ch] text-[13.5px] leading-5 text-paper-char">
-                <BriefText text={data.response} />
-              </p>
-            ) : null}
-            {data.lastPlan ? (
-              <div className="mt-4 border-t border-paper-stone pt-4">
-                <TodayLabel className="mb-2">Latest plan Hermes wrote · {formatBriefTime(data.lastPlan.runAt)}</TodayLabel>
-                <PlanBody plan={data.lastPlan.plan} />
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
+          ) : null}
+          {data.lastPlan ? (
+            <div className="mt-4 border-t border-paper-mist pt-3">
+              <TodayLabel className="mb-2">Latest plan Hermes wrote · {formatBriefTime(data.lastPlan.runAt)}</TodayLabel>
+              <PlanBody plan={data.lastPlan.plan} />
+            </div>
+          ) : null}
+        </>
+      )}
     </PaperSection>
   );
 }
@@ -196,13 +215,13 @@ function EventRow({ event, timing }: { event: CalendarEvent; timing: string | un
   const past = timing === "past";
   return (
     <li className={cn("flex min-w-0 gap-3 px-4 py-2.5", timing === "now" && "bg-paper-cream", past && "opacity-60")}>
-      <span className="w-[5.5rem] shrink-0 pt-px text-[12.5px] text-paper-sage tabular-nums">{formatEventTime(event)}</span>
+      <span className="w-[5.5rem] shrink-0 pt-px text-[13px] text-paper-sage tabular-nums">{formatEventTime(event)}</span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
           <span className="min-w-0 text-[14px] leading-5 font-medium text-paper-moss">{event.title}</span>
           {timing === "now" ? <Tag tone="green">Now</Tag> : timing === "next" ? <Tag>Next</Tag> : null}
         </span>
-        {event.location ? <span className="mt-0.5 block truncate text-[12.5px] text-paper-sage">{event.location}</span> : null}
+        {event.location ? <span className="mt-0.5 block truncate text-[13px] text-paper-sage">{event.location}</span> : null}
       </span>
       {event.meetingUrl && !past ? (
         <a
@@ -210,7 +229,7 @@ function EventRow({ event, timing }: { event: CalendarEvent; timing: string | un
           target="_blank"
           rel="noreferrer"
           className={cn(
-            "inline-flex h-7 shrink-0 items-center gap-1 rounded-none px-2 text-[12.5px] font-semibold text-paper-blue hover:bg-paper-stone",
+            "inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] font-semibold text-paper-blue hover:bg-paper-stone",
             PAPER_FOCUS,
           )}
         >
@@ -223,7 +242,7 @@ function EventRow({ event, timing }: { event: CalendarEvent; timing: string | un
           target="_blank"
           rel="noreferrer"
           aria-label={`Open ${event.title} in Google Calendar`}
-          className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-none text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
+          className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-md text-paper-sage hover:bg-paper-stone hover:text-paper-moss", PAPER_FOCUS)}
         >
           <ExternalLink className="size-3.5" aria-hidden="true" />
         </a>
@@ -241,9 +260,9 @@ export function TodayCalendar({ className }: { className?: string }) {
   return (
     <PaperSection label="Calendar" count={events.length > 0 ? events.length : undefined} className={className}>
       {isPending ? (
-        <DedsecLoader variant="compact" />
+        <PageLoader variant="compact" />
       ) : !data || data.status !== "ready" ? (
-        <div className="rounded-none border border-paper-mist px-4 py-3.5">
+        <div className="rounded-md border border-paper-mist px-4 py-3.5">
           <p className="text-[14px] leading-6 text-paper-char">
             {data?.detail ?? CALENDAR_HELP[data?.status ?? ""] ?? "The calendar couldn't be read."}
           </p>
@@ -251,7 +270,7 @@ export function TodayCalendar({ className }: { className?: string }) {
             <a
               href={mailConnectUrl()}
               className={cn(
-                "mt-3 inline-flex min-h-8 items-center rounded-none border-[1.5px] border-paper-gold px-3 text-[13.5px] font-semibold text-paper-moss hover:bg-paper-linen",
+                "mt-3 inline-flex min-h-8 items-center rounded-md border border-paper-gold px-3 text-[14px] font-semibold text-paper-moss hover:bg-paper-linen",
                 PAPER_FOCUS,
               )}
             >
@@ -262,7 +281,7 @@ export function TodayCalendar({ className }: { className?: string }) {
       ) : events.length === 0 ? (
         <p className="text-[14px] text-paper-char">Nothing on the calendar today. A clear run at the work.</p>
       ) : (
-        <ul className="divide-y divide-paper-stone rounded-none border border-paper-mist">
+        <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
           {events.map((event) => (
             <EventRow key={event.id} event={event} timing={timings.get(event.id)} />
           ))}
@@ -306,12 +325,12 @@ export function DayWrapUp({ className }: { className?: string }) {
 
   return (
     <PaperSection label="Wrap up the day" className={className}>
-      <div className="rounded-none border border-paper-mist">
-        <div className="grid gap-px bg-paper-stone md:grid-cols-2">
-          <div className="bg-paper-white px-5 py-4">
+      <div className="@container">
+        <div className="grid gap-x-6 gap-y-4 @xl:grid-cols-2">
+          <div>
             <TodayLabel>Done today{data && data.done.length > 0 ? ` · ${data.done.length}` : ""}</TodayLabel>
             {wrap.isPending ? (
-              <DedsecLoader variant="compact" className="mt-2" />
+              <PageLoader variant="compact" className="mt-2" label="Reading today's work…" />
             ) : !data || data.done.length === 0 ? (
               <p className="mt-2 text-[14px] leading-6 text-paper-char">
                 Nothing marked done in AgentOS today. Work done elsewhere won't show here; capture it below if it matters.
@@ -323,7 +342,7 @@ export function DayWrapUp({ className }: { className?: string }) {
                     <Check className="mt-1 size-3.5 shrink-0 text-paper-moss" strokeWidth={2.5} aria-hidden="true" />
                     <span className="min-w-0">
                       <span className="block text-[14px] leading-6 text-paper-moss">{item.title}</span>
-                      <span className="block text-[12px] text-paper-sage">
+                      <span className="block text-[13px] text-paper-sage">
                         {DONE_KIND[item.kind]}
                         {item.project ? ` · ${item.project}` : ""}
                       </span>
@@ -334,7 +353,7 @@ export function DayWrapUp({ className }: { className?: string }) {
             )}
           </div>
 
-          <div className="bg-paper-white px-5 py-4">
+          <div>
             <TodayLabel>
               Carrying over{data && data.carryOverTotal > 0 ? ` · ${data.carryOverTotal} open in Now` : ""}
             </TodayLabel>
@@ -346,9 +365,9 @@ export function DayWrapUp({ className }: { className?: string }) {
                   <li key={`${task.projectSlug}:${task.taskId ?? task.title}`} className="min-w-0">
                     <Link
                       to={`/workspaces/${task.projectSlug}?tab=tasks`}
-                      className={cn("block rounded-[2px] text-[14px] leading-6 text-paper-moss hover:underline", PAPER_FOCUS)}
+                      className={cn("block rounded-sm text-[14px] leading-6 text-paper-moss hover:underline", PAPER_FOCUS)}
                     >
-                      {task.taskId ? <span className="mr-1.5 text-[12px] text-paper-sage">{task.taskId}</span> : null}
+                      {task.taskId ? <span className="mr-1.5 text-[13px] text-paper-sage">{task.taskId}</span> : null}
                       {task.title}
                     </Link>
                   </li>
@@ -363,8 +382,8 @@ export function DayWrapUp({ className }: { className?: string }) {
           </div>
         </div>
 
-        <div className="grid gap-px border-t border-paper-stone bg-paper-stone md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-          <div className="bg-paper-white px-5 py-4">
+        <div className="mt-4 grid gap-x-6 gap-y-4 border-t border-paper-mist pt-4 @xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div>
             <TodayLabel>Tomorrow starts with</TodayLabel>
             <p className="mt-2 text-[14px] leading-6 text-paper-moss">
               {tomorrow ? (
@@ -380,7 +399,6 @@ export function DayWrapUp({ className }: { className?: string }) {
           </div>
 
           <form
-            className="bg-paper-white px-5 py-4"
             onSubmit={(event) => {
               event.preventDefault();
               save();
@@ -401,7 +419,7 @@ export function DayWrapUp({ className }: { className?: string }) {
                 {capture.isPending ? "Saving…" : "Capture"}
               </PaperButton>
             </div>
-            <p className="mt-1.5 min-h-4 text-[12.5px] text-paper-sage" aria-live="polite">
+            <p className="mt-1.5 min-h-4 text-[13px] text-paper-sage" aria-live="polite">
               {capture.isError
                 ? "That didn't save. Try again."
                 : saved > 0

@@ -20,13 +20,13 @@ export interface CommandButtonProps
 
 const variantClasses: Record<CommandButtonVariant, string> = {
   primary:
-    "rounded-md border-primary bg-primary text-primary-foreground hover:bg-[var(--color-accent-hover)]",
+    "rounded-md border-primary bg-primary text-primary-foreground hover:bg-[var(--accent-hover)]",
   secondary:
-    "rounded-md border-os-border bg-transparent text-foreground hover:border-os-border-strong hover:bg-os-surface-raised",
+    "rounded-md border-os-border bg-os-surface-raised text-foreground hover:bg-os-surface-active",
   quiet:
     "rounded-md border-transparent bg-transparent text-os-muted hover:bg-os-surface-raised hover:text-foreground",
   danger:
-    "rounded-md border-os-danger/40 bg-os-danger/10 text-os-danger hover:border-os-danger/60 hover:bg-os-danger/15",
+    "rounded-md border-os-danger/50 bg-transparent text-os-danger hover:bg-os-danger/10",
 };
 
 export function CommandButton({
@@ -50,8 +50,7 @@ export function CommandButton({
       aria-busy={loading || undefined}
       variant="outline"
       className={cn(
-        "min-h-10 cursor-pointer gap-2 px-4 font-sans text-[14px] font-medium transition-colors duration-150",
-        "focus-visible:border-os-amber focus-visible:ring-os-amber/35",
+        "min-h-10 cursor-pointer gap-2 px-3.5 font-sans text-[14px] font-medium transition-colors duration-150",
         "disabled:cursor-not-allowed disabled:opacity-45",
         variantClasses[variant],
         className,

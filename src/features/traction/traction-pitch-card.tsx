@@ -36,9 +36,9 @@ export function PitchPackView({ prospect, entry, pack }: { prospect: Prospect; e
   const closed = prospect.stage === "won" || prospect.stage === "lost";
 
   return (
-    <PaperCard className="border-paper-blue p-5" aria-labelledby={`pitch-${prospect.id}`} data-testid="pitch-ready">
+    <PaperCard className="border-paper-ash p-5" aria-labelledby={`pitch-${prospect.id}`} data-testid="pitch-ready">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 id={`pitch-${prospect.id}`} className="flex items-center gap-2.5 font-paper-display text-[17px] font-bold tracking-[-0.01em] text-paper-moss">
+        <h3 id={`pitch-${prospect.id}`} className="flex items-center gap-2.5 text-[16px] font-semibold tracking-[-0.01em] text-paper-moss">
           {pitched ? "Pitched with preview" : "Pitch ready"}
           <Tag tone={pitched ? "muted" : "green"}>{pitched ? `Sent ${new Date(pack.pitchedAt ?? "").toLocaleDateString("en-ZA")}` : "Preview live"}</Tag>
         </h3>
@@ -70,7 +70,7 @@ export function PitchPackView({ prospect, entry, pack }: { prospect: Prospect; e
         <section aria-label="What we found">
           <FieldLabel>What we found</FieldLabel>
           {pack.findings.length > 0 ? (
-            <ul className="list-disc space-y-1 pl-5 text-[13.5px] leading-5 text-paper-char">
+            <ul className="list-disc space-y-1 pl-5 text-[14px] leading-5 text-paper-char">
               {pack.findings.map((finding) => (
                 <li key={finding}>{finding}</li>
               ))}
@@ -78,7 +78,7 @@ export function PitchPackView({ prospect, entry, pack }: { prospect: Prospect; e
           ) : (
             <p className="text-[13px] text-paper-sage">Nothing specific yet. Brief the case in “Get to know them” first.</p>
           )}
-          {pack.leak ? <p className="mt-2 text-[13.5px] leading-5 font-semibold text-paper-flame-deep">{pack.leak}</p> : null}
+          {pack.leak ? <p className="mt-2 text-[14px] leading-5 font-semibold text-paper-flame-deep">{pack.leak}</p> : null}
         </section>
         <PricesAndQuote prospect={prospect} pack={pack} />
       </div>
@@ -94,7 +94,7 @@ export function PitchPackView({ prospect, entry, pack }: { prospect: Prospect; e
         >
           <Check className="size-3.5" aria-hidden="true" /> {pitched ? "Pitch sent" : manual.isPending ? "Saving…" : "Mark pitch sent"}
         </PaperButton>
-        <span className="text-[12.5px] text-paper-sage">
+        <span className="text-[13px] text-paper-sage">
           {draft.isSuccess
             ? "Draft saved in “Write the email” below. Read it, then send it there."
             : pitched
@@ -114,11 +114,11 @@ export function PitchPackView({ prospect, entry, pack }: { prospect: Prospect; e
 function Shot({ label, shot }: { label: string; shot: PitchShot | undefined }) {
   return (
     <figure className="m-0">
-      <figcaption className="mb-1.5 text-[12.5px] font-medium text-paper-char">{label}</figcaption>
+      <figcaption className="mb-1.5 text-[13px] font-medium text-paper-char">{label}</figcaption>
       {shot ? (
         <img src={shot.src} alt={`${label}: ${shot.title}`} loading="lazy" className="aspect-[16/10] w-full border border-paper-mist object-cover object-top" />
       ) : (
-        <div className="flex aspect-[16/10] w-full items-center justify-center border border-dashed border-paper-mist text-[12.5px] text-paper-sage">No screenshot yet</div>
+        <div className="flex aspect-[16/10] w-full items-center justify-center border border-dashed border-paper-mist text-[13px] text-paper-sage">No screenshot yet</div>
       )}
     </figure>
   );
@@ -143,7 +143,7 @@ function PricesAndQuote({ prospect, pack }: { prospect: Prospect; pack: PitchPac
   return (
     <section aria-label="Prices and quote">
       <FieldLabel>Prices</FieldLabel>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[13.5px] leading-5">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[14px] leading-5">
         <dt className="text-paper-sage">Set-up</dt>
         <dd className="text-paper-char">{pack.prices.setup || "None: no upfront cost"}</dd>
         <dt className="text-paper-sage">Monthly</dt>
@@ -162,7 +162,7 @@ function PricesAndQuote({ prospect, pack }: { prospect: Prospect; pack: PitchPac
         </p>
       ) : asking || !priced ? (
         <form aria-labelledby={`${formId}-title`} className="mt-3 space-y-2" onSubmit={submit}>
-          <p id={`${formId}-title`} className="text-[12.5px] text-paper-sage">
+          <p id={`${formId}-title`} className="text-[13px] text-paper-sage">
             {priced ? "Change the prices for the quote." : "Set the prices for the quote. Filled from your company's defaults."}
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -184,10 +184,10 @@ function PricesAndQuote({ prospect, pack }: { prospect: Prospect; pack: PitchPac
           <PaperButton variant="amber" disabled={quote.isPending} onClick={() => quote.mutate({ prospectId: prospect.id, input: {} })}>
             <FileText className="size-3.5" aria-hidden="true" /> {quote.isPending ? "Creating…" : "Create quote"}
           </PaperButton>
-          <span className="text-[12.5px] text-paper-sage">
+          <span className="text-[13px] text-paper-sage">
             {[pack.prices.setupMinor ? `${rand(pack.prices.setupMinor)} set-up` : undefined, pack.prices.monthlyMinor ? `${rand(pack.prices.monthlyMinor)} first month` : undefined].filter(Boolean).join(" + ")}
           </span>
-          <button type="button" className={cn("text-[12.5px] text-paper-blue hover:underline", PAPER_FOCUS)} onClick={() => setAsking(true)}>
+          <button type="button" className={cn("text-[13px] text-paper-blue hover:underline", PAPER_FOCUS)} onClick={() => setAsking(true)}>
             Change prices
           </button>
         </div>
@@ -197,7 +197,7 @@ function PricesAndQuote({ prospect, pack }: { prospect: Prospect; pack: PitchPac
           {quote.error.message}
         </p>
       ) : null}
-      {!existing ? <p className="mt-2 flex items-center gap-1 text-[12px] text-paper-sage"><Mail className="size-3" aria-hidden="true" /> A draft in Business: nothing is issued or sent.</p> : null}
+      {!existing ? <p className="mt-2 flex items-center gap-1 text-[13px] text-paper-sage"><Mail className="size-3" aria-hidden="true" /> A draft in Business: nothing is issued or sent.</p> : null}
     </section>
   );
 }

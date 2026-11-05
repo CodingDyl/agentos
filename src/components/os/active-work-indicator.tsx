@@ -60,16 +60,11 @@ export function ActiveWorkIndicator({ items }: { items: readonly ActiveWorkItem[
         aria-controls={panelId}
         aria-label={`${summary}. Show what is running`}
         className={cn(
-          "os-focus-ring inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-none border px-2.5 font-paper-utility text-[12px] font-medium tracking-[0.08em] uppercase transition-colors duration-150",
-          confident > 0
-            ? "border-os-success/50 bg-os-success/10 text-foreground hover:bg-os-success/20"
-            : "border-os-border text-os-muted hover:bg-os-surface-raised",
+          "os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md bg-os-surface-raised px-2.5 text-[13px] leading-5 font-medium transition-colors duration-150 hover:bg-os-surface-active",
+          confident > 0 ? "text-foreground" : "text-os-muted",
         )}
       >
         <span className="relative flex size-2" aria-hidden="true">
-          {confident > 0 ? (
-            <span className="absolute inline-flex size-full rounded-full bg-os-success opacity-60 motion-safe:animate-ping" />
-          ) : null}
           <span className={cn("relative inline-flex size-2 rounded-full", confident > 0 ? "bg-os-success" : "bg-os-subtle")} />
         </span>
         <span className="tabular-nums">
@@ -81,7 +76,7 @@ export function ActiveWorkIndicator({ items }: { items: readonly ActiveWorkItem[
       {isOpen ? (
         <div
           id={panelId}
-          className="absolute top-full right-0 z-40 mt-2 w-[min(92vw,380px)] border border-os-border bg-os-surface shadow-none"
+          className="absolute top-full right-0 z-40 mt-2 w-[min(92vw,380px)] overflow-hidden rounded-md border border-os-border bg-os-surface-raised shadow-[var(--shadow-overlay)]"
         >
           <p className="os-meta border-b border-os-border px-4 py-2.5 text-os-subtle">Running now</p>
           <ul className="max-h-[60vh] divide-y divide-os-border overflow-y-auto">
@@ -96,7 +91,7 @@ export function ActiveWorkIndicator({ items }: { items: readonly ActiveWorkItem[
             onClick={() => setIsOpen(false)}
             className="os-focus-ring os-meta flex min-h-10 items-center justify-between border-t border-os-border px-4 text-os-muted transition-colors hover:bg-os-surface-raised hover:text-foreground"
           >
-            Open Mission Control
+            Open Dashboard
             <ArrowUpRight className="size-3.5" aria-hidden="true" />
           </Link>
         </div>
@@ -132,12 +127,12 @@ function ActiveWorkLink({ item, onNavigate }: { item: ActiveWorkItem; onNavigate
         aria-hidden="true"
       />
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-paper-utility text-[11.5px] font-medium tracking-[0.08em] text-os-muted uppercase">
+        <span className="block truncate text-[13px] font-medium text-os-muted">
           {item.actor}
           {item.project ? <span className="text-os-subtle normal-case tracking-normal"> · {item.project}</span> : null}
         </span>
-        <span className="mt-0.5 block text-[13.5px] leading-5 text-foreground group-hover:underline">{item.title}</span>
-        <span className="mt-0.5 block text-[12px] text-os-subtle tabular-nums">
+        <span className="mt-0.5 block text-[14px] leading-5 text-foreground group-hover:underline">{item.title}</span>
+        <span className="mt-0.5 block text-[13px] text-os-subtle tabular-nums">
           {item.uncertain
             ? `Started ${elapsed(item.startedAt, now)} ago · unconfirmed${item.lastSeenAt ? ` · last heard ${elapsed(item.lastSeenAt, now)} ago` : ""}`
             : `${item.detail ? `${item.detail} · ` : ""}Running ${elapsed(item.startedAt, now)}`}

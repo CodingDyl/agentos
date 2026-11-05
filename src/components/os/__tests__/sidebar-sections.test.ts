@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  breadcrumbForPath,
   COLLAPSIBLE_SECTIONS,
   expandActiveSection,
   parseCollapsedSections,
@@ -72,5 +73,38 @@ describe("collapsible sidebar sections", () => {
   it("leaves collapsed state alone when the active route is not in a collapsible section", () => {
     const collapsed = new Set<CollapsibleSection>(["business"]);
     assert.equal(expandActiveSection(collapsed, "/", items), collapsed);
+  });
+});
+
+describe("breadcrumbForPath", () => {
+  const items = [
+    { label: "Dashboard", href: "/", section: "primary" },
+    { label: "Inbox", href: "/inbox", section: "primary" },
+    { label: "Business", href: "/business", section: "business" },
+    { label: "Workspaces", href: "/workspaces", section: "work" },
+    { label: "Creative", href: "/designs", section: "work" },
+    { label: "Compass", href: "/compass", section: "footer" },
+  ];
+
+  it("names the page alone when it has no group", () => {
+    assert.deepEqual(breadcrumbForPath("/", items), [{ label: "Dashboard", href: "/" }]);
+    assert.deepEqual(breadcrumbForPath("/compass", items), [{ label: "Compass", href: "/compass" }]);
+  });
+
+  it("leads with the group, without repeating a page named after it", () => {
+    assert.deepEqual(breadcrumbForPath("/workspaces", items), [{ label: "Work" }, { label: "Workspaces", href: "/workspaces" }]);
+    assert.deepEqual(breadcrumbForPath("/business", items), [{ label: "Business", href: "/business" }]);
+  });
+
+  it("carries what is open inside a destination, and ignores the query", () => {
+    assert.deepEqual(breadcrumbForPath("/workspaces/pantry-pilot?tab=tasks", items), [
+      { label: "Work" },
+      { label: "Workspaces", href: "/workspaces" },
+      { label: "pantry-pilot" },
+    ]);
+  });
+
+  it("is never blank on a screen no navigation item claims", () => {
+    assert.deepEqual(breadcrumbForPath("/design-system", items), [{ label: "Design system", href: "/design-system" }]);
   });
 });
