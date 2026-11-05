@@ -88,6 +88,7 @@ describe("publishing a motion pass", () => {
     await assert.rejects(publishMotionPass(run.id, deps({ latestJob: async () => job({ status: "running" }) })), /is running/);
     await assert.rejects(publishMotionPass(run.id, deps({ latestJob: async () => job({ result: { tests: [{ command: "npm run build", success: false }] } } as Partial<WorkerJob>) })), /did not pass npm run build/);
     await assert.rejects(publishMotionPass(run.id, deps({ isAncestor: async () => false })), /not built on the approved site/);
+    await assert.rejects(publishMotionPass(run.id, deps({ latestJob: async () => job({ status: "failed", integratedCommit: MOTION }) })), /check after landing failed/);
     assert.equal(store.readRun(run.id).motionRef, undefined);
   });
 

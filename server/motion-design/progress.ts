@@ -121,13 +121,42 @@ const VERDICT_ROW: ReadonlyArray<[ReviewLogEntry["review"], RegExp]> = [
   ["craft", /^\|\s*craft\s*\|\s*(pass[^|]*)\|/im],
 ];
 
-function parseReviewLog(markdown: string): ReviewLogEntry[] {
+/**
+ * A verdict line such as `- **Design rules: FAIL, then fixed.** Captions...` or
+ * `### Brief: pass, with gaps`. A bare `**Brief.**` note carries no verdict.
+ */
+const VERDICT_LINE = /^\s*(?:[-*]\s+)?(?:\*\*|#{3,}\s+)(brief|design(?: rules)?|craft)\s*:\s*(.+?)(?:\*\*(.*))?$/i;
+const REVIEW_PASSED = /^(?:pass|fail\w*,?\s+(?:then\s+)?fixed)/i;
+
+/**
+ * Each review's latest verdict line, kept only if it passed. Concept rounds are
+ * skipped: what they say about a review is the plan, not a review of the build.
+ */
+function verdictLines(markdown: string): ReviewLogEntry[] {
+  const latest = new Map<ReviewLogEntry["review"], string>();
+  let inConcepts = false;
+  for (const line of markdown.split("\n")) {
+    if (/^##\s/.test(line)) inConcepts = /concept/i.test(line);
+    if (inConcepts) continue;
+    const match = line.match(VERDICT_LINE);
+    if (!match) continue;
+    const name = match[1].toLowerCase();
+    const review = name.startsWith("design") ? "design" : name === "craft" ? "craft" : "brief";
+    latest.set(review, `${match[2].trim()} ${match[3]?.trim() ?? ""}`.trim());
+  }
+  return [...latest].filter(([, verdict]) => REVIEW_PASSED.test(verdict)).map(([review, summary]) => ({ review, summary: summary.slice(0, 2000) }));
+}
+
+export function parseReviewLog(markdown: string): ReviewLogEntry[] {
   const entries: ReviewLogEntry[] = [];
   // Rounds are often headed by number ("Round 2: finish review") with the three
   // verdicts in a table, so a passing row counts as that review being done.
   for (const [review, row] of VERDICT_ROW) {
     const match = markdown.match(row);
     if (match) entries.push({ review, summary: match[1].trim() });
+  }
+  for (const entry of verdictLines(markdown)) {
+    if (!entries.some((existing) => existing.review === entry.review)) entries.push(entry);
   }
   const blocks = markdown.split(/^##\s+/m).slice(1);
   for (const block of blocks) {
@@ -328,6 +357,11 @@ export async function refreshRun(run: MotionRun): Promise<MotionRun> {
     status = "completed";
     step = "progress";
     error = undefined;
+  } else if (job?.status === "completed" || job?.status === "awaiting_review") {
+    // The job recovered, for example by re-running its check after landing, so
+    // an earlier failure no longer stands, even if the reviews are not all ticked.
+    error = undefined;
+    if (status === "failed") status = run.approval || run.codeOnly ? "completed" : "running";
   } else if (job?.status === "failed") {
     status = "failed";
     error = job.error ?? "The Claude Code job failed.";
