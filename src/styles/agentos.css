@@ -217,12 +217,32 @@
 
 @layer base {
   * { @apply border-border; }
-  html { @apply bg-background font-sans text-foreground antialiased; }
+  /*
+   * The window is not a scroller. Long screens scroll inside `.qt-main`.
+   * If the document can move, a trackpad flick past the end of that pane
+   * chains upward and shoves the sidebar, top bar and status bar off the
+   * viewport, leaving empty canvas underneath. Height is the layout
+   * viewport, not `100dvh`, so the shell cannot grow a second scrollbar.
+   */
+  html {
+    @apply bg-background font-sans text-foreground antialiased;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   body {
     margin: 0;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     min-width: 320px;
     font-size: 14px;
     line-height: 22px;
+  }
+  #root {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
   button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
   button, input, select, textarea { font-family: var(--font-ui); }
@@ -275,14 +295,16 @@ main h1[data-heading="compact"] { font-size: 16px; line-height: 24px; font-weigh
  */
 .qt-shell {
   display: grid;
-  height: 100dvh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--topbar-height) minmax(0, 1fr) var(--statusbar-height);
   grid-template-areas: "top" "main" "status";
 }
 .qt-topbar { grid-area: top; min-width: 0; }
-.qt-main { grid-area: main; min-width: 0; min-height: 0; }
+.qt-main { grid-area: main; min-width: 0; min-height: 0; overscroll-behavior: none; }
 .qt-statusbar { grid-area: status; min-width: 0; }
 .qt-sidebar {
   position: fixed;
@@ -293,6 +315,8 @@ main h1[data-heading="compact"] { font-size: 16px; line-height: 24px; font-weigh
   transform: translateX(-100%);
   transition: transform 160ms ease-out, visibility 0s linear 160ms;
 }
+/* The link list is the scroller. A flick past its end must not move the shell. */
+.qt-sidebar nav { overscroll-behavior: none; }
 /* Visible at once when opening: the first link takes focus in the same frame. */
 .qt-sidebar[data-open="true"] {
   visibility: visible;
@@ -310,6 +334,7 @@ main h1[data-heading="compact"] { font-size: 16px; line-height: 24px; font-weigh
     position: static;
     width: auto;
     min-height: 0;
+    overscroll-behavior: none;
     visibility: visible;
     transform: none;
     transition: none;
