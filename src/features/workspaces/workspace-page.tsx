@@ -57,6 +57,7 @@ import { useArchiveProject, useProject, useProjects } from "@/lib/agentos/querie
 import { useFocusSession } from "@/features/learning/focus-session-context";
 import { cn } from "@/lib/utils";
 import { ClientsBlock, WorkspaceOverview } from "./workspace-overview";
+import { StructureTab } from "@/features/structure";
 import { recordRecentWorkspace, sidebarWorkspaces, usePinnedWorkspaces } from "./workspace-preferences";
 
 /**
@@ -79,7 +80,7 @@ type WorkspaceTab = "overview" | WorkspaceModule;
 const TAB_ALIASES: Record<string, WorkspaceTab> = { designs: "creative", milestones: "roadmap" };
 
 /** Tabs drawn with the paper primitives; the rest use the os ones. */
-const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion", "dev", "startup", "ship"]);
+const PAPER_TABS: ReadonlySet<WorkspaceTab> = new Set(["overview", "clients", "database", "rebuild", "site", "motion", "dev", "structure", "startup", "ship"]);
 
 function readTab(value: string | null): WorkspaceTab {
   if (!value) return "overview";
@@ -341,6 +342,8 @@ function WorkspacePanel({
       return <StartupTab workspace={project.slug} />;
     case "dev":
       return <DevServerTab slug={project.slug} />;
+    case "structure":
+      return <StructureTab slug={project.slug} />;
     case "site":
       return <SiteTab slug={project.slug} onOpenSettings={onOpenSettings} />;
     case "ship":

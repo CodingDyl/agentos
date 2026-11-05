@@ -38,6 +38,7 @@ export const WorkspaceModuleSchema = z.enum([
   "site",
   "motion",
   "dev",
+  "structure",
   "startup",
   "ship",
 ]);
@@ -100,6 +101,7 @@ export const WORKSPACE_MODULE_LABELS: Record<WorkspaceModule, string> = {
   site: "Site",
   motion: "Motion Design",
   dev: "Dev server",
+  structure: "Structure",
   startup: "Startup",
   ship: "Ship",
 };
@@ -183,6 +185,11 @@ export function resolveWorkspaceTabs(input: {
     primary.splice(primary.indexOf("repository") + 1, 0, "dev");
   }
 
+  // A local repository can be mapped, so it earns the Structure tab next to them.
+  if (!configured && input.hasRepository && !primary.includes("structure")) {
+    primary.splice(primary.indexOf("dev") + 1, 0, "structure");
+  }
+
   if (!configured && input.hasDatabase && !primary.includes("database")) {
     const at = primary.indexOf("decisions");
     primary.splice(at === -1 ? primary.length : at, 0, "database");
@@ -224,7 +231,7 @@ export function resolveWorkspaceTabs(input: {
 export function parseModuleList(value: string | undefined): WorkspaceModule[] {
   if (!value) return [];
 
-  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site", "motion-design": "motion", "dev-server": "dev", server: "dev", publish: "ship", deploy: "ship" };
+  const aliases: Record<string, WorkspaceModule> = { designs: "creative", milestones: "roadmap", repo: "repository", db: "database", supabase: "database", website: "site", vercel: "site", "motion-design": "motion", "dev-server": "dev", server: "dev", graph: "structure", graphify: "structure", publish: "ship", deploy: "ship" };
   const modules = value
     .split(/[,;]/)
     .map((word) => word.trim().toLowerCase())

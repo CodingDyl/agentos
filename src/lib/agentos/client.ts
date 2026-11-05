@@ -1,5 +1,15 @@
 import { DevServerStateSchema, type DevServerState } from "@shared/dev-server-types";
 import {
+  StructureNodeDetailSchema,
+  StructureSearchResultsSchema,
+  StructureStateSchema,
+  StructureSubsystemDetailSchema,
+  type StructureNodeDetail,
+  type StructureSearchResults,
+  type StructureState,
+  type StructureSubsystemDetail,
+} from "@shared/structure-types";
+import {
   GrokBotStatusSchema,
   GrokBotTestResultSchema,
   type GrokBotStatus,
@@ -959,6 +969,34 @@ export function getDevServer(slug: string): Promise<DevServerState> {
 /** Starts, stops or restarts the project's own dev server. Local only. */
 export function actOnDevServer(slug: string, action: "start" | "stop" | "restart"): Promise<DevServerState> {
   return workerRequest(`/api/projects/${encodeURIComponent(slug)}/dev-server/${action}`, { method: "POST" }, (value) => DevServerStateSchema.safeParse(value));
+}
+
+const structurePath = (slug: string) => `/api/projects/${encodeURIComponent(slug)}/structure`;
+
+/** The project's components and how they interact, from its Graphify map. Local only. */
+export function getStructure(slug: string): Promise<StructureState> {
+  return readVault(structurePath(slug), (value) => StructureStateSchema.safeParse(value));
+}
+
+export function getStructureSubsystem(slug: string, id: number): Promise<StructureSubsystemDetail> {
+  return readVault(`${structurePath(slug)}/subsystems/${id}`, (value) => StructureSubsystemDetailSchema.safeParse(value), "That subsystem is not in this map. It may have changed in the last rebuild.");
+}
+
+export function getStructureNode(slug: string, id: string): Promise<StructureNodeDetail> {
+  return readVault(`${structurePath(slug)}/nodes/${encodeURIComponent(id)}`, (value) => StructureNodeDetailSchema.safeParse(value), "That component is not in this map. It may have changed in the last rebuild.");
+}
+
+export function searchStructure(slug: string, query: string): Promise<StructureSearchResults> {
+  return readVault(`${structurePath(slug)}/search?q=${encodeURIComponent(query)}`, (value) => StructureSearchResultsSchema.safeParse(value));
+}
+
+/** Re-maps the repository's code on this machine. Never calls an AI model. */
+export function rebuildStructure(slug: string, force = false): Promise<StructureState> {
+  return workerRequest(
+    `${structurePath(slug)}/rebuild`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(force ? { force } : {}) },
+    (value) => StructureStateSchema.safeParse(value),
+  );
 }
 
 async function workerRequest<T>(
