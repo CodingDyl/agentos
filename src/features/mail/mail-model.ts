@@ -221,3 +221,34 @@ export function lowPriorityCountdown(thread: MailThread, now: Date = new Date())
   if (hoursLeft <= 1) return "TRASH WITHIN THE HOUR";
   return `TRASH IN ${Math.ceil(hoursLeft)}H`;
 }
+
+export type MailAccountFilter = "all" | "gmail" | "titan";
+
+/**
+ * The account filter in force. The control only exists while the Virtara
+ * mailbox is linked, so without it a stored choice must not keep filtering:
+ * there would be no way to change it.
+ */
+export function activeAccountFilter(chosen: MailAccountFilter, titanLinked: boolean): MailAccountFilter {
+  return titanLinked ? chosen : "all";
+}
+
+/**
+ * Reports a Done or Delete that didn't happen, for a row already hidden.
+ * Takes the call's own promise, so overlapping calls each report their result.
+ */
+export function watchThreadLeaving(
+  call: Promise<unknown>,
+  action: "archive" | "trash",
+  onRefused: (message: string) => void,
+): Promise<void> {
+  const verb = action === "archive" ? "archive" : "move to Trash";
+  return call.then(
+    (result) => {
+      if (result && typeof result === "object" && "failed" in result && Number(result.failed) > 0) {
+        onRefused(`Gmail wouldn't ${verb} that thread. It's back in the list.`);
+      }
+    },
+    (failure: unknown) => onRefused(failure instanceof Error ? failure.message : `Couldn't ${verb} that thread.`),
+  );
+}

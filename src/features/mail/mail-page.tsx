@@ -18,10 +18,12 @@ import { MailAccountsPanel } from "./mail-accounts-panel";
 import type { ThreadRowActions } from "./thread-row";
 import { useMailTriage } from "./use-mail-triage";
 import {
+  activeAccountFilter,
   flattenMail,
   matchesStatus,
   paginateMail,
   statusCounts,
+  type MailAccountFilter,
   type MailBucketTone,
   type MailStatusFilter,
 } from "./mail-model";
@@ -63,7 +65,10 @@ const FILTER_EMPTY: Record<Exclude<MailStatusFilter, "all">, string> = {
   unsorted: "Jev has sorted everything.",
 };
 
-type MailAccountFilter = "all" | "gmail" | "titan";
+const ACCOUNT_LABEL: Record<Exclude<MailAccountFilter, "all">, string> = {
+  gmail: "Gmail",
+  titan: "Virtara",
+};
 
 export function MailPage() {
   const navigationItems = useNavigationItems();
@@ -78,12 +83,15 @@ export function MailPage() {
   const titanLinked = accounts.some((account) => account.id === "titan" && account.connected);
   // Either mailbox makes the Inbox usable: Gmail, or the Virtara mailbox on its own.
   const anyConnected = connected || titanLinked;
-  const [accountFilter, setAccountFilter] = useState<MailAccountFilter>("all");
+  const [chosenAccount, setChosenAccount] = useState<MailAccountFilter>("all");
+  const accountFilter = activeAccountFilter(chosenAccount, titanLinked);
   const [showAccounts, setShowAccounts] = useState(false);
 
   const [filter, setFilter] = useState<MailStatusFilter>("all");
   const [view, setView] = useState<"inbox" | "outbox">("inbox");
   const [composer, setComposer] = useState<ComposerTarget | undefined>();
+  // Bumped on every open, so replacing an email always starts a clean composer.
+  const [composerOpens, setComposerOpens] = useState(0);
   const [notice, setNotice] = useState<string | undefined>();
   const [page, setPage] = useState(1);
   const listTop = useRef<HTMLDivElement>(null);
@@ -99,6 +107,7 @@ export function MailPage() {
     if (composer && !window.confirm("Replace the email you are writing? It has not been sent or saved.")) return;
     setNotice(undefined);
     setComposer(target);
+    setComposerOpens((opens) => opens + 1);
   };
 
   // `gmail.modify` covers sending; a read-only grant from before it cannot. The Virtara mailbox can always send.
@@ -144,7 +153,7 @@ export function MailPage() {
   }, [rows, filter]);
 
   const changeAccount = (value: MailAccountFilter) => {
-    setAccountFilter(value);
+    setChosenAccount(value);
     setPage(1);
   };
 
@@ -276,7 +285,7 @@ export function MailPage() {
               <MailOutbox onNotice={setNotice} />
             ) : mail.isPending ? (
               <PageLoader variant="compact" />
-            ) : !mail.data || totalThreads === 0 ? (
+            ) : !mail.data || (totalThreads === 0 && accountFilter === "all") ? (
               <MailEmptyState
                 title="No mail synced yet"
                 description={
@@ -329,7 +338,14 @@ export function MailPage() {
                     </button>
                   </p>
                 ) : null}
-                {current.total === 0 && filter !== "all" ? (
+                {totalThreads === 0 && accountFilter !== "all" ? (
+                  <p className="mail-filter-empty">
+                    No {ACCOUNT_LABEL[accountFilter]} mail from the last {MAIL_MAX_AGE_DAYS} days.{" "}
+                    <button type="button" className="mail-link-btn" onClick={() => changeAccount("all")}>
+                      Show all accounts
+                    </button>
+                  </p>
+                ) : current.total === 0 && filter !== "all" ? (
                   <p className="mail-filter-empty">
                     {FILTER_EMPTY[filter]}{" "}
                     <button type="button" className="mail-link-btn" onClick={() => changeFilter("all")}>
@@ -372,7 +388,7 @@ export function MailPage() {
       </div>
       {composer ? (
         <MailComposer
-          key={composer.kind === "reply" ? composer.threadId : "new"}
+          key={composerOpens}
           target={composer}
           onClose={() => setComposer(undefined)}
           onDone={setNotice}

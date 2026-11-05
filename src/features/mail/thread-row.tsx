@@ -82,6 +82,15 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
     }
   };
 
+  // Reading an open email: a click or a text selection in it must not close it.
+  // A selection dragged out of the body lands its click on the row, so check for that too.
+  const onRowClick = (event: React.MouseEvent) => {
+    if (event.target instanceof Element && event.target.closest(".mail-thread-expanded-body")) return;
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) return;
+    toggle();
+  };
+
   const quick = (run: () => void) => (event: React.MouseEvent) => {
     event.stopPropagation();
     run();
@@ -96,7 +105,7 @@ export function ThreadRow({ thread, tone, canModify, canReprofile, actions }: Th
       className={`mail-thread mail-thread--${tone}${thread.unread ? " mail-thread--unread" : ""}`}
       data-thread-id={thread.threadId}
       data-unread={thread.unread}
-      onClick={toggle}
+      onClick={onRowClick}
     >
       <div className="mail-thread-avatar" aria-hidden="true">
         {threadInitial(thread)}
