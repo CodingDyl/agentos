@@ -37,3 +37,6 @@ dist-ssr
 # Playwright output
 test-results
 playwright-report
+
+# Graphify's map of this repository, rebuilt from the Structure tab
+graphify-out/

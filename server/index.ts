@@ -113,6 +113,7 @@ import { reconcileOperatorRuns } from "./operator/service";
 import { coderRouter, handleTerminalWebSocket } from "./coder/routes";
 import { killAllTerminals } from "./coder/pty-manager";
 import { devServerRouter } from "./dev-server/routes";
+import { structureRouter } from "./structure/routes";
 import { devServers } from "./dev-server/manager";
 import { shipRouter } from "./ship/routes";
 import { startMonthlyReviewSchedule } from "./finance/monthly-review";
@@ -433,6 +434,7 @@ app.use("/api/delivery", deliveryRouter);
 app.use("/api/site-requests", siteRequestRouter);
 /** A workspace's Dev tab: run the project's own dev server from inside AgentOS. */
 app.use("/api/projects/:slug/dev-server", devServerRouter);
+app.use("/api/projects/:slug/structure", structureRouter);
 /** A workspace's Ship tab: git, the dev server, deploys and a change list for coding agents. Its dev servers are the ones above. */
 app.use("/api/projects/:slug/ship", shipRouter);
 app.use("/api/skills", skillsRouter);
