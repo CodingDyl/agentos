@@ -77,6 +77,17 @@ describe("what Claude is permitted to do", () => {
     ]);
   });
 
+  it("takes writing away from a report-only job, and denies it outright", () => {
+    const report = { ...job(), reportOnly: true };
+    const tools = allowedTools(report);
+    assert.ok(tools.includes("Read"));
+    assert.ok(!tools.includes("Edit"));
+    assert.ok(!tools.includes("Write"));
+    assert.ok(deniedTools(report).includes("Edit"));
+    assert.ok(deniedTools(report).includes("NotebookEdit"));
+    assert.ok(!deniedTools(job()).includes("Edit"));
+  });
+
   it("gives a job with no validation commands only the base tools", () => {
     const tools = allowedTools(job());
 

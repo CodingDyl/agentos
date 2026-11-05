@@ -65,6 +65,7 @@ export function DelegateJobForm({
 
   const [objective, setObjective] = useState("");
   const [skillId, setSkillId] = useState("");
+  const [reportOnly, setReportOnly] = useState(false);
   const skills = useSkills();
   // Bundled skills drive their own AgentOS flows (the website rebuild); the
   // ones offered here are the person's own, for any job.
@@ -213,6 +214,7 @@ export function DelegateJobForm({
         project,
         objective: objective.trim(),
         skillId: chosenSkill?.id,
+        reportOnly: reportOnly || undefined,
         repoPath: repoPath.trim() || undefined,
         visualAcceptance: visualAcceptance?.enabled ? visualAcceptance : undefined,
       },
@@ -235,6 +237,7 @@ export function DelegateJobForm({
         project,
         objective: objective.trim(),
         skillId: chosenSkill?.id,
+        reportOnly: reportOnly || undefined,
         repoPath: repoPath.trim() || undefined,
         // Sent only when it was actually turned on: an unenabled contract is a
         // question the operator answered no to, not a setting to carry along.
@@ -302,6 +305,21 @@ export function DelegateJobForm({
               : jobSkills.length === 0
                 ? "Add your own skills in Connectors → Skills."
                 : "The worker follows the skill's instructions alongside the objective."}
+          </span>
+        </label>
+
+        <label className="mt-6 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={reportOnly}
+            onChange={(event) => setReportOnly(event.target.checked)}
+            className="os-focus-ring mt-0.5 size-4 shrink-0 cursor-pointer accent-[var(--paper-blue)]"
+          />
+          <span>
+            <span className="block text-[14px] text-foreground">Report only</span>
+            <span className="os-meta mt-1 block text-os-subtle">
+              For audits and reviews. The worker reads and reports, the reply is the result, and the job fails if it changes files.
+            </span>
           </span>
         </label>
 

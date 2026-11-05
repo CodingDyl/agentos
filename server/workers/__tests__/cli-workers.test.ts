@@ -22,6 +22,13 @@ describe("the CLI worker brief", () => {
 });
 
 describe("Claude Code", () => {
+  it("denies writing on a report-only job and not otherwise", () => {
+    const denied = (args: string[]) => args.slice(args.indexOf("--disallowedTools"));
+    assert.ok(denied(claudeCodeArgs({ prompt: "go", reportOnly: true })).includes("Edit"));
+    assert.ok(denied(claudeCodeArgs({ prompt: "go", reportOnly: true })).includes("Write"));
+    assert.ok(!denied(claudeCodeArgs({ prompt: "go" })).includes("Edit"));
+  });
+
   it("runs on the operator's plan, with the job's refusals, and never bare", () => {
     const args = claudeCodeArgs({ prompt: "go", model: "sonnet" });
 
@@ -127,6 +134,8 @@ describe("Codex", () => {
     const args = codexArgs({ cwd: "/tmp/wt", prompt: "go", lastMessage: "/tmp/last" });
     assert.equal(args[0], "exec");
     assert.equal(args[args.indexOf("--sandbox") + 1], "workspace-write");
+    const report = codexArgs({ cwd: "/tmp/wt", prompt: "go", lastMessage: "/tmp/last", reportOnly: true });
+    assert.equal(report[report.indexOf("--sandbox") + 1], "read-only");
     // `codex exec` (0.156+) rejects `--ask-for-approval`; unattended approval
     // is a config override instead. Sandbox and writable-roots stay as they were.
     assert.ok(!args.includes("--ask-for-approval"));

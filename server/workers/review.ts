@@ -806,6 +806,7 @@ async function isAncestor(repoPath: string, ancestor: string | undefined, commit
  */
 function isTextResult(job: WorkerJob): boolean {
   // A file-bridge reply is text too: Grok Bot hands back an answer, not a checkout.
+  if (job.reportOnly && job.result) return true;
   return !job.worktreePath && (Boolean(job.routing?.policy) || Boolean(job.bridge)) && Boolean(job.result);
 }
 
@@ -823,8 +824,10 @@ export function textResultApprovable(job: WorkerJob): { ok: true } | { ok: false
   }
   const last = job.attempts?.at(-1);
   const importedBridgeAnswer = !last && Boolean(job.bridge?.importedAt);
+  // A report-only job that fails never reaches review, and an unrouted one records no attempts.
+  const unroutedReport = !last && Boolean(job.reportOnly);
 
-  if (!importedBridgeAnswer && (last?.outcome !== "succeeded" || last.validation?.passed === false)) {
+  if (!importedBridgeAnswer && !unroutedReport && (last?.outcome !== "succeeded" || last.validation?.passed === false)) {
     return { ok: false, error: "The last attempt did not produce a validated result, so there is nothing to approve." };
   }
   return { ok: true };
@@ -862,6 +865,9 @@ async function approveTextResult(job: WorkerJob): Promise<ActionResult> {
 
   const now = new Date().toISOString();
   const completed = await update(job, { status: "completed", approvedAt: now, completedAt: now });
+
+  // A report ran in an isolated checkout it was not meant to change. Nothing in it is worth keeping.
+  if (job.worktreePath && job.sourceRepoPath) await removeWorktree(job.sourceRepoPath, job.id);
 
   await record(job.id, "job.approved", "Approved by the operator (text result, read by a person)");
   await record(job.id, "job.completed", "Completed. No checkout to integrate.");

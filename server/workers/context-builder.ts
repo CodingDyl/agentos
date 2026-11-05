@@ -130,6 +130,9 @@ export function buildContextPacket(job: WorkerJob): string {
     "JOB",
     section("\nProject:", job.project),
     section("\nObjective:", job.objective),
+    job.reportOnly
+      ? section("\nReport only:", "Your final reply is the deliverable. Read and report. Do not create, edit or delete any file: a job that changes files fails.")
+      : undefined,
     section("\nDesired outcome:", job.desiredOutcome),
     section("\nScope:", job.scope),
     section("\nReference links:", list(job.referenceLinks)),

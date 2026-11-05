@@ -2385,6 +2385,7 @@ app.post("/api/worker-jobs", async (request, response) => {
       objective: String(body.objective),
       // Checked and copied by startJob: a disabled or unknown skill refuses the job.
       skillId: typeof body.skillId === "string" && body.skillId.trim() ? body.skillId.trim() : undefined,
+      reportOnly: body.reportOnly === true ? true : undefined,
       repoPath: body.repoPath,
       baseRef: body.baseRef,
       contextFiles: body.contextFiles,

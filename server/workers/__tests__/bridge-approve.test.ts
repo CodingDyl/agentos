@@ -44,6 +44,28 @@ function bridgeJob(overrides: Partial<WorkerJob> = {}): WorkerJob {
   } as WorkerJob;
 }
 
+describe("approving a report-only job", () => {
+  const report = (overrides: Partial<WorkerJob> = {}) => bridgeJob({ bridge: undefined, worker: "claude-code", reportOnly: true, attempts: undefined, ...overrides });
+
+  it("completes by being read, with nothing to land", async () => {
+    const job = report();
+    await saveJob(job);
+    const result = await approveJob(job.id);
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal((await readJob(job.id))?.status, "completed");
+  });
+
+  it("refuses an empty report", () => {
+    assert.equal(textResultApprovable(report({ result: { summary: "  ", changedFiles: [] } })).ok, false);
+  });
+
+  it("keeps normal jobs off this path", async () => {
+    const job = report({ reportOnly: undefined });
+    await saveJob(job);
+    assert.equal((await approveJob(job.id)).ok, false);
+  });
+});
+
 describe("approving a Grok Bot text result", () => {
   it("approves an imported answer whose job has no attempts recorded (attempts: undefined)", async () => {
     const job = bridgeJob({ attempts: undefined });

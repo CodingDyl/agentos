@@ -97,6 +97,7 @@ export function claudeCodeArgs(input: {
   writableRoots?: string[];
   /** Folders the job may read but never change: added, then denied to Edit and Write. */
   readOnlyRoots?: string[];
+  reportOnly?: boolean;
 }): string[] {
   const mcp = mcpArgs(input.mcpServers);
   const readOnly = input.readOnlyRoots ?? [];
@@ -125,6 +126,7 @@ export function claudeCodeArgs(input: {
     ...mcp.tools,
     "--disallowedTools",
     ...CLAUDE_DENIED,
+    ...(input.reportOnly ? ["Edit", "Write", "NotebookEdit"] : []),
     // `//` marks an absolute path in a Claude Code permission rule.
     ...readOnly.flatMap((root) => [`Edit(/${root}/**)`, `Write(/${root}/**)`, `NotebookEdit(/${root}/**)`]),
   ];
@@ -213,6 +215,7 @@ export const claudeCodeWorker = createCliWorker({
       mcpServers: job.claudeMcpServers,
       writableRoots,
       readOnlyRoots: job.claudeReadOnlyRoots,
+      reportOnly: job.reportOnly,
     }),
   env: (base) => {
     // Without these removed, Claude Code would bill the API key AgentOS holds
@@ -243,6 +246,7 @@ export function codexArgs(input: {
   model?: string;
   lastMessage: string;
   writableRoots?: string[];
+  reportOnly?: boolean;
 }): string[] {
   return [
     "exec",
@@ -250,7 +254,7 @@ export function codexArgs(input: {
     // Writes confined to the worktree, network off: Codex's own sandbox.
     // Git metadata lives outside the worktree; extra writable roots cover it.
     "--sandbox",
-    "workspace-write",
+    input.reportOnly ? "read-only" : "workspace-write",
     "--cd",
     input.cwd,
     "--skip-git-repo-check",
@@ -347,8 +351,8 @@ export const codexWorker = createCliWorker({
     (await exists(path.join(os.homedir(), ".codex", "auth.json")))
       ? { ok: true }
       : { ok: false, reason: "Codex is not signed in. Run `codex login`." },
-  args: ({ cwd, prompt, model, files, writableRoots }) =>
-    codexArgs({ cwd, prompt, model, lastMessage: files.lastMessage, writableRoots }),
+  args: ({ cwd, prompt, model, files, writableRoots, job }) =>
+    codexArgs({ cwd, prompt, model, lastMessage: files.lastMessage, writableRoots, reportOnly: job.reportOnly }),
   reader: ({ model }) => codexReader(model),
 });
 
