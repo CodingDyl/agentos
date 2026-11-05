@@ -61,6 +61,7 @@ async function viewOf(run: MotionRun): Promise<MotionRunView> {
           id: job.id,
           status: job.status,
           error: job.error,
+          integratedCommit: job.integratedCommit,
           summary: job.result?.summary,
           href: `/workers/jobs/${job.id}`,
         }
