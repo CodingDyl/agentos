@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { AlertTriangle, ExternalLink, Lock, ShieldAlert } from "lucide-react";
-import type { MarketplaceCandidate, MarketplacePreview } from "@shared/skill-types";
+import type { MarketplacePreview } from "@shared/skill-types";
 import { FieldLabel, PAPER_INPUT, PaperButton, Tag } from "@/components/paper";
 import { useInstallMarketplaceSkills, usePreviewMarketplaceRepo } from "@/lib/agentos/skills";
 import { cn } from "@/lib/utils";
+import { filterSkills, initialPicks, installable, isLargeRepo, MAX_SKILLS_PER_INSTALL } from "./marketplace-picks";
 
 /**
  * Installing skills from a GitHub repo, in two steps: paste `owner/repo` and
@@ -20,7 +21,7 @@ export function MarketplaceInstall({ onDone, onCancel }: { onDone: (message: str
     event.preventDefault();
     install.reset();
     preview.mutate(repo, {
-      onSuccess: (result) => setPicked(result.skills.filter(installable).map((skill) => skill.id)),
+      onSuccess: (result) => setPicked(initialPicks(result.skills)),
     });
   };
 
@@ -67,9 +68,11 @@ export function MarketplaceInstall({ onDone, onCancel }: { onDone: (message: str
 
       {result ? (
         <Review
+          key={`${result.repo}@${result.commit}`}
           preview={result}
           picked={picked}
           onToggle={(id) => setPicked((current) => (current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]))}
+          onClear={() => setPicked([])}
           installing={install.isPending}
           error={install.error?.message}
           onInstall={() =>
@@ -89,12 +92,11 @@ export function MarketplaceInstall({ onDone, onCancel }: { onDone: (message: str
   );
 }
 
-const installable = (skill: MarketplaceCandidate) => skill.errors.length === 0 && !skill.conflict;
-
 function Review({
   preview,
   picked,
   onToggle,
+  onClear,
   installing,
   error,
   onInstall,
@@ -102,12 +104,17 @@ function Review({
   preview: MarketplacePreview;
   picked: string[];
   onToggle: (id: string) => void;
+  onClear: () => void;
   installing: boolean;
   error?: string;
   onInstall: () => void;
 }) {
   const updating = preview.skills.filter((skill) => skill.installed && picked.includes(skill.id)).length;
   const count = picked.length;
+  const large = isLargeRepo(preview.skills);
+  const overLimit = count > MAX_SKILLS_PER_INSTALL;
+  const [filter, setFilter] = useState("");
+  const shown = filterSkills(preview.skills, filter);
 
   return (
     <section aria-label={`Review ${preview.repo}`} className="grid gap-4 border-t border-paper-mist pt-4">
@@ -133,8 +140,48 @@ function Review({
         {preview.marketplace ? <span className="text-paper-sage">Marketplace: {preview.marketplace}</span> : null}
       </p>
 
-      <ul className="grid gap-2">
-        {preview.skills.map((skill) => {
+      {large ? (
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <div className="min-w-[16rem] max-w-[28rem] flex-1">
+              <label htmlFor="marketplace-filter">
+                <FieldLabel>Filter {preview.skills.length} skills</FieldLabel>
+              </label>
+              <input
+                id="marketplace-filter"
+                type="search"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                placeholder="Name or description"
+                autoComplete="off"
+                spellCheck={false}
+                className={cn(PAPER_INPUT, "w-full")}
+              />
+            </div>
+            <PaperButton type="button" variant="quiet" disabled={count === 0} onClick={onClear}>
+              Select none
+            </PaperButton>
+          </div>
+          <p aria-live="polite" className="max-w-[80ch] text-[13px] leading-5 text-paper-char">
+            {count === 0 ? (
+              `Nothing ticked. Up to ${MAX_SKILLS_PER_INSTALL} skills can install at once.`
+            ) : (
+              <>
+                <span className="font-medium">{count} ticked:</span> {picked.join(" · ")}
+              </>
+            )}
+          </p>
+        </div>
+      ) : null}
+
+      {shown.length === 0 ? <p className="text-[13px] text-paper-sage">No skills match that filter.</p> : null}
+
+      <ul
+        tabIndex={large ? 0 : undefined}
+        aria-label={large ? `Skills in ${preview.repo}` : undefined}
+        className={cn("grid gap-2", large && "max-h-[32rem] overflow-y-auto border border-paper-mist p-2")}
+      >
+        {shown.map((skill) => {
           const ok = installable(skill);
           const checked = picked.includes(skill.id);
           return (
@@ -163,7 +210,7 @@ function Review({
               </label>
               {skill.conflict || skill.errors.length > 0 ? (
                 <ul role="alert" className="mt-2 grid gap-1 pl-7 text-[13px] text-paper-flame-deep">
-                  {[...(skill.conflict ? [skill.conflict] : []), ...skill.errors].map((problem) => (
+                  {[...new Set([...(skill.conflict ? [skill.conflict] : []), ...skill.errors])].map((problem) => (
                     <li key={problem} className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                       {problem}
@@ -197,8 +244,14 @@ function Review({
         </p>
       ) : null}
 
+      {overLimit ? (
+        <p role="alert" className="text-[13px] text-paper-flame-deep">
+          {count} skills are ticked. Untick {count - MAX_SKILLS_PER_INSTALL} to install, because one install takes up to {MAX_SKILLS_PER_INSTALL}.
+        </p>
+      ) : null}
+
       <div>
-        <PaperButton type="button" variant="amber" disabled={count === 0 || installing} onClick={onInstall}>
+        <PaperButton type="button" variant="amber" disabled={count === 0 || overLimit || installing} onClick={onInstall}>
           {installing
             ? "Installing…"
             : count === 0
