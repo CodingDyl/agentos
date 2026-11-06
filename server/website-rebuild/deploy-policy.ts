@@ -6,7 +6,8 @@ import { githubRateLimitMessage, isRateLimitText } from "./github-rate-limit";
  * Git-push to the `preview` branch is the one trigger: Vercel's Git
  * integration builds it. An explicit create-deployment call on top of that
  * clones the same commit a second time and is how GitHub's secondary rate
- * limit gets hit. Production is never the target of the preview branch.
+ * limit gets hit, so it happens only when the push gave no preview: a new
+ * project's first deployment, which Vercel always makes production.
  */
 
 export const PREVIEW_BRANCH = "preview";
@@ -40,44 +41,41 @@ function deployRank(state: string): number {
   return 1;
 }
 
+const isProduction = (deployment: CommitDeployment) => deployment.target === "production";
+
 /**
- * The deployment of this commit to treat as the preview: a READY one of any
- * target first (a later API deploy, or production, still counts), then one
- * still building, then an ERROR. Listing order is kept for equal rank, so
- * the newest READY wins when Vercel returns newest-first.
+ * The deployment of this commit to treat as the preview: a READY one first,
+ * then one still building, then a failed one. Listing order is kept for equal
+ * rank, so the newest wins when Vercel returns newest-first. A production
+ * deployment never counts: the site reads VERCEL_ENV, so it hides the demo
+ * features the checks look for.
  */
 export function pickCommitDeployment<T extends CommitDeployment>(deployments: readonly T[], commit: string): T | undefined {
-  const ofCommit = deployments.filter((deployment) => commitShaMatches(deployment.sha, commit) && deployment.state !== "CANCELED");
+  const ofCommit = deployments.filter((deployment) => commitShaMatches(deployment.sha, commit) && deployment.state !== "CANCELED" && !isProduction(deployment));
   return [...ofCommit].sort((left, right) => deployRank(left.state) - deployRank(right.state))[0];
 }
 
+/**
+ * What to do next. Vercel makes a new project's first deployment production,
+ * whichever branch it came from, so a push to `preview` on a new project gives
+ * no preview at all. Only then does AgentOS ask for one itself.
+ */
 export function nextPreviewDeployStep<T extends CommitDeployment>(input: {
   gitPushTriggered: boolean;
   deployments: readonly T[];
   commit: string;
 }): { step: PreviewDeployStep; deployment?: T; message?: string } {
   const chosen = pickCommitDeployment(input.deployments, input.commit);
-  if (chosen && chosen.state !== "ERROR") return { step: "use-existing", deployment: chosen };
+  if (chosen) return { step: "use-existing", deployment: chosen };
 
-  if (chosen?.state === "ERROR" && chosen.target === "production") {
-    const preview = input.deployments.find(
-      (deployment) => commitShaMatches(deployment.sha, input.commit) && deployment.target !== "production" && deployment.state !== "CANCELED",
-    );
-    if (!preview) {
-      return {
-        step: "blocked",
-        deployment: chosen,
-        message: isRateLimitText(chosen.errorMessage ?? "")
-          ? githubRateLimitMessage()
-          : `Vercel deployed the ${PREVIEW_BRANCH} branch as production instead of a preview. AgentOS did not start a second deploy: that would hit GitHub's rate limit again. Set the project's production branch to ${PRODUCTION_BRANCH} in Vercel, then retry.`,
-      };
-    }
+  const production = input.deployments.find((deployment) => commitShaMatches(deployment.sha, input.commit) && deployment.state !== "CANCELED" && isProduction(deployment));
+  if (production) {
+    return isRateLimitText(production.errorMessage ?? "")
+      ? { step: "blocked", deployment: production, message: githubRateLimitMessage() }
+      : { step: "request-preview", deployment: production };
   }
 
-  if (chosen?.state === "ERROR") return { step: "use-existing", deployment: chosen };
-
-  if (input.gitPushTriggered) return { step: "wait" };
-  return { step: "request-preview" };
+  return { step: input.gitPushTriggered ? "wait" : "request-preview" };
 }
 
 export function previewDeploymentBody(

@@ -174,22 +174,29 @@ describe("single preview deploy trigger", () => {
     assert.ok(DEPLOY_POLL_MS >= 60_000);
   });
 
-  it("prefers a READY deployment of the SHA over an earlier ERROR, including production", () => {
-    const ready = { id: "dpl_ready", sha: commit, target: "production" as const, state: "READY" };
+  it("prefers a READY preview of the SHA over an earlier ERROR", () => {
+    const ready = { id: "dpl_ready", sha: commit, target: null as string | null, state: "READY" };
     const failed = { id: "dpl_err", sha: commit, target: null as string | null, state: "ERROR", errorMessage: "GitHub fetch error 403 secondary rate limit" };
-    const picked = pickCommitDeployment([failed, ready], commit);
-    assert.equal(picked?.id, "dpl_ready");
+    assert.equal(pickCommitDeployment([failed, ready], commit)?.id, "dpl_ready");
 
     const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: [failed, ready], commit });
     assert.equal(next.step, "use-existing");
     assert.equal(next.deployment?.id, "dpl_ready");
   });
 
-  it("treats a READY production deploy of the SHA as success instead of blocking", () => {
-    const readyProd = { id: "dpl_4Rt2WSrRSH12t3UviybLYSKG52TD", sha: commit, target: "production" as const, state: "READY" };
-    const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: [readyProd], commit });
-    assert.equal(next.step, "use-existing");
-    assert.equal(next.deployment, readyProd);
+  it("never treats a production build as the preview, even a newer READY one", () => {
+    const readyProd = { id: "dpl_prod", sha: commit, target: "production" as const, state: "READY" };
+    const readyPreview = { id: "dpl_preview", sha: commit, target: null as string | null, state: "READY" };
+    assert.equal(pickCommitDeployment([readyProd], commit), undefined);
+    assert.equal(pickCommitDeployment([readyProd, readyPreview], commit), readyPreview);
+  });
+
+  it("asks for a preview when Vercel made the first deployment production, whatever its state", () => {
+    for (const state of ["READY", "BUILDING", "BLOCKED"]) {
+      const first = { id: "dpl_prod", sha: commit, target: "production" as const, state };
+      const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: [first], commit });
+      assert.equal(next.step, "request-preview", state);
+    }
   });
 
   it("matches a shortened SHA to the full commit", () => {

@@ -382,6 +382,9 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
 }
 
 /** Photographs a built Next.js app from the job's checkout, before its code moves into the repo. */
+/** The checks read every page a site is likely to have; photos stay at their own, smaller limit. */
+const QA_PAGE_LIMIT = 40;
+
 async function photographSite(
   context: StageContext,
   deps: StageDeps,
@@ -398,7 +401,7 @@ async function photographSite(
     server = await deps.serveNext(job.worktreePath);
     if (options.whileServing) {
       const url = server.url;
-      await options.whileServing(url, routes).catch((error: unknown) => context.log(`The visitor journeys could not be checked: ${error instanceof Error ? error.message : "unknown error"}.`, "warning"));
+      await options.whileServing(url, routeList(sitemap, QA_PAGE_LIMIT).routes).catch((error: unknown) => context.log(`The visitor journeys could not be checked: ${error instanceof Error ? error.message : "unknown error"}.`, "warning"));
     }
     const shots = await deps.screenshot(routes.map((route) => ({ name: routeName(route), target: `${server?.url}${route}` })), await deps.scratchDir(context.stage), { fullPage: options.fullPage });
     const cropped = [...new Set(shots.filter((shot) => shot.cropped).map((shot) => shot.name))];
@@ -1101,7 +1104,8 @@ async function handoffReadyPreview(
 ): Promise<StageOutcome> {
   const deps = stageDeps.current;
   const { run, commit, repo, repoPath } = { ...context, ...publish };
-  const routes = routesFrom(await git(repoPath, ["show", `${commit}:sitemap.json`]).catch(() => undefined));
+  const sitemap = await git(repoPath, ["show", `${commit}:sitemap.json`]).catch(() => undefined);
+  const routes = routesFrom(sitemap, QA_PAGE_LIMIT);
   const qa = options.skipQa
     ? { passed: true, checks: [{ check: "Marked as deployed", status: "pass" as const, detail: options.operatorNote ?? "The operator confirmed a READY Vercel deployment." }] }
     : await (async () => {
@@ -1156,12 +1160,27 @@ async function handoffReadyPreview(
   } catch (error) {
     context.log(`The preview link could not be saved on the lead: ${error instanceof Error ? error.message : "unknown error"}. It is in the handoff report.`, "warning");
   }
-  return { summary: `Live at ${deployment.url} for anyone with the link. Every check passed.`, artifactIds, ref: commit };
+  const outcome = options.skipQa ? "Marked as deployed: its checks were skipped." : "Every check passed.";
+  return { summary: `Live at ${deployment.url} for anyone with the link. ${outcome}`, artifactIds, ref: commit };
+}
+
+/**
+ * One deploy of the preview branch through Vercel's API. After a production
+ * deployment of this commit it must be forced, or Vercel can hand that one back.
+ */
+async function requestPreview(context: StageContext, publish: Pick<PreviewPublish, "project" | "repo" | "commit">, afterProduction: boolean): Promise<VercelDeploymentState> {
+  const { publish: api } = stageDeps.current;
+  const { project, repo, commit } = publish;
+  if (!afterProduction) return publishStep(() => api.requestPreviewDeployment(project, repo, PREVIEW_BRANCH, commit));
+  context.log("Vercel made this commit's first deployment production, as it does on a new project. Requesting one preview of it.");
+  const deployment = await publishStep(() => api.requestForcedPreviewDeployment(project, repo, PREVIEW_BRANCH, commit));
+  if (deployment.target === "production") throw new StageBlocked("Vercel made the requested preview a production deployment too. Check the project's production branch in Vercel, then retry.");
+  return deployment;
 }
 
 async function pickupGitPushDeployment(context: StageContext, publish: PreviewPublish): Promise<VercelDeploymentState> {
   const deps = stageDeps.current;
-  const { project, repo, commit } = publish;
+  const { project, commit } = publish;
   const gitPushTriggered = Boolean(project.linkedRepo);
   const pickupMs = 3 * 60 * 1000;
   let deployment: VercelDeploymentState | undefined;
@@ -1172,9 +1191,9 @@ async function pickupGitPushDeployment(context: StageContext, publish: PreviewPu
       deployment = next.deployment;
       break;
     }
-    if (next.step === "blocked") throw new StageBlocked(next.message ?? "Vercel started a production deployment of the preview branch.");
+    if (next.step === "blocked") throw new StageBlocked(next.message ?? "GitHub refused Vercel's clone of this commit.");
     if (next.step === "request-preview") {
-      deployment = await publishStep(() => deps.publish.requestPreviewDeployment(project, repo, PREVIEW_BRANCH, commit));
+      deployment = await requestPreview(context, publish, next.deployment !== undefined);
       break;
     }
     if (waited >= pickupMs) break;
@@ -1204,15 +1223,16 @@ export const previewStage: StageHandler = async (context) => {
   if (stored) {
     context.activity("Looking for a Vercel deployment of the approved commit");
     const listed = await publishStep(() => deps.publish.listCommitDeployments(stored.project, stored.commit));
-    const already = pickCommitDeployment(listed, stored.commit);
-    if (already) {
-      // Repo and project already exist. Do not git-push the same SHA again: that
-      // is how a rate-limited clone gets hit twice. A READY (any target) is
-      // success; an ERROR re-lists once, then blocks so the operator can force.
-      context.log(`Using existing Vercel deployment ${already.id} (${already.state}) of this commit.`);
-      const publish = { ...stored, repoPath: await localRepoPath(context) };
-      const deployment = await waitForReadyDeployment(context, stored.project, stored.commit, already);
-      return handoffReadyPreview(context, publish, deployment);
+    const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: listed, commit: stored.commit });
+    // Repo and project already exist. Do not git-push the same SHA again: that
+    // is how a rate-limited clone gets hit twice. A READY preview is success;
+    // an ERROR re-lists once, then blocks so the operator can force.
+    if (next.step === "blocked") throw new StageBlocked(next.message ?? "GitHub refused Vercel's clone of this commit.");
+    if (next.step === "use-existing" && next.deployment) context.log(`Using existing Vercel deployment ${next.deployment.id} (${next.deployment.state}) of this commit.`);
+    if (next.step !== "wait") {
+      const started = next.step === "use-existing" && next.deployment ? next.deployment : await requestPreview(context, stored, true);
+      const deployment = await waitForReadyDeployment(context, stored.project, stored.commit, started);
+      return handoffReadyPreview(context, { ...stored, repoPath: await localRepoPath(context) }, deployment);
     }
   }
 
@@ -1240,7 +1260,8 @@ export const recheckPreviewStage: StageHandler = async (context) => {
   context.activity("Re-checking Vercel for a deployment of the approved commit");
   const listed = await publishStep(() => deps.publish.listCommitDeployments(publish.project, publish.commit));
   const next = nextPreviewDeployStep({ gitPushTriggered: true, deployments: listed, commit: publish.commit });
-  if (next.step === "blocked") throw new StageBlocked(next.message ?? "Vercel started a production deployment of the preview branch.");
+  if (next.step === "blocked") throw new StageBlocked(next.message ?? "GitHub refused Vercel's clone of this commit.");
+  if (next.step === "request-preview") throw new StageBlocked("Vercel only has a production build of this commit, which hides the demo features. Use Deploy now (force) to build a preview, or Retry.");
   if (!next.deployment) {
     throw new StageBlocked("Vercel has no deployment of this commit yet. Use Deploy now (force) to create one, or paste a READY deployment id.");
   }

@@ -20,6 +20,7 @@ type PublishDeps = import("../publish").PublishDeps;
 type RebuildStageId = import("../../../shared/website-rebuild-types").RebuildStageId;
 
 let caseNumber = 0;
+let sitemapJson = '["/", "/contact"]';
 let sites = "";
 const vault = new Map<string, string>();
 
@@ -50,6 +51,8 @@ interface FakeApi {
   projectLinkedTo?: string;
   /** Git-push auto-deploy target. Defaults to a preview, matching Vercel when production is `main`. */
   pushDeploysAs?: "preview" | "production";
+  /** The push builds fine, but Vercel labels it production: a new project's first deployment. */
+  pushBuildsAsProduction?: boolean;
   /** What a forceNew API deploy is labelled. Defaults to a preview. */
   forceDeploysAs?: "preview" | "production";
   /** Vercel refuses to build the git-push deploy, with this block code (e.g. an unknown commit author). */
@@ -116,16 +119,16 @@ function publishDeps(api: FakeApi, pushes: { args: readonly string[]; env: Recor
       const dest = args[args.length - 1];
       if (typeof dest === "string" && dest.endsWith(":refs/heads/preview")) {
         const sha = dest.split(":")[0] ?? "";
-        const asProduction = api.pushDeploysAs === "production";
+        const asProduction = api.pushDeploysAs === "production" || api.pushBuildsAsProduction;
         if (sha && !api.deployments.some((deployment) => deployment.meta.githubCommitSha === sha && (asProduction ? deployment.target === "production" : deployment.target !== "production"))) {
           api.deployments.push({
             uid: `dpl_${sha.slice(0, 7)}`,
             url: "total-electric-git-preview-dylan.vercel.app",
-            readyState: api.pushBlockedWith ? "BLOCKED" : asProduction ? "ERROR" : "QUEUED",
+            readyState: api.pushBlockedWith ? "BLOCKED" : api.pushBuildsAsProduction ? "READY" : asProduction ? "ERROR" : "QUEUED",
             target: asProduction ? "production" : null,
             projectId: "prj_1",
             meta: { githubCommitSha: sha },
-            errorMessage: asProduction && !api.pushBlockedWith ? "You have exceeded a secondary rate limit" : undefined,
+            errorMessage: asProduction && !api.pushBlockedWith && !api.pushBuildsAsProduction ? "You have exceeded a secondary rate limit" : undefined,
             ...(api.pushBlockedWith ? { seatBlock: { blockCode: api.pushBlockedWith } } : {}),
           });
         }
@@ -327,7 +330,7 @@ function upToFunctions(): Record<RebuildStageId, StageHandler> {
   const code: StageHandler = async (context) => {
     const repo = await stages.defaultStageDeps.ensureRepo("total-electric", "Total Electric");
     store.setRunField(context.run.id, "repo_path", repo);
-    fs.writeFileSync(path.join(repo, "sitemap.json"), '["/", "/contact"]');
+    fs.writeFileSync(path.join(repo, "sitemap.json"), sitemapJson);
     fs.writeFileSync(path.join(repo, `${context.stage}.txt`), String(context.revision));
     git(repo, "add", "-A");
     git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", context.stage);
@@ -338,7 +341,7 @@ function upToFunctions(): Record<RebuildStageId, StageHandler> {
   return { workspace, capture: plain, research: plain, hero: plain, build: code, functions: code, preview: stages.previewStage };
 }
 
-async function runToPreview(api: FakeApi, pushes: { args: readonly string[]; env: Record<string, string> }[], qaPasses = true) {
+async function runToPreview(api: FakeApi, pushes: { args: readonly string[]; env: Record<string, string> }[], qaPasses = true, onCheck?: (routes: readonly string[]) => void) {
   const deps = publishDeps(api, pushes);
   stages.stageDeps.current = {
     ...stages.defaultStageDeps,
@@ -355,10 +358,12 @@ async function runToPreview(api: FakeApi, pushes: { args: readonly string[]; env
       readDeployment: (id) => publish.readDeployment(id, deps),
       readDeploymentByRef: (ref) => publish.readDeploymentByRef(ref, deps),
     },
-    checkPreview: async () =>
-      qaPasses
+    checkPreview: async (_url, routes) => {
+      onCheck?.(routes);
+      return qaPasses
         ? { passed: true, checks: [{ check: "Opens without logging in", status: "pass" as const, detail: "200" }] }
-        : { passed: false, checks: [{ check: "Opens without logging in", status: "pass" as const, detail: "200" }, { check: "Page /contact", status: "fail" as const, detail: "Answered 500." }] },
+        : { passed: false, checks: [{ check: "Opens without logging in", status: "pass" as const, detail: "200" }, { check: "Page /contact", status: "fail" as const, detail: "Answered 500." }] };
+    },
     screenshot: async () => [],
     savePreviewLink: async (prospectId, url) => {
       vault.set(`case:${prospectId}`, url);
@@ -463,6 +468,73 @@ describe("stage 7: Vercel preview", () => {
     assert.equal(pushes.length, pushCount, "a READY deploy of this SHA means the retry must not push again");
   });
 
+  it("checks every page in the sitemap, past the handful that get photographed", async () => {
+    const pages = ["/", "/about", "/services", "/products", "/contact", "/blog", "/bookings", "/faq"];
+    sitemapJson = JSON.stringify(pages);
+    let checked: readonly string[] = [];
+    try {
+      await runToPreview({ calls: [], repoExists: false, deployments: [] }, [], true, (routes) => {
+        checked = routes;
+      });
+    } finally {
+      sitemapJson = '["/", "/contact"]';
+    }
+    assert.deepEqual(checked, pages);
+  });
+
+  it("asks for one real preview when Vercel makes a new project's first deployment production", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushBuildsAsProduction: true };
+    const pushes: { args: readonly string[]; env: Record<string, string> }[] = [];
+    const { run } = await runToPreview(api, pushes);
+    assert.equal(run.stages.find((stage) => stage.id === "preview")?.status, "complete", run.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(run.deploymentId, "dpl_force", "the checks run on the preview, not on the production build");
+    assert.equal(run.previewUrl, "https://total-electric-force-dylan.vercel.app");
+    const created = api.calls.filter((call) => call.method === "POST" && call.url.includes("/v13/deployments"));
+    assert.equal(created.length, 1);
+    assert.match(created[0]?.url ?? "", /forceNew=1/);
+    assert.equal(JSON.stringify(created[0]?.body).includes("production"), false);
+  });
+
+  it("on retry, a READY production build of the SHA gets a preview without pushing again", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const pushes: { args: readonly string[]; env: Record<string, string> }[] = [];
+    const { run, handlers } = await runToPreview(api, pushes);
+    const stuck = api.deployments.find((deployment) => deployment.target === "production");
+    assert.ok(stuck);
+    stuck.readyState = "READY";
+    stuck.errorMessage = undefined;
+    const pushCount = pushes.length;
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, handlers, vaultDeps);
+    const after = store.readRun(run.id);
+    assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
+    assert.equal(after.deploymentId, "dpl_force");
+    assert.equal(pushes.length, pushCount, "the branch is already on GitHub");
+  });
+
+  it("stops when Vercel labels the requested preview production as well", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushBuildsAsProduction: true, forceDeploysAs: "production" };
+    const { run } = await runToPreview(api, []);
+    const preview = run.stages.find((stage) => stage.id === "preview");
+    assert.equal(preview?.status, "blocked");
+    assert.match(preview?.blocker ?? "", /production deployment too/);
+  });
+
+  it("Re-check Vercel says what to do when only a production build exists, and creates nothing", async () => {
+    const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
+    const { run, handlers } = await runToPreview(api, []);
+    const stuck = api.deployments.find((deployment) => deployment.target === "production");
+    assert.ok(stuck);
+    stuck.readyState = "READY";
+    stuck.errorMessage = undefined;
+    store.resetForRetry(run.id, "preview");
+    await advance(run.id, { ...handlers, preview: stages.recheckPreviewStage }, vaultDeps);
+    const preview = store.readRun(run.id).stages.find((stage) => stage.id === "preview");
+    assert.equal(preview?.status, "blocked");
+    assert.match(preview?.blocker ?? "", /only has a production build/);
+    assert.ok(!api.calls.some((call) => call.method === "POST" && call.url.includes("/v13/deployments")));
+  });
+
   it("Re-check Vercel completes from a READY deploy of the SHA without pushing or creating a deploy", async () => {
     const api: FakeApi = { calls: [], repoExists: false, deployments: [], pushDeploysAs: "production" };
     const pushes: { args: readonly string[]; env: Record<string, string> }[] = [];
@@ -472,7 +544,7 @@ describe("stage 7: Vercel preview", () => {
       uid: "dpl_ready",
       url: "total-electric-git-preview-dylan.vercel.app",
       readyState: "READY",
-      target: "production",
+      target: null,
       projectId: "prj_1",
       meta: { githubCommitSha: commit.slice(0, 7) },
     });
@@ -559,6 +631,8 @@ describe("stage 7: Vercel preview", () => {
     store.resetForRetry(run.id, "preview");
     await advance(run.id, { ...handlers, preview: stages.markPreviewStage("https://vercel.com/team/total-electric/dpl_4Rt2WSrRSH12t3UviybLYSKG52TD") }, vaultDeps);
     const after = store.readRun(run.id);
+    assert.match(after.revisions.find((revision) => revision.stage === "preview")?.summary ?? "", /its checks were skipped/);
+    assert.doesNotMatch(after.revisions.find((revision) => revision.stage === "preview")?.summary ?? "", /Every check passed/);
     assert.equal(after.stages.find((stage) => stage.id === "preview")?.status, "complete", after.stages.find((stage) => stage.id === "preview")?.blocker ?? "");
     assert.equal(after.previewUrl, "https://total-electric-trusted-electricians-git-preview-virtec-projects.vercel.app");
     assert.equal(vault.get(`case:${after.prospectId}`), after.previewUrl);
