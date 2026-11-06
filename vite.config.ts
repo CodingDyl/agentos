@@ -10,10 +10,14 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@shared": fileURLToPath(new URL("./shared", import.meta.url)),
-    },
+    alias: [
+      { find: "@", replacement: fileURLToPath(new URL("./src", import.meta.url)) },
+      { find: "@shared", replacement: fileURLToPath(new URL("./shared", import.meta.url)) },
+      // monaco-editor ships its own copy of DOMPurify and imports it by relative
+      // path, so the npm override alone never reaches it. Remove this once a
+      // monaco release bundles a patched DOMPurify (>= 3.4.17).
+      { find: /^\.\/dompurify\/dompurify\.js$/, replacement: "dompurify" },
+    ],
   },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
