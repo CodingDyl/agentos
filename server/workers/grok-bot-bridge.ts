@@ -7,9 +7,12 @@ import {
   type GrokBotBridge,
   type GrokBotExportedNote,
   type GrokBotResult,
+  type GrokBotWorktree,
 } from "../../shared/grok-bot-types";
 import type { WorkerJob } from "../../shared/worker-types";
+import { currentBranch, headCommit } from "../agentos/git";
 import { checkWorkspace } from "./grok-bot-workspace";
+import { worktreeRoot } from "./worktree";
 
 /**
  * The Grok Bot file bridge: what goes onto the SSD for a task, and how the
@@ -19,6 +22,12 @@ import { checkWorkspace } from "./grok-bot-workspace";
  * `memory/`, and a task file in `tasks/` naming the exact result path and shape.
  * In: one file at that path, checked against the schema and the job before a
  * word of it is believed.
+ *
+ * A repository job also names its worktree: the checkout AgentOS made for this
+ * job on this Mac. Grok reaches the Mac from the cloud, so nothing here can
+ * sandbox it the way a local worker is sandboxed. The limits are stated in the
+ * instruction, and what happened is read from git afterwards rather than taken
+ * from the reply: no diff fails the job, and so does a moved HEAD.
  *
  * Nothing here writes to the vault. A reply that proposes vault changes is
  * text for review, not an edit.
@@ -103,17 +112,82 @@ export async function exportNotes(
   return { notes, skipped };
 }
 
+/**
+ * What this job may do with its checkout, or nothing for a job without one.
+ *
+ * Handing Grok a path grants it write access to that path, so the path has to
+ * really be one of AgentOS's own worktrees, wherever the job record says it is.
+ */
+export async function worktreeForExport(
+  job: Pick<WorkerJob, "workerBranch" | "reportOnly">,
+  worktreePath: string | undefined,
+  cwd: string | undefined,
+): Promise<GrokBotWorktree | undefined> {
+  if (!worktreePath) return undefined;
+
+  const [root, real, realCwd] = await Promise.all([
+    fs.realpath(worktreeRoot()),
+    fs.realpath(worktreePath),
+    fs.realpath(cwd ?? worktreePath),
+  ]);
+  const inside = (parent: string, child: string) => {
+    const relative = path.relative(parent, child);
+    return relative !== "" ? !relative.startsWith("..") && !path.isAbsolute(relative) : false;
+  };
+  if (!inside(root, real) || (realCwd !== real && !inside(real, realCwd))) {
+    throw new Error(`Refusing to give Grok ${worktreePath}: it is not an AgentOS worktree.`);
+  }
+
+  return {
+    path: worktreePath,
+    cwd: cwd ?? worktreePath,
+    branch: job.workerBranch,
+    access: job.reportOnly ? "read-only" : "read-write",
+    headAtExport: await headCommit(worktreePath),
+  };
+}
+
+/** The rules for the checkout, written once for the instruction and the task file. */
+function worktreeRules(worktree: GrokBotWorktree): string[] {
+  if (worktree.access === "read-only") {
+    return [
+      "Read it, and change nothing in it. This job is report only: your reply is the deliverable, and a job that changes files fails.",
+    ];
+  }
+  return [
+    "Make the changes yourself, in this folder on this Mac. Edit files only inside it: not the original repository, not the vault, nowhere else.",
+    "Leave your work uncommitted. Do not commit, push, open a pull request, or run git fetch, pull, merge or rebase. AgentOS commits after review.",
+    "Do not hand the work to a cloud agent: it cannot see this folder, and AgentOS only reviews what changed here. A job with no changes in this folder fails.",
+  ];
+}
+
 /** The text the operator pastes into Grok. Exact paths, nothing to guess. */
-export function grokInstruction(bridge: Pick<GrokBotBridge, "taskPath" | "resultPath" | "memoryDir" | "taskId">, jobId: string): string {
+export function grokInstruction(
+  bridge: Pick<GrokBotBridge, "taskPath" | "resultPath" | "memoryDir" | "taskId" | "worktree">,
+  jobId: string,
+): string {
+  const { worktree } = bridge;
+  const editing = worktree?.access === "read-write";
+  const step = worktree ? 4 : 3;
+
   return [
     `AgentOS task ${bridge.taskId}.`,
     ``,
     `1. Read the task: ${bridge.taskPath}`,
     `2. Use only the notes in: ${bridge.memoryDir} (listed in manifest.json there). Do not read anything else from the vault.`,
-    `3. Write your answer as one JSON file to exactly: ${bridge.resultPath}`,
-    `   Shape: {"schemaVersion": 1, "taskId": "${bridge.taskId}", "jobId": "${jobId}", "status": "completed", "reply": "<your answer>"}`,
-    `   If you cannot do it, set "status": "failed" and explain in "error" (reply still required, briefly).`,
-    `4. Write nothing else. Do not edit the task, the notes, or any other file.`,
+    ...(worktree
+      ? [
+          `3. ${editing ? "Work" : "The code is"} in this job's worktree, made for this job alone: ${worktree.cwd}`,
+          ...(worktree.branch ? [`   It is on git branch ${worktree.branch}. Stay on it.`] : []),
+          ...worktreeRules(worktree).map((rule) => `   ${rule}`),
+        ]
+      : []),
+    `${step}. Write your ${editing ? "result" : "answer"} as one JSON file to exactly: ${bridge.resultPath}`,
+    `   Shape: {"schemaVersion": 1, "taskId": "${bridge.taskId}", "jobId": "${jobId}", "status": "completed", "reply": "<${editing ? "what you changed, and anything that blocked you" : "your answer"}>"}`,
+    `   If you cannot do it${worktree ? ", or cannot reach the worktree" : ""}, set "status": "failed" and explain in "error" (reply still required, briefly).`,
+    editing
+      ? `${step + 1}. Besides the worktree, that result file is the only thing you write. Do not edit the task or the notes.`
+      : `${step + 1}. Write nothing else. Do not edit the task, the notes, or any other file.`,
   ].join("\n");
 }
 
@@ -121,7 +195,12 @@ export function grokInstruction(bridge: Pick<GrokBotBridge, "taskPath" | "result
  * Writes one job onto the SSD: notes, then the task file last, so a task that
  * exists always has its notes beside it.
  */
-export async function exportTask(job: WorkerJob, workspace: string, brief: string): Promise<GrokBotBridge> {
+export async function exportTask(
+  job: WorkerJob,
+  workspace: string,
+  brief: string,
+  worktree?: GrokBotWorktree,
+): Promise<GrokBotBridge> {
   const status = await checkWorkspace(workspace, { probe: false });
   if (status.state !== "available") {
     throw new Error(status.reason ?? "The Grok Bot workspace is unavailable.");
@@ -143,7 +222,8 @@ export async function exportTask(job: WorkerJob, workspace: string, brief: strin
     memoryDir,
     exportedAt,
     notes,
-    instruction: grokInstruction({ taskId, taskPath, resultPath, memoryDir }, job.id),
+    worktree,
+    instruction: grokInstruction({ taskId, taskPath, resultPath, memoryDir, worktree }, job.id),
   };
 
   const task = {
@@ -161,11 +241,39 @@ export async function exportTask(job: WorkerJob, workspace: string, brief: strin
       notes: notes.map((note) => ({ source: note.source, path: note.exportedPath, modifiedAt: note.modifiedAt })),
       skipped,
     },
+    ...(worktree
+      ? {
+          worktree: {
+            path: worktree.path,
+            workingDirectory: worktree.cwd,
+            branch: worktree.branch,
+            access: worktree.access,
+            rules: worktreeRules(worktree),
+          },
+        }
+      : {}),
     result: { path: resultPath, schema: GROK_BOT_RESULT_JSON_SCHEMA },
   };
   await writeAtomic(taskPath, `${JSON.stringify(task, null, 2)}\n`);
 
   return bridge;
+}
+
+/**
+ * Why the worktree is not where it was left, if it is not. Workers elsewhere are
+ * refused `git commit` and `git checkout` outright; Grok can only be told. A
+ * commit would be read as work pulled from elsewhere and vanish from the diff,
+ * so it stops the job here, with the work still in the worktree.
+ */
+export async function worktreeDrift(worktree: GrokBotWorktree): Promise<string | undefined> {
+  const [branch, head] = await Promise.all([currentBranch(worktree.path), headCommit(worktree.path)]);
+  if (worktree.branch && branch && branch !== worktree.branch) {
+    return `Grok left the worktree on branch ${branch} instead of ${worktree.branch}. Nothing was landed; the worktree is kept at ${worktree.path}.`;
+  }
+  if (worktree.headAtExport && head && head !== worktree.headAtExport) {
+    return `Grok moved the worktree to commit ${head.slice(0, 8)} (it was at ${worktree.headAtExport.slice(0, 8)}), and the job asks it to leave work uncommitted. Nothing was landed; the worktree is kept at ${worktree.path}.`;
+  }
+  return undefined;
 }
 
 export type ResultCheck =

@@ -51,6 +51,17 @@ export function GrokBotJobPanel({ job }: { job: WorkerJob }) {
       <dd className="font-mono break-all text-os-muted">{bridge.taskPath}</dd>
       <dt className="text-os-subtle">Result</dt>
       <dd className="font-mono break-all text-os-muted">{bridge.resultPath}</dd>
+      {bridge.worktree ? (
+        <>
+          <dt className="text-os-subtle">Worktree</dt>
+          <dd className="text-os-muted">
+            <span className="font-mono break-all">{bridge.worktree.cwd}</span>
+            <span className="mt-1 block text-[12px] text-os-subtle">
+              {bridge.worktree.access === "read-only" ? "Read only for this report" : "Grok may edit here, and only here"}
+            </span>
+          </dd>
+        </>
+      ) : null}
       <dt className="text-os-subtle">Notes</dt>
       <dd className="text-os-muted">
         {bridge.notes.length === 0 ? (
@@ -97,6 +108,9 @@ export function GrokBotJobPanel({ job }: { job: WorkerJob }) {
       <p className="mt-3 text-[14px] leading-6 text-foreground">
         The task is on the SSD. Paste the instruction into Grok; AgentOS imports the answer as soon as the result file
         appears.
+        {bridge.worktree?.access === "read-write"
+          ? " Grok edits this job's worktree on this Mac, so it may ask you to approve access. The changes then go through validation and review."
+          : null}
       </p>
 
       {bridge.workspaceUnavailableSince ? (

@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import { promisify } from "node:util";
 import type { WorkerJob } from "../../../shared/worker-types";
+
+const run = promisify(execFile);
 
 /**
  * The Grok Bot bridge end to end, against temporary folders: a task goes out
@@ -143,6 +147,198 @@ describe("grok bot bridge", () => {
     assert.equal(done.result?.summary, "The plan, summarised.");
     assert.ok(done.bridge?.importedAt && done.bridge.resultHash);
     assert.equal(done.bridge?.taskId, info.taskId);
+  });
+
+  describe("with a repository", () => {
+    let repo: string;
+    const git = (cwd: string, ...args: string[]) => run("git", ["-c", "user.email=t@t", "-c", "user.name=T", ...args], { cwd });
+
+    before(async () => {
+      repo = path.join(directory, "repo");
+      await fs.mkdir(repo);
+      await git(repo, "init", "-q", ".");
+      await fs.writeFile(path.join(repo, "app.txt"), "before\n");
+      await git(repo, "add", "-A");
+      await git(repo, "commit", "-qm", "init");
+    });
+
+    /** Starts a job and waits until it is parked, with Grok's side of it to hand. */
+    async function parked(extra: Record<string, unknown> = {}) {
+      const { job, error } = await manager.startJob({
+        worker: "grok-bot",
+        project: "agentos",
+        objective: "Change app.txt",
+        repoPath: repo,
+        modelRouteType: "execute",
+        validationCommands: ["test -f app.txt"],
+        ...extra,
+      });
+      assert.equal(error, undefined);
+      assert.ok(job);
+      const waiting = await until(job.id, (entry) => entry.status === "waiting" && Boolean(entry.bridge), "parked");
+      return { id: job.id, job: waiting, info: waiting.bridge!, tree: waiting.worktreePath! };
+    }
+
+    const answer = (info: { taskId: string; resultPath: string }, jobId: string, reply = "Changed app.txt.") =>
+      fs.writeFile(info.resultPath, JSON.stringify({ schemaVersion: 1, taskId: info.taskId, jobId, status: "completed", reply }));
+
+    it("gives an execute job its own worktree, with permission to edit only there", async () => {
+      const { id, job, info, tree } = await parked();
+
+      assert.equal(path.dirname(tree), path.join(process.env.AGENTOS_UI_DIR!, "worktrees"));
+      assert.equal(job.workerBranch, `agentos-worker/${id}`);
+      assert.equal(info.worktree?.access, "read-write");
+      assert.equal(info.worktree?.path, tree);
+
+      const task = JSON.parse(await fs.readFile(info.taskPath, "utf8"));
+      assert.equal(task.worktree.access, "read-write");
+      assert.equal(task.worktree.workingDirectory, tree);
+      assert.equal(task.worktree.branch, job.workerBranch);
+      assert.ok(task.worktree.rules.some((rule: string) => /only inside it/.test(rule)));
+      assert.equal(task.result.path, info.resultPath);
+
+      assert.ok(info.instruction.includes(tree));
+      assert.ok(info.instruction.includes(info.resultPath), "the result file is still written");
+      assert.match(info.instruction, /Edit files only inside it/);
+      assert.match(info.instruction, /Do not hand the work to a cloud agent/);
+      assert.doesNotMatch(info.instruction, /Write nothing else/);
+
+      await manager.cancelJob(id);
+    });
+
+    it("sends Grok's edits down the normal path: changed files, validation, review", async () => {
+      const { id, info, tree } = await parked();
+
+      await fs.writeFile(path.join(tree, "app.txt"), "after\n");
+      assert.equal(await fs.readFile(path.join(repo, "app.txt"), "utf8"), "before\n", "the live checkout is untouched");
+      await answer(info, id);
+
+      const done = await until(id, (entry) => entry.status === "awaiting_review", "in review");
+      assert.deepEqual(done.result?.changedFiles, ["app.txt"]);
+      assert.equal(done.result?.worktreePath, tree);
+      assert.deepEqual(done.result?.tests?.map((entry) => [entry.command, entry.success]), [["test -f app.txt", true]]);
+      assert.equal(done.result?.summary, "Changed app.txt.");
+    });
+
+    it("fails an execute job whose reply claims work the worktree does not show", async () => {
+      const { id, info } = await parked();
+      await answer(info, id, "Done, see the PR.");
+
+      const done = await until(id, (entry) => entry.status === "failed", "failed");
+      assert.match(done.error ?? "", /no file changes/);
+      assert.equal(done.attempts?.at(-1)?.failureReason, done.error);
+    });
+
+    it("fails a job when Grok commits, and keeps the work", async () => {
+      const { id, info, tree } = await parked();
+      await fs.writeFile(path.join(tree, "app.txt"), "committed\n");
+      await git(tree, "add", "-A");
+      await git(tree, "commit", "-qm", "not allowed");
+      await answer(info, id);
+
+      const done = await until(id, (entry) => entry.status === "failed", "failed");
+      assert.match(done.error ?? "", /leave work uncommitted/);
+      assert.equal(await fs.readFile(path.join(tree, "app.txt"), "utf8"), "committed\n");
+    });
+
+    it("fails a job when Grok leaves the worktree on another branch", async () => {
+      const { id, info, tree } = await parked();
+      await git(tree, "switch", "-q", "-c", "somewhere-else");
+      await answer(info, id);
+
+      const done = await until(id, (entry) => entry.status === "failed", "failed");
+      assert.match(done.error ?? "", /on branch somewhere-else/);
+    });
+
+    it("keeps a report-only job read-only, and fails it if files change", async () => {
+      const clean = await parked({ reportOnly: true });
+      assert.equal(clean.info.worktree?.access, "read-only");
+      assert.match(clean.info.instruction, /change nothing/);
+      assert.match(clean.info.instruction, /Write nothing else/);
+      assert.equal(JSON.parse(await fs.readFile(clean.info.taskPath, "utf8")).worktree.access, "read-only");
+      await answer(clean.info, clean.id, "The report.");
+      const reported = await until(clean.id, (entry) => entry.status === "awaiting_review", "report in review");
+      assert.equal(reported.result?.summary, "The report.");
+
+      const dirty = await parked({ reportOnly: true });
+      await fs.writeFile(path.join(dirty.tree, "app.txt"), "should not\n");
+      await answer(dirty.info, dirty.id, "The report.");
+      const failed = await until(dirty.id, (entry) => entry.status === "failed", "report failed");
+      assert.match(failed.error ?? "", /report-only/);
+    });
+
+    it("exports a new task for a revision instead of re-accepting the old result", async () => {
+      const { id, info, tree } = await parked();
+      await fs.writeFile(path.join(tree, "app.txt"), "first\n");
+      await answer(info, id);
+      const reviewed = await until(id, (entry) => entry.status === "awaiting_review", "in review");
+
+      const { ok } = await manager.rerunJob(reviewed, "Please also add a second line.");
+      assert.ok(ok);
+      const again = await until(id, (entry) => entry.status === "waiting" && entry.bridge?.taskId !== info.taskId, "re-exported");
+      const next = again.bridge!;
+      assert.equal(next.worktree?.path, tree, "the same checkout");
+      assert.equal(next.importedAt, undefined);
+      assert.match(JSON.parse(await fs.readFile(next.taskPath, "utf8")).brief, /second line/);
+
+      await fs.writeFile(path.join(tree, "app.txt"), "first\nsecond\n");
+      await answer(next, id, "Added the second line.");
+      const done = await until(id, (entry) => entry.status === "awaiting_review", "revision in review");
+      assert.equal(done.result?.summary, "Added the second line.");
+    });
+
+    it("leaves the checkout alone when a restart resumes the wait", async () => {
+      const { id, info, tree } = await parked();
+      await fs.writeFile(path.join(tree, "app.txt"), "mid-edit\n");
+
+      // The source moves on while Grok is working. A resume must not pull that in.
+      await fs.writeFile(path.join(repo, "later.txt"), "later\n");
+      await git(repo, "add", "-A");
+      await git(repo, "commit", "-qm", "later");
+
+      await manager.interruptRunningJobs("test restart");
+      await manager.reconcileInterruptedJobs("test restart");
+      await until(id, (entry) => manager.isRunning(id) && entry.status === "waiting", "resumed");
+      await assert.rejects(fs.access(path.join(tree, "later.txt")));
+
+      await answer(info, id);
+      const done = await until(id, (entry) => entry.status === "awaiting_review", "in review");
+      assert.ok(done.result?.changedFiles?.includes("app.txt"));
+    });
+
+    it("lands approved work in the source repository", async () => {
+      const { id, info, tree } = await parked();
+      await fs.writeFile(path.join(tree, "app.txt"), "landed\n");
+      await answer(info, id);
+      const reviewed = await until(id, (entry) => entry.status === "awaiting_review", "in review");
+
+      // Hermes' verdict is a model call, so it is supplied. What it unlocks is the real path.
+      await store.saveJob({
+        ...reviewed,
+        review: { jobId: id, verdict: "pass", summary: "Fine.", issues: [], acceptanceCriteria: [], reviewedAt: new Date().toISOString() },
+      } as WorkerJob);
+      const { approveJob } = await import("../review");
+      const landed = await approveJob(id);
+
+      assert.equal(landed.ok, true, JSON.stringify(landed));
+      assert.equal(await fs.readFile(path.join(repo, "app.txt"), "utf8"), "landed\n");
+      assert.equal((await store.readJob(id))?.status, "completed");
+    });
+
+    it("refuses to hand Grok a path that is not an AgentOS worktree", async () => {
+      await assert.rejects(bridge.worktreeForExport({}, repo, repo), /not an AgentOS worktree/);
+    });
+  });
+
+  it("gives a job with no repository no worktree, and the original instruction", async () => {
+    const { job } = await manager.startJob({ worker: "grok-bot", project: "agentos", objective: "Summarise again" });
+    assert.ok(job);
+    const waiting = await until(job.id, (entry) => entry.status === "waiting" && Boolean(entry.bridge), "parked");
+    assert.equal(waiting.worktreePath, undefined);
+    assert.equal(waiting.bridge?.worktree, undefined);
+    assert.match(waiting.bridge!.instruction, /Write nothing else/);
+    assert.equal(JSON.parse(await fs.readFile(waiting.bridge!.taskPath, "utf8")).worktree, undefined);
+    await manager.cancelJob(job.id);
   });
 
   it("never offers Grok Bot to automatic routing", async () => {

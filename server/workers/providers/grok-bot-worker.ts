@@ -1,7 +1,7 @@
 import type { GrokBotBridge } from "../../../shared/grok-bot-types";
 import type { WorkerJob, WorkerJobResult } from "../../../shared/worker-types";
 import { grokBotWorkspace } from "../../ai-stack/settings";
-import { exportTask, readResult } from "../grok-bot-bridge";
+import { exportTask, readResult, worktreeDrift, worktreeForExport } from "../grok-bot-bridge";
 import { checkWorkspace } from "../grok-bot-workspace";
 import type { Worker, WorkerRunContext } from "../worker";
 
@@ -11,6 +11,11 @@ import type { Worker, WorkerRunContext } from "../worker";
  * AgentOS and Grok share a workspace — `memory/` for Grok to read, `tasks/` for
  * AgentOS to write, `results/` for Grok to answer in — and the operator
  * triggers Grok by hand. There is no API key and no billing here.
+ *
+ * A job with a repository is isolated like any coding job: the job manager makes
+ * the worktree, the task names it, Grok edits there through its connection to
+ * this Mac, and the diff goes through validation, review and landing. A job with
+ * no repository gets none, and its reply is the deliverable.
  *
  * Healthy means the folders are there and usable. It never means Grok is
  * online or signed in; the bridge cannot see that.
@@ -99,6 +104,10 @@ async function awaitResult(job: WorkerJob, initial: GrokBotBridge, context: Work
       if (check.result.status === "failed") {
         throw new Error(`Grok reported it could not do the task: ${check.result.error ?? check.result.reply}`);
       }
+
+      const drift = bridge.worktree ? await worktreeDrift(bridge.worktree) : undefined;
+      if (drift) throw new Error(drift);
+
       return { summary: check.result.reply };
     }
 
@@ -110,7 +119,7 @@ export const grokBotWorker: Worker = {
   id: "grok-bot",
   name: "Grok Bot",
   role: "Grok via a shared SSD workspace. Manually triggered.",
-  capabilities: ["research"],
+  capabilities: ["code", "research"],
   manualOnly: true,
   transport: "Local file bridge",
 
@@ -124,11 +133,15 @@ export const grokBotWorker: Worker = {
   async start(job, context) {
     let bridge = job.bridge;
 
-    if (!bridge) {
+    // An imported bridge means this run is a revision. It needs its own task and
+    // result path: the old result file is still there, and would be accepted
+    // straight back as the answer to feedback Grok has not seen.
+    if (!bridge || bridge.importedAt) {
       const workspace = grokBotWorkspace();
       if (!workspace) throw new Error("No Grok Bot workspace is set. Set it on the Workers page.");
 
-      bridge = await exportTask(job, workspace, context.contextPacket);
+      const worktree = await worktreeForExport(job, context.worktreePath, context.cwd);
+      bridge = await exportTask(job, workspace, context.contextPacket, worktree);
       context.emit(
         "job.progress",
         `Task exported with ${bridge.notes.length} ${bridge.notes.length === 1 ? "note" : "notes"}`,
