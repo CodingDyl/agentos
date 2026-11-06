@@ -57,13 +57,12 @@ describe("sidebar navigation", () => {
     );
   });
 
-  it("puts Career with the operations destinations, including Agents", () => {
+  it("keeps Agents with the operations destinations, and Career is gone", () => {
     const operations = itemsIn("operations");
     const labels = operations.map((item) => item.label);
-    assert.ok(labels.includes("Career"));
+    assert.ok(!labels.includes("Career"));
     assert.ok(labels.includes("Agents"));
     assert.ok(labels.includes("Operations"));
-    assert.equal(operations.find((item) => item.label === "Career")?.href, "/career");
     assert.equal(operations.find((item) => item.label === "Agents")?.href, "/agents");
     assert.equal(operations.find((item) => item.label === "Operations")?.href, "/operations");
   });
@@ -79,7 +78,6 @@ describe("sidebar navigation", () => {
       "/operator",
       "/workspaces",
       "/coder",
-      "/career",
       "/knowledge",
       "/memory",
       "/learning",

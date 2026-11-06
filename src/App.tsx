@@ -19,7 +19,6 @@ import { DeliveryPage, DeliveryWorkspacePage } from "@/features/delivery";
 import { CompassPage } from "@/features/compass";
 import { PersonasPage, StartupsPage, VenturePage } from "@/features/startups";
 import { FinancePage } from "@/features/finance";
-import { CareerPage } from "@/features/career";
 import { MissionControlPage } from "@/features/mission-control";
 import { AgentDetailPage, OperationsPage } from "@/features/operations";
 import {
@@ -89,7 +88,6 @@ function App() {
           <Route path="/growth" element={<Redirect to="/traction" />} />
           {/* Money: read-only from Investec, the arithmetic done here. */}
           <Route path="/finance" element={<FinancePage />} />
-          <Route path="/career" element={<CareerPage />} />
           {/* Projects are presented as workspaces. The vault still says
               `projects/`; the old URLs redirect with their query strings, so
               every saved `?tab=tasks&task=PP-031` link keeps working. */}
