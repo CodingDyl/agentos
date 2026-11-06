@@ -2,17 +2,29 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * The dashboard leads with the plan until 5pm and the wrap after it, by the
- * browser's clock. Pin the clock so these tests mean the same at any hour.
+ * browser's clock. These tests are about the plan view, so they ask for it
+ * rather than depend on the hour. (The clock is not pinned: the server's
+ * timestamps are real, and a pinned clock puts them in the future.)
  */
-async function openDashboard(page: Page, at: { hours: number } = { hours: 10 }) {
-  const now = new Date();
-  now.setHours(at.hours, 0, 0, 0);
-  await page.clock.setFixedTime(now);
+async function openDashboard(page: Page, options: { evening?: boolean } = {}) {
+  if (options.evening) {
+    const now = new Date();
+    now.setHours(19, 0, 0, 0);
+    await page.clock.setFixedTime(now);
+  }
   await page.goto("/");
   const skip = page.getByRole("button", { name: "Skip today", exact: true });
   await skip.waitFor({ timeout: 5_000 }).catch(() => undefined);
   if (await skip.isVisible()) await skip.click();
   await expect(page.getByRole("heading", { level: 1, name: "Dashboard", exact: true })).toBeVisible();
+  if (!options.evening && (await page.getByRole("button", { name: "Wrap up", exact: true }).getAttribute("aria-pressed")) === "true") {
+    await page.getByRole("button", { name: "Plan the day" }).click();
+    // Asking for the plan can open the morning check-in again.
+    await skip.waitFor({ timeout: 2_000 }).catch(() => undefined);
+    if (await skip.isVisible()) await skip.click();
+    // Leave the pointer off the button, so its resting colour can be read.
+    await page.mouse.move(0, 0);
+  }
 }
 
 async function noHorizontalOverflow(page: Page) {
@@ -50,7 +62,7 @@ test.describe("Dashboard hierarchy", () => {
 
   test("leads with the wrap-up from 5pm, and the plan is one press away", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await openDashboard(page, { hours: 19 });
+    await openDashboard(page, { evening: true });
     await expect(page.getByRole("region", { name: "Wrap up the day" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Morning brief" })).toHaveCount(0);
     await page.getByRole("button", { name: "Plan the day" }).click();

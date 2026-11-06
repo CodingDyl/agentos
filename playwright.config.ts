@@ -13,6 +13,7 @@ export const E2E_VAULT = path.join(os.tmpdir(), "agentos-e2e", "vault");
 
 export default defineConfig({
   testDir: "e2e",
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: false,
   // One vault, shared: tests that write run in file order.
   workers: 1,

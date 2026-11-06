@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { ROUTES } from "./routes";
 
 // Committed doc screenshots are rewritten only on request, so a normal test
 // run leaves the checkout clean.
@@ -18,14 +19,23 @@ async function openDashboard(page: Page) {
 
 async function noHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(await page.locator("main").evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  // On failure, name what sticks out, so a red run says where to look.
+  const overflowing = await page.locator("main").evaluate((element) => {
+    if (element.scrollWidth <= element.clientWidth + 1) return [];
+    const edge = element.getBoundingClientRect().right;
+    return [...element.querySelectorAll("*")]
+      .filter((node) => node.getBoundingClientRect().right > edge + 1)
+      .slice(0, 8)
+      .map((node) => `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 60)} "${(node.textContent ?? "").trim().slice(0, 40)}" right=${Math.round(node.getBoundingClientRect().right)} of ${Math.round(edge)}`);
+  });
+  expect(overflowing, `main is wider than the window at ${page.viewportSize()?.width}px`).toEqual([]);
 }
 
 test("every route renders on the Quiet Terminal tokens with no overflow", async ({ page }) => {
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const routes = ["/", "/inbox", "/traction", "/business", "/finance", "/operator", "/workspaces", "/workspaces/pantry-pilot", "/knowledge", "/memory", "/learning", "/designs", "/designs/boards", "/designs/generations", "/designs/motion", "/automations", "/connectors", "/activity", "/operations", "/agents", "/workers", "/agent", "/compass", "/design-system"];
+  const routes = ROUTES;
   for (const route of routes) {
     await page.goto(route);
     await expect(page.locator("main[data-agentos-page]")).toBeVisible();

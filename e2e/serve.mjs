@@ -26,6 +26,8 @@ const env = {
   AGENTOS_UI_DIR: path.join(E2E_ROOT, "ui"),
   AGENTOS_MEDIA_DIR: path.join(E2E_ROOT, "media"),
   AGENTOS_PORT: DATA_PORT,
+  // Describing agents must not start real ones to ask which models exist.
+  AGENTOS_SKIP_MODEL_DISCOVERY: "1",
   AGENTOS_WEB_ORIGIN: `http://127.0.0.1:${WEB_PORT}`,
   HERMES_BASE_URL: "http://127.0.0.1:9",
   HERMES_API_BASE_URL: "http://127.0.0.1:9",

@@ -97,6 +97,12 @@ jobs:
           git config --global user.email "ci@agentos.invalid"
           git config --global init.defaultBranch main
 
+      # Operator chats treat a Claude plan login as present when ~/.claude
+      # exists, which a fresh runner lacks. An empty folder is enough: the tests
+      # never start a real agent (model discovery is off in e2e/serve.mjs).
+      - name: Stand-in Claude login folder
+        run: mkdir -p ~/.claude
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
