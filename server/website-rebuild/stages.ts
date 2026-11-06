@@ -705,18 +705,23 @@ export const heroStage: StageHandler = async (context) => {
   });
 
   // One worker per concept, working alone: a single job writing all three gave all three its one skeleton.
-  let workerName = "";
+  const workerNames = new Set<string>();
   for (const [index, assignment] of design.assignments.entries()) {
     const { concept } = assignment;
     if (!targets.includes(concept)) continue;
     const done = marker(`${concept}-r${context.revision}`);
-    if (await deps.readRepoFile(repo, done)) continue;
+    // Done before a retry: its marker says who did it, so the summary stays true.
+    const already = (await deps.readRepoFile(repo, done))?.trim();
+    if (already) {
+      workerNames.add(already);
+      continue;
+    }
     const note = request?.conceptNotes?.[concept] ? [request.note, request.conceptNotes[concept]].filter(Boolean).join("\n\n") : context.changeRequest;
     const kit = { art: await conceptArt(repo, concept), missingFonts: missingFonts[concept] ?? [], references: references.filter((entry) => assignment.composition.references.some((target) => target.url === entry.url)).slice(0, 3) };
     const { worker } = await designJob(() =>
       sideJob(context, deps, repo, conceptWorkers(context, run.workerPlan.hero, index), withPatterns(conceptBrief(run, assignment, design, kit, note), patterns), "execute", [`test -s design/${concept}/DESIGN.md && test -s design/${concept}/hero.html`], `rebuild/hero-r${context.revision}-${concept}`, `${concept} hero`, { ...skill, claudeReadOnlyRoots: [skillFolder, referencesDir()] }),
     );
-    workerName = workerName && workerName !== worker.name ? `${workerName} and ${worker.name}` : worker.name;
+    workerNames.add(worker.name);
     await deps.commitFiles(repo, { [done]: `${worker.name}\n` }, `${run.company}: ${concept} done`);
   }
   await recordConcepts(context, deps, repo);
@@ -774,6 +779,7 @@ export const heroStage: StageHandler = async (context) => {
 
   const commit = (await deps.commitFiles(repo, { [marker(`hero-r${context.revision}`)]: `${context.revision}\n` }, `${run.company}: hero concepts (revision ${context.revision})`)) ?? (await headCommit(repo));
   await tagRevision(repo, commit, `rebuild/hero-r${context.revision}`);
+  const workerName = [...workerNames].join(" and ");
   const scored = results ? ` ${first ? "Critique" : "Measured"}: ${gateSummary(results, design, revised)}.` : " The design critique could not run, so the concepts are unscored.";
   return { summary: `${workerName || "The workers"} made ${targets.length === HERO_CONCEPTS.length ? "three concepts" : targets.join(" and ")}. Choose one to build.${scored}`, artifactIds, ref: commit, worker: workerName || undefined };
 };

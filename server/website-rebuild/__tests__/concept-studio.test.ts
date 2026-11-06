@@ -28,6 +28,7 @@ const metrics = (overrides: Partial<HeroMetrics> = {}): HeroMetrics => ({
   navLinks: [],
   cta: { x: 40, y: 700, width: 200, height: 60 },
   motionSeen: true,
+  headlineCovered: 0,
   skeleton: "tttt\n....",
   ...overrides,
 });
@@ -133,6 +134,22 @@ describe("the rendered audit", () => {
     const [audit] = judgeConcepts([measured("concept-a", {}, [{ id: "hero-eyebrow-chip", name: "Hero eyebrow chip", slop: true, snippet: "" }, { id: "tight-leading", name: "Tight leading", slop: false, snippet: "" }])], assignments);
     assert.match(audit.failures.join("\n"), /Slop detector: Hero eyebrow chip/);
     assert.match(audit.warnings.join("\n"), /Detector: Tight leading/);
+  });
+
+  it("fails a headline something else covers, at either width", () => {
+    const [desktop] = judgeConcepts([measured("concept-a", { headlineCovered: 0.45 })], assignments);
+    assert.match(desktop.failures.join("\n"), /covers 45% of the headline at 1440px/);
+    const [phone] = judgeConcepts([{ ...measured("concept-a"), mobile: metrics({ viewport: { width: 390, height: 844 }, headlineCovered: 0.3 }) }], assignments);
+    assert.match(phone.failures.join("\n"), /covers 30% of the headline at 390px/);
+    assert.deepEqual(judgeConcepts([measured("concept-a", { headlineCovered: 0.1 })], assignments)[0].failures, [], "touching an image on purpose is fine");
+  });
+
+  it("trusts the browser over the detector on a headline sized by script, and groups repeated warnings", () => {
+    const flat = { id: "flat-type-hierarchy", name: "Flat type hierarchy", slop: true, snippet: "h1 16px" };
+    assert.deepEqual(judgeConcepts([measured("concept-a", {}, [flat])], assignments)[0].failures, []);
+    assert.match(judgeConcepts([measured("concept-a", { h1: { text: "Small", words: 1, px: 18, family: "anton", rect: { x: 0, y: 0, width: 1300, height: 20 } } }, [flat])], [])[0].failures.join("\n"), /Flat type hierarchy/);
+    const cramped = { id: "cramped-padding", name: "Cramped padding", slop: false, snippet: "<li>" };
+    assert.deepEqual(judgeConcepts([measured("concept-a", {}, [cramped, cramped, cramped])], assignments)[0].warnings, ["Detector: Cramped padding (3 places), such as <li>."]);
   });
 
   it("fails the second of two concepts with the same skeleton or headline, once", () => {
