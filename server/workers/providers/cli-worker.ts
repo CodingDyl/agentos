@@ -8,6 +8,7 @@ import type { WorkerCapability, WorkerId, WorkerJob, WorkerJobResult, WorkerProv
 import { aiModel } from "../../ai-stack/settings";
 import { findOnPath } from "../../ai-stack/detect";
 import type { Worker, WorkerRunContext } from "../worker";
+import { withoutComposioKey } from "../../composio/key";
 
 /**
  * The operator's own coding CLIs, as AgentOS workers.
@@ -196,7 +197,7 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
 
         const child = spawn(binary, args, {
           cwd,
-          env: spec.env ? spec.env(process.env) : process.env,
+          env: spec.env ? spec.env(withoutComposioKey(process.env)) : withoutComposioKey(process.env),
           stdio: ["ignore", "pipe", "pipe"],
         });
         processes.set(job.id, child);

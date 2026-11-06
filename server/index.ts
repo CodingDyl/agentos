@@ -103,6 +103,7 @@ import { skillsRouter } from "./skills/routes";
 import { agentsRouter } from "./agents/routes";
 import { financeRouter } from "./finance/routes";
 import { routePolicyRouter } from "./route-policy/routes";
+import { composioRouter } from "./composio/routes";
 import { connectorsRouter } from "./connectors/routes";
 import { databasesRouter } from "./supabase/routes";
 import { operatorRouter } from "./operator/routes";
@@ -453,6 +454,9 @@ app.use("/api/route-policy", routePolicyRouter);
 
 /** Connectors: every service AgentOS can reach, its switch, and each capability's policy. */
 app.use("/api/connectors", connectorsRouter);
+
+/** Composio: the apps reached through one key, each signed in on Composio's page. No route here runs an action. */
+app.use("/api/composio", composioRouter);
 
 /** Operator: one request in, planned against Connectors, approved, executed, and recorded as a run. */
 app.use("/api/operator", operatorRouter);

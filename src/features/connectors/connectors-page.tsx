@@ -7,6 +7,7 @@ import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, PaperSwi
 import { useNavigationItems } from "@/config/use-navigation";
 import { useConnectors, useSetConnectorEnabled } from "@/lib/agentos/connectors";
 import { cn } from "@/lib/utils";
+import { ComposioSection } from "./composio-section";
 import { ConnectorIcon } from "./connector-icon";
 import { formatWhen, groupConnectors, statusLabel, statusTone, switchNote, TIER_LABEL } from "./connectors-model";
 import { SkillsSection } from "./skills-section";
@@ -18,8 +19,9 @@ import { SkillsSection } from "./skills-section";
  * whether it is switched on *for AgentOS* — two different facts, because an
  * authenticated account can still be one AgentOS must not touch.
  *
- * Opening this page makes no call to any service. Status comes from local
- * configuration and the last "Test connection".
+ * Opening this page makes no call to any service, except Composio once its key
+ * is set (see `composio-section.tsx`). Status comes from local configuration
+ * and the last "Test connection".
  */
 export function ConnectorsPage() {
   const navigationItems = useNavigationItems();
@@ -73,6 +75,8 @@ export function ConnectorsPage() {
                 </ul>
               )}
             </PaperSection>
+
+            <ComposioSection className="mt-12" />
 
             {data.recommendations.length > 0 ? (
               <PaperSection label="Recommended" count={data.recommendations.length} className="mt-12">

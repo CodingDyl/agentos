@@ -42,6 +42,7 @@ const env = {
   ANTHROPIC_API_KEY: "",
   ANTHROPIC_AUTH_TOKEN: "",
   FISH_API_KEY: "",
+  COMPOSIO_API_KEY: "",
   // Operator creates new project folders here: a throwaway stand-in for the SSD.
   AGENTOS_PROJECTS_ROOT: path.join(E2E_ROOT, "projects"),
   // Connectors' "Save & connect" writes here, never to the repository's own .env.

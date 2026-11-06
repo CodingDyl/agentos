@@ -25,6 +25,7 @@ import { mediaRoot, probeVideo, storeVideo } from "./media";
 import { buildStudioPrompt, fillTemplate, readMotionPrompts } from "./motion-prompts";
 import { libraryContextFor } from "../reengineer/library";
 import { projectContext, resolveReferences } from "./review-context";
+import { withoutComposioKey } from "../composio/key";
 
 /**
  * The motion studio runner.
@@ -346,7 +347,7 @@ export function claudeArgs(
 
 /** The plan, never the API: a key in the environment would switch billing. */
 export function planEnvironment(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env };
+  const env: NodeJS.ProcessEnv = withoutComposioKey(process.env);
   delete env.ANTHROPIC_API_KEY;
   delete env.ANTHROPIC_AUTH_TOKEN;
   // ffmpeg is usually Homebrew's; a launchd-started AgentOS may not have it on PATH.

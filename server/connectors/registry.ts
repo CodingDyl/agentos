@@ -17,6 +17,7 @@ import { capabilityId, CONNECTORS, defaultPolicy, findConnector, type CatalogCon
 import { effectivePolicy, isConnectorEnabled, setConnectorEnabled } from "./policy";
 import { env, PROBES, UNAVAILABLE_HINTS, type LocalProbe } from "./probes";
 import { valueProblem, writeEnvValues, EnvWriteError } from "./env-file";
+import { resetComposioClient } from "../composio/client";
 import { forgetInvestecToken } from "../finance/investec";
 import { resetAccessTokenCache } from "../mail/gmail-auth";
 import { resetOutreachTokenCache } from "../outreach/auth";
@@ -327,6 +328,7 @@ export async function saveCredentials(id: string, submitted: Record<string, stri
   forgetInvestecToken();
   resetAccessTokenCache();
   resetOutreachTokenCache();
+  resetComposioClient();
   steps.push({ label: "Apply without a restart", ok: true });
 
   recordUse(id, {

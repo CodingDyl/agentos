@@ -24,6 +24,9 @@ import {
   outreachAddress,
 } from "../outreach/auth";
 import { isApolloConfigured, searchPeopleAtDomain } from "../outreach/apollo";
+import { isComposioConfigured } from "../composio/client";
+import { COMPOSIO_KEY_ENV } from "../composio/key";
+import { testComposio } from "../composio/service";
 import { isPlacesConfigured, resolveArea } from "../places/client";
 import { monthlyCap, placesBudget, reserveRequests } from "../places/usage";
 import { isFishConfigured, synthesise } from "../voice/fish";
@@ -526,6 +529,26 @@ export const PROBES: Record<string, Probe> = {
         await resolveArea("Johannesburg");
         const budget = placesBudget();
         return { ok: true, detail: `Google accepted the key. ${budget.used} of ${budget.cap} requests used this month.` };
+      } catch (error) {
+        return failure(error);
+      }
+    },
+  },
+
+  composio: {
+    async local() {
+      const configured = isComposioConfigured();
+      return {
+        configured,
+        detail: configured ? undefined : `${COMPOSIO_KEY_ENV} is not set.`,
+        setup: [env(COMPOSIO_KEY_ENV)],
+        connectHint:
+          "Paste a project API key from platform.composio.dev. Then connect apps from the Connectors page: each one signs in on Composio's own page, so AgentOS never sees the password or token.",
+      };
+    },
+    async test() {
+      try {
+        return await testComposio();
       } catch (error) {
         return failure(error);
       }
