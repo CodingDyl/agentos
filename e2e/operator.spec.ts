@@ -30,11 +30,13 @@ async function send(page: Page, text: string, mode: "Ask" | "Plan" | "Run" = "Ru
 const lastReply = (page: Page) => page.getByRole("region", { name: "Conversation" }).getByRole("listitem", { name: /^Request:/ }).last();
 
 test.describe("Operator", () => {
-  test("is first under Work, opens on a new chat, and keeps planned runs with Jarvis", async ({ page }) => {
+  test("is last under Work, opens on a new chat, and keeps planned runs with Jarvis", async ({ page }) => {
     await page.goto("/");
     const nav = page.getByRole("complementary", { name: "Primary navigation" });
     const hrefs = await nav.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
-    expect(hrefs[hrefs.indexOf("/operator") + 1]).toBe("/workspaces");
+    // Work ends with Operator; Memory (HUB) starts straight after.
+    expect(hrefs[hrefs.indexOf("/operator") - 1]).toBe("/designs");
+    expect(hrefs[hrefs.indexOf("/operator") + 1]).toBe("/learning");
 
     await nav.getByRole("link", { name: /^Operator/ }).click();
     await expect(page.getByRole("heading", { level: 1, name: "New chat" })).toBeVisible();

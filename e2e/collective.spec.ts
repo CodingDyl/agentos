@@ -2,7 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
-const screenshots = path.resolve("docs/collective/screenshots");
+// Committed doc screenshots are rewritten only on request, so a normal test
+// run leaves the checkout clean.
+const screenshots = process.env.UPDATE_DOC_SCREENSHOTS === "1"
+  ? path.resolve("docs/collective/screenshots")
+  : path.resolve("test-results/collective-screenshots");
 
 async function openDashboard(page: Page) {
   await page.goto("/");

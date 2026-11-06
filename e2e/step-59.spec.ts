@@ -125,7 +125,9 @@ test.describe("Knowledge", () => {
   test("filters by workspace, in the URL", async ({ page }) => {
     await page.goto("/knowledge");
 
-    await page.getByRole("combobox", { name: "Workspace" }).selectOption("virtara");
+    await page.getByRole("button", { name: "Filter" }).click();
+    await page.getByRole("dialog", { name: "Filters" }).getByRole("checkbox", { name: "Virtara" }).click();
+    await page.keyboard.press("Escape");
     await expect(page.getByRole("link", { name: /Pricing/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Chef UX Analysis/ })).toHaveCount(0);
     await expect(page).toHaveURL(/workspace=virtara/);
@@ -209,7 +211,7 @@ test.describe("Cancelling a job", () => {
     await page.goto("/workers");
     const row = page.getByRole("listitem").filter({ hasText: "Finished work nobody wants" }).first();
     await expect(row.getByText(/Busy with|Finished work nobody wants/).first()).toBeVisible();
-    await row.getByRole("button", { name: "Cancel Finished work nobody wants" }).click();
+    await row.getByRole("button", { name: "Cancel", exact: true }).click();
     await row.getByRole("button", { name: "Yes" }).click();
 
     await expect
