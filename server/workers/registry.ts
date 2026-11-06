@@ -1,7 +1,7 @@
 import type { WorkerId, WorkerSummary } from "../../shared/worker-types";
 import { isAiEnabled, switchedOffReason } from "../ai-stack/settings";
 import { claudeWorker } from "./providers/claude-worker";
-import { claudeCodeWorker, codexWorker, geminiWorker, hermesWorker } from "./providers/cli-workers";
+import { claudeCodeWorker, codexWorker, cursorWorker, geminiWorker, hermesWorker } from "./providers/cli-workers";
 import { grokWorker } from "./providers/grok-worker";
 import { grokBotWorker } from "./providers/grok-bot-worker";
 import { mockWorker } from "./providers/mock-worker";
@@ -82,6 +82,8 @@ registerWorker(codexWorker);
 registerWorker(geminiWorker);
 
 registerWorker(hermesWorker);
+
+registerWorker(cursorWorker);
 
 /**
  * Local models. Unavailable until a model is enabled in the Ollama settings, so

@@ -1,10 +1,15 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { normaliseWorkerModel } from "../../ai-stack/model-names";
+import { findOnPath } from "../../ai-stack/detect";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { WorkerProviderMetrics } from "../../../shared/worker-types";
 import { clip, createCliWorker, jsonLine, num, record, type CliOutputReader } from "./cli-worker";
 import { codexSandboxFlags, geminiIncludeFlags } from "../git-sandbox";
+
+const run = promisify(execFile);
 
 /**
  * How each of the operator's coding CLIs is called and read. The engine that
@@ -433,4 +438,256 @@ export const hermesWorker = createCliWorker({
       return { summary: stdout.trim(), metrics: hermesUsage(report) };
     },
   }),
+});
+
+// ---------------------------------------------------------------------------
+// Cursor Agent, on the operator's Cursor plan.
+//
+// The binary is `cursor-agent`, never `agent`: on this machine `agent` is
+// Grok Build, and the Cursor installer would replace that symlink.
+// ---------------------------------------------------------------------------
+
+/** Refused even with `--force`. Deny outranks the auto-approval a headless run needs. */
+export const CURSOR_DENY = [
+  "Shell(git:push*)",
+  "Shell(git:commit*)",
+  "Shell(git:remote*)",
+  "Shell(git:reset*)",
+  "Shell(git:fetch*)",
+  "Shell(git:pull*)",
+  "Shell(git:merge*)",
+  "Shell(git:rebase*)",
+  "Shell(git:worktree*)",
+  "Shell(sudo)",
+  "Shell(rm)",
+  "Read(**/.env)",
+  "Read(**/.env.*)",
+  "Read(**/*.pem)",
+  "Write(**/.env)",
+  "Write(**/.env.*)",
+  "Write(**/*.pem)",
+  "Write(**/*.key)",
+  // A headless job must not hang on an MCP or web-fetch prompt, and must not
+  // inherit the operator's connectors.
+  "Mcp(*:*)",
+  "WebFetch(*)",
+] as const;
+
+export function cursorDenyRules(reportOnly: boolean): string[] {
+  return reportOnly ? [...CURSOR_DENY, "Write(**)"] : [...CURSOR_DENY];
+}
+
+/** `cursor-agent status` text. Signed out is a sentence, not a thrown error. */
+export function cursorSignedIn(statusText: string): boolean {
+  return !/not logged in/i.test(statusText);
+}
+
+/** Adds this job's refusals to a project CLI config without dropping what was already there. */
+export function mergeCursorPermissions(existing: unknown, deny: readonly string[]): Record<string, unknown> {
+  const base =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {};
+  const permissions =
+    base.permissions && typeof base.permissions === "object" && !Array.isArray(base.permissions)
+      ? { ...(base.permissions as Record<string, unknown>) }
+      : {};
+  const current = Array.isArray(permissions.deny)
+    ? permissions.deny.filter((entry): entry is string => typeof entry === "string")
+    : [];
+  const next = [...current];
+  for (const rule of deny) {
+    if (!next.includes(rule)) next.push(rule);
+  }
+  permissions.deny = next;
+  base.permissions = permissions;
+  return base;
+}
+
+/**
+ * Writes `<worktree>/.cursor/cli.json` for this job only, and puts the file
+ * back afterwards. The path has to stay inside the worktree: a symlink there
+ * would otherwise land the refusals, or a restore, somewhere else.
+ */
+export async function installCursorJobPermissions(
+  cwd: string,
+  deny: readonly string[],
+): Promise<() => Promise<void>> {
+  const root = await fs.realpath(cwd);
+  const dir = path.join(root, ".cursor");
+  const file = path.join(dir, "cli.json");
+
+  const inside = (candidate: string) => candidate === root || candidate.startsWith(`${root}${path.sep}`);
+
+  let original: string | undefined;
+  let exists = true;
+  try {
+    await fs.lstat(file);
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+    if (code !== "ENOENT") throw error;
+    exists = false;
+  }
+
+  if (!exists) {
+    original = undefined;
+  } else {
+    // A symlink, including a dangling one, has to resolve inside the checkout
+    // before anything is written through it.
+    let resolved: string;
+    try {
+      resolved = await fs.realpath(file);
+    } catch {
+      throw new Error("Cursor's CLI config points outside the job checkout.");
+    }
+    if (!inside(resolved)) throw new Error("Cursor's CLI config points outside the job checkout.");
+    original = await fs.readFile(resolved, "utf8");
+  }
+
+  let parsed: unknown = {};
+  if (original !== undefined) {
+    try {
+      parsed = JSON.parse(original) as unknown;
+    } catch {
+      // A config this job cannot read is left untouched. The sandbox and the
+      // brief still apply; guessing at a rewrite could drop the project's rules.
+      return async () => undefined;
+    }
+  }
+
+  await fs.mkdir(dir, { recursive: true });
+  const resolvedDir = await fs.realpath(dir);
+  if (!inside(resolvedDir)) throw new Error("Cursor's CLI config directory points outside the job checkout.");
+
+  await fs.writeFile(file, `${JSON.stringify(mergeCursorPermissions(parsed, deny), null, 2)}\n`, "utf8");
+
+  return async () => {
+    if (original !== undefined) await fs.writeFile(file, original, "utf8");
+    else await fs.rm(file, { force: true });
+  };
+}
+
+export function cursorArgs(input: {
+  cwd: string;
+  prompt: string;
+  model?: string;
+  writableRoots?: string[];
+  reportOnly?: boolean;
+}): string[] {
+  const roots = (input.writableRoots ?? []).filter((root) => path.resolve(root) !== path.resolve(input.cwd));
+  return [
+    "--print",
+    "--output-format",
+    "stream-json",
+    "--trust",
+    "--sandbox",
+    "enabled",
+    "--force",
+    "--workspace",
+    input.cwd,
+    ...roots.flatMap((root) => ["--add-dir", root]),
+    ...(input.reportOnly ? ["--mode", "ask"] : []),
+    ...(input.model ? ["--model", input.model] : []),
+    input.prompt,
+  ];
+}
+
+export function cursorReader(model?: string): CliOutputReader {
+  let seenModel = model;
+  let result: Record<string, unknown> | undefined;
+  let summary: string | undefined;
+
+  return {
+    line(line) {
+      const event = jsonLine(line);
+      if (!event) return line.trim() ? { message: clip(line) } : undefined;
+
+      if (event.type === "system" && event.subtype === "init" && typeof event.model === "string") {
+        seenModel = event.model;
+        return { message: `Cursor started · ${seenModel}` };
+      }
+
+      if (event.type === "assistant") {
+        // Partial deltas repeat the text the complete message already carries.
+        if ("timestamp_ms" in event) return undefined;
+        const content = record(event.message)?.content;
+        if (!Array.isArray(content)) return undefined;
+        for (const part of content) {
+          const block = record(part);
+          if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
+            summary = block.text;
+            return { message: clip(block.text) };
+          }
+        }
+        return undefined;
+      }
+
+      if (event.type === "tool_call" && event.subtype === "started") {
+        const call = record(event.tool_call);
+        const name = call ? Object.keys(call)[0]?.replace(/ToolCall$/, "") : "tool";
+        return { message: `Using ${name || "tool"}` };
+      }
+
+      if (event.type === "result") result = event;
+      return undefined;
+    },
+
+    async finish() {
+      const usage = record(result?.usage);
+      const input = num(usage?.input_tokens);
+      const output = num(usage?.output_tokens);
+      const failed = result?.is_error === true || (typeof result?.subtype === "string" && result.subtype !== "success");
+      const text = typeof result?.result === "string" && result.result.trim() ? result.result : summary;
+
+      const metrics: WorkerProviderMetrics = {
+        provider: "cursor",
+        model: seenModel,
+        inputTokens: input,
+        outputTokens: output,
+        totalTokens: input !== undefined && output !== undefined ? input + output : undefined,
+        measurement: usage ? "exact" : "unknown",
+        sessionId: typeof result?.session_id === "string" ? result.session_id : undefined,
+      };
+
+      return {
+        summary: text,
+        metrics,
+        blockers: !result
+          ? ["Cursor ended without reporting a result."]
+          : failed
+            ? [`Cursor stopped: ${String(result.subtype ?? "error")}.`]
+            : undefined,
+      };
+    },
+  };
+}
+
+export const cursorWorker = createCliWorker({
+  id: "cursor",
+  name: "Cursor",
+  role: "Implementation on your Cursor plan. Writes code in an isolated checkout",
+  capabilities: ["code", "review", "research"],
+  binary: "cursor-agent",
+  installHint:
+    "Install Cursor's CLI so `cursor-agent` is on your PATH, then run `cursor-agent login`. Leave the `agent` command alone when it is Grok.",
+  ready: async () => {
+    const binary = await findOnPath("cursor-agent");
+    if (!binary) return { ok: false, reason: "cursor-agent is not installed." };
+    try {
+      const { stdout } = await run(binary, ["status"], { timeout: 8_000 });
+      return cursorSignedIn(stdout)
+        ? { ok: true }
+        : { ok: false, reason: "Cursor Agent is not signed in. Run `cursor-agent login`." };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      if (/not logged in/i.test(detail)) {
+        return { ok: false, reason: "Cursor Agent is not signed in. Run `cursor-agent login`." };
+      }
+      return { ok: false, reason: `Cursor Agent could not report its sign-in: ${detail}` };
+    }
+  },
+  prepare: ({ cwd, job }) => installCursorJobPermissions(cwd, cursorDenyRules(job.reportOnly === true)),
+  args: ({ cwd, prompt, model, writableRoots, job }) =>
+    cursorArgs({ cwd, prompt, model, writableRoots, reportOnly: job.reportOnly }),
+  reader: ({ model }) => cursorReader(model),
 });

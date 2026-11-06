@@ -438,7 +438,7 @@ describe("running jobs", () => {
 
       assert.deepEqual(
         workers.map((worker) => worker.id).sort(),
-        ["claude", "claude-code", "codex", "gemini", "grok", "grok-bot", "hermes-worker", "mock", "ollama"],
+        ["claude", "claude-code", "codex", "cursor", "gemini", "grok", "grok-bot", "hermes-worker", "mock", "ollama"],
       );
     });
 

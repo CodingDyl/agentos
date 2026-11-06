@@ -467,6 +467,7 @@ const MONOGRAMS: Record<string, string> = {
   "grok-bot": "GB",
   ollama: "OL",
   "hermes-worker": "HW",
+  cursor: "CU",
   mock: "MK",
 };
 

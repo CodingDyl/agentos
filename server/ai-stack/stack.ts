@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { claudeWorker } from "../workers/providers/claude-worker";
-import { claudeCodeWorker, codexWorker, geminiWorker, hermesWorker } from "../workers/providers/cli-workers";
+import { claudeCodeWorker, codexWorker, cursorWorker, geminiWorker, hermesWorker } from "../workers/providers/cli-workers";
 import { grokWorker } from "../workers/providers/grok-worker";
 import { ollamaWorker } from "../workers/providers/ollama-worker";
 import { envKeySet, findApp, findConfig, findOnPath, serverAnswers } from "./detect";
@@ -199,12 +199,15 @@ const CATALOG: readonly CatalogEntry[] = [
     id: "cursor",
     name: "Cursor",
     vendor: "Anysphere",
-    kind: "coding-tool",
+    kind: "worker",
+    integration: "Runs coding jobs as a worker through Cursor Agent, on your Cursor plan, in an isolated checkout.",
+    ledgerAgent: "cursor",
     provider: "cursor",
     clis: ["cursor-agent"],
     apps: ["Cursor"],
     configs: [".cursor"],
-    connectHint: "The editor can't take work from another program. Cursor's cursor-agent CLI could, but AgentOS doesn't drive it yet.",
+    health: () => cursorWorker.healthCheck(),
+    modelPlaceholder: "grok-4.7",
   },
   {
     id: "windsurf",

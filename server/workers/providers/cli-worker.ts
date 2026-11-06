@@ -12,7 +12,7 @@ import type { Worker, WorkerRunContext } from "../worker";
 /**
  * The operator's own coding CLIs, as AgentOS workers.
  *
- * Claude Code, Codex, Gemini and Hermes all have a headless mode: one prompt
+ * Claude Code, Codex, Gemini, Hermes and Cursor Agent all have a headless mode: one prompt
  * in, work done in a directory, a final message out. This is the one engine
  * they share; each tool's file says only how to call it and how to read it.
  *
@@ -80,6 +80,12 @@ export interface CliWorkerSpec {
   /** The child's environment. Defaults to the server's own. */
   env?(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv;
   reader(input: { model?: string }): CliOutputReader;
+  /**
+   * Runs after the worktree is known and before the process starts.
+   * The returned function runs when the process has finished, including
+   * when startup fails, so a job-only file can be put back.
+   */
+  prepare?(input: { cwd: string; job: WorkerJob }): Promise<(() => Promise<void>) | void>;
 }
 
 /**
@@ -174,68 +180,77 @@ export function createCliWorker(spec: CliWorkerSpec): Worker {
         usage: path.join(scratch, `usage-${randomUUID()}.json`),
       };
 
-      const model = job.modelOverride?.trim() || aiModel(spec.id);
-      const prompt = buildCliPrompt(contextPacket);
-      const args = spec.args({ cwd, prompt, model, files, job, writableRoots });
-      const flagProblem = preflightCliFlags(spec.binary, args);
-      if (flagProblem) throw new Error(flagProblem);
-
-      emit("job.progress", `Starting ${spec.name}`, { model: model ?? "tool default", promptBytes: prompt.length });
-
-      const child = spawn(binary, args, {
-        cwd,
-        env: spec.env ? spec.env(process.env) : process.env,
-        stdio: ["ignore", "pipe", "pipe"],
+      const release = await spec.prepare?.({ cwd, job }).catch((error: unknown) => {
+        void fs.rm(scratch, { recursive: true, force: true });
+        throw error;
       });
-      processes.set(job.id, child);
-
-      const reader = spec.reader({ model });
-      let stdout = "";
-      let stderr = "";
-
-      child.stderr?.setEncoding("utf8");
-      child.stderr?.on("data", (chunk: string) => {
-        stderr = `${stderr}${chunk}`.slice(-MAX_STDERR_CHARS);
-      });
-
-      const onAbort = () => terminate(child);
-      signal.addEventListener("abort", onAbort, { once: true });
-      const timeout = setTimeout(() => terminate(child), jobTimeoutMs(job));
 
       try {
-        const lines = readline.createInterface({ input: child.stdout! });
-        lines.on("line", (line) => {
-          stdout = `${stdout}${line}\n`.slice(-MAX_STDOUT_CHARS);
-          const progress = reader.line(line);
-          if (progress) emit("job.progress", progress.message, progress.metadata);
+        const model = job.modelOverride?.trim() || aiModel(spec.id);
+        const prompt = buildCliPrompt(contextPacket);
+        const args = spec.args({ cwd, prompt, model, files, job, writableRoots });
+        const flagProblem = preflightCliFlags(spec.binary, args);
+        if (flagProblem) throw new Error(flagProblem);
+
+        emit("job.progress", `Starting ${spec.name}`, { model: model ?? "tool default", promptBytes: prompt.length });
+
+        const child = spawn(binary, args, {
+          cwd,
+          env: spec.env ? spec.env(process.env) : process.env,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        processes.set(job.id, child);
+
+        const reader = spec.reader({ model });
+        let stdout = "";
+        let stderr = "";
+
+        child.stderr?.setEncoding("utf8");
+        child.stderr?.on("data", (chunk: string) => {
+          stderr = `${stderr}${chunk}`.slice(-MAX_STDERR_CHARS);
         });
 
-        const { code, signalName } = await new Promise<{ code: number | null; signalName: NodeJS.Signals | null }>((resolve, reject) => {
-          child.once("close", (exitCode, exitSignal) => resolve({ code: exitCode, signalName: exitSignal }));
-          child.once("error", reject);
-        });
-        lines.close();
+        const onAbort = () => terminate(child);
+        signal.addEventListener("abort", onAbort, { once: true });
+        const timeout = setTimeout(() => terminate(child), jobTimeoutMs(job));
 
-        if (signal.aborted) throw new Error("Cancelled");
+        try {
+          const lines = readline.createInterface({ input: child.stdout! });
+          lines.on("line", (line) => {
+            stdout = `${stdout}${line}\n`.slice(-MAX_STDOUT_CHARS);
+            const progress = reader.line(line);
+            if (progress) emit("job.progress", progress.message, progress.metadata);
+          });
 
-        if (code !== 0) {
-          throw new Error(launchFailureMessage(spec.name, code, signalName, stdout, stderr));
+          const { code, signalName } = await new Promise<{ code: number | null; signalName: NodeJS.Signals | null }>((resolve, reject) => {
+            child.once("close", (exitCode, exitSignal) => resolve({ code: exitCode, signalName: exitSignal }));
+            child.once("error", reject);
+          });
+          lines.close();
+
+          if (signal.aborted) throw new Error("Cancelled");
+
+          if (code !== 0) {
+            throw new Error(launchFailureMessage(spec.name, code, signalName, stdout, stderr));
+          }
+
+          const outcome = await reader.finish(stdout, files);
+          emit("job.progress", `${spec.name} finished`, { model: outcome.metrics?.model ?? model });
+
+          return {
+            summary: outcome.summary?.trim() || `${spec.name} finished without a closing summary.`,
+            blockers: outcome.blockers && outcome.blockers.length > 0 ? outcome.blockers : undefined,
+            worktreePath,
+            providerMetrics: outcome.metrics,
+          };
+        } finally {
+          clearTimeout(timeout);
+          signal.removeEventListener("abort", onAbort);
+          processes.delete(job.id);
+          terminate(child);
         }
-
-        const outcome = await reader.finish(stdout, files);
-        emit("job.progress", `${spec.name} finished`, { model: outcome.metrics?.model ?? model });
-
-        return {
-          summary: outcome.summary?.trim() || `${spec.name} finished without a closing summary.`,
-          blockers: outcome.blockers && outcome.blockers.length > 0 ? outcome.blockers : undefined,
-          worktreePath,
-          providerMetrics: outcome.metrics,
-        };
       } finally {
-        clearTimeout(timeout);
-        signal.removeEventListener("abort", onAbort);
-        processes.delete(job.id);
-        terminate(child);
+        await release?.().catch(() => undefined);
         await fs.rm(scratch, { recursive: true, force: true }).catch(() => undefined);
       }
     },
