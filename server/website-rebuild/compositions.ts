@@ -41,6 +41,8 @@ export interface HeroMetrics {
   cta?: Rect;
   /** Animations seen in the first moments, CSS or GSAP. */
   motionSeen: boolean;
+  /** Share of the headline hidden behind something else on the page. */
+  headlineCovered: number;
   /** A coarse occupancy map of text (t), media (m) and empty (.), row by row. */
   skeleton: string;
 }
