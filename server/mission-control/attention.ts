@@ -339,6 +339,28 @@ export function failedJobAttention(
   return items;
 }
 
+/**
+ * When each unreadable source was first seen failing. A card is cleared by
+ * `id@createdAt`, so a time that moved on every read would bring a cleared card
+ * straight back. It stays put while the source stays down, and a source that
+ * recovers and fails again is a new card.
+ */
+const firstSeenDegraded = new Map<string, string>();
+
+const systemId = (label: string) => `system-${label.toLowerCase().replace(/\s+/g, "-")}`;
+
+function degradedSince(id: string): string {
+  const known = firstSeenDegraded.get(id);
+  if (known) return known;
+  const now = new Date().toISOString();
+  firstSeenDegraded.set(id, now);
+  return now;
+}
+
+function forgetRecovered(stillDown: readonly string[]): void {
+  for (const id of [...firstSeenDegraded.keys()]) if (!stillDown.includes(id)) firstSeenDegraded.delete(id);
+}
+
 export function buildAttention(input: AttentionInput): AttentionItem[] {
   const items: AttentionItem[] = [
     ...failedJobAttention(input.jobs, input.history),
@@ -346,15 +368,16 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     ...input.automations.flatMap((entry) => automationAttention(entry) ?? []),
     ...input.projects.flatMap((project) => projectAttention(project) ?? []),
     ...input.degraded.map((source) => ({
-      id: `system-${source.label.toLowerCase().replace(/\s+/g, "-")}`,
+      id: systemId(source.label),
       type: "system" as const,
       severity: "info" as const,
       title: `${source.label} could not be read`,
       description: source.detail,
       action: { label: "Open activity", href: "/activity" },
-      createdAt: new Date().toISOString(),
+      createdAt: degradedSince(systemId(source.label)),
     })),
   ];
+  forgetRecovered(input.degraded.map((source) => systemId(source.label)));
 
   return sortAttentionItems(items);
 }

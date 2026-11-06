@@ -382,7 +382,7 @@ export function DayWrapUp({ className }: { className?: string }) {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-x-6 gap-y-4 border-t border-paper-mist pt-4 @xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-4 border-t border-paper-mist pt-4 @xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <div>
             <TodayLabel>Tomorrow starts with</TodayLabel>
             <p className="mt-2 text-[14px] leading-6 text-paper-moss">

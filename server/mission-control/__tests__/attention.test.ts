@@ -320,6 +320,31 @@ describe("the order the list is read in", () => {
   });
 });
 
+describe("an unreadable source keeps one identity while it stays unreadable", () => {
+  const read = () =>
+    buildAttention({
+      jobs: [],
+      automations: [],
+      projects: [],
+      degraded: [{ label: "Automations", detail: "Hermes is not configured." }],
+    })[0];
+
+  it("is the same card on every read, so clearing it sticks", async () => {
+    const first = read();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const second = read();
+    assert.equal(second.id, first.id);
+    assert.equal(second.createdAt, first.createdAt);
+  });
+
+  it("is a new card after the source recovers and fails again", async () => {
+    const first = read();
+    buildAttention({ jobs: [], automations: [], projects: [], degraded: [] });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.notEqual(read().createdAt, first.createdAt);
+  });
+});
+
 describe("repeat failures and retries", () => {
   const failed = (id: string, createdAt: string, error = "Worker exited with code 1") =>
     job({ id, status: "failed", createdAt, completedAt: createdAt, error });
