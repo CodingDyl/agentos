@@ -93,7 +93,7 @@ test.describe("Find by niche", () => {
 
     expect(searches).toEqual([{ area: "Sandton", nicheId: "law_firms", radiusKm: 10 }]);
 
-    const names = page.locator("h3").filter({ hasText: /^E2E / });
+    const names = page.locator("h3").filter({ hasText: /^E2E .+ Attorneys$/ });
     // Only their own sites are read, and the one with the most wrong comes first among them.
     await expect(names).toHaveText(["E2E No Site Attorneys", "E2E Social Only Attorneys", "E2E Dated Site Attorneys", "E2E Own Site Attorneys"]);
     expect(siteChecks).toEqual([{ websites: ["https://www.e2e-own-attorneys.example/contact", "https://www.e2e-dated-attorneys.example/"] }]);

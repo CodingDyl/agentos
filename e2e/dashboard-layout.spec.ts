@@ -1,6 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function openDashboard(page: Page) {
+/**
+ * The dashboard leads with the plan until 5pm and the wrap after it, by the
+ * browser's clock. Pin the clock so these tests mean the same at any hour.
+ */
+async function openDashboard(page: Page, at: { hours: number } = { hours: 10 }) {
+  const now = new Date();
+  now.setHours(at.hours, 0, 0, 0);
+  await page.clock.setFixedTime(now);
   await page.goto("/");
   const skip = page.getByRole("button", { name: "Skip today", exact: true });
   await skip.waitFor({ timeout: 5_000 }).catch(() => undefined);
@@ -39,6 +46,15 @@ test.describe("Dashboard hierarchy", () => {
     await expect(page.getByRole("link", { name: "Send invoice" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Follow up" }).or(page.getByRole("link", { name: "Follow up" }))).toBeVisible();
     await noHorizontalOverflow(page);
+  });
+
+  test("leads with the wrap-up from 5pm, and the plan is one press away", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await openDashboard(page, { hours: 19 });
+    await expect(page.getByRole("region", { name: "Wrap up the day" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Morning brief" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Plan the day" }).click();
+    await expect(page.getByRole("region", { name: "Morning brief" })).toBeVisible();
   });
 
   test("holds the content to 1440px on a wide screen", async ({ page }) => {

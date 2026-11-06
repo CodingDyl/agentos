@@ -9,8 +9,8 @@ AgentOS is the owner's personal tool and only they use it. Merging to `productio
 - **Stay current:** merge `origin/production` into your branch before opening a PR and again before merging. Several agents work in parallel, so expect `production` to move.
 - **Commit and push** with clear messages, without asking.
 - **Merge without asking** once all of these hold:
-  1. `npm run lint`, `npm run typecheck`, `npx vite build` and `npm test` pass locally. If a test only hangs in a cloud sandbox and also hangs on unmodified `production`, rely on CI and say so.
-  2. A PR into `production` is open and CI (`Lint, typecheck, build` and `Tests`) is green on its latest commit.
+  1. `npm run lint`, `npm run typecheck`, `npx vite build`, `npm test` and `npm run test:e2e` pass locally. If a test only hangs in a cloud sandbox and also hangs on unmodified `production`, rely on CI and say so.
+  2. A PR into `production` is open and CI (`Lint, typecheck, build`, `Tests` and `Browser tests`) is green on its latest commit.
   3. There are no merge conflicts.
 - **After merging,** confirm CI on `production` is green. If it's red, fix it immediately or revert the merge.
 - **Never leave finished work unmerged.** If you can't merge (a conflict you can't resolve safely, CI you can't fix, no permission), stop and say exactly why, in the PR and to the owner.

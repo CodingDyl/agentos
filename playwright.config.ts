@@ -16,7 +16,9 @@ export default defineConfig({
   fullyParallel: false,
   // One vault, shared: tests that write run in file order.
   workers: 1,
+  // A flaky test gets fixed, not retried.
   retries: 0,
+  forbidOnly: !!process.env.CI,
   reporter: [["list"]],
   timeout: 30_000,
   use: {
