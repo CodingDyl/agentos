@@ -13,6 +13,7 @@ import {
   Inbox,
   LayoutDashboard,
   LayoutGrid,
+  Music,
   PackageCheck,
   Network,
   Plug,
@@ -32,7 +33,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  * WORK        Workspaces · Delivery · Coder · Creative · Operator
  * MEMORY      HUB · Memory · Knowledge
  * OPERATIONS  Operations · Agents · Career · Automations · Connectors · Activity
- *             Compass stays in the quiet footer
+ *             Music and Compass stay in the quiet footer
  * ```
  *
  * The structure is specified in DESIGN.md, Navigation. Dashboard is the old
@@ -62,5 +63,6 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Automations", href: "/automations", icon: CalendarClock, section: "operations" },
   { label: "Connectors", href: "/connectors", icon: Plug, section: "operations" },
   { label: "Activity", href: "/activity", icon: Activity, section: "operations" },
+  { label: "Music", href: "/music", icon: Music, section: "footer" },
   { label: "Compass", href: "/compass", icon: Compass, section: "footer" },
 ];

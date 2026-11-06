@@ -4,8 +4,9 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useSpotifyPlaylists } from "@/lib/agentos/learning";
 import { useFocusSession } from "./focus-session-context";
-import { formatElapsed, interpolatedProgress } from "./learning-model";
-import { useOptionalSpotify } from "./spotify-context-value";
+import { interpolatedProgress } from "@/features/music/music-model";
+import { useOptionalSpotify } from "@/features/music/spotify-context-value";
+import { formatElapsed } from "./learning-model";
 
 /**
  * The shell's media corner: the focus session, when one is running, and a
@@ -125,7 +126,7 @@ function MiniPlayer() {
         ) : (
           <Music className="size-4 shrink-0 text-os-muted" strokeWidth={1.75} aria-hidden="true" />
         )}
-        <Link to="/learning?tab=spotify" className="os-focus-ring min-w-0 flex-1" title={`${track.name} — ${track.artists.join(", ")}`}>
+        <Link to="/music" className="os-focus-ring min-w-0 flex-1" title={`${track.name} — ${track.artists.join(", ")}`}>
           <span className="block truncate text-[13px] text-foreground">♫ {track.name}</span>
           <span className="block truncate text-[13px] text-os-muted">{track.artists.join(", ")}</span>
         </Link>

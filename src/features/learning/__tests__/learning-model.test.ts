@@ -5,10 +5,8 @@ import {
   filterNotes,
   formatElapsed,
   groupLibrary,
-  interpolatedProgress,
   notebookSourceList,
   parseTimestampInput,
-  playbackPollMs,
   progressShare,
   relatedNotes,
   resumeAt,
@@ -64,13 +62,11 @@ describe("learning model", () => {
     const groups = groupLibrary([
       source({ id: "a", positionSeconds: 100 }),
       source({ id: "b", watchLater: true }),
-      source({ id: "c", kind: "spotify" }),
       source({ id: "d", archived: true, watchLater: true }),
       source({ id: "e", finished: true, positionSeconds: 2000, watchLater: true }),
     ]);
     assert.deepEqual(groups.continueWatching.map((entry) => entry.id), ["a"]);
     assert.deepEqual(groups.watchLater.map((entry) => entry.id), ["b"]);
-    assert.deepEqual(groups.tracks.map((entry) => entry.id), ["c"]);
     assert.deepEqual(groups.archived.map((entry) => entry.id), ["d"]);
   });
 
@@ -84,13 +80,7 @@ describe("learning model", () => {
     assert.deepEqual(filterNotes(notes, { ...base, archived: true }).map((entry) => entry.id), ["3"]);
   });
 
-  it("polls Spotify gently", () => {
-    assert.equal(playbackPollMs({ visible: true, playing: true, inApp: false }), 4_000);
-    assert.equal(playbackPollMs({ visible: false, playing: true, inApp: false }), 30_000);
-    assert.equal(
-      interpolatedProgress({ isPlaying: true, progressMs: 10_000, readAt: "2026-10-01T00:00:00.000Z", track: { durationMs: 12_000 } }, Date.parse("2026-10-01T00:00:05.000Z")),
-      12_000,
-    );
+  it("formats a focus session's elapsed time", () => {
     assert.equal(formatElapsed(4_328_000), "01:12:08");
   });
 

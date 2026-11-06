@@ -37,7 +37,8 @@ import { KnowledgePage } from "@/features/knowledge";
 import { LibraryPage } from "@/features/reengineer";
 import { IdeaPage, IdeaTray } from "@/features/video-ideas";
 import { MemoryPage } from "@/features/memory";
-import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
+import { FocusSessionProvider, LearningPage, MediaDock } from "@/features/learning";
+import { MusicPage, SpotifyProvider } from "@/features/music";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
 import { AgentProfilePage, AgentsPage } from "@/features/agents";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
@@ -108,6 +109,7 @@ function App() {
           <Route path="/knowledge/library" element={<LibraryPage />} />
           <Route path="/memory" element={<MemoryPage />} />
           <Route path="/learning" element={<LearningPage />} />
+          <Route path="/music" element={<MusicPage />} />
           <Route path="/learning/ideas/:id" element={<IdeaPage />} />
           <Route path="/hub" element={<Navigate to="/learning" replace />} />
           <Route path="/agent" element={<AgentPage />} />

@@ -10,7 +10,7 @@ import {
   useSpotifyStatus,
   type SpotifyCommand,
 } from "@/lib/agentos/learning";
-import { playbackPollMs } from "./learning-model";
+import { playbackPollMs } from "./music-model";
 import { SpotifyContext, type SpotifyControls } from "./spotify-context-value";
 
 /**
