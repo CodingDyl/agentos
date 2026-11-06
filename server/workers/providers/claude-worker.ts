@@ -5,6 +5,7 @@ import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
 import type { WorkerJob, WorkerJobResult } from "../../../shared/worker-types";
 import type { Worker, WorkerRunContext } from "../worker";
 import { ClaudeStream } from "./claude-events";
+import { withoutComposioKey } from "../../composio/key";
 
 /**
  * Claude, as an AgentOS worker.
@@ -215,7 +216,7 @@ export function workerConfigDir(): string {
  */
 function isolatedEnvironment(): Record<string, string | undefined> {
   return {
-    ...process.env,
+    ...withoutComposioKey(process.env),
     // The worker's own configuration directory, never the operator's.
     CLAUDE_CONFIG_DIR: workerConfigDir(),
     // Project and user memory files are another way personal context arrives.

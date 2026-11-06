@@ -254,6 +254,20 @@ export const CONNECTORS: readonly CatalogConnector[] = [
     ],
   },
   {
+    id: "composio",
+    name: "Composio",
+    description: "One key for the apps AgentOS has no adapter of its own for: Notion, Slack, Linear and 1,700 more. You sign in on Composio's own page, and it holds the sign-ins.",
+    category: "productivity",
+    tier: 2,
+    icon: "plug",
+    integrated: true,
+    capabilities: [
+      { action: "read", name: "Read from a connected app", risk: "read", implementedBy: "server/composio/service.ts" },
+      { action: "change", name: "Create, update or send in a connected app", risk: "write-external", policy: "approval", implementedBy: "server/composio/service.ts" },
+      { action: "delete", name: "Delete or move money in a connected app", risk: "destructive", implementedBy: "server/composio/service.ts" },
+    ],
+  },
+  {
     id: "virtec",
     name: "Virtec CRM",
     description: "Leads, clients, follow-ups and quotes.",

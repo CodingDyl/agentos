@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import type { WorkerJob, WorkerJobResult } from "../../../shared/worker-types";
 import type { Worker, WorkerRunContext } from "../worker";
 import { GrokStream } from "./grok-events";
+import { withoutComposioKey } from "../../composio/key";
 
 /**
  * Grok Build, as an AgentOS worker.
@@ -290,7 +291,7 @@ export const grokWorker: Worker = {
       // Both are set: `--cwd` is what Grok reports and resolves against, and
       // the process cwd is what the sandbox confines writes to.
       cwd,
-      env: process.env,
+      env: withoutComposioKey(process.env),
       stdio: ["ignore", "pipe", "pipe"],
     });
 

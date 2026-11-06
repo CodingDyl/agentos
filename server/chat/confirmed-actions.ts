@@ -40,6 +40,13 @@ export const StartJobInputSchema = z.object({
 });
 export type StartJobInput = z.infer<typeof StartJobInputSchema>;
 
+export const RunAppActionInputSchema = z.object({
+  action: z.string().trim().toUpperCase().regex(/^[A-Z0-9_]{1,160}$/, "Use an action name from find_app_actions."),
+  arguments: z.record(z.string(), z.unknown()).default({}),
+  account: z.string().trim().min(1).max(120).optional(),
+});
+export type RunAppActionInput = z.infer<typeof RunAppActionInputSchema>;
+
 const GATED = {
   send_email: {
     schema: SendEmailInputSchema,
@@ -57,6 +64,17 @@ const GATED = {
       detail: [`Project: ${input.project}`, `Specialist: ${input.agentId ?? "chosen by Agents routing"}`, "", input.objective].join("\n"),
     }),
   },
+  run_app_action: {
+    schema: RunAppActionInputSchema,
+    reason: "Acts in an app you connected through Composio. Check the action and what it will send.",
+    describe: (input: RunAppActionInput) => {
+      const fields = Object.keys(input.arguments);
+      return {
+        summary: `${input.action}${fields.length ? ` with ${fields.slice(0, 4).join(", ")}` : ""}${input.account ? ` from ${input.account}` : ""}`,
+        detail: [`Action: ${input.action}`, ...(input.account ? [`Account: ${input.account}`] : []), "", JSON.stringify(input.arguments, null, 2)].join("\n"),
+      };
+    },
+  },
 } as const;
 
 type GatedName = keyof typeof GATED;
@@ -68,6 +86,11 @@ function gatedName(toolName: string): GatedName | undefined {
 
 export function isGatedTool(toolName: string): boolean {
   return gatedName(toolName) !== undefined;
+}
+
+/** An app action's real policy depends on the action, so the chat's gate asks the Composio code first. */
+export function isAppActionTool(toolName: string): boolean {
+  return gatedName(toolName) === "run_app_action";
 }
 
 export function gatedReason(toolName: string): string | undefined {

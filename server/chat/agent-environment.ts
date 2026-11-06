@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { extraBinDirs } from "../ai-stack/detect";
+import { withoutComposioKey } from "../composio/key";
 
 /**
  * The PATH a chat agent is found on and runs with.
@@ -66,9 +67,9 @@ export async function findAgentBinary(binary: string): Promise<string | undefine
   return undefined;
 }
 
-/** The environment an agent runs in: this process's, with the merged PATH. */
+/** The environment an agent runs in: this process's, with the merged PATH and without the Composio key. */
 export async function agentEnv(base: NodeJS.ProcessEnv = process.env): Promise<NodeJS.ProcessEnv> {
-  return { ...base, PATH: (await agentPathEntries()).join(path.delimiter) };
+  return { ...withoutComposioKey(base), PATH: (await agentPathEntries()).join(path.delimiter) };
 }
 
 /** Where to say an agent was looked for, when it wasn't found. */
