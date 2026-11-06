@@ -10,6 +10,8 @@ import { pathToFileURL } from "node:url";
 const SECRET_PATTERN = /ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]+|sk-ant-[A-Za-z0-9_-]+|x-access-token:/;
 const SECRET_EXEMPT = [/(^|\/)__tests__\//, /^e2e\/fixtures\//, /^scripts\/checks\/repo-rules\.mjs$/];
 const SHELL_TRUE_ALLOWED = new Set(["server/workers/validation.ts", "server/visual-verification/preview.ts", "scripts/browser-check.mjs"]);
+// Docs and tests may talk about the rule; only code can break it.
+const CODE_FILE = /\.(ts|tsx|js|mjs|cjs)$/;
 const TEST_FILE = /(^|\/)__tests__\/|\.test\.|\.spec\.|^e2e\//;
 
 /** Tracked files that must never be in the repository. @returns {RuleFailure[]} */
@@ -36,7 +38,7 @@ export function checkDiff(diff) {
     if (!SECRET_EXEMPT.some((pattern) => pattern.test(file)) && SECRET_PATTERN.test(line)) {
       failures.push({ rule: "secret", file, message: `${file} adds something shaped like a credential. Secrets stay server-side and out of git.` });
     }
-    if (/shell:\s*true/.test(line) && !SHELL_TRUE_ALLOWED.has(file)) {
+    if (/shell:\s*true/.test(line) && CODE_FILE.test(file) && !SECRET_EXEMPT.some((pattern) => pattern.test(file)) && !SHELL_TRUE_ALLOWED.has(file)) {
       failures.push({ rule: "shell-true", file, message: `${file} adds "shell: true". Run commands with execFile/spawn and an argument array.` });
     }
   }

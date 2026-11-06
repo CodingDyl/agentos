@@ -37,6 +37,13 @@ describe("shell-true", () => {
   });
 });
 
+describe("shell-true scope", () => {
+  it("ignores docs and tests that only mention it", () => {
+    const line = "never use shell: true";
+    for (const file of ["CLAUDE.md", "server/a/__tests__/a.test.ts"]) assert.deepEqual(checkDiff(diff({ added: [{ file, line }] })), [], file);
+  });
+});
+
 describe("module-needs-test", () => {
   it("fails a new server module with no test", () => {
     const failures = checkDiff(diff({ addedFiles: ["server/thing/x.ts"], allFiles: ["server/thing/x.ts"] }));
