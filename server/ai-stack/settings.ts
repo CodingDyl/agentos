@@ -21,7 +21,7 @@ import { mergeModelRouting, type ModelRoutingTable } from "../../shared/model-ro
  */
 
 /** Off until switched on. Everything else is on until switched off. */
-export const OPT_IN = new Set(["claude-code", "codex", "gemini", "hermes-worker", "grok-bot"]);
+export const OPT_IN = new Set(["claude-code", "codex", "gemini", "hermes-worker", "grok-bot", "cursor"]);
 
 interface Settings {
   disabled: Set<string>;

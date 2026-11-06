@@ -5,7 +5,19 @@ import path from "node:path";
 import { after, describe, it } from "node:test";
 import { buildCliPrompt } from "../providers/cli-worker";
 import { launchFailureMessage, preflightCliFlags, unsupportedFlagName } from "../providers/cli-worker";
-import { claudeCodeArgs, claudeCodeReader, codexArgs, codexReader, hermesUsage } from "../providers/cli-workers";
+import {
+  claudeCodeArgs,
+  claudeCodeReader,
+  codexArgs,
+  codexReader,
+  cursorArgs,
+  cursorDenyRules,
+  cursorReader,
+  cursorSignedIn,
+  hermesUsage,
+  installCursorJobPermissions,
+  mergeCursorPermissions,
+} from "../providers/cli-workers";
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-cli-workers-"));
 const files = { lastMessage: path.join(scratch, "last.txt"), usage: path.join(scratch, "usage.json") };
@@ -211,6 +223,107 @@ describe("Hermes usage report", () => {
 
   it("is unknown when there is no report", () => {
     assert.equal(hermesUsage(undefined).measurement, "unknown");
+  });
+});
+
+describe("Cursor Agent", () => {
+  it("prints headlessly in the job checkout and never opens its own worktree", () => {
+    const args = cursorArgs({
+      cwd: "/tmp/job",
+      prompt: "AGENTOS WORKER JOB",
+      model: "grok-4.7",
+      writableRoots: ["/tmp/job", "/tmp/job-git"],
+    });
+
+    assert.equal(args[0], "--print");
+    assert.equal(args[args.indexOf("--output-format") + 1], "stream-json");
+    assert.equal(args[args.indexOf("--sandbox") + 1], "enabled");
+    assert.equal(args[args.indexOf("--workspace") + 1], "/tmp/job");
+    assert.equal(args[args.indexOf("--model") + 1], "grok-4.7");
+    assert.equal(args[args.indexOf("--add-dir") + 1], "/tmp/job-git");
+    assert.equal(args.at(-1), "AGENTOS WORKER JOB");
+    assert.ok(args.includes("--trust"));
+    assert.ok(args.includes("--force"));
+    assert.ok(!args.includes("--worktree"));
+    assert.ok(!args.includes("--mode"));
+  });
+
+  it("asks instead of editing when the job is report-only, and omits an empty model", () => {
+    const args = cursorArgs({ cwd: "/tmp/job", prompt: "look", reportOnly: true });
+    assert.equal(args[args.indexOf("--mode") + 1], "ask");
+    assert.ok(!args.includes("--model"));
+    assert.ok(cursorDenyRules(true).includes("Write(**)"));
+    assert.ok(!cursorDenyRules(false).includes("Write(**)"));
+  });
+
+  it("reads a result, and skips streaming deltas that repeat the same text", async () => {
+    const reader = cursorReader();
+    assert.equal(
+      reader.line(JSON.stringify({ type: "assistant", timestamp_ms: 1, message: { content: [{ type: "text", text: "partial" }] } }))?.message,
+      undefined,
+    );
+    assert.match(reader.line(JSON.stringify({ type: "tool_call", subtype: "started", tool_call: { writeToolCall: {} } }))?.message ?? "", /write/);
+    reader.line(JSON.stringify({ type: "result", subtype: "success", is_error: false, result: "Moved the header.", session_id: "s1" }));
+
+    const outcome = await reader.finish("", files);
+    assert.equal(outcome.summary, "Moved the header.");
+    assert.equal(outcome.metrics?.provider, "cursor");
+    assert.equal(outcome.metrics?.sessionId, "s1");
+    assert.equal(outcome.metrics?.measurement, "unknown");
+    assert.equal(outcome.blockers, undefined);
+  });
+
+  it("records a failed result as a blocker", async () => {
+    const reader = cursorReader("grok-4.7");
+    reader.line(JSON.stringify({ type: "result", subtype: "error", is_error: true, result: "usage limit" }));
+    const outcome = await reader.finish("", files);
+    assert.deepEqual(outcome.blockers, ["Cursor stopped: error."]);
+    assert.equal(outcome.metrics?.model, "grok-4.7");
+  });
+
+  it("treats a missing sign-in sentence as signed out", () => {
+    assert.equal(cursorSignedIn("Not logged in\n"), false);
+    assert.equal(cursorSignedIn("Logged in as dylan\n"), true);
+  });
+
+  it("adds job refusals to an existing CLI config and puts the file back", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-cursor-perms-"));
+    const file = path.join(root, ".cursor", "cli.json");
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ permissions: { allow: ["Shell(ls)"], deny: ["Shell(sudo)"] } }));
+
+    const merged = mergeCursorPermissions(JSON.parse(fs.readFileSync(file, "utf8")), ["Shell(sudo)", "Shell(rm)"]);
+    const permissions = merged.permissions as { allow?: string[]; deny: string[] };
+    assert.deepEqual(permissions.allow, ["Shell(ls)"]);
+    assert.deepEqual(permissions.deny, ["Shell(sudo)", "Shell(rm)"]);
+
+    const release = await installCursorJobPermissions(root, ["Shell(rm)"]);
+    const during = JSON.parse(fs.readFileSync(file, "utf8")) as { permissions: { deny: string[] } };
+    assert.ok(during.permissions.deny.includes("Shell(rm)"));
+    assert.ok(during.permissions.deny.includes("Mcp(*:*)") === false);
+
+    await release();
+    assert.equal(fs.readFileSync(file, "utf8"), JSON.stringify({ permissions: { allow: ["Shell(ls)"], deny: ["Shell(sudo)"] } }));
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("removes a config it created, and refuses one that points outside the checkout", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-cursor-perms-"));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-cursor-outside-"));
+    const release = await installCursorJobPermissions(root, ["Shell(rm)"]);
+    const file = path.join(root, ".cursor", "cli.json");
+    assert.equal(fs.existsSync(file), true);
+    await release();
+    assert.equal(fs.existsSync(file), false);
+
+    fs.mkdirSync(path.join(root, ".cursor"), { recursive: true });
+    fs.symlinkSync(path.join(outside, "cli.json"), file);
+    fs.writeFileSync(path.join(outside, "cli.json"), "{}");
+    await assert.rejects(() => installCursorJobPermissions(root, ["Shell(rm)"]), /outside the job checkout/);
+    assert.equal(fs.readFileSync(path.join(outside, "cli.json"), "utf8"), "{}");
+
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
   });
 });
 

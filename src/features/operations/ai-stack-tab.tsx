@@ -35,6 +35,7 @@ const OFF_CONSEQUENCE: Record<string, string> = {
   codex: "Off until you switch it on. On, AgentOS can send coding jobs here, and they count against your ChatGPT plan.",
   gemini: "Off until you switch it on. On, AgentOS can send coding jobs here, and they count against your Google plan.",
   "hermes-worker": "Off until you switch it on. On, Hermes can take coding jobs as well as orchestrate them.",
+  cursor: "Off until you switch it on. On, AgentOS can send coding jobs to Cursor Agent, and they count against your Cursor plan.",
   hermes: "Task scoping, milestone planning, routing and reviews stop or fall back while this is off.",
   jev: "Mail still syncs, but new threads are not classified, and free-form jobs fall back to a keyword heuristic.",
 };

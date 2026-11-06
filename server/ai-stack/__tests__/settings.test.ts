@@ -53,7 +53,7 @@ describe("AI stack switches", () => {
 
 describe("opt-in AIs", () => {
   it("keeps the operator's own coding CLIs off until switched on", () => {
-    for (const id of ["claude-code", "codex", "gemini", "hermes-worker"]) assert.equal(isAiEnabled(id), false, id);
+    for (const id of ["claude-code", "codex", "gemini", "hermes-worker", "cursor"]) assert.equal(isAiEnabled(id), false, id);
   });
 
   it("switches one on, persistently, without touching the others", () => {

@@ -46,7 +46,7 @@ describe("isToggleable", () => {
     assert.equal(isToggleable("hermes-worker"), true);
     assert.equal(isToggleable("claude-desktop"), false);
     assert.equal(isToggleable("chatgpt"), false);
-    assert.equal(isToggleable("cursor"), false);
+    assert.equal(isToggleable("cursor"), true);
     assert.equal(isToggleable("nonsense"), false);
   });
 });
@@ -56,6 +56,7 @@ describe("hasConfigurableModel", () => {
     assert.equal(hasConfigurableModel("claude-code"), true);
     assert.equal(hasConfigurableModel("codex"), true);
     assert.equal(hasConfigurableModel("hermes-worker"), true);
+    assert.equal(hasConfigurableModel("cursor"), true);
     assert.equal(hasConfigurableModel("grok"), false);
     assert.equal(hasConfigurableModel("jev"), false);
   });
