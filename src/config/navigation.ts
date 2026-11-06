@@ -4,7 +4,6 @@ import {
   Briefcase,
   BriefcaseBusiness,
   GraduationCap,
-  Bot,
   CalendarClock,
   Code,
   Compass,
@@ -31,7 +30,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  * BUSINESS    Business · Traction · Finance
  * WORK        Workspaces · Delivery · Coder · Creative · Operator
  * MEMORY      HUB · Memory · Knowledge
- * OPERATIONS  Operations · Agents · Career · Automations · Connectors · Activity
+ * OPERATIONS  Operations · Career · Automations · Connectors · Activity
  *             Compass stays in the quiet footer
  * ```
  *
@@ -57,7 +56,6 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Memory", href: "/memory", icon: Network, section: "memory" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "memory" },
   { label: "Operations", href: "/operations", icon: Gauge, section: "operations" },
-  { label: "Agents", href: "/agents", icon: Bot, section: "operations" },
   { label: "Career", href: "/career", icon: BriefcaseBusiness, section: "operations" },
   { label: "Automations", href: "/automations", icon: CalendarClock, section: "operations" },
   { label: "Connectors", href: "/connectors", icon: Plug, section: "operations" },
