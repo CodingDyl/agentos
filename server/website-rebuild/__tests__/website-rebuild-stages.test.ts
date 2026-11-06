@@ -30,6 +30,7 @@ const binaries = new Map<string, string>();
 
 beforeEach(() => {
   store.closeRebuildDatabase();
+  critiqueScores = () => [32, 32, 32];
   caseNumber += 1;
   process.env.AGENTOS_UI_DIR = fs.mkdtempSync(path.join(root, `ui-${caseNumber}-`));
   sites = fs.mkdtempSync(path.join(root, `clients-${caseNumber}-`));
@@ -135,7 +136,19 @@ function fakeStageDeps(worker: FakeWorker, overrides: Partial<StageDeps> = {}): 
   };
 }
 
+/** What the design critic scores the concepts, per pass. Every concept passes unless a test says otherwise. */
+let critiqueScores: (pass: 1 | 2) => [number, number, number] = () => [32, 32, 32];
+
 function filesFor(objective: string): Record<string, string> {
+  if (objective.startsWith("Critique")) {
+    const file = /reviews\/hero-critique-r\d+(-2)?\.md/.exec(objective)?.[0] ?? "reviews/x.md";
+    const scores = critiqueScores(file.endsWith("-2.md") ? 2 : 1);
+    return { [file]: scores.map((score, index) => `## concept-${"abc"[index]}\nScore: ${score}/40\nSlop: ${score < 28 ? "centred hero over a stock photo" : "None"}\nFix: commit harder`).join("\n\n") };
+  }
+  if (objective.startsWith("Revise")) {
+    const concepts = [...objective.matchAll(/design\/(concept-[abc])\/hero\.html/g)].map((match) => match[1]);
+    return Object.fromEntries(concepts.map((concept) => [`design/${concept}/hero.html`, "<main><h1>Hi, revised by the gate</h1></main>"]));
+  }
   if (objective.startsWith("Research")) return { "research/total_electric_five_key_areas_improvement.md": "---\nauthor: worker\n---\n# Research\nFive competitors." };
   if (objective.startsWith("Design three")) {
     return Object.fromEntries(["a", "b", "c"].flatMap((letter) => [[`design/concept-${letter}/DESIGN.md`, `# Concept ${letter.toUpperCase()}`], [`design/concept-${letter}/hero.html`, objective.includes("<<<FEEDBACK") ? "<main><h1>Hi, revised</h1></main>" : "<main><h1>Hi</h1></main>"]]));
@@ -396,6 +409,76 @@ describe("stages 3 to 6", () => {
     const run = newRun();
     await advance(run.id, STAGE_HANDLERS, runnerDeps);
     assert.match(status(run.id, "research")?.blocker ?? "", /^Connect DylanSSD-not-here/);
+  });
+});
+
+describe("the design critique gate", () => {
+  it("assigns each concept a direction, scores them, and shows the scores on the run", async () => {
+    const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "codex", "hermes-worker"]), files: filesFor };
+    stages.stageDeps.current = fakeStageDeps(worker);
+    const run = newRun();
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    const hero = worker.jobs.find((job) => job.objective.startsWith("Design three"));
+    const concepts = store.readRun(run.id).designConcepts;
+    assert.equal(concepts.length, 3);
+    for (const concept of concepts) assert.ok(hero?.objective.includes(`${concept.concept}: ${concept.directionName}`), concept.concept);
+    assert.match(hero?.objective ?? "", /yellow and black with a lightning bolt/, "Total Electric is briefed against the electricians' clichés");
+    assert.ok(worker.jobs.some((job) => job.worker === "codex" && job.objective.startsWith("Critique")), "Codex critiqued the concepts");
+    assert.ok(!worker.jobs.some((job) => job.objective.startsWith("Revise")), "nothing below the bar, so no revision");
+    assert.deepEqual(concepts.map((entry) => [entry.score, entry.passed, entry.escalated]), [[32, true, false], [32, true, false], [32, true, false]]);
+    assert.match(store.readRun(run.id).revisions.find((revision) => revision.stage === "hero")?.summary ?? "", /Critique: A .+ 32\/40/);
+
+    // The build follows the approved concept's direction on every page.
+    store.decide(run.id, "hero", 1, "approved", undefined, "concept-c");
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    const build = worker.jobs.find((job) => job.objective.startsWith("Build"));
+    assert.ok(build?.objective.includes(`the approved concept is ${concepts[2].directionName}`));
+    const review = worker.jobs.find((job) => job.objective.startsWith("Review the build"));
+    assert.match(review?.objective ?? "", /Design score: <total>\/40/);
+  });
+
+  it("sends a concept below the bar back once, and passes it when the revision scores well", async () => {
+    critiqueScores = (pass) => (pass === 1 ? [30, 20, 33] : [30, 31, 33]);
+    const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "codex", "hermes-worker"]), files: filesFor };
+    stages.stageDeps.current = fakeStageDeps(worker);
+    const run = newRun();
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    const revisions = worker.jobs.filter((job) => job.objective.startsWith("Revise"));
+    assert.equal(revisions.length, 1);
+    assert.match(revisions[0].objective, /^Revise concept-b/);
+    assert.match(revisions[0].objective, /centred hero over a stock photo/);
+    assert.equal(fs.readFileSync(path.join(store.readRun(run.id).repoPath ?? "", "design/concept-b/hero.html"), "utf8"), "<main><h1>Hi, revised by the gate</h1></main>");
+    const b = store.readRun(run.id).designConcepts.find((entry) => entry.concept === "concept-b");
+    assert.deepEqual([b?.score, b?.passed, b?.autoRevised, b?.escalated], [31, true, true, false]);
+    assert.equal(status(run.id, "hero")?.status, "awaiting_approval");
+    // The stage's revision is the revised commit, and the critiques are filed as reports.
+    const revision = store.readRun(run.id).revisions.find((entry) => entry.stage === "hero");
+    assert.match(revision?.summary ?? "", /passed after one automatic revision/);
+    assert.ok(store.readRun(run.id).artifacts.filter((artifact) => artifact.title.startsWith("Design critique")).length === 2);
+  });
+
+  it("revises at most once, then hands the concept to the person with its score", async () => {
+    critiqueScores = () => [30, 20, 33];
+    const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "codex", "hermes-worker"]), files: filesFor };
+    stages.stageDeps.current = fakeStageDeps(worker);
+    const run = newRun();
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    assert.equal(worker.jobs.filter((job) => job.objective.startsWith("Revise")).length, 1);
+    assert.equal(worker.jobs.filter((job) => job.objective.startsWith("Critique")).length, 2);
+    const b = store.readRun(run.id).designConcepts.find((entry) => entry.concept === "concept-b");
+    assert.deepEqual([b?.score, b?.passed, b?.autoRevised, b?.escalated], [20, false, true, true]);
+    assert.match(store.readRun(run.id).revisions.find((entry) => entry.stage === "hero")?.summary ?? "", /20\/40, needs your call after one automatic revision/);
+    assert.equal(status(run.id, "hero")?.status, "awaiting_approval");
+  });
+
+  it("still reaches the person, unscored, when no critic is available", async () => {
+    const worker: FakeWorker = { jobs: [], available: new Set(["claude-code", "hermes-worker"]), files: (objective) => (objective.startsWith("Critique") ? {} : filesFor(objective)) };
+    stages.stageDeps.current = fakeStageDeps(worker);
+    const run = newRun();
+    await advance(run.id, STAGE_HANDLERS, runnerDeps);
+    assert.equal(status(run.id, "hero")?.status, "awaiting_approval");
+    assert.match(store.readRun(run.id).revisions.find((entry) => entry.stage === "hero")?.summary ?? "", /could not run, so the concepts are unscored/);
+    assert.ok(store.readRun(run.id).designConcepts.every((entry) => entry.score === undefined));
   });
 });
 

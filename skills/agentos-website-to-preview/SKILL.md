@@ -1,7 +1,7 @@
 ---
 name: agentos-website-to-preview
 description: Rebuild a prospect's website from research to a client-accessible Vercel preview, in seven stages with three approval checkpoints. Use when a lead on the "Build it first" path needs a new site.
-version: 1.6.0
+version: 1.7.0
 requires: [hermes, github, vercel]
 ---
 
@@ -50,12 +50,26 @@ checkpoints. Never move past a checkpoint on your own.
    the structure of the supplied `DESIGN.md`, each with a hero section rendered
    at desktop and mobile widths. With a brand kit, the three run from faithful
    to the client's brand (A), through evolved (B), to bold (C), and every one
-   uses their logo. Stop for approval of one.
+   uses their logo. Each concept follows a different art direction assigned by
+   the `website-design-direction` skill (concept C a wildcard far from the
+   niche), avoiding directions, fonts and palettes earlier runs in the niche
+   used. A critique scores each out of 40; below 28, or repeating an earlier
+   run, it is revised once automatically, then shown with its score. Stop for
+   approval of one.
 5. **Copy and structure (checkpoint).** The approved design applied to the full
-   sitemap, page copy and navigation. Stop for approval.
-6. **Functional components (checkpoint).** Only the functions the run asks for
-   (contact form, blog, bookings, newsletter, shop). Test every journey end to
-   end and save `<slug>_functionality_test_report.md`. Forms work without
+   sitemap, page copy and navigation, keeping its art direction and the
+   anti-patterns on every page. The review scores the site on the same rubric.
+   Stop for approval.
+6. **Functional components (checkpoint).** Every function the run asks for
+   (contact form, blog, bookings, newsletter, shop) is built in full. Each has a
+   provider adapter with a mock and a live implementation: without its
+   settings, and off production, it runs in demo mode on sample data with a
+   "Demo: sample data" badge; a production deployment without settings shows
+   "not configured" and never fakes success. The shop's checkout stays disabled
+   until payments are connected, and no page ever has card fields. Test every
+   journey end to end and save `<slug>_functionality_test_report.md` and
+   `FUNCTIONALITY.md` (each feature as Demo, Live or Not configured, with the
+   variables to go live). Demo working is a pass for the preview. Forms work without
    JavaScript and never put enquiry fields in a URL; the current site's URLs
    keep working through redirects. Provider settings (Resend, booking page)
    and old addresses come from "What the features need"; the features read

@@ -102,7 +102,7 @@ export function FeatureSettingsPanel({ run }: { run: RebuildRun }) {
           </span>
         </h4>
         <p className="mt-1 max-w-[75ch] text-[13px] leading-5 text-paper-char">
-          The features are built to read these by name and AgentOS puts them in the Vercel preview, never production. Anything left empty is built and reported as not configured. AgentOS never sends a test enquiry.
+          The features are built to read these by name and AgentOS puts them in the Vercel preview, never production. Every selected feature is built either way: anything left empty runs in demo mode on sample data, with a "Demo: sample data" badge, until you add it. AgentOS never sends a test enquiry.
         </p>
       </div>
       {fields.length > 0 ? <div className="grid gap-3 sm:grid-cols-2">{fields.map(field)}</div> : null}

@@ -33,12 +33,18 @@ import { checkPreview, qaTable, type QaResult } from "./qa";
 import {
   FIVE_KEY_AREAS,
   FUNCTIONALITY_REPORT,
+  GO_LIVE_FILE,
   HERMES_ANALYSIS,
   NEXT_VALIDATION,
   buildBrief,
+  critiqueBrief,
+  critiqueFile,
   functionalityFile,
   functionsBrief,
   heroBrief,
+  heroRevisionBrief,
+  parseDesignScore,
+  type DesignBriefInput,
   hermesAnalysisPrompt,
   researchBrief,
   researchFile,
@@ -53,6 +59,19 @@ import { libraryContextFor } from "../reengineer/library";
 import { StageBlocked, type StageContext, type StageHandler, type StageOutcome } from "./stage-kit";
 import type { ReviewVerdict } from "../../shared/website-rebuild-types";
 import { readRun, setRunField } from "./store";
+import { DIRECTION_BY_ID, RUBRIC_MAX, RUBRIC_PASS, detectNiche, type DesignDirection } from "./design-directions";
+import {
+  ensureAssignments,
+  gateConcepts,
+  parseCritique,
+  parseFingerprint,
+  priorFingerprints,
+  recordCritique,
+  recordMade,
+  runFingerprints,
+  type ConceptCritique,
+  type GateResult,
+} from "./design-fingerprints";
 import { integrateJob, pickWorker, runJob, WorkerStageBlocked, type PickedWorker } from "./workers";
 
 /** What the library may tell each build stage. A stage reads only the kinds that bear on it. */
@@ -281,7 +300,7 @@ async function lastReviewFindings(context: StageContext, deps: StageDeps, repo: 
 }
 
 /** A second model reads the work. Optional: if no reviewer is free, or it fails, the person still reviews. */
-async function secondOpinion(context: StageContext, deps: StageDeps, repo: string): Promise<SecondOpinion | undefined> {
+async function secondOpinion(context: StageContext, deps: StageDeps, repo: string, direction?: DesignDirection): Promise<SecondOpinion | undefined> {
   const candidates = context.run.workerPlan.review;
   if (candidates.length === 0) return undefined;
   let reviewer: PickedWorker;
@@ -296,7 +315,7 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
   try {
     context.activity(`${reviewer.name} is reviewing revision ${context.revision}`);
     const { job } = await deps.runJob(
-      () => ({ project: context.run.workspaceSlug ?? "", objective: reviewBrief(context.run, context.stage, context.revision, tag), repoPath: repo, modelRouteType: "plan", validationCommands: [`test -s ${file}`] }),
+      () => ({ project: context.run.workspaceSlug ?? "", objective: reviewBrief(context.run, context.stage, context.revision, tag, direction), repoPath: repo, modelRouteType: "plan", validationCommands: [`test -s ${file}`] }),
       [reviewer.id],
       undefined,
       { onProgress: context.activity, onStarted: (jobId) => context.log(`Review job ${jobId} started with ${reviewer.name}.`) },
@@ -306,7 +325,9 @@ async function secondOpinion(context: StageContext, deps: StageDeps, repo: strin
     if (!review) return undefined;
     const id = await context.writeReport(`${context.stage}_r${context.revision}_review`, `${reviewer.name} review of ${context.stage} r${context.revision}`, wrapReport(context.run, `review of ${context.stage} revision ${context.revision}`, review, { reviewer: reviewer.name, job: job.id }));
     const verdict = parseReviewVerdict(review);
-    return { id, verdict, said: describeVerdict(verdict, reviewer.name) };
+    const designScore = context.stage === "build" ? parseDesignScore(review) : undefined;
+    const design = designScore === undefined ? "" : ` Design score ${designScore}/${RUBRIC_MAX}${designScore < RUBRIC_PASS ? `, below the bar of ${RUBRIC_PASS}: its slop findings are in the review and go to the next revision` : ""}.`;
+    return { id, verdict, said: `${describeVerdict(verdict, reviewer.name)}${design}` };
   } catch (error) {
     context.log(`The second-opinion review did not finish: ${error instanceof Error ? error.message : "unknown error"}. You can still review this revision yourself.`, "warning");
     return undefined;
@@ -435,6 +456,68 @@ export const researchStage: StageHandler = async (context) => {
 
 // ------------------------------------------------------------------ stage 4
 
+/** The design inputs for this run: its niche, the directions assigned to its concepts, and what earlier runs in the niche used. */
+function designInput(run: RebuildRun): DesignBriefInput {
+  const niche = detectNiche(run);
+  const assignments = ensureAssignments(run, niche);
+  return { niche, assignments, prior: priorFingerprints(run.id, niche.id, run.targetMarket) };
+}
+
+/** Reads each concept's DESIGN.md fingerprint block into the store. */
+async function recordConcepts(context: StageContext, deps: StageDeps, repo: string): Promise<void> {
+  for (const concept of HERO_CONCEPTS) {
+    const design = await deps.readRepoFile(repo, `design/${concept}/DESIGN.md`);
+    if (design) recordMade(context.run.id, concept, parseFingerprint(design));
+  }
+}
+
+/**
+ * A side job in the stage (the critique, the automatic revision): its own
+ * worker job, integrated under its own tag. Unlike the stage's main job it is
+ * not resumed on retry.
+ */
+async function sideJob(context: StageContext, deps: StageDeps, repo: string, candidates: RebuildRun["workerPlan"]["hero"], objective: string, routeType: "plan" | "execute", validation: string[], tag: string, message: string): Promise<{ job: WorkerJob; worker: PickedWorker; commit: string }> {
+  const result = await deps.runJob(
+    () => ({ project: context.run.workspaceSlug ?? "", objective, repoPath: repo, modelRouteType: routeType, validationCommands: validation }),
+    candidates,
+    undefined,
+    { onProgress: context.activity, onStarted: (jobId) => context.log(`${message}: job ${jobId} started.`) },
+  );
+  const commit = await deps.integrate(result.job, repo, `${context.run.company}: ${message} (revision ${context.revision})`, tag);
+  return { ...result, commit };
+}
+
+/** The critique pass: a second model scores the three concepts against the rubric. Undefined when none could run. */
+async function critique(context: StageContext, deps: StageDeps, repo: string, design: DesignBriefInput, pass: 1 | 2): Promise<{ critiques: ConceptCritique[]; reportId: string } | undefined> {
+  const { run } = context;
+  const candidates = [...new Set([...run.workerPlan.review, ...run.workerPlan.hero])];
+  const file = critiqueFile(context.revision, pass);
+  try {
+    context.activity(pass === 1 ? "Critiquing the three concepts against the design rubric" : "Critiquing the revised concepts");
+    const { worker } = await sideJob(context, deps, repo, candidates, critiqueBrief(run, design, file), "plan", [`test -s ${file}`], `rebuild/hero-r${context.revision}-critique${pass === 2 ? "-2" : ""}`, pass === 1 ? "Design critique" : "Design critique of the revision");
+    const text = await deps.readRepoFile(repo, file);
+    if (!text) return undefined;
+    const reportId = await context.writeReport(`hero_r${context.revision}_critique${pass === 2 ? "_2" : ""}`, `Design critique of hero r${context.revision}${pass === 2 ? " after revision" : ""}`, wrapReport(run, `design critique of hero revision ${context.revision}`, text, { critic: worker.name }));
+    return { critiques: parseCritique(text), reportId };
+  } catch (error) {
+    context.log(`The design critique did not finish: ${error instanceof Error ? error.message : "unknown error"}. The concepts go to you unscored.`, "warning");
+    return undefined;
+  }
+}
+
+/** What the gate did, in one line per concept for the stage summary. */
+function gateSummary(results: readonly GateResult[], design: DesignBriefInput, revised: ReadonlySet<string>): string {
+  return results
+    .map((result) => {
+      const assignment = design.assignments.find((entry) => entry.concept === result.concept);
+      const name = `${result.concept.replace("concept-", "").toUpperCase()} ${assignment?.direction.name ?? ""}`.trim();
+      const score = result.score === undefined ? "unscored" : `${result.score}/${RUBRIC_MAX}`;
+      const note = result.action === "escalate" ? `, needs your call${revised.has(result.concept) ? " after one automatic revision" : ""}${result.reason ? ` (${result.reason})` : ""}` : revised.has(result.concept) ? ", passed after one automatic revision" : "";
+      return `${name} ${score}${note}`;
+    })
+    .join("; ");
+}
+
 export const heroStage: StageHandler = async (context) => {
   const deps = stageDeps.current;
   const { run } = context;
@@ -444,19 +527,58 @@ export const heroStage: StageHandler = async (context) => {
   await deps.commitFiles(repo, { "design/TEMPLATE.md": template }, "Add the design system template");
   await seedBrandKit(context, deps, repo);
 
+  const design = designInput(run);
+  context.log(`Art directions for the ${design.niche.label.toLowerCase()} niche: ${design.assignments.map((entry) => `${entry.concept} ${entry.direction.name}${entry.wildcard ? " (wildcard)" : ""}`).join(", ")}. ${design.prior.length} earlier concept${design.prior.length === 1 ? "" : "s"} in this niche or market excluded.`);
   const files = HERO_CONCEPTS.flatMap((concept) => [`design/${concept}/DESIGN.md`, `design/${concept}/hero.html`]);
+  const validation = [files.map((file) => `test -s ${file}`).join(" && ")];
   const patterns = await libraryContextFor(HERO_KINDS);
   const { job, worker } = await work(context, deps, run.workerPlan.hero, () => ({
     project: run.workspaceSlug ?? "",
-    objective: withPatterns(heroBrief(run, context.changeRequest), patterns),
+    objective: withPatterns(heroBrief(run, context.changeRequest, design), patterns),
     repoPath: repo,
     modelRouteType: "execute",
-    validationCommands: [files.map((file) => `test -s ${file}`).join(" && ")],
+    validationCommands: validation,
   }));
-  const commit = await integrate(context, deps, job, repo, "hero concepts");
+  let commit = await integrate(context, deps, job, repo, "hero concepts");
+  context.rememberJob(null);
+  await recordConcepts(context, deps, repo);
+
+  // The slop gate: critique, one automatic revision of what fails, critique again, then the person decides.
+  const artifactIds: string[] = [];
+  const revised = new Set<string>();
+  let results: GateResult[] | undefined;
+  const first = await critique(context, deps, repo, design, 1);
+  if (first) {
+    artifactIds.push(first.reportId);
+    results = gateConcepts({ critiques: first.critiques, made: runFingerprints(run.id), prior: design.prior, attempt: 0 });
+    const failing = results.filter((result) => result.action === "revise");
+    if (failing.length > 0) {
+      context.log(`The critique sent back ${failing.map((result) => `${result.concept} (${result.reason})`).join(", ")} for one automatic revision.`);
+      try {
+        const notes = failing.map((result) => ({ concept: result.concept, reason: result.reason, notes: first.critiques.find((entry) => entry.concept === result.concept)?.notes ?? "" }));
+        ({ commit } = await sideJob(context, deps, repo, context.record.workerOverride ? [context.record.workerOverride] : run.workerPlan.hero, heroRevisionBrief(run, design, notes), "execute", validation, `rebuild/hero-r${context.revision}-auto`, "Automatic revision of the failing concepts"));
+        for (const result of failing) revised.add(result.concept);
+        await recordConcepts(context, deps, repo);
+        const second = await critique(context, deps, repo, design, 2);
+        if (second) {
+          artifactIds.push(second.reportId);
+          const again = gateConcepts({ critiques: second.critiques, made: runFingerprints(run.id), prior: design.prior, attempt: 1 });
+          // Only the revised concepts are judged again; the rest keep their first verdict.
+          results = results.map((result) => (revised.has(result.concept) ? (again.find((entry) => entry.concept === result.concept) ?? result) : result));
+        } else {
+          results = results.map((result) => (revised.has(result.concept) ? { ...result, action: "escalate", reason: `${result.reason}; the revision was not critiqued` } : result));
+        }
+      } catch (error) {
+        context.log(`The automatic revision did not finish: ${error instanceof Error ? error.message : "unknown error"}. The concepts go to you as they are.`, "warning");
+        results = results.map((result) => (result.action === "revise" ? { ...result, action: "escalate" } : result));
+      }
+    }
+    for (const result of results) {
+      recordCritique(run.id, result.concept, { score: result.score, passed: result.action === "pass", autoRevised: revised.has(result.concept), escalated: result.action !== "pass", reason: result.reason });
+    }
+  }
 
   context.activity("Photographing the three heroes at desktop and phone widths");
-  const artifactIds: string[] = [];
   try {
     const shots = await deps.screenshot(HERO_CONCEPTS.map((concept) => ({ name: concept, target: path.join(repo, "design", concept, "hero.html") })), await deps.scratchDir("hero"));
     for (const shot of shots) artifactIds.push(await context.writeImage(`${shot.name}-${shot.viewport}`, `${shot.name} (${shot.viewport})`, shot.file));
@@ -464,12 +586,18 @@ export const heroStage: StageHandler = async (context) => {
     throw new StageBlocked(`The concepts were made but could not be photographed: ${error instanceof Error ? error.message : "unknown error"}. Retry once Playwright works.`);
   }
   for (const concept of HERO_CONCEPTS) {
-    const design = await deps.readRepoFile(repo, `design/${concept}/DESIGN.md`);
-    if (design) artifactIds.push(await context.writeReport(`hero_${concept.replace("-", "_")}_design`, `${concept} DESIGN.md`, wrapReport(run, `${concept} design system`, design, { revision: String(context.revision) })));
+    const designFile = await deps.readRepoFile(repo, `design/${concept}/DESIGN.md`);
+    if (designFile) artifactIds.push(await context.writeReport(`hero_${concept.replace("-", "_")}_design`, `${concept} DESIGN.md`, wrapReport(run, `${concept} design system`, designFile, { revision: String(context.revision) })));
   }
-  context.rememberJob(null);
-  return { summary: `${worker.name} made three concepts. Choose one to build.`, artifactIds, ref: commit, worker: worker.name, jobId: job.id };
+  const scored = results ? ` Critique: ${gateSummary(results, design, revised)}.` : " The design critique could not run, so the concepts are unscored.";
+  return { summary: `${worker.name} made three concepts. Choose one to build.${scored}`, artifactIds, ref: commit, worker: worker.name, jobId: job.id };
 };
+
+/** The approved concept's direction, which the build and its review follow on every page. */
+function approvedDirection(run: RebuildRun): DesignDirection | undefined {
+  const entry = runFingerprints(run.id).find((fingerprint) => fingerprint.concept === run.heroChoice);
+  return entry ? DIRECTION_BY_ID.get(entry.direction) : undefined;
+}
 
 // ------------------------------------------------------------------ stage 5
 
@@ -510,9 +638,10 @@ export const buildStage: StageHandler = async (context) => {
   await seedBrandKit(context, deps, repo);
   const patterns = await libraryContextFor(BUILD_KINDS);
   const findings = await lastReviewFindings(context, deps, repo);
+  const direction = approvedDirection(run);
   const { job, worker } = await work(context, deps, run.workerPlan.build, () => ({
     project: run.workspaceSlug ?? "",
-    objective: withPatterns(buildBrief(run, run.heroChoice ?? "", context.changeRequest, findings), patterns),
+    objective: withPatterns(buildBrief(run, run.heroChoice ?? "", context.changeRequest, findings, direction), patterns),
     repoPath: repo,
     modelRouteType: "execute",
     validationCommands: NEXT_VALIDATION,
@@ -521,7 +650,7 @@ export const buildStage: StageHandler = async (context) => {
   const shots = await photographSite(context, deps, job, { fullPage: true, limit: BASELINE_PAGE_LIMIT });
   const commit = await integrate(context, deps, job, repo, "copy and structure");
   context.rememberJob(null);
-  const review = await secondOpinion(context, deps, repo);
+  const review = await secondOpinion(context, deps, repo, direction);
   const strayed = strayedPages(context.run, context.revision, shots, context.changeRequest);
   if (strayed.length > 0) context.log(`Pages without notes also changed in this revision: ${strayed.join(", ")}.`, "warning");
   return {
@@ -544,7 +673,7 @@ export const buildStage: StageHandler = async (context) => {
 export function functionsSummary(
   worker: string,
   requested: number,
-  tally: { pass: number; fail: number; blocked: number },
+  tally: { pass: number; fail: number; blocked: number; demo?: number },
   checks: readonly { command: string; success: boolean }[],
   reviewSaid?: string,
   journeyFails: readonly string[] = [],
@@ -554,7 +683,7 @@ export function functionsSummary(
     rated === 0
       ? `${worker} worked on ${requested} feature${requested === 1 ? "" : "s"}, but its report rates none of them.`
       : `${worker} worked on ${requested} feature${requested === 1 ? "" : "s"}: ${[
-          tally.pass > 0 ? `${tally.pass} pass` : "",
+          tally.pass > 0 ? `${tally.pass} pass${tally.demo ? ` (${tally.demo === tally.pass ? (tally.pass === 1 ? "working in demo mode" : "all working in demo mode") : `${tally.demo} in demo mode`} on sample data)` : ""}` : "",
           tally.fail > 0 ? `${tally.fail} fail` : "",
           tally.blocked > 0 ? `${tally.blocked} blocked` : "",
         ].filter(Boolean).join(", ")}.`;
@@ -580,7 +709,7 @@ export const functionsStage: StageHandler = async (context) => {
     objective: withPatterns(functionsBrief(run, context.changeRequest, findings, briefSettings(run.id)), patterns),
     repoPath: repo,
     modelRouteType: "execute",
-    validationCommands: [...NEXT_VALIDATION, "npm test", `test -s ${functionalityFile(run)}`],
+    validationCommands: [...NEXT_VALIDATION, "npm test", `test -s ${functionalityFile(run)}`, `test -s ${GO_LIVE_FILE}`],
   }));
   // The same visitor journeys the preview gets, on the built site before anyone approves it. Nothing is submitted.
   let journeys: QaResult | undefined;
@@ -595,9 +724,14 @@ export const functionsStage: StageHandler = async (context) => {
 
   // The worker's report, followed by what AgentOS itself ran: its own results are the evidence.
   const workerReport = (await deps.readRepoFile(repo, functionalityFile(run))) ?? "_The worker did not write a report._";
+  const goLive = (await deps.readRepoFile(repo, GO_LIVE_FILE))?.trim();
   const ran = (job.result?.tests ?? []).map((test) => `| \`${test.command}\` | ${test.success ? "Pass" : "Fail"} |`);
   const report = [
     workerReport.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim(),
+    "",
+    `## Going live (${GO_LIVE_FILE})`,
+    "",
+    goLive ? goLive.replace(/^#\s.*\r?\n/, "").replace(/^(#+)\s/gm, "#$1 ") : `_The worker did not write ${GO_LIVE_FILE}._`,
     "",
     "## Checks AgentOS ran itself",
     "",

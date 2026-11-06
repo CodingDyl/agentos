@@ -1,4 +1,5 @@
 import type { RebuildFunction } from "../../shared/website-rebuild-types";
+import { DEMO_BADGE } from "./prompts";
 
 /**
  * Checks on the deployed preview, made as a stranger would: no cookies, no
@@ -8,6 +9,11 @@ import type { RebuildFunction } from "../../shared/website-rebuild-types";
  * Feature checks look for the feature on the page. They never submit a form:
  * a real enquiry from AgentOS would land in the client's inbox. Journey checks
  * read what a submission would do from the served HTML instead.
+ *
+ * A feature without its provider settings runs in demo mode on the preview:
+ * working on sample data, with a visible demo badge. That is a pass for the
+ * preview. Card fields anywhere, or a demo route a search engine could index,
+ * are failures.
  */
 
 export type CheckStatus = "pass" | "fail" | "blocked";
@@ -35,7 +41,7 @@ async function load(fetcher: typeof fetch, url: string): Promise<Page> {
   try {
     const response = await fetcher(url, { redirect: "manual", headers: { "User-Agent": "AgentOS preview check" }, signal: AbortSignal.timeout(20_000) });
     const type = response.headers.get("content-type") ?? "";
-    return { status: response.status, html: type.includes("html") ? await response.text() : "", location: response.headers.get("location") ?? undefined };
+    return { status: response.status, html: type.includes("html") || type.includes("xml") ? await response.text() : "", location: response.headers.get("location") ?? undefined };
   } catch (error) {
     return { status: 0, html: "", location: error instanceof Error ? error.message : undefined };
   }
@@ -62,10 +68,10 @@ const FEATURE_CHECKS: Record<RebuildFunction, { label: string; test: (pages: Map
     },
   },
   booking: {
-    label: "Booking link or embed present",
+    label: "Booking available",
     test: (pages) => {
       const found = [...pages].find(([, page]) => /calendly\.com|cal\.com|book(ing)?[^"<]{0,40}<\/(a|button)>|<iframe[^>]+(book|schedul)/i.test(page.html));
-      return found ? { status: "pass", detail: `Booking entry point on ${found[0]}.` } : { status: "fail", detail: "No booking link, button or embed on any checked page." };
+      return found ? { status: "pass", detail: `Booking entry point on ${found[0]}.` } : { status: "fail", detail: "No booking page, button or embed on any checked page." };
     },
   },
   newsletter: {
@@ -76,10 +82,24 @@ const FEATURE_CHECKS: Record<RebuildFunction, { label: string; test: (pages: Map
     },
   },
   ecommerce: {
-    label: "Online shop",
-    test: () => ({ status: "blocked", detail: "Not built: an online shop needs a platform decision first." }),
+    label: "Shop loads",
+    test: (pages) => {
+      const shop = pages.get("/shop");
+      if (!shop || shop.status !== 200) return { status: "fail", detail: `/shop answered ${shop?.status ?? "nothing"}.` };
+      return isDemo(shop.html) ? { status: "pass", detail: "/shop answers 200 with the sample storefront, marked as demo. Checkout is not tried." } : { status: "pass", detail: "/shop answers 200. Checkout is not tried." };
+    },
   },
 };
+
+/** Whether a page shows a feature in demo mode: the badge text or the data-demo marker the brief asks for. */
+export function isDemo(html: string): boolean {
+  return html.includes(DEMO_BADGE) || /\bdata-demo\s*=\s*"true"/i.test(html);
+}
+
+/** Payment card inputs. The site must never have one, in any mode. */
+export function cardFields(html: string): string[] {
+  return [...html.matchAll(/<input\b[^>]*>/gi)].map((match) => match[0]).filter((tag) => /autocomplete\s*=\s*"cc-|name\s*=\s*"(card|cc|cvv|cvc|card[-_ ]?number|expiry)/i.test(tag));
+}
 
 /** What the journeys are checked against: the old addresses to keep, and which settings the preview was given. */
 export interface JourneyInput {
@@ -126,11 +146,18 @@ export async function journeyChecks(base: string, pages: Map<string, Page>, func
       checks.push(broken ? { check: "Enquiry form works without JavaScript", status: "fail", detail: `${broken.route}: ${broken.detail}` } : { check: "Enquiry form works without JavaScript", status: "pass", detail: `${forms[0].route}: ${formWorksWithoutJavaScript(forms[0].tag).detail} Not submitted.` });
     }
     const missing = CONTACT_SETTINGS.filter((name) => !journeys.settingsSet.includes(name));
+    const demoForm = [...pages].some(([, page]) => enquiryForms(page.html).length > 0 && isDemo(page.html));
     checks.push(
-      missing.length > 0
-        ? { check: "Enquiries delivered", status: "blocked", detail: `Not configured: ${missing.join(", ")}. Add them in What the features need.` }
-        : { check: "Enquiries delivered", status: "blocked", detail: "Configured in the preview environment. Delivery is not tested: AgentOS never sends a test enquiry on its own." },
+      missing.length === 0
+        ? { check: "Enquiries delivered", status: "blocked", detail: "Configured in the preview environment. Delivery is not tested: AgentOS never sends a test enquiry on its own." }
+        : demoForm
+          ? { check: "Enquiries delivered", status: "pass", detail: `Demo mode: enquiries go to the demo inbox, marked as demo. To go live, set ${missing.join(", ")} in What the features need.` }
+          : { check: "Enquiries delivered", status: "fail", detail: `Not configured (${missing.join(", ")}) and the form is not marked as a demo, so a visitor could think a sent enquiry reached the client.` },
     );
+    const inbox = await load(fetcher, `${base}/admin/demo-inbox`);
+    if (inbox.status === 200) {
+      checks.push(/<meta[^>]+name="robots"[^>]+noindex/i.test(inbox.html) ? { check: "Demo inbox hidden from search", status: "pass", detail: "/admin/demo-inbox has a noindex robots tag." } : { check: "Demo inbox hidden from search", status: "fail", detail: "/admin/demo-inbox is served without a noindex robots tag." });
+    }
   }
   if (functions.includes("booking")) {
     checks.push(
@@ -138,9 +165,22 @@ export async function journeyChecks(base: string, pages: Map<string, Page>, func
         ? [...pages].find(([, page]) => (journeys.bookingUrl ? page.html.includes(`href="${journeys.bookingUrl.replace(/&/g, "&amp;")}"`) : /href="https:\/\/[^"]*(calendly|cal\.com|book|schedul)/i.test(page.html)))
           ? { check: "Booking link goes to the scheduler", status: "pass", detail: "A page links to the scheduler page that is set." }
           : { check: "Booking link goes to the scheduler", status: "fail", detail: "BOOKING_URL is set, but no checked page links to it." }
-        : { check: "Booking link goes to the scheduler", status: "blocked", detail: "BOOKING_URL is not set. Add it in What the features need." },
+        : [...pages].some(([, page]) => isDemo(page.html) && /book/i.test(page.html))
+          ? { check: "Booking works on sample availability", status: "pass", detail: "Demo mode: the booking flow runs on mock availability, marked as demo. To go live, set BOOKING_URL (or Cal.com) in What the features need." }
+          : { check: "Booking works on sample availability", status: "fail", detail: "BOOKING_URL is not set and no checked page shows the booking flow marked as a demo." },
     );
   }
+  for (const feature of ["newsletter", "ecommerce"] as const) {
+    if (!functions.includes(feature)) continue;
+    const label = feature === "newsletter" ? "Newsletter sign-up" : "Shop";
+    checks.push(
+      [...pages].some(([, page]) => isDemo(page.html))
+        ? { check: `${label} marked as demo`, status: "pass", detail: `Demo mode is visible on the site. Live provider settings are added at launch (see FUNCTIONALITY.md).` }
+        : { check: `${label} marked as demo`, status: "blocked", detail: "No demo badge found. If its provider is connected this is expected; otherwise the demo must be marked." },
+    );
+  }
+  const withCards = [...pages].find(([, page]) => cardFields(page.html).length > 0);
+  checks.push(withCards ? { check: "No card fields", status: "fail", detail: `${withCards[0]} has a payment card input. The site must never take card details.` } : { check: "No card fields", status: "pass", detail: "No payment card inputs on any checked page." });
   for (const legacy of journeys.legacyUrls.slice(0, 30)) {
     const first = await load(fetcher, `${base}${legacy}`);
     if (first.status === 200) {
@@ -159,6 +199,7 @@ export async function journeyChecks(base: string, pages: Map<string, Page>, func
   for (const file of ["/sitemap.xml", "/robots.txt"]) {
     const answer = await load(fetcher, `${base}${file}`);
     checks.push({ check: `Serves ${file}`, status: answer.status === 200 ? "pass" : "fail", detail: `Answered ${answer.status || "nothing"}.` });
+    if (file === "/sitemap.xml" && /demo-inbox|\/admin\//i.test(answer.html)) checks.push({ check: "Sitemap has no demo routes", status: "fail", detail: "sitemap.xml lists a demo or admin route." });
   }
   return checks;
 }
@@ -181,7 +222,7 @@ export async function checkPreview(baseUrl: string, routes: readonly string[], f
   );
   if (blockedByLogin) return { checks, passed: false };
 
-  const extra = [...new Set([...routes, ...(functions.includes("blog") ? ["/blog"] : [])])].filter((route) => route !== "/");
+  const extra = [...new Set([...routes, ...(functions.includes("blog") ? ["/blog"] : []), ...(functions.includes("ecommerce") ? ["/shop"] : [])])].filter((route) => route !== "/");
   for (const route of extra) {
     const page = await load(fetcher, `${base}${route}`);
     pages.set(route, page);

@@ -108,8 +108,10 @@ describe("visitor journeys on a site", () => {
     const result = await checkPreview("https://preview.example", ["/", "/contact"], ["contact_form", "blog", "booking"], fetcher, { legacyUrls: ["/articles/", "/news/"], settingsSet: ["BOOKING_URL"], bookingUrl: "https://calendly.com/hmm" });
     const by = Object.fromEntries(result.checks.map((check) => [check.check, check]));
     assert.equal(by["Enquiry form works without JavaScript"].status, "fail");
-    assert.equal(by["Enquiries delivered"].status, "blocked");
+    // Not configured and not marked as a demo: a visitor could think the enquiry reached the client.
+    assert.equal(by["Enquiries delivered"].status, "fail");
     assert.match(by["Enquiries delivered"].detail, /RESEND_API_KEY, CONTACT_FROM_EMAIL, CONTACT_TO_EMAIL/);
+    assert.match(by["Enquiries delivered"].detail, /not marked as a demo/);
     assert.equal(by["Booking link goes to the scheduler"].status, "pass");
     assert.equal(by["Old address /articles/"].status, "pass");
     assert.match(by["Old address /articles/"].detail, /Redirects \(308\) to \/blog/);

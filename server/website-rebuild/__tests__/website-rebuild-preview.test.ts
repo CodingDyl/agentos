@@ -290,12 +290,13 @@ describe("preview checks", () => {
     assert.equal(result.checks.length, 1);
   });
 
-  it("fails a missing page and a missing feature; a shop is reported as blocked, not failed", async () => {
+  it("fails a missing page and a missing feature, including a shop that was not built", async () => {
     const result = await checkPreview("https://p.vercel.app", ["/", "/services"], ["contact_form", "ecommerce"], siteFetch({ "/": { status: 200, html: HOME }, "/_next/static/css/app.css": { status: 200 }, "/_next/static/chunks/main.js": { status: 200 } }));
     assert.equal(result.passed, false);
     assert.equal(result.checks.find((check) => check.check === "Page /services")?.status, "fail");
     assert.equal(result.checks.find((check) => check.check === "Contact form present")?.status, "fail");
-    assert.equal(result.checks.find((check) => check.check === "Online shop")?.status, "blocked");
+    // A selected shop is built (as a demo storefront at least), so a missing /shop is a failure now.
+    assert.equal(result.checks.find((check) => check.check === "Shop loads")?.status, "fail");
   });
 
   it("finds the Next.js assets a page loads", () => {

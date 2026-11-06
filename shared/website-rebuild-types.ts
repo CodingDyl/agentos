@@ -20,9 +20,9 @@ export const REBUILD_STAGES: readonly { id: RebuildStageId; title: string; detai
   { id: "workspace", title: "Workspace", detail: "Create or reuse the client's workspace and start tracking.", gate: false },
   { id: "capture", title: "Website capture", detail: "Read the current site's pages, content, navigation, CTAs and forms.", gate: false },
   { id: "research", title: "Research and Hermes", detail: "Five competitors, five improvements, and a Hermes analysis of the current site.", gate: false },
-  { id: "hero", title: "Hero concepts", detail: "Three design systems from the DESIGN.md structure, each with a desktop and mobile hero.", gate: true },
+  { id: "hero", title: "Hero concepts", detail: "Three design systems in three assigned art directions, each with a desktop and mobile hero, scored by a design critique.", gate: true },
   { id: "build", title: "Copy and structure", detail: "The chosen design, sitemap, page copy, navigation and responsive layouts.", gate: true },
-  { id: "functions", title: "Functional components", detail: "Forms, blog or bookings as needed, with every journey tested.", gate: true },
+  { id: "functions", title: "Functional components", detail: "Every selected feature built and working, on sample data in demo mode until its accounts are connected, with every journey tested.", gate: true },
   { id: "preview", title: "Vercel preview", detail: "Deploy the approved revision and check a signed-out visitor can use it.", gate: false },
 ];
 
@@ -283,6 +283,29 @@ export type BrandColor = z.infer<typeof BrandColorSchema>;
 export type BrandFont = z.infer<typeof BrandFontSchema>;
 export type BrandKit = z.infer<typeof BrandKitSchema>;
 
+/** The rubric the design critique scores each concept against: eight criteria of five points. */
+export const DESIGN_RUBRIC_MAX = 40;
+export const DESIGN_RUBRIC_PASS = 28;
+
+/**
+ * Each hero concept's assigned art direction and what the critique made of
+ * it. Directions are assigned per run so concepts in one niche never share
+ * one while another is free; `escalated` means it is still below the bar (or
+ * too close to an earlier run) after its one automatic revision.
+ */
+export const RebuildDesignConceptSchema = z.object({
+  concept: z.enum(HERO_CONCEPT_IDS),
+  direction: z.string(),
+  directionName: z.string(),
+  wildcard: z.boolean(),
+  score: z.number().int().min(0).max(DESIGN_RUBRIC_MAX).optional(),
+  passed: z.boolean().optional(),
+  autoRevised: z.boolean(),
+  escalated: z.boolean(),
+  reason: z.string().optional(),
+});
+export type RebuildDesignConcept = z.infer<typeof RebuildDesignConceptSchema>;
+
 export const RebuildRunSchema = z.object({
   id: z.string(),
   prospectId: z.string(),
@@ -326,6 +349,8 @@ export const RebuildRunSchema = z.object({
   conceptNotes: z.array(RebuildConceptNoteSchema).default([]),
   /** Per-page notes on the baseline's revisions, drafts included. */
   pageNotes: z.array(RebuildPageNotesSchema).default([]),
+  /** The hero concepts' art directions and critique scores. */
+  designConcepts: z.array(RebuildDesignConceptSchema).default([]),
   events: z.array(RebuildEventSchema),
 });
 

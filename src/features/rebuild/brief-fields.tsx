@@ -48,6 +48,7 @@ export function RebuildBriefFields({ id, defaults, functions, onFunctions }: { i
             </label>
           ))}
         </div>
+        <p className="mt-1 text-[13px] text-paper-sage">Every function you tick is built. Until the client's accounts are connected it runs on sample data, marked as a demo; the shop never takes payments until then.</p>
       </fieldset>
     </>
   );

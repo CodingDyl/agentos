@@ -9,6 +9,7 @@ import {
   REBUILD_STAGES,
   WORKER_STAGES,
   type RebuildArtifact,
+  type RebuildDesignConcept,
   type RebuildRun,
   type RebuildStage,
 } from "@shared/website-rebuild-types";
@@ -22,6 +23,7 @@ import { BaselineReview } from "./baseline-review";
 import { BrandKitPanel } from "./brand-kit-panel";
 import { FeatureSettingsPanel } from "./feature-settings-panel";
 import { conceptLabel } from "./concept-label";
+import { ConceptCritique } from "./concept-critique";
 import { ConceptViewer, type NoteState } from "./concept-viewer";
 import { PreviewPublishActions } from "./preview-publish-actions";
 import { ReviewVerdictGate } from "./review-verdict-gate";
@@ -222,7 +224,7 @@ function StageCard({ run, stage, index }: { run: RebuildRun; stage: RebuildStage
           </ul>
         ) : null}
 
-        {stage.status === "awaiting_approval" ? stage.id === BASELINE_STAGE ? <BaselineReview run={run} stage={stage} /> : <ReviewPanel run={run} stage={stage} images={images} /> : stage.id === "hero" && images.length > 0 ? <ConceptGallery images={images} chosen={run.heroChoice} branded={Boolean(run.brandKit)} /> : null}
+        {stage.status === "awaiting_approval" ? stage.id === BASELINE_STAGE ? <BaselineReview run={run} stage={stage} /> : <ReviewPanel run={run} stage={stage} images={images} /> : stage.id === "hero" && images.length > 0 ? <ConceptGallery images={images} chosen={run.heroChoice} branded={Boolean(run.brandKit)} designs={run.designConcepts} /> : null}
 
         {stage.id === "preview" && run.previewUrl ? (
           <a href={run.previewUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-paper-blue hover:underline">
@@ -360,7 +362,7 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
       {needsChoice ? (
         <>
           <ConceptNotesSummary notes={written} />
-          <ConceptGallery images={images} chosen={choice} onChoose={setChoice} branded={Boolean(run.brandKit)} notes={written} onView={setViewing} />
+          <ConceptGallery images={images} chosen={choice} onChoose={setChoice} branded={Boolean(run.brandKit)} notes={written} onView={setViewing} designs={run.designConcepts} />
           {choice && written[choice] ? (
             <p className="mt-2 max-w-[75ch] border-l-2 border-paper-ash pl-3 text-[13px] text-paper-char">
               <span className="font-semibold text-paper-moss">Your notes on {conceptLabel(choice)}:</span> <span className="whitespace-pre-wrap">{written[choice]}</span>
@@ -449,7 +451,7 @@ function ConceptNotesSummary({ notes }: { notes: Record<string, string> }) {
 const BRANDED_DIRECTION: Record<string, string> = { "concept-a": "Faithful", "concept-b": "Evolved", "concept-c": "Bold" };
 
 /** The three heroes side by side, desktop beside phone. With `onView`, a click opens the concept; with `onChoose`, each also has its own Choose button. */
-function ConceptGallery({ images, chosen, onChoose, branded = false, notes, onView }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; branded?: boolean; notes?: Record<string, string>; onView?: (concept: string) => void }) {
+function ConceptGallery({ images, chosen, onChoose, branded = false, notes, onView, designs = [] }: { images: RebuildArtifact[]; chosen?: string; onChoose?: (concept: string) => void; branded?: boolean; notes?: Record<string, string>; onView?: (concept: string) => void; designs?: readonly RebuildDesignConcept[] }) {
   const link = "inline-flex min-h-8 cursor-pointer items-center text-[13px] font-semibold hover:underline";
   return (
     <div className="mt-3 grid gap-3 lg:grid-cols-3" role={onChoose ? "group" : undefined} aria-label={onChoose ? "Hero concepts" : undefined}>
@@ -475,6 +477,7 @@ function ConceptGallery({ images, chosen, onChoose, branded = false, notes, onVi
                 {selected ? <CheckCircle2 className="size-4 text-paper-blue" aria-label="Chosen" /> : null}
               </span>
             </span>
+            <ConceptCritique entry={designs.find((entry) => entry.concept === concept)} />
             {onView ? (
               <button type="button" onClick={() => onView(concept)} aria-label={`Open ${conceptLabel(concept)} at desktop and phone width, and add notes`} className="block w-full cursor-pointer text-left">
                 {shots}
