@@ -19,7 +19,16 @@ async function openDashboard(page: Page) {
 
 async function noHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(await page.locator("main").evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  // On failure, name what sticks out, so a red run says where to look.
+  const overflowing = await page.locator("main").evaluate((element) => {
+    if (element.scrollWidth <= element.clientWidth + 1) return [];
+    const edge = element.getBoundingClientRect().right;
+    return [...element.querySelectorAll("*")]
+      .filter((node) => node.getBoundingClientRect().right > edge + 1)
+      .slice(0, 8)
+      .map((node) => `${node.tagName.toLowerCase()}.${String(node.className).slice(0, 60)} "${(node.textContent ?? "").trim().slice(0, 40)}" right=${Math.round(node.getBoundingClientRect().right)} of ${Math.round(edge)}`);
+  });
+  expect(overflowing, `main is wider than the window at ${page.viewportSize()?.width}px`).toEqual([]);
 }
 
 test("every route renders on the Quiet Terminal tokens with no overflow", async ({ page }) => {
