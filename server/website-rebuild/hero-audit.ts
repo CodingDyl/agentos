@@ -26,6 +26,8 @@ const SKELETON_ROWS = 15;
 export const SAME_SKELETON = 0.45;
 /** At or above this share of shared words, two headlines say the same thing. */
 export const SAME_HEADLINE = 0.6;
+/** Letters can touch an image on purpose. Past this share of the headline hidden, it stops being readable. */
+export const HEADLINE_COVERED = 0.2;
 
 /** Runs in the page, as a string so the compiler adds no helpers of its own to it. */
 const COLLECT = `(() => {
@@ -78,8 +80,18 @@ const COLLECT = `(() => {
   const intakeEl = document.querySelector("[data-intake]");
   const intake = intakeEl && shown(intakeEl) ? { choices: intakeEl.querySelectorAll("button, a[href], input[type=radio], option, [role=option], [role=radio]").length, rect: toRect(intakeEl.getBoundingClientRect()) } : undefined;
   const wideBand = all.some((el) => { if (!el.innerText || el.innerText.trim().length < 3) return false; const r = el.getBoundingClientRect(); return r.width > vw * 1.2 && r.top < vh && r.bottom > 0 && parseFloat(getComputedStyle(el).fontSize) >= 48; });
+  let headlineCovered = 0;
+  if (h1El) {
+    const range = document.createRange();
+    range.selectNodeContents(h1El);
+    const boxes = [...range.getClientRects()].filter(inView);
+    const points = boxes.flatMap((r) => [0.15, 0.4, 0.65, 0.9].map((share) => [r.left + r.width * share, r.top + r.height / 2]));
+    const hidden = points.filter(([x, y]) => { const hit = document.elementFromPoint(x, y); return !hit || !(h1El === hit || h1El.contains(hit) || hit.contains(h1El)); }).length;
+    headlineCovered = points.length === 0 ? 0 : hidden / points.length;
+  }
   return {
     viewport: { width: vw, height: vh },
+    headlineCovered,
     h1,
     fonts: { loaded, headlineLoaded: Boolean(h1) && loaded.includes(h1.family), bodyLoaded: loaded.includes(familyOf(bodyEl)) },
     overflowX: document.documentElement.scrollWidth > vw + 2 && getComputedStyle(document.documentElement).overflowX !== "hidden" && getComputedStyle(document.body).overflowX !== "hidden",
@@ -206,6 +218,8 @@ export function judgeConcepts(measured: readonly MeasuredConcept[], assignments:
       audits.push({ concept: entry.concept, failures: [`The hero could not be opened in a browser${entry.error ? `: ${entry.error}` : ""}.`], warnings });
       continue;
     }
+    if (desktop.headlineCovered >= HEADLINE_COVERED) failures.push(`Something covers ${Math.round(desktop.headlineCovered * 100)}% of the headline at 1440px wide, so it cannot be read.`);
+    if (mobile && mobile.headlineCovered >= HEADLINE_COVERED) failures.push(`Something covers ${Math.round(mobile.headlineCovered * 100)}% of the headline at 390px wide, so it cannot be read.`);
     if (!desktop.h1) failures.push("The page has no h1.");
     else if (!desktop.fonts.headlineLoaded) failures.push(`The headline renders in "${desktop.h1.family}", which the page did not load. Load the assigned face through fonts.css.`);
     if (!desktop.fonts.bodyLoaded) warnings.push("The body text renders in a face the page did not load.");
@@ -222,7 +236,13 @@ export function judgeConcepts(measured: readonly MeasuredConcept[], assignments:
       if (nav) failures.push(`Not the assigned navigation (${assignment.nav.name}): ${nav}.`);
       if (assignment.motion.id !== "still-with-grain" && !desktop.motionSeen && desktop.canvasCoverage === 0) warnings.push(`No motion was seen, and ${assignment.motion.name} was assigned.`);
     }
-    for (const finding of entry.findings) (finding.slop ? failures : warnings).push(`${finding.slop ? "Slop detector" : "Detector"}: ${finding.name}${finding.snippet ? ` (${finding.snippet.slice(0, 120)})` : ""}.`);
+    // The detector reads source for this one, and a headline sized by script reads as body size. The browser knows better.
+    const realFindings = entry.findings.filter((finding) => !(finding.id === "flat-type-hierarchy" && (desktop.h1?.px ?? 0) >= 40));
+    for (const finding of realFindings.filter((item) => item.slop)) failures.push(`Slop detector: ${finding.name}${finding.snippet ? ` (${finding.snippet.slice(0, 120)})` : ""}.`);
+    // One line per kind, however many elements have it: twelve identical warnings hide the one that matters.
+    const others = new Map<string, DetectorFinding[]>();
+    for (const finding of realFindings.filter((item) => !item.slop)) others.set(finding.name, [...(others.get(finding.name) ?? []), finding]);
+    for (const [name, group] of others) warnings.push(`Detector: ${name}${group.length > 1 ? ` (${group.length} places)` : ""}${group[0].snippet ? `, such as ${group[0].snippet.slice(0, 100)}` : ""}.`);
 
     // Each concept answers for what came before it, so one failure is not reported twice.
     for (const other of audits) {
