@@ -1211,6 +1211,9 @@ async function run(
   running.set(initial.id, { worker, controller, listeners: priorListeners ?? new Set() });
 
   let job = initial;
+  // Read before the status below changes it. Grok may be mid-edit in this
+  // checkout, so a resumed wait must not re-prepare it or move it.
+  const resumingBridgeWait = isParkedOnBridge(initial);
 
   try {
     job = await update(job, {
@@ -1236,7 +1239,7 @@ async function run(
       );
     }
 
-    if (job.worktreePath) {
+    if (job.worktreePath && !resumingBridgeWait) {
       await prepareLaunch(job, worker, (type, message, metadata) =>
         emit(job.id, type, message, metadata),
       );
@@ -1438,7 +1441,7 @@ async function run(
       // A file-bridge job (Grok Bot) is started by hand, not routed, so it has no attempt to
       // finish: it gets one now, so its review knows the imported result was validated.
       attempts: !job.attempts?.length && job.bridge
-        ? [bridgeAttempt(job, failed ? "failed" : "succeeded", failed ? "AgentOS's own validation failed after the result was imported." : undefined)]
+        ? [bridgeAttempt(job, failed ? "failed" : "succeeded", failed ? (honesty.failed ? honesty.detail : "AgentOS's own validation failed after the result was imported.") : undefined)]
         : finishAttempt(job, {
         outcome: failed ? "failed" : "succeeded",
         modelDigest: result.providerMetrics?.modelDigest,

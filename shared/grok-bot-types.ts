@@ -70,6 +70,22 @@ export const GrokBotExportedNoteSchema = z.object({
   exportedAt: z.string(),
 });
 
+/**
+ * The checkout a repository job's Grok works in. AgentOS made it for this job
+ * alone, on its own branch, and reads the changes back from it with git.
+ */
+export const GrokBotWorktreeSchema = z.object({
+  /** The git worktree's root. */
+  path: z.string(),
+  /** The project inside it: the root, unless the project is a folder in a larger repository. */
+  cwd: z.string(),
+  branch: z.string().optional(),
+  /** `read-only` is a report-only job: the checkout is there to read, and a diff fails the job. */
+  access: z.enum(["read-write", "read-only"]),
+  /** The commit it was on at export. Grok is told not to commit, and this is how that is checked. */
+  headAtExport: z.string().optional(),
+});
+
 /** The bridge's record on a Grok Bot job: where things are and what has happened. */
 export const GrokBotBridgeSchema = z.object({
   taskId: z.string(),
@@ -79,6 +95,8 @@ export const GrokBotBridgeSchema = z.object({
   memoryDir: z.string(),
   exportedAt: z.string(),
   notes: z.array(GrokBotExportedNoteSchema),
+  /** Absent for a text job with no repository: its reply is the whole deliverable. */
+  worktree: GrokBotWorktreeSchema.optional(),
   /** The exact text for the Copy Grok instruction button. */
   instruction: z.string(),
   /** Set while the SSD is missing; cleared when it comes back. */
@@ -92,4 +110,5 @@ export const GrokBotBridgeSchema = z.object({
 
 export type GrokBotResult = z.infer<typeof GrokBotResultSchema>;
 export type GrokBotExportedNote = z.infer<typeof GrokBotExportedNoteSchema>;
+export type GrokBotWorktree = z.infer<typeof GrokBotWorktreeSchema>;
 export type GrokBotBridge = z.infer<typeof GrokBotBridgeSchema>;
