@@ -105,7 +105,7 @@ describe("the functions summary", () => {
 `;
 
   it("counts only the feature table, not the checks table after it", () => {
-    assert.deepEqual(tallyFeatures(report), { pass: 1, fail: 0, blocked: 2 });
+    assert.deepEqual(tallyFeatures(report), { pass: 1, fail: 0, blocked: 2, demo: 0 });
   });
 
   it("no longer claims the features pass when the report says they are blocked", () => {
@@ -117,7 +117,7 @@ describe("the functions summary", () => {
   });
 
   it("names failed checks and a report that rates nothing", () => {
-    const summary = functionsSummary("Codex", 1, { pass: 0, fail: 0, blocked: 0 }, [{ command: "npm run build", success: false }]);
+    const summary = functionsSummary("Codex", 1, { pass: 0, fail: 0, blocked: 0, demo: 0 }, [{ command: "npm run build", success: false }]);
     assert.match(summary, /rates none of them/);
     assert.match(summary, /Failed checks: `npm run build`/);
   });

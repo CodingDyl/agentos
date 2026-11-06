@@ -20,6 +20,7 @@ import {
   type PageNotesByRoute,
   type RebuildArtifact,
   type RebuildDecision,
+  type RebuildDesignConcept,
   type RebuildEvent,
   type RebuildFunction,
   type RebuildRevision,
@@ -32,6 +33,7 @@ import {
   type ReviewVerdict,
 } from "../../shared/website-rebuild-types";
 import { uiStateDir } from "../agentos/session-store";
+import { DIRECTION_BY_ID } from "./design-directions";
 import { WorkerIdSchema } from "../../shared/worker-ids";
 
 /**
@@ -200,6 +202,31 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE runs ADD COLUMN motion_ref TEXT;
   ALTER TABLE runs ADD COLUMN motion_base TEXT;
   `,
+  `
+  CREATE TABLE IF NOT EXISTS design_fingerprints (
+    run_id         TEXT NOT NULL,
+    concept        TEXT NOT NULL,
+    niche          TEXT NOT NULL,
+    market         TEXT NOT NULL,
+    direction      TEXT NOT NULL,
+    wildcard       INTEGER NOT NULL DEFAULT 0,
+    palette_family TEXT NOT NULL,
+    display_font   TEXT,
+    text_font      TEXT,
+    palette        TEXT NOT NULL DEFAULT '[]',
+    hero_layout    TEXT,
+    score          INTEGER,
+    passed         INTEGER,
+    auto_revised   INTEGER NOT NULL DEFAULT 0,
+    escalated      INTEGER NOT NULL DEFAULT 0,
+    reason         TEXT,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL,
+    PRIMARY KEY (run_id, concept)
+  );
+  CREATE INDEX IF NOT EXISTS idx_design_fingerprints_niche ON design_fingerprints(niche);
+  CREATE INDEX IF NOT EXISTS idx_design_fingerprints_market ON design_fingerprints(market);
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -293,6 +320,26 @@ function stagesOf(runId: string): RebuildStage[] {
   }));
 }
 
+/** The hero concepts' directions and scores, for the page. The full fingerprints stay in design-fingerprints.ts. */
+function designConceptsOf(runId: string): RebuildDesignConcept[] {
+  const rows = rebuildDatabase()
+    .prepare("SELECT concept, direction, wildcard, score, passed, auto_revised, escalated, reason FROM design_fingerprints WHERE run_id = ? ORDER BY concept")
+    .all(runId) as unknown as { concept: string; direction: string; wildcard: number; score: number | null; passed: number | null; auto_revised: number; escalated: number; reason: string | null }[];
+  return rows
+    .filter((entry) => (HERO_CONCEPTS as readonly string[]).includes(entry.concept))
+    .map((entry) => ({
+      concept: entry.concept as RebuildDesignConcept["concept"],
+      direction: entry.direction,
+      directionName: DIRECTION_BY_ID.get(entry.direction)?.name ?? entry.direction,
+      wildcard: entry.wildcard === 1,
+      score: entry.score ?? undefined,
+      passed: entry.passed === null ? undefined : entry.passed === 1,
+      autoRevised: entry.auto_revised === 1,
+      escalated: entry.escalated === 1,
+      reason: entry.reason ?? undefined,
+    }));
+}
+
 function toRun(row: RunRow, withDetail: boolean): RebuildRun {
   const db = rebuildDatabase();
   const plan = RebuildWorkerPlanSchema.safeParse(parseJson(row.worker_plan, {}));
@@ -345,6 +392,7 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     pageNotes: withDetail
       ? (db.prepare("SELECT stage, revision, route, notes FROM page_notes WHERE run_id = ? ORDER BY revision, route").all(row.id) as unknown as { stage: RebuildStageId; revision: number; route: string; notes: string }[]).map((entry) => ({ stage: entry.stage, revision: entry.revision, route: entry.route, notes: parseJson<PageNote[]>(entry.notes, []) }))
       : [],
+    designConcepts: withDetail ? designConceptsOf(row.id) : [],
     events: withDetail
       ? (db.prepare("SELECT * FROM events WHERE run_id = ? ORDER BY id DESC LIMIT 200").all(row.id) as unknown as { id: number; stage: RebuildStageId | null; at: string; level: RebuildEvent["level"]; message: string }[]).map(
           (event): RebuildEvent => ({ id: event.id, stage: event.stage ?? undefined, at: event.at, level: event.level, message: event.message }),
@@ -372,7 +420,7 @@ export function deleteRunRecords(runId: string): void {
   const db = rebuildDatabase();
   db.exec("BEGIN IMMEDIATE");
   try {
-    for (const table of ["events", "page_notes", "concept_notes", "decisions", "revisions", "artifacts", "stages"]) {
+    for (const table of ["events", "design_fingerprints", "page_notes", "concept_notes", "decisions", "revisions", "artifacts", "stages"]) {
       db.prepare(`DELETE FROM ${table} WHERE run_id = ?`).run(runId);
     }
     db.prepare("DELETE FROM runs WHERE id = ?").run(runId);

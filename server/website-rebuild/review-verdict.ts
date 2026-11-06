@@ -71,25 +71,34 @@ export interface FeatureTally {
   pass: number;
   fail: number;
   blocked: number;
+  /** Of the passes, how many work on sample data (demo mode). Demo working is a pass for the preview. */
+  demo: number;
 }
 
 /**
  * The Status column of the worker's functionality table. Rows whose status is
- * none of Pass, Fail or Blocked are not counted: the person reads the report.
+ * none of Pass, Fail, Blocked or Demo are not counted: the person reads the report.
+ * A pass whose Mode is Demo counts as a pass and as a demo.
  */
 export function tallyFeatures(report: string): FeatureTally {
-  const tally: FeatureTally = { pass: 0, fail: 0, blocked: 0 };
+  const tally: FeatureTally = { pass: 0, fail: 0, blocked: 0, demo: 0 };
   const lines = report.split(/\r?\n/);
   const start = lines.findIndex((line) => line.trim().startsWith("|") && /\|\s*status\b/i.test(line));
   if (start < 0) return tally;
   const cells = (row: string) => row.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
   const column = cells(lines[start]).findIndex((cell) => /^status\b/i.test(cell));
+  const modeColumn = cells(lines[start]).findIndex((cell) => /^mode\b/i.test(cell));
   // Only this table: the next non-table line ends it, so a later table of checks is not counted.
   const end = lines.findIndex((line, index) => index > start && !line.trim().startsWith("|"));
   for (const row of lines.slice(start + 1, end < 0 ? undefined : end)) {
     const value = (cells(row)[column] ?? "").replace(/[*_`]/g, "").toLowerCase();
     if (/^-+$|^:?-+:?$/.test(value)) continue;
-    if (value.startsWith("pass")) tally.pass += 1;
+    const mode = modeColumn < 0 ? "" : (cells(row)[modeColumn] ?? "").replace(/[*_`]/g, "").toLowerCase();
+    // "Demo" or "Demo pass" in the status column is a pass on sample data too.
+    if (value.startsWith("demo") || (value.startsWith("pass") && mode.startsWith("demo"))) {
+      tally.pass += 1;
+      tally.demo += 1;
+    } else if (value.startsWith("pass")) tally.pass += 1;
     else if (value.startsWith("fail")) tally.fail += 1;
     else if (value.startsWith("blocked")) tally.blocked += 1;
   }
