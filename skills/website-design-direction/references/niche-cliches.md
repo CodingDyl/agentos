@@ -1,6 +1,6 @@
-# Niche-cliché map
+# Niche clichés
 
-What sites in each niche usually look like. The concepts for a run in that niche must avoid all of it. The niche is detected from the target market, then the company name. Wildcards are directions far from the niche; concept C is always one of them.
+What sites in each niche usually look like, which concepts must not. Wildcards are directions far from the niche; the avoid list is what would be a costume there.
 
 ## Law firms and attorneys (`law`)
 
@@ -11,7 +11,7 @@ What sites in each niche usually look like. The concepts for a run in that niche
 - a centred hero over a boardroom photo
 - three practice-area cards
 
-Wildcards: Magazine collage, Municipal wayfinding, Risograph zine, Data-forward, Botanical.
+Wildcards: `kinetic-poster`, `municipal-wayfinding`, `identity-manual`, `material-study`, `cinematic-dark`. Never: `risograph-zine`, `magazine-collage`, `hand-made-signage`, `botanical`, `nautical-chart`.
 
 ## Plumbers (`plumbing`)
 
@@ -21,7 +21,7 @@ Wildcards: Magazine collage, Municipal wayfinding, Risograph zine, Data-forward,
 - a spanner-and-pipe logo
 - three service cards with icons
 
-Wildcards: Architectural monochrome, Editorial broadsheet, Botanical, Cinematic dark, Nautical chart.
+Wildcards: `architectural-monochrome`, `editorial-broadsheet`, `botanical`, `cinematic-dark`, `nautical-chart`.
 
 ## Electricians (`electrical`)
 
@@ -31,7 +31,7 @@ Wildcards: Architectural monochrome, Editorial broadsheet, Botanical, Cinematic 
 - a dark hero with an electric-blue glow
 - icon-card grid of services
 
-Wildcards: Botanical, Archival heritage, Magazine collage, Editorial broadsheet, Warm craft.
+Wildcards: `botanical`, `archival-heritage`, `magazine-collage`, `editorial-broadsheet`, `warm-craft`.
 
 ## Dentists and orthodontists (`dental`)
 
@@ -41,7 +41,7 @@ Wildcards: Botanical, Archival heritage, Magazine collage, Editorial broadsheet,
 - "Your smile is our priority"
 - rounded cards and soft shadows everywhere
 
-Wildcards: Swiss grid, Risograph zine, Technical spec sheet, Editorial broadsheet, Nautical chart.
+Wildcards: `swiss-grid`, `quiet-apothecary`, `technical-spec-sheet`, `editorial-broadsheet`, `kinetic-poster`. Never: `risograph-zine`, `hand-made-signage`.
 
 ## Accountants and bookkeepers (`accounting`)
 
@@ -51,7 +51,7 @@ Wildcards: Swiss grid, Risograph zine, Technical spec sheet, Editorial broadshee
 - a laptop-on-desk hero
 - pricing cards with a 'popular' badge
 
-Wildcards: Warm craft, Hand-made signage, Magazine collage, Botanical, Cinematic dark.
+Wildcards: `warm-craft`, `kinetic-poster`, `identity-manual`, `material-study`, `cinematic-dark`. Never: `risograph-zine`, `hand-made-signage`, `magazine-collage`.
 
 ## Auto workshops and mechanics (`auto`)
 
@@ -61,7 +61,7 @@ Wildcards: Warm craft, Hand-made signage, Magazine collage, Botanical, Cinematic
 - "Driven by excellence"
 - a dark hero with a diagonal red slash
 
-Wildcards: Botanical, Swiss grid, Archival heritage, Editorial broadsheet, Municipal wayfinding.
+Wildcards: `botanical`, `swiss-grid`, `archival-heritage`, `editorial-broadsheet`, `municipal-wayfinding`.
 
 ## Restaurants and cafes (`restaurant`)
 
@@ -71,7 +71,7 @@ Wildcards: Botanical, Swiss grid, Archival heritage, Editorial broadsheet, Munic
 - a centred logo over a plate
 - a menu as a PDF link
 
-Wildcards: Technical spec sheet, Swiss grid, Data-forward, Municipal wayfinding, Nautical chart.
+Wildcards: `technical-spec-sheet`, `swiss-grid`, `data-forward`, `municipal-wayfinding`, `nautical-chart`.
 
 ## Local service business (`general`)
 
@@ -80,4 +80,4 @@ Wildcards: Technical spec sheet, Swiss grid, Data-forward, Municipal wayfinding,
 - a blue primary button
 - "Quality you can trust"
 
-Wildcards: Magazine collage, Risograph zine, Nautical chart, Technical spec sheet, Botanical.
+Wildcards: `magazine-collage`, `risograph-zine`, `nautical-chart`, `technical-spec-sheet`, `botanical`.

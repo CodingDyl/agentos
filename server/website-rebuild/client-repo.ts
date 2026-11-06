@@ -142,6 +142,11 @@ export async function commitFiles(repo: string, files: Record<string, string | B
   return git(repo, ["rev-parse", "HEAD"]);
 }
 
+/** The commit the repository is on. */
+export function headCommit(repo: string): Promise<string> {
+  return git(repo, ["rev-parse", "HEAD"]);
+}
+
 /** Marks a revision's commit, e.g. `rebuild/hero-r2`, so every revision can be checked out later. */
 export async function tagRevision(repo: string, commit: string, tag: string): Promise<void> {
   await git(repo, ["tag", "-f", tag, commit]);

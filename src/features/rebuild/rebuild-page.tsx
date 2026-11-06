@@ -17,7 +17,7 @@ import { AppShell, PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, PaperCard, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
-import { useDecideStage, useRebuild, useRetryStage, useSaveConceptNote, useSkipCapture, useStageWorkers } from "@/lib/agentos/rebuilds";
+import { useDecideStage, useRebuild, useRetryStage, useSaveConceptNote, useSetArtBudget, useSkipCapture, useStageWorkers } from "@/lib/agentos/rebuilds";
 import { cn } from "@/lib/utils";
 import { BaselineReview } from "./baseline-review";
 import { BrandKitPanel } from "./brand-kit-panel";
@@ -382,6 +382,7 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
               images={images}
               designs={designs}
               directions={run.brandKit ? BRANDED_DIRECTION : undefined}
+              liveHref={(concept) => `/api/rebuilds/${encodeURIComponent(run.id)}/concept-files/design/${concept}/hero.html`}
               notes={conceptNotes}
               noteState={noteState}
               onNoteChange={changeNote}
@@ -420,8 +421,55 @@ function ReviewPanel({ run, stage, images }: { run: RebuildRun; stage: RebuildSt
         >
           Request changes{hasConceptNotes ? ` (${Object.keys(written).length} concept note${Object.keys(written).length === 1 ? "" : "s"})` : ""}
         </PaperButton>
+        {needsChoice ? (
+          <PaperButton
+            disabled={busy}
+            onClick={() => {
+              if (!window.confirm("Throw away these three concepts and start again with new art directions? They stay in the repo's history.")) return;
+              decide.mutate({ stage: stage.id, revision: stage.revision, decision: "request-changes", note: note.trim() || undefined, conceptNotes: hasConceptNotes ? written : undefined, fresh: true }, { onSuccess: () => setNote("") });
+            }}
+          >
+            New concepts
+          </PaperButton>
+        ) : null}
       </div>
+      {needsChoice ? (
+        <p className="mt-2 max-w-[75ch] text-[13px] text-paper-sage">Request changes revises these concepts, and a note on one concept redoes only that one. New concepts starts again with different directions, layouts and headlines.</p>
+      ) : null}
+      {needsChoice ? <ArtBudget run={run} /> : null}
     </div>
+  );
+}
+
+/** Credits for concept imagery. Off by default: every generation spends real credits. */
+function ArtBudget({ run }: { run: RebuildRun }) {
+  const id = useId();
+  const save = useSetArtBudget(run.id);
+  const [credits, setCredits] = useState(String(run.artBudget));
+  const parsed = Number(credits);
+  const valid = credits.trim() !== "" && Number.isFinite(parsed) && parsed >= 0 && parsed <= 100;
+  const changed = valid && parsed !== run.artBudget;
+  return (
+    <form
+      className="mt-4 border-t border-paper-mist pt-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (changed) save.mutate(parsed);
+      }}
+    >
+      <label htmlFor={`${id}-credits`} className="block">
+        <FieldLabel>Image budget for new concepts (Higgsfield credits)</FieldLabel>
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <input id={`${id}-credits`} type="number" min={0} max={100} step={0.25} inputMode="decimal" aria-invalid={!valid} aria-describedby={`${id}-hint`} className={cn(PAPER_INPUT, "w-24")} value={credits} onChange={(event) => setCredits(event.target.value)} />
+        <PaperButton type="submit" disabled={!changed || save.isPending}>
+          {save.isPending ? "Saving…" : "Set budget"}
+        </PaperButton>
+        <p id={`${id}-hint`} role="status" className={cn("text-[13px]", save.error || !valid ? "text-paper-flame-deep" : "text-paper-sage")}>
+          {!valid ? "Enter a number from 0 to 100." : save.error ? save.error.message : `${run.artSpent} of ${run.artBudget} spent on this run. At 0, concepts use the client's photos and imagery made in code.`}
+        </p>
+      </div>
+    </form>
   );
 }
 

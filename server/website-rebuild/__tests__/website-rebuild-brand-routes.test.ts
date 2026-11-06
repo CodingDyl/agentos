@@ -15,7 +15,9 @@ process.env.AGENTOS_CLIENT_SITES_DIR = "/Volumes/agentos-test-drive-not-present/
 
 const store = await import("../store");
 const { rebuildRouter } = await import("../routes");
-const { heroBrief, buildBrief } = await import("../prompts");
+const { conceptBrief, buildBrief } = await import("../prompts");
+const { assignDirections } = await import("../design-fingerprints");
+const { NICHE_CLICHES } = await import("../design-directions");
 const { brandRightsNote } = await import("../stages");
 type BrandKit = import("../../../shared/website-rebuild-types").BrandKit;
 type RebuildRun = import("../../../shared/website-rebuild-types").RebuildRun;
@@ -172,22 +174,72 @@ describe("skipping the website capture", () => {
   });
 });
 
-describe("briefs with a brand kit", () => {
-  it("asks for faithful, evolved and bold concepts using the logo and local files only", () => {
+describe("a concept, opened live", () => {
+  it("serves design and brand files, locked down, and nothing else in the repo", async () => {
     const run = newRun();
-    const brief = heroBrief(run);
-    assert.match(brief, /brand\/BRAND\.md/);
-    assert.match(brief, /concept-a, Faithful/);
-    assert.match(brief, /concept-c, Bold/);
-    assert.match(brief, /primary logo, brand\/logo\.\*/);
-    assert.match(brief, /only images allowed are the client's files in brand\//);
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "agentos-concept-files-"));
+    fs.mkdirSync(path.join(repo, "design/concept-a"), { recursive: true });
+    fs.writeFileSync(path.join(repo, "design/concept-a/hero.html"), "<h1>Hi</h1>");
+    fs.writeFileSync(path.join(repo, ".env"), "SECRET=1");
+    fs.writeFileSync(path.join(repo, "secret.html"), "nope");
+    fs.symlinkSync(path.join(repo, "secret.html"), path.join(repo, "design/link.html"));
+    store.setRunField(run.id, "repo_path", repo);
+    const get = (file: string) => fetch(`${base}/${run.id}/concept-files/${file}`);
+
+    const page = await get("design/concept-a/hero.html");
+    assert.equal(page.status, 200);
+    assert.match(page.headers.get("content-type") ?? "", /text\/html/);
+    assert.match(page.headers.get("content-security-policy") ?? "", /sandbox allow-scripts/);
+    assert.match(page.headers.get("content-security-policy") ?? "", /connect-src 'none'/);
+    assert.equal(await page.text(), "<h1>Hi</h1>");
+
+    for (const blocked of ["secret.html", ".env", "design/concept-a/nothing.html", "design/concept-a/%2e%2e/%2e%2e/secret.html"]) assert.equal((await get(blocked)).status, 404, blocked);
+    assert.equal((await get("design/link.html")).status, 404, "a link in design/ cannot lead elsewhere in the repo");
+    fs.rmSync(repo, { recursive: true, force: true });
+  });
+});
+
+describe("the image budget", () => {
+  it("is set per run and refuses anything out of range", async () => {
+    const run = newRun();
+    assert.equal(store.readRun(run.id).artBudget, 0);
+    const response = await post(`/${run.id}/art-budget`, { credits: 5 });
+    assert.equal(response.status, 200);
+    assert.equal(store.readRun(run.id).artBudget, 5);
+    assert.equal((await post(`/${run.id}/art-budget`, { credits: 500 })).status, 422);
+    assert.equal((await post(`/${run.id}/art-budget`, { credits: "lots" })).status, 422);
+  });
+});
+
+describe("new concepts", () => {
+  it("only the hero stage can start over", async () => {
+    const run = newRun();
+    assert.equal((await post(`/${run.id}/stages/build/request-changes`, { revision: 1, note: "x", fresh: true })).status, 422);
+  });
+});
+
+describe("briefs with a brand kit", () => {
+  const niche = NICHE_CLICHES[0];
+  const briefFor = (run: RebuildRun, index: number) => {
+    const assignments = assignDirections(run.id, niche, []);
+    return conceptBrief(run, assignments[index], { niche, assignments, prior: [] }, { art: [], missingFonts: [], references: [] });
+  };
+
+  it("makes the concepts faithful, evolved and bold, using the logo by relative path", () => {
+    const run = newRun();
+    assert.match(briefFor(run, 0), /brand\/BRAND\.md/);
+    assert.match(briefFor(run, 0), /Brand role: Faithful/);
+    assert.match(briefFor(run, 1), /Brand role: Evolved/);
+    assert.match(briefFor(run, 2), /Brand role: Bold/);
+    assert.match(briefFor(run, 0), /primary logo, brand\/logo\.\*/);
+    assert.match(briefFor(run, 0), /many are stock/);
     assert.match(buildBrief(run, "concept-a"), /public\/brand\/ and render them with next\/image/);
   });
 
-  it("keeps the old briefs when there is no kit", () => {
+  it("uses a wordmark when there is no kit", () => {
     const run = newRun(false);
-    assert.doesNotMatch(heroBrief(run), /BRAND\.md|Faithful/);
-    assert.match(heroBrief(run), /no remote images: use CSS shapes/);
+    assert.doesNotMatch(briefFor(run, 0), /BRAND\.md|Faithful/);
+    assert.match(briefFor(run, 0), /confident wordmark/);
     assert.doesNotMatch(buildBrief(run, "concept-a"), /next\/image/);
   });
 

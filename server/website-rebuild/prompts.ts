@@ -1,6 +1,7 @@
 import { REBUILD_FUNCTION_LABEL, type RebuildFunction, type RebuildRun } from "../../shared/website-rebuild-types";
+import { ART_MODEL, ART_PLAN_FILE, ART_RULES } from "./art";
 import { ANTI_PATTERNS, CRITIQUE_RUBRIC, RUBRIC_MAX, RUBRIC_PASS, type DesignDirection, type NicheCliches } from "./design-directions";
-import type { DesignFingerprint, DirectionAssignment } from "./design-fingerprints";
+import type { ConceptId, DesignFingerprint, DirectionAssignment } from "./design-fingerprints";
 
 /**
  * What each worker is told. Plain functions of the run, so they are tested,
@@ -21,7 +22,13 @@ export const reviewFile = (stage: string, revision: number) => `reviews/${stage}
 export const critiqueFile = (revision: number, pass: 1 | 2) => `reviews/hero-critique-r${revision}${pass === 2 ? "-2" : ""}.md`;
 /** The go-live sheet every functions revision writes at the repository root. */
 export const GO_LIVE_FILE = "FUNCTIONALITY.md";
+/** Every interactive part of the site and how it runs. AgentOS checks the list against the built pages. */
+export const INVENTORY_FILE = "functional-inventory.json";
 export const FINGERPRINT_TAG = "agentos-fingerprint";
+/** The idea behind the three concepts, written before anyone designs. */
+export const STRATEGY_FILE = "design/STRATEGY.md";
+/** The rendered audit of a hero revision; pass 2 is after the automatic revision. */
+export const auditFile = (revision: number, pass: 1 | 2) => `reviews/hero-audit-r${revision}${pass === 2 ? "-2" : ""}.md`;
 
 const COMMON = [
   "Rules for this job:",
@@ -55,7 +62,7 @@ function client(run: RebuildRun): string[] {
   return [
     `Client: ${run.company}`,
     `Current website: ${run.websiteUrl || "none"}`,
-    `Who they sell to: ${run.targetMarket}`,
+    `Market on the intake form: ${run.targetMarket}. This is often just the business's own industry from the lead list, so do not assume these are its customers. Who it really serves comes from its own site.`,
     `Where: ${run.location}`,
     `What a visitor should do: ${run.conversionGoal}`,
     ...(run.siteNote
@@ -75,7 +82,7 @@ export function researchBrief(run: RebuildRun, today: string, siteContext?: stri
       : "Their current site was captured by AgentOS into docs/current-site/ in this repository: read the transcript and the structure report first.",
     "",
     "Method:",
-    `1. Find five competitors serving ${run.targetMarket} in or near ${run.location} that are visibly strong online. Public web pages only: their websites, search results, public listings and public review pages. Do not log in, submit forms or scrape behind robots.txt.`,
+    `1. Find five competitors of ${run.company}, in the same line of business and in or near ${run.location}, that are visibly strong online. Public web pages only: their websites, search results, public listings and public review pages. Do not log in, submit forms or scrape behind robots.txt.`,
     "2. For each competitor give five likely reasons their online presence works. Every reason cites the public page it is based on (full URL) and is labelled as one of:",
     "   - Measured: a number you can see (review count and rating on a named platform, a published figure).",
     "   - Observed: something visible on their site or listing (a booking button above the fold, prices shown, response-time promise).",
@@ -121,34 +128,28 @@ export function hermesAnalysisPrompt(run: RebuildRun, transcript: string, struct
   ].join("\n");
 }
 
-/**
- * How the three concepts use the client's brand. Without a kit, three free
- * directions as before; with one, a spectrum from faithful to bold, so the
- * person can choose how far to move from what the client has today.
- */
-function heroBrand(run: RebuildRun): { read: string; directions: string; images: string } {
+/** What one concept does with the client's brand. Without a kit there is nothing to be faithful to. */
+function conceptBrand(run: RebuildRun, concept: ConceptId): { read: string; role: string; images: string } {
   const kit = run.brandKit;
   const used = (kit?.assets ?? []).filter((asset) => asset.include);
   if (!kit || (used.length === 0 && kit.colors.length === 0 && kit.fonts.length === 0)) {
-    return {
-      read: "",
-      directions: "Each concept follows its assigned art direction below, so the three are clearly different, not one palette in three shades.",
-      images: "no remote images: use CSS shapes, gradients or inline SVG",
-    };
+    return { read: "", role: "There is no brand kit, so use the company name as a confident wordmark.", images: "" };
   }
   const hasLogo = used.some((asset) => asset.kind === "logo");
   const hasPhotos = used.some((asset) => asset.kind === "photo");
+  const spectrum: Record<ConceptId, string> = {
+    "concept-a": "Faithful: their brand colours lead, inside your assigned direction's layout and imagery. Someone who knows the business recognises it at once.",
+    "concept-b": "Evolved: keep their logo and main brand colour; everything else comes from your direction.",
+    "concept-c": "Bold: your wildcard direction in full, still using their logo and working beside it.",
+  };
   return {
     read: " Then brand/BRAND.md: the client's own logo, photos, colours and fonts, with the files beside it in brand/.",
-    directions: [
-      "The three are a spectrum from the client's current brand, each in its assigned art direction below:",
-      "  - concept-a, Faithful: their colours and fonts, refined, set in its direction's layout grammar and imagery approach. Someone who knows the business recognises it at once.",
-      "  - concept-b, Evolved: keeps their logo and main brand colour; its direction's typography, supporting palette and layout.",
-      "  - concept-c, Bold: its wildcard direction in full, still using their logo and working beside it.",
-      `  Every concept uses ${hasLogo ? "the primary logo, brand/logo.*, in the navigation, never redrawn or recoloured" : "the company name as a wordmark (there is no logo)"}.${hasPhotos ? " Use the client's photos from brand/photos/ where a photo helps; never stock imagery." : ""} Record in each DESIGN.md which brand colours and fonts it keeps.`,
-      "  Fonts: no web fonts from the internet. Name the client's font first in the font stack with a close system fallback, and note it in DESIGN.md.",
-    ].join("\n"),
-    images: "the only images allowed are the client's files in brand/, referenced by relative path (for example ../../brand/logo.png); otherwise CSS shapes, gradients or inline SVG",
+    role: [
+      `Brand role: ${spectrum[concept]}`,
+      `${hasLogo ? "Use the primary logo, brand/logo.*, by relative path (../../brand/logo.png), never redrawn or recoloured, and mark it data-hero-logo." : "Use the company name as a wordmark, marked data-hero-logo."} Their fonts stay on their old site unless they are distinctive: Montserrat and the like are not a brand. Record in DESIGN.md which brand colours you keep.`,
+      hasPhotos ? "The client's photos are in brand/photos/. Look at them before using one: many are stock. Use one only if it truly helps the idea, and never a stock trope." : "",
+    ].filter(Boolean).join("\n"),
+    images: "",
   };
 }
 
@@ -160,70 +161,166 @@ export interface DesignBriefInput {
   prior: readonly DesignFingerprint[];
 }
 
-const SKILL_PATH = "skills/website-design-direction";
-
 export function antiPatternLines(): string[] {
   return ["Never do any of these (the anti-pattern list of the website-design-direction skill):", ...ANTI_PATTERNS.map((pattern) => `- ${pattern.category}: ${pattern.rule}`)];
 }
 
-function directionLines(direction: DesignDirection): string[] {
+function directionLines(assignment: DirectionAssignment): string[] {
+  const { direction, pair } = assignment;
   return [
     `  Reference, study this and not other websites: ${direction.reference}.`,
-    `  Type: ${direction.type.display} for display, ${direction.type.text} for text. ${direction.type.logic} In hero.html use the system stack ${direction.type.heroStack}; name the open-licence faces in DESIGN.md for the build.`,
+    `  Type: ${pair.display} for display, ${pair.text} for text. ${direction.type.logic}`,
     `  Colour: ${direction.palette.logic} Starting point: ${direction.palette.example.join(", ")}. Derive your own values from this logic and the client's brand.`,
     `  Layout grammar: ${direction.layout}`,
     `  Imagery: ${direction.imagery}`,
-    `  Hero archetype: ${direction.heroArchetype}.`,
   ];
 }
 
-/** The forced directions, the niche's clichés and what earlier runs in the niche already used. */
-export function designDirectionSection(design: DesignBriefInput): string[] {
-  const usedFonts = [...new Set(design.prior.map((entry) => [entry.displayFont, entry.textFont].filter(Boolean).join(" + ")).filter(Boolean))];
+/** The niche's clichés, what earlier runs already used, and the banned patterns. */
+function avoidLines(design: DesignBriefInput): string[] {
+  const usedFonts = [...new Set(design.prior.map((entry) => [entry.displayFont ?? entry.pairDisplay, entry.textFont ?? entry.pairText].filter(Boolean).join(" + ")).filter(Boolean))];
   const usedColours = [...new Set(design.prior.flatMap((entry) => entry.palette.slice(0, 2)))];
+  const usedHeadlines = [...new Set(design.prior.map((entry) => entry.headline).filter(Boolean))].slice(-6);
   return [
-    `Art directions, assigned by AgentOS from the website-design-direction skill (${SKILL_PATH}/SKILL.md). Each concept must commit to its own direction in type, colour, layout and imagery:`,
-    ...design.assignments.flatMap((assignment) => [`- ${assignment.concept}: ${assignment.direction.name} (${assignment.direction.id})${assignment.wildcard ? ", the wildcard: deliberately far from this niche. Make it work for the business, do not water it down" : ""}.`, ...directionLines(assignment.direction)]),
-    "",
-    `This is a ${design.niche.label.toLowerCase()} site. Sites in this niche usually look like this, and none of the three may: ${design.niche.cliches.join("; ")}.`,
+    `This is a ${design.niche.label.toLowerCase()} site. Sites in this niche usually look like this, and this concept may not: ${design.niche.cliches.join("; ")}.`,
     ...(design.prior.length > 0
       ? [
-          `Earlier rebuilds in this niche or market already used these. Do not repeat them:`,
+          "Earlier concepts in this niche or market already used these. Do not repeat them:",
           ...(usedFonts.length > 0 ? [`- Font pairs: ${usedFonts.join("; ")}.`] : []),
           ...(usedColours.length > 0 ? [`- Dominant colours: ${usedColours.join(", ")}.`] : []),
+          ...(usedHeadlines.length > 0 ? [`- Headlines: ${usedHeadlines.map((headline) => `"${headline}"`).join("; ")}.`] : []),
           `- Directions: ${[...new Set(design.prior.map((entry) => entry.direction))].join(", ")}.`,
         ]
       : []),
     "",
     ...antiPatternLines(),
-    "",
-    `End each DESIGN.md with this block, filled in with what the concept really uses (AgentOS reads it to keep future runs distinct):`,
-    `<!-- ${FINGERPRINT_TAG}`,
-    "direction: <the direction id above>",
-    "display-font: <display font family>",
-    "text-font: <text font family>",
-    "palette: <three to five dominant hex colours, most used first>",
-    "hero-layout: <the hero archetype>",
-    "-->",
   ];
 }
 
-export function heroBrief(run: RebuildRun, note?: string, design?: DesignBriefInput): string {
-  const brand = heroBrand(run);
+const fingerprintBlock = () => [
+  "End DESIGN.md with this block, filled in with what the concept really uses (AgentOS reads it to keep future runs distinct):",
+  `<!-- ${FINGERPRINT_TAG}`,
+  "direction: <the direction id above>",
+  "display-font: <display font family>",
+  "text-font: <text font family>",
+  "palette: <three to five dominant hex colours, most used first>",
+  "hero-layout: <the composition id above>",
+  "-->",
+];
+
+/** The strategist's job, before anyone designs: what is true of this client, and three different ideas from it. */
+export function strategyBrief(run: RebuildRun, design: DesignBriefInput, artBudget: number, note?: string): string {
+  const assignmentLines = design.assignments.map((assignment) => `- ${assignment.concept}: ${assignment.composition.name} (${assignment.composition.family}-led), ${assignment.direction.name}${assignment.wildcard ? ", the wildcard" : ""}.`);
   return [
-    `Design three distinct hero sections for ${run.company}'s new website.`,
+    `Write the creative strategy for three hero concepts for ${run.company}, as a design agency's strategy lead would before any designer starts.`,
     "",
     ...client(run),
     "",
-    `Read first: docs/current-site/ (what the current site says), research/ (competitors and improvements, if present) and design/TEMPLATE.md (the design system format to follow).${brand.read}`,
+    "Read docs/current-site/ (what the firm really says) and research/ first. Write only from what is there, and quote it where you can.",
     "",
-    "Create exactly these files:",
-    `- design/concept-a/DESIGN.md, design/concept-b/DESIGN.md, design/concept-c/DESIGN.md: each a complete design system written with the same sections and structure as design/TEMPLATE.md (colour tokens, typography, spacing, components, do and don't), but with its own values. ${brand.directions} Give each a short name in its first heading.`,
-    `- design/concept-a/hero.html, design/concept-b/hero.html, design/concept-c/hero.html: the hero section of the home page in that system, as one self-contained HTML file. All CSS inline in a <style> tag, no JavaScript, no external requests (no CDNs, no web fonts from the internet; ${brand.images}). It must look right at 1440px and at 390px wide. Use the client's real name, offer and the call to action for the goal above. Navigation bar included.`,
+    `Three designers will each build one concept, independently. Each has already been assigned a look and a page structure:`,
+    ...assignmentLines,
     "",
-    ...(design ? [...designDirectionSection(design), ""] : []),
-    "Quality bar: semantic HTML (header, nav, main, h1), visible focus styles, colour contrast of at least 4.5:1 for text, a CTA a visitor cannot miss.",
-    ...(design ? [`A critique scores every concept out of ${RUBRIC_MAX} against the skill's rubric; below ${RUBRIC_PASS}, or a repeat of an earlier run in this niche, it is sent back.`] : []),
+    `Write ${STRATEGY_FILE} with exactly these sections:`,
+    "## Who really hires them",
+    "From their own site: who the clients are, in their words, with a quote. Say so if the intake form's market is not actually who they serve, and if the site is unclear, say what is unclear.",
+    "## The moment they arrive",
+    "What has just happened to this visitor, what they are worried about, and what they need to know in five seconds.",
+    "## What only this firm can say",
+    "Specific facts from the capture that a competitor could not also claim: services, ways of working, place, offers, people. Each with its source. Mark anything you are inferring as inferred. If the site offers little that is particular, say that plainly.",
+    ...design.assignments.flatMap((assignment) => [
+      `## ${assignment.concept}`,
+      "Idea: one sentence, the single thought this hero is built on.",
+      "Angle: whose problem it starts from, and why that suits its page structure.",
+      "Headline: the actual words, and one alternative.",
+      "Supporting line: the actual words.",
+      "Next step: the action, in the firm's terms.",
+    ]),
+    "",
+    "The three ideas must be truly different, each starting somewhere else: for example one from the visitor's situation, one from how the firm works, one from a specific service or place. Three phrasings of one idea is a failure. Every headline must be true of this firm and useless to a competitor; no service-plus-suburb headline like \"Corporate law in Sandton\".",
+    "",
+    ...(artBudget > 0
+      ? [
+          `Also write ${ART_PLAN_FILE}, the imagery AgentOS will generate (model ${ART_MODEL}) before the designers start. Budget: ${artBudget} credits; one to three images per concept, only where its composition and idea need one. JSON: {"images":[{"concept":"concept-a","name":"short-slug","prompt":"...","aspect":"16:9"}]}. Aspect is 1:1, 4:3, 16:9 or 9:16.`,
+          `Write each prompt like an art director briefing a photographer: subject, material, light, lens, mood, composition and empty space for type. Think material and metaphor, not office scenes. AgentOS adds this to every prompt: "${ART_RULES}" Generated images must never pass as the client's real people, premises or work.`,
+          "",
+        ]
+      : []),
+    ...changeNote(note),
+    ...(note ? [""] : []),
+    "Change no other files.",
+    "",
+    ...COMMON,
+  ].join("\n");
+}
+
+/** Where the critic and the reviser find the rendered concepts. */
+export interface RenderedShots {
+  /** Absolute path per concept and width. */
+  files: readonly { concept: string; viewport: string; file: string }[];
+}
+
+/** What AgentOS made ready for one concept before its worker started. */
+export interface ConceptKit {
+  /** Art generated for this concept, relative to the repo. */
+  art: readonly string[];
+  /** Families Fontsource could not supply. */
+  missingFonts: readonly string[];
+  /** Live pages photographed for this concept's composition. */
+  references: readonly { label: string; url: string; file: string }[];
+}
+
+/** The rules for every concept's files, whoever is writing or revising them. */
+function conceptFileRules(concept: string): string[] {
+  return [
+    "File rules:",
+    `- design/${concept}/fonts.css has the @font-face rules for your two faces, already seeded. Link it. It is the only way fonts reach this page, and AgentOS measures in a browser that they loaded.`,
+    "- design/kit/motion/ has gsap.min.js, ScrollTrigger.min.js, SplitText.min.js and lenis.min.js. Load what you need with relative <script> tags (../kit/motion/gsap.min.js). JavaScript is allowed and expected.",
+    `- Everything else lives in design/${concept}/: CSS and scripts may be inline or beside hero.html. No outside requests of any kind: no CDNs, no web fonts, no remote images, no analytics. AgentOS watches the network.`,
+    "- Mark the parts AgentOS measures: data-hero-logo on the logo, data-hero-cta on the main call to action, data-hero-media on the main image or canvas, data-hero-row on each index row or panel, data-intake on a working question. Links in the navigation go inside <nav>.",
+    "- Motion floor: all content is visible if JavaScript never runs (animate from a visible default). Under prefers-reduced-motion nothing moves. Animate transform, opacity, clip-path and font axes, not layout.",
+    "- Functional floor: everything that looks interactive works, here and now, with no backend. Menus open and close with the keyboard. A question routes to an answer. A form validates and shows a real local confirmation, marked `Demo: sample data` with data-demo=\"true\"; it never sends anything or goes in the URL. Sample data is clearly fictional, and never an invented fact about the client. There are no dead buttons, no href=\"#\" and no coming soon.",
+    "- It must look right at 1440px and 390px. Semantic HTML (header, nav, main, h1), visible focus styles, text contrast of at least 4.5:1, and a call to action a visitor cannot miss.",
+  ];
+}
+
+/** One designer's brief, for one concept. They work alone, so the three do not inherit a shared skeleton. */
+export function conceptBrief(run: RebuildRun, assignment: DirectionAssignment, design: DesignBriefInput, kit: ConceptKit, note?: string): string {
+  const { concept } = assignment;
+  const brand = conceptBrand(run, concept);
+  return [
+    `Design ${concept} of ${run.company}'s website hero: one finished, working page a top design agency would be proud to present.`,
+    "",
+    ...client(run),
+    "",
+    `You are one of three designers working independently. Do not open the other concept folders: yours must not share their structure. Read ${STRATEGY_FILE} and build the idea and words under "## ${concept}" (the facts and the visitor sections apply too). Read docs/current-site/, research/ and design/TEMPLATE.md for the DESIGN.md format.${brand.read} Read references/craft.md from the skill below before you write any code, and follow it.`,
+    "",
+    "Your assignment. Commit to every line; together they are what makes this concept unlike the others:",
+    `- Art direction: ${assignment.direction.name} (${assignment.direction.id})${assignment.wildcard ? ", the wildcard: deliberately far from this niche. Make it work for the business, do not water it down" : ""}.`,
+    ...directionLines(assignment),
+    `- Composition: ${assignment.composition.name}. ${assignment.composition.brief}`,
+    `- Navigation: ${assignment.nav.name}. ${assignment.nav.brief}`,
+    `- Motion: ${assignment.motion.name}. ${assignment.motion.brief}`,
+    `- ${brand.role}`,
+    ...(kit.art.length > 0 ? [`- Original imagery generated for you: ${kit.art.join(", ")}. Reference it by relative path, and judge it: drop any that does not help. It is illustrative, so nothing may present it as the firm's real premises or work.`] : []),
+    ...(kit.missingFonts.length > 0 ? [`- These faces could not be fetched and are not in fonts.css: ${kit.missingFonts.join(", ")}. Use a face from another concept's kit folder in design/kit/fonts/ that suits the direction, and say so in DESIGN.md.`] : []),
+    "",
+    ...(kit.references.length > 0
+      ? [
+          "Open these live-site screenshots and work out what makes them good: scale, spacing, restraint, how the eye moves. Study how they work; never copy a layout, words or a mark.",
+          ...kit.references.map((reference) => `- ${reference.label} (${reference.url}): ${reference.file}`),
+          "",
+        ]
+      : []),
+    `Create design/${concept}/DESIGN.md (a complete design system with the same sections as design/TEMPLATE.md, with a short name in its first heading) and design/${concept}/hero.html. Change nothing outside design/${concept}/.`,
+    "",
+    ...conceptFileRules(concept),
+    "",
+    ...avoidLines(design),
+    "",
+    ...fingerprintBlock(),
+    "",
+    `AgentOS opens the page in a browser and measures the fonts, the composition, the navigation and the sameness with the other concepts. A critic then judges the screenshots out of ${RUBRIC_MAX}; below ${RUBRIC_PASS}, or a measured failure, and it comes back.`,
     ...changeNote(note),
     "",
     ...COMMON,
@@ -235,14 +332,24 @@ function rubricLines(): string[] {
 }
 
 /** The slop critique of the three hero concepts. Read-only: it writes one file. */
-export function critiqueBrief(run: RebuildRun, design: DesignBriefInput, file: string): string {
+export function critiqueBrief(run: RebuildRun, design: DesignBriefInput, file: string, shots?: RenderedShots, auditPath?: string): string {
   return [
-    `Critique the three hero concepts for ${run.company}'s website rebuild as a strict art director. Do not change any design files.`,
+    `Critique the three hero concepts for ${run.company}'s website rebuild as a strict creative director deciding what goes in front of the client. Do not change any design files.`,
     "",
     ...client(run),
     "",
-    "Read design/concept-a/, design/concept-b/ and design/concept-c/ (DESIGN.md and hero.html). Each concept was assigned an art direction:",
-    ...design.assignments.map((assignment) => `- ${assignment.concept}: ${assignment.direction.name} (${assignment.direction.id}). Reference: ${assignment.direction.reference}.${assignment.wildcard ? " Wildcard." : ""}`),
+    ...(shots && shots.files.length > 0
+      ? [
+          "Judge what the pages look like, not their code. Open every one of these screenshots (they are PNG files, and your tools can view them):",
+          ...shots.files.map((shot) => `- ${shot.concept} at ${shot.viewport}: ${shot.file}`),
+          "Do not read hero.html to decide how it looks; a critic who reads the code judges its intentions. You may read it only to name what to fix.",
+          ...(auditPath ? [`AgentOS measured the pages in a browser. ${auditPath} is the result; treat it as fact.`] : []),
+          "",
+        ]
+      : ["Read design/concept-a/, design/concept-b/ and design/concept-c/ (DESIGN.md and hero.html).", ""]),
+    "Each concept was assigned:",
+    ...design.assignments.map((assignment) => `- ${assignment.concept}: ${assignment.direction.name} (${assignment.direction.id}), composition ${assignment.composition.name}, navigation ${assignment.nav.name}, motion ${assignment.motion.name}. Reference: ${assignment.direction.reference}.${assignment.wildcard ? " Wildcard." : ""}`),
+    `The strategy each one should express is in ${STRATEGY_FILE}.`,
     "",
     `The ${design.niche.label.toLowerCase()} niche's clichés, which score against a concept: ${design.niche.cliches.join("; ")}.`,
     "",
@@ -253,52 +360,85 @@ export function critiqueBrief(run: RebuildRun, design: DesignBriefInput, file: s
     `Write ${file}. For each concept, a section exactly like this:`,
     "## concept-a",
     "Direction: <the direction id>",
+    "Saw: <one concrete thing visible in its desktop screenshot and one in its phone screenshot>",
     `Score: <total>/${RUBRIC_MAX}`,
-    "Scores: niche <n>, direction <n>, type <n>, colour <n>, layout <n>, copy <n>, brand <n>, craft <n>",
+    "Scores: idea <n>, direction <n>, type <n>, colour <n>, layout <n>, copy <n>, imagery <n>, craft <n>",
+    "Present: <yes or no: would you put this in front of the client today, alongside work from the best design agency you know?>",
     "Slop: <every anti-pattern or cliché you found, with where; or None>",
-    "Fix: <the specific changes that would lift it above the bar>",
+    "Fix: <the single biggest gap first, then the specific changes that would close it>",
     "",
-    "Score honestly. A safe, competent, average concept is a fail: it is what every other site in the niche already looks like. Create only that file.",
+    "Score honestly. Critics are too kind by default, so assume the score you first thought of is two points high. A safe, competent, average concept is a fail: it is what every other site in the niche already looks like. A costume is also a fail: a look so far from the business that the client could not show it to their own clients. Create only that file.",
     "",
     ...COMMON,
   ].join("\n");
 }
 
-/** The one automatic revision of the concepts the critique failed. */
-export function heroRevisionBrief(run: RebuildRun, design: DesignBriefInput, failing: readonly { concept: string; reason?: string; notes: string }[]): string {
+/** The automatic revision of a concept the audit or the critic failed. One job per concept, so it stays independent. */
+export function heroRevisionBrief(run: RebuildRun, design: DesignBriefInput, failing: readonly { concept: string; reason?: string; notes: string }[], shots?: RenderedShots): string {
   const keep = design.assignments.filter((assignment) => !failing.some((entry) => entry.concept === assignment.concept)).map((assignment) => assignment.concept);
+  const revised = design.assignments.filter((assignment) => failing.some((entry) => entry.concept === assignment.concept));
   return [
     `Revise ${failing.map((entry) => entry.concept).join(" and ")} of ${run.company}'s hero concepts: the design critique sent ${failing.length === 1 ? "it" : "them"} back.`,
     "",
     ...client(run),
     "",
     ...failing.flatMap((entry) => [`${entry.concept}${entry.reason ? ` (${entry.reason})` : ""}. The critique said:`, "<<<CRITIQUE", entry.notes || "No notes.", "CRITIQUE>>>", ""]),
-    `Rewrite only ${failing.map((entry) => `design/${entry.concept}/DESIGN.md and design/${entry.concept}/hero.html`).join(", ")}, with the same file rules as before (self-contained HTML, inline CSS, no JavaScript, no external requests).${keep.length > 0 ? ` Do not touch ${keep.join(" or ")}.` : ""} Commit harder to the assigned direction; do not drift toward the others or toward the niche's default.`,
+    ...(shots && shots.files.length > 0 ? ["What it looks like now (open these before you change anything):", ...shots.files.filter((shot) => failing.some((entry) => entry.concept === shot.concept)).map((shot) => `- ${shot.concept} at ${shot.viewport}: ${shot.file}`), ""] : []),
+    `Rewrite only ${failing.map((entry) => `design/${entry.concept}/DESIGN.md and design/${entry.concept}/hero.html`).join(", ")}, with the same file rules as before.${keep.length > 0 ? ` Do not touch ${keep.join(" or ")}.` : ""} Fix the single biggest gap first. Commit harder to the assignment; do not drift toward the other concepts or toward the niche's default.`,
     "",
-    ...designDirectionSection({ ...design, assignments: design.assignments.filter((assignment) => failing.some((entry) => entry.concept === assignment.concept)) }),
+    "The assignment:",
+    ...revised.flatMap((assignment) => [
+      `- ${assignment.concept}: ${assignment.direction.name} (${assignment.direction.id})${assignment.wildcard ? ", the wildcard" : ""}.`,
+      ...directionLines(assignment),
+      `  Composition: ${assignment.composition.name}. ${assignment.composition.brief}`,
+      `  Navigation: ${assignment.nav.name}. ${assignment.nav.brief}`,
+      `  Motion: ${assignment.motion.name}. ${assignment.motion.brief}`,
+    ]),
+    "",
+    ...revised.flatMap((assignment) => [...conceptFileRules(assignment.concept), ""]),
+    ...avoidLines(design),
+    "",
+    ...fingerprintBlock(),
     "",
     ...COMMON,
   ].join("\n");
 }
 
 /** Keeps the approved concept's direction on every page, not just the hero. */
-function buildDirection(direction: DesignDirection | undefined): string[] {
+function buildDirection(direction: DesignDirection | undefined, approved?: ApprovedConcept): string[] {
   if (!direction) return ["- Keep the approved concept's look on every page, not just the home page. Avoid the generic patterns listed below.", "", ...antiPatternLines()];
   return [
-    `- Art direction: the approved concept is ${direction.name} (${direction.id}), from the website-design-direction skill. Apply it to every page, not just the hero: its type pairing (${direction.type.display} and ${direction.type.text}, loaded with next/font/google), colour logic, layout grammar (${direction.layout}) and imagery approach (${direction.imagery}). Inner pages are where sites slide back to the niche default; do not let them.`,
+    `- Art direction: the approved concept is ${direction.name} (${direction.id}), from the website-design-direction skill. Apply it to every page, not just the hero: its type pairing (${approved?.pair.display ?? direction.type.display} and ${approved?.pair.text ?? direction.type.text}, loaded with next/font/google), colour logic, layout grammar (${direction.layout}) and imagery approach (${direction.imagery}). Inner pages are where sites slide back to the niche default; do not let them.`,
     "- Section rhythm changes down each page: no heading, sub-line, three-card grid repeated.",
+    ...(approved
+      ? [
+          `- The home page keeps the approved hero as it is, ported faithfully from design/${approved.concept}/hero.html: its composition (${approved.composition}), navigation (${approved.nav}), motion (${approved.motion}), headline and words. Install gsap and lenis from npm for the motion; do not reimplement or simplify it. Copy any art it uses from design/${approved.concept}/art/ into public/. Generated art stays illustrative: never caption it as the firm's premises or work.`,
+          "- The approved navigation is the site's navigation on every page, not only on the home page.",
+          `- Carry the motion and the page's character down the page and into inner pages: each page gets at least one considered moment of its own, rather than a stack of the same fade-up.`,
+        ]
+      : []),
+    "- Anything that looks interactive must work by the end of the next stage, whether or not it was asked for by name: if a design has a search, a filter, a calculator, a finder or an accordion, build it with sample data in lib/demo/. Never a dead button, an href=\"#\" or a coming soon.",
     "",
     ...antiPatternLines(),
   ];
 }
 
-export function buildBrief(run: RebuildRun, concept: string, note?: string, findings?: string, direction?: DesignDirection): string {
+/** What the build carries over from the approved concept, beyond its direction. */
+export interface ApprovedConcept {
+  concept: string;
+  pair: { display: string; text: string };
+  composition: string;
+  nav: string;
+  motion: string;
+}
+
+export function buildBrief(run: RebuildRun, concept: string, note?: string, findings?: string, direction?: DesignDirection, approved?: ApprovedConcept): string {
   return [
     `Build ${run.company}'s new website as a Next.js app, using the approved design ${concept}.`,
     "",
     ...client(run),
     "",
-    `Source of truth for the look: design/${concept}/DESIGN.md and design/${concept}/hero.html. Content: docs/current-site/ (the current site) and research/ (what to improve).`,
+    `Source of truth for the look: design/${concept}/DESIGN.md and design/${concept}/hero.html (with the fonts and libraries it uses, in design/kit/). Content: docs/current-site/ (the current site) and research/ (what to improve).`,
     "",
     "Requirements:",
     "- If there is no package.json, create a Next.js App Router project in the repository root with TypeScript and Tailwind CSS (keep the existing docs/, design/, research/ folders). Scripts `build` and `lint` must exist and pass.",
@@ -310,7 +450,7 @@ export function buildBrief(run: RebuildRun, concept: string, note?: string, find
     "- The call to action for the goal is prominent on every page. It may link to /contact for now; working forms come in the next stage.",
     "- Write sitemap.json at the repository root: a JSON array of the routes, e.g. [\"/\", \"/services\", \"/contact\"].",
     ...buildBrand(run),
-    ...buildDirection(direction),
+    ...buildDirection(direction, approved),
     ...changeNote(note),
     ...reviewFindings(findings),
     "",
@@ -410,6 +550,9 @@ export function functionsBrief(run: RebuildRun, note?: string, findings?: string
     "",
     "Features to build (all of them, in full; none is left out or marked coming soon):",
     ...needed,
+    "",
+    "Then everything else on the site that a visitor can use. Walk every page and list each interactive or data-backed component, asked for by name or not: search, filters, calculators, service finders, team directories, accordions, tabs, maps, downloads, sign-ups in the footer, anything the design shows. Each one is built to work, the same way as the features above: real logic over a provider adapter, with sample data in lib/demo/ until a key is supplied. If you would rather remove a component than build it, remove it from the page; nothing stays as decoration. A static list of a firm's real services, or a link to a real page, is not a component.",
+    `Write ${INVENTORY_FILE} at the repository root, a JSON array with one entry per component: {"name":"Practice area finder","route":"/","selector":"[data-component=\\"practice-finder\\"]","mode":"demo","env":["SEARCH_API_KEY"]}. Put a matching data-component attribute on each component's outer element. mode is "live" if its variables are set, otherwise "demo"; env is empty if it needs no key. AgentOS opens each page, finds each component, presses every button, and submits each form against the local demo build with sample details.`,
     "",
     ...demoModeRules(),
     "",

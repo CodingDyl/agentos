@@ -8,7 +8,7 @@ export function ConceptCritique({ entry }: { entry: RebuildDesignConcept | undef
   const status = critiqueStatus(entry);
   return (
     <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-paper-sage">
-      <span>{entry.directionName}</span>
+      <span>{[entry.directionName, entry.compositionName].filter(Boolean).join(" · ")}</span>
       {entry.wildcard ? <Tag tone="blue">Wildcard</Tag> : null}
       <Tag tone={status.tone}>
         <span className="sr-only">Design score: </span>

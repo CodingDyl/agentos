@@ -9,6 +9,7 @@ import {
   REBUILD_SKILL_ID,
   RebuildConceptNoteInputSchema,
   RebuildPageNotesInputSchema,
+  RebuildArtBudgetInputSchema,
   RebuildDecisionInputSchema,
   RebuildMarkDeployedInputSchema,
   RebuildRetryInputSchema,
@@ -31,7 +32,8 @@ import { FeatureSettingsInputSchema } from "../../shared/feature-settings-types"
 import { STAGE_HANDLERS, advanceInBackground, currentSkillVersion } from "./runner";
 import { forcePreviewStage, markPreviewStage, recheckPreviewStage } from "./stages";
 import { isSkillEnabled } from "../skills/registry";
-import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, saveConceptNote, savePageNotes, runForProspect, runForWorkspace, setRunField } from "./store";
+import { addBrandAsset, createOrReuseRun, decide, editBrandKit, listRuns, readRun, RebuildError, recordArtifact, recoverAbandonedStages, resetForRetry, saveConceptNote, savePageNotes, runForProspect, runForWorkspace, setArtBudget, setRunField } from "./store";
+import { startFreshConcepts } from "./design-fingerprints";
 
 /**
  * Website rebuilds. Every route answers with the run's full state, so the page
@@ -344,11 +346,74 @@ rebuildRouter.post("/:id/stages/:stage/request-changes", (request, response) => 
     return;
   }
   try {
-    decide(readRun(request.params.id).id, stageParam(request.params.stage), input.data.revision, "changes_requested", input.data.note, undefined, input.data.conceptNotes, input.data.pageNotes);
+    const stage = stageParam(request.params.stage);
+    if (input.data.fresh && stage !== "hero") throw new RebuildError("Only the hero concepts can start over.", 422);
+    if (input.data.fresh) startFreshConcepts(readRun(request.params.id).id, input.data.revision, input.data.note, input.data.conceptNotes);
+    else decide(readRun(request.params.id).id, stage, input.data.revision, "changes_requested", input.data.note, undefined, input.data.conceptNotes, input.data.pageNotes);
     advanceInBackground(request.params.id);
     response.json(readRun(request.params.id));
   } catch (error) {
     fail(response, error);
+  }
+});
+
+/** How many Higgsfield credits this run's concepts may spend. Nothing is generated until this is above zero. */
+rebuildRouter.post("/:id/art-budget", (request, response) => {
+  const input = RebuildArtBudgetInputSchema.safeParse(request.body);
+  if (!input.success) {
+    response.status(422).json({ error: "The budget must be a number of credits from 0 to 100." });
+    return;
+  }
+  try {
+    const run = readRun(request.params.id);
+    setArtBudget(run.id, input.data.credits);
+    response.json(readRun(run.id));
+  } catch (error) {
+    fail(response, error);
+  }
+});
+
+const CONCEPT_FILE_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".woff2": "font/woff2",
+};
+
+/**
+ * A concept's files, so it can be opened live rather than only as a screenshot.
+ * Limited to the repo's design/ and brand/ folders, and locked down: a worker
+ * wrote this page, so it runs in a sandboxed frame and can reach nothing else.
+ */
+rebuildRouter.get("/:id/concept-files/{*file}", async (request, response) => {
+  try {
+    const repoPath = readRun(request.params.id).repoPath;
+    const relative = ([] as string[]).concat((request.params as unknown as { file?: string | string[] }).file ?? []).join("/");
+    const type = CONCEPT_FILE_TYPES[path.extname(relative).toLowerCase()];
+    if (!repoPath || !type || !/^(design|brand)\//.test(relative)) {
+      response.status(404).json({ error: "That file is not part of a concept." });
+      return;
+    }
+    const root = await fs.realpath(repoPath);
+    const file = await fs.realpath(path.join(root, relative));
+    // Checked again after resolving: a link in design/ must not lead anywhere else in the repo.
+    if (!/^(design|brand)\//.test(path.relative(root, file).split(path.sep).join("/"))) {
+      response.status(404).json({ error: "That file is not part of a concept." });
+      return;
+    }
+    response.setHeader("Content-Type", type);
+    response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.setHeader("Content-Security-Policy", "sandbox allow-scripts; default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'");
+    response.send(await fs.readFile(file));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") response.status(404).json({ error: "That file is not part of a concept." });
+    else fail(response, error);
   }
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, FileText, X } from "lucide-react";
 import { HERO_CONCEPTS, type RebuildArtifact } from "@shared/website-rebuild-types";
@@ -24,6 +24,8 @@ export interface ConceptViewerProps {
   /** Present only while the revision is under review. */
   chosen?: string;
   onChoose?: (concept: string) => void;
+  /** The hero itself, for this concept: its motion and interaction do not show in a screenshot. */
+  liveHref?: (concept: string) => string;
 }
 
 /**
@@ -31,8 +33,9 @@ export interface ConceptViewerProps {
  * a link to its DESIGN.md, and a notes field that belongs to this concept only.
  * A native modal dialog, so focus is trapped and Escape closes it.
  */
-export function ConceptViewer({ concept, onConceptChange, onClose, images, designs, directions, notes, noteState, onNoteChange, chosen, onChoose }: ConceptViewerProps) {
+export function ConceptViewer({ concept, onConceptChange, onClose, images, designs, directions, notes, noteState, onNoteChange, chosen, onChoose, liveHref }: ConceptViewerProps) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [view, setView] = useState<"shots" | "live">("shots");
   const desktop = images.find((image) => image.path.includes(`-${concept}-desktop`));
   const mobile = images.find((image) => image.path.includes(`-${concept}-mobile`));
   const design = designs[concept];
@@ -53,7 +56,7 @@ export function ConceptViewer({ concept, onConceptChange, onClose, images, desig
         // A click on the backdrop lands on the dialog element itself.
         if (event.target === dialog.current) onClose();
       }}
-      className="m-auto max-h-[calc(100dvh-32px)] w-[min(1120px,calc(100vw-32px))] overflow-y-auto border border-paper-mist bg-paper-white p-0 text-paper-char backdrop:bg-black/60"
+      className="m-auto max-h-[calc(100dvh-32px)] w-[min(1280px,calc(100vw-32px))] overflow-y-auto border border-paper-mist bg-paper-white p-0 text-paper-char backdrop:bg-black/60"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-paper-mist px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -62,6 +65,17 @@ export function ConceptViewer({ concept, onConceptChange, onClose, images, desig
             {directions?.[concept] ? <span className="font-normal text-paper-sage"> · {directions[concept]}</span> : null}
           </h3>
           <SegmentedControl label="Concept" value={concept} onChange={onConceptChange} options={HERO_CONCEPTS.map((id) => ({ value: id, label: `${id.slice(-1).toUpperCase()}${notes[id]?.trim() ? " •" : ""}` }))} />
+          {liveHref ? (
+            <SegmentedControl
+              label="View"
+              value={view}
+              onChange={(next) => setView(next === "live" ? "live" : "shots")}
+              options={[
+                { value: "shots", label: "Screens" },
+                { value: "live", label: "Live" },
+              ]}
+            />
+          ) : null}
         </div>
         <button type="button" onClick={onClose} aria-label="Close viewer" className="inline-flex size-9 cursor-pointer items-center justify-center text-paper-char hover:bg-paper-linen">
           <X className="size-4" aria-hidden="true" />
@@ -70,8 +84,18 @@ export function ConceptViewer({ concept, onConceptChange, onClose, images, desig
 
       <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="grid min-w-0 content-start gap-2">
-          <p className="text-[13px] text-paper-sage">Desktop</p>
-          {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" /> : <p className="text-[13px] text-paper-sage">No desktop shot.</p>}
+          {view === "live" && liveHref ? (
+            <>
+              <p className="text-[13px] text-paper-sage">The hero itself. It moves and works, on sample data.</p>
+              {/* A worker wrote this page: it may run scripts, and nothing else. */}
+              <iframe key={concept} title={`${conceptLabel(concept)} hero, live`} src={liveHref(concept)} sandbox="allow-scripts" className="aspect-[16/10] w-full border border-paper-mist bg-white" />
+            </>
+          ) : (
+            <>
+              <p className="text-[13px] text-paper-sage">Desktop</p>
+              {desktop ? <img src={desktop.href} alt={`${conceptLabel(concept)} hero at desktop width`} className="w-full border border-paper-mist" /> : <p className="text-[13px] text-paper-sage">No desktop shot.</p>}
+            </>
+          )}
         </div>
 
         <div className="grid content-start gap-4">

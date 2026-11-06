@@ -34,6 +34,7 @@ import {
 } from "../../shared/website-rebuild-types";
 import { uiStateDir } from "../agentos/session-store";
 import { DIRECTION_BY_ID } from "./design-directions";
+import { COMPOSITION_BY_ID, MOTION_BY_ID, NAV_BY_ID } from "./compositions";
 import { WorkerIdSchema } from "../../shared/worker-ids";
 
 /**
@@ -227,6 +228,20 @@ const MIGRATIONS: readonly string[] = [
   CREATE INDEX IF NOT EXISTS idx_design_fingerprints_niche ON design_fingerprints(niche);
   CREATE INDEX IF NOT EXISTS idx_design_fingerprints_market ON design_fingerprints(market);
   `,
+  `
+  ALTER TABLE design_fingerprints ADD COLUMN composition TEXT;
+  ALTER TABLE design_fingerprints ADD COLUMN nav TEXT;
+  ALTER TABLE design_fingerprints ADD COLUMN motion TEXT;
+  ALTER TABLE design_fingerprints ADD COLUMN pair_display TEXT;
+  ALTER TABLE design_fingerprints ADD COLUMN pair_text TEXT;
+  ALTER TABLE design_fingerprints ADD COLUMN generation INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE design_fingerprints ADD COLUMN skeleton TEXT;
+  ALTER TABLE design_fingerprints ADD COLUMN headline TEXT;
+  CREATE TABLE IF NOT EXISTS design_fingerprint_history AS SELECT * FROM design_fingerprints WHERE 0;
+  CREATE INDEX IF NOT EXISTS idx_design_history_run ON design_fingerprint_history(run_id);
+  ALTER TABLE runs ADD COLUMN art_budget REAL NOT NULL DEFAULT 0;
+  ALTER TABLE runs ADD COLUMN art_spent REAL NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function rebuildDatabase(): DatabaseSync {
@@ -273,6 +288,8 @@ interface RunRow {
   site_note: string | null;
   motion_ref: string | null;
   motion_base: string | null;
+  art_budget: number | null;
+  art_spent: number | null;
   github_repo: string | null;
   vercel_project: string | null;
   deployment_id: string | null;
@@ -323,14 +340,17 @@ function stagesOf(runId: string): RebuildStage[] {
 /** The hero concepts' directions and scores, for the page. The full fingerprints stay in design-fingerprints.ts. */
 function designConceptsOf(runId: string): RebuildDesignConcept[] {
   const rows = rebuildDatabase()
-    .prepare("SELECT concept, direction, wildcard, score, passed, auto_revised, escalated, reason FROM design_fingerprints WHERE run_id = ? ORDER BY concept")
-    .all(runId) as unknown as { concept: string; direction: string; wildcard: number; score: number | null; passed: number | null; auto_revised: number; escalated: number; reason: string | null }[];
+    .prepare("SELECT concept, direction, composition, nav, motion, wildcard, score, passed, auto_revised, escalated, reason FROM design_fingerprints WHERE run_id = ? ORDER BY concept")
+    .all(runId) as unknown as { concept: string; direction: string; composition: string | null; nav: string | null; motion: string | null; wildcard: number; score: number | null; passed: number | null; auto_revised: number; escalated: number; reason: string | null }[];
   return rows
     .filter((entry) => (HERO_CONCEPTS as readonly string[]).includes(entry.concept))
     .map((entry) => ({
       concept: entry.concept as RebuildDesignConcept["concept"],
       direction: entry.direction,
       directionName: DIRECTION_BY_ID.get(entry.direction)?.name ?? entry.direction,
+      compositionName: entry.composition ? COMPOSITION_BY_ID.get(entry.composition)?.name : undefined,
+      navName: entry.nav ? NAV_BY_ID.get(entry.nav)?.name : undefined,
+      motionName: entry.motion ? MOTION_BY_ID.get(entry.motion)?.name : undefined,
       wildcard: entry.wildcard === 1,
       score: entry.score ?? undefined,
       passed: entry.passed === null ? undefined : entry.passed === 1,
@@ -359,6 +379,8 @@ function toRun(row: RunRow, withDetail: boolean): RebuildRun {
     skillVersion: row.skill_version,
     workspaceSlug: row.workspace_slug ?? undefined,
     repoPath: row.repo_path ?? undefined,
+    artBudget: row.art_budget ?? 0,
+    artSpent: row.art_spent ?? 0,
     heroChoice: row.hero_choice ?? undefined,
     siteNote: row.site_note ?? undefined,
     motionRef: row.motion_ref ?? undefined,
@@ -420,7 +442,7 @@ export function deleteRunRecords(runId: string): void {
   const db = rebuildDatabase();
   db.exec("BEGIN IMMEDIATE");
   try {
-    for (const table of ["events", "design_fingerprints", "page_notes", "concept_notes", "decisions", "revisions", "artifacts", "stages"]) {
+    for (const table of ["events", "design_fingerprints", "design_fingerprint_history", "page_notes", "concept_notes", "decisions", "revisions", "artifacts", "stages"]) {
       db.prepare(`DELETE FROM ${table} WHERE run_id = ?`).run(runId);
     }
     db.prepare("DELETE FROM runs WHERE id = ?").run(runId);
@@ -866,6 +888,16 @@ export function saveConceptNote(runId: string, stage: RebuildStageId, revision: 
 }
 
 /** The latest change request on a stage, for the worker making the next revision. */
+/** How many credits this run's concepts may spend on imagery. Takes effect the next time concepts are made. */
+export function setArtBudget(runId: string, credits: number): void {
+  rebuildDatabase().prepare("UPDATE runs SET art_budget = ?, updated_at = ? WHERE id = ?").run(credits, iso(), runId);
+}
+
+/** Adds to what this run has spent on imagery. */
+export function addArtSpent(runId: string, credits: number): void {
+  rebuildDatabase().prepare("UPDATE runs SET art_spent = art_spent + ?, updated_at = ? WHERE id = ?").run(credits, iso(), runId);
+}
+
 export function openChangeRequest(runId: string, stage: RebuildStageId): RebuildDecision | undefined {
   const latest = readRun(runId).decisions.filter((decision) => decision.stage === stage).at(-1);
   return latest?.decision === "changes_requested" ? latest : undefined;
