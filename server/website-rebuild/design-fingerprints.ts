@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { HERO_CONCEPTS, type RebuildRun } from "../../shared/website-rebuild-types";
-import { DESIGN_DIRECTIONS, DIRECTION_BY_ID, RUBRIC_PASS, type DesignDirection, type NicheCliches } from "./design-directions";
-import { rebuildDatabase } from "./store";
+import { COMPOSITIONS, COMPOSITION_BY_ID, MOTION_BY_ID, MOTION_SIGNATURES, NAV_BY_ID, NAV_PATTERNS, type Composition, type CompositionFamily, type MotionSignature, type NavPattern } from "./compositions";
+import { DESIGN_DIRECTIONS, DIRECTION_BY_ID, RUBRIC_PASS, directionPairs, type DesignDirection, type NicheCliches } from "./design-directions";
+import { decide, rebuildDatabase } from "./store";
 
 /**
  * What each run's hero concepts looked like: direction, fonts, dominant
@@ -17,6 +18,11 @@ export interface DirectionAssignment {
   direction: DesignDirection;
   /** Far from the niche on purpose. Concept C always is. */
   wildcard: boolean;
+  /** The faces AgentOS seeds for this concept. */
+  pair: { display: string; text: string };
+  composition: Composition;
+  nav: NavPattern;
+  motion: MotionSignature;
 }
 
 export interface DesignFingerprint {
@@ -31,6 +37,15 @@ export interface DesignFingerprint {
   textFont?: string;
   palette: string[];
   heroLayout?: string;
+  composition?: string;
+  nav?: string;
+  motion?: string;
+  pairDisplay?: string;
+  pairText?: string;
+  generation: number;
+  /** The occupancy map the audit measured on the rendered hero. */
+  skeleton?: string;
+  headline?: string;
   score?: number;
   passed?: boolean;
   autoRevised: boolean;
@@ -71,31 +86,58 @@ export function repetition(direction: DesignDirection, prior: readonly Pick<Desi
   return score;
 }
 
+/** Rank by how much an option has been used, then by the run's seed, so nothing is a favourite. */
+function ranked<T extends { id: string }>(pool: readonly T[], seed: string, used: (id: string) => number): T[] {
+  return [...pool].sort((a, b) => used(a.id) - used(b.id) || seeded(seed, a.id) - seeded(seed, b.id) || a.id.localeCompare(b.id));
+}
+
+export interface AssignOptions {
+  /** Each "new concepts" is a new generation of the run, with its own picks. */
+  generation?: number;
+  /** The latest concepts in any niche: what the person last saw, whatever the business. */
+  recent?: readonly Pick<DesignFingerprint, "composition" | "nav" | "motion">[];
+}
+
 /**
- * Three different directions for a run's concepts, from the run id. Directions,
- * font pairs and palette families already used by earlier runs in the same
- * niche or market are excluded while anything unused is left; after that the
- * least used come first. Concept C is always a wildcard: a direction whose
- * reference is far from the niche.
+ * Three different concepts for a run, from the run id. Directions, font pairs and
+ * palette families already used by earlier runs in the same niche or market are
+ * excluded while anything unused is left; after that the least used come first.
+ * Concept C is always a wildcard: a direction whose reference is far from the niche.
+ *
+ * Composition, navigation and motion are picked separately from the direction, one
+ * composition from each family (image, type, interaction), so the three are
+ * different pages rather than three colourings of one.
  */
-export function assignDirections(runId: string, niche: NicheCliches, prior: readonly DesignFingerprint[]): DirectionAssignment[] {
-  const rank = (pool: readonly DesignDirection[]) =>
-    [...pool].sort((a, b) => repetition(a, prior) - repetition(b, prior) || seeded(runId, a.id) - seeded(runId, b.id) || a.id.localeCompare(b.id));
-  const wildcardPool = DESIGN_DIRECTIONS.filter((direction) => niche.wildcards.includes(direction.id));
-  const wildcard = rank(wildcardPool)[0] ?? rank(DESIGN_DIRECTIONS)[0];
+export function assignDirections(runId: string, niche: NicheCliches, prior: readonly DesignFingerprint[], options: AssignOptions = {}): DirectionAssignment[] {
+  const generation = options.generation ?? 1;
+  const seed = generation === 1 ? runId : `${runId}:${generation}`;
+  const recent = options.recent ?? [];
+  const avoid = new Set(niche.avoid ?? []);
+  const allowed = DESIGN_DIRECTIONS.filter((direction) => !avoid.has(direction.id));
+  const rank = (pool: readonly DesignDirection[]) => [...pool].sort((a, b) => repetition(a, prior) - repetition(b, prior) || seeded(seed, a.id) - seeded(seed, b.id) || a.id.localeCompare(b.id));
+  const wildcardPool = allowed.filter((direction) => niche.wildcards.includes(direction.id));
+  const wildcard = rank(wildcardPool)[0] ?? rank(allowed)[0];
   const chosen: DesignDirection[] = [];
-  for (const direction of rank(DESIGN_DIRECTIONS.filter((entry) => entry.id !== wildcard.id))) {
+  for (const direction of rank(allowed.filter((entry) => entry.id !== wildcard.id))) {
     // Within a run too: no two concepts share a font pair or palette family.
     const clash = [wildcard, ...chosen].some((other) => other.palette.family === direction.palette.family || pairKey(other.type.display, other.type.text) === pairKey(direction.type.display, direction.type.text));
     if (clash) continue;
     chosen.push(direction);
     if (chosen.length === 2) break;
   }
-  return [
-    { concept: "concept-a", direction: chosen[0], wildcard: false },
-    { concept: "concept-b", direction: chosen[1], wildcard: false },
-    { concept: "concept-c", direction: wildcard, wildcard: true },
-  ];
+
+  // The niche counts most; what the person saw lately counts too, whatever the business was.
+  const usage = (field: "composition" | "nav" | "motion") => (id: string) => prior.filter((entry) => entry[field] === id).length * 3 + recent.filter((entry) => entry[field] === id).length;
+  const families: CompositionFamily[] = ["image", "type", "interaction"];
+  const compositions = families.map((family) => ranked(COMPOSITIONS.filter((entry) => entry.family === family), seed, usage("composition"))[0]);
+  const order = [...compositions].sort((a, b) => seeded(seed, `order-${a.id}`) - seeded(seed, `order-${b.id}`));
+  const navs = ranked(NAV_PATTERNS, seed, usage("nav"));
+  const motions = ranked(MOTION_SIGNATURES, seed, usage("motion"));
+
+  const usedPairs = prior.map((entry) => fingerprintPair(entry));
+  const pairFor = (direction: DesignDirection) => [...directionPairs(direction)].sort((a, b) => usedPairs.filter((pair) => pair === pairKey(a.display, a.text)).length - usedPairs.filter((pair) => pair === pairKey(b.display, b.text)).length || seeded(seed, a.display) - seeded(seed, b.display))[0];
+  const concept = (id: ConceptId, direction: DesignDirection, isWildcard: boolean, index: number): DirectionAssignment => ({ concept: id, direction, wildcard: isWildcard, pair: pairFor(direction), composition: order[index], nav: navs[index], motion: motions[index] });
+  return [concept("concept-a", chosen[0], false, 0), concept("concept-b", chosen[1], false, 1), concept("concept-c", wildcard, true, 2)];
 }
 
 interface Row {
@@ -115,6 +157,14 @@ interface Row {
   auto_revised: number;
   escalated: number;
   reason: string | null;
+  composition: string | null;
+  nav: string | null;
+  motion: string | null;
+  pair_display: string | null;
+  pair_text: string | null;
+  generation: number | null;
+  skeleton: string | null;
+  headline: string | null;
 }
 
 function toFingerprint(row: Row): DesignFingerprint {
@@ -137,6 +187,14 @@ function toFingerprint(row: Row): DesignFingerprint {
     textFont: row.text_font ?? undefined,
     palette,
     heroLayout: row.hero_layout ?? undefined,
+    composition: row.composition ?? undefined,
+    nav: row.nav ?? undefined,
+    motion: row.motion ?? undefined,
+    pairDisplay: row.pair_display ?? undefined,
+    pairText: row.pair_text ?? undefined,
+    generation: row.generation ?? 1,
+    skeleton: row.skeleton ?? undefined,
+    headline: row.headline ?? undefined,
     score: row.score ?? undefined,
     passed: row.passed === null ? undefined : row.passed === 1,
     autoRevised: row.auto_revised === 1,
@@ -149,11 +207,26 @@ export function runFingerprints(runId: string): DesignFingerprint[] {
   return (rebuildDatabase().prepare("SELECT * FROM design_fingerprints WHERE run_id = ? ORDER BY concept").all(runId) as unknown as Row[]).map(toFingerprint);
 }
 
-/** Earlier runs' concepts in the same niche (unless the niche is unknown) or the same target market. */
+/**
+ * Earlier concepts in the same niche (unless the niche is unknown) or the same
+ * target market, and concepts this run itself threw away with "new concepts".
+ */
 export function priorFingerprints(runId: string, niche: string, market: string): DesignFingerprint[] {
   const rows = rebuildDatabase()
-    .prepare("SELECT * FROM design_fingerprints WHERE run_id != ? AND ((niche = ? AND niche != 'general') OR market = ?) ORDER BY created_at")
-    .all(runId, niche, marketKey(market)) as unknown as Row[];
+    .prepare(
+      `SELECT * FROM design_fingerprints WHERE run_id != ? AND ((niche = ? AND niche != 'general') OR market = ?)
+       UNION ALL SELECT * FROM design_fingerprint_history WHERE run_id = ? OR (niche = ? AND niche != 'general') OR market = ?
+       ORDER BY created_at`,
+    )
+    .all(runId, niche, marketKey(market), runId, niche, marketKey(market)) as unknown as Row[];
+  return rows.map(toFingerprint);
+}
+
+/** The latest concepts in any niche, for composition, navigation and motion: what the person last looked at. */
+function recentFingerprints(runId: string, limit = 12): DesignFingerprint[] {
+  const rows = rebuildDatabase()
+    .prepare("SELECT * FROM (SELECT * FROM design_fingerprints UNION ALL SELECT * FROM design_fingerprint_history) WHERE run_id != ? ORDER BY updated_at DESC LIMIT ?")
+    .all(runId, limit) as unknown as Row[];
   return rows.map(toFingerprint);
 }
 
@@ -164,20 +237,68 @@ export function priorFingerprints(runId: string, niche: string, market: string):
  */
 export function ensureAssignments(run: Pick<RebuildRun, "id" | "targetMarket">, niche: NicheCliches, now = new Date()): DirectionAssignment[] {
   const stored = runFingerprints(run.id);
+  const prior = priorFingerprints(run.id, niche.id, run.targetMarket);
+  const recent = recentFingerprints(run.id);
   const known = stored.map((entry) => ({ entry, direction: DIRECTION_BY_ID.get(entry.direction) })).filter((item): item is { entry: DesignFingerprint; direction: DesignDirection } => Boolean(item.direction));
-  if (known.length === HERO_CONCEPTS.length) return known.map(({ entry, direction }) => ({ concept: entry.concept, direction, wildcard: entry.wildcard }));
-  const assignments = assignDirections(run.id, niche, priorFingerprints(run.id, niche.id, run.targetMarket));
   const db = rebuildDatabase();
   const at = now.toISOString();
+  const axes = db.prepare("UPDATE design_fingerprints SET composition = ?, nav = ?, motion = ?, pair_display = ?, pair_text = ? WHERE run_id = ? AND concept = ?");
+  if (known.length === HERO_CONCEPTS.length) {
+    // A run from before these axes keeps its directions and gets the rest now.
+    const generation = known[0].entry.generation;
+    const fill = assignDirections(run.id, niche, prior, { generation, recent });
+    return known.map(({ entry, direction }, index) => {
+      const assignment: DirectionAssignment = {
+        concept: entry.concept,
+        direction,
+        wildcard: entry.wildcard,
+        pair: entry.pairDisplay && entry.pairText ? { display: entry.pairDisplay, text: entry.pairText } : { display: direction.type.display, text: direction.type.text },
+        composition: COMPOSITION_BY_ID.get(entry.composition ?? "") ?? fill[index].composition,
+        nav: NAV_BY_ID.get(entry.nav ?? "") ?? fill[index].nav,
+        motion: MOTION_BY_ID.get(entry.motion ?? "") ?? fill[index].motion,
+      };
+      if (!entry.composition) axes.run(assignment.composition.id, assignment.nav.id, assignment.motion.id, assignment.pair.display, assignment.pair.text, run.id, entry.concept);
+      return assignment;
+    });
+  }
+  const archived = db.prepare("SELECT MAX(generation) AS generation FROM design_fingerprint_history WHERE run_id = ?").get(run.id) as { generation: number | null } | undefined;
+  const generation = (archived?.generation ?? 0) + 1;
+  const assignments = assignDirections(run.id, niche, prior, { generation, recent });
   const insert = db.prepare(
-    `INSERT INTO design_fingerprints (run_id, concept, niche, market, direction, wildcard, palette_family, palette, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
-     ON CONFLICT (run_id, concept) DO UPDATE SET niche = excluded.niche, market = excluded.market, direction = excluded.direction, wildcard = excluded.wildcard, palette_family = excluded.palette_family, updated_at = excluded.updated_at`,
+    `INSERT INTO design_fingerprints (run_id, concept, niche, market, direction, wildcard, palette_family, palette, composition, nav, motion, pair_display, pair_text, generation, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (run_id, concept) DO UPDATE SET niche = excluded.niche, market = excluded.market, direction = excluded.direction, wildcard = excluded.wildcard, palette_family = excluded.palette_family, composition = excluded.composition, nav = excluded.nav, motion = excluded.motion, pair_display = excluded.pair_display, pair_text = excluded.pair_text, generation = excluded.generation, updated_at = excluded.updated_at`,
   );
   for (const assignment of assignments) {
-    insert.run(run.id, assignment.concept, niche.id, marketKey(run.targetMarket), assignment.direction.id, assignment.wildcard ? 1 : 0, assignment.direction.palette.family, at, at);
+    insert.run(run.id, assignment.concept, niche.id, marketKey(run.targetMarket), assignment.direction.id, assignment.wildcard ? 1 : 0, assignment.direction.palette.family, assignment.composition.id, assignment.nav.id, assignment.motion.id, assignment.pair.display, assignment.pair.text, generation, at, at);
   }
   return assignments;
+}
+
+/**
+ * The person wants different concepts, not better versions of these. Records the
+ * decision, then moves the current concepts to history: the next hero run is
+ * assigned new ones and avoids these as if another run had used them.
+ */
+export function startFreshConcepts(runId: string, revision: number, note?: string, conceptNotes?: Record<string, string | undefined>): void {
+  decide(runId, "hero", revision, "changes_requested", note?.trim() || "Start again: new art directions, new compositions and a new headline angle. Do not build on the previous concepts.", undefined, conceptNotes);
+  const db = rebuildDatabase();
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    db.prepare("INSERT INTO design_fingerprint_history SELECT * FROM design_fingerprints WHERE run_id = ?").run(runId);
+    db.prepare("DELETE FROM design_fingerprints WHERE run_id = ?").run(runId);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+/** What the audit measured on the rendered hero: compared against later concepts. */
+export function recordMeasured(runId: string, concept: ConceptId, measured: { skeleton?: string; headline?: string; headlineFont?: string }, now = new Date()): void {
+  rebuildDatabase()
+    .prepare("UPDATE design_fingerprints SET skeleton = ?, headline = ?, updated_at = ? WHERE run_id = ? AND concept = ?")
+    .run(measured.skeleton ?? null, measured.headline ?? null, now.toISOString(), runId, concept);
 }
 
 /** What a concept's DESIGN.md says it used, from its fingerprint block. */
@@ -226,6 +347,8 @@ export function recordCritique(runId: string, concept: ConceptId, verdict: { sco
 export interface ConceptCritique {
   concept: ConceptId;
   score?: number;
+  /** Whether the critic would put this in front of the client. A no fails it, whatever the score. */
+  present?: boolean;
   /** The critique's slop findings and fixes, for the revision brief. */
   notes: string;
 }
@@ -239,7 +362,8 @@ export function parseCritique(text: string): ConceptCritique[] {
     const section = new RegExp(`^##\\s*${concept}\\b[^\\n]*\\n([\\s\\S]*?)(?=^##\\s|(?![\\s\\S]))`, "im").exec(text)?.[1] ?? "";
     const score = /score\s*:\s*\**\s*(\d{1,2})\s*\/\s*40/i.exec(section)?.[1];
     const value = score === undefined ? undefined : Number(score);
-    return { concept, score: value !== undefined && value <= 40 ? value : undefined, notes: section.trim() };
+    const present = /present\s*:\s*\**\s*(yes|no)\b/i.exec(section)?.[1]?.toLowerCase();
+    return { concept, score: value !== undefined && value <= 40 ? value : undefined, present: present === undefined ? undefined : present === "yes", notes: section.trim() };
   });
 }
 
@@ -269,6 +393,8 @@ export function gateConcepts(input: {
   prior: readonly DesignFingerprint[];
   attempt: 0 | 1;
   threshold?: number;
+  /** What the rendered audit found, per concept. */
+  audits?: readonly { concept: ConceptId; failures: readonly string[] }[];
 }): GateResult[] {
   const threshold = input.threshold ?? RUBRIC_PASS;
   return HERO_CONCEPTS.map((concept) => {
@@ -278,6 +404,8 @@ export function gateConcepts(input: {
     const problems = [
       critique?.score !== undefined && critique.score < threshold ? `scored ${critique.score}/40, below ${threshold}` : "",
       repeated ? `repeats an earlier ${repeated.niche} run (${DIRECTION_BY_ID.get(repeated.direction)?.name ?? repeated.direction} with the same fonts)` : "",
+      critique?.present === false ? "the art director would not present it" : "",
+      ...(input.audits?.find((entry) => entry.concept === concept)?.failures ?? []),
     ].filter(Boolean);
     if (problems.length === 0) {
       return critique?.score === undefined

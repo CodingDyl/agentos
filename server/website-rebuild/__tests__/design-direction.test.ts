@@ -17,8 +17,9 @@ const { checkPreview, cardFields, isDemo } = await import("../qa");
 type RebuildRun = import("../../../shared/website-rebuild-types").RebuildRun;
 type DesignFingerprint = import("../design-fingerprints").DesignFingerprint;
 
-const { DESIGN_DIRECTIONS, DIRECTION_BY_ID, NICHE_CLICHES, GENERAL_NICHE, ANTI_PATTERNS, detectNiche } = directions;
-const { assignDirections, ensureAssignments, priorFingerprints, runFingerprints, recordMade, recordCritique, parseFingerprint, parseCritique, gateConcepts, marketKey } = fingerprints;
+const { DESIGN_DIRECTIONS, DIRECTION_BY_ID, NICHE_CLICHES, GENERAL_NICHE, ANTI_PATTERNS, detectNiche, directionPairs } = directions;
+const { COMPOSITIONS, NAV_PATTERNS, MOTION_SIGNATURES } = await import("../compositions");
+const { assignDirections, ensureAssignments, priorFingerprints, runFingerprints, recordMade, recordCritique, parseFingerprint, parseCritique, gateConcepts, marketKey, startFreshConcepts } = fingerprints;
 
 let caseNumber = 0;
 beforeEach(() => {
@@ -56,6 +57,7 @@ const fingerprint = (direction: string, extra: Partial<DesignFingerprint> = {}):
   wildcard: false,
   paletteFamily: DIRECTION_BY_ID.get(direction)!.palette.family,
   palette: [],
+  generation: 1,
   autoRevised: false,
   escalated: false,
   ...extra,
@@ -94,7 +96,11 @@ describe("the direction library", () => {
     for (const niche of NICHE_CLICHES) assert.ok(read("references/niche-cliches.md").includes(`(\`${niche.id}\`)`), niche.id);
     for (const pattern of ANTI_PATTERNS) assert.ok(read("references/anti-patterns.md").includes(pattern.rule), pattern.rule);
     for (const criterion of directions.CRITIQUE_RUBRIC) assert.ok(read("references/rubric.md").includes(criterion.five), criterion.id);
-    assert.match(read("references/rubric.md"), /\*\*28 passes\.\*\*/);
+    assert.match(read("references/rubric.md"), /\*\*32 passes\.\*\*/);
+    for (const composition of COMPOSITIONS) assert.ok(read("references/compositions.md").includes(`(\`${composition.id}\``), composition.id);
+    for (const nav of NAV_PATTERNS) assert.ok(read("references/compositions.md").includes(`(\`${nav.id}\`)`), nav.id);
+    for (const motion of MOTION_SIGNATURES) assert.ok(read("references/compositions.md").includes(`(\`${motion.id}\`)`), motion.id);
+    assert.match(read("SKILL.md"), /references\/craft\.md/);
   });
 
   it("finds the niche from the target market first, then the company name", () => {
@@ -132,11 +138,43 @@ describe("direction assignment", () => {
     for (let index = 0; index < 20; index += 1) assert.ok(!assignDirections(`r-${index}`, law, withFonts).some((entry) => entry.direction.id === "swiss-grid"));
   });
 
+  it("gives each concept its own composition family, navigation, motion and font pair", () => {
+    const [a, b, c] = assignDirections("run-axes", law, []);
+    assert.deepEqual(new Set([a, b, c].map((entry) => entry.composition.family)), new Set(["image", "type", "interaction"]));
+    assert.equal(new Set([a, b, c].map((entry) => entry.nav.id)).size, 3);
+    assert.equal(new Set([a, b, c].map((entry) => entry.motion.id)).size, 3);
+    for (const entry of [a, b, c]) assert.ok(directionPairs(entry.direction).some((pair) => pair.display === entry.pair.display && pair.text === entry.pair.text));
+  });
+
+  it("never assigns what the niche calls a costume, and every direction has its fonts on the approved list", () => {
+    for (let index = 0; index < 60; index += 1) {
+      for (const entry of assignDirections(`law-${index}`, law, [])) assert.ok(!law.avoid?.includes(entry.direction.id), entry.direction.id);
+    }
+    for (const entry of DESIGN_DIRECTIONS) for (const pair of directionPairs(entry)) assert.doesNotMatch(`${pair.display} ${pair.text}`, /\b(Inter|Roboto|Arial|Poppins|Montserrat|Open Sans|Space Grotesk|Playfair)\b/, entry.id);
+  });
+
+  it("moves away from compositions an earlier run used, and from what the person last saw in any niche", () => {
+    const earlier = assignDirections("run-1", law, []);
+    const prior = earlier.map((entry) => fingerprint(entry.direction.id, { composition: entry.composition.id, nav: entry.nav.id, motion: entry.motion.id }));
+    const next = assignDirections("run-2", law, prior);
+    for (const entry of next) assert.ok(!earlier.some((old) => old.composition.id === entry.composition.id), entry.composition.id);
+    assert.ok(next.filter((entry) => !earlier.some((old) => old.nav.id === entry.nav.id)).length >= 2, "there are five navigations, so at most one repeats");
+    const recent = earlier.map((entry) => ({ composition: entry.composition.id, nav: entry.nav.id, motion: entry.motion.id }));
+    for (const entry of assignDirections("run-3", GENERAL_NICHE, [], { recent })) assert.ok(!earlier.some((old) => old.composition.id === entry.composition.id), "recent, from another niche");
+  });
+
+  it("a new generation of the same run gets different picks", () => {
+    const first = assignDirections("run-g", law, []);
+    const prior = first.map((entry) => fingerprint(entry.direction.id));
+    const second = assignDirections("run-g", law, prior, { generation: 2 });
+    for (const entry of second) assert.ok(!first.some((old) => old.direction.id === entry.direction.id));
+  });
+
   it("still gives a wildcard and three directions when every direction has been used, least used first", () => {
-    const prior = DESIGN_DIRECTIONS.flatMap((entry) => [fingerprint(entry.id), ...(entry.id === "magazine-collage" ? [] : [fingerprint(entry.id)])]);
+    const prior = DESIGN_DIRECTIONS.flatMap((entry) => [fingerprint(entry.id), ...(entry.id === "identity-manual" ? [] : [fingerprint(entry.id)])]);
     const next = assignDirections("run-many", law, prior);
     assert.equal(new Set(next.map((entry) => entry.direction.id)).size, 3);
-    assert.equal(next[2].direction.id, "magazine-collage", "the least-used wildcard is chosen");
+    assert.equal(next[2].direction.id, "identity-manual", "the least-used wildcard is chosen");
   });
 });
 
@@ -151,6 +189,22 @@ describe("the fingerprint store", () => {
     assert.equal(view[2].wildcard, true);
     assert.equal(view[0].directionName, first[0].direction.name);
     assert.equal(view[0].score, undefined);
+  });
+
+  it("new concepts: moves the current ones to history, so the next assignment avoids them", () => {
+    const run = newRun();
+    const first = ensureAssignments(run, law);
+    const db = store.rebuildDatabase();
+    db.prepare("UPDATE stages SET status = 'awaiting_approval', revision = 1 WHERE run_id = ? AND stage = 'hero'").run(run.id);
+    startFreshConcepts(run.id, 1);
+    assert.equal(runFingerprints(run.id).length, 0);
+    assert.equal(priorFingerprints(run.id, "law", run.targetMarket).length, 3, "the run's own discarded concepts count as prior");
+    assert.match(store.openChangeRequest(run.id, "hero")?.note ?? "", /Start again/);
+    const second = ensureAssignments(run, law);
+    for (const entry of second) assert.ok(!first.some((old) => old.direction.id === entry.direction.id), entry.direction.id);
+    assert.equal(runFingerprints(run.id)[0].generation, 2);
+    store.deleteRunRecords(run.id);
+    assert.equal(priorFingerprints(run.id, "law", run.targetMarket).length, 0);
   });
 
   it("excludes earlier runs in the same niche or the same market, never the run itself", () => {
@@ -203,30 +257,39 @@ describe("the critique gate", () => {
     assert.doesNotMatch(parsed[0].notes, /concept-b/);
   });
 
-  it("passes concepts at or above 28 and sends the rest back once", () => {
-    const results = gateConcepts({ critiques: critique([28, 27, 35]), made, prior: [], attempt: 0 });
+  it("passes concepts at or above 32 and sends the rest back once", () => {
+    const results = gateConcepts({ critiques: critique([32, 31, 35]), made, prior: [], attempt: 0 });
     assert.deepEqual(results.map((entry) => entry.action), ["pass", "revise", "pass"]);
-    assert.match(results[1].reason ?? "", /27\/40, below 28/);
+    assert.match(results[1].reason ?? "", /31\/40, below 32/);
   });
 
   it("escalates to the person after the one revision, with the score kept", () => {
-    const results = gateConcepts({ critiques: critique([20, 30, 30]), made, prior: [], attempt: 1 });
+    const results = gateConcepts({ critiques: critique([20, 34, 34]), made, prior: [], attempt: 1 });
     assert.deepEqual(results.map((entry) => entry.action), ["escalate", "pass", "pass"]);
     assert.equal(results[0].score, 20);
   });
 
   it("sends back a concept that repeats an earlier run's direction and font pair, however well it scored", () => {
     const prior = [fingerprint("botanical", { niche: "law" })];
-    const results = gateConcepts({ critiques: critique([30, 38, 30]), made, prior, attempt: 0 });
+    const results = gateConcepts({ critiques: critique([34, 38, 34]), made, prior, attempt: 0 });
     assert.equal(results[1].action, "revise");
     assert.match(results[1].reason ?? "", /repeats an earlier law run \(Botanical/);
     // Same direction with different fonts is not a repeat.
-    const other = gateConcepts({ critiques: critique([30, 38, 30]), made: [made[0], { ...made[1], displayFont: "Literata", textFont: "Karla" }, made[2]], prior, attempt: 0 });
+    const other = gateConcepts({ critiques: critique([34, 38, 34]), made: [made[0], { ...made[1], displayFont: "Literata", textFont: "Karla" }, made[2]], prior, attempt: 0 });
     assert.equal(other[1].action, "pass");
   });
 
+  it("sends back a concept the critic would not present, or the audit failed, however well it scored", () => {
+    const parsed = parseCritique("## concept-a\nScore: 36/40\nPresent: no\n\n## concept-b\nScore: 36/40\nPresent: yes\n\n## concept-c\nScore: 36/40\nPresent: **yes**");
+    assert.deepEqual(parsed.map((entry) => entry.present), [false, true, true]);
+    const results = gateConcepts({ critiques: parsed, made, prior: [], attempt: 0, audits: [{ concept: "concept-b", failures: ["The headline renders in \"georgia\", which the page did not load."] }] });
+    assert.deepEqual(results.map((entry) => entry.action), ["revise", "revise", "pass"]);
+    assert.match(results[0].reason ?? "", /would not present/);
+    assert.match(results[1].reason ?? "", /georgia/);
+  });
+
   it("hands an unscored concept to the person rather than looping", () => {
-    assert.equal(gateConcepts({ critiques: critique([30, undefined, 30]), made, prior: [], attempt: 0 })[1].action, "escalate");
+    assert.equal(gateConcepts({ critiques: critique([34, undefined, 34]), made, prior: [], attempt: 0 })[1].action, "escalate");
   });
 });
 
@@ -237,19 +300,46 @@ describe("the briefs", () => {
     return { run, design: { niche, assignments: assignDirections(run.id, niche, []), prior: [fingerprint("cinematic-dark", { displayFont: "Bodoni Moda", textFont: "Red Hat Text", palette: ["#0D0C0B", "#EDE6DA"] })] } };
   };
 
-  it("hero: each concept's direction, the wildcard, the niche's clichés, earlier runs' fonts and colours, the anti-patterns and the fingerprint block", () => {
+  const kit = { art: ["design/concept-a/art/bronze.png"], missingFonts: [], references: [{ label: "Sample", url: "https://example.com", file: "/tmp/refs/example.png" }] };
+
+  it("concept: one concept's whole assignment, the niche's clichés, earlier runs' fonts and colours, the anti-patterns and the fingerprint block", () => {
     const { run, design: input } = design();
-    const brief = prompts.heroBrief(run, undefined, input);
-    for (const assignment of input.assignments) assert.ok(brief.includes(`${assignment.concept}: ${assignment.direction.name} (${assignment.direction.id})`), assignment.concept);
-    assert.match(brief, /concept-c: .*the wildcard/);
+    const [assignment] = input.assignments;
+    const brief = prompts.conceptBrief(run, assignment, input, kit);
+    assert.match(brief, /^Design concept-a of /);
+    for (const line of [assignment.direction.name, assignment.composition.brief, assignment.nav.brief, assignment.motion.brief, assignment.pair.display]) assert.ok(brief.includes(line), line);
+    assert.ok(!brief.includes(input.assignments[1].composition.brief), "a designer is not told what the others are doing");
     assert.match(brief, /navy and gold/);
     assert.match(brief, /Font pairs: Bodoni Moda \+ Red Hat Text/);
     assert.match(brief, /Dominant colours: #0D0C0B, #EDE6DA/);
     assert.match(brief, /icon plus three cards/);
     assert.match(brief, /<!-- agentos-fingerprint/);
-    assert.match(brief, /below 28/);
-    // Without design inputs the brief is unchanged in shape.
-    assert.doesNotMatch(prompts.heroBrief(run), /agentos-fingerprint/);
+    assert.match(brief, /below 32/);
+    assert.match(brief, /design\/concept-a\/art\/bronze\.png/);
+    assert.match(brief, /\/tmp\/refs\/example\.png/);
+    assert.match(brief, /fonts\.css/);
+    assert.match(brief, /no dead buttons/);
+    assert.match(prompts.conceptBrief(run, input.assignments[2], input, kit), /the wildcard/);
+  });
+
+  it("does not treat the lead's category as the client's customers", () => {
+    const { run, design: input } = design();
+    const brief = prompts.conceptBrief(run, input.assignments[0], input, kit);
+    assert.doesNotMatch(brief, /Who they sell to/);
+    assert.match(brief, /do not assume these are its customers/);
+  });
+
+  it("strategy: three different ideas from the real site, and an art plan only with a budget", () => {
+    const { run, design: input } = design();
+    const brief = prompts.strategyBrief(run, input, 0);
+    assert.match(brief, /design\/STRATEGY\.md/);
+    for (const assignment of input.assignments) assert.ok(brief.includes(`## ${assignment.concept}`), assignment.concept);
+    assert.match(brief, /Three phrasings of one idea is a failure/);
+    assert.doesNotMatch(brief, /design\/ART\.json/);
+    const funded = prompts.strategyBrief(run, input, 5);
+    assert.match(funded, /design\/ART\.json/);
+    assert.match(funded, /Budget: 5 credits/);
+    assert.match(funded, /No people/);
   });
 
   it("critique and revision: the rubric, the output format, and only the failing concepts", () => {
@@ -257,7 +347,12 @@ describe("the briefs", () => {
     const critique = prompts.critiqueBrief(run, input, prompts.critiqueFile(1, 1));
     assert.match(critique, /reviews\/hero-critique-r1\.md/);
     assert.match(critique, /Score: <total>\/40/);
-    assert.match(critique, /Escapes the niche default/);
+    assert.match(critique, /A real idea/);
+    assert.match(critique, /Present: <yes or no/);
+    const rendered = prompts.critiqueBrief(run, input, prompts.critiqueFile(1, 1), { files: [{ concept: "concept-a", viewport: "desktop", file: "/tmp/a.png" }] }, "reviews/hero-audit-r1.md");
+    assert.match(rendered, /\/tmp\/a\.png/);
+    assert.match(rendered, /Do not read hero\.html to decide how it looks/);
+    assert.match(rendered, /reviews\/hero-audit-r1\.md/);
     assert.match(critique, /safe, competent, average concept is a fail/);
     const revision = prompts.heroRevisionBrief(run, input, [{ concept: "concept-b", reason: "scored 20/40, below 28", notes: "Slop: centred hero" }]);
     assert.match(revision, /^Revise concept-b/);

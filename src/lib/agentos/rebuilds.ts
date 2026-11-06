@@ -182,7 +182,7 @@ export function useStageWorkers(runId: string, stage: RebuildStageId, enabled: b
 }
 
 export function useDecideStage(runId: string) {
-  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string; conceptNotes?: Record<string, string>; pageNotes?: PageNotesByRoute; overrideReview?: boolean }) =>
+  return useRunMutation((input: { stage: RebuildStageId; revision: number; decision: "approve" | "request-changes"; note?: string; choice?: string; conceptNotes?: Record<string, string>; pageNotes?: PageNotesByRoute; overrideReview?: boolean; fresh?: boolean }) =>
     call(`${base}/${encodeURIComponent(runId)}/stages/${input.stage}/${input.decision}`, RebuildRunSchema, {
       revision: input.revision,
       ...(input.note ? { note: input.note } : {}),
@@ -190,8 +190,14 @@ export function useDecideStage(runId: string) {
       ...(input.conceptNotes && Object.keys(input.conceptNotes).length > 0 ? { conceptNotes: input.conceptNotes } : {}),
       ...(input.pageNotes && Object.keys(input.pageNotes).length > 0 ? { pageNotes: input.pageNotes } : {}),
       ...(input.overrideReview ? { overrideReview: true } : {}),
+      ...(input.fresh ? { fresh: true } : {}),
     }),
   );
+}
+
+/** How many Higgsfield credits this run's concepts may spend on imagery. */
+export function useSetArtBudget(runId: string) {
+  return useRunMutation((credits: number) => call(`${base}/${encodeURIComponent(runId)}/art-budget`, RebuildRunSchema, { credits }));
 }
 
 /** Saves one hero concept's note on the revision under review; an empty note clears it. */

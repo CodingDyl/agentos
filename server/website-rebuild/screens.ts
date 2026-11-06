@@ -55,7 +55,8 @@ export async function screenshot(targets: readonly { name: string; target: strin
         const url = /^https?:\/\//.test(target) ? target : pathToFileURL(target).href;
         await page.goto(url, { waitUntil: "load", timeout: 45_000 });
         // Let web fonts and entrance animations settle; a half-faded hero is not what will be shipped.
-        await page.waitForTimeout(800);
+        await page.evaluate("document.fonts ? document.fonts.ready.then(() => true) : true").catch(() => undefined);
+        await page.waitForTimeout(1_800);
         const file = path.join(outputDir, `${name}-${viewport}.png`);
         const height = options.fullPage ? Number(await page.evaluate("document.documentElement.scrollHeight")) : 0;
         await page.screenshot({ path: file, fullPage: options.fullPage === true });
@@ -82,6 +83,14 @@ async function freePort(): Promise<number> {
   });
 }
 
+/** What a client's site must not inherit from AgentOS: its keys are not the site's, and could make a demo send for real. */
+const SECRET_ENV = /(KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)|^(RESEND|CONTACT|BOOKING|NEWSLETTER|SHOP|CALCOM|VERCEL)_/i;
+
+/** The environment a local copy of a client's site runs in: demo mode, with no way to reach a real provider. */
+export function localSiteEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(base).filter(([name]) => !SECRET_ENV.test(name)));
+}
+
 /**
  * Serves a built Next.js app from `directory` on a free local port. The build
  * is the one validation already produced; nothing is rebuilt here.
@@ -91,7 +100,7 @@ export async function serveBuiltNextApp(directory: string): Promise<{ url: strin
   const child: ChildProcess = spawn("npx", ["next", "start", "-p", String(port), "-H", "127.0.0.1"], {
     cwd: directory,
     stdio: "ignore",
-    env: { ...process.env, NODE_ENV: "production", PORT: String(port) },
+    env: { ...localSiteEnv(process.env), NODE_ENV: "production", PORT: String(port) },
   });
   const url = `http://127.0.0.1:${port}`;
   const stop = () => {

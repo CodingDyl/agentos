@@ -285,7 +285,7 @@ export type BrandKit = z.infer<typeof BrandKitSchema>;
 
 /** The rubric the design critique scores each concept against: eight criteria of five points. */
 export const DESIGN_RUBRIC_MAX = 40;
-export const DESIGN_RUBRIC_PASS = 28;
+export const DESIGN_RUBRIC_PASS = 32;
 
 /**
  * Each hero concept's assigned art direction and what the critique made of
@@ -297,6 +297,10 @@ export const RebuildDesignConceptSchema = z.object({
   concept: z.enum(HERO_CONCEPT_IDS),
   direction: z.string(),
   directionName: z.string(),
+  /** How the hero is built, apart from how it looks. Runs from before these axes have none. */
+  compositionName: z.string().optional(),
+  navName: z.string().optional(),
+  motionName: z.string().optional(),
   wildcard: z.boolean(),
   score: z.number().int().min(0).max(DESIGN_RUBRIC_MAX).optional(),
   passed: z.boolean().optional(),
@@ -331,6 +335,10 @@ export const RebuildRunSchema = z.object({
   motionBase: z.string().optional(),
   /** The hero concept approved at checkpoint 1, which the build follows. */
   heroChoice: z.string().optional(),
+  /** Higgsfield credits this run may spend on concept imagery. 0 means none is generated. */
+  artBudget: z.number().min(0).default(0),
+  /** Credits spent so far on this run's concept imagery. */
+  artSpent: z.number().min(0).default(0),
   /** The client's branding from their current site, once capture has run. */
   brandKit: BrandKitSchema.optional(),
   /** `owner/name` of the client's private GitHub repo, once stage 7 made it. */
@@ -375,8 +383,13 @@ export const RebuildDecisionInputSchema = z
     pageNotes: PageNotesByRouteSchema.optional(),
     /** Approve although the reviewer found blockers. Without it such an approval is refused. */
     overrideReview: z.boolean().optional(),
+    /** Hero only: throw these concepts away and start again with new art directions, instead of revising them. */
+    fresh: z.boolean().optional(),
   })
   .strict();
+
+/** How many Higgsfield credits this run's concepts may spend on imagery. */
+export const RebuildArtBudgetInputSchema = z.object({ credits: z.number().min(0).max(100) }).strict();
 
 /** Replaces (or, when empty, clears) the notes on one page of the revision under review. */
 export const RebuildPageNotesInputSchema = z

@@ -1,7 +1,7 @@
 ---
 name: agentos-website-to-preview
 description: Rebuild a prospect's website from research to a client-accessible Vercel preview, in seven stages with three approval checkpoints. Use when a lead on the "Build it first" path needs a new site.
-version: 1.7.0
+version: 1.8.0
 requires: [hermes, github, vercel]
 ---
 
@@ -46,16 +46,20 @@ checkpoints. Never move past a checkpoint on your own.
    (`<slug>_five_key_areas_improvement.md`). Run Hermes on the current site
    and save its analysis with the run reference (`<slug>_hermes_analysis.md`).
    If Hermes is unavailable, the stage is blocked; do not substitute a generic audit.
-4. **Hero concepts (checkpoint).** Three distinct design systems, each written in
-   the structure of the supplied `DESIGN.md`, each with a hero section rendered
-   at desktop and mobile widths. With a brand kit, the three run from faithful
-   to the client's brand (A), through evolved (B), to bold (C), and every one
-   uses their logo. Each concept follows a different art direction assigned by
-   the `website-design-direction` skill (concept C a wildcard far from the
-   niche), avoiding directions, fonts and palettes earlier runs in the niche
-   used. A critique scores each out of 40; below 28, or repeating an earlier
-   run, it is revised once automatically, then shown with its score. Stop for
-   approval of one.
+4. **Hero concepts (checkpoint).** A strategy comes first: who really hires this
+   client, what only they can say, and a different idea and headline per concept.
+   Then three independent workers each make one concept, as a working page with a
+   `DESIGN.md`. The `website-design-direction` skill assigns each concept its own
+   art direction, composition, navigation, motion and font pair, avoiding what
+   earlier runs in the niche used, and AgentOS supplies real fonts, motion
+   libraries, current reference screenshots and, within the run's image budget,
+   original imagery. With a brand kit the three run from faithful (A), through
+   evolved (B), to bold (C), and every one uses their logo. AgentOS measures each
+   hero in a browser and a critic judges its screenshots out of 40; below 32, not
+   presentable, or a measured failure, and it is revised once automatically, then
+   shown with its score. Stop for approval of one. The person may request changes
+   (a note on one concept redoes only that one) or ask for new concepts, which
+   starts again with different assignments.
 5. **Copy and structure (checkpoint).** The approved design applied to the full
    sitemap, page copy and navigation, keeping its art direction and the
    anti-patterns on every page. The review scores the site on the same rubric.
@@ -74,7 +78,11 @@ checkpoints. Never move past a checkpoint on your own.
    keep working through redirects. Provider settings (Resend, booking page)
    and old addresses come from "What the features need"; the features read
    them by name from the environment. AgentOS checks the visitor journeys on
-   the built site without submitting anything. Stop for approval.
+   the built site without submitting anything, then presses every control and
+   submits every form on the local demo build, which has no provider keys and
+   cannot reach anyone. Beyond the requested features, every other interactive or
+   data-backed part of the site is built the same way, or removed, and listed in
+   `functional-inventory.json`. Stop for approval.
 
    At stages 5 and 6 a second model reviews each revision, starting with
    `Verdict: Ready` or `Verdict: Not ready` and numbered Blocker, Major and
