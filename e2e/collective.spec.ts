@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { ROUTES } from "./routes";
 
 // Committed doc screenshots are rewritten only on request, so a normal test
 // run leaves the checkout clean.
@@ -25,7 +26,7 @@ test("every route renders on the Quiet Terminal tokens with no overflow", async 
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const routes = ["/", "/inbox", "/traction", "/business", "/finance", "/operator", "/workspaces", "/workspaces/pantry-pilot", "/knowledge", "/memory", "/learning", "/designs", "/designs/boards", "/designs/generations", "/designs/motion", "/automations", "/connectors", "/activity", "/operations", "/agents", "/workers", "/agent", "/compass", "/design-system"];
+  const routes = ROUTES;
   for (const route of routes) {
     await page.goto(route);
     await expect(page.locator("main[data-agentos-page]")).toBeVisible();
