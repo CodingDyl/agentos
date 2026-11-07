@@ -3,6 +3,7 @@ import path from "node:path";
 import { agentOSRoot } from "../agentos/filesystem";
 import type { WorkerJob } from "../../shared/worker-types";
 import { WORKER_TOOLING_RULE } from "./verifiable";
+import { MEMORY_CONFLICT_RULE } from "../../shared/memory-ownership";
 
 /**
  * The handoff contract.
@@ -60,6 +61,7 @@ const MEMORY_INSTRUCTIONS = [
   "implementation details or temporary debugging findings.",
   "If the project's current status should change, add one line:",
   "Status update: <where the project now stands and what is next>",
+  MEMORY_CONFLICT_RULE,
 ].join("\n");
 
 function section(heading: string, body: string | undefined): string | undefined {
