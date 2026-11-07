@@ -184,6 +184,31 @@ export function useReindexMemory() {
   });
 }
 
+export interface MemoryMaintenancePlan {
+  dailyLogs: { count: number; moves: Array<{ from: string; to: string }>; skipped: number };
+}
+
+/** How many daily logs are old enough to archive. Changes nothing. */
+export function useMemoryMaintenance() {
+  return useQuery({
+    queryKey: [...memoryKey(), "maintenance"] as const,
+    queryFn: () => request<MemoryMaintenancePlan>("/api/memory/maintenance"),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Moves old daily logs into the archive. Only ever on the owner's press. */
+export function useArchiveOldLogs() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => send<{ moved: number; skipped: number }>("/api/memory/maintenance/archive-logs", "POST", { confirm: true }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: memoryKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
 /** Adds a note to the vault. The server only ever creates; a clash is an error, not an overwrite. */
 export function useCreateMemoryNote() {
   const client = useQueryClient();

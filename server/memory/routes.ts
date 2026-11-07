@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { z } from "zod";
 import { recordActivity } from "../activity/ui-events";
 import type { CreateMemoryNoteRequest } from "../../shared/memory-paths";
 import type { EditMemoryNoteRequest } from "../../shared/memory-types";
@@ -15,6 +16,7 @@ import {
   undoMemoryChange,
 } from "./mutations";
 import { isArchived } from "./index";
+import { applyDailyLogArchive, planDailyLogArchive } from "./maintenance";
 import { retrieveMemoryContext } from "./retrieval";
 import { searchIndex } from "./search";
 import { memoryService } from "./service";
@@ -258,6 +260,48 @@ memoryRouter.get("/history", async (request, response) => {
   const current = service.isAvailable() ? await readOptionalFile(id, service.root).catch(() => undefined) : undefined;
   const undoable = undoableEntry(entries, current === undefined ? undefined : revisionOfOptional(current));
   response.json({ entries, undoable: undoable?.id });
+});
+
+/** Which daily logs are old enough to archive. Changes nothing. */
+memoryRouter.get("/maintenance", async (_request, response) => {
+  const service = memoryService();
+  if (!service.isAvailable()) {
+    response.status(503).json({ error: "The vault is not available. Is the drive connected?" });
+    return;
+  }
+  try {
+    const plan = await planDailyLogArchive(service.root, new Date());
+    response.json({ dailyLogs: { count: plan.moves.length, moves: plan.moves.slice(0, 50), skipped: plan.skipped.length } });
+  } catch (error) {
+    response.status(500).json({ error: error instanceof Error ? error.message : "The archive plan could not be made." });
+  }
+});
+
+const ArchiveLogsRequestSchema = z.object({ confirm: z.literal(true) });
+
+/** Moves old daily logs into archive/logs/daily/. Only when asked, never on a schedule. */
+memoryRouter.post("/maintenance/archive-logs", async (request, response) => {
+  const parsed = ArchiveLogsRequestSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Confirm the archive with { \"confirm\": true }." });
+    return;
+  }
+  const service = memoryService();
+  if (!service.isAvailable()) {
+    response.status(503).json({ error: "The vault is not available. Is the drive connected?" });
+    return;
+  }
+  try {
+    const result = await applyDailyLogArchive(service.root, new Date());
+    if (result.moved > 0) {
+      await service.reindex();
+      await recordActivity({ type: "memory.logs_archived", description: `${result.moved} daily log${result.moved === 1 ? "" : "s"} archived`, metadata: result });
+    }
+    response.json(result);
+  } catch (error) {
+    console.error("[memory] log archive failed:", error);
+    response.status(500).json({ error: "The logs could not be archived." });
+  }
 });
 
 /** Existing memory in a project that a new item may be repeating. */

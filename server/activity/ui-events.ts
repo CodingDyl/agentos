@@ -263,6 +263,16 @@ export const EVENT_TYPES = {
     level: "success",
     title: "Memory restored",
   },
+  "outcomes.hours_logged": {
+    source: "user",
+    level: "info",
+    title: "Hours logged",
+  },
+  "memory.logs_archived": {
+    source: "user",
+    level: "info",
+    title: "Old daily logs archived",
+  },
   "memory.edit_undone": {
     source: "user",
     level: "warning",

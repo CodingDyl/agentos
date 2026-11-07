@@ -257,6 +257,7 @@ import { proposeCompletion } from "./agentos/task-completion";
 import { CloseoutError, completeTaskWithCloseout, draftCloseout } from "./tasks/closeout";
 import { CompleteTaskRequestSchema } from "../shared/task-closeout-types";
 import { frictionRouter } from "./friction/routes";
+import { outcomesRouter } from "./outcomes/routes";
 import { learningRouter, spotifyRouter } from "./learning/routes";
 import { readTaskLink } from "./agentos/task-jobs";
 import { prepareMilestoneDelegation, startMilestoneDelegation } from "./agentos/milestone-delegation";
@@ -473,6 +474,7 @@ app.use("/api/memory", memoryRouter);
 /** Coder: in-app IDE with Monaco editor, file tree, and PTY terminals. */
 app.use("/api/coder", coderRouter);
 app.use("/api/friction", frictionRouter);
+app.use("/api/outcomes", outcomesRouter);
 app.use("/api/learning", learningRouter);
 app.use("/api/spotify", spotifyRouter);
 
