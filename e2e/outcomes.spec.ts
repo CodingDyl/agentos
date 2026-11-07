@@ -30,6 +30,9 @@ test.describe("Outcomes", () => {
     await expect(headline.getByText("of R100,000 (G1)")).toBeVisible();
     await expect(headline.getByText("Client payments only: salary is not counted.", { exact: false })).toBeVisible();
 
+    // No eval has ever run in the throwaway state folder, so the line says how to start one.
+    await expect(page.getByLabel("Mail triage eval")).toContainText("npm run eval:mail");
+
     const hours = page.getByRole("region", { name: "Your hours" });
     await expect(hours.getByText(/No hours logged this month/)).toBeVisible();
     await expect(hours.getByRole("button", { name: "Log hours" })).toBeDisabled();

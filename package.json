@@ -13,6 +13,9 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "check:rules": "node scripts/checks/repo-rules.mjs",
+    "eval:install": "npm install --prefix evals --no-audit --no-fund",
+    "eval:mail": "tsx scripts/evals/run.ts mail",
+    "eval:mail:real": "tsx scripts/evals/run.ts mail --real",
     "smoke:ollama": "tsx server/route-policy/smoke/ollama-smoke.ts",
     "preview": "vite preview",
     "tauri": "tauri"

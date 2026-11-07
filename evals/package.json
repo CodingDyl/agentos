@@ -1,0 +1,10 @@
+{
+  "name": "agentos-evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Prompt evals for AgentOS. Its own package, so promptfoo's dependency tree stays out of the app.",
+  "type": "module",
+  "dependencies": {
+    "promptfoo": "0.125.1"
+  }
+}

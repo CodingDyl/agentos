@@ -6,7 +6,8 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  { ignores: ["dist"] },
+  // evals/ is its own package (and its provider imports server code under promptfoo's own loader).
+  { ignores: ["dist", "evals"] },
   {
     files: ["**/*.{ts,tsx}"],
     extends: [

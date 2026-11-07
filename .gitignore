@@ -40,3 +40,7 @@ playwright-report
 
 # Graphify's map of this repository, rebuilt from the Structure tab
 graphify-out/
+
+# Evals are their own package; its dependencies and run output stay local.
+evals/node_modules
+evals/output
