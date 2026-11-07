@@ -2,11 +2,10 @@ import type { LearningNote, LearningSource, LearningSourceType, Notebook } from 
 
 /**
  * Learning's rules, without a DOM: how the library is grouped, how notes are
- * filtered, how a typed timestamp is read, how often Spotify is asked what's
- * playing. The page renders what these return.
+ * filtered, how a typed timestamp is read. The page renders what these return.
  */
 
-export const LEARNING_TABS = ["discover", "youtube", "spotify", "notebooks", "saved"] as const;
+export const LEARNING_TABS = ["discover", "youtube", "notebooks", "saved"] as const;
 export type LearningTab = (typeof LEARNING_TABS)[number];
 
 export function isLearningTab(value: string | null): value is LearningTab {
@@ -42,7 +41,6 @@ export interface LibraryGroups {
   continueWatching: LearningSource[];
   watchLater: LearningSource[];
   videos: LearningSource[];
-  tracks: LearningSource[];
   archived: LearningSource[];
 }
 
@@ -52,7 +50,6 @@ export function groupLibrary(sources: readonly LearningSource[]): LibraryGroups 
     continueWatching: live.filter((source) => source.kind === "youtube" && !source.finished && source.positionSeconds > 5),
     watchLater: live.filter((source) => source.watchLater && !source.finished),
     videos: live.filter((source) => source.kind === "youtube"),
-    tracks: live.filter((source) => source.kind === "spotify"),
     archived: sources.filter((source) => source.archived),
   };
 }
@@ -75,24 +72,6 @@ export function filterNotes(notes: readonly LearningNote[], filters: NoteFilters
       .filter((value): value is string => Boolean(value))
       .some((value) => value.toLowerCase().includes(needle));
   });
-}
-
-/**
- * How often to ask Spotify what's playing. Often while music plays on a
- * visible screen (the mini-player shows progress), rarely otherwise: Spotify
- * rate-limits, and an idle AgentOS should not be chatty.
- */
-export function playbackPollMs(input: { visible: boolean; playing: boolean; inApp: boolean }): number {
-  if (!input.visible) return 30_000;
-  if (input.inApp) return 10_000;
-  return input.playing ? 4_000 : 15_000;
-}
-
-/** The progress to show now, moved on from when it was read while playing. */
-export function interpolatedProgress(playback: { isPlaying: boolean; progressMs: number; readAt: string; track?: { durationMs: number } }, now: number): number {
-  const elapsed = playback.isPlaying ? Math.max(0, now - new Date(playback.readAt).getTime()) : 0;
-  const position = playback.progressMs + elapsed;
-  return playback.track?.durationMs ? Math.min(position, playback.track.durationMs) : position;
 }
 
 /** `01:12:08` for a focus session. */

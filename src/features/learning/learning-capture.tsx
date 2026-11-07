@@ -151,7 +151,7 @@ export function LearningCapture({ context, onDone, className }: { context: Captu
       </label>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {context.sourceType === "youtube" || context.sourceType === "spotify" ? (
+        {context.sourceType === "youtube" ? (
           <label className="block">
             <FieldLabel>Timestamp</FieldLabel>
             <input

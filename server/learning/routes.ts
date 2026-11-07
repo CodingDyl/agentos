@@ -265,11 +265,11 @@ spotifyRouter.get("/oauth/callback", async (request, response) => {
     if (!code) throw new SpotifyError(typeof request.query.error === "string" ? `Spotify said: ${request.query.error}.` : "Spotify didn't return a code.", "failed", 400);
     await completeSpotifyConnection(code);
     await recordActivity({ type: "learning.spotify_connected", description: "Spotify connected" });
-    response.redirect(`${origin}/learning?tab=spotify&spotify=connected`);
+    response.redirect(`${origin}/music?spotify=connected`);
   } catch (error) {
     const reason = error instanceof SpotifyError ? error.message : "Spotify could not be connected.";
     if (!(error instanceof SpotifyError)) console.error("[learning] spotify connection failed:", error);
-    response.redirect(`${origin}/learning?tab=spotify&spotify=${encodeURIComponent(reason)}`);
+    response.redirect(`${origin}/music?spotify=${encodeURIComponent(reason)}`);
   }
 });
 

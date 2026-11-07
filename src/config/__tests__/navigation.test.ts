@@ -57,14 +57,12 @@ describe("sidebar navigation", () => {
     );
   });
 
-  it("puts Career with the operations destinations, including Agents", () => {
+  it("keeps Agents as a tab on Operations, and Career is gone", () => {
     const operations = itemsIn("operations");
     const labels = operations.map((item) => item.label);
-    assert.ok(labels.includes("Career"));
-    assert.ok(labels.includes("Agents"));
+    assert.ok(!labels.includes("Career"));
+    assert.ok(!labels.includes("Agents"), "the specialists are a tab on Operations");
     assert.ok(labels.includes("Operations"));
-    assert.equal(operations.find((item) => item.label === "Career")?.href, "/career");
-    assert.equal(operations.find((item) => item.label === "Agents")?.href, "/agents");
     assert.equal(operations.find((item) => item.label === "Operations")?.href, "/operations");
   });
 
@@ -79,7 +77,6 @@ describe("sidebar navigation", () => {
       "/operator",
       "/workspaces",
       "/coder",
-      "/career",
       "/knowledge",
       "/memory",
       "/learning",
@@ -88,7 +85,6 @@ describe("sidebar navigation", () => {
       "/connectors",
       "/operations",
       "/activity",
-      "/agents",
       "/compass",
     ]) {
       assert.ok(hrefs.has(href), `missing ${href}`);
@@ -102,6 +98,7 @@ describe("sidebar navigation", () => {
     assert.equal(byHref.get("/automations")?.section, "operations");
     assert.equal(byHref.get("/connectors")?.section, "operations");
     assert.equal(byHref.get("/activity")?.section, "operations");
+    assert.equal(byHref.get("/music")?.section, "footer");
     assert.equal(byHref.get("/compass")?.section, "footer");
   });
 });

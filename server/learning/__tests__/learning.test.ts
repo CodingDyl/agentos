@@ -9,7 +9,6 @@ import { closeLearningDatabase } from "../db";
 import { continueWatching, importSource, LearningRequestError, listSources, recordProgress, updateSource } from "../library";
 import { createNotebook, listNotebooks, providerForUrl } from "../notebooks";
 import { createNote, knowledgeItems, listNotes, promoteNote, searchHits, updateNote } from "../notes";
-import { parseSpotifyUrl } from "../spotify-urls";
 import { buildSpotifyConsentUrl, consumeConsentState, SpotifyError, toPlayback, toTrack } from "../spotify";
 import { parseTimeParam, parseYouTubeUrl } from "../youtube";
 
@@ -36,19 +35,6 @@ describe("YouTube addresses", () => {
     for (const url of ["https://evil.example/watch?v=dQw4w9WgXcQ", "https://www.youtube.com/watch?v=short", "javascript:alert(1)", "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ"]) {
       assert.equal(parseYouTubeUrl(url), undefined, url);
     }
-  });
-});
-
-describe("Spotify addresses", () => {
-  it("reads open.spotify.com links and URIs", () => {
-    assert.deepEqual(parseSpotifyUrl("https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=abc"), {
-      type: "track",
-      id: "4uLU6hMCjMI75M1A2tKUQC",
-      uri: "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
-    });
-    assert.equal(parseSpotifyUrl("https://open.spotify.com/intl-de/playlist/37i9dQZF1DX8Uebhn9wzrS")?.uri, "spotify:playlist:37i9dQZF1DX8Uebhn9wzrS");
-    assert.equal(parseSpotifyUrl("spotify:album:1DFixLWuPkv3KT3TnV35m3")?.type, "album");
-    assert.equal(parseSpotifyUrl("https://evil.example/track/4uLU6hMCjMI75M1A2tKUQC"), undefined);
   });
 });
 
@@ -107,7 +93,6 @@ describe("Spotify shapes", () => {
 const oembed = (async (url: string | URL | Request) => {
   const text = String(url);
   if (text.includes("youtube.com/oembed")) return new Response(JSON.stringify({ title: "Programmatic SEO Architecture", author_name: "Some Channel" }));
-  if (text.includes("open.spotify.com/oembed")) return new Response(JSON.stringify({ title: "Cirrus", thumbnail_url: "https://i.scdn.co/image/x" }));
   return new Response("", { status: 404 });
 }) as typeof fetch;
 
@@ -142,10 +127,8 @@ describe("the learning library", () => {
     assert.equal(source.workspaceId, undefined);
   });
 
-  it("saves a Spotify link and refuses anything else", async () => {
-    const saved = await importSource({ url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC" }, oembed);
-    assert.equal(saved.source.kind, "spotify");
-    assert.equal(saved.source.externalId, "spotify:track:4uLU6hMCjMI75M1A2tKUQC");
+  it("refuses a Spotify link and anything else that isn't YouTube", async () => {
+    await assert.rejects(importSource({ url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC" }, oembed), LearningRequestError);
     await assert.rejects(importSource({ url: "https://example.com/video" }, oembed), LearningRequestError);
   });
 

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { AgentPatch, AgentRecord, AgentSchedule } from "@shared/agent-types";
+import type { AgentPatch, AgentRecord } from "@shared/agent-types";
 import { MODEL_ROUTE_EFFORTS, MODEL_ROUTE_TASK_TYPES } from "@shared/model-routing-types";
 import { FieldLabel, PAPER_INPUT, PaperButton } from "@/components/paper";
 import { csv, parseCsv } from "./agents-model";
@@ -22,7 +22,6 @@ export function AgentForm({
   const [standingInstructions, setStandingInstructions] = useState(agent.standingInstructions);
   const [memoryNotes, setMemoryNotes] = useState(agent.memoryNotes);
   const [effort, setEffort] = useState(agent.effort ?? "");
-  const [creditCeilingUsd, setCreditCeilingUsd] = useState(String(agent.creditCeilingUsd));
   const [allowedModelOverrides, setAllowedModelOverrides] = useState(csv(agent.allowedModelOverrides));
   const [allowedTools, setAllowedTools] = useState(csv(agent.allowedTools));
   const [allowedConnectors, setAllowedConnectors] = useState(csv(agent.allowedConnectors));
@@ -35,7 +34,6 @@ export function AgentForm({
     motion: { model: agent.modelRoutes.motion?.model ?? "", effort: agent.modelRoutes.motion?.effort ?? "" },
     normal: { model: agent.modelRoutes.normal?.model ?? "", effort: agent.modelRoutes.normal?.effort ?? "" },
   });
-  const [schedules, setSchedules] = useState<AgentSchedule[]>(agent.schedules);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -54,7 +52,6 @@ export function AgentForm({
       standingInstructions,
       memoryNotes,
       effort: effort === "" ? undefined : (effort as AgentRecord["effort"]),
-      creditCeilingUsd: Number(creditCeilingUsd) || 0,
       allowedModelOverrides: parseCsv(allowedModelOverrides),
       allowedTools: parseCsv(allowedTools),
       allowedConnectors: parseCsv(allowedConnectors),
@@ -62,7 +59,6 @@ export function AgentForm({
       linkedWorkspaces: parseCsv(linkedWorkspaces),
       keywords: parseCsv(keywords),
       modelRoutes,
-      schedules: schedules.filter((row) => row.label.trim() && row.cadence.trim()),
     });
   }
 
@@ -110,10 +106,6 @@ export function AgentForm({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          <FieldLabel>Monthly credit ceiling (USD)</FieldLabel>
-          <input type="number" min={0} step="1" value={creditCeilingUsd} onChange={(event) => setCreditCeilingUsd(event.target.value)} className={PAPER_INPUT} />
         </label>
         <label>
           <FieldLabel>Linked workspaces</FieldLabel>
@@ -172,55 +164,6 @@ export function AgentForm({
           <input value={allowedConnectors} onChange={(event) => setAllowedConnectors(event.target.value)} className={PAPER_INPUT} />
         </label>
       </div>
-
-      <fieldset>
-        <legend className="mb-2 text-[13px] font-medium text-paper-char">Schedules (notes, or a Hermes automation id)</legend>
-        <ul className="space-y-2">
-          {schedules.map((row, index) => (
-            <li key={row.id} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-              <input
-                value={row.label}
-                onChange={(event) => setSchedules((current) => current.map((entry, i) => (i === index ? { ...entry, label: event.target.value } : entry)))}
-                className={PAPER_INPUT}
-                placeholder="Label"
-              />
-              <input
-                value={row.cadence}
-                onChange={(event) => setSchedules((current) => current.map((entry, i) => (i === index ? { ...entry, cadence: event.target.value } : entry)))}
-                className={PAPER_INPUT}
-                placeholder="weekdays, morning"
-              />
-              <input
-                value={row.automationId ?? ""}
-                onChange={(event) =>
-                  setSchedules((current) =>
-                    current.map((entry, i) => (i === index ? { ...entry, automationId: event.target.value || undefined } : entry)),
-                  )
-                }
-                className={PAPER_INPUT}
-                placeholder="automation id"
-              />
-              <PaperButton
-                type="button"
-                variant="ghost"
-                onClick={() => setSchedules((current) => current.filter((_, i) => i !== index))}
-              >
-                Remove
-              </PaperButton>
-            </li>
-          ))}
-        </ul>
-        <PaperButton
-          type="button"
-          variant="ghost"
-          className="mt-2"
-          onClick={() =>
-            setSchedules((current) => [...current, { id: `sched-${current.length + 1}`, label: "", cadence: "" }])
-          }
-        >
-          Add schedule
-        </PaperButton>
-      </fieldset>
 
       {error ? <p className="text-[13px] text-paper-flame">{error}</p> : null}
 

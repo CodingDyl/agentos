@@ -2,12 +2,11 @@ import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import type { AgentJobSummary } from "@shared/agent-types";
 import { AppShell, PageLoader } from "@/components/os";
-import { Meter, PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PaperButton, PaperCard, PaperSection, PaperStage, Tag } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useAgent, usePatchAgent } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { AgentForm } from "./agent-form";
-import { spendLabel, spendRatio, spendTone } from "./agents-model";
 
 export function AgentProfilePage() {
   const navigationItems = useNavigationItems();
@@ -16,7 +15,7 @@ export function AgentProfilePage() {
   const save = usePatchAgent(id);
 
   return (
-    <AppShell navigationItems={navigationItems} pageId="agent-profile" activeHref="/agents">
+    <AppShell navigationItems={navigationItems} pageId="agent-profile" activeHref="/operations">
       <PaperStage>
         {isPending ? (
           <PageLoader variant="page" />
@@ -31,11 +30,11 @@ export function AgentProfilePage() {
         ) : (
           <div>
             <Link
-              to="/agents"
+              to="/operations?tab=specialists"
               className={cn("-mx-1 inline-flex min-h-8 items-center gap-1.5 rounded-md px-1 text-[13px] text-paper-sage transition-colors duration-150 hover:text-paper-moss", PAPER_FOCUS)}
             >
               <ArrowLeft className="size-3.5" aria-hidden="true" />
-              Agents
+              Specialists
             </Link>
 
             <header className="mt-3 flex flex-wrap items-end justify-between gap-4 border-b border-paper-mist pb-6">
@@ -49,12 +48,6 @@ export function AgentProfilePage() {
                 <p className="mt-2 text-[14px] text-paper-sage">{data.agent.role}</p>
                 <p className="mt-2 max-w-[72ch] text-[14px] leading-6 text-paper-char">{data.agent.mission}</p>
               </div>
-              <div className="w-full max-w-[16rem]">
-                <p className="text-[13px] text-paper-sage tabular-nums">{spendLabel(data.spend)} · {data.spend.windowLabel}</p>
-                <div className="mt-2">
-                  <Meter value={spendRatio(data.spend)} label="Spend versus ceiling" tone={spendTone(data.spend)} size="md" />
-                </div>
-              </div>
             </header>
 
             <div className="mt-8 grid gap-x-12 gap-y-10 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
@@ -67,30 +60,6 @@ export function AgentProfilePage() {
                       {data.jobs.map((job) => (
                         <li key={job.id}>
                           <JobLine job={job} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </PaperSection>
-
-                <PaperSection label="Schedules" count={data.agent.schedules.length}>
-                  {data.agent.schedules.length === 0 ? (
-                    <p className="text-[14px] leading-6 text-paper-sage">None linked. Add a cadence note or a Hermes automation id.</p>
-                  ) : (
-                    <ul className="divide-y divide-paper-stone rounded-md border border-paper-mist">
-                      {data.agent.schedules.map((row) => (
-                        <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-3 px-4 py-3">
-                          <span>
-                            <span className="block text-[14px] text-paper-moss">{row.label}</span>
-                            <span className="mt-0.5 block text-[13px] text-paper-sage">{row.cadence}</span>
-                          </span>
-                          {row.automationId ? (
-                            <Link to={`/automations/${row.automationId}`} className={cn("text-[13px] text-paper-moss underline decoration-paper-mist underline-offset-[3px]", PAPER_FOCUS)}>
-                              Automation
-                            </Link>
-                          ) : (
-                            <span className="text-[13px] text-paper-sage">Note</span>
-                          )}
                         </li>
                       ))}
                     </ul>
