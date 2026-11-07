@@ -1,4 +1,4 @@
-import { BookmarkPlus, Laptop, Music, Plug, SkipBack, SkipForward, Volume2 } from "lucide-react";
+import { Laptop, Music, Plug, SkipBack, SkipForward, Volume2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { SpotifyTrack } from "@shared/learning-types";
@@ -6,13 +6,12 @@ import { catalogueCode } from "@/components/cassette/model";
 import { CassettePlayer } from "@/components/CassettePlayer";
 import { PageLoader } from "@/components/os";
 import { PaperButton, Tag } from "@/components/paper";
-import { useImportSource, useSpotifyDevices, useSpotifyMusicLibrary, useSpotifyPlaylists } from "@/lib/agentos/learning";
-import { LearningCapture } from "./learning-capture";
-import { interpolatedProgress } from "./learning-model";
+import { useSpotifyDevices, useSpotifyMusicLibrary, useSpotifyPlaylists } from "@/lib/agentos/learning";
+import { interpolatedProgress } from "./music-model";
 import { useSpotify } from "./spotify-context-value";
 
 /**
- * Spotify inside Learning: what's playing, the controls, where it plays, and
+ * The Spotify player: what's playing, the controls, where it plays, and
  * the person's playlists and library to start something from.
  *
  * Playback continues on whatever device Spotify is using; "Play in AgentOS"
@@ -21,11 +20,6 @@ import { useSpotify } from "./spotify-context-value";
  */
 
 const ICON_BUTTON = "inline-flex size-10 cursor-pointer items-center justify-center text-paper-moss hover:bg-paper-linen disabled:cursor-not-allowed disabled:opacity-40";
-
-function trackUrl(uri: string): string | undefined {
-  const match = /^spotify:(track|episode):([A-Za-z0-9]+)$/.exec(uri);
-  return match ? `https://open.spotify.com/${match[1]}/${match[2]}` : undefined;
-}
 
 export function SpotifyPanel({ connectResult }: { connectResult?: string }) {
   const spotify = useSpotify();
@@ -69,8 +63,6 @@ function NowPlaying() {
   const spotify = useSpotify();
   const playback = spotify.playback;
   const devices = useSpotifyDevices(true);
-  const save = useImportSource();
-  const [capturing, setCapturing] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [volume, setVolume] = useState<number>();
 
@@ -155,19 +147,6 @@ function NowPlaying() {
             className="w-28 accent-[var(--paper-blue)]"
           />
         </label>
-        <span className="flex-1" />
-        {track ? (
-          <>
-            <PaperButton onClick={() => setCapturing(true)}>
-              <BookmarkPlus className="size-3.5" strokeWidth={2} aria-hidden="true" /> Capture learning
-            </PaperButton>
-            {trackUrl(track.uri) ? (
-              <PaperButton onClick={() => save.mutate({ url: trackUrl(track.uri)! })} disabled={save.isPending}>
-                {save.isSuccess ? "Saved" : "Save to Learning"}
-              </PaperButton>
-            ) : null}
-          </>
-        ) : null}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-paper-mist pt-4 text-[13px]">
@@ -203,14 +182,6 @@ function NowPlaying() {
         <p role="alert" className="mt-3 text-[14px] text-paper-flame-deep">
           {spotify.error}
         </p>
-      ) : null}
-
-      {capturing && track ? (
-        <LearningCapture
-          className="mt-5"
-          context={{ sourceType: "spotify", sourceUrl: trackUrl(track.uri), sourceTitle: `${track.name} — ${track.artists.join(", ")}`, timestampSeconds: position / 1000 }}
-          onDone={() => setCapturing(false)}
-        />
       ) : null}
     </section>
   );

@@ -100,6 +100,7 @@ describe("sidebar navigation", () => {
     assert.equal(byHref.get("/automations")?.section, "operations");
     assert.equal(byHref.get("/connectors")?.section, "operations");
     assert.equal(byHref.get("/activity")?.section, "operations");
+    assert.equal(byHref.get("/music")?.section, "footer");
     assert.equal(byHref.get("/compass")?.section, "footer");
   });
 });
