@@ -10,6 +10,7 @@ import { FrictionTab } from "./friction-tab";
 import { Glance, PlansPanel } from "./glance";
 import { MoneyTab } from "./money-tab";
 import { PaperButton, PaperStage, PaperTabs, SegmentedControl } from "@/components/paper";
+import { OutcomesTab } from "./outcomes-tab";
 import { QuietLink, SystemTab } from "./system-tab";
 import { UsageTab } from "./usage-tab";
 
@@ -39,9 +40,10 @@ import { UsageTab } from "./usage-tab";
  * screen record what the operator already pays and has already decided.
  */
 
-type Tab = "usage" | "stack" | "agents" | "models" | "projects" | "money" | "system" | "friction";
+type Tab = "outcomes" | "usage" | "stack" | "agents" | "models" | "projects" | "money" | "system" | "friction";
 
 const TABS = [
+  { value: "outcomes" as const, label: "Outcomes" },
   { value: "usage" as const, label: "Usage" },
   { value: "agents" as const, label: "Agents" },
   { value: "stack" as const, label: "AI Stack" },
@@ -184,6 +186,7 @@ function Operations({
       </div>
 
       <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="pt-8">
+        {tab === "outcomes" ? <OutcomesTab /> : null}
         {tab === "usage" ? <UsageTab data={data} /> : null}
         {tab === "stack" ? <AiStackTab data={data} /> : null}
         {tab === "agents" ? <AgentsTab data={data} /> : null}
