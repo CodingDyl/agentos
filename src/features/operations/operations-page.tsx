@@ -3,6 +3,7 @@ import type { OperationsData, UsageRange } from "@shared/usage-types";
 import { AppShell, PageLoader } from "@/components/os";
 import { useNavigationItems } from "@/config/use-navigation";
 import { useOperations } from "@/lib/agentos/queries";
+import { SpecialistsTab } from "@/features/agents";
 import { AgentsTab } from "./agents-tab";
 import { AiStackTab } from "./ai-stack-tab";
 import { Breakdown } from "./figures";
@@ -10,6 +11,7 @@ import { FrictionTab } from "./friction-tab";
 import { Glance, PlansPanel } from "./glance";
 import { MoneyTab } from "./money-tab";
 import { PaperButton, PaperStage, PaperTabs, SegmentedControl } from "@/components/paper";
+import { OutcomesTab } from "./outcomes-tab";
 import { QuietLink, SystemTab } from "./system-tab";
 import { UsageTab } from "./usage-tab";
 
@@ -39,11 +41,13 @@ import { UsageTab } from "./usage-tab";
  * screen record what the operator already pays and has already decided.
  */
 
-type Tab = "usage" | "stack" | "agents" | "models" | "projects" | "money" | "system" | "friction";
+type Tab = "outcomes" | "usage" | "stack" | "agents" | "specialists" | "models" | "projects" | "money" | "system" | "friction";
 
 const TABS = [
+  { value: "outcomes" as const, label: "Outcomes" },
   { value: "usage" as const, label: "Usage" },
   { value: "agents" as const, label: "Agents" },
+  { value: "specialists" as const, label: "Specialists" },
   { value: "stack" as const, label: "AI Stack" },
   { value: "models" as const, label: "Models" },
   { value: "projects" as const, label: "Workspaces" },
@@ -156,7 +160,6 @@ function Operations({
         <div className="flex flex-wrap items-center gap-2">
         {/* The power-user surfaces, one click away rather than in the sidebar. */}
         <QuietLink to="/agent">Hermes console</QuietLink>
-        <QuietLink to="/agents">Team</QuietLink>
         <QuietLink to="/workers">Worker jobs</QuietLink>
         <SegmentedControl
           label="Range"
@@ -184,9 +187,11 @@ function Operations({
       </div>
 
       <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="pt-8">
+        {tab === "outcomes" ? <OutcomesTab /> : null}
         {tab === "usage" ? <UsageTab data={data} /> : null}
         {tab === "stack" ? <AiStackTab data={data} /> : null}
         {tab === "agents" ? <AgentsTab data={data} /> : null}
+        {tab === "specialists" ? <SpecialistsTab /> : null}
         {tab === "models" ? <Breakdown rows={data.models} label="By model" empty="No run has reported which model it used." /> : null}
         {tab === "projects" ? (
           <Breakdown rows={data.projects} label="By workspace" by="cost" empty="No usage has been attributed to a workspace yet." />

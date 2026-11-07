@@ -1,9 +1,9 @@
 import { Archive, ArchiveRestore, BookmarkPlus, Check, Clock, ExternalLink, FileDown, Link2, NotebookPen, NotebookText, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { formatTimestamp, LEARNING_SOURCE_LABELS, type LearningSource } from "@shared/learning-types";
 import { AppShell, PageLoader, FilterToolbar } from "@/components/os";
-import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs, Tag } from "@/components/paper";
+import { PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperStage, PaperTabs } from "@/components/paper";
 import { useNavigationItems } from "@/config/use-navigation";
 import { formatRelativeTime } from "@/lib/format";
 import { useDeleteSource, useImportSource, useLearningLibrary, useUpdateSource } from "@/lib/agentos/learning";
@@ -18,12 +18,10 @@ import { LearningCapture, type CaptureContext } from "./learning-capture";
 import { groupLibrary, isLearningTab, progressShare, resumeAt, tagsFromText, type LearningTab } from "./learning-model";
 import { NotebookLibrary } from "./notebook-library";
 import { SavedLearning } from "./saved-learning";
-import { useOptionalSpotify } from "./spotify-context-value";
-import { SpotifyPanel } from "./spotify-player";
 import { YouTubePlayer, type YouTubePlayerHandle } from "./youtube-player";
 
 /**
- * Learning: watch, listen and research — and capture what was learned.
+ * Learning: watch and research — and capture what was learned.
  *
  * Media-first and quiet. A pasted address is saved to the library and plays
  * through the service's own player; the one action that matters while it
@@ -37,7 +35,6 @@ import { YouTubePlayer, type YouTubePlayerHandle } from "./youtube-player";
 const TABS: ReadonlyArray<{ value: LearningTab; label: string }> = [
   { value: "discover", label: "Discover" },
   { value: "youtube", label: "YouTube" },
-  { value: "spotify", label: "Spotify" },
   { value: "notebooks", label: "Notebooks" },
   { value: "saved", label: "Saved" },
 ];
@@ -57,6 +54,8 @@ export function LearningPage() {
   const [params, setParams] = useSearchParams();
   const library = useLearningLibrary();
 
+  const sources = useMemo(() => (library.data?.sources ?? []).filter((source) => source.kind === "youtube"), [library.data]);
+  const notes = useMemo(() => library.data?.notes ?? [], [library.data]);
   const tab: LearningTab = isLearningTab(params.get("tab")) ? (params.get("tab") as LearningTab) : "discover";
   const videoId = params.get("video") ?? undefined;
   const requestedT = params.get("t");
@@ -78,13 +77,13 @@ export function LearningPage() {
     [setParams],
   );
 
-  const sources = useMemo(() => library.data?.sources ?? [], [library.data]);
-  const notes = useMemo(() => library.data?.notes ?? [], [library.data]);
   const notebooks = library.data?.notebooks ?? [];
   const selected = sources.find((source) => source.id === videoId && source.kind === "youtube");
 
   const openVideo = (source: LearningSource, at?: number) =>
     update({ tab: tab === "discover" ? "discover" : "youtube", video: source.id, t: at !== undefined ? String(Math.floor(at)) : undefined });
+
+  if (params.get("tab") === "spotify") return <Navigate to="/music" replace />;
 
   return (
     <AppShell
@@ -131,7 +130,6 @@ export function LearningPage() {
             <Discover sources={sources} onOpen={openVideo} onTab={(next) => update({ tab: next })} onNote={(id) => update({ tab: "saved", note: id })} />
           ) : null}
           {library.data && tab === "youtube" ? <VideoLibrary sources={sources} selectedId={selected?.id} onOpen={openVideo} /> : null}
-          {tab === "spotify" ? <SpotifyPanel connectResult={params.get("spotify") ?? undefined} /> : null}
           {library.data && tab === "notebooks" ? <NotebookLibrary notebooks={notebooks} sources={sources} notes={notes} /> : null}
           {library.data && tab === "saved" ? <SavedLearning notes={notes} sources={sources} selectedId={noteId} onSelect={(id) => update({ note: id })} /> : null}
         </div>
@@ -166,15 +164,15 @@ function ImportBar({ onOpened }: { onOpened: (source: LearningSource, at?: numbe
   };
 
   return (
-    <form onSubmit={submit} className="w-full max-w-[560px]" aria-label="Save a video or track">
+    <form onSubmit={submit} className="w-full max-w-[560px]" aria-label="Save a video">
       <div className="flex gap-2">
         <label className="relative flex-1">
           <Link2 className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
           <input
             value={url}
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="Paste a YouTube or Spotify link"
-            aria-label="YouTube or Spotify link"
+            placeholder="Paste a YouTube link"
+            aria-label="YouTube link"
             className={cn(PAPER_INPUT, "min-h-10 w-full pl-9")}
           />
         </label>
@@ -338,28 +336,12 @@ function Discover({
   onNote: (id: string) => void;
 }) {
   const library = useLearningLibrary();
-  const spotify = useOptionalSpotify();
   const groups = groupLibrary(sources);
   const notes = (library.data?.notes ?? []).filter((note) => !note.archived).slice(0, 6);
   const notebooks = (library.data?.notebooks ?? []).slice(0, 4);
-  const track = spotify?.ready ? spotify.playback?.track : undefined;
 
   return (
     <div className="space-y-10">
-      {track ? (
-        <section aria-label="Listening" className="flex items-center gap-4 border border-paper-mist bg-paper-white p-4">
-          {track.imageUrl ? <img src={track.imageUrl} alt="" className="size-14 object-cover" referrerPolicy="no-referrer" /> : null}
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] text-paper-sage">{spotify?.playback?.isPlaying ? "Listening" : "Paused"}</p>
-            <p className="truncate text-[16px] font-medium">{track.name}</p>
-            <p className="truncate text-[13px] text-paper-sage">{track.artists.join(", ")}</p>
-          </div>
-          <PaperButton variant="ghost" onClick={() => onTab("spotify")}>
-            Open player
-          </PaperButton>
-        </section>
-      ) : null}
-
       <section aria-label="Continue">
         <h2 className="text-[13px] font-semibold text-paper-char">Continue</h2>
         {groups.continueWatching.length === 0 ? (
@@ -433,17 +415,10 @@ function Discover({
           <ul className="mt-2 divide-y divide-paper-mist">
             {groups.watchLater.slice(0, 6).map((source) => (
               <li key={source.id}>
-                {source.kind === "youtube" ? (
-                  <button type="button" onClick={() => onOpen(source)} className={cn("flex w-full cursor-pointer items-center gap-3 py-2 text-left hover:bg-paper-linen", PAPER_FOCUS)}>
-                    {source.thumbnailUrl ? <img src={source.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-10 w-16 shrink-0 object-cover" /> : null}
-                    <span className="min-w-0 flex-1 truncate text-[14px]">{source.title}</span>
-                  </button>
-                ) : (
-                  <a href={source.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 py-2 text-[14px] hover:bg-paper-linen">
-                    <span className="truncate">{source.title}</span>
-                    <Tag>Spotify</Tag>
-                  </a>
-                )}
+                <button type="button" onClick={() => onOpen(source)} className={cn("flex w-full cursor-pointer items-center gap-3 py-2 text-left hover:bg-paper-linen", PAPER_FOCUS)}>
+                  {source.thumbnailUrl ? <img src={source.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-10 w-16 shrink-0 object-cover" /> : null}
+                  <span className="min-w-0 flex-1 truncate text-[14px]">{source.title}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -470,8 +445,8 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
         : filter === "progress"
           ? groups.continueWatching
           : filter === "finished"
-            ? [...groups.videos, ...groups.tracks].filter((source) => source.finished)
-            : [...groups.videos, ...groups.tracks];
+            ? groups.videos.filter((source) => source.finished)
+            : groups.videos;
 
   return (
     <div>
@@ -496,20 +471,8 @@ function VideoLibrary({ sources, selectedId, onOpen }: { sources: LearningSource
       <ul className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {shown.map((source) => (
           <li key={source.id} className="group/card">
-            {source.kind === "youtube" ? (
-              <>
-                <VideoCard source={source} active={source.id === selectedId} onOpen={() => onOpen(source)} />
-                {ideaFor.get(source.id) ? <IdeaLine idea={ideaFor.get(source.id)!} /> : null}
-              </>
-            ) : (
-              <a href={source.url} target="_blank" rel="noopener noreferrer" className="block">
-                <span className="block aspect-video overflow-hidden bg-paper-linen">
-                  {source.thumbnailUrl ? <img src={source.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-full object-cover" /> : null}
-                </span>
-                <span className="mt-2 block truncate text-[14px] font-medium">{source.title}</span>
-                <span className="block text-[13px] text-paper-sage">Spotify</span>
-              </a>
-            )}
+            <VideoCard source={source} active={source.id === selectedId} onOpen={() => onOpen(source)} />
+            {ideaFor.get(source.id) ? <IdeaLine idea={ideaFor.get(source.id)!} /> : null}
             <div className="mt-1 flex gap-1 opacity-70 group-hover/card:opacity-100">
               <button
                 type="button"

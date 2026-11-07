@@ -169,17 +169,17 @@ test.describe("Compatibility", () => {
     await expect(page.getByRole("tab", { name: "Creative", selected: true })).toBeVisible();
   });
 
-  test("the agents page is reached from Agents and still loads", async ({ page }) => {
+  test("the specialists are a tab on Operations, and the old address lands there", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("complementary", { name: "Primary navigation" }).getByRole("link", { name: "Agents" }).click();
-    await expect(page).toHaveURL(/\/agents$/);
-    await expect(page.locator("[data-agentos-page]")).toHaveAttribute("data-agentos-page", "agents");
-    await expect(page.getByRole("link", { name: "Agents", current: "page" })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Primary navigation" }).getByRole("link", { name: "Agents" })).toHaveCount(0);
+    await page.goto("/agents");
+    await expect(page).toHaveURL(/\/operations\?tab=specialists$/);
+    await expect(page.getByRole("tab", { name: "Specialists", selected: true })).toBeVisible();
+    await expect(page.getByRole("searchbox", { name: "Find a specialist" }).or(page.getByRole("textbox", { name: "Find a specialist" }))).toBeVisible();
 
     await page.goto("/operations?tab=system");
     await expect(page.getByRole("tab", { name: "System", selected: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Worker jobs" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Team" }).first()).toBeVisible();
   });
 
   test("⌘K offers everyday creation and navigation", async ({ page }) => {

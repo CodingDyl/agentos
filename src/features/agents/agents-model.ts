@@ -1,24 +1,9 @@
-import type { AgentSpend, AgentSummary } from "@shared/agent-types";
+import type { AgentSummary } from "@shared/agent-types";
 
 export type AgentStatusFilter = "all" | "busy" | "idle";
 
-export function spendLabel(spend: Pick<AgentSpend, "usd" | "ceilingUsd">): string {
-  const used = `$${spend.usd.toFixed(2)}`;
-  if (spend.ceilingUsd <= 0) return `${used} this month`;
-  return `${used} / $${spend.ceilingUsd.toFixed(0)}`;
-}
-
-export function spendRatio(spend: Pick<AgentSpend, "usd" | "ceilingUsd">): number | undefined {
-  if (spend.ceilingUsd <= 0) return undefined;
-  return spend.usd / spend.ceilingUsd;
-}
-
-export function spendTone(spend: Pick<AgentSpend, "usd" | "ceilingUsd">): "ink" | "amber" | "green" | "flame" {
-  const ratio = spendRatio(spend);
-  if (ratio === undefined) return "ink";
-  if (ratio >= 1) return "flame";
-  if (ratio >= 0.8) return "amber";
-  return "green";
+export function jobsLabel(jobs: number): string {
+  return `${jobs} ${jobs === 1 ? "job" : "jobs"} this month`;
 }
 
 export function filterAgents(

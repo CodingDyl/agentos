@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { WorkerJob } from "../../../shared/worker-types";
+import { MEMORY_CONFLICT_RULE } from "../../../shared/memory-ownership";
 import { buildContextPacket, validateJobRequest } from "../context-builder";
 
 /**
@@ -159,5 +160,11 @@ describe("a job's skill", () => {
 
   it("is absent when the job has no skill", () => {
     assert.doesNotMatch(buildContextPacket(job()), /Skill:/);
+  });
+});
+
+describe("memory ownership", () => {
+  it("tells every worker which memory wins a disagreement", () => {
+    assert.ok(buildContextPacket(job()).includes(MEMORY_CONFLICT_RULE));
   });
 });
