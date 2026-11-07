@@ -90,6 +90,11 @@ export interface RetrievalRequest {
   budgetTokens?: number;
   /** Required notes to leave out because the caller already sends them. */
   skipRequired?: boolean;
+  /**
+   * Notes under `archive/` are never loaded by default: the vault policy says
+   * archived memory is for a person to find, not for agents to treat as true.
+   */
+  includeArchive?: boolean;
 }
 
 export async function retrieveMemoryContext(
@@ -170,13 +175,13 @@ export async function retrieveMemoryContext(
   const candidates = [...index.notes.values()]
     // Archived memory is kept for a person to find and restore, not handed
     // to agents as if it were still true.
-    .filter((note) => !alreadyIn.has(note.id) && !isArchived(note))
+    .filter((note) => !alreadyIn.has(note.id) && !isArchived(note) && (request.includeArchive || !note.id.startsWith("archive/")))
     .map((note) => {
       let { score } = scoreNote(note, terms, phrase);
       if (score <= 0) return { note, score: 0 };
       if (note.id.startsWith(projectDir)) score *= 1.5;
       else if (note.id.startsWith("projects/")) score *= 0.4;
-      if (note.id.startsWith("archive/")) score *= 0.3;
+      if (note.id.startsWith("archive/")) score *= 0.3; // only reachable with includeArchive
       if (linked.has(note.id)) score *= 1.3;
       return { note, score };
     })
