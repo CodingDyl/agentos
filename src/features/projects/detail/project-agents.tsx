@@ -51,7 +51,7 @@ export function ProjectAgents({
           label="Specialists"
           action={
             <Link
-              to="/agents"
+              to="/operations?tab=specialists"
               className="os-focus-ring os-meta -mx-1 inline-flex min-h-8 cursor-pointer items-center rounded-md px-1 text-os-subtle transition-colors duration-150 hover:text-foreground"
             >
               Team →

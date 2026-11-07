@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { AgentSummary } from "@shared/agent-types";
-import { csv, filterAgents, parseCsv, spendLabel, spendRatio, spendTone } from "../agents-model";
+import { csv, filterAgents, jobsLabel, parseCsv } from "../agents-model";
 
 function agent(partial: Partial<AgentSummary> & Pick<AgentSummary, "id" | "name">): AgentSummary {
   return {
@@ -27,15 +27,10 @@ function agent(partial: Partial<AgentSummary> & Pick<AgentSummary, "id" | "name"
   };
 }
 
-describe("agent spend labels", () => {
-  it("formats spend against a ceiling", () => {
-    assert.equal(spendLabel({ usd: 12.5, ceilingUsd: 40 }), "$12.50 / $40");
-    assert.equal(spendLabel({ usd: 3, ceilingUsd: 0 }), "$3.00 this month");
-  });
-
-  it("turns over-ceiling spend flame", () => {
-    assert.equal(spendTone({ usd: 50, ceilingUsd: 40 }), "flame");
-    assert.equal(spendRatio({ usd: 20, ceilingUsd: 40 }), 0.5);
+describe("jobsLabel", () => {
+  it("counts the month's jobs in plain words", () => {
+    assert.equal(jobsLabel(1), "1 job this month");
+    assert.equal(jobsLabel(12), "12 jobs this month");
   });
 });
 
