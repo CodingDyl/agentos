@@ -2,7 +2,6 @@ import {
   Activity,
   BookOpen,
   Briefcase,
-  BriefcaseBusiness,
   GraduationCap,
   Bot,
   CalendarClock,
@@ -32,15 +31,13 @@ import type { AppShellNavigationItem } from "@/components/os";
  * BUSINESS    Business · Traction · Finance
  * WORK        Workspaces · Delivery · Coder · Creative · Operator
  * MEMORY      HUB · Memory · Knowledge
- * OPERATIONS  Operations · Agents · Career · Automations · Connectors · Activity
+ * OPERATIONS  Operations · Agents · Automations · Connectors · Activity
  *             Music and Compass stay in the quiet footer
  * ```
  *
  * The structure is specified in DESIGN.md, Navigation. Dashboard is the old
  * Today label: same `/` route, same screen. HUB is the
- * old Learning tab: same `/learning` route. Career sits with Operations
- * because employment admin is machinery beside the agent network, not a
- * workspace.
+ * old Learning tab: same `/learning` route.
  */
 export const navigationItems: AppShellNavigationItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard, section: "primary" },
@@ -59,7 +56,6 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "memory" },
   { label: "Operations", href: "/operations", icon: Gauge, section: "operations" },
   { label: "Agents", href: "/agents", icon: Bot, section: "operations" },
-  { label: "Career", href: "/career", icon: BriefcaseBusiness, section: "operations" },
   { label: "Automations", href: "/automations", icon: CalendarClock, section: "operations" },
   { label: "Connectors", href: "/connectors", icon: Plug, section: "operations" },
   { label: "Activity", href: "/activity", icon: Activity, section: "operations" },

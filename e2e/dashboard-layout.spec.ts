@@ -90,6 +90,17 @@ test.describe("Dashboard hierarchy", () => {
     await noHorizontalOverflow(page);
   });
 
+  test("fits the wrap-up in a 320px window, at any hour", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await openDashboard(page);
+    await page.getByRole("button", { name: "Wrap up", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Wrap up the day" })).toBeVisible();
+    await noHorizontalOverflow(page);
+    // Against its own column too: an input's width follows the platform's font,
+    // so this form can spill out on Linux while still inside the window on a Mac.
+    expect(await page.locator("form:has(#loose-ends)").evaluate((form) => form.getBoundingClientRect().width <= (form.parentElement?.clientWidth ?? 0))).toBe(true);
+  });
+
   test("shows approvals as a queue when waiting, and drops the panel when cleared", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openDashboard(page);
@@ -97,7 +108,10 @@ test.describe("Dashboard hierarchy", () => {
     await expect(queue).toBeVisible();
     expect((await queue.boundingBox())?.y ?? 0).toBeLessThan((await page.getByRole("region", { name: "Your three" }).boundingBox())?.y ?? 0);
 
+    // Wait for the server's own answer: the button hides the cards before it has one.
+    const reread = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/mission-control");
     await queue.getByRole("button", { name: "Clear all" }).click();
+    await reread;
     await expect(queue).toHaveCount(0);
     await expect(page.getByRole("link", { name: "No approvals waiting" })).toBeVisible();
     await expect(page.locator("#needs-you").getByRole("button", { name: /cleared/ })).toBeVisible();

@@ -22,7 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Full history: the repo rules diff this branch against production.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -34,6 +37,13 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # Rules from CLAUDE.md that a script can check. The PR body goes in
+      # through env, never interpolated into the shell.
+      - name: Repo rules
+        run: npm run check:rules
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
 
       - name: Typecheck
         run: npm run typecheck

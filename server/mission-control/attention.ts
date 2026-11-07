@@ -254,7 +254,7 @@ export function automationAttention(
       ? (automation.lastRun?.detail ?? "The last scheduled run failed.")
       : warnings.join(" "),
     action: { label: "View automations", href: "/automations" },
-    createdAt: automation.lastRun?.timestamp ?? new Date().toISOString(),
+    createdAt: automation.lastRun?.timestamp ?? firstSeen(`automation-${automation.id}`),
   };
 }
 
@@ -278,7 +278,7 @@ export function projectAttention(
     description: project.status ?? "This project is blocked.",
     project: project.name,
     action: { label: "Open workspace", href: `/workspaces/${project.slug}` },
-    createdAt: project.lastActivity ?? new Date().toISOString(),
+    createdAt: project.lastActivity ?? firstSeen(`project-${project.slug}`),
   };
 }
 
@@ -339,6 +339,30 @@ export function failedJobAttention(
   return items;
 }
 
+/**
+ * When an item with no time of its own (an unreadable source, a blocked
+ * project with no recorded activity) was first seen. A card is cleared by
+ * `id@createdAt`, so a time that moved on every read would bring a cleared card
+ * straight back. It stays put while the item lasts, and an item that goes away
+ * and comes back is a new card.
+ */
+const firstSeenAt = new Map<string, string>();
+
+const systemId = (label: string) => `system-${label.toLowerCase().replace(/\s+/g, "-")}`;
+
+function firstSeen(id: string): string {
+  const known = firstSeenAt.get(id);
+  if (known) return known;
+  const now = new Date().toISOString();
+  firstSeenAt.set(id, now);
+  return now;
+}
+
+function forgetGone(present: readonly AttentionItem[]): void {
+  const ids = new Set(present.map((item) => item.id));
+  for (const id of [...firstSeenAt.keys()]) if (!ids.has(id)) firstSeenAt.delete(id);
+}
+
 export function buildAttention(input: AttentionInput): AttentionItem[] {
   const items: AttentionItem[] = [
     ...failedJobAttention(input.jobs, input.history),
@@ -346,15 +370,16 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     ...input.automations.flatMap((entry) => automationAttention(entry) ?? []),
     ...input.projects.flatMap((project) => projectAttention(project) ?? []),
     ...input.degraded.map((source) => ({
-      id: `system-${source.label.toLowerCase().replace(/\s+/g, "-")}`,
+      id: systemId(source.label),
       type: "system" as const,
       severity: "info" as const,
       title: `${source.label} could not be read`,
       description: source.detail,
       action: { label: "Open activity", href: "/activity" },
-      createdAt: new Date().toISOString(),
+      createdAt: firstSeen(systemId(source.label)),
     })),
   ];
+  forgetGone(items);
 
   return sortAttentionItems(items);
 }

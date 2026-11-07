@@ -86,7 +86,6 @@ import { isReportableType, recordActivity } from "./activity/ui-events";
 import { getValidationSprint } from "./validation-sprint/sprint";
 import { businessRouter } from "./business/routes";
 import { tractionRouter } from "./traction/routes";
-import { careerRouter } from "./career/routes";
 import { voiceRouter } from "./voice/routes";
 import { memoryRouter } from "./memory/routes";
 import { grokBotRouter } from "./workers/grok-bot-routes";
@@ -258,6 +257,7 @@ import { proposeCompletion } from "./agentos/task-completion";
 import { CloseoutError, completeTaskWithCloseout, draftCloseout } from "./tasks/closeout";
 import { CompleteTaskRequestSchema } from "../shared/task-closeout-types";
 import { frictionRouter } from "./friction/routes";
+import { outcomesRouter } from "./outcomes/routes";
 import { learningRouter, spotifyRouter } from "./learning/routes";
 import { readTaskLink } from "./agentos/task-jobs";
 import { prepareMilestoneDelegation, startMilestoneDelegation } from "./agentos/milestone-delegation";
@@ -423,8 +423,6 @@ app.use(express.json({ limit: "1mb" }));
 
 /** Traction: prospects, the daily acquisition queue, offers and experiments. */
 app.use("/api/traction", tractionRouter);
-/** Career: employment admin, the work log, growth, and the timesheet / soccer / LinkedIn runbooks. */
-app.use("/api/career", careerRouter);
 
 /** Business: the companies being run and their clients, read from Virtec. */
 app.use("/api/business", businessRouter);
@@ -476,6 +474,7 @@ app.use("/api/memory", memoryRouter);
 /** Coder: in-app IDE with Monaco editor, file tree, and PTY terminals. */
 app.use("/api/coder", coderRouter);
 app.use("/api/friction", frictionRouter);
+app.use("/api/outcomes", outcomesRouter);
 app.use("/api/learning", learningRouter);
 app.use("/api/spotify", spotifyRouter);
 
