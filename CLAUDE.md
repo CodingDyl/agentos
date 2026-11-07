@@ -17,6 +17,10 @@ AgentOS is the owner's personal tool and only they use it. Merging to `productio
 - **Enforced by script, not memory.** A Claude Code hook (`scripts/hooks/guard-bash.mjs`) refuses force-pushes, branch deletes, rebases, `reset --hard`, staging `.env*` files, credentials in remote URLs, and `gh pr merge` while checks aren't green. CI's `Repo rules` step (`npm run check:rules`) fails tracked `.env*` files, secret-shaped strings, `shell: true`, new server modules without tests, new write routes without zod, and `fix/` branches without a test (or a `Not testable:` line in the PR). **A blocked command means ask the owner. Never work around it.**
 - **Ask first** before: force-pushing, deleting branches, rewriting history, or anything that sends email, moves money, or touches live client data.
 
+## Corrections
+
+When the owner corrects what an agent did, the test comes first: follow `.claude/skills/correction-to-regression/SKILL.md`. A correction in Operations → Friction can't be marked fixed until a test covers it.
+
 ## Memory
 
 When two memories disagree (vault, Claude file memory, live code and data, Honcho, Notion), the lower rank number in `docs/memory-ownership.md` wins. Fix or flag the loser, and propose vault changes with a `Remember:` line rather than overwriting.

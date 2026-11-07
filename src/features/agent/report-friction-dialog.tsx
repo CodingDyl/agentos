@@ -19,6 +19,13 @@ const FREQUENCIES: ReadonlyArray<{ value: FrictionFrequency; label: string }> = 
   { value: "often", label: "Often" },
 ];
 
+type ReportKind = "friction" | "correction";
+
+const KINDS: ReadonlyArray<{ value: ReportKind; label: string }> = [
+  { value: "friction", label: "Annoying" },
+  { value: "correction", label: "Agent got it wrong" },
+];
+
 const SEVERITIES: ReadonlyArray<{ value: FrictionSeverity; label: string }> = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
@@ -30,7 +37,9 @@ export function ReportFrictionDialog({ route, onClose }: { route: string; onClos
   const report = useReportFriction();
   const input = useRef<HTMLTextAreaElement>(null);
 
+  const [kind, setKind] = useState<ReportKind>("friction");
   const [description, setDescription] = useState("");
+  const [expected, setExpected] = useState("");
   const [frequency, setFrequency] = useState<FrictionFrequency>("sometimes");
   const [severity, setSeverity] = useState<FrictionSeverity>("medium");
   const [saved, setSaved] = useState(false);
@@ -47,10 +56,18 @@ export function ReportFrictionDialog({ route, onClose }: { route: string; onClos
     return () => clearTimeout(timer);
   }, [onClose, saved]);
 
+  const correction = kind === "correction";
+  const ready = description.trim().length >= 3 && (!correction || expected.trim().length >= 3);
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (description.trim().length < 3 || report.isPending) return;
-    report.mutate({ description: description.trim(), route, frequency, severity }, { onSuccess: () => setSaved(true) });
+    if (!ready || report.isPending) return;
+    report.mutate(
+      correction
+        ? { description: description.trim(), route, frequency, severity, kind, expected: expected.trim(), source: { type: "manual" } }
+        : { description: description.trim(), route, frequency, severity },
+      { onSuccess: () => setSaved(true) },
+    );
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -84,18 +101,38 @@ export function ReportFrictionDialog({ route, onClose }: { route: string; onClos
         </header>
 
         <div className="space-y-5 px-6 py-5">
+          <div>
+            <FieldLabel>What is it?</FieldLabel>
+            <SegmentedControl label="What is it?" options={KINDS} value={kind} onChange={setKind} />
+          </div>
+
           <label className="block">
-            <FieldLabel>What annoyed you?</FieldLabel>
+            <FieldLabel>{correction ? "What did the agent get wrong?" : "What annoyed you?"}</FieldLabel>
             <textarea
               ref={input}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
               maxLength={1000}
-              placeholder="I can't edit existing memory."
+              placeholder={correction ? "It added the VAT twice." : "I can't edit existing memory."}
               className={cn(PAPER_INPUT, "w-full resize-y py-2 text-[14px] leading-6")}
             />
           </label>
+
+          {correction ? (
+            <label className="block">
+              <FieldLabel>What should have happened?</FieldLabel>
+              <textarea
+                value={expected}
+                onChange={(event) => setExpected(event.target.value)}
+                rows={2}
+                maxLength={1000}
+                placeholder="The VAT is added once."
+                className={cn(PAPER_INPUT, "w-full resize-y py-2 text-[14px] leading-6")}
+              />
+              <span className="mt-1 block text-[13px] leading-5 text-paper-sage">It can't be called fixed until a test fails on the wrong behaviour.</span>
+            </label>
+          ) : null}
 
           <div>
             <FieldLabel>Page</FieldLabel>
@@ -126,7 +163,7 @@ export function ReportFrictionDialog({ route, onClose }: { route: string; onClos
           <span className="text-[13px] text-paper-sage" role="status">
             {saved ? "Saved. Review it under Operations → Friction." : "⌘↵ to save"}
           </span>
-          <PaperButton type="submit" variant="amber" disabled={description.trim().length < 3 || report.isPending || saved}>
+          <PaperButton type="submit" variant="amber" disabled={!ready || report.isPending || saved}>
             {report.isPending ? "Saving…" : saved ? "Saved" : "Save"}
           </PaperButton>
         </footer>

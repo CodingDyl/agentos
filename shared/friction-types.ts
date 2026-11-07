@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WorkerIdSchema } from "./worker-ids";
 
 /**
  * Friction: the small annoyances of using AgentOS, written down the moment
@@ -17,6 +18,42 @@ export type FrictionFrequency = z.infer<typeof FrictionFrequencySchema>;
 export type FrictionSeverity = z.infer<typeof FrictionSeveritySchema>;
 export type FrictionStatus = z.infer<typeof FrictionStatusSchema>;
 
+/**
+ * A correction is friction with a duty attached: the owner said an agent got
+ * something wrong, so a test must exist that fails on the wrong behaviour
+ * before it can be called fixed.
+ */
+export const FRICTION_KINDS = ["friction", "correction"] as const;
+export const FrictionKindSchema = z.enum(FRICTION_KINDS);
+export type FrictionKind = z.infer<typeof FrictionKindSchema>;
+
+export const CORRECTION_SOURCE_TYPES = ["manual", "job-rejected", "job-revision", "visual-revision"] as const;
+export const CorrectionSourceSchema = z.object({
+  type: z.enum(CORRECTION_SOURCE_TYPES),
+  jobId: z.string().optional(),
+  /** The job's attempt, so one job and attempt is one correction. */
+  attempt: z.number().optional(),
+  project: z.string().optional(),
+});
+export type CorrectionSource = z.infer<typeof CorrectionSourceSchema>;
+
+export const REGRESSION_STATUSES = ["needed", "in-progress", "covered", "not-testable"] as const;
+export const RegressionSchema = z.object({
+  status: z.enum(REGRESSION_STATUSES),
+  testPath: z.string().optional(),
+  jobId: z.string().optional(),
+  reason: z.string().optional(),
+});
+export type Regression = z.infer<typeof RegressionSchema>;
+
+/** A test path is repo-relative: never absolute, never climbing out with `..`. */
+export function isSafeTestPath(value: string): boolean {
+  const path = value.trim();
+  if (!path || path.length > 300) return false;
+  if (path.startsWith("/") || path.startsWith("\\") || /^[A-Za-z]:/.test(path)) return false;
+  return !path.split(/[\\/]/).includes("..");
+}
+
 export const FrictionItemSchema = z.object({
   id: z.string(),
   description: z.string(),
@@ -26,21 +63,58 @@ export const FrictionItemSchema = z.object({
   status: FrictionStatusSchema,
   createdAt: z.string(),
   updatedAt: z.string().optional(),
+  /** Items saved before corrections existed have no kind, and load as plain friction. */
+  kind: FrictionKindSchema.default("friction"),
+  /** What should have happened. Required for a correction. */
+  expected: z.string().max(1000).optional(),
+  source: CorrectionSourceSchema.optional(),
+  regression: RegressionSchema.optional(),
 });
 
 export type FrictionItem = z.infer<typeof FrictionItemSchema>;
 
-export const ReportFrictionRequestSchema = z.object({
-  description: z.string().trim().min(3).max(1000),
-  route: z.string().trim().max(300).optional(),
-  frequency: FrictionFrequencySchema,
-  severity: FrictionSeveritySchema,
-});
+export const ReportFrictionRequestSchema = z
+  .object({
+    description: z.string().trim().min(3).max(1000),
+    route: z.string().trim().max(300).optional(),
+    frequency: FrictionFrequencySchema,
+    severity: FrictionSeveritySchema,
+    kind: FrictionKindSchema.optional(),
+    expected: z.string().trim().max(1000).optional(),
+    source: CorrectionSourceSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.kind === "correction" && (value.expected?.length ?? 0) < 3) {
+      context.addIssue({ code: "custom", path: ["expected"], message: "Say what should have happened." });
+    }
+  });
 
 export type ReportFrictionRequest = z.infer<typeof ReportFrictionRequestSchema>;
 
 export const UpdateFrictionRequestSchema = z.object({
   status: FrictionStatusSchema,
+});
+
+/** Marking a correction's regression test by hand: covered by a test at a path, or not testable, with a reason. */
+export const SetRegressionRequestSchema = z
+  .object({
+    status: z.enum(["covered", "not-testable"]),
+    testPath: z.string().trim().optional(),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.status === "covered" && !(value.testPath && isSafeTestPath(value.testPath))) {
+      context.addIssue({ code: "custom", path: ["testPath"], message: "Give the test's path inside the repository, with no .. and not absolute." });
+    }
+    if (value.status === "not-testable" && !value.reason) {
+      context.addIssue({ code: "custom", path: ["reason"], message: "Say why it can't be tested." });
+    }
+  });
+export type SetRegressionRequest = z.infer<typeof SetRegressionRequestSchema>;
+
+export const StartRegressionJobRequestSchema = z.object({
+  /** "auto" lets routing choose. Tests name the mock worker so nothing real runs. */
+  worker: z.union([WorkerIdSchema, z.literal("auto")]).default("auto"),
 });
 
 export const FRICTION_FREQUENCY_WEIGHT: Record<FrictionFrequency, number> = { once: 1, sometimes: 2, often: 3 };

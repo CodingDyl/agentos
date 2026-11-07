@@ -23,6 +23,11 @@ export function frictionTier(priority: number): FrictionTier {
   return "low";
 }
 
+/** A correction whose test is still owed comes before everything else. */
+function needsTest(item: FrictionItem): boolean {
+  return item.kind === "correction" && (item.regression?.status === "needed" || item.regression?.status === "in-progress");
+}
+
 export function rankFriction(items: readonly FrictionItem[]): FrictionResponse {
   const ranked: RankedFrictionItem[] = items.map((item) => {
     const priority = frictionPriority(item);
@@ -33,6 +38,7 @@ export function rankFriction(items: readonly FrictionItem[]): FrictionResponse {
     .filter((item) => item.status === "open")
     .sort(
       (a, b) =>
+        Number(needsTest(b)) - Number(needsTest(a)) ||
         b.priority - a.priority ||
         FRICTION_SEVERITY_WEIGHT[b.severity] - FRICTION_SEVERITY_WEIGHT[a.severity] ||
         b.createdAt.localeCompare(a.createdAt) ||

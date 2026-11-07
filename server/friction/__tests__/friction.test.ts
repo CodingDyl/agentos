@@ -10,6 +10,7 @@ const item = (overrides: Partial<FrictionItem>): FrictionItem => ({
   frequency: "once",
   severity: "low",
   status: "open",
+  kind: "friction",
   createdAt: "2026-10-01T00:00:00.000Z",
   ...overrides,
 });
@@ -31,6 +32,15 @@ describe("friction ranking", () => {
     assert.deepEqual(ranked.open.map((entry) => entry.id), ["closeout", "memory", "nav"]);
     assert.deepEqual(ranked.open.map((entry) => entry.tier), ["high", "high", "low"]);
     assert.deepEqual(ranked.closed.map((entry) => entry.id), ["fixed"]);
+  });
+
+  it("puts a correction that still needs a test first, even below higher-priority friction", () => {
+    const ranked = rankFriction([
+      item({ id: "big", frequency: "often", severity: "high" }),
+      item({ id: "owed", kind: "correction", frequency: "once", severity: "low", regression: { status: "needed" } }),
+      item({ id: "done", kind: "correction", frequency: "once", severity: "low", regression: { status: "covered", testPath: "a.test.ts" } }),
+    ]);
+    assert.deepEqual(ranked.open.map((entry) => entry.id), ["owed", "big", "done"]);
   });
 
   it("breaks ties on severity, then the newer report", () => {
