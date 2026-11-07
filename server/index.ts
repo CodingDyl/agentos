@@ -259,6 +259,7 @@ import { CloseoutError, completeTaskWithCloseout, draftCloseout } from "./tasks/
 import { CompleteTaskRequestSchema } from "../shared/task-closeout-types";
 import { frictionRouter } from "./friction/routes";
 import { outcomesRouter } from "./outcomes/routes";
+import { captureJobCorrection } from "./friction/corrections";
 import { learningRouter, spotifyRouter } from "./learning/routes";
 import { readTaskLink } from "./agentos/task-jobs";
 import { prepareMilestoneDelegation, startMilestoneDelegation } from "./agentos/milestone-delegation";
@@ -2879,6 +2880,7 @@ app.post("/api/worker-jobs/:id/visual-revision", async (request, response) => {
       return;
     }
 
+    await captureJobCorrection(result.job, "visual-revision");
     response.json({ job: result.job });
   } catch (error) {
     console.error("[agentos] visual revision request failed:", error);
@@ -2896,6 +2898,7 @@ app.post("/api/worker-jobs/:id/revise", async (request, response) => {
       return;
     }
 
+    await captureJobCorrection(result.job, "job-revision");
     response.json({ job: result.job });
   } catch (error) {
     console.error("[agentos] revision request failed:", error);
@@ -2938,6 +2941,7 @@ app.post("/api/worker-jobs/:id/reject", async (request, response) => {
       return;
     }
 
+    await captureJobCorrection(result.job, "job-rejected", request.body?.reason);
     response.json({ job: result.job });
   } catch (error) {
     console.error("[agentos] rejection failed:", error);

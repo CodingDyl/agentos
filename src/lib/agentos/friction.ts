@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FrictionItem, FrictionResponse, FrictionStatus, ReportFrictionRequest } from "@shared/friction-types";
+import type { FrictionItem, FrictionResponse, FrictionStatus, ReportFrictionRequest, SetRegressionRequest } from "@shared/friction-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -48,6 +48,38 @@ export function useUpdateFriction() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: frictionKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Says a test covers a correction, or that it can't be tested, and why. */
+export function useSetRegression() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & SetRegressionRequest) =>
+      request<FrictionItem>(`/api/friction/${encodeURIComponent(id)}/regression`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: frictionKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Starts a worker job that writes the test. Only ever on the owner's press. */
+export function useStartRegressionJob() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      request<{ item: FrictionItem; jobId: string }>(`/api/friction/${encodeURIComponent(id)}/regression-job`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       }),
     onSuccess: () => void client.invalidateQueries({ queryKey: frictionKey() }),
     networkMode: "always",
