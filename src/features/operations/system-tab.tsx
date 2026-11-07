@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { SystemStatus } from "@shared/mission-control-types";
-import { PageLoader } from "@/components/os";
+import { CommandButton, PageLoader } from "@/components/os";
 import { PAPER_FOCUS, PaperCard, PaperSection, Tag } from "@/components/paper";
 import { formatRunTime } from "@/features/automations";
+import { useArchiveOldLogs, useMemoryMaintenance } from "@/lib/agentos/memory";
 import { useMissionControl } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +87,56 @@ export function SystemTab() {
         action={<QuietLink to="/automations">All automations</QuietLink>}
       />
       <StatusList label="Foundation" rows={components} empty="No components reported." action={<QuietLink to="/agent">Hermes console</QuietLink>} />
+      <MemoryUpkeep />
     </div>
+  );
+}
+
+/**
+ * Memory upkeep: daily logs older than about 30 days move to the archive. It
+ * only moves files, never deletes, and never runs by itself: the count is the
+ * whole preview, and the button is the whole trigger.
+ */
+function MemoryUpkeep() {
+  const plan = useMemoryMaintenance();
+  const archive = useArchiveOldLogs();
+  const count = plan.data?.dailyLogs.count;
+
+  return (
+    <PaperSection label="Memory upkeep">
+      <PaperCard className="p-0">
+        <div className="flex items-start gap-3 px-4 py-2.5">
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] leading-6 text-paper-moss">Archive old logs</span>
+            <span className="block text-[13px] leading-5 text-paper-sage">
+              {plan.isPending
+                ? "Checking the vault…"
+                : plan.isError
+                  ? plan.error.message
+                  : archive.isSuccess
+                    ? `${archive.data.moved} moved to the archive.`
+                    : count === 0
+                      ? "Nothing is older than 30 days."
+                      : `${count} daily ${count === 1 ? "log is" : "logs are"} older than 30 days. They move to the archive, and stay readable there.`}
+            </span>
+            {archive.isError ? (
+              <span className="block text-[13px] leading-5 text-paper-flame-deep" role="alert">
+                {archive.error.message}
+              </span>
+            ) : null}
+          </span>
+          <CommandButton
+            variant="secondary"
+            onClick={() => archive.mutate()}
+            loading={archive.isPending}
+            loadingLabel="Archiving"
+            disabled={!count}
+          >
+            Archive
+          </CommandButton>
+        </div>
+      </PaperCard>
+    </PaperSection>
   );
 }
 

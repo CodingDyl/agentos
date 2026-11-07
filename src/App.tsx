@@ -19,7 +19,6 @@ import { DeliveryPage, DeliveryWorkspacePage } from "@/features/delivery";
 import { CompassPage } from "@/features/compass";
 import { PersonasPage, StartupsPage, VenturePage } from "@/features/startups";
 import { FinancePage } from "@/features/finance";
-import { CareerPage } from "@/features/career";
 import { MissionControlPage } from "@/features/mission-control";
 import { AgentDetailPage, OperationsPage } from "@/features/operations";
 import {
@@ -37,7 +36,8 @@ import { KnowledgePage } from "@/features/knowledge";
 import { LibraryPage } from "@/features/reengineer";
 import { IdeaPage, IdeaTray } from "@/features/video-ideas";
 import { MemoryPage } from "@/features/memory";
-import { FocusSessionProvider, LearningPage, MediaDock, SpotifyProvider } from "@/features/learning";
+import { FocusSessionProvider, LearningPage, MediaDock } from "@/features/learning";
+import { MusicPage, SpotifyProvider } from "@/features/music";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
 import { AgentProfilePage } from "@/features/agents";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
@@ -89,7 +89,6 @@ function App() {
           <Route path="/growth" element={<Redirect to="/traction" />} />
           {/* Money: read-only from Investec, the arithmetic done here. */}
           <Route path="/finance" element={<FinancePage />} />
-          <Route path="/career" element={<CareerPage />} />
           {/* Projects are presented as workspaces. The vault still says
               `projects/`; the old URLs redirect with their query strings, so
               every saved `?tab=tasks&task=PP-031` link keeps working. */}
@@ -108,6 +107,7 @@ function App() {
           <Route path="/knowledge/library" element={<LibraryPage />} />
           <Route path="/memory" element={<MemoryPage />} />
           <Route path="/learning" element={<LearningPage />} />
+          <Route path="/music" element={<MusicPage />} />
           <Route path="/learning/ideas/:id" element={<IdeaPage />} />
           <Route path="/hub" element={<Navigate to="/learning" replace />} />
           <Route path="/agent" element={<AgentPage />} />

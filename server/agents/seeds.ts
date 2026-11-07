@@ -220,7 +220,6 @@ export const FLOW_AGENTS: Record<string, string> = {
   "website-rebuild": "virtara-desk",
   reengineer: "site-audit",
   finance: "finance",
-  career: "entelect",
   traction: "growth-lab",
 };
 

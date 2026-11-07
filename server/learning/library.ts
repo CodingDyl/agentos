@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { LearningSource, ProgressRequest, UpdateSourceRequest } from "../../shared/learning-types";
-import { authorize, isConnectorEnabled } from "../connectors/policy";
+import { authorize } from "../connectors/policy";
 import { cleanTags, learningDatabase, parseList } from "./db";
-import { parseSpotifyUrl, spotifyOpenUrl, fetchSpotifyMetadata } from "./spotify-urls";
 import { fetchYouTubeMetadata, parseYouTubeUrl, watchUrl } from "./youtube";
 
 /**
@@ -65,26 +64,20 @@ export interface ImportResult {
   startSeconds?: number;
 }
 
-/** Saves a YouTube or Spotify address to the library. Saving again returns the same source. */
+/** Saves a YouTube address to the library. Saving again returns the same source. */
 export async function importSource(
   input: { url: string; watchLater?: boolean; workspaceId?: string; tags?: string[] },
   fetcher: typeof fetch = fetch,
 ): Promise<ImportResult> {
   const youtube = parseYouTubeUrl(input.url);
-  const spotify = youtube ? undefined : parseSpotifyUrl(input.url);
-  if (!youtube && !spotify) {
-    throw new LearningRequestError("That isn't a YouTube video or a Spotify track, episode, album or playlist address.");
-  }
+  if (!youtube) throw new LearningRequestError("That isn't a YouTube video address.");
 
   // Off in Connectors means AgentOS doesn't contact the service at all.
-  if (youtube) {
-    const decision = authorize("youtube.import_video", { initiator: "person", detail: youtube.videoId });
-    if (!decision.allowed) throw new LearningRequestError(decision.reason, 409);
-  }
-  const contactSpotify = Boolean(spotify) && isConnectorEnabled("spotify");
+  const decision = authorize("youtube.import_video", { initiator: "person", detail: youtube.videoId });
+  if (!decision.allowed) throw new LearningRequestError(decision.reason, 409);
 
-  const kind = youtube ? "youtube" : "spotify";
-  const externalId = youtube ? youtube.videoId : spotify!.uri;
+  const kind = "youtube";
+  const externalId = youtube.videoId;
   const existing = findByExternal(kind, externalId);
   if (existing) {
     const changes: UpdateSourceRequest = {};
@@ -92,14 +85,10 @@ export async function importSource(
     if (input.workspaceId && !existing.workspaceId) changes.workspaceId = input.workspaceId;
     if (input.tags?.length) changes.tags = [...existing.tags, ...input.tags];
     const source = Object.keys(changes).length > 0 ? updateSource(existing.id, changes) : existing;
-    return { source, created: false, startSeconds: youtube?.startSeconds };
+    return { source, created: false, startSeconds: youtube.startSeconds };
   }
 
-  const metadata = youtube
-    ? await fetchYouTubeMetadata(youtube.videoId, fetcher)
-    : contactSpotify
-      ? await fetchSpotifyMetadata(spotify!, fetcher)
-      : { title: `Spotify ${spotify!.type}`, author: undefined, thumbnailUrl: undefined };
+  const metadata = await fetchYouTubeMetadata(youtube.videoId, fetcher);
   const now = new Date().toISOString();
   const id = `ls-${randomUUID().slice(0, 12)}`;
   learningDatabase()
@@ -111,7 +100,7 @@ export async function importSource(
       id,
       kind,
       externalId,
-      youtube ? watchUrl(youtube.videoId) : spotifyOpenUrl(spotify!),
+      watchUrl(youtube.videoId),
       metadata.title,
       metadata.author ?? null,
       metadata.thumbnailUrl ?? null,
@@ -122,7 +111,7 @@ export async function importSource(
       now,
     );
 
-  return { source: getSource(id)!, created: true, startSeconds: youtube?.startSeconds };
+  return { source: getSource(id)!, created: true, startSeconds: youtube.startSeconds };
 }
 
 export function updateSource(id: string, changes: UpdateSourceRequest): LearningSource {

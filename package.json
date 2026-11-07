@@ -12,6 +12,7 @@
     "test": "tsx server/testing/run-tests.ts",
     "test:e2e": "playwright test",
     "lint": "eslint .",
+    "check:rules": "node scripts/checks/repo-rules.mjs",
     "smoke:ollama": "tsx server/route-policy/smoke/ollama-smoke.ts",
     "preview": "vite preview",
     "tauri": "tauri"

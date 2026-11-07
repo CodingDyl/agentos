@@ -22,7 +22,6 @@ import { PromoteDialog } from "./promote-dialog";
 const SOURCE_FILTERS: ReadonlyArray<{ value: LearningSourceType | "all"; label: string }> = [
   { value: "all", label: "All" },
   { value: "youtube", label: "YouTube" },
-  { value: "spotify", label: "Spotify" },
   { value: "notebook", label: "Notebooks" },
   { value: "manual", label: "Notes" },
 ];
