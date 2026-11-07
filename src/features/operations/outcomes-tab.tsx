@@ -4,7 +4,9 @@ import { X } from "lucide-react";
 import { OWNER_HOURS_KINDS, type ClientOutcome, type OutcomesResponse, type OwnerHoursKind } from "@shared/outcomes-types";
 import { PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_FOCUS, PAPER_INPUT, PaperButton, PaperCard, PaperSection } from "@/components/paper";
+import { useEvalHistory } from "@/lib/agentos/evals";
 import { useDeleteOwnerHours, useLogOwnerHours, useOutcomes } from "@/lib/agentos/outcomes";
+import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DASH, formatMinutes, formatRandMinor, formatRate, formatUsd, monthLabel } from "./outcomes-model";
 
@@ -46,6 +48,7 @@ export function OutcomesTab() {
       <Headline data={data} />
       <Clients data={data} />
       <Hours data={data} />
+      <EvalLine />
       {data.warnings.length > 0 ? (
         <ul className="grid gap-1 text-[13px] leading-5 text-paper-sage" aria-label="Things to know">
           {data.warnings.map((warning) => (
@@ -298,5 +301,29 @@ function Hours({ data }: { data: OutcomesResponse }) {
         </div>
       )}
     </PaperSection>
+  );
+}
+
+/**
+ * One quiet line: how the mail triage eval last scored. It only ever reads the
+ * history; running an eval is a command, because it spends credits.
+ */
+function EvalLine() {
+  const history = useEvalHistory("mail");
+  if (history.isPending || history.isError) return null;
+  const { latest, comparison } = history.data;
+
+  return (
+    <p className="max-w-[64ch] text-[13px] leading-5 text-paper-sage" aria-label="Mail triage eval">
+      {latest ? (
+        <>
+          Mail triage eval: <span className="tabular-nums text-paper-char">{comparison.line}</span> Ran {formatRelativeTime(latest.at)}.
+        </>
+      ) : (
+        <>
+          Mail triage eval: no runs yet. Start one with <code className="font-mono text-[12px] text-paper-char">npm run eval:mail</code>.
+        </>
+      )}
+    </p>
   );
 }

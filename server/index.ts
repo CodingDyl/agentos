@@ -258,6 +258,7 @@ import { CloseoutError, completeTaskWithCloseout, draftCloseout } from "./tasks/
 import { CompleteTaskRequestSchema } from "../shared/task-closeout-types";
 import { frictionRouter } from "./friction/routes";
 import { outcomesRouter } from "./outcomes/routes";
+import { evalsRouter } from "./evals/routes";
 import { captureJobCorrection } from "./friction/corrections";
 import { learningRouter, spotifyRouter } from "./learning/routes";
 import { readTaskLink } from "./agentos/task-jobs";
@@ -476,6 +477,7 @@ app.use("/api/memory", memoryRouter);
 app.use("/api/coder", coderRouter);
 app.use("/api/friction", frictionRouter);
 app.use("/api/outcomes", outcomesRouter);
+app.use("/api/evals", evalsRouter);
 app.use("/api/learning", learningRouter);
 app.use("/api/spotify", spotifyRouter);
 

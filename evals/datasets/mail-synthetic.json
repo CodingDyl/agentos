@@ -1,0 +1,133 @@
+[
+  {
+    "description": "A client asks for the revised quote by Friday",
+    "vars": {
+      "from": "taylor@clientco.example.com",
+      "subject": "Revised quote?",
+      "snippet": "Hi, could you send the revised quote for the new site by Friday? We are ready to go ahead.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "needs_you",
+      "expectedCategory": "client"
+    }
+  },
+  {
+    "description": "A teammate needs a decision before a release",
+    "vars": {
+      "from": "sam@example.org",
+      "subject": "Release blocked on your approval",
+      "snippet": "The release is ready but I need your approval on the copy before I can ship it today.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "needs_you",
+      "expectedCategory": "admin"
+    }
+  },
+  {
+    "description": "An overdue invoice reminder from a supplier",
+    "vars": {
+      "from": "accounts@hostingco.example.net",
+      "subject": "Invoice 2041 is overdue",
+      "snippet": "Our records show invoice 2041 is 14 days overdue. Please arrange payment to avoid suspension.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "needs_you",
+      "expectedCategory": "finance"
+    }
+  },
+  {
+    "description": "A prospect replies with a question",
+    "vars": {
+      "from": "jordan@prospect.example.com",
+      "subject": "Re: your proposal",
+      "snippet": "Thanks for the proposal. Does the price include hosting for the first year? We would like to decide this week.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "needs_you",
+      "expectedCategory": "sales"
+    }
+  },
+  {
+    "description": "An automated deploy succeeded",
+    "vars": {
+      "from": "noreply@deploys.example.com",
+      "subject": "Production deploy succeeded",
+      "snippet": "Your deploy of pantry-pilot to production finished in 41s. No action needed.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "low_priority",
+      "expectedCategory": "notification"
+    }
+  },
+  {
+    "description": "A newsletter",
+    "vars": {
+      "from": "news@digest.example.org",
+      "subject": "This week in web design",
+      "snippet": "Ten articles worth reading this week, plus our favourite new tools.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "low_priority",
+      "expectedCategory": "newsletter"
+    }
+  },
+  {
+    "description": "A one-time login code",
+    "vars": {
+      "from": "no-reply@accounts.example.net",
+      "subject": "Your sign-in code is 482913",
+      "snippet": "Use this code to finish signing in. It expires in 10 minutes. If this was not you, ignore this message.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "low_priority",
+      "expectedCategory": "notification"
+    }
+  },
+  {
+    "description": "A payment receipt for something already paid",
+    "vars": {
+      "from": "billing@toolco.example.com",
+      "subject": "Receipt for your payment",
+      "snippet": "Thanks for your payment of $20.00. This is your receipt. Nothing further is needed.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "fyi",
+      "expectedCategory": "finance"
+    }
+  },
+  {
+    "description": "A client shares an update, no reply wanted",
+    "vars": {
+      "from": "taylor@clientco.example.com",
+      "subject": "FYI: we moved our launch date",
+      "snippet": "Just so you know, we moved our launch to next month. No reply needed, we will send content when ready.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "fyi",
+      "expectedCategory": "client"
+    }
+  },
+  {
+    "description": "A marketing promotion",
+    "vars": {
+      "from": "deals@store.example.org",
+      "subject": "50% off this weekend only",
+      "snippet": "Our biggest sale of the year starts now. Shop today and save.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "low_priority"
+    }
+  },
+  {
+    "description": "A calendar notice for a meeting already accepted",
+    "vars": {
+      "from": "calendar@example.com",
+      "subject": "Reminder: planning call tomorrow 10:00",
+      "snippet": "This is a reminder for the planning call tomorrow at 10:00. You have already accepted.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "fyi",
+      "expectedCategory": "notification"
+    }
+  },
+  {
+    "description": "A security alert on the owner's own account",
+    "vars": {
+      "from": "security@accounts.example.net",
+      "subject": "New sign-in from an unknown device",
+      "snippet": "We noticed a sign-in to your account from a new device. If this was not you, secure your account now.",
+      "date": "2026-11-02T09:00:00Z",
+      "expectedBucket": "needs_you",
+      "expectedCategory": "notification"
+    }
+  }
+]

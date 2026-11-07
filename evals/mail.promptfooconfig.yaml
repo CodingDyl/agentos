@@ -1,0 +1,26 @@
+# Mail triage eval: does the classifier put each thread in the bucket (and
+# category) the owner would? Each case is one thread. The provider calls the
+# real classifier, then the same bucketing code the Mail page uses.
+description: AgentOS mail triage
+prompts:
+  - "{{subject}}"
+providers:
+  - id: file://providers/mail-classifier.ts
+    label: mail-classifier
+tests: file://datasets/mail-synthetic.json
+defaultTest:
+  assert:
+    - type: javascript
+      value: |
+        const result = JSON.parse(output);
+        const want = context.vars;
+        const bucketOk = !want.expectedBucket || result.bucket === want.expectedBucket;
+        const categoryOk = !want.expectedCategory || result.category === want.expectedCategory;
+        const misses = [];
+        if (!bucketOk) misses.push(`bucket ${result.bucket}, wanted ${want.expectedBucket}`);
+        if (!categoryOk) misses.push(`category ${result.category}, wanted ${want.expectedCategory}`);
+        return {
+          pass: bucketOk && categoryOk,
+          score: (Number(bucketOk) + Number(categoryOk)) / 2,
+          reason: misses.length ? misses.join("; ") : "bucket and category match",
+        };
