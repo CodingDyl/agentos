@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  */
 export function FrictionTab() {
   const friction = useFriction();
-  const update = useUpdateFriction();
+  const sharedUpdate = useUpdateFriction();
 
   if (friction.isPending) return <PageLoader variant="compact" />;
   if (friction.error || !friction.data) {
@@ -42,7 +42,7 @@ export function FrictionTab() {
           <ul className="mt-3 divide-y divide-paper-mist border-y border-paper-mist">
             {active.map((item) => (
               <FrictionRow key={item.id} item={item}>
-                <RowActions item={item} />
+                <RowActions item={item} update={sharedUpdate} />
               </FrictionRow>
             ))}
           </ul>
@@ -55,7 +55,7 @@ export function FrictionTab() {
           <ul className="mt-3 divide-y divide-paper-mist border-y border-paper-mist">
             {openNotActive.map((item) => (
               <FrictionRow key={item.id} item={item}>
-                <RowActions item={item} />
+                <RowActions item={item} update={sharedUpdate} />
               </FrictionRow>
             ))}
           </ul>
@@ -66,9 +66,9 @@ export function FrictionTab() {
         <p className="mt-6 text-[14px] text-paper-sage">Nothing open. Either AgentOS is behaving, or nobody has said otherwise yet.</p>
       ) : null}
 
-      {update.error ? (
+      {sharedUpdate.error ? (
         <p role="alert" className="mt-4 text-[14px] text-paper-flame-deep">
-          {update.error.message}
+          {sharedUpdate.error.message}
         </p>
       ) : null}
 
@@ -80,7 +80,7 @@ export function FrictionTab() {
           <ul className="mt-2 divide-y divide-paper-mist border-y border-paper-mist">
             {verified.map((item) => (
               <FrictionRow key={item.id} item={item}>
-                <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "open" })}>
+                <PaperButton variant="quiet" disabled={sharedUpdate.isPending} onClick={() => sharedUpdate.mutate({ id: item.id, status: "open" })}>
                   <RotateCcw className="size-3.5" strokeWidth={2} aria-hidden="true" /> Reopen
                 </PaperButton>
               </FrictionRow>
@@ -97,7 +97,7 @@ export function FrictionTab() {
           <ul className="mt-2 divide-y divide-paper-mist border-y border-paper-mist">
             {otherClosed.map((item) => (
               <FrictionRow key={item.id} item={item}>
-                <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "open" })}>
+                <PaperButton variant="quiet" disabled={sharedUpdate.isPending} onClick={() => sharedUpdate.mutate({ id: item.id, status: "open" })}>
                   <RotateCcw className="size-3.5" strokeWidth={2} aria-hidden="true" /> Reopen
                 </PaperButton>
               </FrictionRow>
@@ -352,8 +352,7 @@ function RegressionPanel({ item }: { item: RankedFrictionItem }) {
   );
 }
 
-function RowActions({ item }: { item: RankedFrictionItem }) {
-  const update = useUpdateFriction();
+function RowActions({ item, update }: { item: RankedFrictionItem; update: ReturnType<typeof useUpdateFriction> }) {
   const assignToAgent = useAssignToAgent();
   const verify = useVerifyFriction();
   const [verifyMode, setVerifyMode] = useState(false);
