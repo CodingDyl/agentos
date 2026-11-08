@@ -14,15 +14,17 @@ import { E2E_VAULT } from "../playwright.config";
  */
 
 test.describe("Connectors", () => {
-  test("sits under Operations, between Automations and Activity", async ({ page }) => {
+  test("sits under Operations in the navigation", async ({ page }) => {
     await page.goto("/");
     const nav = page.getByRole("complementary", { name: "Primary navigation" });
     await expect(nav.getByRole("link", { name: /^Connectors/ })).toBeVisible();
 
     const hrefs = await nav.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
     const at = hrefs.indexOf("/connectors");
-    expect(hrefs[at - 1]).toBe("/automations");
-    expect(hrefs[at + 1]).toBe("/activity");
+    // Connectors should be after Operations (Automations and Activity removed from sidebar)
+    expect(hrefs[at - 1]).toBe("/operations");
+    // Music comes after in the footer section
+    expect(hrefs[at + 1]).toBe("/music");
   });
 
   test("lists what is set up, and what isn't, without secrets", async ({ page }) => {
