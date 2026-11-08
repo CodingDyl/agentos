@@ -35,6 +35,7 @@ export async function recordJobCorrection(
 ): Promise<FrictionItem | undefined> {
   const reason = note?.trim().slice(0, 1000) || undefined;
   const title = jobTitle(job.objective);
+  const project = job.project || "agentos";
   return recordCorrectionOnce({
     id: `fr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     description: `${LEAD[type]}: ${title}`.slice(0, 1000),
@@ -44,8 +45,10 @@ export async function recordJobCorrection(
     createdAt: new Date().toISOString(),
     kind: "correction",
     expected: reason,
-    source: { type, jobId: job.id, attempt: job.revision ?? 1, project: job.project },
+    source: { type, jobId: job.id, attempt: job.revision ?? 1, project },
     regression: { status: "needed" },
+    project,
+    repairJobs: [],
   });
 }
 

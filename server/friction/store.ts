@@ -63,11 +63,14 @@ function cleanRoute(route: string | undefined): string | undefined {
   return trimmed.split("#")[0].slice(0, 300);
 }
 
-/** Past the cap the oldest closed item goes first; open ones are kept longest. */
+/** Active statuses that should not be pruned. */
+const ACTIVE_STATUSES: ReadonlyArray<FrictionStatus> = ["open", "assigned", "in-progress", "needs-review"];
+
+/** Past the cap the oldest closed item goes first; active ones are kept longest. */
 function withCap(items: FrictionItem[]): FrictionItem[] {
   const next = [...items];
   while (next.length > MAX_ITEMS) {
-    const closed = next.findLastIndex((entry) => entry.status !== "open");
+    const closed = next.findLastIndex((entry) => !ACTIVE_STATUSES.includes(entry.status));
     next.splice(closed >= 0 ? closed : next.length - 1, 1);
   }
   return next;
@@ -93,6 +96,8 @@ export function reportFriction(input: ReportFrictionRequest): Promise<FrictionIt
       expected: correction ? input.expected?.trim() : undefined,
       source: correction ? (input.source ?? { type: "manual" }) : undefined,
       regression: correction ? { status: "needed" } : undefined,
+      project: "agentos",
+      repairJobs: [],
     };
     await writeFriction(withCap([item, ...(await readFriction())]));
     return item;
@@ -130,20 +135,40 @@ export class RegressionRequiredError extends Error {
 
 const SETTLED: ReadonlyArray<Regression["status"]> = ["covered", "not-testable"];
 
-export function updateFrictionStatus(id: string, status: FrictionStatus): Promise<FrictionItem | undefined> {
+export interface UpdateFrictionOptions {
+  status?: FrictionStatus;
+  reproduction?: string;
+  project?: string;
+  failureReason?: string;
+}
+
+export function updateFriction(id: string, options: UpdateFrictionOptions): Promise<FrictionItem | undefined> {
   return serial(async () => {
     const items = await readFriction();
     const index = items.findIndex((item) => item.id === id);
     if (index < 0) return undefined;
     const current = items[index];
-    if (status === "fixed" && current.kind === "correction" && !SETTLED.includes(current.regression?.status ?? "needed")) {
+    
+    if (options.status === "fixed" && current.kind === "correction" && !SETTLED.includes(current.regression?.status ?? "needed")) {
       throw new RegressionRequiredError();
     }
-    const updated = { ...current, status, updatedAt: new Date().toISOString() };
+    
+    const updated = {
+      ...current,
+      ...(options.status !== undefined && { status: options.status }),
+      ...(options.reproduction !== undefined && { reproduction: options.reproduction }),
+      ...(options.project !== undefined && { project: options.project }),
+      ...(options.failureReason !== undefined && { failureReason: options.failureReason }),
+      updatedAt: new Date().toISOString(),
+    };
     items[index] = updated;
     await writeFriction(items);
     return updated;
   });
+}
+
+export function updateFrictionStatus(id: string, status: FrictionStatus): Promise<FrictionItem | undefined> {
+  return updateFriction(id, { status });
 }
 
 function changeRegression(id: string, change: (item: FrictionItem) => Regression): Promise<FrictionItem | undefined> {
@@ -193,4 +218,117 @@ export function saveReconciledRegressions(changed: readonly FrictionItem[]): Pro
     });
     if (touched) await writeFriction(next);
   });
+}
+
+/** Assigns a repair job to a friction item. */
+export function assignRepairJob(id: string, jobId: string, worker?: string): Promise<FrictionItem | undefined> {
+  return serial(async () => {
+    const items = await readFriction();
+    const index = items.findIndex((item) => item.id === id);
+    if (index < 0) return undefined;
+    
+    const repairJob: import("../../shared/friction-types").RepairJob = {
+      jobId,
+      worker: worker as import("../../shared/worker-types").WorkerId | undefined,
+      startedAt: new Date().toISOString(),
+      status: "running",
+    };
+    
+    const updated = {
+      ...items[index],
+      status: "assigned" as FrictionStatus,
+      repairJobs: [...(items[index].repairJobs || []), repairJob],
+      updatedAt: new Date().toISOString(),
+    };
+    items[index] = updated;
+    await writeFriction(items);
+    return updated;
+  });
+}
+
+/** Updates a repair job status. */
+export function updateRepairJob(
+  id: string,
+  jobId: string,
+  update: {
+    status: "running" | "completed" | "failed" | "blocked";
+    error?: string;
+    commitSha?: string;
+    completedAt?: string;
+  },
+): Promise<FrictionItem | undefined> {
+  return serial(async () => {
+    const items = await readFriction();
+    const index = items.findIndex((item) => item.id === id);
+    if (index < 0) return undefined;
+    
+    const repairJobs = items[index].repairJobs || [];
+    const jobIndex = repairJobs.findIndex((job) => job.jobId === jobId);
+    if (jobIndex < 0) return undefined;
+    
+    const updatedJob = {
+      ...repairJobs[jobIndex],
+      ...update,
+      completedAt: update.completedAt ?? (update.status !== "running" ? new Date().toISOString() : undefined),
+    };
+    
+    const newJobs = [...repairJobs];
+    newJobs[jobIndex] = updatedJob;
+    
+    let newStatus = items[index].status;
+    if (update.status === "completed") {
+      newStatus = "needs-review";
+    } else if (update.status === "failed" || update.status === "blocked") {
+      newStatus = "open";
+    } else if (update.status === "running" && items[index].status === "assigned") {
+      newStatus = "in-progress";
+    }
+    
+    const updated = {
+      ...items[index],
+      status: newStatus,
+      repairJobs: newJobs,
+      failureReason: update.error,
+      updatedAt: new Date().toISOString(),
+    };
+    items[index] = updated;
+    await writeFriction(items);
+    return updated;
+  });
+}
+
+/** Records verification for a friction item. */
+export function verifyFriction(
+  id: string,
+  verification: import("../../shared/friction-types").Verification,
+): Promise<FrictionItem | undefined> {
+  return serial(async () => {
+    const items = await readFriction();
+    const index = items.findIndex((item) => item.id === id);
+    if (index < 0) return undefined;
+    
+    const updated = {
+      ...items[index],
+      status: "verified" as FrictionStatus,
+      verification,
+      updatedAt: new Date().toISOString(),
+    };
+    items[index] = updated;
+    await writeFriction(items);
+    return updated;
+  });
+}
+
+/** Migrates legacy fixed items to the new Fixed status. */
+export async function migrateLegacyFixedItems(): Promise<void> {
+  const items = await readFriction();
+  let changed = false;
+  const updated = items.map((item) => {
+    if (item.status === "fixed" && !item.verification) {
+      changed = true;
+      return { ...item };
+    }
+    return item;
+  });
+  if (changed) await writeFriction(updated);
 }

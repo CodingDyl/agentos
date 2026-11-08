@@ -1,13 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import { ActivityPage } from "@/features/activity";
 import { AgentPage, CommandPaletteProvider } from "@/features/agent";
 import { AppShellActionsContext, AppShellMediaContext, AppShellVoiceContext } from "@/components/os";
 import { JarvisPanel, JarvisProvider, VoiceLauncher } from "@/features/voice";
 import { QuickCreateProvider, ShellActions, WorkspaceFeedbackProvider } from "@/features/workspace";
-import {
-  AutomationDetailPage,
-  AutomationsPage,
-} from "@/features/automations";
 import { ConnectorDetailPage, ConnectorsPage } from "@/features/connectors";
 import { MailPage } from "@/features/mail";
 import { BusinessPage } from "@/features/business";
@@ -111,15 +106,14 @@ function App() {
           <Route path="/learning/ideas/:id" element={<IdeaPage />} />
           <Route path="/hub" element={<Navigate to="/learning" replace />} />
           <Route path="/agent" element={<AgentPage />} />
-          <Route path="/automations" element={<AutomationsPage />} />
-          <Route
-            path="/automations/:id"
-            element={<AutomationDetailPage />}
-          />
+          {/* Automations merged into Operations as Scheduled tasks */}
+          <Route path="/automations" element={<Navigate to="/operations?tab=automations" replace />} />
+          <Route path="/automations/:id" element={<AutomationRedirect />} />
           {/* The capability registry: what AgentOS can reach and may do. */}
           <Route path="/connectors" element={<ConnectorsPage />} />
           <Route path="/connectors/:id" element={<ConnectorDetailPage />} />
-          <Route path="/activity" element={<ActivityPage />} />
+          {/* Activity merged into Operations */}
+          <Route path="/activity" element={<Navigate to="/operations" replace />} />
           <Route path="/designs" element={<DesignsPage />} />
           <Route path="/designs/boards" element={<BoardsPage />} />
           <Route path="/designs/generations" element={<GenerationsPage />} />
@@ -170,6 +164,11 @@ function Redirect({ to }: { to: string }) {
 function ProjectRedirect() {
   const { slug = "" } = useParams();
   return <Redirect to={`/workspaces/${encodeURIComponent(slug)}`} />;
+}
+
+function AutomationRedirect() {
+  const { id = "" } = useParams();
+  return <Navigate to={`/operations?tab=automations&automation=${encodeURIComponent(id)}`} replace />;
 }
 
 export default App;

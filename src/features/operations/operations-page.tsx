@@ -6,6 +6,7 @@ import { useOperations } from "@/lib/agentos/queries";
 import { SpecialistsTab } from "@/features/agents";
 import { AgentsTab } from "./agents-tab";
 import { AiStackTab } from "./ai-stack-tab";
+import { AutomationsTab } from "./automations-tab";
 import { Breakdown } from "./figures";
 import { FrictionTab } from "./friction-tab";
 import { Glance, PlansPanel } from "./glance";
@@ -41,7 +42,7 @@ import { UsageTab } from "./usage-tab";
  * screen record what the operator already pays and has already decided.
  */
 
-type Tab = "outcomes" | "usage" | "stack" | "agents" | "specialists" | "models" | "projects" | "money" | "system" | "friction";
+type Tab = "outcomes" | "usage" | "stack" | "agents" | "specialists" | "models" | "projects" | "money" | "automations" | "system" | "friction";
 
 const TABS = [
   { value: "outcomes" as const, label: "Outcomes" },
@@ -52,6 +53,7 @@ const TABS = [
   { value: "models" as const, label: "Models" },
   { value: "projects" as const, label: "Workspaces" },
   { value: "money" as const, label: "Subscriptions & budgets" },
+  { value: "automations" as const, label: "Scheduled tasks" },
   { value: "system" as const, label: "System" },
   { value: "friction" as const, label: "Friction" },
 ];
@@ -197,6 +199,7 @@ function Operations({
           <Breakdown rows={data.projects} label="By workspace" by="cost" empty="No usage has been attributed to a workspace yet." />
         ) : null}
         {tab === "money" ? <MoneyTab data={data} /> : null}
+        {tab === "automations" ? <AutomationsTab /> : null}
         {tab === "system" ? <SystemTab /> : null}
         {tab === "friction" ? <FrictionTab /> : null}
       </div>

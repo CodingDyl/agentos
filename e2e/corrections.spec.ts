@@ -29,8 +29,10 @@ test.describe("Corrections", () => {
     await expect(dialog.getByText(/Saved\./)).toBeVisible();
 
     await page.goto("/operations?tab=friction");
-    const group = page.getByRole("region", { name: "Corrections that need a test" });
-    const row = group.getByRole("listitem").filter({ hasText: WRONG });
+    // In the new friction tab, corrections appear in the "Open" section
+    // Find the section by heading text (includes count like "Open (1)")
+    const openSection = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Open/ }) });
+    const row = openSection.getByRole("listitem").filter({ hasText: WRONG });
     await expect(row.getByText(`Should have: ${EXPECTED}`)).toBeVisible();
     await expect(row.getByText("Needs a test")).toBeVisible();
 
@@ -46,8 +48,9 @@ test.describe("Corrections", () => {
     await row.getByRole("button", { name: "Save" }).click();
     await expect(row.getByText("Can't be tested").first()).toBeVisible();
 
-    // Now it can be fixed.
-    await page.getByRole("region", { name: "Worth fixing" }).or(page.getByRole("region", { name: "Low" })).or(page.getByRole("region", { name: "High value" })).getByRole("listitem").filter({ hasText: WRONG }).getByRole("button", { name: "Fixed" }).click();
+    // Now it can be fixed. It's still in the Open section.
+    const openSection2 = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Open/ }) });
+    await openSection2.getByRole("listitem").filter({ hasText: WRONG }).getByRole("button", { name: "Fixed" }).click();
     await expect(page.getByText("Fixed and ignored (", { exact: false })).toBeVisible();
   });
 

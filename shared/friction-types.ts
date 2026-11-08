@@ -8,7 +8,7 @@ import { WorkerIdSchema } from "./worker-ids";
 
 export const FRICTION_FREQUENCIES = ["once", "sometimes", "often"] as const;
 export const FRICTION_SEVERITIES = ["low", "medium", "high"] as const;
-export const FRICTION_STATUSES = ["open", "fixed", "ignored"] as const;
+export const FRICTION_STATUSES = ["open", "assigned", "in-progress", "needs-review", "fixed", "verified", "ignored"] as const;
 
 export const FrictionFrequencySchema = z.enum(FRICTION_FREQUENCIES);
 export const FrictionSeveritySchema = z.enum(FRICTION_SEVERITIES);
@@ -54,6 +54,28 @@ export function isSafeTestPath(value: string): boolean {
   return !path.split(/[\\/]/).includes("..");
 }
 
+export const RepairJobSchema = z.object({
+  jobId: z.string(),
+  worker: WorkerIdSchema.optional(),
+  startedAt: z.string(),
+  completedAt: z.string().optional(),
+  status: z.enum(["running", "completed", "failed", "blocked"]),
+  error: z.string().optional(),
+  commitSha: z.string().optional(),
+});
+
+export type RepairJob = z.infer<typeof RepairJobSchema>;
+
+export const VerificationSchema = z.object({
+  verifiedAt: z.string(),
+  checkCommand: z.string().optional(),
+  checkResult: z.string().optional(),
+  commitSha: z.string().optional(),
+  ownerConfirmed: z.boolean().default(false),
+});
+
+export type Verification = z.infer<typeof VerificationSchema>;
+
 export const FrictionItemSchema = z.object({
   id: z.string(),
   description: z.string(),
@@ -69,6 +91,16 @@ export const FrictionItemSchema = z.object({
   expected: z.string().max(1000).optional(),
   source: CorrectionSourceSchema.optional(),
   regression: RegressionSchema.optional(),
+  /** The workspace this friction belongs to. Defaults to agentos. */
+  project: z.string().default("agentos"),
+  /** How to reproduce the issue. */
+  reproduction: z.string().max(2000).optional(),
+  /** Linked repair job history. */
+  repairJobs: z.array(RepairJobSchema).default([]),
+  /** Verification evidence when fixed. */
+  verification: VerificationSchema.optional(),
+  /** Reason for failed or blocked state. */
+  failureReason: z.string().optional(),
 });
 
 export type FrictionItem = z.infer<typeof FrictionItemSchema>;
@@ -92,8 +124,27 @@ export const ReportFrictionRequestSchema = z
 export type ReportFrictionRequest = z.infer<typeof ReportFrictionRequestSchema>;
 
 export const UpdateFrictionRequestSchema = z.object({
-  status: FrictionStatusSchema,
+  status: FrictionStatusSchema.optional(),
+  reproduction: z.string().trim().max(2000).optional(),
+  project: z.string().trim().max(200).optional(),
+  failureReason: z.string().trim().max(1000).optional(),
+}).refine(
+  (data) => data.status !== undefined || data.reproduction !== undefined || data.project !== undefined || data.failureReason !== undefined,
+  { message: "At least one field must be provided" },
+);
+
+export const AssignToAgentRequestSchema = z.object({
+  worker: z.union([WorkerIdSchema, z.literal("auto")]).default("auto"),
 });
+
+export type AssignToAgentRequest = z.infer<typeof AssignToAgentRequestSchema>;
+
+export const CompleteRepairRequestSchema = z.object({
+  verification: VerificationSchema.optional(),
+  ownerConfirmed: z.boolean().default(false),
+});
+
+export type CompleteRepairRequest = z.infer<typeof CompleteRepairRequestSchema>;
 
 /** Marking a correction's regression test by hand: covered by a test at a path, or not testable, with a reason. */
 export const SetRegressionRequestSchema = z

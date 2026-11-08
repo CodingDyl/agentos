@@ -81,23 +81,23 @@ describe("sidebar navigation", () => {
       "/memory",
       "/learning",
       "/designs",
-      "/automations",
       "/connectors",
       "/operations",
-      "/activity",
       "/compass",
     ]) {
       assert.ok(hrefs.has(href), `missing ${href}`);
     }
+    // Automations and Activity were removed - they're now tabs in Operations
+    assert.ok(!hrefs.has("/automations"), "Automations moved to Operations tab");
+    assert.ok(!hrefs.has("/activity"), "Activity removed, redirects to Operations");
   });
 
   it("keeps leftover items in named sections rather than dropping them", () => {
     const byHref = new Map(navigationItems.map((item) => [item.href, item]));
     assert.equal(byHref.get("/inbox")?.section ?? "primary", "primary");
     assert.equal(byHref.get("/operator")?.section, "work");
-    assert.equal(byHref.get("/automations")?.section, "operations");
     assert.equal(byHref.get("/connectors")?.section, "operations");
-    assert.equal(byHref.get("/activity")?.section, "operations");
+    assert.equal(byHref.get("/operations")?.section, "operations");
     assert.equal(byHref.get("/music")?.section, "footer");
     assert.equal(byHref.get("/compass")?.section, "footer");
   });

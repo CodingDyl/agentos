@@ -35,11 +35,14 @@ test.describe("Dashboard", () => {
     await page.goto("/");
     const nav = page.getByRole("complementary", { name: "Primary navigation" });
 
-    for (const label of ["Dashboard", "Inbox", "Workspaces", "Knowledge", "Creative", "Automations", "Operations", "Activity"]) {
+    // Automations and Activity removed from sidebar - now tabs in Operations
+    for (const label of ["Dashboard", "Inbox", "Workspaces", "Knowledge", "Creative", "Operations", "Connectors"]) {
       await expect(nav.getByRole("link", { name: new RegExp(`^${label}`) })).toBeVisible();
     }
     await expect(nav.getByRole("link", { name: /^Workers$/ })).toHaveCount(0);
     await expect(nav.getByRole("link", { name: /^Agent$/ })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: /^Automations$/ })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: /^Activity$/ })).toHaveCount(0);
     // The one high-priority active workspace is pinned by default.
     await expect(nav.getByRole("list", { name: "Pinned workspaces" }).getByRole("link", { name: "Pantry Pilot" })).toBeVisible();
   });
