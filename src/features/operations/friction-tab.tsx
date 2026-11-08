@@ -304,7 +304,7 @@ function RegressionPanel({ item }: { item: RankedFrictionItem }) {
             Mark covered
           </PaperButton>
           <PaperButton variant="quiet" disabled={busy} onClick={() => setMode("not-testable")}>
-            Cannot be tested
+            Can't be tested
           </PaperButton>
         </div>
       ) : null}
