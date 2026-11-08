@@ -12,6 +12,8 @@ const item = (overrides: Partial<FrictionItem>): FrictionItem => ({
   status: "open",
   kind: "friction",
   createdAt: "2026-10-01T00:00:00.000Z",
+  project: "agentos",
+  repairJobs: [],
   ...overrides,
 });
 

@@ -375,7 +375,7 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
       severity: "info" as const,
       title: `${source.label} could not be read`,
       description: source.detail,
-      action: { label: "Open activity", href: "/activity" },
+      action: { label: "View in Operations", href: "/operations" },
       createdAt: firstSeen(systemId(source.label)),
     })),
   ];

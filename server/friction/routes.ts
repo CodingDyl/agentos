@@ -1,5 +1,7 @@
 import { Router } from "express";
 import {
+  AssignToAgentRequestSchema,
+  CompleteRepairRequestSchema,
   ReportFrictionRequestSchema,
   SetRegressionRequestSchema,
   StartRegressionJobRequestSchema,
@@ -14,13 +16,15 @@ import { routeJob } from "../workers/router";
 import { reconcileRegressions } from "./corrections";
 import { rankFriction } from "./ranking";
 import {
+  assignRepairJob,
   readFriction,
   RegressionRequiredError,
   reportFriction,
   saveReconciledRegressions,
   setRegression,
   startRegressionTracking,
-  updateFrictionStatus,
+  updateFriction,
+  verifyFriction,
 } from "./store";
 
 /** `/api/friction` — report it, list it ranked, mark it fixed or ignored. */
@@ -59,11 +63,11 @@ frictionRouter.post("/", async (request, response) => {
 frictionRouter.patch("/:id", async (request, response) => {
   const parsed = UpdateFrictionRequestSchema.safeParse(request.body ?? {});
   if (!parsed.success) {
-    response.status(400).json({ error: "Status must be open, fixed or ignored." });
+    response.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid update request." });
     return;
   }
   try {
-    const item = await updateFrictionStatus(request.params.id, parsed.data.status);
+    const item = await updateFriction(request.params.id, parsed.data);
     if (!item) {
       response.status(404).json({ error: "There is no friction item with that id." });
       return;
@@ -173,5 +177,96 @@ frictionRouter.post("/:id/regression-job", async (request, response) => {
   } catch (error) {
     console.error("[friction] could not start a regression job:", error);
     response.status(500).json({ error: "The test-writing job could not be started." });
+  }
+});
+
+/** Assigns a friction item to an agent for repair. */
+frictionRouter.post("/:id/assign", async (request, response) => {
+  const parsed = AssignToAgentRequestSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Invalid assignment request." });
+    return;
+  }
+  try {
+    const items = await readFriction();
+    const item = items.find((entry) => entry.id === request.params.id);
+    if (!item) {
+      response.status(404).json({ error: "There is no friction item with that id." });
+      return;
+    }
+
+    const activeJob = item.repairJobs?.find((job) => job.status === "running");
+    if (activeJob) {
+      response.status(409).json({ error: "This item already has an active repair job.", jobId: activeJob.jobId });
+      return;
+    }
+
+    const objective = [
+      `Fix: ${item.description}`,
+      item.expected ? `Expected: ${item.expected}` : undefined,
+      item.reproduction ? `Reproduction: ${item.reproduction}` : undefined,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const project = item.project || "agentos";
+    const { decision } = await routeJob({ objective, project });
+    const started = await startJob({
+      worker: parsed.data.worker,
+      requestedWorker: parsed.data.worker,
+      routing: decision,
+      project,
+      objective,
+      modelRouteType: "execute",
+    });
+
+    if (!started.job) {
+      response.status(409).json({ error: started.error ?? "The job could not be started." });
+      return;
+    }
+
+    const updated = await assignRepairJob(item.id, started.job.id, decision?.selectedWorker);
+    await recordActivity({
+      type: "friction.updated",
+      description: `${item.description.slice(0, 100)} → assigned to agent`,
+      metadata: { frictionId: item.id, jobId: started.job.id, worker: decision?.selectedWorker },
+    });
+    response.status(201).json({ item: updated, jobId: started.job.id });
+  } catch (error) {
+    console.error("[friction] could not assign to agent:", error);
+    response.status(500).json({ error: "The repair job could not be started." });
+  }
+});
+
+/** Marks a friction item as verified with evidence. */
+frictionRouter.post("/:id/verify", async (request, response) => {
+  const parsed = CompleteRepairRequestSchema.safeParse(request.body ?? {});
+  if (!parsed.success) {
+    response.status(400).json({ error: "Invalid verification request." });
+    return;
+  }
+  try {
+    const items = await readFriction();
+    const item = items.find((entry) => entry.id === request.params.id);
+    if (!item) {
+      response.status(404).json({ error: "There is no friction item with that id." });
+      return;
+    }
+
+    const verification = parsed.data.verification || {
+      verifiedAt: new Date().toISOString(),
+      ownerConfirmed: parsed.data.ownerConfirmed,
+    };
+
+    const updated = await verifyFriction(item.id, verification);
+    await recordActivity({
+      type: "friction.updated",
+      description: `${item.description.slice(0, 100)} → verified`,
+      metadata: { frictionId: item.id, ownerConfirmed: verification.ownerConfirmed },
+    });
+    response.json(updated);
+  } catch (error) {
+    console.error("[friction] could not verify item:", error);
+    response.status(500).json({ error: "The item could not be verified." });
   }
 });

@@ -1,9 +1,7 @@
 import {
-  Activity,
   BookOpen,
   Briefcase,
   GraduationCap,
-  CalendarClock,
   Code,
   Compass,
   Gauge,
@@ -54,9 +52,7 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Memory", href: "/memory", icon: Network, section: "memory" },
   { label: "Knowledge", href: "/knowledge", icon: BookOpen, section: "memory" },
   { label: "Operations", href: "/operations", icon: Gauge, section: "operations" },
-  { label: "Automations", href: "/automations", icon: CalendarClock, section: "operations" },
   { label: "Connectors", href: "/connectors", icon: Plug, section: "operations" },
-  { label: "Activity", href: "/activity", icon: Activity, section: "operations" },
   { label: "Music", href: "/music", icon: Music, section: "footer" },
   { label: "Compass", href: "/compass", icon: Compass, section: "footer" },
 ];

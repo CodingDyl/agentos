@@ -38,10 +38,10 @@ export function RecentActivity({ className }: RecentActivityProps) {
       action={
         events.length > 0 ? (
           <Link
-            to="/activity"
+            to="/operations"
             className="os-focus-ring os-meta cursor-pointer rounded-md text-os-subtle transition-colors duration-150 hover:text-foreground"
           >
-            All activity
+            View in Operations
           </Link>
         ) : null
       }

@@ -1,39 +1,19 @@
 import { useState, type ReactNode } from "react";
-import { Check, EyeOff, FlaskConical, RotateCcw } from "lucide-react";
+import { AlertCircle, Check, EyeOff, FlaskConical, RotateCcw, Wrench, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { pageNameForRoute, type FrictionTier, type RankedFrictionItem } from "@shared/friction-types";
+import { pageNameForRoute, type FrictionStatus, type RankedFrictionItem } from "@shared/friction-types";
 import { PageLoader } from "@/components/os";
 import { FieldLabel, PAPER_INPUT, PaperButton, Tag } from "@/components/paper";
-import { useFriction, useSetRegression, useStartRegressionJob, useUpdateFriction } from "@/lib/agentos/friction";
+import { useAssignToAgent, useFriction, useSetRegression, useStartRegressionJob, useUpdateFriction, useVerifyFriction } from "@/lib/agentos/friction";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * Friction, ranked.
+ * Friction with full repair lifecycle.
  *
- * Every annoyance reported through ⌘K, sorted by frequency × severity — no
- * model, the same list always in the same order — so the next thing to fix is
- * the one at the top. Fixing or ignoring an item moves it out of the way
- * without deleting it.
+ * Extended workflow: report, assign to agent, track work, review, verify, notify.
+ * Statuses: Open, Assigned, In progress, Needs review, Fixed, Verified, Ignored.
  */
-
-const TIERS: ReadonlyArray<{ tier: FrictionTier; label: string }> = [
-  { tier: "high", label: "High value" },
-  { tier: "medium", label: "Worth fixing" },
-  { tier: "low", label: "Low" },
-];
-
-/** Corrections still owed a test come first, in their own group; then the usual tiers. */
-function GROUPS(open: RankedFrictionItem[]): Array<{ key: string; label: string; items: RankedFrictionItem[] }> {
-  const owed = (item: RankedFrictionItem) => item.kind === "correction" && (item.regression?.status === "needed" || item.regression?.status === "in-progress");
-  return [
-    { key: "owed", label: "Corrections that need a test", items: open.filter(owed) },
-    ...TIERS.map(({ tier, label }) => ({ key: tier, label, items: open.filter((item) => !owed(item) && item.tier === tier) })),
-  ];
-}
-
-const capitalise = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
-
 export function FrictionTab() {
   const friction = useFriction();
   const update = useUpdateFriction();
@@ -44,38 +24,47 @@ export function FrictionTab() {
   }
 
   const { open, closed } = friction.data;
+  const active = open.filter((item) => ["assigned", "in-progress", "needs-review"].includes(item.status));
+  const openNotActive = open.filter((item) => item.status === "open");
+  const verified = closed.filter((item) => item.status === "verified");
+  const otherClosed = closed.filter((item) => item.status !== "verified");
 
   return (
-    <div className="max-w-[880px]">
+    <div className="max-w-[1100px]">
       <p className="max-w-[64ch] text-[14px] leading-6 text-paper-char">
-        What has got in the way, worst first. Ranked by how often it happens × how much it hurts. Report more from anywhere with{" "}
+        What has got in the way, worst first. Report more from anywhere with{" "}
         <kbd className="border border-paper-mist px-1 font-mono text-[12px]">⌘K</kbd> → Report friction.
       </p>
 
+      {active.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="text-[15px] font-semibold text-paper-moss">In progress ({active.length})</h2>
+          <ul className="mt-3 divide-y divide-paper-mist border-y border-paper-mist">
+            {active.map((item) => (
+              <FrictionRow key={item.id} item={item}>
+                <RowActions item={item} />
+              </FrictionRow>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {openNotActive.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="text-[15px] font-semibold text-paper-moss">Open ({openNotActive.length})</h2>
+          <ul className="mt-3 divide-y divide-paper-mist border-y border-paper-mist">
+            {openNotActive.map((item) => (
+              <FrictionRow key={item.id} item={item}>
+                <RowActions item={item} />
+              </FrictionRow>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {open.length === 0 ? (
         <p className="mt-6 text-[14px] text-paper-sage">Nothing open. Either AgentOS is behaving, or nobody has said otherwise yet.</p>
-      ) : (
-        GROUPS(open).map(({ key, label, items }) => {
-          if (items.length === 0) return null;
-          return (
-            <section key={key} aria-label={label} className="mt-8">
-              <h2 className="text-[13px] font-semibold text-paper-char">{label}</h2>
-              <ul className="mt-2 divide-y divide-paper-mist border-y border-paper-mist">
-                {items.map((item) => (
-                  <FrictionRow key={item.id} item={item} below={item.kind === "correction" ? <RegressionPanel item={item} /> : undefined}>
-                    <PaperButton variant="ghost" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "fixed" })}>
-                      <Check className="size-3.5" strokeWidth={2} aria-hidden="true" /> Fixed
-                    </PaperButton>
-                    <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "ignored" })}>
-                      <EyeOff className="size-3.5" strokeWidth={2} aria-hidden="true" /> Ignore
-                    </PaperButton>
-                  </FrictionRow>
-                ))}
-              </ul>
-            </section>
-          );
-        })
-      )}
+      ) : null}
 
       {update.error ? (
         <p role="alert" className="mt-4 text-[14px] text-paper-flame-deep">
@@ -83,14 +72,31 @@ export function FrictionTab() {
         </p>
       ) : null}
 
-      {closed.length > 0 ? (
+      {verified.length > 0 ? (
         <details className="mt-10">
           <summary className="cursor-pointer text-[13px] font-semibold text-paper-sage">
-            Fixed and ignored ({closed.length})
+            Verified ({verified.length})
           </summary>
           <ul className="mt-2 divide-y divide-paper-mist border-y border-paper-mist">
-            {closed.map((item) => (
-              <FrictionRow key={item.id} item={item} below={item.kind === "correction" ? <RegressionPanel item={item} readOnly /> : undefined}>
+            {verified.map((item) => (
+              <FrictionRow key={item.id} item={item}>
+                <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "open" })}>
+                  <RotateCcw className="size-3.5" strokeWidth={2} aria-hidden="true" /> Reopen
+                </PaperButton>
+              </FrictionRow>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {otherClosed.length > 0 ? (
+        <details className="mt-6">
+          <summary className="cursor-pointer text-[13px] font-semibold text-paper-sage">
+            Fixed and ignored ({otherClosed.length})
+          </summary>
+          <ul className="mt-2 divide-y divide-paper-mist border-y border-paper-mist">
+            {otherClosed.map((item) => (
+              <FrictionRow key={item.id} item={item}>
                 <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "open" })}>
                   <RotateCcw className="size-3.5" strokeWidth={2} aria-hidden="true" /> Reopen
                 </PaperButton>
@@ -103,41 +109,149 @@ export function FrictionTab() {
   );
 }
 
-function FrictionRow({ item, children, below }: { item: RankedFrictionItem; children: ReactNode; below?: ReactNode }) {
+function FrictionRow({ item, children }: { item: RankedFrictionItem; children: ReactNode }) {
   const page = pageNameForRoute(item.route);
+  const isClosed = ["fixed", "verified", "ignored"].includes(item.status);
+  const showProgress = item.repairJobs && item.repairJobs.length > 0;
+
   return (
-    <li className="py-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <li className="py-4">
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1">
-          <p className={item.status === "open" ? "text-[14px] font-medium text-paper-moss" : "text-[14px] text-paper-sage line-through"}>{item.description}</p>
-          {item.expected ? <p className="mt-0.5 text-[13px] text-paper-char">Should have: {item.expected}</p> : null}
-          <p className="mt-0.5 text-[13px] text-paper-sage">
-            {item.kind === "correction" ? "Correction · " : ""}
-            {capitalise(item.frequency)} · {capitalise(item.severity)}
-            {page ? ` · ${page}` : ""} · {formatRelativeTime(item.createdAt)}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={isClosed ? "text-[14px] text-paper-sage line-through" : "text-[14px] font-medium text-paper-moss"}>
+              {item.description}
+            </p>
+            <StatusTag status={item.status} />
+            {item.tier === "high" ? (
+              <Tag tone="flame">High priority</Tag>
+            ) : null}
+          </div>
+          
+          {item.expected ? <p className="mt-1 text-[13px] text-paper-char">Should have: {item.expected}</p> : null}
+          {item.reproduction ? <p className="mt-1 text-[13px] text-paper-sage">Reproduction: {item.reproduction}</p> : null}
+          
+          <div className="mt-1 flex flex-wrap gap-x-3 text-[13px] text-paper-sage">
+            {item.kind === "correction" ? <span>Correction</span> : null}
+            <span>
+              {capitalise(item.frequency)} · {capitalise(item.severity)}
+            </span>
+            {page ? <span>{page}</span> : null}
+            <span>{formatRelativeTime(item.createdAt)}</span>
+            {item.project && item.project !== "agentos" ? <span>Project: {item.project}</span> : null}
+          </div>
+
+          {item.failureReason ? (
+            <div className="mt-2 flex gap-2 rounded-md border border-paper-flame-deep bg-paper-cream px-3 py-2">
+              <AlertCircle className="size-4 shrink-0 text-paper-flame-deep" />
+              <p className="text-[13px] text-paper-flame-deep">{item.failureReason}</p>
+            </div>
+          ) : null}
+
+          {showProgress ? <RepairProgress item={item} /> : null}
+          {item.kind === "correction" ? <RegressionPanel item={item} /> : null}
+          {item.verification ? <VerificationPanel verification={item.verification} /> : null}
         </div>
-        <Tag tone={item.tier === "high" ? "flame" : item.tier === "medium" ? "marigold" : "muted"}>Priority {item.priority}</Tag>
-        <div className="flex gap-1.5">{children}</div>
+        
+        <div className="flex shrink-0 gap-1.5">{children}</div>
       </div>
-      {below}
     </li>
   );
 }
 
-const REGRESSION_LABEL = {
-  needed: "Needs a test",
-  "in-progress": "A job is writing the test",
-  covered: "Covered by a test",
-  "not-testable": "Can't be tested",
-} as const;
+function StatusTag({ status }: { status: FrictionStatus }) {
+  const labels: Record<FrictionStatus, string> = {
+    open: "Open",
+    assigned: "Assigned",
+    "in-progress": "In progress",
+    "needs-review": "Needs review",
+    fixed: "Fixed",
+    verified: "Verified",
+    ignored: "Ignored",
+  };
 
-/**
- * Where a correction's regression test stands, and the three ways to move it:
- * ask a worker to write the test, say a test covers it, or say it can't be
- * tested and why. None of them runs on its own.
- */
-function RegressionPanel({ item, readOnly = false }: { item: RankedFrictionItem; readOnly?: boolean }) {
+  const tones: Record<FrictionStatus, "green" | "blue" | "marigold" | "flame" | "muted"> = {
+    open: "flame",
+    assigned: "blue",
+    "in-progress": "blue",
+    "needs-review": "marigold",
+    fixed: "green",
+    verified: "green",
+    ignored: "muted",
+  };
+
+  return <Tag tone={tones[status]}>{labels[status]}</Tag>;
+}
+
+function RepairProgress({ item }: { item: RankedFrictionItem }) {
+  if (!item.repairJobs || item.repairJobs.length === 0) return null;
+
+  const latestJob = item.repairJobs[item.repairJobs.length - 1];
+
+  return (
+    <div className="mt-3 rounded-md border border-paper-mist bg-paper-linen px-3 py-2">
+      <div className="flex items-center gap-2 text-[13px]">
+        <Wrench className="size-3.5 text-paper-sage" />
+        <Link to={`/workers/jobs/${latestJob.jobId}`} className="font-medium text-paper-moss hover:underline">
+          Repair job
+        </Link>
+        <span className="text-paper-sage">·</span>
+        <span className={latestJob.status === "failed" || latestJob.status === "blocked" ? "text-paper-flame-deep" : "text-paper-char"}>
+          {latestJob.status === "running"
+            ? "Running"
+            : latestJob.status === "completed"
+              ? "Completed"
+              : latestJob.status === "failed"
+                ? "Failed"
+                : "Blocked"}
+        </span>
+        {latestJob.worker ? (
+          <>
+            <span className="text-paper-sage">·</span>
+            <span className="text-paper-sage">{latestJob.worker}</span>
+          </>
+        ) : null}
+      </div>
+      {latestJob.error ? (
+        <p className="mt-1 text-[12px] text-paper-flame-deep">{latestJob.error}</p>
+      ) : null}
+      {latestJob.commitSha ? (
+        <p className="mt-1 font-mono text-[12px] text-paper-sage">Commit: {latestJob.commitSha.slice(0, 8)}</p>
+      ) : null}
+      {item.repairJobs.length > 1 ? (
+        <p className="mt-1 text-[12px] text-paper-sage">{item.repairJobs.length} attempts</p>
+      ) : null}
+    </div>
+  );
+}
+
+function VerificationPanel({ verification }: { verification: NonNullable<RankedFrictionItem["verification"]> }) {
+  return (
+    <div className="mt-3 rounded-md border border-paper-moss bg-paper-linen px-3 py-2">
+      <div className="flex items-center gap-2 text-[13px]">
+        <Check className="size-3.5 text-paper-moss" />
+        <span className="font-medium text-paper-moss">Verified</span>
+        {verification.ownerConfirmed ? (
+          <>
+            <span className="text-paper-sage">·</span>
+            <span className="text-paper-char">Owner confirmed</span>
+          </>
+        ) : null}
+      </div>
+      {verification.checkCommand ? (
+        <p className="mt-1 font-mono text-[12px] text-paper-sage">Check: {verification.checkCommand}</p>
+      ) : null}
+      {verification.checkResult ? (
+        <p className="mt-1 text-[12px] text-paper-char">{verification.checkResult}</p>
+      ) : null}
+      {verification.commitSha ? (
+        <p className="mt-1 font-mono text-[12px] text-paper-sage">Commit: {verification.commitSha.slice(0, 8)}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function RegressionPanel({ item }: { item: RankedFrictionItem }) {
   const regression = item.regression ?? { status: "needed" as const };
   const setRegression = useSetRegression();
   const startJob = useStartRegressionJob();
@@ -145,20 +259,33 @@ function RegressionPanel({ item, readOnly = false }: { item: RankedFrictionItem;
   const [text, setText] = useState("");
   const busy = setRegression.isPending || startJob.isPending;
   const error = setRegression.error ?? startJob.error;
+  const readOnly = ["assigned", "in-progress", "needs-review", "fixed", "verified", "ignored"].includes(item.status);
 
   const save = () => {
     if (mode === null || !text.trim()) return;
     setRegression.mutate(
       mode === "covered" ? { id: item.id, status: "covered", testPath: text.trim() } : { id: item.id, status: "not-testable", reason: text.trim() },
-      { onSuccess: () => { setMode(null); setText(""); } },
+      {
+        onSuccess: () => {
+          setMode(null);
+          setText("");
+        },
+      },
     );
   };
 
+  const labels = {
+    needed: "Needs a test",
+    "in-progress": "A job is writing the test",
+    covered: "Covered by a test",
+    "not-testable": "Cannot be tested",
+  };
+
   return (
-    <div className="mt-2 border-l-2 border-paper-mist pl-3" role="group" aria-label="Regression test">
+    <div className="mt-3 border-l-2 border-paper-mist pl-3">
       <p className="flex flex-wrap items-center gap-x-2 text-[13px] leading-5 text-paper-char">
         <FlaskConical className="size-3.5 text-paper-sage" strokeWidth={1.75} aria-hidden="true" />
-        <span className="font-medium text-paper-moss">{REGRESSION_LABEL[regression.status]}</span>
+        <span className="font-medium text-paper-moss">{labels[regression.status]}</span>
         {regression.testPath ? <code className="font-mono text-[12px] text-paper-sage">{regression.testPath}</code> : null}
         {regression.reason ? <span className="text-paper-sage">{regression.reason}</span> : null}
         {regression.status === "in-progress" && regression.jobId ? (
@@ -177,7 +304,7 @@ function RegressionPanel({ item, readOnly = false }: { item: RankedFrictionItem;
             Mark covered
           </PaperButton>
           <PaperButton variant="quiet" disabled={busy} onClick={() => setMode("not-testable")}>
-            Can't be tested
+            Cannot be tested
           </PaperButton>
         </div>
       ) : null}
@@ -191,7 +318,7 @@ function RegressionPanel({ item, readOnly = false }: { item: RankedFrictionItem;
           }}
         >
           <label className="min-w-0 flex-1">
-            <FieldLabel>{mode === "covered" ? "Path of the test, inside the repository" : "Why it can't be tested"}</FieldLabel>
+            <FieldLabel>{mode === "covered" ? "Path of the test, inside the repository" : "Why it cannot be tested"}</FieldLabel>
             <input
               value={text}
               onChange={(event) => setText(event.target.value)}
@@ -203,7 +330,14 @@ function RegressionPanel({ item, readOnly = false }: { item: RankedFrictionItem;
           <PaperButton type="submit" variant="ghost" disabled={busy || !text.trim()}>
             {setRegression.isPending ? "Saving…" : "Save"}
           </PaperButton>
-          <PaperButton variant="quiet" disabled={busy} onClick={() => { setMode(null); setText(""); }}>
+          <PaperButton
+            variant="quiet"
+            disabled={busy}
+            onClick={() => {
+              setMode(null);
+              setText("");
+            }}
+          >
             Cancel
           </PaperButton>
         </form>
@@ -217,3 +351,92 @@ function RegressionPanel({ item, readOnly = false }: { item: RankedFrictionItem;
     </div>
   );
 }
+
+function RowActions({ item }: { item: RankedFrictionItem }) {
+  const update = useUpdateFriction();
+  const assignToAgent = useAssignToAgent();
+  const verify = useVerifyFriction();
+  const [verifyMode, setVerifyMode] = useState(false);
+
+  const activeJob = item.repairJobs?.find((job) => job.status === "running");
+  const canAssign = item.status === "open" && !activeJob;
+  const needsReview = item.status === "needs-review";
+  const canVerify = item.status === "fixed";
+
+  if (verifyMode) {
+    return (
+      <>
+        <PaperButton
+          variant="ghost"
+          disabled={verify.isPending}
+          onClick={() => {
+            verify.mutate(
+              { id: item.id, ownerConfirmed: true },
+              { onSuccess: () => setVerifyMode(false) },
+            );
+          }}
+        >
+          <Check className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          {verify.isPending ? "Verifying…" : "Confirm verified"}
+        </PaperButton>
+        <PaperButton variant="quiet" disabled={verify.isPending} onClick={() => setVerifyMode(false)}>
+          <X className="size-3.5" strokeWidth={2} aria-hidden="true" />
+          Cancel
+        </PaperButton>
+      </>
+    );
+  }
+
+  if (item.status === "open") {
+    return (
+      <>
+        {canAssign ? (
+          <PaperButton
+            variant="ghost"
+            disabled={assignToAgent.isPending}
+            onClick={() => assignToAgent.mutate({ id: item.id, worker: "auto" })}
+          >
+            <Wrench className="size-3.5" strokeWidth={2} aria-hidden="true" />
+            {assignToAgent.isPending ? "Assigning…" : "Assign to agent"}
+          </PaperButton>
+        ) : null}
+        <PaperButton variant="ghost" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "fixed" })}>
+          <Check className="size-3.5" strokeWidth={2} aria-hidden="true" /> Fixed
+        </PaperButton>
+        <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "ignored" })}>
+          <EyeOff className="size-3.5" strokeWidth={2} aria-hidden="true" /> Ignore
+        </PaperButton>
+      </>
+    );
+  }
+
+  if (needsReview) {
+    return (
+      <>
+        <PaperButton variant="ghost" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "fixed" })}>
+          <Check className="size-3.5" strokeWidth={2} aria-hidden="true" /> Approve
+        </PaperButton>
+        <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "open" })}>
+          <X className="size-3.5" strokeWidth={2} aria-hidden="true" /> Request changes
+        </PaperButton>
+      </>
+    );
+  }
+
+  if (canVerify) {
+    return (
+      <>
+        <PaperButton variant="ghost" onClick={() => setVerifyMode(true)}>
+          <Check className="size-3.5" strokeWidth={2} aria-hidden="true" /> Verify
+        </PaperButton>
+        <PaperButton variant="quiet" disabled={update.isPending} onClick={() => update.mutate({ id: item.id, status: "open" })}>
+          <RotateCcw className="size-3.5" strokeWidth={2} aria-hidden="true" /> Reopen
+        </PaperButton>
+      </>
+    );
+  }
+
+  return null;
+}
+
+const capitalise = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);

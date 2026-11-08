@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FrictionItem, FrictionResponse, FrictionStatus, ReportFrictionRequest, SetRegressionRequest } from "@shared/friction-types";
+import type { AssignToAgentRequest, CompleteRepairRequest, FrictionItem, FrictionResponse, FrictionStatus, ReportFrictionRequest, SetRegressionRequest } from "@shared/friction-types";
 import { AgentOSRequestError } from "./client";
 import { agentosKeys } from "./queries";
 
@@ -43,11 +43,11 @@ export function useReportFriction() {
 export function useUpdateFriction() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: FrictionStatus }) =>
+    mutationFn: ({ id, ...update }: { id: string; status?: FrictionStatus; reproduction?: string; project?: string; failureReason?: string }) =>
       request<FrictionItem>(`/api/friction/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(update),
       }),
     onSuccess: () => void client.invalidateQueries({ queryKey: frictionKey() }),
     networkMode: "always",
@@ -80,6 +80,38 @@ export function useStartRegressionJob() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
+      }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: frictionKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Assigns a friction item to an agent for repair. */
+export function useAssignToAgent() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & AssignToAgentRequest) =>
+      request<{ item: FrictionItem; jobId: string }>(`/api/friction/${encodeURIComponent(id)}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: frictionKey() }),
+    networkMode: "always",
+    retry: 0,
+  });
+}
+
+/** Verifies a friction item as fixed with evidence. */
+export function useVerifyFriction() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & CompleteRepairRequest) =>
+      request<FrictionItem>(`/api/friction/${encodeURIComponent(id)}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       }),
     onSuccess: () => void client.invalidateQueries({ queryKey: frictionKey() }),
     networkMode: "always",
