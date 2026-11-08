@@ -318,7 +318,7 @@ function RegressionPanel({ item }: { item: RankedFrictionItem }) {
           }}
         >
           <label className="min-w-0 flex-1">
-            <FieldLabel>{mode === "covered" ? "Path of the test, inside the repository" : "Why it cannot be tested"}</FieldLabel>
+            <FieldLabel>{mode === "covered" ? "Path of the test, inside the repository" : "Why it can't be tested"}</FieldLabel>
             <input
               value={text}
               onChange={(event) => setText(event.target.value)}
