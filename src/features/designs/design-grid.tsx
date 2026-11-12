@@ -50,7 +50,7 @@ export interface DesignGridProps {
   assets: DesignAsset[];
   onOpen: (asset: DesignAsset) => void;
   onToggleFavorite: (asset: DesignAsset) => void;
-  onAddToBoard: (asset: DesignAsset) => void;
+  onAddToBoard?: (asset: DesignAsset) => void;
   onRemoveFromBoard?: (asset: DesignAsset) => void;
   /** Present only while references are being selected for a review. */
   onToggleSelect?: (asset: DesignAsset) => void;

@@ -1,4 +1,5 @@
 import {
+  Bookmark,
   BookOpen,
   Briefcase,
   GraduationCap,
@@ -26,7 +27,7 @@ import type { AppShellNavigationItem } from "@/components/os";
  * ```text
  * Dashboard · Inbox
  * BUSINESS    Business · Traction · Finance
- * WORK        Workspaces · Delivery · Coder · Creative · Operator
+ * WORK        Workspaces · Delivery · Coder · Creative · Taste Vault · Operator
  * MEMORY      HUB · Memory · Knowledge
  * OPERATIONS  Operations · Automations · Connectors · Activity
  *             Music and Compass stay in the quiet footer
@@ -47,6 +48,7 @@ export const navigationItems: AppShellNavigationItem[] = [
   { label: "Startups", href: "/startups", icon: Rocket, section: "work" },
   { label: "Coder", href: "/coder", icon: Code, section: "work" },
   { label: "Creative", href: "/designs", icon: Images, section: "work" },
+  { label: "Taste Vault", href: "/taste", icon: Bookmark, section: "work" },
   { label: "Operator", href: "/operator", icon: SquareTerminal, section: "work" },
   { label: "HUB", href: "/learning", icon: GraduationCap, section: "memory" },
   { label: "Memory", href: "/memory", icon: Network, section: "memory" },

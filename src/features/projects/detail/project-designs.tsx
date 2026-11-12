@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PageLoader, EmptyState, HairlineCard, Section } from "@/components/os";
+import { TasteStrip } from "@/features/taste/taste-strip";
 import { useDesignLibrary } from "@/lib/agentos/queries";
 
 /**
@@ -34,19 +35,22 @@ export function ProjectDesigns({ slug, designBoard }: { slug: string; designBoar
 
   if (assets.length === 0 && boards.length === 0) {
     return (
-      <EmptyState
-        label="No designs yet"
-        description="Nothing in the library is assigned to this project. Upload or generate in the design workspace and assign it here."
-        action={
-          <Link
-            to={workspace}
-            className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-os-border px-4 text-[14px] text-foreground transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised"
-          >
-            Open design workspace
-            <ArrowRight className="size-4 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
-          </Link>
-        }
-      />
+      <div className="space-y-12">
+        <EmptyState
+          label="No designs yet"
+          description="Nothing in the library is assigned to this project. Upload or generate in the design workspace and assign it here."
+          action={
+            <Link
+              to={workspace}
+              className="os-focus-ring inline-flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-os-border px-4 text-[14px] text-foreground transition-colors duration-150 hover:border-os-border-strong hover:bg-os-surface-raised"
+            >
+              Open design workspace
+              <ArrowRight className="size-4 text-os-subtle" strokeWidth={1.5} aria-hidden="true" />
+            </Link>
+          }
+        />
+        <TasteStrip slug={slug} />
+      </div>
     );
   }
 
@@ -115,6 +119,8 @@ export function ProjectDesigns({ slug, designBoard }: { slug: string; designBoar
           </HairlineCard>
         </Section>
       ) : null}
+
+      <TasteStrip slug={slug} />
 
       <Link
         to={workspace}

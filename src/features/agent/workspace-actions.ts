@@ -53,6 +53,7 @@ const SCREENS: readonly { label: string; href: string; hint: string; keywords: s
   { label: "Workspaces", href: "/workspaces", hint: "All areas of work", keywords: ["projects", "portfolio"] },
   { label: "Knowledge", href: "/knowledge", hint: "Documents and decisions", keywords: ["docs", "notes", "research", "specs"] },
   { label: "Creative", href: "/designs", hint: "Visuals and generations", keywords: ["designs", "boards", "assets", "images", "higgsfield"] },
+  { label: "Taste Vault", href: "/taste", hint: "References you like", keywords: ["taste", "inspiration", "references", "screenshots", "moodboard", "vault"] },
   { label: "Operations", href: "/operations", hint: "Agents, usage and cost", keywords: ["usage", "tokens", "spend", "models", "budget"] },
   { label: "Automations", href: "/automations", hint: "Scheduled runs", keywords: ["cron", "schedule"] },
   { label: "Connectors", href: "/connectors", hint: "Services and capabilities", keywords: ["integrations", "github", "vercel", "permissions", "capabilities"] },

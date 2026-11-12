@@ -11,7 +11,8 @@ export interface DesignTileProps {
   asset: DesignAsset;
   onOpen: (asset: DesignAsset) => void;
   onToggleFavorite: (asset: DesignAsset) => void;
-  onAddToBoard: (asset: DesignAsset) => void;
+  /** Absent where boards do not apply (Taste Vault): the action is not drawn. */
+  onAddToBoard?: (asset: DesignAsset) => void;
   /** Shown instead of the board action when the tile sits inside a board. */
   onRemoveFromBoard?: (asset: DesignAsset) => void;
   /**
@@ -156,11 +157,11 @@ export function DesignTile({
             >
               <Layers className="size-3.5" strokeWidth={1.5} />
             </TileAction>
-          ) : (
+          ) : onAddToBoard ? (
             <TileAction label="Add to board" onClick={() => onAddToBoard(asset)}>
               <Layers className="size-3.5" strokeWidth={1.5} />
             </TileAction>
-          )}
+          ) : null}
 
           <CreativeDownloadButton source={sourceFromAsset(asset)} />
 

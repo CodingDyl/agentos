@@ -29,6 +29,8 @@ import { listConnectors } from "../connectors/registry";
 import { SkillError, skillForJob } from "../skills/registry";
 import { retrieveMemoryContext } from "../memory/retrieval";
 import { memoryService } from "../memory/service";
+import { mediaRoot, ORIGINALS } from "../designs/media";
+import { tasteReferencesFor } from "../taste/taste";
 import {
   beginAttempt,
   bridgeAttempt,
@@ -323,16 +325,30 @@ export async function startJob(
     table: launched.table,
   });
 
+  // The workspace's Taste Vault references, looked up now and kept on the
+  // record. A library that cannot be read costs the job its inspiration, not
+  // its run.
+  const taste = request.project ? await tasteReferencesFor(request.project).catch(() => []) : [];
+  const contextFiles = request.contextFiles
+    ? await resolveContextFiles(request.contextFiles, {
+        slug: request.project,
+        repoPath: request.repoPath,
+      })
+    : undefined;
+  // Claude Code is only shown folders it is given, and the media folder is
+  // outside every checkout. Four is the schema's limit; a full list is left alone.
+  const mediaFolder = path.join(mediaRoot(), ORIGINALS);
+  const readOnlyRoots = request.claudeReadOnlyRoots ?? [];
+
   let job: WorkerJob = {
     ...request,
     // Whatever named these — Hermes scoping, a retry, a hand-typed form — the
     // worker gets paths that exist, or none.
-    contextFiles: request.contextFiles
-      ? await resolveContextFiles(request.contextFiles, {
-          slug: request.project,
-          repoPath: request.repoPath,
-        })
-      : undefined,
+    contextFiles: taste.length > 0 ? [...new Set([...(contextFiles ?? []), ...taste.map((reference) => reference.path)])] : contextFiles,
+    ...(taste.length > 0 ? { tasteReferences: taste } : {}),
+    ...(taste.length > 0 && readOnlyRoots.length < 4 && !readOnlyRoots.includes(mediaFolder)
+      ? { claudeReadOnlyRoots: [...readOnlyRoots, mediaFolder] }
+      : {}),
     // Retrieved now and kept on the record: the brief this job runs with is
     // fixed at birth, whatever is edited in the vault afterwards.
     memoryContext: await retrieveMemoryContext(memoryService(), {
@@ -879,7 +895,10 @@ export async function retryJob(jobId: string, options: RetryJobInput = {}): Prom
     // Continuing means that attempt's commit. A stale attempt continues nothing:
     // its work stays on its branch and the retry starts from the branch as it is.
     baseRef: continued ? continued.commit : options.fresh ? undefined : previous.baseRef,
-    contextFiles: previous.contextFiles,
+    // Taste references are looked up afresh, so the last attempt's are not carried.
+    contextFiles: previous.tasteReferences
+      ? previous.contextFiles?.filter((file) => !previous.tasteReferences?.some((reference) => reference.path === file))
+      : previous.contextFiles,
     // An earlier attempt's "this run continues…" note describes that attempt, never this one.
     constraints: continued ? [...constraints, continued.note] : constraints,
     acceptanceCriteria: options.acceptanceCriteria?.length ? options.acceptanceCriteria : previous.acceptanceCriteria,

@@ -33,6 +33,7 @@ import { IdeaPage, IdeaTray } from "@/features/video-ideas";
 import { MemoryPage } from "@/features/memory";
 import { FocusSessionProvider, LearningPage, MediaDock } from "@/features/learning";
 import { MusicPage, SpotifyProvider } from "@/features/music";
+import { TastePage } from "@/features/taste";
 import { WorkspacePage, WorkspacesPage } from "@/features/workspaces";
 import { AgentProfilePage } from "@/features/agents";
 import { JobDetailPage, WorkersPage } from "@/features/workers";
@@ -114,6 +115,7 @@ function App() {
           <Route path="/connectors/:id" element={<ConnectorDetailPage />} />
           {/* Activity merged into Operations */}
           <Route path="/activity" element={<Navigate to="/operations" replace />} />
+          <Route path="/taste" element={<TastePage />} />
           <Route path="/designs" element={<DesignsPage />} />
           <Route path="/designs/boards" element={<BoardsPage />} />
           <Route path="/designs/generations" element={<GenerationsPage />} />

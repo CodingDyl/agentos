@@ -1092,6 +1092,12 @@ export const DesignAssetSchema = z.object({
   referenceAssetIds: z.array(z.string()).default([]),
   /** Chosen as the design, as distinct from merely liked. */
   approved: z.boolean().default(false),
+  /** Taste Vault: the page a URL reference was photographed from. */
+  sourceUrl: z.string().optional(),
+  /** Taste Vault: code for a component worth keeping beside its picture. */
+  snippet: z.string().max(20_000).optional(),
+  /** Taste Vault: workspace slugs this reference is attached to. */
+  attachedTo: z.array(z.string()).default([]),
   /**
    * Derived, never stored: a board owns its asset list, so membership has one
    * source of truth and the two can never disagree.

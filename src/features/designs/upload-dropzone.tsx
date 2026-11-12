@@ -4,6 +4,8 @@ import { useCallback, useRef, useState, type DragEvent, type ReactNode } from "r
 export interface UploadDropzoneProps {
   onFiles: (files: FileList | File[]) => void;
   children: ReactNode;
+  /** What the overlay says while something is dragged over the page. */
+  label?: string;
 }
 
 /**
@@ -13,7 +15,7 @@ export interface UploadDropzoneProps {
  * nobody fills. The overlay appears only while something is genuinely being
  * dragged over the page, so it never gets in the way of reading.
  */
-export function UploadDropzone({ onFiles, children }: UploadDropzoneProps) {
+export function UploadDropzone({ onFiles, children, label = "Drop images or videos to add them" }: UploadDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   // Drag events fire for every child element entered and left, so a plain
   // boolean flickers. Counting entries against exits does not.
@@ -68,7 +70,7 @@ export function UploadDropzone({ onFiles, children }: UploadDropzoneProps) {
               strokeWidth={1.75}
               aria-hidden="true"
             />
-            <p className="text-[14px] font-medium text-paper-char">Drop images or videos to add them</p>
+            <p className="text-[14px] font-medium text-paper-char">{label}</p>
           </div>
         </div>
       ) : null}

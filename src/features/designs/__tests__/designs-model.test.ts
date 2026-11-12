@@ -33,6 +33,7 @@ function asset(overrides: Partial<DesignAsset> = {}): DesignAsset {
     source: "upload",
     referenceAssetIds: [],
     approved: false,
+    attachedTo: [],
     ...overrides,
   };
 }
