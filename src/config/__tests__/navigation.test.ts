@@ -41,6 +41,8 @@ describe("sidebar navigation", () => {
     assert.equal(labels.indexOf("Workspaces") < labels.indexOf("Coder"), true);
     assert.equal(labels.indexOf("Coder") < labels.indexOf("Creative"), true);
     assert.equal(work.find((item) => item.label === "Creative")?.href, "/designs");
+    assert.equal(labels[labels.indexOf("Creative") + 1], "Taste Vault");
+    assert.equal(work.find((item) => item.label === "Taste Vault")?.href, "/taste");
     assert.equal(work.find((item) => item.label === "Workspaces")?.href, "/workspaces");
     assert.equal(work.find((item) => item.label === "Coder")?.href, "/coder");
   });

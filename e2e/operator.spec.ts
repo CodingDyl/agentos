@@ -35,7 +35,7 @@ test.describe("Operator", () => {
     const nav = page.getByRole("complementary", { name: "Primary navigation" });
     const hrefs = await nav.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
     // Work ends with Operator; Memory (HUB) starts straight after.
-    expect(hrefs[hrefs.indexOf("/operator") - 1]).toBe("/designs");
+    expect(hrefs[hrefs.indexOf("/operator") - 1]).toBe("/taste");
     expect(hrefs[hrefs.indexOf("/operator") + 1]).toBe("/learning");
 
     await nav.getByRole("link", { name: /^Operator/ }).click();
