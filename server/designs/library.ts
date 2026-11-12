@@ -63,6 +63,10 @@ export interface StoredAsset {
    * fingerprinted the first time a lookup needs them.
    */
   sha256?: string;
+  /** Taste Vault. Optional on disk, like everything above. */
+  sourceUrl?: string;
+  snippet?: string;
+  attachedTo?: string[];
 }
 
 export interface StoredLibrary {
@@ -148,6 +152,9 @@ function readStoredAsset(value: unknown): StoredAsset | undefined {
     referenceAssetIds: asStrings(value.referenceAssetIds),
     approved: value.approved === true,
     sha256: typeof value.sha256 === "string" && /^[0-9a-f]{64}$/.test(value.sha256) ? value.sha256 : undefined,
+    sourceUrl: asString(value.sourceUrl),
+    snippet: asString(value.snippet),
+    attachedTo: asStrings(value.attachedTo),
   };
 }
 
@@ -262,6 +269,9 @@ export function toWireAsset(
     generationId: asset.generationId,
     referenceAssetIds: asset.referenceAssetIds ?? [],
     approved: asset.approved ?? false,
+    sourceUrl: asset.sourceUrl,
+    snippet: asset.snippet,
+    attachedTo: asset.attachedTo ?? [],
     boardIds: boards
       .filter((board) => board.assetIds.includes(asset.id))
       .map((board) => board.id),
@@ -282,6 +292,11 @@ export async function getLibrary(): Promise<DesignLibrary> {
   };
 }
 
+/** Every stored record, for server code that needs files rather than URLs. */
+export async function listStoredAssets(): Promise<StoredAsset[]> {
+  return (await readLibraryFile()).assets;
+}
+
 /** One asset's stored record, for serving its file. */
 export async function findStoredAsset(
   id: string,
@@ -300,6 +315,8 @@ export interface CreateAssetInput {
   product?: string;
   tags?: string[];
   prompt?: string;
+  notes?: string;
+  sourceUrl?: string;
   mediaType?: "image" | "video";
   durationSec?: number;
   source?: "higgsfield" | "upload" | "agentos" | "other";
@@ -368,6 +385,8 @@ export async function createAssetOnce(input: CreateAssetInput): Promise<{ asset:
       height: input.dimensions?.height,
       createdAt: new Date().toISOString(),
       prompt: input.prompt,
+      notes: input.notes,
+      sourceUrl: input.sourceUrl,
       mediaType: input.mediaType ?? "image",
       durationSec: input.durationSec,
       source: input.source ?? (input.type === "generated" ? "higgsfield" : "upload"),
@@ -400,6 +419,9 @@ export interface AssetPatch {
   approved?: boolean;
   notes?: string | null;
   type?: DesignAssetType;
+  /** `null` clears it. */
+  snippet?: string | null;
+  attachedTo?: string[];
 }
 
 export async function updateAsset(
@@ -434,6 +456,8 @@ export async function updateAsset(
     if (patch.favorite !== undefined) asset.favorite = patch.favorite;
     if (patch.notes !== undefined) asset.notes = patch.notes ?? undefined;
     if (patch.type !== undefined) asset.type = patch.type;
+    if (patch.snippet !== undefined) asset.snippet = patch.snippet || undefined;
+    if (patch.attachedTo !== undefined) asset.attachedTo = [...new Set(patch.attachedTo)];
 
     return toWireAsset(asset, library.boards);
   });

@@ -423,6 +423,47 @@ describe("running jobs", () => {
     });
   });
 
+  describe("taste references", () => {
+    it("gives a job its workspace's references as context files, on the record, and looks again on a retry", async () => {
+      const previousMedia = process.env.AGENTOS_MEDIA_DIR;
+      process.env.AGENTOS_MEDIA_DIR = path.join(directory, "media");
+      const originals = path.join(directory, "media", "originals");
+      const libraryFile = path.join(directory, "design-library.json");
+      const reference = (id: string, attachedTo: string[]) => ({ id, filename: `${id}.png`, storedName: `${id}.png`, hasThumbnail: false, type: "reference", tags: ["nav"], favorite: false, createdAt: "2026-11-01T10:00:00Z", notes: "Calm", attachedTo });
+
+      try {
+        await fs.writeFile(libraryFile, JSON.stringify({ assets: [reference("liked", ["taste-demo"]), reference("other", ["elsewhere"])], boards: [] }));
+
+        const { job, error } = await manager.startJob({ worker: "mock", project: "taste-demo", objective: "Build the header", repoPath: repo, contextFiles: ["README.md"] });
+        assert.ok(job, error ?? "the job should have started");
+        assert.deepEqual(job.contextFiles, [path.join(repo, "README.md"), path.join(originals, "liked.png")]);
+        assert.deepEqual(job.tasteReferences?.map((entry) => entry.filename), ["liked.png"]);
+        assert.deepEqual(job.claudeReadOnlyRoots, [originals]);
+        await settle(job.id);
+        assert.equal((await store.readJob(job.id))?.tasteReferences?.[0].notes, "Calm");
+
+        const plain = await manager.startJob({ worker: "mock", project: "no-taste", objective: "Build the header", repoPath: repo });
+        assert.equal(plain.job?.tasteReferences, undefined);
+        assert.equal(plain.job?.contextFiles, undefined);
+        assert.equal(plain.job?.claudeReadOnlyRoots, undefined);
+        await settle(plain.job!.id);
+
+        // Detached since the first attempt: the retry must not carry it along.
+        await fs.writeFile(libraryFile, JSON.stringify({ assets: [reference("liked", []), reference("newer", ["taste-demo"])], boards: [] }));
+        const retried = await manager.retryJob(job.id);
+        assert.ok(retried.job, retried.error ?? "the retry should have started");
+        assert.deepEqual(retried.job.contextFiles, [path.join(repo, "README.md"), path.join(originals, "newer.png")]);
+        assert.deepEqual(retried.job.tasteReferences?.map((entry) => entry.filename), ["newer.png"]);
+        assert.deepEqual(retried.job.claudeReadOnlyRoots, [originals]);
+        await settle(retried.job.id);
+      } finally {
+        await fs.rm(libraryFile, { force: true });
+        if (previousMedia === undefined) delete process.env.AGENTOS_MEDIA_DIR;
+        else process.env.AGENTOS_MEDIA_DIR = previousMedia;
+      }
+    });
+  });
+
   describe("steering", () => {
     it("refuses to steer a job that is not running", async () => {
       const result = await manager.steerJob("job_doesnotexist00", "try harder");

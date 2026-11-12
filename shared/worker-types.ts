@@ -404,6 +404,18 @@ export const WorkerJobResultSchema = z.object({
   providerMetrics: WorkerProviderMetricsSchema.optional(),
 });
 
+/** One Taste Vault reference as a worker is handed it: a file to open and why it was kept. */
+export const TasteReferenceSchema = z.object({
+  path: z.string(),
+  filename: z.string(),
+  notes: z.string().optional(),
+  tags: z.array(z.string()),
+  sourceUrl: z.string().optional(),
+  snippet: z.string().optional(),
+});
+
+export type TasteReference = z.infer<typeof TasteReferenceSchema>;
+
 export const WorkerJobSchema = WorkerJobRequestSchema.extend({
   id: z.string(),
   /** The skill's instructions as they were when the job was created. */
@@ -435,6 +447,11 @@ export const WorkerJobSchema = WorkerJobRequestSchema.extend({
    * job reuse it, a retry is a new job and retrieves afresh.
    */
   memoryContext: MemoryContextSchema.optional(),
+  /**
+   * The Taste Vault references attached to this job's workspace when it was
+   * created. Fixed at birth like `memoryContext`; a retry looks again.
+   */
+  tasteReferences: z.array(TasteReferenceSchema).optional(),
   /**
    * A file-bridge job's task, exported notes and import state. Its presence
    * with no `importedAt` means the job is parked on the SSD awaiting a manual

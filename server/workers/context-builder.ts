@@ -125,6 +125,29 @@ function skillSection(instructions: string, baseDir?: string): string {
   ].join("\n");
 }
 
+const TASTE_HEADING =
+  "These are the owner's chosen inspiration for this workspace. Before any design or UI work, open every one and say what you are taking from each. They are inspiration for quality and feel, not pixels to copy. Ignore them for work with no UI.";
+
+function tasteSection(job: WorkerJob): string | undefined {
+  const references = job.tasteReferences ?? [];
+  if (references.length === 0) return undefined;
+
+  return [
+    TASTE_HEADING,
+    ...references.map((reference, index) =>
+      [
+        `${index + 1}. ${reference.path} (${reference.filename})`,
+        reference.notes ? `   Why: ${reference.notes.trim()}` : undefined,
+        reference.tags.length > 0 ? `   Tags: ${reference.tags.join(", ")}` : undefined,
+        reference.sourceUrl ? `   Source: ${reference.sourceUrl}` : undefined,
+        reference.snippet ? `   Snippet:\n${reference.snippet.trim()}` : undefined,
+      ]
+        .filter((line): line is string => line !== undefined)
+        .join("\n"),
+    ),
+  ].join("\n");
+}
+
 export function buildContextPacket(job: WorkerJob): string {
   const constraints = [...(job.constraints ?? []), ...STANDING_CONSTRAINTS];
 
@@ -138,6 +161,7 @@ export function buildContextPacket(job: WorkerJob): string {
     section("\nDesired outcome:", job.desiredOutcome),
     section("\nScope:", job.scope),
     section("\nReference links:", list(job.referenceLinks)),
+    section("\nTaste references:", tasteSection(job)),
     // Inline material for text tasks. Without it, a fallback worker would be
     // handed the objective ("summarise these notes") but not the notes.
     section("\nSupplied material:", job.inputText?.trim()),

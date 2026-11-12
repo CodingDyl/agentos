@@ -168,3 +168,21 @@ describe("memory ownership", () => {
     assert.ok(buildContextPacket(job()).includes(MEMORY_CONFLICT_RULE));
   });
 });
+
+describe("taste references", () => {
+  const reference = { path: "/media/originals/a.png", filename: "linear.app.png", notes: "Dense but calm", tags: ["nav", "dark"], sourceUrl: "https://linear.app/", snippet: "<header class=\"bar\" />" };
+
+  it("come right after the reference links, with the instruction to look first and what each one is for", () => {
+    const packet = buildContextPacket(job({ referenceLinks: ["https://example.com"], tasteReferences: [reference, { path: "/media/originals/b.png", filename: "b.png", tags: [] }] }));
+
+    assert.match(packet, /Reference links:\n- https:\/\/example\.com\n\nTaste references:\nThese are the owner's chosen inspiration for this workspace\./);
+    assert.match(packet, /Before any design or UI work, open every one and say what you are taking from each\./);
+    assert.match(packet, /inspiration for quality and feel, not pixels to copy\. Ignore them for work with no UI\./);
+    assert.match(packet, /1\. \/media\/originals\/a\.png \(linear\.app\.png\)\n {3}Why: Dense but calm\n {3}Tags: nav, dark\n {3}Source: https:\/\/linear\.app\/\n {3}Snippet:\n<header class="bar" \/>\n2\. \/media\/originals\/b\.png \(b\.png\)\n/);
+  });
+
+  it("are not mentioned when the workspace has none", () => {
+    assert.doesNotMatch(buildContextPacket(job()), /Taste references:/);
+    assert.doesNotMatch(buildContextPacket(job({ tasteReferences: [] })), /Taste references:/);
+  });
+});
