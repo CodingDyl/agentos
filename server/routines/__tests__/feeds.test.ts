@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { MailThread } from "../../../shared/mail-types";
 import type { FollowUpRow } from "../../../shared/outreach-follow-ups";
-import { formatFollowUps, formatInbox, formatOverdue, formatWrap } from "../feeds";
+import type { TodayCalendar } from "../../../shared/today-types";
+import type { WorkerJob } from "../../../shared/worker-types";
+import { formatDayAhead, formatFollowUps, formatInbox, formatOverdue, formatReviewQueue, formatStorage, formatWaitingOn, formatWrap } from "../feeds";
 
 /**
  * A routine's message goes to a phone with no model in between, so two things
@@ -114,5 +116,74 @@ describe("money check message", () => {
     assert.match(message, /^Money check: 2 invoices are overdue, R 12\s400[,.]00 owed/);
     assert.match(message, /- INV-012, Acme, due 2026-10-30, R 8\s000[,.]00/);
     assert.match(message, /- Hosting, due 2026-11-01, R 4\s400[,.]00/);
+  });
+});
+
+describe("day ahead message", () => {
+  const event = (title: string, over: Partial<TodayCalendar["today"][number]> = {}) => ({ id: title, title, start: "2026-11-13", allDay: true, ...over });
+
+  it("says nothing with no event, or with no calendar", () => {
+    assert.equal(formatDayAhead({ status: "ready", today: [] }), "");
+    assert.equal(formatDayAhead({ status: "not-connected", today: [event("Hidden")] }), "");
+  });
+
+  it("lists each event with its time and place", () => {
+    const message = formatDayAhead({
+      status: "ready",
+      today: [
+        event("Public holiday"),
+        event("Cal.com call", { location: "https://app.cal.com/video/abc" }),
+        event("Acme kickoff", { allDay: false, start: "2026-11-13T10:00:00+02:00", end: "2026-11-13T11:00:00+02:00", meetingUrl: "https://meet.example/x" }),
+      ],
+    });
+
+    assert.match(message, /^Day ahead: 3 events today/);
+    assert.match(message, /- All day: Cal.com call \(video call\)/);
+    assert.match(message, /- All day: Public holiday/);
+    assert.match(message, /- \d\d:\d\d to \d\d:\d\d: Acme kickoff \(video call\)/);
+  });
+});
+
+describe("waiting on others message", () => {
+  it("says nothing when no chase is due", () => {
+    assert.equal(formatWaitingOn([], "2026-11-13"), "");
+  });
+
+  it("says who owes what, and for how long", () => {
+    const message = formatWaitingOn(
+      [{ id: "wo_1", who: "Sam at Acme", what: "Signed quote", since: "2026-11-03", createdAt: ago(10), updatedAt: ago(10) }],
+      "2026-11-13",
+    );
+
+    assert.match(message, /^Waiting on others: 1 chase is due/);
+    assert.match(message, /- Sam at Acme: Signed quote \(10 days\)/);
+  });
+});
+
+describe("worker jobs message", () => {
+  const job = (status: WorkerJob["status"], objective: string, completedAt?: string) => ({ status, project: "agentos", objective, createdAt: ago(3), completedAt });
+
+  it("says nothing when no job waits and no job failed today", () => {
+    assert.equal(formatReviewQueue([job("running", "A"), job("completed", "B"), job("failed", "Old failure", ago(2))], NOW), "");
+  });
+
+  it("lists jobs for review, and jobs that failed in the last day", () => {
+    const message = formatReviewQueue([job("awaiting_review", "Add the pricing page"), job("failed", "Fix the footer", ago(0.5)), job("failed", "Old failure", ago(2))], NOW);
+
+    assert.match(message, /1 job waits for your review:\n- agentos: Add the pricing page/);
+    assert.match(message, /1 job failed in the last day:\n- agentos: Fix the footer/);
+    assert.doesNotMatch(message, /Old failure/);
+  });
+});
+
+describe("Mac storage message", () => {
+  const GB = 1024 ** 3;
+
+  it("says nothing with 10 GB or more free", () => {
+    assert.equal(formatStorage({ freeBytes: 10 * GB, totalBytes: 228 * GB }), "");
+  });
+
+  it("warns with the space left when the disk is almost full", () => {
+    assert.match(formatStorage({ freeBytes: 1.4 * GB, totalBytes: 228 * GB }), /^Mac storage is low: 1\.4 GB free of 228 GB/);
   });
 });

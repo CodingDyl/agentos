@@ -19,12 +19,36 @@ export interface RoutineDefinition {
 
 export const ROUTINES: readonly RoutineDefinition[] = [
   {
+    id: "day-ahead",
+    name: "Day ahead",
+    summary: "Today's meetings from your calendar, with the time and the place.",
+    when: "Weekdays at 07:00",
+    quietWhen: "the calendar has no event today",
+    schedule: "0 7 * * 1-5",
+  },
+  {
     id: "follow-ups",
     name: "Follow-ups due",
     summary: "Who wrote back to your outreach, and who is due the next email.",
     when: "Weekdays at 09:00",
     quietWhen: "nobody replied and no email is due",
     schedule: "0 9 * * 1-5",
+  },
+  {
+    id: "waiting-on",
+    name: "Waiting on others",
+    summary: "Things other people owe you whose chase date has arrived, longest wait first.",
+    when: "Weekdays at 10:00",
+    quietWhen: "nothing is due a chase",
+    schedule: "0 10 * * 1-5",
+  },
+  {
+    id: "review-queue",
+    name: "Jobs waiting for you",
+    summary: "Worker jobs that wait for your review, and jobs that failed in the last day.",
+    when: "Weekdays at 11:00 and 15:00",
+    quietWhen: "no job waits for review and none failed",
+    schedule: "0 11,15 * * 1-5",
   },
   {
     id: "inbox",
@@ -49,6 +73,14 @@ export const ROUTINES: readonly RoutineDefinition[] = [
     when: "Mondays at 08:00",
     quietWhen: "no invoice is overdue",
     schedule: "0 8 * * 1",
+  },
+  {
+    id: "storage",
+    name: "Mac storage",
+    summary: "A warning when this Mac is almost out of disk space, which makes builds and tests fail.",
+    when: "Every day at 10:00",
+    quietWhen: "the disk has 10 GB or more free",
+    schedule: "0 10 * * *",
   },
 ];
 

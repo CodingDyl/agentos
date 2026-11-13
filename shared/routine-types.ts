@@ -6,7 +6,16 @@ import { z } from "zod";
  * with no model call; the script asks AgentOS for the message.
  */
 
-export const RoutineIdSchema = z.enum(["follow-ups", "inbox", "evening-wrap", "overdue-invoices"]);
+export const RoutineIdSchema = z.enum([
+  "day-ahead",
+  "follow-ups",
+  "waiting-on",
+  "review-queue",
+  "inbox",
+  "evening-wrap",
+  "overdue-invoices",
+  "storage",
+]);
 export type RoutineId = z.infer<typeof RoutineIdSchema>;
 
 export const RoutineSchema = z.object({
