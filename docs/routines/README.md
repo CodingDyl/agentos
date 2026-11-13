@@ -47,13 +47,41 @@ Built means it is in this change. The bar to build was above 7 out of 10.
 | Routine: evening wrap | 8 | Built |
 | Routine: money check (overdue invoices) | 8 | Built |
 | Resume the Weekly Review and send it to the phone | 8 | No code needed: Resume, then Send to phone |
-| Routine: worker jobs waiting for review, or failed | 7 | Next |
+| Routine: worker jobs waiting for review, or failed | 8 | Built (second round) |
+| Routine: day ahead (today's meetings) | 8 | Built (second round) |
+| Routine: waiting on others (chases due) | 8 | Built (second round) |
+| Routine: Mac storage low | 8 | Built (second round). The disk was 99% full on 2026-11-13 and made tests fail |
+| Routine: client requests that wait on you | 7 | Next. The data is there (`server/site-requests`), but no screen shows it yet |
 | Routine: client site down (`--monitor-url`) | 7 | Next |
 | Overnight prospect research with Hermes' browser | 7 | Next. It costs model calls and needs a spend limit first |
 | Fill Hermes' `USER.md` from Compass | 7 | Next. It edits Hermes' memory, so it needs the owner's OK |
 | Webhooks (a Vercel deploy fails, Hermes tells you) | 6 | Not now. It needs a public tunnel |
 | Weekly AI news digest | 6 | Not now. Today already has Tech and AI |
 | Hermes kanban | 4 | No. It would be a second copy of worker jobs |
+
+## Second round: what other systems run
+
+Read on 2026-11-13: OpenClaw use-case lists and cron guides, and Nufar Gaspar's
+"Agent OS" (a chief-of-staff agent). The same jobs come up again and again:
+
+- A morning message with the calendar. → **Day ahead**.
+- Commitments tracked, and stalled ones chased. → **Waiting on others**.
+- The agent brings back a decision that waits on you. → **Jobs waiting for you**.
+- A machine health check (disk, services) that speaks only on a problem. → **Mac storage**.
+- A Monday pipeline message and a daily summary. → Already covered by Follow-ups due and Evening wrap.
+
+Those guides run most of these through a model. Here they stay no-model:
+AgentOS already holds the facts, so a model would add cost and risk and no
+new information.
+
+Sources: [OpenClaw use cases](https://sidsaladi.substack.com/p/openclaw-use-cases-35-real-ways-people),
+[OpenClaw as a personal OS](https://dev.to/aws-builders/how-i-use-openclaw-as-my-ai-powered-personal-operating-system-58i),
+[Cron job patterns](https://cookbook.solomonneas.dev/automation/openclaw-cron-deep-dive/),
+[Heartbeat guide](https://clawdocs.org/guides/heartbeat),
+[Agentic OS: 7 layers](https://ccm-design-engineer.netlify.app/summaries/agentic-os-7-layers-to-supercharge-any-ai-agent-summary),
+[Solo agency on one OS](https://theaicareerlab.com/blog/run-your-ai-agency-on-one-operating-system).
+
+To set up or repair Telegram, follow [telegram-setup.md](telegram-setup.md).
 
 ## How a routine works
 
