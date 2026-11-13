@@ -320,7 +320,9 @@ import {
   VisualAcceptanceContextSchema,
   type VisualAcceptanceContext,
 } from "../shared/visual-verification-types";
-import { controlAutomation, getAutomation, getAutomations } from "./hermes/automations";
+import { controlAutomation, getAutomation, getAutomations, setAutomationDelivery } from "./hermes/automations";
+import { routinesRouter } from "./routines/routes";
+import { AutomationDeliverySchema } from "../shared/routine-types";
 import { controlCurator, getAutomationSurfaces } from "./hermes/automation-surfaces";
 import { getCapabilities } from "./hermes/capabilities";
 import { getHermesStatus, HermesError, sendToHermes } from "./hermes/client";
@@ -488,6 +490,7 @@ app.use("/api/workers/grok-bot", grokBotRouter);
 /** Motion studio: briefs in, Claude Code renders films, finished MP4s land in Creative. */
 app.use("/api/reengineer", reengineerRouter);
 app.use("/api/taste", tasteRouter);
+app.use("/api/routines", routinesRouter);
 app.use("/api/video-ideas", videoIdeasRouter);
 app.use("/api/designs/animate", animateRouter);
 app.use("/api/designs/motion", motionRouter);
@@ -4487,6 +4490,24 @@ app.post("/api/hermes/curator/:control", async (request, response) => {
   }
   try {
     await controlCurator(control.data);
+    response.json({ ok: true });
+  } catch (error) {
+    respondWithFailure(response, error);
+  }
+});
+
+/** Send a job's result to the phone (Telegram), or back to Hermes' output file only. Before `/:control`, which would catch it. */
+app.post("/api/automations/:id/deliver", async (request, response) => {
+  const delivery = AutomationDeliverySchema.safeParse(request.body);
+  if (!delivery.success) {
+    response.status(400).json({ error: "A job can deliver to the phone or to its file only." });
+    return;
+  }
+  try {
+    if (!(await setAutomationDelivery(request.params.id, delivery.data.target))) {
+      response.status(404).json({ error: "Unknown automation" });
+      return;
+    }
     response.json({ ok: true });
   } catch (error) {
     respondWithFailure(response, error);

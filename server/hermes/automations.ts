@@ -434,8 +434,9 @@ export async function getAutomation(
 }
 
 /**
- * Pause, resume, or run a job now — the only changes AgentOS makes to Hermes'
- * schedule. Creating, editing and deleting jobs stay in Hermes.
+ * Pause, resume, or run a job now. Besides these, AgentOS only changes where
+ * a job delivers (below) and installs its own routines (`server/routines`).
+ * Editing prompts and deleting jobs stay in Hermes.
  *
  * The id is matched against Hermes' own listing first, so an unknown id is a
  * `false` rather than an argument handed to the CLI. "Run" queues the job for
@@ -447,5 +448,22 @@ export async function controlAutomation(id: string, control: AutomationControl):
   if (!automation) return false;
 
   await runCron([control, automation.id]);
+  return true;
+}
+
+/**
+ * Where a job's result goes: `telegram` (the operator's phone) or `local`
+ * (only Hermes' output file). Hermes writes the output file either way, so
+ * Today's brief still reads a job that also sends to the phone.
+ *
+ * The CLI exits 0 for an unknown id, so the id is matched against the listing
+ * first and the screen re-reads the job afterwards to show what Hermes did.
+ */
+export async function setAutomationDelivery(id: string, target: "telegram" | "local"): Promise<boolean> {
+  const { automations } = await getAutomations();
+  const automation = automations.find((entry) => entry.id === id);
+  if (!automation) return false;
+
+  await runCron(["edit", automation.id, "--deliver", target]);
   return true;
 }

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Pause, Play, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, Pause, Play, RefreshCw, Smartphone } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Automation, AutomationControl } from "@shared/agentos-types";
@@ -7,27 +7,32 @@ import { PaperButton, Tag } from "@/components/paper";
 import { useAutomationSurfaces, useAutomations, useControlAutomation, useControlCurator } from "@/lib/agentos/queries";
 import { cn } from "@/lib/utils";
 import { reportActivity } from "@/lib/agentos/client";
+import { useRoutines, useSetAutomationDelivery } from "@/lib/agentos/routines";
+import { RoutineLibrary } from "./routine-library";
 
 /**
  * Scheduled tasks in Operations.
  *
  * Compact view of Hermes automations with expandable history and advanced
  * surfaces. Each job shows what it does, where results go, schedule, last
- * result, next run, with Pause/Resume and Run now controls.
+ * result, next run, with Pause/Resume, Run now and Send to phone controls.
+ * Below them: the routines AgentOS can install as Hermes jobs.
  */
 export function AutomationsTab() {
   const jobs = useAutomations();
   const surfaces = useAutomationSurfaces();
+  const routines = useRoutines();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("automation");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const automations = jobs.data?.automations ?? [];
-  const refreshing = jobs.isFetching || surfaces.isFetching;
+  const refreshing = jobs.isFetching || surfaces.isFetching || routines.isFetching;
 
   const refresh = () => {
     void jobs.refetch();
     void surfaces.refetch();
+    void routines.refetch();
   };
 
   if (jobs.isPending) return <PageLoader variant="compact" />;
@@ -55,7 +60,7 @@ export function AutomationsTab() {
     <div className="max-w-[1200px]">
       <div className="flex items-center justify-between gap-4">
         <p className="text-[14px] text-paper-char">
-          What Hermes does on its own. Create and edit jobs with the Hermes CLI.
+          What Hermes does on its own. Install a routine below, or create and edit jobs with the Hermes CLI.
         </p>
         <PaperButton variant="quiet" onClick={refresh} disabled={refreshing}>
           <RefreshCw className={refreshing ? "size-3.5 motion-safe:animate-spin" : "size-3.5"} aria-hidden="true" />
@@ -112,6 +117,17 @@ export function AutomationsTab() {
         )}
       </div>
 
+      <section className="mt-8" aria-label="Routines">
+        <h2 className="text-[15px] font-semibold text-paper-moss">Routines</h2>
+        {routines.data ? (
+          <RoutineLibrary data={routines.data} />
+        ) : routines.isPending ? (
+          <PageLoader variant="compact" />
+        ) : (
+          <p className="mt-3 text-[14px] text-paper-sage">The routines could not be read. {routines.error?.message}</p>
+        )}
+      </section>
+
       <div className="mt-8">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
@@ -144,9 +160,25 @@ function ScheduledTask({ automation, highlight }: ScheduledTaskProps) {
   const paused = automation.state === "paused";
   const finished = automation.state === "completed";
   const failed = automation.lastRun?.status === "failed";
+  const delivery = useSetAutomationDelivery();
+  const onPhone = (automation.recipe?.deliver ?? "").split(",").some((target) => target.trim().startsWith("telegram"));
+  const busy = control.isPending || delivery.isPending;
+
+  const deliver = () => {
+    setReceipt(undefined);
+    control.reset();
+    delivery.mutate(
+      { id: automation.id, target: onPhone ? "local" : "telegram" },
+      {
+        onSuccess: () => setReceipt(onPhone ? "Stopped. Results stay in the Hermes file." : "Done. Results go to your phone from the next run."),
+        onError: (error) => setReceipt(error instanceof Error ? error.message : "Hermes did not accept that."),
+      },
+    );
+  };
 
   const act = (next: AutomationControl) => {
     setReceipt(undefined);
+    delivery.reset();
     if (next === "run") void reportActivity({ type: "automation.run", description: automation.name });
     control.mutate(
       { id: automation.id, control: next },
@@ -222,22 +254,28 @@ function ScheduledTask({ automation, highlight }: ScheduledTaskProps) {
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap justify-end gap-1.5">
             {!finished ? (
-              <PaperButton variant="ghost" disabled={control.isPending} onClick={() => act("run")}>
+              <PaperButton variant="ghost" disabled={busy} onClick={() => act("run")}>
                 <Play className="size-3.5" aria-hidden="true" />
                 {pending === "run" ? "Queuing…" : "Run now"}
               </PaperButton>
             ) : null}
             {paused ? (
-              <PaperButton variant="quiet" disabled={control.isPending} onClick={() => act("resume")}>
+              <PaperButton variant="quiet" disabled={busy} onClick={() => act("resume")}>
                 <Play className="size-3.5" aria-hidden="true" />
                 {pending === "resume" ? "Resuming…" : "Resume"}
               </PaperButton>
             ) : automation.state === "active" ? (
-              <PaperButton variant="quiet" disabled={control.isPending} onClick={() => act("pause")}>
+              <PaperButton variant="quiet" disabled={busy} onClick={() => act("pause")}>
                 <Pause className="size-3.5" aria-hidden="true" />
                 {pending === "pause" ? "Pausing…" : "Pause"}
+              </PaperButton>
+            ) : null}
+            {automation.recipe && !finished ? (
+              <PaperButton variant="quiet" disabled={busy} onClick={deliver}>
+                <Smartphone className="size-3.5" aria-hidden="true" />
+                {delivery.isPending ? "Saving…" : onPhone ? "Stop sending to phone" : "Send to phone"}
               </PaperButton>
             ) : null}
           </div>
@@ -245,7 +283,7 @@ function ScheduledTask({ automation, highlight }: ScheduledTaskProps) {
             <p
               className={cn(
                 "max-w-[30ch] text-right text-[13px]",
-                control.isError ? "text-paper-flame-deep" : "text-paper-sage",
+                control.isError || delivery.isError ? "text-paper-flame-deep" : "text-paper-sage",
               )}
               role="status"
             >
